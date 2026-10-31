@@ -32,9 +32,11 @@ final class UnreadTopicFeed {
     required TrackedTopicState? tracking,
     required int? localReadPostNumber,
   }) {
-    // Nested conversations use reply flags, not flat post-stream positions.
-    if (topic?.isNestedView == true) {
-      return topic!.listReadStateKnown && topic.seen && !topic.hasNewReplies;
+    final policy = topic?.readingPolicy;
+    if (policy != null && !policy.usesPositionForCatchUp) {
+      return topic!.listReadStateKnown &&
+          topic.seen &&
+          policy.explicitReadState == true;
     }
     final highest = _maximum(
       topic?.highestPostNumber,

@@ -254,8 +254,11 @@ final class EventTopicPlugin
   @override
   PluginDataKey<EventTopicData> get record => eventTopicKey;
   @override
-  EventTopicData? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      EventTopicData.decode(json);
+  EventTopicData? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => EventTopicData.decode(json);
 
   @override
   Widget? decorateTopicListTitle(

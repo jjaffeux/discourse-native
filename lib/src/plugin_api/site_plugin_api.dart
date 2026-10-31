@@ -114,7 +114,11 @@ abstract interface class TopicRecordPlugin<T extends Object>
     implements PluginRecord<T> {
   /// A topic list row and a full topic response can carry different subsets of
   /// one feature's state, so the plugin owns their interpretation.
-  T? readTopic(Map<String, dynamic> json, String siteUrl);
+  T? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  });
 }
 
 abstract interface class UserCardRecordPlugin<T extends Object>
@@ -926,6 +930,15 @@ abstract interface class ContentPageTitlePlugin {
 
 abstract interface class ContentHeaderPlugin {
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route);
+}
+
+/// Actions for an ordinary forum topic list, independent of extension routes.
+abstract interface class TopicListHeaderPlugin {
+  List<Widget> topicListHeaderActions(
+    BuildContext context,
+    String siteUrl,
+    ContentRoute route,
+  );
 }
 
 abstract interface class ContentHeaderLeadingPlugin {

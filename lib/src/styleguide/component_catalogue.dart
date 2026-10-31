@@ -3,6 +3,7 @@ import 'styleguide_example.dart';
 
 const componentReferenceDate = "2026-09-08";
 const componentCatalogue = <ComponentReference>[
+  ComponentReference(id: "thread", name: "Thread", sections: ["Usage", "RTL"]),
   ComponentReference(
     id: "accordion",
     name: "Accordion",

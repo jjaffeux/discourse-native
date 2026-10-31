@@ -15,6 +15,7 @@ import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
 import '../models/topic_link.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import '../plugin_api/topic_reader.dart';
 import 'bookmark_transactions.dart';
 import 'topic_prefetch_controller.dart';
 
@@ -78,6 +79,8 @@ final class TopicDataOwner {
     required this.loadTimeout,
     required this.bookmarkReads,
     this.notificationReads,
+    this.usesReader,
+    this.acceptedPost,
   });
 
   final TopicContentApi content;
@@ -98,6 +101,8 @@ final class TopicDataOwner {
   final BookmarkReadProjection Function(String, SiteLease) bookmarkReads;
   final TopicNotificationRead? Function(String, SiteLease, int)?
   notificationReads;
+  final bool Function(String siteUrl, TopicDetail topic)? usesReader;
+  final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -146,6 +151,8 @@ final class TopicDataOwner {
 }
 
 final class _TopicState {
+  final Set<int> readerPosts = {};
+  Object? readerFailure;
   Object? reading;
   Completer<void>? readSettled;
   int acceptedReads = 0;
@@ -188,6 +195,7 @@ typedef _ReadStamp = ({
   int archive,
   int removals,
   int streams,
+  Map<int, Post> redacted,
 });
 
 final class _LiveBatch {
@@ -234,6 +242,125 @@ final class TopicDataSession implements BookmarkTopicData {
       isCurrent && _topic(topicId).summaryRead != null;
   bool showingSummary(int topicId) =>
       isCurrent && _topic(topicId).summary != null;
+
+  bool readerResolved(int topicId) =>
+      isCurrent &&
+      (_owner.usesReader == null || _topic(topicId).acceptedReads > 0);
+
+  Object? readerFailure(int topicId) =>
+      isCurrent ? _topic(topicId).readerFailure : null;
+
+  bool usesReader(int topicId) {
+    final detail = _store.read<TopicDetail>(siteUrl, topicId);
+    return readerResolved(topicId) &&
+        detail != null &&
+        _owner.usesReader?.call(siteUrl, detail) == true;
+  }
+
+  bool containsPost(int topicId, int postId) =>
+      isCurrent &&
+      (_topic(topicId).readerPosts.contains(postId) ||
+          _store.read<TopicDetail>(siteUrl, topicId)?.stream.contains(postId) ==
+              true);
+
+  Set<int> readerPostIds(int topicId) =>
+      isCurrent ? Set.unmodifiable(_topic(topicId).readerPosts) : const {};
+
+  Future<AcceptedTopicContent<T>?> ingestReaderContent<T>(
+    int topicId,
+    Future<TopicContentResult<T>> Function() read, {
+    required bool Function() sourceCurrent,
+  }) async {
+    if (!isCurrent || !sourceCurrent() || !usesReader(topicId)) return null;
+    final stamp = _stamp(topicId);
+    final before = {
+      for (final post in _store.readMatching<Post>(siteUrl, (_) => true))
+        post.id: post,
+    };
+    final result = await read();
+    if (!_readIsCurrent(stamp) || !sourceCurrent() || !usesReader(topicId)) {
+      return null;
+    }
+    if (result.metadata != null && result.metadata!.id != topicId) {
+      throw const FormatException('Topic metadata belongs to another reader.');
+    }
+    final accepted = <int>{};
+    for (final item in result.posts) {
+      if (!_readIsCurrent(stamp) || !sourceCurrent() || !usesReader(topicId)) {
+        return null;
+      }
+      final post = item.post;
+      if (post.id <= 0 || post.postNumber <= 0) {
+        throw const FormatException('Invalid canonical post identity.');
+      }
+      if (_removedAfter(topicId, post.id, stamp.removals)) continue;
+      final held = _store.read<Post>(siteUrl, post.id);
+      if (item.disposition != TopicContentDisposition.redacted &&
+          (postWriting(post.id) || !identical(held, before[post.id]))) {
+        if (held != null) {
+          accepted.add(post.id);
+          _topic(topicId).readerPosts.add(post.id);
+        }
+        continue;
+      }
+      final incoming = item.disposition == TopicContentDisposition.redacted
+          ? post.redactedContent()
+          : _bookmarks.postFromRead(topicId, stamp.bookmarks, post);
+      if (held?.contentRedacted == true && !incoming.contentRedacted) {
+        _update<Post>(post.id, (_) => incoming);
+      } else {
+        _put(incoming);
+      }
+      if (!_readIsCurrent(stamp) || !sourceCurrent() || !usesReader(topicId)) {
+        return null;
+      }
+      if (_store.containsRecord<Post>(siteUrl, post.id)) {
+        accepted.add(post.id);
+        _topic(topicId).readerPosts.add(post.id);
+      }
+    }
+    final held = _store.read<TopicDetail>(siteUrl, topicId);
+    if (result.metadata case final metadata? when held != null) {
+      var incoming =
+          _actionsFromRead(
+            stamp.actions,
+            _bookmarks.detailFromRead(stamp.bookmarks, metadata),
+          ).copyWith(
+            stream: held.stream,
+            gapsBefore: held.gapsBefore,
+            gapsAfter: held.gapsAfter,
+            messageArchived: stamp.archive == _topic(topicId).archive
+                ? metadata.messageArchived
+                : held.messageArchived,
+          );
+      if (stamp.notification case final notification?) {
+        final level = notification.reconcile(incoming.notificationLevel);
+        if (level == null) return null;
+        incoming = incoming.copyWith(notificationLevel: level);
+      }
+      _put(incoming);
+      if (!_readIsCurrent(stamp) || !sourceCurrent()) return null;
+      _update<Topic>(
+        topicId,
+        (row) => actionRowFromRead(
+          stamp.actions,
+          row
+              .copyWith(title: incoming.title, postsCount: incoming.postsCount)
+              .withPlugins(incoming.plugins),
+        ),
+      );
+    }
+    if (!_readIsCurrent(stamp) || !sourceCurrent()) return null;
+    _changed();
+    if (!sourceCurrent() || !usesReader(topicId)) return null;
+    return AcceptedTopicContent(
+      value: result.value,
+      postIds: accepted,
+      revision: ++_readerRevision,
+    );
+  }
+
+  int _readerRevision = 0;
   @override
   bool postWriting(int postId) => isCurrent && _post(postId).holders.isNotEmpty;
   late final BookmarkReadProjection _bookmarks = _owner.bookmarkReads(
@@ -275,6 +402,10 @@ final class TopicDataSession implements BookmarkTopicData {
 
   _ReadStamp _stamp(int topicId) {
     final state = _topic(topicId);
+    final postIds = {
+      ...?_store.read<TopicDetail>(siteUrl, topicId)?.stream,
+      ...state.readerPosts,
+    };
     return (
       notification: _owner.notificationReads?.call(siteUrl, lease, topicId),
       bookmarks: _bookmarks.revision(topicId),
@@ -282,6 +413,12 @@ final class TopicDataSession implements BookmarkTopicData {
       archive: state.archive,
       removals: state.removals,
       streams: state.streams,
+      redacted: {
+        for (final id in postIds)
+          if (_store.read<Post>(siteUrl, id) case final post?
+              when post.contentRedacted)
+            id: post,
+      },
     );
   }
 
@@ -489,6 +626,7 @@ final class TopicDataSession implements BookmarkTopicData {
   void removePost(int topicId, int postId) {
     if (!isCurrent) return;
     final state = _topic(topicId);
+    state.readerPosts.remove(postId);
     state.removedAt[postId] = ++state.removals;
     _store.remove<Post>(siteUrl, postId);
     _update<TopicDetail>(topicId, (detail) => detail.withoutPostId(postId));
@@ -524,6 +662,7 @@ final class TopicDataSession implements BookmarkTopicData {
     Iterable<Post> incoming,
     _ReadStamp stamp, {
     bool onlyUnloaded = false,
+    bool? restoreRedacted,
   }) {
     for (final post in incoming) {
       if (!_readIsCurrent(stamp)) return false;
@@ -532,7 +671,16 @@ final class TopicDataSession implements BookmarkTopicData {
           (onlyUnloaded && _store.containsRecord<Post>(siteUrl, post.id))) {
         continue;
       }
-      _put(_bookmarks.postFromRead(topicId, stamp.bookmarks, post));
+      final incoming = _bookmarks.postFromRead(topicId, stamp.bookmarks, post);
+      final held = _store.read<Post>(siteUrl, post.id);
+      if ((restoreRedacted ?? !usesReader(topicId)) &&
+          held?.contentRedacted == true &&
+          identical(held, stamp.redacted[post.id]) &&
+          !postWriting(post.id)) {
+        _update<Post>(post.id, (_) => incoming);
+      } else {
+        _put(incoming);
+      }
     }
     return _readIsCurrent(stamp);
   }
@@ -547,7 +695,14 @@ final class TopicDataSession implements BookmarkTopicData {
     final topicId = payload.detail.id;
     final state = _topic(topicId);
     state.streams++;
-    if (!_publishPosts(topicId, payload.posts, stamp)) return null;
+    if (!_publishPosts(
+      topicId,
+      payload.posts,
+      stamp,
+      restoreRedacted: _owner.usesReader?.call(siteUrl, payload.detail) != true,
+    )) {
+      return null;
+    }
     final held = _store.read<TopicDetail>(siteUrl, topicId);
     final latest = _withoutRemoved(response, stamp.removals);
     var incoming = _actionsFromRead(
@@ -780,6 +935,13 @@ final class TopicDataSession implements BookmarkTopicData {
     }
     final positionAtOpen = state.positions;
     final held = _store.read<TopicDetail>(siteUrl, topicId);
+    final requestedPost = postNumber;
+    final discovery = _owner.usesReader != null && state.acceptedReads == 0;
+    final customReader =
+        held != null &&
+        !discovery &&
+        _owner.usesReader?.call(siteUrl, held) == true;
+    if (discovery || customReader) postNumber = null;
     if (held != null) opening.received(held);
     if (!isCurrent || positionAtOpen != state.positions) return;
     if (state.reading != null) {
@@ -792,7 +954,9 @@ final class TopicDataSession implements BookmarkTopicData {
       );
       return;
     }
-    final resumeHeld = held == null ? null : opening._resumeFor(held);
+    final resumeHeld = held == null || discovery || customReader
+        ? null
+        : opening._resumeFor(held);
     if (postNumber == null &&
         !force &&
         !state.stale &&
@@ -810,7 +974,8 @@ final class TopicDataSession implements BookmarkTopicData {
         return;
       }
     }
-    if (held != null &&
+    if (!discovery &&
+        held != null &&
         !force &&
         !state.stale &&
         _hasPost(topicId, postNumber)) {
@@ -840,6 +1005,7 @@ final class TopicDataSession implements BookmarkTopicData {
     var stamp = _stamp(topicId);
     final reading = Object();
     state.reading = reading;
+    state.readerFailure = null;
     state.readSettled = Completer<void>();
     state.refreshPending = false;
     state.refreshPostNumber = null;
@@ -862,7 +1028,7 @@ final class TopicDataSession implements BookmarkTopicData {
         'reading credentials for topic $topicId',
       );
       if (!isCurrent) return;
-      final warmed = prefetched == null
+      final warmed = prefetched == null || stamp.redacted.isNotEmpty
           ? null
           : await _stage(
               prefetched,
@@ -878,6 +1044,7 @@ final class TopicDataSession implements BookmarkTopicData {
           archive: warmed.archiveVersion,
           removals: warmed.postRemovalVersion,
           streams: stamp.streams,
+          redacted: const {},
         );
       }
       final TopicPayload fetched =
@@ -917,18 +1084,26 @@ final class TopicDataSession implements BookmarkTopicData {
 
       received = _publishTopic(fetched, stamp, positioned: postNumber != null);
       if (received != null && isCurrent) {
-        _resolveLastPost(
-          topicId,
-          postNumber,
-          positionAtOpen,
-          _lastReturnedPostNumber(fetched, stamp),
-        );
+        final custom = _owner.usesReader?.call(siteUrl, received) == true;
+        if (!custom) {
+          _resolveLastPost(
+            topicId,
+            postNumber,
+            positionAtOpen,
+            _lastReturnedPostNumber(fetched, stamp),
+          );
+        }
         opening.received(received);
-        if (postNumber == null && opening.canResume()) {
+        if (!custom && discovery && requestedPost != null) {
+          resumeNumber = requestedPost;
+        } else if (!custom && postNumber == null && opening.canResume()) {
           resumeNumber = opening._resumeFor(received);
         }
       }
-    } catch (_) {
+    } catch (error) {
+      if (isCurrent && identical(state.reading, reading)) {
+        state.readerFailure = error;
+      }
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
@@ -997,6 +1172,7 @@ final class TopicDataSession implements BookmarkTopicData {
     state.refreshPending = false;
     state.refreshPostNumber = null;
     state.stale = true;
+    state.readerFailure = null;
     try {
       await _recoverPendingModeration(topicId);
       if (!isCurrent) return;
@@ -1027,7 +1203,10 @@ final class TopicDataSession implements BookmarkTopicData {
         );
       }
     } catch (error) {
-      if (isCurrent) state.stale = true;
+      if (isCurrent) {
+        state.stale = true;
+        state.readerFailure = error;
+      }
     } finally {
       if (isCurrent && identical(state.reading, reading)) {
         state.reading = null;
@@ -1915,9 +2094,11 @@ final class TopicDataSession implements BookmarkTopicData {
     if (!isCurrent) return;
     final removals = _topic(topicId).removals;
     _put(post);
+    if (usesReader(topicId)) _topic(topicId).readerPosts.add(post.id);
     if (!_removedAfter(topicId, post.id, removals)) {
       _update<TopicDetail>(topicId, (held) => held.withPostId(post.id));
     }
+    if (isCurrent) _owner.acceptedPost?.call(siteUrl, topicId, post);
   }
 
   void acceptNewTopicPost(Post post) => _put(post);

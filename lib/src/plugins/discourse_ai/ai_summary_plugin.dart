@@ -35,8 +35,11 @@ final class AiSummaryPlugin
       aiSummaryAvailabilityDataKey;
 
   @override
-  AiSummaryAvailability? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      AiSummaryAvailability.fromJson(json);
+  AiSummaryAvailability? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => AiSummaryAvailability.fromJson(json);
 
   @override
   List<TopicRecommendationSourceCodec> get topicRecommendationSourceCodecs =>

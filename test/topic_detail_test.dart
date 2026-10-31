@@ -282,7 +282,6 @@ void main() {
         'participant_count': 6,
         'word_count': 2500,
         'has_summary': true,
-        'is_nested_view': true,
         'details': {
           'participants': [
             {
@@ -312,7 +311,7 @@ void main() {
       expect(topic.participantCount, 6);
       expect(topic.wordCount, 2500);
       expect(topic.hasSummary, isTrue);
-      expect(topic.isNestedView, isTrue);
+      expect(topic.readingPolicy.allowsChronologicalResume, isTrue);
       expect(topic.participants.single.username, 'sam');
       expect(topic.participants.single.avatarUrl, '$site/letter/s/90.png');
       expect(topic.participants.single.postCount, 4);

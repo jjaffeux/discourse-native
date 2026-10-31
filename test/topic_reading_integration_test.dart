@@ -54,6 +54,7 @@ import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
+import 'support/topic_reading_policy_fixture.dart';
 
 Rect _lastTitleLine(WidgetTester tester, String title) {
   final paragraphs = find
@@ -1352,18 +1353,17 @@ void _registerTopicReadingTests() {
       expect(count.bottom, lessThanOrEqualTo(titleRect.bottom));
     });
 
-    testWidgets('a nested topic only carries its new-replies dot', (
+    testWidgets('an activity reader only carries its activity dot', (
       tester,
     ) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': [
-            const Topic(
+            Topic(
               id: 9,
-              title: 'Nested topic',
+              title: 'Activity topic',
               slug: 'nested-topic',
-              isNestedView: true,
-              hasNewReplies: true,
+              plugins: activityTopicData(),
               seen: false,
               unreadPosts: 5,
             ),

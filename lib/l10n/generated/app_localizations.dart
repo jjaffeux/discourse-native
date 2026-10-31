@@ -94,6 +94,246 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Nested replies plugin. Nested replies
+  ///
+  /// In en, this message translates to:
+  /// **'Nested replies'**
+  String get nestedRepliesSettings;
+
+  /// Nested replies plugin. Use nested replies for this topic
+  ///
+  /// In en, this message translates to:
+  /// **'Use nested replies for this topic'**
+  String get nestedRepliesEnabled;
+
+  /// Nested replies plugin. Use nested replies for new topics in this category
+  ///
+  /// In en, this message translates to:
+  /// **'Use nested replies for new topics in this category'**
+  String get nestedRepliesCategoryDefault;
+
+  /// Nested replies plugin. This changes new topics. Existing topics change only when you convert them.
+  ///
+  /// In en, this message translates to:
+  /// **'This changes new topics. Existing topics change only when you convert them.'**
+  String get nestedRepliesCategoryDefaultDescription;
+
+  /// Nested replies plugin. Convert existing topics
+  ///
+  /// In en, this message translates to:
+  /// **'Convert existing topics'**
+  String get nestedRepliesConvertExisting;
+
+  /// Confirm historical conversion in a named category, excluding subcategories.
+  ///
+  /// In en, this message translates to:
+  /// **'Convert nondeleted regular topics directly in {categoryName} to nested replies? Subcategories and topics already converted are excluded.'**
+  String nestedRepliesConvertConfirm(String categoryName);
+
+  /// Nested replies plugin. Converted the number of topics.
+  ///
+  /// In en, this message translates to:
+  /// **'Converted {count} topics.'**
+  String nestedRepliesConversionComplete(int count);
+
+  /// Nested replies plugin. Topic activity
+  ///
+  /// In en, this message translates to:
+  /// **'Topic activity'**
+  String get nestedRepliesActivity;
+
+  /// Nested replies plugin. Topic created
+  ///
+  /// In en, this message translates to:
+  /// **'Topic created'**
+  String get nestedRepliesTopicCreated;
+
+  /// Nested replies plugin. Nested replies settings are unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Nested replies settings are unavailable.'**
+  String get nestedRepliesModeUnavailable;
+
+  /// Nested replies plugin. The server may have applied this change. Refresh the state before trying again.
+  ///
+  /// In en, this message translates to:
+  /// **'The server may have applied this change. Refresh the state before trying again.'**
+  String get nestedRepliesMutationUncertain;
+
+  /// Nested replies plugin. No topic activity to show.
+  ///
+  /// In en, this message translates to:
+  /// **'No topic activity to show.'**
+  String get nestedRepliesNoActivity;
+
+  /// Nested replies plugin. Could not load replies. Try again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load replies. Try again.'**
+  String get nestedRepliesCouldNotLoad;
+
+  /// Nested replies plugin. Changes saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Changes saved.'**
+  String get nestedRepliesChangesSaved;
+
+  /// Nested replies plugin. All replies
+  ///
+  /// In en, this message translates to:
+  /// **'All replies'**
+  String get nestedRepliesAllReplies;
+
+  /// Nested replies plugin. View parent context
+  ///
+  /// In en, this message translates to:
+  /// **'View parent context'**
+  String get nestedRepliesParentContext;
+
+  /// Nested replies plugin. Continue this thread
+  ///
+  /// In en, this message translates to:
+  /// **'Continue this thread'**
+  String get nestedRepliesContinueThread;
+
+  /// Nested replies plugin. Collapse post
+  ///
+  /// In en, this message translates to:
+  /// **'Collapse post'**
+  String get nestedRepliesCollapsePost;
+
+  /// Nested replies plugin. Expand post
+  ///
+  /// In en, this message translates to:
+  /// **'Expand post'**
+  String get nestedRepliesExpandPost;
+
+  /// Nested replies plugin. Load more replies
+  ///
+  /// In en, this message translates to:
+  /// **'Load more replies'**
+  String get nestedRepliesLoadMore;
+
+  /// Nested replies plugin. New replies
+  ///
+  /// In en, this message translates to:
+  /// **'New replies'**
+  String get nestedRepliesNewReplies;
+
+  /// Nested replies plugin. Ignored post
+  ///
+  /// In en, this message translates to:
+  /// **'Ignored post'**
+  String get nestedRepliesIgnoredPost;
+
+  /// Nested replies plugin. Show ignored post
+  ///
+  /// In en, this message translates to:
+  /// **'Show ignored post'**
+  String get nestedRepliesRevealIgnored;
+
+  /// Nested replies plugin. Deleted post
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted post'**
+  String get nestedRepliesDeletedPost;
+
+  /// Nested replies plugin. Top
+  ///
+  /// In en, this message translates to:
+  /// **'Top'**
+  String get nestedRepliesSortTop;
+
+  /// Nested replies plugin. Hot
+  ///
+  /// In en, this message translates to:
+  /// **'Hot'**
+  String get nestedRepliesSortHot;
+
+  /// Nested replies plugin. Newest
+  ///
+  /// In en, this message translates to:
+  /// **'Newest'**
+  String get nestedRepliesSortNew;
+
+  /// Nested replies plugin. Oldest
+  ///
+  /// In en, this message translates to:
+  /// **'Oldest'**
+  String get nestedRepliesSortOld;
+
+  /// Nested replies plugin. View full topic
+  ///
+  /// In en, this message translates to:
+  /// **'View full topic'**
+  String get nestedRepliesFullTopic;
+
+  /// Nested replies plugin. No replies yet.
+  ///
+  /// In en, this message translates to:
+  /// **'No replies yet.'**
+  String get nestedRepliesNoReplies;
+
+  /// Nested replies plugin. Earlier replies are unavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Earlier replies are unavailable.'**
+  String get nestedRepliesEarlierUnavailable;
+
+  /// Nested replies plugin. Original poster
+  ///
+  /// In en, this message translates to:
+  /// **'Original poster'**
+  String get nestedRepliesOriginalPoster;
+
+  /// Nested replies plugin. the number of new replies in this topic
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new replies in this topic'**
+  String nestedRepliesNotificationTopic(int count);
+
+  /// Nested replies plugin. the number of new replies to your post
+  ///
+  /// In en, this message translates to:
+  /// **'{count} new replies to your post'**
+  String nestedRepliesNotificationPost(int count);
+
+  /// Nested replies plugin. Pin reply
+  ///
+  /// In en, this message translates to:
+  /// **'Pin reply'**
+  String get nestedRepliesPin;
+
+  /// Nested replies plugin. Unpin reply
+  ///
+  /// In en, this message translates to:
+  /// **'Unpin reply'**
+  String get nestedRepliesUnpin;
+
+  /// Nested replies plugin. Select topics
+  ///
+  /// In en, this message translates to:
+  /// **'Select topics'**
+  String get nestedRepliesBulkSelect;
+
+  /// Nested replies plugin. Enable nested replies
+  ///
+  /// In en, this message translates to:
+  /// **'Enable nested replies'**
+  String get nestedRepliesBulkEnable;
+
+  /// Nested replies plugin. Disable nested replies
+  ///
+  /// In en, this message translates to:
+  /// **'Disable nested replies'**
+  String get nestedRepliesBulkDisable;
+
+  /// Nested replies plugin. Some selected topics could not be changed.
+  ///
+  /// In en, this message translates to:
+  /// **'Some selected topics could not be changed.'**
+  String get nestedRepliesBulkPartial;
+
   /// Expand the remaining rows in a Chat section.
   ///
   /// In en, this message translates to:

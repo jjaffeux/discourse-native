@@ -52,7 +52,9 @@ final class TopicReadController {
       incoming,
       position,
       position,
-      caughtUp: !incoming.isNestedView && incoming.highestPostNumber > 0,
+      caughtUp:
+          incoming.readingPolicy.usesPositionForCatchUp &&
+          incoming.highestPostNumber > 0,
     );
   }
 
@@ -84,6 +86,9 @@ final class TopicReadController {
       // This controller's projections raise the held row, so its server
       // position is only trustworthy before the first one.
       credits = _credits[key] = _TopicReadCredits(lease.session, server);
+    }
+    if (held?.readingPolicy.usesPositionForCatchUp == false) {
+      credits.serverPosition = 0;
     }
     final unread = {
       ...readPostNumbers.where((read) => read < postNumber).toList()..sort(),
@@ -336,8 +341,9 @@ final class _TopicReadCredits {
   final Object session;
 
   /// The server's last read post when this session first observed the topic.
-  /// Posts up to it are treated as read without sending their timings.
-  final int serverPosition;
+  /// Chronological readers skip earlier posts. An activity reader removes
+  /// this floor because a caught-up position does not prove they were viewed.
+  int serverPosition;
 
   // Sorted, disjoint and non-adjacent inclusive ranges above serverPosition.
   final List<(int, int)> _ranges = [];

@@ -213,12 +213,14 @@ class ContentRoute {
     String? subtitle,
     Color? color,
     int? postNumber,
+    String? query,
   }) {
     return ContentRoute(
       destination: TopicDestination(
         topicId: topicId,
         slug: slug,
         postNumber: postNumber,
+        query: query,
       ),
       title: title,
       icon: DNativeIcons.topic,
@@ -556,6 +558,10 @@ class ContentRoute {
   };
   int? get postNumber => switch (destination) {
     TopicDestination(:final postNumber) => postNumber,
+    _ => null,
+  };
+  String? get topicQuery => switch (destination) {
+    TopicDestination(:final query) => query,
     _ => null,
   };
   String? get feedPath => destination.feedPath;

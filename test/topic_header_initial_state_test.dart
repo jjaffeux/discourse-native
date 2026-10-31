@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
@@ -19,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/topic_post_list.dart';
+import 'support/topic_reading_policy_fixture.dart';
 
 const _capture = ValueKey('initial-header-capture');
 final _compact = find.byKey(const ValueKey('topic-header-compact-layout'));
@@ -67,7 +69,7 @@ void main() {
     'first',
     'unknown',
     'session',
-    'nested',
+    'activity',
   ]) {
     testWidgets(
       'opening header uses $source through loading and restoration',
@@ -97,7 +99,7 @@ void main() {
           stream: payload.detail.stream,
           postsCount: payload.posts.length,
           lastReadPostNumber: source == 'session' ? 0 : 12,
-          isNestedView: source == 'nested',
+          plugins: source == 'activity' ? activityTopicData() : PluginData.none,
         );
         final site = instance(
           'scroll.example',
@@ -123,7 +125,7 @@ void main() {
             ..put(site.url, detail)
             ..putAll(site.url, payload.posts);
         }
-        if (source == 'row' || source == 'first' || source == 'nested') {
+        if (source == 'row' || source == 'first' || source == 'activity') {
           controller.store.put(
             controller.currentInstance!.url,
             Topic(
@@ -132,7 +134,9 @@ void main() {
               slug: 'returning',
               highestPostNumber: 30,
               lastReadPostNumber: 12,
-              isNestedView: source == 'nested',
+              plugins: source == 'activity'
+                  ? activityTopicData()
+                  : PluginData.none,
             ),
           );
         }
@@ -154,7 +158,7 @@ void main() {
         }
         expect(
           controller.topicOpensAtTop(7),
-          source == 'first' || source == 'nested',
+          source == 'first' || source == 'activity',
         );
         final loading = controller.loadTopic(7, 'returning');
         final theme = AppTheme.light;

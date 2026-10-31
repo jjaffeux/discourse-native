@@ -1244,9 +1244,16 @@ class _PostActionsScope extends InheritedWidget {
 
 /// Keeps primary post actions beside engagement without requiring hover.
 class PostActionsFooter extends StatelessWidget {
-  const PostActionsFooter({super.key, required this.child});
+  const PostActionsFooter({
+    super.key,
+    required this.child,
+    this.leading,
+    this.contentIndent = 0,
+  });
 
   final Widget child;
+  final Widget? leading;
+  final double contentIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -1255,65 +1262,85 @@ class PostActionsFooter extends StatelessWidget {
     final actions = scope?.actions
         .where((action) => action.placement == PostActionPlacement.trailing)
         .toList(growable: false);
-    if (scope == null || actions == null || scope.actions.isEmpty) return child;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(child: child),
-        const SizedBox(width: 8),
-        Padding(
-          padding: const EdgeInsets.only(top: 10),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            spacing: 4,
+    final engagement = scope == null || actions == null || scope.actions.isEmpty
+        ? child
+        : Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              if (scope.actions.any(
-                (action) => action.placement != PostActionPlacement.trailing,
-              ))
-                const PostMoreActionsButton(),
-              for (final action in actions)
-                Builder(
-                  builder: (buttonContext) {
-                    final key = ValueKey((
-                      'post-footer-action',
-                      scope.postNumber,
-                      action.label,
-                    ));
-                    final icon = action.leading(
-                      context,
-                      size: DControlStyle.iconDimension(DControlSize.post),
-                      color: action.tint,
-                    );
-                    final onPressed = action.enabled
-                        ? () => scope.onInvoke(action, buttonContext)
-                        : null;
-                    return action.showLabelInFooter
-                        ? DButton(
-                            key: key,
-                            icon: icon,
-                            label: Text(action.label),
-                            tooltip: action.tooltip,
-                            variant: DButtonVariant.ghost,
-                            density: DButtonDensity.postAction,
-                            size: DButtonSize.post,
-                            onPressed: onPressed,
-                          )
-                        : DButton.iconOnly(
-                            key: key,
-                            icon: icon,
-                            tooltip: action.tooltip,
-                            variant: DButtonVariant.ghost,
-                            density: DButtonDensity.postAction,
-                            size: DButtonSize.post,
-                            onPressed: onPressed,
+              Expanded(child: child),
+              const SizedBox(width: 8),
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 4,
+                  children: [
+                    if (scope.actions.any(
+                      (action) =>
+                          action.placement != PostActionPlacement.trailing,
+                    ))
+                      const PostMoreActionsButton(),
+                    for (final action in actions)
+                      Builder(
+                        builder: (buttonContext) {
+                          final key = ValueKey((
+                            'post-footer-action',
+                            scope.postNumber,
+                            action.label,
+                          ));
+                          final icon = action.leading(
+                            context,
+                            size: DControlStyle.iconDimension(
+                              DControlSize.post,
+                            ),
+                            color: action.tint,
                           );
-                  },
+                          final onPressed = action.enabled
+                              ? () => scope.onInvoke(action, buttonContext)
+                              : null;
+                          return action.showLabelInFooter
+                              ? DButton(
+                                  key: key,
+                                  icon: icon,
+                                  label: Text(action.label),
+                                  tooltip: action.tooltip,
+                                  variant: DButtonVariant.ghost,
+                                  density: DButtonDensity.postAction,
+                                  size: DButtonSize.post,
+                                  onPressed: onPressed,
+                                )
+                              : DButton.iconOnly(
+                                  key: key,
+                                  icon: icon,
+                                  tooltip: action.tooltip,
+                                  variant: DButtonVariant.ghost,
+                                  density: DButtonDensity.postAction,
+                                  size: DButtonSize.post,
+                                  onPressed: onPressed,
+                                );
+                        },
+                      ),
+                  ],
                 ),
+              ),
             ],
-          ),
-        ),
-      ],
+          );
+    if (leading == null && contentIndent == 0) return engagement;
+    if (leading == null) {
+      return Padding(
+        padding: EdgeInsetsDirectional.only(start: contentIndent),
+        child: engagement,
+      );
+    }
+    return IntrinsicHeight(
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SizedBox(width: 32, child: leading),
+          SizedBox(width: (contentIndent - 32).clamp(0, double.infinity)),
+          Expanded(child: engagement),
+        ],
+      ),
     );
   }
 }

@@ -39,8 +39,11 @@ final class BoardsPlugin
   @override
   PluginDataKey<BoardMemberships> get record => boardsMembershipKey;
   @override
-  BoardMemberships? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      json.containsKey('board_memberships')
+  BoardMemberships? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => json.containsKey('board_memberships')
       ? BoardMemberships.decode(json['board_memberships'])
       : null;
   @override

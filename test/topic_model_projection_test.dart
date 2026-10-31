@@ -426,6 +426,8 @@ void _expectFixtureMemberships(BoardMemberships? memberships) {
 }
 
 Map<String, dynamic> _topicFields() => {
+  'is_nested_view': true,
+  'has_new_replies': true,
   'board_memberships': [
     {
       'board_id': 17,
@@ -482,6 +484,9 @@ Map<String, dynamic> _topicPayload({required bool large}) => {
           'id': i,
           'post_number': i,
           'topic_id': 7,
+          'direct_reply_count': 2,
+          'total_descendant_count': 3,
+          'reply_to_post_number': i == 1 ? null : 1,
           'cooked': '<p>Post $i</p>',
           'accepted_answer': true,
           'can_accept_answer': true,
@@ -522,8 +527,11 @@ final class _ProbePlugin
   SendPort readPost(Map<String, dynamic> json, String siteUrl) =>
       Isolate.current.controlPort;
   @override
-  SendPort readTopic(Map<String, dynamic> json, String siteUrl) =>
-      Isolate.current.controlPort;
+  SendPort readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => Isolate.current.controlPort;
   @override
   SendPort? mergeAfterPostEdit(SendPort? held, SendPort? incoming) =>
       incoming ?? held;
@@ -548,7 +556,11 @@ final class _StatefulPlugin
   }
 
   @override
-  SendPort readTopic(Map<String, dynamic> json, String siteUrl) {
+  SendPort readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) {
     calls++;
     return Isolate.current.controlPort;
   }
@@ -625,6 +637,9 @@ final class _LocaleRecordPlugin
   PluginDataKey<SendPort> get record =>
       PluginDataKey(owner: name, name: Intl.getCurrentLocale());
   @override
-  SendPort readTopic(Map<String, dynamic> json, String siteUrl) =>
-      Isolate.current.controlPort;
+  SendPort readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => Isolate.current.controlPort;
 }

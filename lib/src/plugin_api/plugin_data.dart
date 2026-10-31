@@ -2,6 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import '../models/user_preferences.dart';
 import 'preserved_json.dart';
+import 'topic_reading_policy.dart';
+
+export 'topic_reading_policy.dart';
 
 /// The owner/name pair is explicit instead of relying on a Dart [Type], so the
 /// composition boundary can reject duplicate claims before decoding payloads.
@@ -87,6 +90,18 @@ final class PluginData {
 
   bool get isEmpty => _values.isEmpty && _preservedNamespaces.isEmpty;
 
+  PluginData withoutOwner(String owner) {
+    if (!_values.keys.any((key) => key.owner == owner) &&
+        !_preservedNamespaces.keys.any((key) => key.startsWith('$owner/'))) {
+      return this;
+    }
+    return _from(
+      Map.of(_values)..removeWhere((key, _) => key.owner == owner),
+      Map.of(_preservedNamespaces)
+        ..removeWhere((key, _) => key.startsWith('$owner/')),
+    );
+  }
+
   Map<String, Object?> get preservedNamespaces => _preservedNamespaces;
 
   PluginData withValue<T extends Object>(PluginDataKey<T> key, T? value) {
@@ -128,6 +143,44 @@ final class PluginData {
     return _from(_values, next);
   }
 
+  PluginData mergeTopicRecordsFrom(PluginData held) {
+    var next = this;
+    for (final entry in _values.entries) {
+      if (entry.value case final TopicRecordValue value) {
+        next = next.withValueFor(
+          entry.key,
+          value.mergeTopicRecord(held._values[entry.key]),
+        );
+      }
+    }
+    return next;
+  }
+
+  PluginData markTopicRead() {
+    var next = this;
+    for (final entry in _values.entries) {
+      if (entry.value case final TopicReadingPolicyRecord value) {
+        next = next.withValueFor(entry.key, value.markTopicRead());
+      }
+    }
+    return next;
+  }
+
+  TopicReadingPolicy get topicReadingPolicy {
+    TopicReadingPolicy? result;
+    for (final value in _values.values.whereType<TopicReadingPolicyRecord>()) {
+      final policy = value.topicReadingPolicy;
+      if (policy == null) continue;
+      if (result != null) {
+        throw StateError(
+          'Multiple plugin records supply a topic reading policy.',
+        );
+      }
+      result = policy;
+    }
+    return result ?? const ChronologicalTopicReadingPolicy();
+  }
+
   static PluginData _from(
     Map<PluginDataKey<Object>, Object> values,
     Map<String, Object?> preservedNamespaces,
@@ -166,7 +219,11 @@ abstract interface class PluginDataDecoder {
 
   PluginData readPost(Map<String, dynamic> json, String siteUrl);
 
-  PluginData readTopic(Map<String, dynamic> json, String siteUrl);
+  PluginData readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  });
 
   PluginData readUserCard(Map<String, dynamic> json, String siteUrl);
 
@@ -220,8 +277,11 @@ final class EmptyPluginDataDecoder
       PluginData.none;
 
   @override
-  PluginData readTopic(Map<String, dynamic> json, String siteUrl) =>
-      PluginData.none;
+  PluginData readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => PluginData.none;
 
   @override
   PluginData readUserCard(Map<String, dynamic> json, String siteUrl) =>

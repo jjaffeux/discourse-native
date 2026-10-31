@@ -1,0 +1,175 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/widgets.dart';
+
+import '../models/content_route.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/topic_reader.dart';
+import 'shell_scope.dart';
+import 'topic_inbox_header.dart';
+import 'topic_view.dart';
+
+class TopicReaderOutlet extends StatefulWidget {
+  const TopicReaderOutlet({
+    super.key,
+    required this.route,
+    required this.registry,
+    required this.ordinary,
+  });
+
+  final ContentRoute route;
+  final PluginRegistry registry;
+  final Widget ordinary;
+
+  @override
+  State<TopicReaderOutlet> createState() => _TopicReaderOutletState();
+}
+
+class _TopicReaderOutletState extends State<TopicReaderOutlet> {
+  PluginTopicReader? _reader;
+  Object? _identity;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _bind();
+  }
+
+  @override
+  void didUpdateWidget(TopicReaderOutlet oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _bind();
+  }
+
+  void _bind() {
+    if (!widget.registry.hasTopicReaders) return;
+    final shell = ShellScope.read(context);
+    final tab = ForumTabScope.tabOf(context);
+    final key = (
+      shell,
+      tab.siteUrl,
+      tab.lease?.session,
+      tab.tabId,
+      widget.route.topicId,
+      widget.route.postNumber,
+      widget.route.topicQuery,
+    );
+    if (_identity == key) return;
+    _reader?.removeListener(_changed);
+    _reader?.close();
+    _identity = key;
+    _reader = shell.createTopicReader(tab, widget.route)..addListener(_changed);
+  }
+
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _reader?.removeListener(_changed);
+    _reader?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.registry.hasTopicReaders) return widget.ordinary;
+    final reader = _reader!;
+    if (!reader.isCurrent) return const SizedBox.shrink();
+    final shell = ShellScope.read(context);
+    final topic = reader.topic;
+    if (topic == null ||
+        !shell.topicReaderResolved(reader.siteUrl, reader.topicId)) {
+      if (shell.topicReaderFailure(reader.siteUrl, reader.topicId) != null) {
+        return Center(
+          child: DEmpty(
+            children: [
+              DEmptyHeader(
+                children: [DEmptyTitle(context.l10n.couldnTLoadThisTopic)],
+              ),
+              DEmptyContent(
+                children: [
+                  DButton(
+                    label: Text(context.l10n.retry),
+                    onPressed: reader.refreshMetadata,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }
+      return const Center(child: DSpinner());
+    }
+    return widget.registry.buildTopicReader(
+          context,
+          TopicReaderProbe(
+            siteUrl: reader.siteUrl,
+            topic: topic,
+            config: shell.siteConfigFor(reader.siteUrl),
+          ),
+          reader,
+        ) ??
+        widget.ordinary;
+  }
+}
+
+class PluginTopicPost extends StatelessWidget {
+  const PluginTopicPost({
+    super.key,
+    required this.reader,
+    required this.postId,
+    this.layout = TopicPostLayout.standard,
+    this.leading,
+    this.bodyLeading,
+    this.footerLeading,
+  });
+
+  final PluginTopicReader reader;
+  final int postId;
+  final TopicPostLayout layout;
+  final Widget? leading;
+  final Widget? bodyLeading;
+  final Widget? footerLeading;
+
+  @override
+  Widget build(BuildContext context) =>
+      !reader.isCurrent || reader.post(postId) == null
+      ? const SizedBox.shrink()
+      : TopicPostPresentation(
+          siteUrl: reader.siteUrl,
+          topicId: reader.topicId,
+          postId: postId,
+          layout: layout,
+          leading: leading,
+          bodyLeading: bodyLeading,
+          footerLeading: footerLeading,
+        );
+}
+
+class PluginTopicHeader extends StatelessWidget {
+  const PluginTopicHeader({
+    super.key,
+    required this.reader,
+    required this.bodyBuilder,
+    this.controls,
+  });
+
+  final PluginTopicReader reader;
+  final Widget Function(DPageHeaderGeometry header) bodyBuilder;
+  final Widget? controls;
+
+  @override
+  Widget build(BuildContext context) => TopicInboxHeader(
+    title: reader.topic?.displayTitle ?? reader.route.title,
+    siteUrl: reader.siteUrl,
+    topic: reader.topic,
+    route: reader.route,
+    registry: ShellScope.read(context).plugins.registry,
+    canReturnToSidebar: true,
+    keepTopicListOpen: false,
+    headerControls: controls,
+    bodyBuilder: bodyBuilder,
+  );
+}

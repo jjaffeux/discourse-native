@@ -752,6 +752,54 @@ final class PluginSession {
     }
   }
 
+  ResolvedNotification resolveNotification(
+    PluginRegistry registry,
+    String siteUrl,
+    DiscourseNotification notification,
+  ) {
+    final fallback = registry.resolveNotification(siteUrl, notification);
+    if (_closing || _closed) return fallback;
+    final context = PluginNotificationPresentationContext(
+      siteUrl: siteUrl,
+      notification: notification,
+      fallback: fallback,
+    );
+    ResolvedNotification? selected;
+    PluginId? selectedOwner;
+    for (final contribution
+        in ownedCapabilities<PluginNotificationPresentationStrategy>()) {
+      ResolvedNotification? result;
+      try {
+        result = contribution.capability.resolveNotification(context);
+      } catch (_) {
+        continue;
+      }
+      if (_closing || _closed) return fallback;
+      if (result == null || !_safeNotificationPath(result.path)) continue;
+      if (selected != null) {
+        throw StateError(
+          'Notification presentation is claimed by both '
+          '$selectedOwner and ${contribution.owner}.',
+        );
+      }
+      selected = result;
+      selectedOwner = contribution.owner;
+    }
+    return selected ?? fallback;
+  }
+
+  static bool _safeNotificationPath(String? path) {
+    if (path == null) return true;
+    if (path.length > 2048 ||
+        !path.startsWith('/') ||
+        path.startsWith('//') ||
+        path.contains(RegExp(r'[\x00-\x1f\x7f\\]'))) {
+      return false;
+    }
+    final uri = Uri.tryParse(path);
+    return uri != null && !uri.hasScheme && !uri.hasAuthority;
+  }
+
   Future<void> setForeground(bool foreground) {
     if (_closing || _closed) return Future<void>.value();
     return _lifecycleOperations.run(

@@ -156,6 +156,7 @@ final class DiscourseModelCodec {
       usernamesByUserId: usernames,
       extensions: extensions,
       listReadStateKnown: false,
+      context: const TopicRecordDecodeContext.detail(),
     );
   }
 
@@ -165,6 +166,26 @@ final class DiscourseModelCodec {
         siteUrl,
         extensions: extensions,
         recommendationSources: recommendationSources,
+      );
+
+  /// Decodes a metadata snapshot without granting it stream membership authority.
+  TopicDetail topicMetadata(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    required TopicDetail held,
+  }) =>
+      topic({
+        ...json,
+        'post_stream': {
+          'stream': held.stream,
+          'posts': const <Object?>[],
+          'isMegaTopic': held.isMegaTopic,
+          'lastId': held.lastPostId,
+        },
+      }, siteUrl).detail.copyWith(
+        stream: held.stream,
+        gapsBefore: held.gapsBefore,
+        gapsAfter: held.gapsAfter,
       );
 
   TopicRecommendations? topicRecommendations(

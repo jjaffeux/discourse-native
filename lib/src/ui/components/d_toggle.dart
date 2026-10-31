@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
+import '../foundation/app_text_scaler.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
@@ -23,6 +24,9 @@ enum DToggleVariant { standard, outline, segmented, inline }
 /// with a circular hover surface and a press animation.
 enum DToggleDensity {
   standard,
+
+  /// A 14px circular disclosure with a foreground border and 10px artwork.
+  disclosure,
 
   /// 26px header-menu filter pills, with accent selection and recessed rest.
   menuFilter,
@@ -274,6 +278,7 @@ class _DToggleState extends State<DToggle> {
     final sharedSelection = segmented && DGroupIndicator.contains(context);
     final outline = tokens.buttonTheme.outline;
 
+    final disclosure = widget.density == DToggleDensity.disclosure;
     final postReaction = widget.density == DToggleDensity.postReaction;
     final menuFilter = widget.density == DToggleDensity.menuFilter;
     final chatReaction = widget.density == DToggleDensity.chatReaction;
@@ -286,7 +291,9 @@ class _DToggleState extends State<DToggle> {
     final splitView = widget.density == DToggleDensity.splitView;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final interacting = _enabled && (_hovered || _pointerPressed);
-    final foreground = postReaction
+    final foreground = disclosure
+        ? tokens.foreground
+        : postReaction
         ? DPostReactionStyle.foreground(tokens, selected: _current)
         : menuFilter
         ? (_current
@@ -315,8 +322,12 @@ class _DToggleState extends State<DToggle> {
         : tile && !_current
         ? tokens.mutedForeground
         : tokens.foreground;
-    final scaler = MediaQuery.textScalerOf(context);
-    final visualDimension = postReaction
+    final scaler = disclosure
+        ? DReferenceTextScale.scalerOf(context)
+        : MediaQuery.textScalerOf(context);
+    final visualDimension = disclosure
+        ? 14.0 + math.max(0, scaler.scale(10) - 10)
+        : postReaction
         ? DPostReactionStyle.height(scaler)
         : menuFilter
         ? 26.0 + math.max(0, scaler.scale(12.5) - 12.5) * 1.5
@@ -332,7 +343,9 @@ class _DToggleState extends State<DToggle> {
         ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
         : (DControlStyle.scaledHeight(widget.size, scaler, context: context));
     final visualWidth = compactInset ? 30.0 : visualDimension;
-    final iconDimension = postReaction
+    final iconDimension = disclosure
+        ? 10.0
+        : postReaction
         ? DPostReactionStyle.iconSize
         : splitView
         ? 20.0
@@ -369,6 +382,8 @@ class _DToggleState extends State<DToggle> {
         ? tokens.destructive.withValues(
             alpha: tokens.destructive.a * (dark ? .5 : 1),
           )
+        : disclosure
+        ? tokens.foreground
         : postReaction
         ? Colors.transparent
         : menuFilter
@@ -399,7 +414,8 @@ class _DToggleState extends State<DToggle> {
     final radius =
         (widget.visualStyle?.borderRadius ??
                 BorderRadius.circular(
-                  splitView ||
+                  disclosure ||
+                          splitView ||
                           chatReaction ||
                           postReaction ||
                           menuFilter ||
@@ -413,7 +429,11 @@ class _DToggleState extends State<DToggle> {
     final edges = widget.visualStyle?.borderEdges ?? DToggleBorderEdges.all;
     final borderSide = BorderSide(
       color: borderColor,
-      width: splitView || outlined ? 1 : DControlDecoration.borderWidth,
+      width: disclosure
+          ? 1.5
+          : splitView || outlined
+          ? 1
+          : DControlDecoration.borderWidth,
     );
     const noBorder = BorderSide.none;
     final border = Border(
@@ -508,7 +528,11 @@ class _DToggleState extends State<DToggle> {
       content = DIconGlyphTheme(scale: 1, naturalWidth: true, child: content);
     }
 
-    final surfaceColor = postReaction
+    final surfaceColor = disclosure
+        ? interacting
+              ? DControlStyle.rowHover(tokens)
+              : Colors.transparent
+        : postReaction
         ? DPostReactionStyle.fill(
             tokens,
             selected: _current,

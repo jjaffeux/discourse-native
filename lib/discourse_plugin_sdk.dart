@@ -60,11 +60,9 @@ export 'src/data/site_preference_keys.dart'
         SitePreferenceScope,
         SitePreferenceValue;
 export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
-
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
-
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
 export 'src/foundation/loopback_host.dart';
@@ -94,8 +92,10 @@ export 'src/models/search_results.dart' show SearchExcerpt;
 export 'src/models/sidebar.dart';
 export 'src/models/site_config.dart';
 export 'src/models/site_emoji.dart' show SiteEmojiCatalog;
-export 'src/models/topic.dart' show Topic, TopicList;
+export 'src/models/topic.dart'
+    show Topic, TopicList, TopicRecommendations, TopicRecommendationSource;
 export 'src/models/topic_feed.dart' show TopicFeed;
+export 'src/models/topic_link.dart' show TopicLink;
 export 'src/models/user_card.dart' show UserCard;
 export 'src/models/user_draft.dart' show UserDraft;
 export 'src/models/user_flair.dart' show UserFlair;
@@ -104,6 +104,7 @@ export 'src/models/user_status.dart'
     show UserStatus, UserStatusReference, userStatusesByUsername;
 export 'src/plugin_api/background_retention.dart';
 export 'src/plugin_api/bookmark_host.dart';
+export 'src/plugin_api/category_settings.dart';
 export 'src/plugin_api/composer_component.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
@@ -129,6 +130,7 @@ export 'src/plugin_api/reaction_presentation.dart';
 export 'src/plugin_api/shell_extensions.dart';
 export 'src/plugin_api/site_plugin_api.dart';
 export 'src/plugin_api/timezone_host.dart';
+export 'src/plugin_api/topic_reader.dart';
 export 'src/shell/adaptive_dialog_action.dart';
 export 'src/shell/adaptive_shell.dart' show ShellLayout;
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
@@ -188,7 +190,6 @@ export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
-
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
@@ -219,6 +220,8 @@ export 'src/shell/oneboxes/onebox.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
 export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
+export 'src/shell/plugin_topic_reader.dart'
+    show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
@@ -243,6 +246,7 @@ export 'src/shell/stream_day_separator.dart'
 export 'src/shell/syntax.dart' show highlightLines;
 export 'src/shell/time_gap.dart' show TimeGapNotice, timeGapDaysBetween;
 export 'src/shell/title_bar.dart' show ShellTitleBar;
+export 'src/shell/topic_corner_controls.dart' show TopicCornerControls;
 export 'src/shell/topic_list_footer.dart' show TopicSourceFooter;
 export 'src/shell/topic_list_view.dart'
     show TopicListLoadingSkeleton, TopicListRow, TopicListSeparator;

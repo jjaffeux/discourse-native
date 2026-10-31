@@ -339,7 +339,11 @@ final class _MutableDeclarations
   @override
   String? readPost(Map<String, dynamic> json, String siteUrl) => live;
   @override
-  String? readTopic(Map<String, dynamic> json, String siteUrl) => live;
+  String? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => live;
   @override
   String? readUserCard(Map<String, dynamic> json, String siteUrl) => live;
   @override

@@ -4,7 +4,6 @@ library;
 export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
-
 export 'src/shell/topic_category_path_selector.dart';
 export 'src/shell/topic_category_selector.dart';
 export 'src/shell/topic_tag_selector.dart';
@@ -118,6 +117,7 @@ export 'src/ui/components/d_table.dart';
 export 'src/ui/components/d_tabs.dart';
 export 'src/ui/components/d_text_revision_preview.dart';
 export 'src/ui/components/d_textarea.dart';
+export 'src/ui/components/d_thread.dart';
 export 'src/ui/components/d_toast.dart';
 export 'src/ui/components/d_toggle.dart';
 export 'src/ui/components/d_toggle_group.dart';

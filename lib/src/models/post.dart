@@ -92,6 +92,7 @@ class Post with Storable<Post> {
     this.isLocalized = false,
     this.bookmark,
     this.plugins = PluginData.none,
+    this.contentRedacted = false,
   });
 
   static const int regularPostType = 1;
@@ -300,6 +301,8 @@ class Post with Storable<Post> {
   /// text the reader no longer sees and send it back as `original_text`.
   @override
   Post merge(Post incoming) {
+    if (incoming.contentRedacted) return incoming;
+    if (contentRedacted) return incoming.redactedContent();
     final sameRevision =
         incoming.version == version && incoming.updatedAt == updatedAt;
     final merged = incoming.raw == null && raw != null && sameRevision
@@ -309,6 +312,23 @@ class Post with Storable<Post> {
   }
 
   Post withRaw(String raw) => copyWith(raw: raw);
+
+  /// Explicit content removal must not inherit editable text from a held revision.
+  final bool contentRedacted;
+
+  Post redactedContent() => Post(
+    id: id,
+    postNumber: postNumber,
+    username: username,
+    userId: userId,
+    name: name,
+    avatarUrl: avatarUrl,
+    cooked: '',
+    updatedAt: updatedAt,
+    version: version,
+    plugins: plugins,
+    contentRedacted: true,
+  );
 
   Post withLike(bool liked) => copyWith(
     liked: liked,
@@ -402,6 +422,7 @@ class Post with Storable<Post> {
     isLocalized: isLocalized ?? this.isLocalized,
     bookmark: clearBookmark ? null : (bookmark ?? this.bookmark),
     plugins: plugins ?? this.plugins,
+    contentRedacted: contentRedacted,
   );
 
   @override
@@ -449,7 +470,8 @@ class Post with Storable<Post> {
           other.raw == raw &&
           other.isLocalized == isLocalized &&
           other.bookmark == bookmark &&
-          other.plugins == plugins;
+          other.plugins == plugins &&
+          other.contentRedacted == contentRedacted;
 
   @override
   int get hashCode => Object.hashAll([
@@ -500,6 +522,7 @@ class Post with Storable<Post> {
     isLocalized,
     bookmark,
     plugins,
+    contentRedacted,
   ]);
 }
 
@@ -612,7 +635,6 @@ class TopicDetail with Storable<TopicDetail> {
     this.participantCount = 0,
     this.wordCount = 0,
     this.hasSummary = false,
-    this.isNestedView = false,
     this.privateMessage = false,
     this.messageArchived = false,
     this.allowedMessageGroups = const [],
@@ -707,7 +729,6 @@ class TopicDetail with Storable<TopicDetail> {
         participantCount: jsonInt(json['participant_count']),
         wordCount: jsonInt(json['word_count']),
         hasSummary: json['has_summary'] == true,
-        isNestedView: json['is_nested_view'] == true,
         privateMessage: json['archetype'] == 'private_message',
         messageArchived: json['message_archived'] == true,
         allowedMessageGroups: List.unmodifiable([
@@ -780,7 +801,11 @@ class TopicDetail with Storable<TopicDetail> {
           extensions: extensions,
           recommendationSources: recommendationSources,
         ),
-        plugins: extensions.readTopic(json, siteUrl),
+        plugins: extensions.readTopic(
+          json,
+          siteUrl,
+          context: const TopicRecordDecodeContext.detail(),
+        ),
       ),
       posts: posts,
     );
@@ -837,7 +862,8 @@ class TopicDetail with Storable<TopicDetail> {
   final int participantCount;
   final int wordCount;
   final bool hasSummary;
-  final bool isNestedView;
+
+  TopicReadingPolicy get readingPolicy => plugins.topicReadingPolicy;
   final bool privateMessage;
 
   /// Inbox state, independent of the topic's administrative archived status.
@@ -861,9 +887,7 @@ class TopicDetail with Storable<TopicDetail> {
   /// Where an unpositioned open resumes; see [lastReadAfter].
   int? resumePostNumberAfter(int? sessionRead) {
     final read = lastReadAfter(sessionRead) ?? 0;
-    // Nested topics deliberately avoid flat numbered post routes. Post one is
-    // already the unpositioned response, so it needs no second request.
-    if (isNestedView || read <= 1) return null;
+    if (!readingPolicy.allowsChronologicalResume || read <= 1) return null;
     return read;
   }
 
@@ -1178,7 +1202,6 @@ class TopicDetail with Storable<TopicDetail> {
     participantCount: participantCount,
     wordCount: wordCount,
     hasSummary: hasSummary,
-    isNestedView: isNestedView,
     privateMessage: privateMessage,
     messageArchived: messageArchived,
     allowedMessageGroups: allowedMessageGroups,
@@ -1214,11 +1237,14 @@ class TopicDetail with Storable<TopicDetail> {
     draftSequence: draftSequence,
     bookmarks: bookmarks,
     recommendations: recommendations,
-    plugins: next,
+    plugins: next.mergeTopicRecordsFrom(plugins),
   );
 
   @override
   TopicDetail merge(TopicDetail incoming) {
+    incoming = incoming.copyWith(
+      plugins: incoming.plugins.mergeTopicRecordsFrom(plugins),
+    );
     if (incoming.isMegaTopic) return _mergeMegaTopic(incoming);
     final arrived = incoming.stream.toSet();
     // A refetch can answer from before a reply that was just appended here,
@@ -1309,11 +1335,12 @@ class TopicDetail with Storable<TopicDetail> {
     List<PostActionSummary>? topicActions,
     TopicRecommendations? recommendations,
     PluginData? plugins,
+    int? messageBusLastId,
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
     localizedTitle: localizedTitle,
-    messageBusLastId: messageBusLastId,
+    messageBusLastId: messageBusLastId ?? this.messageBusLastId,
     createdAt: createdAt,
     lastPostedAt: lastPostedAt,
     stream: stream == null ? this.stream : List.unmodifiable(stream),
@@ -1332,7 +1359,6 @@ class TopicDetail with Storable<TopicDetail> {
     participantCount: participantCount,
     wordCount: wordCount,
     hasSummary: hasSummary,
-    isNestedView: isNestedView,
     privateMessage: privateMessage ?? this.privateMessage,
     messageArchived: messageArchived ?? this.messageArchived,
     allowedMessageGroups: allowedMessageGroups,
@@ -1399,7 +1425,6 @@ class TopicDetail with Storable<TopicDetail> {
           other.participantCount == participantCount &&
           other.wordCount == wordCount &&
           other.hasSummary == hasSummary &&
-          other.isNestedView == isNestedView &&
           other.privateMessage == privateMessage &&
           other.messageArchived == messageArchived &&
           listEquals(other.allowedMessageGroups, allowedMessageGroups) &&
@@ -1459,7 +1484,6 @@ class TopicDetail with Storable<TopicDetail> {
     participantCount,
     wordCount,
     hasSummary,
-    isNestedView,
     privateMessage,
     messageArchived,
     Object.hashAll(allowedMessageGroups),

@@ -137,6 +137,17 @@ abstract interface class PluginPostHost {
   });
 }
 
+/// Revocation removes only records owned by the consuming module.
+abstract interface class PluginTopicRecordsHost {
+  Listenable get changes;
+  void invalidate(String siteUrl, PluginSiteLease originalLease);
+}
+
+const corePluginTopicRecordsPort = PluginHostPortKey<PluginTopicRecordsHost>(
+  owner: PluginId('core'),
+  name: 'topic-records',
+);
+
 enum ComposerSeedPlacement { block }
 
 @immutable

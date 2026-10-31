@@ -5,12 +5,14 @@ final class _PostMutationPolicy {
     required this.store,
     required this.instanceFor,
     required this.selectedSite,
+    required this.containsPost,
     required this.isDisposed,
   });
 
   final Store store;
   final DiscourseInstance? Function(String siteUrl) instanceFor;
   final String? Function() selectedSite;
+  final bool Function(String siteUrl, int topicId, int postId) containsPost;
   final bool Function() isDisposed;
 
   PostMutationProblem problem(WriteException error) => PostMutationProblem(
@@ -100,7 +102,7 @@ final class _PostMutationPolicy {
     if (postIds.isEmpty ||
         postIds.any(
           (id) =>
-              !topic.stream.contains(id) ||
+              !containsPost(target.siteUrl, target.topicId, id) ||
               store.read<Post>(target.siteUrl, id) == null,
         )) {
       return forbidden;
@@ -136,7 +138,9 @@ final class _PostMutationPolicy {
             (selectedSite() != target.siteUrl || !topic.canSelectPosts)) ||
         postIds.isEmpty ||
         posts.length != postIds.length ||
-        postIds.any((id) => !topic.stream.contains(id)) ||
+        postIds.any(
+          (id) => !containsPost(target.siteUrl, target.topicId, id),
+        ) ||
         posts.map((post) => post.username).toSet().length != 1 ||
         username.isEmpty ||
         posts.first.username == username) {

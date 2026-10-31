@@ -9,6 +9,62 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('topic query intent survives links, saved tabs, and display copies', () {
+    const forum = DiscourseInstance(
+      url: 'https://forum.example/community',
+      title: 'Forum',
+    );
+    const query = 'view=branch&filter=a%20b&filter=c&unknown=';
+    final route = ContentRouteCodec.fromUrl(
+      '${forum.url}/t/opaque-topic/42/9?$query#post',
+      instance: forum,
+      config: forum.config,
+      defaultTopPeriod: TopPeriod.all,
+    )!;
+
+    expect(route.topicId, 42);
+    expect(route.postNumber, 9);
+    expect(route.topicQuery, query);
+    final copy = route.withDisplay(title: 'Renamed');
+    final restored = ContentRoute.fromJson(copy.toJson());
+    expect(restored.topicQuery, query);
+    expect(restored.postNumber, 9);
+    expect(restored.title, 'Renamed');
+    expect(
+      (restored.destination.withFeedPath('/latest.json') as TopicDestination)
+          .query,
+      query,
+    );
+    expect(
+      restored.sameDestinationAs(
+        ContentRoute.topic(topicId: 42, slug: 'opaque-topic', title: 'Renamed'),
+      ),
+      isFalse,
+    );
+  });
+
+  test('saved query intent must belong to a topic and remain bounded', () {
+    final topic = ContentRoute.topic(
+      topicId: 42,
+      slug: 'opaque',
+      title: 'Topic',
+    );
+    for (final value in [42, '', 'x' * 2049, 'view=x#fragment', 'view=x\n']) {
+      expect(
+        () => ContentRoute.fromJson({...topic.toJson(), 'topic_query': value}),
+        throwsFormatException,
+        reason: '$value',
+      );
+    }
+    expect(
+      () => ContentRoute.fromJson({
+        ...ContentRoute.topicList(TopicListMode.latest).toJson(),
+        'topic_query': 'view=branch',
+      }),
+      throwsFormatException,
+    );
+  });
+
   test('native list paths retain the URL bound', () {
     const forum = DiscourseInstance(
       url: 'https://forum.example',

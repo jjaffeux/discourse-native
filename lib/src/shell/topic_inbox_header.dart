@@ -122,7 +122,7 @@ class TopicInboxHeader extends StatelessWidget {
       header: _morphHeader(context, rows: rows),
       fadeHeaderOnScroll: shell.mobileNavigationEnabled,
       titleLeading: _barStatus(),
-      headerControls: headerControls,
+      headerControls: shell.mobileNavigationEnabled ? null : headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),
     );
   }
@@ -155,6 +155,11 @@ class TopicInboxHeader extends StatelessWidget {
         children: [
           part('title', rows.first),
           if (rows.length > 1) part('meta', rows[1]),
+          if (headerControls != null)
+            part(
+              'controls',
+              SizedBox(width: double.infinity, child: headerControls!),
+            ),
         ],
       ),
     );

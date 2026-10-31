@@ -10,10 +10,18 @@ import 'post_likes.dart';
 import 'shell_scope.dart';
 
 class PostFooter extends StatelessWidget {
-  const PostFooter({super.key, required this.siteUrl, required this.post});
+  const PostFooter({
+    super.key,
+    required this.siteUrl,
+    required this.post,
+    this.leading,
+    this.contentIndent = 0,
+  });
 
   final String siteUrl;
   final Post post;
+  final Widget? leading;
+  final double contentIndent;
 
   @override
   Widget build(BuildContext context) {
@@ -31,6 +39,8 @@ class PostFooter extends StatelessWidget {
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
     final engagement = PostActionsFooter(
+      leading: leading,
+      contentIndent: contentIndent,
       child:
           registry.postFooter(siteUrl, post) ??
           PostLikes(siteUrl: siteUrl, post: post),
@@ -44,7 +54,10 @@ class PostFooter extends StatelessWidget {
         const SizedBox(height: 8),
         for (final summary in acted)
           Padding(
-            padding: const EdgeInsets.only(bottom: 4),
+            padding: EdgeInsetsDirectional.only(
+              start: contentIndent,
+              bottom: 4,
+            ),
             child: Text(
               _actedDescription(summary, catalog),
               style: Theme.of(context).textTheme.bodySmall?.copyWith(

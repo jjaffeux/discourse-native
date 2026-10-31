@@ -184,8 +184,11 @@ final class AssignPlugin
       Assignments.fromPostJson(json, siteUrl);
 
   @override
-  Assignments? readTopic(Map<String, dynamic> json, String siteUrl) =>
-      Assignments.fromTopicJson(json, siteUrl);
+  Assignments? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => Assignments.fromTopicJson(json, siteUrl);
 
   @override
   Assignments? mergeAfterPostEdit(Assignments? held, Assignments? incoming) =>
