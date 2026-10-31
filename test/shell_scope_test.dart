@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -7,6 +8,66 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets(
+    'retained content keeps its source route while a sheet is current',
+    (tester) async {
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([instance('scope.example')]),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      final source = ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        categoryId: 42,
+        tags: const ['roadmap'],
+      );
+      shell.pushContent(source);
+      ShellTabContext? held;
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: Directionality(
+            textDirection: TextDirection.ltr,
+            child: ForumContentScope(
+              route: source,
+              child: ForumTabSelector<String?>(
+                select: (_, tab) => tab.currentFeedId,
+                builder: (context, feedId, _) {
+                  held = ForumTabScope.tabOf(context);
+                  return Text(feedId ?? 'empty');
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      shell.pushContent(
+        ContentRoute(
+          destination: const ExtensionDestination('sheet'),
+          title: 'Sheet',
+          icon: source.icon,
+        ),
+      );
+      await tester.pump();
+      expect(shell.currentContent?.id, 'sheet');
+      expect(find.text(source.id), findsOneWidget);
+      expect(held!.currentContent, source);
+      expect(held!.topicListContent, source);
+      expect(held!.contentStack.last, source);
+      shell.handleBack();
+      shell.handleBack();
+      await tester.pump();
+      expect(held!.isCurrent, isFalse);
+      expect(held!.currentContent, isNull);
+      expect(find.text('empty'), findsOneWidget);
+    },
+  );
+
   testWidgets('read does not rebuild when the controller notifies', (
     tester,
   ) async {

@@ -12,6 +12,8 @@ import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_directory.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_feed_menu.dart';
+import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/gestures.dart';
@@ -281,9 +283,16 @@ void main() {
         skipOffstage: false,
       );
       final filterSize = tester.getSize(filters);
+      final filterState = tester.state(find.byType(TopicListFilterBar));
+      final feedMenuState = tester.state(find.byType(TopicFeedMenu));
       await tester.tap(pill);
       await tester.pumpAndSettle();
       expect(shell.currentContent?.id, 'boards/1/cards/101');
+      expect(
+        filterState.mounted && feedMenuState.mounted,
+        isTrue,
+        reason: 'The source controls stay mounted beneath the board sheet',
+      );
       expect(
         tester.getRect(_dots.first).bottom,
         tester.getRect(_sheet).bottom - DSpacing.sm,
@@ -342,6 +351,92 @@ void main() {
       }
       expect(_sheet, findsNothing);
       expect(shell.currentContent?.isTopicList, isTrue);
+      expect(tester.state(find.byType(TopicListFilterBar)), same(filterState));
+      expect(tester.state(find.byType(TopicFeedMenu)), same(feedMenuState));
+      expect(tester.takeException(), isNull);
+    }, variant: platforms);
+  }
+
+  for (final (label, source) in [
+    (
+      'category',
+      ContentRoute.filteredTopicList(TopicListMode.latest, categoryId: 42),
+    ),
+    (
+      'tag',
+      ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        tags: const ['roadmap'],
+      ),
+    ),
+    ('custom query', ContentRoute.topicFilter('status:open')),
+  ]) {
+    testWidgets('a board retains its source $label feed and filters', (
+      tester,
+    ) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        board: boardFixtureJson(),
+        onApi: (api) {
+          api.feeds[source.feedPath!] = [
+            Topic(
+              id: 8,
+              title: 'Filtered source topic',
+              slug: 'filtered-source',
+              plugins: PluginData.none.withValue(
+                boardsMembershipKey,
+                const BoardMemberships([
+                  BoardMembership(
+                    1,
+                    'Product roadmap',
+                    'roadmap',
+                    101,
+                    'Backlog',
+                  ),
+                ]),
+              ),
+            ),
+          ];
+        },
+      );
+      shell.pushContent(source);
+      await shell.loadFeed(source.id);
+      await tester.pumpAndSettle();
+      final list = find.byType(TopicListView, skipOffstage: false);
+      final filters = find.byType(TopicListFilterBar, skipOffstage: false);
+      final menu = find.byType(TopicFeedMenu, skipOffstage: false);
+      final listState = tester.state(list);
+      final filterState = tester.state(filters);
+      final menuState = tester.state(menu);
+      final query = tester.widget<TopicListFilterBar>(filters).filterQuery;
+      final platform = Theme.of(tester.element(list)).platform.name;
+      await _captureBoard(tester, 'retained-$label-$platform-source');
+      await tester.tap(find.text('Product roadmap · Backlog'));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'boards/1/cards/101');
+      expect(tester.state(list), same(listState));
+      expect(tester.widget<TopicListView>(list).feed.topicIds, [8]);
+      expect(tester.widget<TopicListFilterBar>(filters).filterQuery, query);
+      expect(find.text('Filtered source topic').hitTestable(), findsNothing);
+      await tester.dragFrom(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+        const Offset(0, 300),
+      );
+      var capturedReveal = false;
+      for (var frame = 0; frame < 60; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.state(filters), same(filterState));
+        expect(tester.state(menu), same(menuState));
+        expect(tester.widget<TopicListView>(list).feed.topicIds, [8]);
+        expect(tester.widget<TopicListFilterBar>(filters).filterQuery, query);
+        if (!capturedReveal && _sheet.evaluate().isEmpty) {
+          capturedReveal = true;
+          await _captureBoard(tester, 'retained-$label-$platform-revealed');
+        }
+      }
+      expect(_sheet, findsNothing);
+      expect(shell.currentContent, source);
+      expect(find.text('Filtered source topic').hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: platforms);
   }
