@@ -179,6 +179,53 @@ void main() {
     );
   });
 
+  for (final consumed in [false, true]) {
+    testWidgets('inline page consumes the bottom safe area once ($consumed)', (
+      tester,
+    ) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(bottom: 34);
+      tester.view.padding = const FakeViewPadding(bottom: 34);
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.android),
+          home: SafeArea(
+            bottom: consumed,
+            child: DSheetViewport(
+              content: DSheetContent(
+                variant: DSheetVariant.page,
+                side: DSheetSide.bottom,
+                showCloseButton: false,
+                children: [
+                  Expanded(
+                    child: SafeArea(
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: DButton(
+                          key: const ValueKey('page-action'),
+                          onPressed: () {},
+                          label: const Text('Action'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byKey(const ValueKey('page-action'))).bottom,
+        810,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'standalone reading viewport restores raw keyboard corner geometry',
     (tester) async {
