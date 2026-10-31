@@ -151,7 +151,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
               ),
           ],
           child: Semantics(
-            key: row.inbox ? ValueKey('inbox-row-${topic.id}') : null,
+            key: ValueKey('inbox-row-${topic.id}'),
             container: true,
             selected: selected,
             child: DItem(

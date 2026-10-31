@@ -206,7 +206,12 @@ class DSheetViewport extends StatefulWidget {
 
   /// Enables a sheet that follows its reader, starting above or below the bar.
   final DSheetReaderStart? readerStart;
-  final DSheetContent content;
+
+  /// The current reader, or `null` while its source is uncovered.
+  ///
+  /// Mounting without a reader retains the source slot across subsequent
+  /// reader visits. Give each reader entry a distinct key to reset its motion.
+  final DSheetContent? content;
 
   /// The previous page, painted during entrance and while pulled down.
   /// It recedes and darkens as the reading page covers it.
@@ -240,6 +245,7 @@ class DSheetViewport extends StatefulWidget {
 
 class _DSheetViewportState extends State<DSheetViewport>
     with SingleTickerProviderStateMixin {
+  late bool _retainsSource = widget.content == null;
   late final _entrance = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 280),
@@ -271,7 +277,7 @@ class _DSheetViewportState extends State<DSheetViewport>
         ?.owner;
     _edge.addListener(_syncEdge);
     _syncEdge();
-    if (widget.content.variant != DSheetVariant.page ||
+    if (widget.content?.variant != DSheetVariant.page ||
         MediaQuery.disableAnimationsOf(context) ||
         !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
       if (_entrance.value != 1) _entrance.value = 1;
@@ -279,6 +285,33 @@ class _DSheetViewportState extends State<DSheetViewport>
       unawaited(_entrance.forward());
     }
     _started = true;
+  }
+
+  @override
+  void didUpdateWidget(DSheetViewport oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _retainsSource = _retainsSource || widget.content == null;
+    final resetsReader =
+        _retainsSource ||
+        Theme.of(context).platform == TargetPlatform.android &&
+            widget.content?.variant == DSheetVariant.page;
+    if (!resetsReader ||
+        oldWidget.content?.key == widget.content?.key &&
+            (oldWidget.content == null) == (widget.content == null)) {
+      return;
+    }
+    _readerOffset = widget.readerStart == DSheetReaderStart.scrolled
+        ? double.infinity
+        : 0;
+    _edge.value = 0;
+    _entrance.stop();
+    if (widget.content == null ||
+        MediaQuery.disableAnimationsOf(context) ||
+        !DHistoryTransition.shouldAnimatePageEntranceOf(context)) {
+      _entrance.value = 1;
+    } else {
+      unawaited(_entrance.forward(from: 0));
+    }
   }
 
   @override
@@ -290,12 +323,100 @@ class _DSheetViewportState extends State<DSheetViewport>
 
   @override
   Widget build(BuildContext context) =>
-      widget.content.variant == DSheetVariant.page
-      ? _DSheetPageCorners(child: Builder(builder: _buildPage))
+      _retainsSource || widget.content?.variant == DSheetVariant.page
+      ? _DSheetPageCorners(
+          child: Builder(
+            builder: _retainsSource ? _buildRetainedPage : _buildPage,
+          ),
+        )
       : _buildPage(context);
 
-  Widget _buildPage(BuildContext context) {
+  Widget _buildRetainedPage(BuildContext context) {
     final content = widget.content;
+    assert(content == null || content.variant == DSheetVariant.page);
+    assert(content == null || !content.showCloseButton);
+    final overlap = content != null && widget.readerStart != null
+        ? math.max(0.0, (_edgeHost?._pendingBarExtent ?? 8) - 8 + 6)
+        : 0.0;
+    _edge.value = _readerOffset.clamp(0, overlap);
+    _syncEdge();
+    return _DSheetRiseScope(
+      edge: _edge,
+      overlap: overlap,
+      readerStart: widget.readerStart,
+      scrollTo: (offset) => _scrollTo(offset, overlap),
+      child: ClipPath(
+        clipBehavior: content != null && widget.readerStart != null
+            ? Clip.antiAlias
+            : Clip.none,
+        clipper: _DSheetRiseClipper(
+          _edge,
+          DSheetViewport.pageBorderRadius(context),
+        ),
+        child: _DSheetCurves(
+          animation: _entrance,
+          opaque: false,
+          covering: widget.covering,
+          readerIdentity: content == null
+              ? null
+              : content.key ?? const ValueKey('retained-reader'),
+          builder: (context, popup, backdrop, progress, swipeKey) {
+            final source = _sheetPageBackdrop(
+              context,
+              popup,
+              progress,
+              Padding(
+                padding: EdgeInsets.only(top: overlap),
+                child: widget.underlay,
+              ),
+              covered: content != null,
+            );
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                source,
+                if (content != null)
+                  FocusScope(
+                    child: _sheetLayout(
+                      context,
+                      DDialogPresentation(
+                        content: content,
+                        animation: _entrance,
+                        barrierLabel: context.l10n.sheetBackground,
+                        dismissOnBarrier: false,
+                        onBarrierDismiss: () {},
+                      ),
+                      popup,
+                      backdrop,
+                      progress,
+                      swipeKey,
+                      content.side,
+                      content.sidePanelMaxWidth,
+                      content.sidePanelWidth,
+                      content.inset,
+                      false,
+                      content.fillAvailableHeight,
+                      content.extendBehindKeyboard,
+                      widget.onDismiss != null ||
+                          widget.onSwipeDismissRequested != null,
+                      variant: content.variant,
+                      paintPageBackdrop: false,
+                      retainKeyboardInsets: true,
+                      onRetainedDismiss: widget.onDismiss,
+                      onRetainedSwipeDismissRequested:
+                          widget.onSwipeDismissRequested,
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPage(BuildContext context) {
+    final content = widget.content!;
     assert((!content.showCloseButton));
     final overlap = widget.readerStart != null
         ? math.max(
@@ -847,9 +968,11 @@ class _DSheetCurves extends StatefulWidget {
     required this.animation,
     required this.opaque,
     this.covering,
+    this.readerIdentity,
     required this.builder,
   });
 
+  final Object? readerIdentity;
   final Animation<double> animation;
 
   /// Whether the backdrop is an opaque canvas until a swipe fades it.
@@ -872,7 +995,7 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   late CurvedAnimation _popup;
   late CurvedAnimation _backdrop;
   final _swipeProgress = ValueNotifier(0.0);
-  final _swipeKey = GlobalKey<_DSheetSwipeDismissState>();
+  var _swipeKey = GlobalKey<_DSheetSwipeDismissState>();
 
   @override
   void initState() {
@@ -907,6 +1030,10 @@ class _DSheetCurvesState extends State<_DSheetCurves> {
   @override
   void didUpdateWidget(_DSheetCurves oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.readerIdentity != widget.readerIdentity) {
+      _swipeKey = GlobalKey<_DSheetSwipeDismissState>();
+      _swipeProgress.value = 0;
+    }
     if (oldWidget.covering != widget.covering) {
       oldWidget.covering?.value = false;
     }
@@ -976,6 +1103,12 @@ Widget _sheetPresentation(
         fillAvailableHeight &&
         variant != DSheetVariant.page,
     covering: covering,
+    readerIdentity:
+        retainKeyboardInsets &&
+            variant == DSheetVariant.page &&
+            Theme.of(context).platform == TargetPlatform.android
+        ? presentation.content.key
+        : null,
     builder: (context, popupCurve, backdropCurve, swipeProgress, swipeKey) =>
         _sheetLayout(
           context,
@@ -1002,6 +1135,59 @@ Widget _sheetPresentation(
   );
 }
 
+Widget _sheetPageBackdrop(
+  BuildContext context,
+  Animation<double> popupCurve,
+  ValueNotifier<double> swipeProgress,
+  Widget? underlay, {
+  bool covered = true,
+}) {
+  final animate = !MediaQuery.disableAnimationsOf(context);
+  return AnimatedBuilder(
+    animation: Listenable.merge([popupCurve, swipeProgress]),
+    child: ExcludeFocus(
+      excluding: covered,
+      child: ExcludeSemantics(
+        excluding: covered,
+        child: DPageHeaderHost.exclude(
+          excluding: covered,
+          child: IgnorePointer(
+            ignoring: covered,
+            child: ClipRect(child: underlay ?? const SizedBox.expand()),
+          ),
+        ),
+      ),
+    ),
+    builder: (context, child) {
+      final visible =
+          !covered || popupCurve.value < 1 || swipeProgress.value > 0;
+      final depth = covered && animate
+          ? popupCurve.value * (1 - swipeProgress.value)
+          : 0.0;
+      return Offstage(
+        offstage: !visible,
+        child: TickerMode(
+          enabled: visible,
+          child: Transform.scale(
+            scale: 1 - .06 * depth,
+            child: ColorFiltered(
+              colorFilter: ColorFilter.mode(
+                DTokens.of(context).colors.scrim.withValues(alpha: .24 * depth),
+                BlendMode.srcATop,
+              ),
+              child: ClipRRect(
+                clipBehavior: covered ? Clip.antiAlias : Clip.none,
+                borderRadius: DSheetViewport.pageBorderRadius(context),
+                child: child,
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+}
+
 Widget _sheetLayout(
   BuildContext context,
   DDialogPresentation presentation,
@@ -1023,6 +1209,7 @@ Widget _sheetLayout(
   VoidCallback? onRetainedDismiss,
   VoidCallback? onRetainedSwipeDismissRequested,
   Widget? underlay,
+  bool paintPageBackdrop = true,
 }) {
   final page = variant == DSheetVariant.page;
   final animate = !MediaQuery.disableAnimationsOf(context);
@@ -1042,15 +1229,7 @@ Widget _sheetLayout(
     Theme.of(context).brightness == Brightness.dark ? .32 : .12,
   )!;
   Widget backdrop = page
-      ? (underlay == null
-            ? const SizedBox.expand()
-            : ExcludeFocus(
-                child: ExcludeSemantics(
-                  child: DPageHeaderHost.exclude(
-                    child: IgnorePointer(child: ClipRect(child: underlay)),
-                  ),
-                ),
-              ))
+      ? const SizedBox.expand()
       : fillAvailableHeight
       ? presentation.buildBackdrop(color: backdropColor)
       : presentation.buildBackdrop();
@@ -1058,37 +1237,14 @@ Widget _sheetLayout(
     backdrop = FadeTransition(opacity: backdropCurve, child: backdrop);
   }
   if (page) {
-    backdrop = AnimatedBuilder(
-      animation: Listenable.merge([popupCurve, swipeProgress]),
-      child: backdrop,
-      builder: (context, child) {
-        final visible = popupCurve.value < 1 || swipeProgress.value > 0;
-        final depth = animate
-            ? popupCurve.value * (1 - swipeProgress.value)
-            : 0.0;
-        return Offstage(
-          offstage: !visible,
-          child: TickerMode(
-            enabled: visible,
-            child: Transform.scale(
-              scale: 1 - .06 * depth,
-              child: ColorFiltered(
-                colorFilter: ColorFilter.mode(
-                  DTokens.of(
-                    context,
-                  ).colors.scrim.withValues(alpha: .24 * depth),
-                  BlendMode.srcATop,
-                ),
-                child: ClipRRect(
-                  borderRadius: DSheetViewport.pageBorderRadius(context),
-                  child: child,
-                ),
-              ),
-            ),
-          ),
-        );
-      },
-    );
+    if (paintPageBackdrop) {
+      backdrop = _sheetPageBackdrop(
+        context,
+        popupCurve,
+        swipeProgress,
+        underlay,
+      );
+    }
   } else {
     backdrop = ValueListenableBuilder<double>(
       valueListenable: swipeProgress,

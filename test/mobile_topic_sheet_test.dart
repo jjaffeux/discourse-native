@@ -680,8 +680,24 @@ void main() {
       }
 
       final rows = rowsInList();
+      final rowStates = [
+        for (final id in [6, 7, 8])
+          tester.state(
+            find.byKey(ValueKey('topic-card-$id'), skipOffstage: false),
+          ),
+      ];
       void expectRowsUnchanged() {
         for (final (index, row) in rowsInList().indexed) {
+          expect(
+            tester.state(
+              find.byKey(
+                ValueKey('topic-card-${index + 6}'),
+                skipOffstage: false,
+              ),
+            ),
+            same(rowStates[index]),
+            reason: 'Row ${index + 6} lost its mounted controls',
+          );
           expect(
             row.top,
             closeTo(rows[index].top, .001),

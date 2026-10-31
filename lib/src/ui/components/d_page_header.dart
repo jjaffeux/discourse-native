@@ -175,14 +175,21 @@ class DPageHeaderHost extends StatefulWidget {
   )
   builder;
 
-  static Widget exclude({required Widget child}) => Builder(
-    builder: (context) => _HostScope(
-      host: null,
-      identity: null,
-      titlesInBar: titlesInBarOf(context),
-      child: child,
-    ),
-  );
+  /// Keeps a subtree mounted while excluding its headers from this host.
+  /// Setting [excluding] to false restores the surrounding host registration.
+  static Widget exclude({bool excluding = true, required Widget child}) =>
+      Builder(
+        builder: (context) {
+          final scope = context
+              .dependOnInheritedWidgetOfExactType<_HostScope>();
+          return _HostScope(
+            host: excluding ? null : scope?.host,
+            identity: excluding ? null : scope?.identity,
+            titlesInBar: scope?.titlesInBar ?? false,
+            child: child,
+          );
+        },
+      );
 
   @override
   State<DPageHeaderHost> createState() => _DPageHeaderHostState();
