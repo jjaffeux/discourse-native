@@ -390,9 +390,8 @@ void main() {
           final topicBounds = tester.getRect(find.byType(DPageSurface));
           for (final card in [opening, reply]) {
             final bounds = tester.getRect(card);
-            // Both 1px strokes are inside their bounds, leaving 1px clear.
-            expect(bounds.left - topicBounds.left, 2);
-            expect(topicBounds.right - bounds.right, 2);
+            expect(bounds.left - topicBounds.left, 1);
+            expect(topicBounds.right - bounds.right, 1);
           }
           final openingCard = tester.widget<DCard>(opening);
           final primary = Theme.of(tester.element(opening)).colorScheme.primary;

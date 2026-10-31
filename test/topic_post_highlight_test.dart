@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -14,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -94,6 +96,7 @@ void main() {
   testWidgets('briefly highlights the post surface and then clears it', (
     tester,
   ) async {
+    await prepareNativeUiEvidence(tester);
     tester.view.physicalSize = const Size(800, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -111,6 +114,14 @@ void main() {
         postNumber: 2,
         username: 'sam',
         cooked: '<p>Target post</p>',
+      ),
+      Post(
+        id: 13,
+        postNumber: 3,
+        username: 'sam',
+        postType: Post.smallActionPostType,
+        actionCode: 'closed.enabled',
+        cooked: '',
       ),
     ];
     final payload = topicPayload(
@@ -143,6 +154,7 @@ void main() {
         controller: controller,
         child: MaterialApp(
           theme: AppTheme.light,
+          builder: nativeUiEvidenceBuilder,
           home: const Scaffold(body: TopicView(showSidebar: true)),
         ),
       ),
@@ -155,7 +167,7 @@ void main() {
 
     final surface = find.byKey(const ValueKey('topic-post-highlight-12'));
     expect(surface, findsOneWidget);
-    expect(_surfaceDecoration(tester, surface).color, Colors.transparent);
+    expect(find.byKey(const ValueKey('post-news-card-12')), findsNothing);
 
     controller.openTopicPost(
       siteUrl: site.url,
@@ -167,20 +179,71 @@ void main() {
 
     expect(find.byKey(const ValueKey('topic-sidebar-panel')), findsNothing);
     expect(controller.isTopicPostHighlighted(site.url, 7, 2), isTrue);
+    final card = find.byKey(const ValueKey('post-news-card-12'));
+    expect(card, findsOneWidget);
+    expect(tester.widget<DCard>(card).borderColor!.a, greaterThan(0));
+    final paintedAncestors = tester
+        .widgetList<AnimatedContainer>(
+          find.ancestor(of: card, matching: find.byType(AnimatedContainer)),
+        )
+        .where((widget) {
+          final decoration = widget.decoration;
+          if (decoration is! BoxDecoration) return false;
+          final border = decoration.border;
+          return border is Border && border.top.color.a > 0;
+        });
     expect(
-      _surfaceDecoration(tester, surface).color,
-      isNot(Colors.transparent),
+      paintedAncestors,
+      isEmpty,
+      reason: 'the post card owns the sole navigation outline',
     );
+
+    await captureNativeUi(tester, 'search-target-post');
+
+    controller.openTopicPost(
+      siteUrl: site.url,
+      topicId: 7,
+      postNumber: 1,
+      highlight: true,
+    );
+    await tester.pump();
+    final openingCard = find.byKey(const ValueKey('post-news-card-11'));
+    expect(openingCard, findsOneWidget);
+    expect(
+      find.descendant(
+        of: openingCard,
+        matching: find.byKey(const ValueKey('topic-map')),
+      ),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('topic-map')), findsOneWidget);
+    await captureNativeUi(tester, 'search-opening-post');
 
     await tester.pump(const Duration(milliseconds: 2200));
 
-    expect(controller.isTopicPostHighlighted(site.url, 7, 2), isFalse);
-    expect(_surfaceDecoration(tester, surface).color, Colors.transparent);
+    expect(controller.isTopicPostHighlighted(site.url, 7, 1), isFalse);
+    expect(find.byKey(const ValueKey('post-news-card-11')), findsNothing);
+    expect(find.byKey(const ValueKey('post-news-card-12')), findsNothing);
+
+    controller.openTopicPost(
+      siteUrl: site.url,
+      topicId: 7,
+      postNumber: 3,
+      highlight: true,
+    );
+    await tester.pump();
+    final smallCard = find.descendant(
+      of: find.byKey(const ValueKey('topic-post-highlight-13')),
+      matching: find.byType(DCard),
+    );
+    expect(smallCard, findsOneWidget);
+    expect(tester.widget<DCard>(smallCard).borderColor!.a, greaterThan(0));
+    await captureNativeUi(tester, 'search-small-action');
+    await tester.pump(const Duration(milliseconds: 2200));
+    expect(controller.isTopicPostHighlighted(site.url, 7, 3), isFalse);
+    expect(tester.widget<DCard>(smallCard).borderColor, Colors.transparent);
   });
 }
-
-BoxDecoration _surfaceDecoration(WidgetTester tester, Finder surface) =>
-    tester.widget<AnimatedContainer>(surface).decoration! as BoxDecoration;
 
 final class _RecordingRouteHost implements PluginRouteNavigationHost {
   @override

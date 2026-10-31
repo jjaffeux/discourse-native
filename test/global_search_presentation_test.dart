@@ -9,8 +9,10 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
+import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -409,29 +411,60 @@ void main({bool useDeviceMetrics = false}) {
     });
   }
 
-  _testPresentation('mobile result selection closes the search page', (
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    _testPresentation('$platform result selection keeps search words out of '
+        'the mobile top bar', (tester) async {
+      debugDefaultTargetPlatformOverride = platform;
+      final shell = await _pumpSearch(tester, size: phone);
+      await _openAndSearch(tester, 'design');
+      final result = _panelText('A calmer, more useful global search').first;
+      await tester.ensureVisible(result);
+      await tester.pumpAndSettle();
+      await tester.tap(result);
+      await tester.pumpAndSettle();
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      expect(find.byKey(ForumSearch.inputKey), findsNothing);
+      expect(shell.globalSearch.query, isEmpty);
+      expect(
+        shell.search.wordsFor(
+          globalSearchFixtureSite,
+          shell.activeTabId,
+          'topic-1038',
+        ),
+        'design',
+      );
+      expect(shell.currentInstance?.url, globalSearchFixtureSite);
+      expect(shell.currentContent?.topicId, 1038);
+      expect(SearchWords.of(tester.element(find.byType(TopicView))), 'design');
+      expect(find.widgetWithText(DButton, 'design'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  _testPresentation('desktop topic keeps its search words clear action', (
     tester,
   ) async {
-    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-    final shell = await _pumpSearch(tester, size: phone);
+    final shell = await _pumpSearch(tester);
     await _openAndSearch(tester, 'design');
     final result = _panelText('A calmer, more useful global search').first;
     await tester.ensureVisible(result);
     await tester.pumpAndSettle();
     await tester.tap(result);
     await tester.pumpAndSettle();
-    expect(find.byKey(ForumSearch.panelKey), findsNothing);
-    expect(shell.globalSearch.query, isEmpty);
+    expect(shell.currentContent?.topicId, 1038);
+    final clearWords = find.widgetWithText(DButton, 'design');
+    expect(clearWords, findsOneWidget);
+    await tester.tap(clearWords);
+    await tester.pumpAndSettle();
     expect(
       shell.search.wordsFor(
         globalSearchFixtureSite,
         shell.activeTabId,
         'topic-1038',
       ),
-      'design',
+      isEmpty,
     );
-    expect(shell.currentInstance?.url, globalSearchFixtureSite);
-    expect(shell.currentContent?.topicId, 1038);
+    expect(clearWords, findsNothing);
     expect(tester.takeException(), isNull);
   });
 
