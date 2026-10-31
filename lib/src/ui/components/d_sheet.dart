@@ -1117,7 +1117,9 @@ Widget _sheetLayout(
     foot: viewportBottom
         ? math.max(
             MediaQuery.viewPaddingOf(context).bottom,
-            view.viewPadding.bottom / view.devicePixelRatio,
+            retainKeyboardInsets
+                ? 0
+                : view.viewPadding.bottom / view.devicePixelRatio,
           )
         : 0,
   );
