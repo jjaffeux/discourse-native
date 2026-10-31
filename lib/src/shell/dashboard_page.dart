@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 
 import '../models/dashboard.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'dashboard_controller.dart';
 import 'skeleton_fill.dart';
@@ -94,6 +95,7 @@ class DashboardPage extends StatefulWidget {
 
 class _DashboardPageState extends State<DashboardPage> {
   final Set<String> _trafficOff = {'page_view_crawler'};
+  String? _trafficEmphasis;
   DashboardState get state => widget.state;
   @override
   Widget build(BuildContext context) {
@@ -369,6 +371,10 @@ class _DashboardPageState extends State<DashboardPage> {
                     ),
                 ],
               ),
+              sheenColor: _tone(
+                metric.change,
+                lowerIsBetter: metric.type == 'bounce_rate',
+              ),
             ),
         ], maximumColumns: metrics.length == 3 ? 3 : 2);
 
@@ -387,68 +393,98 @@ class _DashboardPageState extends State<DashboardPage> {
   TextStyle? get _muted => Theme.of(
     context,
   ).textTheme.bodySmall?.copyWith(color: DTokens.of(context).mutedForeground);
-  Widget _delta(num value, {bool lowerIsBetter = false}) => Text(
-    '${_signed(value)}%',
-    style: _muted?.copyWith(
-      color: (lowerIsBetter ? value <= 0 : value >= 0)
-          ? DTokens.of(context).success
-          : DTokens.of(context).destructive,
-    ),
-  );
+  Color _tone(num? change, {bool lowerIsBetter = false}) {
+    final tokens = DTokens.of(context);
+    if (change == null || change.round() == 0) return tokens.mutedForeground;
+    return (lowerIsBetter ? change < 0 : change > 0)
+        ? tokens.success
+        : tokens.destructive;
+  }
 
-  Widget _report(DashboardReport report, DashboardReportResult? result) =>
-      _card(
-        report.title,
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          spacing: 10,
-          children: [
-            if (report.description.isNotEmpty)
-              Text(report.description, style: _muted),
-            if (result == null || result.error)
-              Text(context.l10n.dashboardSectionError)
-            else if (result.unsupported)
-              Text(context.l10n.dashboardSectionUnsupported)
-            else if (result.points.isNotEmpty) ...[
-              Text(
-                result.percent
-                    ? _percent(result.value)
-                    : report.identifier == 'time_to_first_response' &&
-                          result.value != null
-                    ? context.l10n.dashboardDurationHours(
-                        _decimal(result.value),
-                      )
-                    : _decimal(result.value),
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-              _line(report.title, result.points),
-            ] else if (result.rows.isNotEmpty && result.headings.isNotEmpty)
-              _table(result.headings, result.rows)
-            else
-              Text(context.l10n.dashboardNoData, style: _muted),
-            Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: DButton(
-                label: Text(context.l10n.dashboardOpenReport),
-                variant: DButtonVariant.link,
-                onPressed: () => widget.onOpenReport(report),
-              ),
+  Widget _delta(num value, {bool lowerIsBetter = false}) {
+    final tokens = DTokens.of(context);
+    final color = (lowerIsBetter ? value <= 0 : value >= 0)
+        ? tokens.success
+        : tokens.destructive;
+    return DBadge(
+      size: DBadgeSize.regular,
+      backgroundColor: color.withValues(alpha: .14),
+      foregroundColor: color,
+      borderColor: color.withValues(alpha: 0),
+      leading: DIcon(
+        value >= 0 ? DNativeIcons.caretUp : DNativeIcons.caretDown,
+      ),
+      child: Text(
+        '${_signed(value)}%',
+        style: const TextStyle(
+          fontWeight: FontWeight.w700,
+          fontFeatures: [FontFeature.tabularFigures()],
+        ),
+      ),
+    );
+  }
+
+  Widget _report(DashboardReport report, DashboardReportResult? result) {
+    final lowerIsBetter = report.identifier == 'time_to_first_response';
+    final tone = _tone(result?.change, lowerIsBetter: lowerIsBetter);
+    return _card(
+      report.title,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        spacing: 10,
+        children: [
+          if (report.description.isNotEmpty)
+            Text(report.description, style: _muted),
+          if (result == null || result.error)
+            Text(context.l10n.dashboardSectionError)
+          else if (result.unsupported)
+            Text(context.l10n.dashboardSectionUnsupported)
+          else if (result.points.isNotEmpty) ...[
+            Text(
+              result.percent
+                  ? _percent(result.value)
+                  : report.identifier == 'time_to_first_response' &&
+                        result.value != null
+                  ? context.l10n.dashboardDurationHours(_decimal(result.value))
+                  : _decimal(result.value),
+              style: Theme.of(context).textTheme.headlineSmall,
             ),
-          ],
+            if (result.change != null)
+              Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: _delta(result.change!, lowerIsBetter: lowerIsBetter),
+              ),
+            _line(report.title, result.points, tone),
+          ] else if (result.rows.isNotEmpty && result.headings.isNotEmpty)
+            _table(result.headings, result.rows)
+          else
+            Text(context.l10n.dashboardNoData, style: _muted),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: DButton(
+              label: Text(context.l10n.dashboardOpenReport),
+              variant: DButtonVariant.link,
+              onPressed: () => widget.onOpenReport(report),
+            ),
+          ),
+        ],
+      ),
+      sheenColor: tone,
+    );
+  }
+
+  Widget _line(String title, List<DashboardPoint> points, Color tone) =>
+      DChartContainer(
+        config: {'value': DChartConfigEntry(label: title, color: (_) => tone)},
+        child: DCartesianChart<DashboardPoint>(
+          plot: DChartPlot.area,
+          data: points,
+          series: [DChartSeries(key: 'value', value: (point) => point.value)],
+          label: (point) => _dateLabel(point.label),
+          semanticLabel: title,
+          height: 140,
         ),
       );
-
-  Widget _line(String title, List<DashboardPoint> points) => DChartContainer(
-    config: {'value': DChartConfigEntry(label: title)},
-    child: DCartesianChart<DashboardPoint>(
-      plot: DChartPlot.line,
-      data: points,
-      series: [DChartSeries(key: 'value', value: (point) => point.value)],
-      label: (point) => _dateLabel(point.label),
-      semanticLabel: title,
-      height: 140,
-    ),
-  );
   String _dateLabel(String value) {
     final date = DateTime.tryParse(value);
     return date == null
@@ -502,6 +538,9 @@ class _DashboardPageState extends State<DashboardPage> {
                 Text(context.l10n.dashboardTrafficHelp, style: _muted),
                 DCartesianChart<MapEntry<String, Map<String, num?>>>(
                   plot: DChartPlot.stackedArea,
+                  emphasizedSeries: _trafficOff.contains(_trafficEmphasis)
+                      ? null
+                      : _trafficEmphasis,
                   data: data,
                   series: [
                     for (final series in shown)
@@ -521,17 +560,38 @@ class _DashboardPageState extends State<DashboardPage> {
                   runSpacing: 6,
                   children: [
                     for (var i = 0; i < traffic.series.length; i++)
-                      DToggle(
-                        pressed: !_trafficOff.contains(traffic.series[i].id),
-                        onPressedChanged: (pressed) => setState(() {
-                          if (pressed) {
-                            _trafficOff.remove(traffic.series[i].id);
-                          } else {
-                            _trafficOff.add(traffic.series[i].id);
-                          }
+                      MouseRegion(
+                        onEnter: (_) => setState(() {
+                          _trafficEmphasis =
+                              _trafficOff.contains(traffic.series[i].id)
+                              ? null
+                              : traffic.series[i].id;
                         }),
-                        child: DChartLegendContent(
-                          items: [DChartItem(key: traffic.series[i].id)],
+                        onExit: (_) => setState(() => _trafficEmphasis = null),
+                        child: Focus(
+                          canRequestFocus: false,
+                          onFocusChange: (focused) => setState(() {
+                            _trafficEmphasis =
+                                focused &&
+                                    !_trafficOff.contains(traffic.series[i].id)
+                                ? traffic.series[i].id
+                                : null;
+                          }),
+                          child: DToggle(
+                            pressed: !_trafficOff.contains(
+                              traffic.series[i].id,
+                            ),
+                            onPressedChanged: (pressed) => setState(() {
+                              if (pressed) {
+                                _trafficOff.remove(traffic.series[i].id);
+                              } else {
+                                _trafficOff.add(traffic.series[i].id);
+                              }
+                            }),
+                            child: DChartLegendContent(
+                              items: [DChartItem(key: traffic.series[i].id)],
+                            ),
+                          ),
                         ),
                       ),
                   ],
@@ -574,6 +634,10 @@ class _DashboardPageState extends State<DashboardPage> {
               ],
           ],
           firstCellPaths: breakdown.rows.map((row) => row.link).toList(),
+          cellBuilder: (row, column) =>
+              column == 5 && breakdown.rows[row].change != null
+              ? _delta(breakdown.rows[row].change!)
+              : null,
         ),
       );
     }
@@ -617,6 +681,10 @@ class _DashboardPageState extends State<DashboardPage> {
                       ),
                       const SizedBox(width: 8),
                       Text(_number(row.count)),
+                      if (row.change != null) ...[
+                        const SizedBox(width: 8),
+                        _delta(row.change!),
+                      ],
                     ],
                   ),
                   if (row.share != null || row.count != null)
@@ -756,6 +824,7 @@ class _DashboardPageState extends State<DashboardPage> {
     List<String> headings,
     List<List<String>> rows, {
     List<DashboardLink?>? firstCellPaths,
+    Widget? Function(int row, int column)? cellBuilder,
   }) => DTable(
     header: DTableHeader(
       rows: [
@@ -773,14 +842,16 @@ class _DashboardPageState extends State<DashboardPage> {
             cells: [
               for (var j = 0; j < rows[i].length; j++)
                 DTableCell(
-                  child: j == 0 && firstCellPaths?[i] != null
-                      ? DButton(
-                          variant: DButtonVariant.link,
-                          label: Text(rows[i][j]),
-                          onPressed: () =>
-                              widget.onOpenUrl(firstCellPaths![i]!),
-                        )
-                      : Text(rows[i][j]),
+                  child:
+                      cellBuilder?.call(i, j) ??
+                      (j == 0 && firstCellPaths?[i] != null
+                          ? DButton(
+                              variant: DButtonVariant.link,
+                              label: Text(rows[i][j]),
+                              onPressed: () =>
+                                  widget.onOpenUrl(firstCellPaths![i]!),
+                            )
+                          : Text(rows[i][j])),
                 ),
             ],
           ),
@@ -806,11 +877,12 @@ class _DashboardPageState extends State<DashboardPage> {
           );
         },
       );
-  Widget _card(String title, Widget content) => _cardFrame([
-    Text(title, style: Theme.of(context).textTheme.titleSmall),
-    content,
-  ]);
-  Widget _cardFrame(List<Widget> children) => DCard(
+  Widget _card(String title, Widget content, {Color? sheenColor}) => _cardFrame(
+    [Text(title, style: Theme.of(context).textTheme.titleSmall), content],
+    sheenColor: sheenColor,
+  );
+  Widget _cardFrame(List<Widget> children, {Color? sheenColor}) => DCard(
+    sheenColor: sheenColor ?? DChartColors.series(context, 0),
     child: Padding(
       padding: const EdgeInsets.all(14),
       child: Column(
