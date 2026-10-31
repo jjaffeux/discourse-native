@@ -148,133 +148,148 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('nested controls move without scaling their artwork or targets', (
-    tester,
-  ) async {
-    late StateSetter rebuild;
-    var compact = false;
-    var reducedMotion = false;
-    var activated = 0;
-    const glyphKey = ValueKey('moving-glyph');
-    const buttonKey = ValueKey('moving-button');
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-        home: Scaffold(
-          body: StatefulBuilder(
-            builder: (context, setState) {
-              rebuild = setState;
-              return MediaQuery(
-                data: MediaQuery.of(
-                  context,
-                ).copyWith(disableAnimations: reducedMotion),
-                child: Align(
-                  alignment: Alignment.topLeft,
-                  child: SizedBox(
-                    width: 400,
-                    child: DFitRow(
-                      compact: compact,
-                      children: [
-                        DFitRowItem(
-                          child: DButtonGroup.quiet(
-                            children: [
-                              Builder(
-                                builder: (context) => DFitRow.compactOf(context)
-                                    ? DButton.iconOnly(
-                                        icon: const DIcon(DIcons.tag, size: 14),
-                                        semanticLabel: 'First category',
-                                        tooltip: 'First category',
-                                        size: DButtonSize.filter,
-                                        variant: DButtonVariant.quiet,
-                                        onPressed: () {},
-                                      )
-                                    : DButton(
-                                        label: const Text('First category'),
-                                        icon: const DIcon(DIcons.tag, size: 14),
-                                        size: DButtonSize.filter,
-                                        variant: DButtonVariant.quiet,
-                                        onPressed: () {},
-                                      ),
+  testWidgets(
+    'nested controls move without scaling their artwork or targets',
+    (tester) async {
+      late StateSetter rebuild;
+      var compact = false;
+      var reducedMotion = false;
+      var activated = 0;
+      const glyphKey = ValueKey('moving-glyph');
+      const buttonKey = ValueKey('moving-button');
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (context, setState) {
+                rebuild = setState;
+                return MediaQuery(
+                  data: MediaQuery.of(
+                    context,
+                  ).copyWith(disableAnimations: reducedMotion),
+                  child: Align(
+                    alignment: Alignment.topLeft,
+                    child: SizedBox(
+                      width: 400,
+                      child: DFitRow(
+                        compact: compact,
+                        children: [
+                          DFitRowItem(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: DButtonGroup.quiet(
+                                children: [
+                                  Builder(
+                                    builder: (context) =>
+                                        DFitRow.compactOf(context)
+                                        ? DButton.iconOnly(
+                                            icon: const DIcon(
+                                              DIcons.tag,
+                                              size: 14,
+                                            ),
+                                            semanticLabel: 'First category',
+                                            tooltip: 'First category',
+                                            size: DButtonSize.filter,
+                                            variant: DButtonVariant.quiet,
+                                            onPressed: () {},
+                                          )
+                                        : DButton(
+                                            label: const Text('First category'),
+                                            icon: const DIcon(
+                                              DIcons.tag,
+                                              size: 14,
+                                            ),
+                                            size: DButtonSize.filter,
+                                            variant: DButtonVariant.quiet,
+                                            onPressed: () {},
+                                          ),
+                                  ),
+                                  DButton.iconOnly(
+                                    key: buttonKey,
+                                    icon: const DIcon(
+                                      DIcons.tag,
+                                      key: glyphKey,
+                                      size: 14,
+                                    ),
+                                    semanticLabel: 'Second category',
+                                    tooltip: 'Second category',
+                                    size: DButtonSize.filter,
+                                    variant: DButtonVariant.quiet,
+                                    onPressed: () => activated++,
+                                  ),
+                                ],
                               ),
-                              DButton.iconOnly(
-                                key: buttonKey,
-                                icon: const DIcon(
-                                  DIcons.tag,
-                                  key: glyphKey,
-                                  size: 14,
-                                ),
-                                semanticLabel: 'Second category',
-                                tooltip: 'Second category',
-                                size: DButtonSize.filter,
-                                variant: DButtonVariant.quiet,
-                                onPressed: () => activated++,
-                              ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
-      ),
-    );
-    Rect painted(Finder finder) {
-      final box = tester.renderObject<RenderBox>(finder);
-      return Rect.fromPoints(
-        box.localToGlobal(Offset.zero),
-        box.localToGlobal(box.size.bottomRight(Offset.zero)),
       );
-    }
+      Rect painted(Finder finder) {
+        final box = tester.renderObject<RenderBox>(finder);
+        return Rect.fromPoints(
+          box.localToGlobal(Offset.zero),
+          box.localToGlobal(box.size.bottomRight(Offset.zero)),
+        );
+      }
 
-    final glyph = find.byKey(glyphKey);
-    final button = find.byKey(buttonKey);
-    final element = tester.element(button);
-    final initialGlyph = painted(glyph);
-    rebuild(() => compact = true);
-    await tester.pump();
-    expect(painted(glyph).left, closeTo(initialGlyph.left, .01));
-    await tester.pump(const Duration(milliseconds: 130));
-    final middle = painted(glyph);
-    expect(middle.size, initialGlyph.size);
-    expect(tester.element(button), same(element));
-    await tester.tapAt(middle.center);
-    expect(activated, 1);
-    await tester.pumpAndSettle();
-    final end = painted(glyph);
-    expect(end.size, initialGlyph.size);
-    expect(
-      middle.left,
-      closeTo(
-        initialGlyph.left +
-            (end.left - initialGlyph.left) *
-                const Cubic(.2, .8, .2, 1).transform(.5),
-        .01,
-      ),
-    );
-    rebuild(() => compact = false);
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 130));
-    final expanding = painted(glyph);
-    expect(expanding.size, initialGlyph.size);
-    await tester.tapAt(expanding.center + const Offset(16, 0));
-    expect(activated, 2);
-    final interrupted = painted(glyph);
-    rebuild(() => compact = true);
-    await tester.pump();
-    expect(painted(glyph).left, closeTo(interrupted.left, .01));
-    await tester.pumpAndSettle();
-    rebuild(() {
-      compact = false;
-      reducedMotion = true;
-    });
-    await tester.pump();
-    expect(painted(glyph), initialGlyph);
-    expect(tester.takeException(), isNull);
-  });
+      final glyph = find.byKey(glyphKey);
+      final button = find.byKey(buttonKey);
+      final element = tester.element(button);
+      final initialGlyph = painted(glyph);
+      rebuild(() => compact = true);
+      await tester.pump();
+      expect(painted(glyph).left, closeTo(initialGlyph.left, .01));
+      await tester.pump(const Duration(milliseconds: 130));
+      final middle = painted(glyph);
+      expect(middle.size, initialGlyph.size);
+      expect(tester.element(button), same(element));
+      await tester.tapAt(middle.center);
+      expect(activated, 1);
+      await tester.pumpAndSettle();
+      final end = painted(glyph);
+      expect(end.size, initialGlyph.size);
+      expect(
+        middle.left,
+        closeTo(
+          initialGlyph.left +
+              (end.left - initialGlyph.left) *
+                  const Cubic(.2, .8, .2, 1).transform(.5),
+          .01,
+        ),
+      );
+      rebuild(() => compact = false);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 130));
+      final expanding = painted(glyph);
+      expect(expanding.size, initialGlyph.size);
+      await tester.tapAt(expanding.center + const Offset(16, 0));
+      expect(activated, 2);
+      final interrupted = painted(glyph);
+      rebuild(() => compact = true);
+      await tester.pump();
+      expect(painted(glyph).left, closeTo(interrupted.left, .01));
+      await tester.pumpAndSettle();
+      rebuild(() {
+        compact = false;
+        reducedMotion = true;
+      });
+      await tester.pump();
+      expect(painted(glyph), initialGlyph);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   // Three pills of 100, 100 and a Filters of 96 that drops to 31, 8 apart:
   // 312 at full length, 247 tight.
