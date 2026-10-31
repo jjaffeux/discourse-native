@@ -3,6 +3,7 @@ import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
@@ -54,6 +55,87 @@ Finder _groupEnd(int id) => find.byWidgetPredicate(
 void main() {
   const firstSite = 'https://one.example';
   const secondSite = 'https://two.example';
+
+  setUp(() {
+    final environment = TimezoneEnvironment.instance;
+    final previousZone = environment.deviceTimezone;
+    environment.setDeviceTimezone('Etc/UTC');
+    addTearDown(() => environment.setDeviceTimezone(previousZone));
+  });
+
+  testWidgets(
+    'account timezone controls message clocks and midnight grouping',
+    (tester) async {
+      final environment = TimezoneEnvironment.instance;
+      final previousZone = environment.deviceTimezone;
+      environment.setDeviceTimezone('Europe/Paris');
+      addTearDown(() => environment.setDeviceTimezone(previousZone));
+      const user = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        timezone: 'America/Los_Angeles',
+      );
+      final api = _ChatApi(
+        user: user,
+        chatChannelsBySite: const {
+          firstSite: ChatChannels(
+            public: [
+              ChatChannel(
+                id: 9,
+                title: 'General',
+                kind: ChatChannelKind.category,
+                membership: ChatMembership(following: true),
+              ),
+            ],
+            direct: [],
+          ),
+        },
+        openPages: {
+          firstSite: [
+            (
+              messages: [
+                _message(1, createdAt: DateTime.utc(2026, 10, 31, 6, 59)),
+                _message(
+                  2,
+                  createdAt: DateTime.utc(2026, 10, 31, 7, 1),
+                  authorId: 3,
+                ),
+              ],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          ],
+        },
+      );
+      final controller = await _controller(api, sites: [firstSite], user: user);
+      addTearDown(controller.dispose);
+      await controller.chat.loadChannels(firstSite);
+      expect(controller.openChatChannel(9), isTrue);
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('chat-message-time-1')))
+            .data,
+        '11:59 PM',
+      );
+      expect(
+        tester
+            .widget<Text>(find.byKey(const ValueKey('chat-message-time-2')))
+            .data,
+        '12:01 AM',
+      );
+      expect(
+        tester
+            .widgetList<StreamDaySeparator>(find.byType(StreamDaySeparator))
+            .map((separator) => separator.day),
+        containsAll([DateTime(2026, 10, 30), DateTime(2026, 10, 31)]),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final width in [320.0, 1000.0]) {
     testWidgets(
@@ -1166,6 +1248,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1275,6 +1358,7 @@ void main() {
                 items,
                 buildChatStream(
                   controller.chat.messages(firstSite, 9),
+                  time: controller.chat.timeFor(firstSite),
                   lastReadMessageId: stream.lastReadOnOpen,
                 ),
               );
@@ -1378,6 +1462,7 @@ void main() {
                   .items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1462,6 +1547,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -1542,6 +1628,7 @@ void main() {
               items,
               buildChatStream(
                 controller.chat.messages(firstSite, 9),
+                time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
             );
@@ -3799,8 +3886,12 @@ void main() {
         for (var id = 1; id <= 48; id++)
           _message(
             id,
-            createdAt: (id <= 24 ? firstDay : secondDay).add(
-              Duration(minutes: id <= 24 ? id : id - 24),
+            createdAt: DateTime.utc(
+              2020,
+              1,
+              id <= 24 ? 2 : 3,
+              0,
+              id <= 24 ? id : id - 24,
             ),
           ),
       ];
@@ -4063,6 +4154,7 @@ final class _TestStreamView extends StatelessWidget {
             target: target,
             items: buildChatStream(
               messages,
+              time: controller.chat.timeFor('https://one.example'),
               lastReadMessageId: lastReadMessageId,
             ),
             stream: stream,

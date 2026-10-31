@@ -80,6 +80,7 @@ class StreamDaySeparator extends StatelessWidget {
   const StreamDaySeparator({
     super.key,
     required this.day,
+    this.now,
     this.floating = false,
     this.showDivider = true,
     this.onTap,
@@ -89,6 +90,7 @@ class StreamDaySeparator extends StatelessWidget {
   static const double height = 48;
 
   final DateTime day;
+  final DateTime? now;
   final bool floating;
   final bool showDivider;
 
@@ -97,7 +99,7 @@ class StreamDaySeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = dayLabel(day, now: DateTime.now());
+    final label = dayLabel(day, now: now ?? DateTime.now());
     final chip = StreamChip.of(context, floating: floating);
 
     Widget date;

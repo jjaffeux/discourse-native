@@ -138,6 +138,12 @@ final class SitePresentationController extends FrameSafeNotifier {
   SiteAppearance? appearanceFor(String siteUrl) =>
       _appearances[siteUrl] ?? readPersistedAppearance(siteUrl);
 
+  SiteConfig? accountConfigFor(String siteUrl) =>
+      _configs[siteUrl] ??
+      (_invalidatedPersistedConfigs.contains(siteUrl)
+          ? null
+          : readPersistedConfig(siteUrl));
+
   SiteConfig configFor(String siteUrl) =>
       _configs[siteUrl] ??
       readPersistedConfig(siteUrl) ??

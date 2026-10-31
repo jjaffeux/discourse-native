@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 
 import '../plugin_api/plugin_data.dart';
 import 'composer_upload.dart';
+import 'homepage_option.dart';
 import 'invite.dart';
 import 'json.dart';
 
@@ -56,6 +57,7 @@ class SiteConfig {
     this.defaultNavigationMenuCategoryIds = const [],
     this.defaultNavigationMenuTagNames = const [],
     this.defaultHomepage = '',
+    this.homepageOptions,
     this.topMenu = const ['latest', 'new', 'unread', 'hot', 'categories'],
     this.topPageDefaultPeriod = defaultTopPagePeriod,
     this.badgesEnabled = true,
@@ -63,6 +65,7 @@ class SiteConfig {
     this.readTimeWordCount = defaultReadTimeWordCount,
     this.minPersonalMessagePostLength = defaultMinPersonalMessagePostLength,
     this.allowAllUsersToFlagIllegalContent = false,
+    this.dsaReportingEnabled = false,
     this.contactEmail,
     this.illegalContentReportEmail,
     this.suggestWeekendsInDatePickers = true,
@@ -229,6 +232,10 @@ class SiteConfig {
         const [],
       ),
       defaultHomepage: jsonText(json['default_homepage'])?.trim() ?? '',
+      homepageOptions: HomepageOption.read(
+        json['homepage_options'],
+        present: json.containsKey('homepage_options'),
+      ),
       topMenu: _stringList(json['top_menu'], const [
         'latest',
         'new',
@@ -249,6 +256,7 @@ class SiteConfig {
       ),
       allowAllUsersToFlagIllegalContent:
           json['allow_all_users_to_flag_illegal_content'] == true,
+      dsaReportingEnabled: json['dsa_reporting_enabled'] == true,
       contactEmail: _nonemptyText(json['contact_email']),
       illegalContentReportEmail: _nonemptyText(
         json['email_address_to_report_illegal_content'],
@@ -345,6 +353,10 @@ class SiteConfig {
       const [],
     ),
     defaultHomepage: jsonText(json['defaultHomepage']) ?? '',
+    homepageOptions: HomepageOption.read(
+      json['homepageOptions'],
+      present: json.containsKey('homepageOptions'),
+    ),
     topMenu: _stringList(json['topMenu'], const [
       'latest',
       'new',
@@ -367,6 +379,7 @@ class SiteConfig {
         json['allowAllUsersToFlagIllegalContent'] == true,
     contactEmail: _nonemptyText(json['contactEmail']),
     illegalContentReportEmail: _nonemptyText(json['illegalContentReportEmail']),
+    dsaReportingEnabled: json['dsaReportingEnabled'] == true,
     suggestWeekendsInDatePickers: json['suggestWeekendsInDatePickers'] != false,
     fastEditEnabled: json['fastEditEnabled'] != false,
     displayNameOnPosts: json['displayNameOnPosts'] == true,
@@ -430,6 +443,8 @@ class SiteConfig {
       'defaultNavigationMenuCategoryIds': defaultNavigationMenuCategoryIds,
       'defaultNavigationMenuTagNames': defaultNavigationMenuTagNames,
       'defaultHomepage': defaultHomepage,
+      if (homepageOptions case final options?)
+        'homepageOptions': [for (final option in options) option.toJson()],
       'topMenu': topMenu,
       'topPageDefaultPeriod': topPageDefaultPeriod,
       'badgesEnabled': badgesEnabled,
@@ -439,6 +454,7 @@ class SiteConfig {
       'allowAllUsersToFlagIllegalContent': allowAllUsersToFlagIllegalContent,
       'contactEmail': contactEmail,
       'illegalContentReportEmail': illegalContentReportEmail,
+      'dsaReportingEnabled': dsaReportingEnabled,
       'suggestWeekendsInDatePickers': suggestWeekendsInDatePickers,
       'fastEditEnabled': fastEditEnabled,
       'displayNameOnPosts': displayNameOnPosts,
@@ -543,6 +559,9 @@ class SiteConfig {
   final List<int> defaultNavigationMenuCategoryIds;
   final List<String> defaultNavigationMenuTagNames;
   final String defaultHomepage;
+
+  /// Null means an older payload did not supply resolved homepage options.
+  final List<HomepageOption>? homepageOptions;
   final List<String> topMenu;
   final String topPageDefaultPeriod;
 
@@ -555,6 +574,7 @@ class SiteConfig {
   final bool allowAllUsersToFlagIllegalContent;
   final String? contactEmail;
   final String? illegalContentReportEmail;
+  final bool dsaReportingEnabled;
 
   String? get anonymousFlagReportEmail =>
       illegalContentReportEmail ?? contactEmail;
@@ -715,6 +735,7 @@ class SiteConfig {
         defaultNavigationMenuCategoryIds: defaultNavigationMenuCategoryIds,
         defaultNavigationMenuTagNames: defaultNavigationMenuTagNames,
         defaultHomepage: defaultHomepage,
+        homepageOptions: homepageOptions,
         topMenu: topMenu,
         topPageDefaultPeriod: topPageDefaultPeriod,
         badgesEnabled: badgesEnabled,
@@ -724,6 +745,7 @@ class SiteConfig {
         allowAllUsersToFlagIllegalContent: allowAllUsersToFlagIllegalContent,
         contactEmail: contactEmail,
         illegalContentReportEmail: illegalContentReportEmail,
+        dsaReportingEnabled: dsaReportingEnabled,
         suggestWeekendsInDatePickers: suggestWeekendsInDatePickers,
         fastEditEnabled: fastEditEnabled,
         displayNameOnPosts: displayNameOnPosts,
@@ -793,6 +815,7 @@ class SiteConfig {
         defaultNavigationMenuCategoryIds,
       ) &&
       other.defaultHomepage == defaultHomepage &&
+      listEquals(other.homepageOptions, homepageOptions) &&
       listEquals(other.topMenu, topMenu) &&
       other.topPageDefaultPeriod == topPageDefaultPeriod &&
       other.badgesEnabled == badgesEnabled &&
@@ -803,6 +826,7 @@ class SiteConfig {
           allowAllUsersToFlagIllegalContent &&
       other.contactEmail == contactEmail &&
       other.illegalContentReportEmail == illegalContentReportEmail &&
+      other.dsaReportingEnabled == dsaReportingEnabled &&
       other.suggestWeekendsInDatePickers == suggestWeekendsInDatePickers &&
       other.fastEditEnabled == fastEditEnabled &&
       other.displayNameOnPosts == displayNameOnPosts &&
@@ -860,6 +884,7 @@ class SiteConfig {
     Object.hashAll(defaultNavigationMenuCategoryIds),
     Object.hashAll(defaultNavigationMenuTagNames),
     defaultHomepage,
+    homepageOptions == null ? null : Object.hashAll(homepageOptions!),
     Object.hashAll(topMenu),
     topPageDefaultPeriod,
     badgesEnabled,
@@ -869,6 +894,7 @@ class SiteConfig {
     allowAllUsersToFlagIllegalContent,
     contactEmail,
     illegalContentReportEmail,
+    dsaReportingEnabled,
     suggestWeekendsInDatePickers,
     fastEditEnabled,
     displayNameOnPosts,

@@ -183,11 +183,7 @@ void main() {
     () {
       const plugin = AiConversationsPlugin();
       expect(plugin.homepageId, 'ai-conversations');
-      final route = ContentRoute.homepage(
-        _config,
-        connected: true,
-        registeredHomepage: plugin.homepage(_config, _user),
-      );
+      final route = plugin.homepage(_config, _user)!;
       expect(route.id, 'ai-conversations');
       expect(route.feedPath, isNull);
       expect(route.isMessages, isFalse);
@@ -321,21 +317,17 @@ void main() {
     const plugin = AiConversationsPlugin();
     for (final user in [null, const DiscourseUser(username: 'reader')]) {
       expect(
-        ContentRoute.homepage(
-          _config,
-          connected: user != null,
-          registeredHomepage: plugin.homepage(_config, user),
-        ).id,
+        (plugin.homepage(_config, user) ??
+                ContentRoute.homepage(_config, connected: user != null))
+            .id,
         'top-yearly',
       );
     }
     final disabled = _config.withPlugins(PluginData.none);
     expect(
-      ContentRoute.homepage(
-        disabled,
-        connected: true,
-        registeredHomepage: plugin.homepage(disabled, _user),
-      ).id,
+      (plugin.homepage(disabled, _user) ??
+              ContentRoute.homepage(disabled, connected: true))
+          .id,
       'top-yearly',
     );
     expect(

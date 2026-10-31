@@ -5,13 +5,45 @@ import 'chat_api.dart';
 import 'chat_channel.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_message.dart';
+import 'chat_message_contract.dart';
 import 'chat_pin.dart';
 import 'chat_reactors.dart';
 import 'chat_search.dart';
 import 'chat_thread.dart';
 
 final class ChatApiClient implements ChatApi {
-  const ChatApiClient(this._transport);
+  const ChatApiClient(
+    this._transport, {
+    this.decodeMessage = ChatMessage.fromJson,
+  });
+
+  final ChatMessageDecoder decodeMessage;
+
+  @override
+  Future<void> createChatMessageInteraction({
+    required String siteUrl,
+    required String apiKey,
+    required int channelId,
+    required int messageId,
+    required String actionId,
+    String? clientId,
+  }) async {
+    _requirePositiveId(channelId, 'channelId');
+    _requirePositiveId(messageId, 'messageId');
+    if (actionId.isEmpty || actionId.length > 1024) {
+      throw ArgumentError.value(actionId, 'actionId');
+    }
+    await _write(
+      Uri.parse(
+        '$siteUrl/chat/api/channels/$channelId/messages/$messageId/interactions',
+      ),
+      siteUrl: siteUrl,
+      method: 'POST',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {'action_id': actionId},
+    );
+  }
 
   static const int maximumSearchTermLength = 2048;
 
@@ -668,7 +700,7 @@ final class ChatApiClient implements ChatApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    return ChatPin.parse(body, siteUrl);
+    return ChatPin.parse(body, siteUrl, decodeMessage: decodeMessage);
   }
 
   @override
@@ -760,7 +792,7 @@ final class ChatApiClient implements ChatApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    return ChatSearchPage.fromJson(body, siteUrl);
+    return ChatSearchPage.fromJson(body, siteUrl, decodeMessage: decodeMessage);
   }
 
   /// Exactly one window selector is allowed. Around-last-read ignores
@@ -807,6 +839,7 @@ final class ChatApiClient implements ChatApi {
     return ChatMessage.parsePage(
       body,
       siteUrl,
+      decodeMessage: decodeMessage,
       window: after == null
           ? (fromLastRead || targetMessageId != null
                 ? ChatMessagePageWindow.aroundTarget
@@ -881,6 +914,7 @@ final class ChatApiClient implements ChatApi {
     return ChatMessage.parsePage(
       body,
       siteUrl,
+      decodeMessage: decodeMessage,
       window: after == null
           // Without a target, the endpoint selects membership's last-read id.
           ? ChatMessagePageWindow.aroundTarget

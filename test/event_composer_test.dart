@@ -43,6 +43,64 @@ EventSyntaxPolicy policyFor({
 }
 
 void main() {
+  testWidgets(
+    'recording authoring preserves other attributes and rejects non-web links',
+    (tester) async {
+      String? result;
+      final block = parseEventBlocks(original).single;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('Edit'),
+                onPressed: () async {
+                  await showDDialog<String>(
+                    context: context,
+                    builder: (_, dialog) => EventComposerSheet(
+                      onClose: (value) {
+                        result = value;
+                        dialog.close(value);
+                      },
+                      block: block,
+                      settings: const EventSettings(enabled: true),
+                      timezone: 'Europe/Paris',
+                      isCurrent: () => true,
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      final recording = find.byWidgetPredicate(
+        (widget) => widget is DInput && widget.labelText == 'Recording URL',
+      );
+      await tester.ensureVisible(recording);
+      await tester.enterText(recording, 'javascript:alert(1)');
+      await tester.ensureVisible(find.text('Apply'));
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+      expect(result, isNull);
+      expect(
+        find.text('Enter a valid HTTP or HTTPS recording URL.'),
+        findsOneWidget,
+      );
+      await tester.ensureVisible(recording);
+      await tester.enterText(recording, 'https://video.example/replay');
+      await tester.ensureVisible(find.text('Apply'));
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+      final edited = parseEventBlocks(result!).single;
+      expect(edited.attribute('recording'), 'https://video.example/replay');
+      expect(edited.attribute('future-flag'), 'abc');
+      expect(edited.attribute('start'), block.attribute('start'));
+      expect(edited.description, block.description);
+    },
+  );
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('adds an event from the mobile sheet on $platform', (
       tester,

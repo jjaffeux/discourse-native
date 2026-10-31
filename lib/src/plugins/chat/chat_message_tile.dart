@@ -15,12 +15,15 @@ import 'chat_channel.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
+import 'chat_message_blocks.dart';
+import 'chat_message_blocks_view.dart';
 import 'chat_plugin_data.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream_target.dart';
+import 'chat_time.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 
@@ -224,7 +227,7 @@ class ChatMessageTile extends StatelessWidget {
             canPin ||
             canRebake ||
             canAddReaction ||
-            flagTypes.isNotEmpty ||
+            chat.canReportMessage(siteUrl, message) ||
             canCopyLink ||
             onSelect != null
         ? _ChatMessageActions(
@@ -608,25 +611,36 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
     final messageId = widget.message.id;
     final username = widget.message.author.username;
     final lease = chat.captureSession(siteUrl);
-    await showShellSheet<void>(
+    final dsa = chat.siteConfigFor(siteUrl).dsaReportingEnabled;
+    Future<void> report() => showIllegalContentReport(
       context: context,
-      title: appL10n.thanksForKeepingOurCommunityCivil,
-      dialogOnDesktop: true,
-      builder: (sheetContext) => PostFlagEditor(
-        siteUrl: siteUrl,
-        targetUsername: username,
-        flagTypes: flagTypes,
-        minimumMessageLength: chat.flagMessageMinimumLength(siteUrl),
-        save: (type, {message}) async {
-          if (!lease.isCurrent) {
-            return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
-          }
-          return chat.flagMessage(siteUrl, messageId, type, message: message);
-        },
-        onComplete: () => DDialogClose.close<void>(sheetContext),
-        submitLabel: appL10n.flagMessage,
-        targetNoun: 'message',
-      ),
+      siteUrl: siteUrl,
+      contentUrl: _messageUrl,
+      title: appL10n.flagMessage,
+    );
+    if (flagTypes.isEmpty || chat.currentUserFor(siteUrl) == null) {
+      if (lease.isCurrent) await report();
+      return;
+    }
+    await showFlagEditor(
+      context: context,
+      siteUrl: siteUrl,
+      targetUsername: username,
+      flagTypes: flagTypes,
+      minimumMessageLength: chat.flagMessageMinimumLength(siteUrl),
+      save: (type, {message}) async {
+        if (!lease.isCurrent) {
+          return appL10n.yourConnectionChangedReopenTheFlagFormAndTryAgain;
+        }
+        return chat.flagMessage(siteUrl, messageId, type, message: message);
+      },
+      submitLabel: appL10n.flagMessage,
+      targetNoun: 'message',
+      reportIllegalContent: dsa
+          ? () async {
+              if (mounted && lease.isCurrent) await report();
+            }
+          : null,
     );
   }
 
@@ -779,14 +793,14 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           Padding(
             padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
             child: Text(
-              _messageDate(context, at),
+              _messageDate(context, widget.siteUrl, at),
               key: ChatMessageTile.timestampKey(widget.message.id),
             ),
           )
         else
           DDropdownMenuLabel(
             child: Text(
-              _messageDate(context, at),
+              _messageDate(context, widget.siteUrl, at),
               key: ChatMessageTile.timestampKey(widget.message.id),
             ),
           ),
@@ -838,7 +852,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
         ),
       if (canEdit && widget.onEdit != null)
         item('edit', appL10n.edit, DIcons.pencil, _edit),
-      if (flagTypes.isNotEmpty)
+      if (chat.canReportMessage(widget.siteUrl, widget.message))
         item(
           'flag',
           appL10n.flag,
@@ -1047,7 +1061,7 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
           label: widget.message.pinned ? context.l10n.unpin : context.l10n.pin,
         ): () =>
             unawaited(_togglePin()),
-      if (flagTypes.isNotEmpty)
+      if (chat.canReportMessage(widget.siteUrl, widget.message))
         CustomSemanticsAction(label: context.l10n.flag): () =>
             unawaited(_flag(flagTypes)),
       if (chat.canBookmarkMessage(widget.siteUrl, widget.message) &&
@@ -1175,6 +1189,25 @@ class _Tile extends StatelessWidget {
     TextStyle? linkStyle,
     bool contentSized = false,
   }) {
+    if (message.blocks.isNotEmpty) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: DSpacing.sm,
+        children: [
+          if (!message.blocks.any((block) => block is ChatConfirmationBlock) &&
+              message.cooked.isNotEmpty)
+            CookedHtml(
+              html: message.cooked,
+              siteUrl: siteUrl,
+              compactParagraphs: true,
+              textStyle: textStyle,
+              linkStyle: linkStyle,
+            ),
+          ChatMessageBlocks(siteUrl: siteUrl, message: message),
+        ],
+      );
+    }
     final messageTextStyle = textStyle ?? Theme.of(context).textTheme.bodyLarge;
     final html = message.canonicalReceived
         ? message.cooked
@@ -1275,15 +1308,26 @@ class _Tile extends StatelessWidget {
                 ProjectedPreview(:final document) => document.nodes.isNotEmpty,
                 _ => message.optimisticRaw?.isNotEmpty == true,
               };
-    final hasSurface = hasBody || message.uploads.isNotEmpty || showReply;
+    final hasSurface =
+        hasBody ||
+        message.blocks.isNotEmpty ||
+        message.uploads.isNotEmpty ||
+        showReply;
     final hideAuthor = chained || message.isAction;
     final author = message.author.displayName;
     final time = switch (message.createdAt) {
-      final at? => clockTimeLabel(context, at.toLocal()),
+      final at? => clockTimeLabel(
+        context,
+        chatTimeFor(context, siteUrl).local(at),
+      ),
       null => null,
     };
     final footer = <Widget>[
-      if (message.reactions.isNotEmpty)
+      if (message.reactions.isNotEmpty &&
+          PluginUiScope.require(
+            context,
+            chatControllerService,
+          ).siteConfigFor(siteUrl).emojiEnabled)
         _Reactions(siteUrl: siteUrl, message: message),
       if (message.thread case final thread?
           when showThreadSummary && thread.replyCount > 0)
@@ -1393,6 +1437,7 @@ class _Tile extends StatelessWidget {
                       child: ChatUserAvatar(
                         siteUrl: siteUrl,
                         userId: message.author.id,
+                        isBot: message.author.isBot,
                         url: message.author.avatarUrl,
                         flair: message.author.flair,
                         size: 28,
@@ -1417,6 +1462,20 @@ class _Tile extends StatelessWidget {
                         siteUrl: siteUrl,
                         child: Text(author),
                       ),
+                      for (final contribution in PluginUiScope.require(
+                        context,
+                        chatControllerService,
+                      ).messageContributions)
+                        if (message.plugins.get(contribution.key)
+                            case final data?)
+                          PluginUiScope.own(
+                            PluginId(contribution.key.owner),
+                            Builder(
+                              builder: (context) =>
+                                  contribution.buildHeader(context, data) ??
+                                  const SizedBox.shrink(),
+                            ),
+                          ),
                       UserStatusMessage(
                         siteUrl: siteUrl,
                         userId: message.author.id,
@@ -1476,7 +1535,7 @@ class _Tile extends StatelessWidget {
                             mainAxisSize: MainAxisSize.min,
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (hasBody)
+                              if (hasBody || message.blocks.isNotEmpty)
                                 Builder(
                                   builder: (context) {
                                     final style = DefaultTextStyle.of(
@@ -1488,7 +1547,9 @@ class _Tile extends StatelessWidget {
                                             message.id,
                                           ),
                                       child: GestureDetector(
-                                        onDoubleTap: onQuickReact,
+                                        onDoubleTap: message.blocks.isEmpty
+                                            ? onQuickReact
+                                            : null,
                                         child: _body(
                                           context,
                                           textStyle: style,
@@ -2043,8 +2104,8 @@ class _Tag extends StatelessWidget {
   }
 }
 
-String _messageDate(BuildContext context, DateTime value) {
-  final local = value.toLocal();
+String _messageDate(BuildContext context, String siteUrl, DateTime value) {
+  final local = chatTimeFor(context, siteUrl).local(value);
   final material = MaterialLocalizations.of(context);
   return "${material.formatFullDate(local)} · ${clockTimeLabel(context, local)}";
 }

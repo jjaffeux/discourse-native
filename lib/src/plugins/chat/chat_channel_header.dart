@@ -60,6 +60,7 @@ class ChatChannelHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ChatConversationHeader(
+      siteUrl: siteUrl,
       key: const ValueKey('chat-channel-header'),
       title: channel?.title ?? context.l10n.chat,
       color: channel?.categoryColor,

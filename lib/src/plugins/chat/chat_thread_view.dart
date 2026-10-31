@@ -250,6 +250,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   bool _tickerEnabled = true;
   ChatShellService? _shell;
   Listenable? _navigation;
+  Listenable? _timeChanges;
   bool _opened = false;
   bool _handledUnavailable = false;
   List<int>? _projectedMessageIds;
@@ -257,6 +258,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   int? _projectedLastRead;
   int? _projectedRevision;
   int? _projectedShowTimeGapDays;
+  String? _projectedTimezone;
   List<ChatMessage> _messages = const [];
   ChatChannelActivity _activity = const ChatChannelActivity();
   List<ChatStreamItem> _items = const [];
@@ -273,6 +275,13 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   void _handleShellChanged() {
     _syncViewing();
+    if (_projectedTimezone != widget.chat.timeFor(widget.siteUrl).name) {
+      _handleTimeChanged();
+    }
+  }
+
+  void _handleTimeChanged() {
+    if (mounted) setState(() {});
   }
 
   void _syncViewing() {
@@ -304,6 +313,11 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final timeChanges = widget.chat.timeChanges;
+    if (!identical(timeChanges, _timeChanges)) {
+      _timeChanges?.removeListener(_handleTimeChanged);
+      _timeChanges = timeChanges..addListener(_handleTimeChanged);
+    }
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(shell, _shell)) {
       _shell?.removeListener(_handleShellChanged);
@@ -359,6 +373,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   void dispose() {
     _shell?.removeListener(_handleShellChanged);
+    _timeChanges?.removeListener(_handleTimeChanged);
     _navigation?.removeListener(_consumeNavigation);
     final viewToken = _viewToken;
     if (viewToken != null) {
@@ -582,7 +597,8 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         identical(_projectedLocalMessageIds, stream.localMessageIds) &&
         _projectedLastRead == stream.lastReadOnOpen &&
         _projectedRevision == stream.revision &&
-        _projectedShowTimeGapDays == showTimeGapDays) {
+        _projectedShowTimeGapDays == showTimeGapDays &&
+        _projectedTimezone == widget.chat.timeFor(widget.siteUrl).name) {
       return;
     }
     _retainMessageActionsIn(stream);
@@ -591,6 +607,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _projectedLastRead = stream.lastReadOnOpen;
     _projectedRevision = stream.revision;
     _projectedShowTimeGapDays = showTimeGapDays;
+    _projectedTimezone = widget.chat.timeFor(widget.siteUrl).name;
     _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
     _activity = const ChatChannelActivity().adding(_messages);
     _items = buildChatStream(
@@ -598,6 +615,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       threadContext: true,
       lastReadMessageId: stream.lastReadOnOpen,
       showTimeGapDays: showTimeGapDays,
+      time: widget.chat.timeFor(widget.siteUrl),
     );
   }
 }
@@ -641,6 +659,7 @@ class _ThreadHeader extends StatelessWidget {
           deleted: root?.deletedAt != null,
         );
         return ChatConversationHeader(
+          siteUrl: siteUrl,
           key: ValueKey(
             compact ? 'chat-thread-compact-header' : 'chat-thread-header',
           ),

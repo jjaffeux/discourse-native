@@ -260,6 +260,22 @@ final class DiscourseSiteApi {
       clientId: clientId,
     );
 
+    if (jsonText(body['default_homepage'])?.trim().isNotEmpty == true) {
+      try {
+        final site = await _getObject(
+          Uri.parse('$siteUrl/site.json'),
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+        if (site.containsKey('homepage_options')) {
+          body['homepage_options'] = site['homepage_options'];
+        }
+      } on SiteLookupException {
+        body['homepage_options'] = const <Object>[];
+      }
+    }
+
     try {
       return _models.siteConfig(body, siteUrl);
     } catch (error, stackTrace) {

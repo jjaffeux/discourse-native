@@ -370,7 +370,10 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          expect(find.byType(GroupFlairBadge), findsNothing);
+          expect(
+            tester.widget<GroupFlairBadge>(find.byType(GroupFlairBadge)).url,
+            'robot',
+          );
           expect(tester.getSize(avatar), const Size.square(28));
         } finally {
           semantics.dispose();

@@ -22,9 +22,7 @@ final class VideoThumbnailChannel {
       case "generate":
         guard let source = arguments["url"] as? String,
           let url = URL(string: source),
-          ["http", "https"].contains(url.scheme?.lowercased() ?? ""),
-          let host = url.host, !host.isEmpty,
-          url.user == nil, url.password == nil
+          Self.isPreviewSource(url)
         else { result(nil); return }
         self.requests[id]?.cancel()
         let generator = VideoThumbnailGenerator()
@@ -41,6 +39,22 @@ final class VideoThumbnailChannel {
       }
     }
     self.channel = channel
+  }
+
+  private static func isPreviewSource(_ url: URL) -> Bool {
+    if url.isFileURL {
+      guard (url.host ?? "").isEmpty, url.query == nil, url.fragment == nil else {
+        return false
+      }
+      let source = url.resolvingSymlinksInPath().standardizedFileURL
+      let temporary = URL(fileURLWithPath: NSTemporaryDirectory())
+        .resolvingSymlinksInPath().standardizedFileURL
+      let prefix = temporary.path.hasSuffix("/") ? temporary.path : temporary.path + "/"
+      return source.path.hasPrefix(prefix) &&
+        source.deletingLastPathComponent().lastPathComponent.hasPrefix("composer-preview-")
+    }
+    return ["http", "https"].contains(url.scheme?.lowercased() ?? "") &&
+      !(url.host ?? "").isEmpty && url.user == nil && url.password == nil
   }
 
   deinit {

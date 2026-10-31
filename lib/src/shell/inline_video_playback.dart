@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert' show htmlEscape, jsonDecode;
+import 'dart:io';
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
@@ -148,6 +149,9 @@ InlineVideoPlaybackSession createInlineVideoPlaybackSession(
     case TargetPlatform.linux:
       return _WebViewInlineVideoPlaybackSession(request);
     case TargetPlatform.android:
+      return request.source.scheme == 'file'
+          ? _NativeInlineVideoPlaybackSession(request)
+          : _UnsupportedInlineVideoPlaybackSession(request, selectedPlatform);
     case TargetPlatform.fuchsia:
     case TargetPlatform.windows:
       return _UnsupportedInlineVideoPlaybackSession(request, selectedPlatform);
@@ -257,7 +261,9 @@ final class _NativeInlineVideoPlaybackSession
     }
     if (isDisposed) return;
 
-    final controller = VideoPlayerController.networkUrl(source.url);
+    final controller = source.url.scheme == 'file'
+        ? VideoPlayerController.file(File.fromUri(source.url))
+        : VideoPlayerController.networkUrl(source.url);
     final lease = _NativeControllerLease(controller, _playerChanged);
     _controllerLease = lease;
     controller.addListener(_playerChanged);
@@ -729,7 +735,9 @@ final class _VideoSourceResolution {
   Future<SiteVideoSource> resolve() {
     final resolver = _resolver;
     final connectedSite = data.siteUrl;
-    if (resolver == null || connectedSite == null) {
+    if (data.source.scheme == 'file' ||
+        resolver == null ||
+        connectedSite == null) {
       return Future.value(SiteVideoSource(data.source));
     }
     return resolver.resolve(siteUrl: connectedSite, url: data.source);

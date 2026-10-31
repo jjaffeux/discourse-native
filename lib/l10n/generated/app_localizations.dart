@@ -94,6 +94,108 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Label for a quoted Chat transcript.
+  ///
+  /// In en, this message translates to:
+  /// **'Transcript'**
+  String get chatTranscript;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify your contact email before submitting this report.'**
+  String get dsaVerifyEmailRequired;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Your report was received.'**
+  String get dsaReportReceived;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Report reference: {reference}'**
+  String dsaReportReference(String reference);
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Report content you believe is illegal. Your report is handled separately from community guideline flags.'**
+  String get dsaReportDescription;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Content URL'**
+  String get dsaContentUrl;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Explain precisely why this content is illegal. Use at least 50 characters.'**
+  String get dsaExplanationHelp;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Your name'**
+  String get dsaYourName;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Your confirmed account email will be used for this report.'**
+  String get dsaAccountEmail;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Contact email'**
+  String get dsaContactEmail;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Send another code'**
+  String get dsaResendCode;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Send verification code'**
+  String get dsaSendCode;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Six-digit verification code'**
+  String get dsaVerificationCode;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify email'**
+  String get dsaVerifyEmail;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Email verified'**
+  String get dsaEmailVerified;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit report'**
+  String get dsaSubmitReport;
+
+  /// Illegal content reporting form.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the illegal content reporting form for this site.'**
+  String get dsaUseNoticeForm;
+
   /// Expand the remaining rows in a Chat section.
   ///
   /// In en, this message translates to:
@@ -23120,6 +23222,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A voice room with this name already exists.'**
   String get voiceRoomNameAlreadyExists;
+
+  /// Shown when a Chat block action is no longer permitted or present.
+  ///
+  /// In en, this message translates to:
+  /// **'This action is no longer available.'**
+  String get chatActionUnavailable;
+
+  /// Accessible description of the model which generated an AI Chat message.
+  ///
+  /// In en, this message translates to:
+  /// **'Model: {model}'**
+  String aiChatModel(String model);
+
+  /// Accessible label for a Chat bot avatar marker.
+  ///
+  /// In en, this message translates to:
+  /// **'Bot account'**
+  String get chatBotAccount;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Recording URL'**
+  String get eventRecordingUrl;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid HTTP or HTTPS recording URL.'**
+  String get eventRecordingUrlInvalid;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Add recording'**
+  String get eventAddRecording;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit recording'**
+  String get eventEditRecording;
+
+  /// Event recording control.
+  ///
+  /// In en, this message translates to:
+  /// **'Watch recording'**
+  String get eventWatchRecording;
 }
 
 class _AppLocalizationsDelegate

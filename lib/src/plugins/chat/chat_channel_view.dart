@@ -125,6 +125,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _tickerEnabled = true;
   ChatShellService? _shell;
   Listenable? _navigation;
+  Listenable? _timeChanges;
   bool _opened = false;
   List<int>? _projectedMessageIds;
   List<int>? _projectedLocalMessageIds;
@@ -132,6 +133,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   int? _projectedRevision;
   int? _projectedFetches;
   int? _projectedShowTimeGapDays;
+  String? _projectedTimezone;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
   int _highlightRequest = 0;
@@ -146,6 +148,13 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   void _handleShellChanged() {
     _syncViewing();
+    if (_projectedTimezone != widget.chat.timeFor(widget.siteUrl).name) {
+      _handleTimeChanged();
+    }
+  }
+
+  void _handleTimeChanged() {
+    if (mounted) setState(() {});
   }
 
   void _syncViewing() {
@@ -181,6 +190,11 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    final timeChanges = widget.chat.timeChanges;
+    if (!identical(timeChanges, _timeChanges)) {
+      _timeChanges?.removeListener(_handleTimeChanged);
+      _timeChanges = timeChanges..addListener(_handleTimeChanged);
+    }
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(shell, _shell)) {
       _shell?.removeListener(_handleShellChanged);
@@ -234,6 +248,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   @override
   void dispose() {
     _shell?.removeListener(_handleShellChanged);
+    _timeChanges?.removeListener(_handleTimeChanged);
     _navigation?.removeListener(_consumeNavigation);
     final viewToken = _viewToken;
     if (viewToken != null) {
@@ -561,15 +576,19 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         _projectedLastRead == stream.lastReadOnOpen &&
         _projectedRevision == stream.revision &&
         _projectedFetches == stream.fetches &&
-        _projectedShowTimeGapDays == widget.showTimeGapDays) {
+        _projectedShowTimeGapDays == widget.showTimeGapDays &&
+        _projectedTimezone == widget.chat.timeFor(widget.siteUrl).name) {
       return;
     }
 
     _retainMessageActionsIn(stream);
 
+    final sameTimezone =
+        _projectedTimezone == widget.chat.timeFor(widget.siteUrl).name;
     final extended =
-        _extendProjectionIntoPast(stream) ||
-        _extendProjectionIntoFuture(stream);
+        sameTimezone &&
+        (_extendProjectionIntoPast(stream) ||
+            _extendProjectionIntoFuture(stream));
     if (!extended) {
       final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
       // Use the opening snapshot so read receipts cannot move the divider.
@@ -577,6 +596,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         messages,
         lastReadMessageId: stream.lastReadOnOpen,
         showTimeGapDays: widget.showTimeGapDays,
+        time: widget.chat.timeFor(widget.siteUrl),
       );
     }
 
@@ -586,6 +606,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     _projectedRevision = stream.revision;
     _projectedFetches = stream.fetches;
     _projectedShowTimeGapDays = widget.showTimeGapDays;
+    _projectedTimezone = widget.chat.timeFor(widget.siteUrl).name;
   }
 
   /// Reprojects a past-page prefix through the first old non-deleted seam;
@@ -648,6 +669,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         retainedTrailing: existingTrailing.reversed.toList(),
         lastReadMessageId: stream.lastReadOnOpen,
         showTimeGapDays: widget.showTimeGapDays,
+        time: widget.chat.timeFor(widget.siteUrl),
       );
       if (trimmed == null) return false;
       existingItems = trimmed;
@@ -660,6 +682,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       lastReadMessageId: stream.lastReadOnOpen,
       newestMessageId: stream.messageIds.last,
       showTimeGapDays: widget.showTimeGapDays,
+      time: widget.chat.timeFor(widget.siteUrl),
     );
     if (projected == null) return false;
     _items = projected;
@@ -727,6 +750,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         lastReadMessageId: stream.lastReadOnOpen,
         newestMessageId: stream.messageIds.last,
         showTimeGapDays: widget.showTimeGapDays,
+        time: widget.chat.timeFor(widget.siteUrl),
       );
       if (trimmed == null) return false;
       existingItems = trimmed;
@@ -739,6 +763,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       lastReadMessageId: stream.lastReadOnOpen,
       newestMessageId: stream.messageIds.last,
       showTimeGapDays: widget.showTimeGapDays,
+      time: widget.chat.timeFor(widget.siteUrl),
     );
     if (projected == null) return false;
     _items = projected;
@@ -1499,7 +1524,9 @@ class _StreamState extends State<ChatMessageStream>
       final oldest = stream.oldestId;
       if (!stream.canLoadMorePast ||
           oldest == null ||
-          calendarDay(chat.messageRef(siteUrl, oldest).value?.createdAt) !=
+          chat
+                  .timeFor(siteUrl)
+                  .day(chat.messageRef(siteUrl, oldest).value?.createdAt) !=
               day) {
         break;
       }
@@ -1824,6 +1851,7 @@ class _StreamState extends State<ChatMessageStream>
                     child: StreamDaySeparator(
                       key: ValueKey(('chat-day', day)),
                       day: day,
+                      now: _chat!.timeFor(siteUrl).local(DateTime.now()),
                     ),
                   ),
                   ChatStreamTimeGap(:final messageId, :final daysSince) =>
@@ -1879,6 +1907,7 @@ class _StreamState extends State<ChatMessageStream>
                 final separator = StreamDaySeparator(
                   key: ValueKey(('chat-floating-day', day)),
                   day: day,
+                  now: _chat!.timeFor(siteUrl).local(DateTime.now()),
                   floating: true,
                   onTap: () => _jumpToDayStart(day),
                 );

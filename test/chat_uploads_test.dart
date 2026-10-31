@@ -120,7 +120,7 @@ void main() {
       );
       expect(gallery.siteUrl, input.siteUrl);
       final image = gallery.images.single;
-      expect(image.fullSrc, fullUrl);
+      expect((image.source as RemoteLightboxImage).url, fullUrl);
       expect(image.thumbnailSrc, thumbnailUrl);
       expect(image.downloadHref, fullUrl);
       expect(requests, [('GET', thumbnailUrl), ('GET', fullUrl)]);
@@ -193,7 +193,7 @@ void main() {
       find.byType(LightboxGallery),
     );
     final image = gallery.images.single;
-    expect(image.fullSrc, fullUrl);
+    expect((image.source as RemoteLightboxImage).url, fullUrl);
     expect(image.thumbnailSrc, isNull);
     expect(image.downloadHref, fullUrl);
     expect(requests, [('GET', fullUrl)]);

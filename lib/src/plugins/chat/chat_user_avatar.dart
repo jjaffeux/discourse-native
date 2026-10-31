@@ -17,6 +17,7 @@ class ChatUserAvatar extends StatelessWidget {
     required this.size,
     required this.fallback,
     this.flair,
+    this.isBot = false,
   });
 
   final String siteUrl;
@@ -25,6 +26,7 @@ class ChatUserAvatar extends StatelessWidget {
   final double size;
   final Widget fallback;
   final UserFlair? flair;
+  final bool isBot;
 
   static Key onlineRingKey(int userId) =>
       ValueKey<String>('chat-online-avatar-$userId');
@@ -47,7 +49,11 @@ class ChatUserAvatar extends StatelessWidget {
           ring: online,
         );
         final badge = flair;
-        if (badge == null) return avatar;
+        final bot = badge == null && (isBot || userId < 0);
+        if (badge == null && !bot) return avatar;
+        final colors = Theme.of(context).colorScheme;
+        String hex(Color color) =>
+            (color.toARGB32() & 0xffffff).toRadixString(16).padLeft(6, '0');
         final badgeSize = size * .45;
         return SizedBox.square(
           dimension: size,
@@ -59,14 +65,16 @@ class ChatUserAvatar extends StatelessWidget {
                 end: -size * .1,
                 bottom: -size * .1,
                 child: DTooltip(
-                  message: badge.label,
+                  message: bot ? context.l10n.chatBotAccount : badge!.label,
                   child: GroupFlairBadge(
-                    url: badge.url,
-                    color: badge.color,
-                    backgroundColor: badge.backgroundColor,
+                    url: bot ? 'robot' : badge!.url,
+                    color: bot ? hex(colors.surface) : badge?.color,
+                    backgroundColor: bot
+                        ? hex(colors.onSurface)
+                        : badge?.backgroundColor,
                     size: badgeSize,
                     iconSize: badgeSize,
-                    borderRadius: badge.backgroundColor == null
+                    borderRadius: !bot && badge?.backgroundColor == null
                         ? 0
                         : badgeSize / 2,
                     defaultColor: Theme.of(context).colorScheme.onSurface,

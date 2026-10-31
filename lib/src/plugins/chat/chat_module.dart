@@ -7,6 +7,7 @@ import 'chat_bookmark.dart';
 import 'chat_controller.dart';
 import 'chat_conversation.dart';
 import 'chat_inbox_rooms.dart';
+import 'chat_message_contract.dart';
 import 'chat_notification_counter.dart';
 import 'chat_plugin.dart';
 import 'chat_preview_contract.dart';
@@ -52,6 +53,7 @@ final class ChatModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addStaticContributionPoint(chatPreviewContributions);
+    registrar.addStaticContributionPoint(chatMessageContributions);
     registrar.addCapability(const ChatPlugin());
     registrar.addRouteNamespace('chat');
     registrar.addLiveChannelScope(const PluginLiveChannelScope.prefix('/chat'));
@@ -71,19 +73,26 @@ final class ChatModule implements PluginModule {
         final composerHost = bindings.require(corePluginComposerPort);
         final navigation = bindings.require(corePluginNavigationPort);
 
-        final chatApi = apiFactory?.call(transport) ?? ChatApiClient(transport);
+        final messages = ChatMessageCodec(
+          bindings
+              .require(corePluginStaticContributionsPort)
+              .contributions(chatMessageContributions),
+        );
+        final chatApi =
+            apiFactory?.call(transport) ??
+            ChatApiClient(transport, decodeMessage: messages.decode);
         final gifs = dependencies.maybe(gifsPickerSessionService);
         final controller = ChatController(
           api: chatApi,
+          decodeMessage: messages.decode,
+          messageContributions: messages.contributions,
           userOptionsHost: bindings.require(corePluginUserOptionsPort),
           requests: requests,
           store: store,
           currentUserFor: siteState.currentUserFor,
           siteConfigFor: siteState.siteConfigFor,
           cookingHost: bindings.require(corePluginCookingPort),
-          cookingTimezoneFor: (siteUrl) => timezone.readerTimezone(
-            siteState.currentUserFor(siteUrl)?.timezone,
-          ),
+          timezoneHost: timezone,
 
           onChatNotificationsDelta: (siteUrl, delta) =>
               accountEvents.updateNotificationCounter(
@@ -161,6 +170,7 @@ final class ChatModule implements PluginModule {
       },
       requires: const [
         corePluginTransportPort,
+        corePluginStaticContributionsPort,
         corePluginRequestPort,
         corePluginUserOptionsPort,
         corePluginSiteStatePort,

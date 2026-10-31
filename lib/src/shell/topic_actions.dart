@@ -14,6 +14,7 @@ import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'bookmark_ui.dart';
+import 'dsa_notice_form.dart';
 import 'post_flag_editor.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -226,7 +227,18 @@ class TopicStatusButton extends StatefulWidget {
       return;
     }
     final flags = controller.availableTopicFlagTypes(siteUrl, current);
-    if (flags.isEmpty) return;
+    if (!controller.canReportTopic(siteUrl, current)) return;
+    if (flags.isEmpty || controller.instanceFor(siteUrl)?.isConnected != true) {
+      unawaited(
+        showIllegalContentReport(
+          context: context,
+          siteUrl: siteUrl,
+          contentUrl: '$siteUrl/t/-/${current.id}',
+          title: current.title,
+        ),
+      );
+      return;
+    }
     unawaited(
       showTopicFlagEditor(
         context: context,
@@ -318,8 +330,7 @@ class TopicStatusButton extends StatefulWidget {
     final current = controller.store.read<TopicDetail>(siteUrl, topic.id);
     if (current == null) return;
     final allowed = switch (command) {
-      _TopicCommand.flag =>
-        controller.availableTopicFlagTypes(siteUrl, current).isNotEmpty,
+      _TopicCommand.flag => controller.canReportTopic(siteUrl, current),
       _TopicCommand.pinned => current.hasPinPreference,
       _TopicCommand.selectPosts => current.canSelectPosts,
       _TopicCommand.closed => current.canCloseTopic,
@@ -490,7 +501,7 @@ class TopicStatusButton extends StatefulWidget {
         },
         child: Text(context.l10n.shareTopic),
       ),
-      if (topicFlags.isNotEmpty)
+      if (shell.canReportTopic(siteUrl, topic))
         DDropdownMenuItem(
           key: const ValueKey('topic-flag-button'),
           leading: menuIcon(DIcons.flag),

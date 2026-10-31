@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart'
     show DButton, DSlider, DSpinner;
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
+import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/oneboxes/audio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +29,89 @@ void main() {
       VideoPlayerPlatform.instance = previous;
     });
   });
+
+  testWidgets(
+    'a local video gallery reuses playback controls and disables image zoom',
+    (tester) async {
+      final file = File('/tmp/composer-preview-test/video.mp4');
+      await tester.pumpWidget(
+        MaterialApp(
+          home: LightboxGallery(
+            images: [
+              LightboxImage(
+                source: LightboxVideo(
+                  InlineVideoData.localFile(file: file, title: 'Holiday.mp4'),
+                ),
+                thumbnailSrc: null,
+                title: 'Holiday.mp4',
+                description: null,
+                details: null,
+                downloadHref: null,
+                width: null,
+                height: null,
+                heroTag: 'local-video',
+              ),
+            ],
+            initialIndex: 0,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(platform.sources, [file.uri.toString()]);
+      expect(find.byType(VideoPlayer), findsOneWidget);
+      expect(_button(tester, 'Zoom in').onPressed, isNull);
+      await tester.tap(find.byTooltip('Pause'));
+      await tester.pump();
+      expect(platform.pauses, contains(0));
+      expect(find.byTooltip('Play'), findsOneWidget);
+      await tester.pumpWidget(const SizedBox());
+      await platform.disposed(0);
+    },
+  );
+
+  for (final selectedPlatform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    test(
+      'trusted local video uses a file player on $selectedPlatform without HTTP',
+      () async {
+        final file = File('/tmp/composer-preview-test/video.mp4');
+        final data = InlineVideoData.localFile(
+          file: file,
+          title: 'Local video',
+        );
+        final session = createInlineVideoPlaybackSession(
+          InlineVideoPlaybackRequest(
+            source: data.source,
+            title: data.title,
+            posterUrl: null,
+            aspectRatio: data.aspectRatio,
+            siteUrl: 'https://forum.example',
+            credentials: FakeApiCredentialReader(),
+            lifecycle: SiteLifecycle(),
+          ),
+          platform: selectedPlatform,
+        );
+        addTearDown(session.dispose);
+        await http.runWithClient(
+          session.start,
+          () => MockClient((_) async {
+            fail('Local files must never go through HTTP resolution');
+          }),
+        );
+        expect(platform.sources, [file.uri.toString()]);
+        expect(platform.sourceHeaders, [isEmpty]);
+        expect(session.state.phase, InlineVideoPlaybackPhase.ready);
+        expect(session.state.isPlaying, isTrue);
+        await session.pause();
+        expect(session.state.isPlaying, isFalse);
+        session.dispose();
+        await platform.disposed(0);
+      },
+    );
+  }
 
   for (final redirected in [false, true]) {
     test(

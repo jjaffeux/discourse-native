@@ -73,6 +73,9 @@ final class PostEvent {
   String? get startsAt => text('starts_at');
   String? get endsAt => text('ends_at');
   String? get timezone => text('timezone');
+  String? get recordingUrl => eventRecordingUrl(text('recording_url'));
+  String? get recordingOnebox =>
+      recordingUrl == null ? null : text('recording_onebox');
   String? get recurrence => text('recurrence');
   bool get recurring => recurrence != null && recurrence != 'none';
   bool get allDay => flag('all_day');
@@ -107,6 +110,23 @@ final class PostEvent {
       deepJsonEquals(fields, other.fields);
   @override
   int get hashCode => Object.hash(id, topicId, deepJsonHash(fields));
+}
+
+String? eventRecordingUrl(String? source) {
+  if (source == null || source.trim().isEmpty) return null;
+  final value = source.trim();
+  if (value.length > 1000 || RegExp(r'[\s<>]').hasMatch(value)) return null;
+  final uri = Uri.tryParse(
+    RegExp(r'^[a-z][a-z0-9+.-]*:', caseSensitive: false).hasMatch(value)
+        ? value
+        : 'https://$value',
+  );
+  return uri != null &&
+          (uri.scheme == 'http' || uri.scheme == 'https') &&
+          uri.host.isNotEmpty &&
+          uri.userInfo.isEmpty
+      ? uri.toString()
+      : null;
 }
 
 @immutable

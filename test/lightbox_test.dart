@@ -162,12 +162,52 @@ void main() {
     debugNetworkImageHttpClientProvider = null;
   });
 
+  testWidgets('retiring a gallery leaves a newer unrelated route in place', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    final retire = Completer<void>();
+    late BuildContext host;
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: navigator,
+        home: Builder(
+          builder: (context) {
+            host = context;
+            return const Scaffold();
+          },
+        ),
+      ),
+    );
+    unawaited(
+      showLightboxGallery(
+        host,
+        images: [parse(singleImage)],
+        initialIndex: 0,
+        dismissWhen: retire.future,
+      ),
+    );
+    await tester.pumpAndSettle();
+    unawaited(
+      navigator.currentState!.push(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(body: Text('Newer route')),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    retire.complete();
+    await tester.pumpAndSettle();
+    expect(find.text('Newer route'), findsOneWidget);
+    expect(find.byType(LightboxGallery, skipOffstage: false), findsNothing);
+  });
+
   group('LightboxImage.from', () {
     test('reads the full-size image off the anchor, not the thumbnail', () {
       final image = parse(singleImage);
 
       expect(
-        image.fullSrc,
+        (image.source as RemoteLightboxImage).url,
         'https://meta.discourse.org/uploads/original/4X/a/b/c/full.png',
       );
       expect(
@@ -279,7 +319,10 @@ void main() {
         <a class="lightbox" href="https://example.com/href.png" data-large-src="https://example.com/large.png"><img src="https://example.com/t.png"></a>
       ''');
 
-      expect(image.fullSrc, 'https://example.com/large.png');
+      expect(
+        (image.source as RemoteLightboxImage).url,
+        'https://example.com/large.png',
+      );
     });
 
     test('falls back from the anchor title to alt to the image title', () {
@@ -366,7 +409,10 @@ void main() {
       final first = LightboxImage.galleryFor(anchorIn(threeImages));
       final last = LightboxImage.galleryFor(anchorIn(threeImages, index: 2));
 
-      expect(first.map((i) => i.fullSrc), last.map((i) => i.fullSrc));
+      expect(
+        first.map((i) => (i.source as RemoteLightboxImage).url),
+        last.map((i) => (i.source as RemoteLightboxImage).url),
+      );
     });
 
     test('gives each image a hero tag of its own', () {

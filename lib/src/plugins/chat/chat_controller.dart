@@ -18,6 +18,8 @@ import 'chat_direct_message_search.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_live_sync_coordinator.dart';
 import 'chat_message.dart';
+import 'chat_message_blocks.dart';
+import 'chat_message_contract.dart';
 import 'chat_message_summary.dart';
 import 'chat_message_timeline.dart';
 import 'chat_pin.dart';
@@ -32,6 +34,7 @@ import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 import 'chat_thread_list_refresh.dart';
 import 'chat_thread_metadata_owner.dart';
+import 'chat_time.dart';
 import 'chat_wire.dart';
 
 part 'chat_conversation_stream.dart';
@@ -382,7 +385,9 @@ class ChatController extends FrameSafeNotifier {
     ChatPreviewEngine? previewEngine,
     PluginCookingHost? cookingHost,
     ChatCookingCoordinator? cookingScheduler,
-    String Function(String siteUrl)? cookingTimezoneFor,
+    PluginTimezoneHost? timezoneHost,
+    this.decodeMessage = ChatMessage.fromJson,
+    this.messageContributions = const [],
 
     this.onChatNotificationsDelta,
     this.onSiteUnreachable,
@@ -404,7 +409,7 @@ class ChatController extends FrameSafeNotifier {
        _currentUserFor = currentUserFor ?? _noCurrentUser,
        _siteConfigFor = siteConfigFor ?? _unknownSiteConfig,
        _previewEngine = previewEngine ?? ChatPreviewEngine(),
-       _cookingTimezoneFor = cookingTimezoneFor,
+       _timezoneHost = timezoneHost,
        _clock = clock ?? DateTime.now {
     if (cookingHost != null) {
       _preparedCooking = ChatPreparedCooking(
@@ -456,6 +461,7 @@ class ChatController extends FrameSafeNotifier {
         );
     _liveSync = ChatLiveSyncCoordinator(
       requests: requests,
+      decodeMessage: decodeMessage,
       host: ChatLiveSyncHost(
         isDisposed: () => isDisposed,
         clock: _clock,
@@ -563,7 +569,7 @@ class ChatController extends FrameSafeNotifier {
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final SiteConfig Function(String siteUrl) _siteConfigFor;
   final ChatPreviewEngine _previewEngine;
-  final String Function(String siteUrl)? _cookingTimezoneFor;
+  final PluginTimezoneHost? _timezoneHost;
   ChatPreparedCooking? _preparedCooking;
   final Map<String, String> _cookingLocales = {};
   final Map<String, int> _cookingLocaleRevisions = {};
@@ -582,6 +588,15 @@ class ChatController extends FrameSafeNotifier {
 
   DiscourseUser? currentUserFor(String siteUrl) => _currentUserFor(siteUrl);
   SiteConfig siteConfigFor(String siteUrl) => _siteConfigFor(siteUrl);
+
+  static final Listenable _noTimeChanges = Listenable.merge(const []);
+
+  Listenable get timeChanges => _timezoneHost?.changes ?? _noTimeChanges;
+
+  ChatTime timeFor(String siteUrl) => ChatTime.forReader(
+    zones: _timezoneHost,
+    accountTimezone: _currentUserFor(siteUrl)?.timezone,
+  );
 
   /// Shared by Chat composers; unchanged locales do no work.
   void setCookingLocale(String siteUrl, String locale) {
@@ -602,8 +617,7 @@ class ChatController extends FrameSafeNotifier {
       authorUsername: author?.author.username ?? user?.username ?? '',
       editorId: user?.id,
       locale: _cookingLocales[siteUrl] ?? 'en',
-      timezone:
-          _cookingTimezoneFor?.call(siteUrl) ?? user?.timezone ?? 'Etc/UTC',
+      timezone: timeFor(siteUrl).location?.name ?? 'Etc/UTC',
       asOfEpochMilliseconds: _clock().millisecondsSinceEpoch,
       sourcePolicy: CookingSourcePolicy.submission,
     );
@@ -856,6 +870,9 @@ class ChatController extends FrameSafeNotifier {
   /// never sent after disconnect, disposal, or generation replacement.
   bool _requestIsCurrent(PluginSiteLease lease, bool Function() ownsRequest) =>
       !isDisposed && lease.isCurrent && ownsRequest();
+
+  final ChatMessageDecoder decodeMessage;
+  final List<ChatMessageContribution<Object>> messageContributions;
 
   late final ChatChannelListController channelListPreferences;
   final ChatInboxFilters inboxFilters = ChatInboxFilters();
@@ -1635,6 +1652,22 @@ class ChatController extends FrameSafeNotifier {
         heldChannel.canModifyMessages(isStaff: true);
   }
 
+  bool canReportMessage(String siteUrl, ChatMessage message) {
+    if (isDisposed ||
+        message.id <= 0 ||
+        message.isOptimistic ||
+        message.isDeleted ||
+        message.isWebhook) {
+      return false;
+    }
+    final config = _siteConfigFor(siteUrl);
+    return canFlagMessage(siteUrl, message) ||
+        config.dsaReportingEnabled ||
+        (_currentUserFor(siteUrl) == null &&
+            config.allowAllUsersToFlagIllegalContent &&
+            config.anonymousFlagReportEmail != null);
+  }
+
   bool canFlagMessage(String siteUrl, ChatMessage message) {
     final user = _currentUserFor(siteUrl);
     return !isDisposed &&
@@ -1660,6 +1693,7 @@ class ChatController extends FrameSafeNotifier {
     return List.unmodifiable([
       for (final type in catalog)
         if (type.enabled &&
+            !(type.isIllegal && _siteConfigFor(siteUrl).dsaReportingEnabled) &&
             type.appliesToTarget(chatMessageWireType) &&
             available.contains(type.nameKey))
           type,
@@ -1976,13 +2010,51 @@ class ChatController extends FrameSafeNotifier {
 
   /// Adding requires both message interaction permission and channel membership.
   bool canAddReactionToMessage(String siteUrl, ChatMessage message) =>
+      _siteConfigFor(siteUrl).emojiEnabled &&
       _canInteractWithMessage(siteUrl, message, requireFollowing: true);
+
+  bool canInteractWithBlock(
+    String siteUrl,
+    ChatMessage message,
+    String actionId,
+  ) =>
+      !isDisposed &&
+      _currentUserFor(siteUrl) != null &&
+      message.id > 0 &&
+      !message.isOptimistic &&
+      !message.isDeleted &&
+      (channel(siteUrl, message.channelId)?.canJoin == true ||
+          channel(siteUrl, message.channelId)?.membership.following == true) &&
+      message.blocks.any(
+        (block) =>
+            (block is! ChatConfirmationBlock || block.cookedStatus == null) &&
+            block.elements.any(
+              (element) =>
+                  element is ChatBlockButton && element.actionId == actionId,
+            ),
+      );
+
+  bool messageInteractionPending(String siteUrl, int messageId) =>
+      _messageWriteOwners[siteUrl]?.inFlight(
+        messageId,
+        _MessageWriteKind.interaction,
+      ) ==
+      true;
+
+  Future<String?> interactWithMessage(
+    String siteUrl,
+    int messageId,
+    String actionId,
+  ) => isDisposed
+      ? Future.value()
+      : _messageWritesFor(siteUrl).interact(messageId, actionId);
 
   bool canReplyToMessage(String siteUrl, ChatMessage message) =>
       _canInteractWithMessage(siteUrl, message, requireFollowing: true);
 
   /// Discourse permits removing a reaction after leaving the channel.
   bool canRemoveReactionFromMessage(String siteUrl, ChatMessage message) =>
+      _siteConfigFor(siteUrl).emojiEnabled &&
       _canInteractWithMessage(siteUrl, message, requireFollowing: false);
 
   bool _canInteractWithMessage(
@@ -3073,7 +3145,7 @@ class ChatController extends FrameSafeNotifier {
 
       // This temporary listener only reconciles this client's remaining local rows.
       if (payload is! Map<String, dynamic>) return;
-      final canonical = ChatMessage.fromJson(payload, siteUrl);
+      final canonical = decodeMessage(payload, siteUrl);
       if (canonical.id <= 0 ||
           canonical.channelId != target.channelId ||
           canonical.threadId != target.threadId) {

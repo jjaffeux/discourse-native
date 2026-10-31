@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart' show immutable;
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
+import 'chat_message_contract.dart';
 
 typedef ChatPins = ({List<ChatPin> pins, ChatMembership? membership});
 
@@ -19,9 +20,16 @@ class ChatPin {
 
   static const int maximumPerChannel = 20;
 
-  factory ChatPin.fromJson(Map<String, dynamic> json, String siteUrl) {
+  factory ChatPin.fromJson(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    ChatMessageDecoder? decodeMessage,
+  }) {
     final messageJson = jsonObject(json['message']);
-    final parsed = ChatMessage.fromJson(messageJson, siteUrl);
+    final parsed = (decodeMessage ?? ChatMessage.fromJson)(
+      messageJson,
+      siteUrl,
+    );
     return ChatPin(
       id: jsonInt(json['id']),
       messageId: jsonIntOrNull(json['chat_message_id']) ?? parsed.id,
@@ -32,14 +40,18 @@ class ChatPin {
     );
   }
 
-  static ChatPins parse(Map<String, dynamic> json, String siteUrl) {
+  static ChatPins parse(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    ChatMessageDecoder? decodeMessage,
+  }) {
     final membership = json['membership'];
     return (
       pins: List.unmodifiable([
         for (final entry in jsonObjects(
           json['pinned_messages'],
         ).take(maximumPerChannel))
-          ChatPin.fromJson(entry, siteUrl),
+          ChatPin.fromJson(entry, siteUrl, decodeMessage: decodeMessage),
       ]),
       membership: membership is Map<String, dynamic>
           ? ChatMembership.fromJson(membership)

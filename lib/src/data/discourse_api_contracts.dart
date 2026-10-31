@@ -35,6 +35,7 @@ import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import 'dsa_notices_api.dart';
 import 'http_basic_auth.dart';
 import 'plugin_transport.dart';
 import 'site_message_bus_bootstrap.dart';
@@ -257,6 +258,7 @@ abstract interface class ShellApiCapabilities
     implements
         DiscourseApiLifecycle,
         DiscourseApiModels,
+        DsaNoticesApi,
         SiteLookupApi,
         PluginApiTransport,
         PluginJsonListTransport,

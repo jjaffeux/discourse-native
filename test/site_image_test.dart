@@ -377,7 +377,7 @@ void main() {
             initialIndex: 0,
             images: [
               LightboxImage(
-                fullSrc: _imageUrl,
+                source: RemoteLightboxImage(_imageUrl),
                 thumbnailSrc: null,
                 title: 'Full image',
                 description: null,

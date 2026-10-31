@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_message.dart';
+import 'chat_time.dart';
 
 @immutable
 sealed class ChatStreamItem {
@@ -87,9 +88,11 @@ List<ChatStreamItem> buildChatStream(
   int? lastReadMessageId,
   int? newestMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  ChatTime? time,
   bool threadContext = false,
 }) {
   final items = <ChatStreamItem>[];
+  final readerTime = time ?? ChatTime.forReader();
 
   // Like Discourse, omit a divider immediately above the sole newest unread row.
   final firstUnreadId = lastReadMessageId == null
@@ -112,8 +115,8 @@ List<ChatStreamItem> buildChatStream(
   }
 
   for (final message in messages) {
-    final day = calendarDay(message.createdAt);
-    final previousDay = calendarDay(previous?.createdAt);
+    final day = readerTime.day(message.createdAt);
+    final previousDay = readerTime.day(previous?.createdAt);
     final dayChanged = day != null && day != previousDay;
     final daysSince = timeGapDaysBetween(
       previous?.createdAt,
@@ -167,6 +170,7 @@ List<ChatStreamItem>? prependChatStream({
   int? lastReadMessageId,
   int? newestMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  ChatTime? time,
 }) {
   if (prepended.isEmpty || existingLeading.isEmpty) return null;
 
@@ -184,6 +188,7 @@ List<ChatStreamItem>? prependChatStream({
       lastReadMessageId: lastReadMessageId,
       newestMessageId: newestMessageId,
       showTimeGapDays: showTimeGapDays,
+      time: time,
     ),
     ...existingItems.skip(boundaryRow + 1),
   ];
@@ -197,6 +202,7 @@ List<ChatStreamItem>? trimChatStreamStart({
   int? lastReadMessageId,
   int? newestMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  ChatTime? time,
 }) {
   if (retainedLeading.isEmpty || retainedLeading.last.isDeleted) return null;
 
@@ -212,6 +218,7 @@ List<ChatStreamItem>? trimChatStreamStart({
       lastReadMessageId: lastReadMessageId,
       newestMessageId: newestMessageId,
       showTimeGapDays: showTimeGapDays,
+      time: time,
     ),
     ...existingItems.skip(boundaryRow + 1),
   ];
@@ -224,6 +231,7 @@ List<ChatStreamItem>? trimChatStreamEnd({
   required List<ChatMessage> retainedTrailing,
   int? lastReadMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  ChatTime? time,
 }) {
   if (retainedTrailing.isEmpty || retainedTrailing.first.isDeleted) return null;
 
@@ -240,6 +248,7 @@ List<ChatStreamItem>? trimChatStreamEnd({
     lastReadMessageId: keptRowsHoldFirstUnread ? null : lastReadMessageId,
     newestMessageId: retainedTrailing.last.id,
     showTimeGapDays: showTimeGapDays,
+    time: time,
   );
   final tailBoundaryRow = tail.indexWhere(
     (item) => item is ChatStreamMessage && item.id == boundary.id,
@@ -270,6 +279,7 @@ List<ChatStreamItem>? appendChatStream({
   int? lastReadMessageId,
   int? newestMessageId,
   int showTimeGapDays = SiteConfig.defaultShowTimeGapDays,
+  ChatTime? time,
 }) {
   if (appended.isEmpty || existingTrailing.isEmpty) return null;
 
@@ -300,6 +310,7 @@ List<ChatStreamItem>? appendChatStream({
     lastReadMessageId: keptRowsHoldFirstUnread ? null : lastReadMessageId,
     newestMessageId: newestMessageId,
     showTimeGapDays: showTimeGapDays,
+    time: time,
   );
   final tailBoundaryRow = tail.indexWhere(
     (item) => item is ChatStreamMessage && item.id == boundary.id,

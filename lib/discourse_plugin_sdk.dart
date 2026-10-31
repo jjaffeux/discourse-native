@@ -83,6 +83,7 @@ export 'src/models/discourse_instance.dart'
 export 'src/models/discourse_user.dart' show DiscourseUser;
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;
+export 'src/models/homepage_option.dart';
 export 'src/models/json.dart';
 export 'src/models/live_refresh_id.dart' show liveRefreshId;
 export 'src/models/notification.dart'
@@ -189,6 +190,7 @@ export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
 
+export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
@@ -205,7 +207,12 @@ export 'src/shell/image_decode.dart' show imageForCover, imagePhysicalPixels;
 export 'src/shell/inline_code.dart' show InlineCode;
 export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;
 export 'src/shell/lightbox.dart'
-    show LightboxGallery, LightboxImage, UnavailableImage, showLightboxGallery;
+    show
+        LightboxGallery,
+        LightboxImage,
+        RemoteLightboxImage,
+        UnavailableImage,
+        showLightboxGallery;
 export 'src/shell/list_boundary_shortcuts.dart' show ListBoundaryShortcuts;
 export 'src/shell/mobile_footer_action.dart'
     show
@@ -220,7 +227,7 @@ export 'src/shell/open_link.dart' show LinkTarget, openLink;
 export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
-export 'src/shell/post_flag_editor.dart' show PostFlagEditor;
+export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'

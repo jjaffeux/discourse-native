@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -41,6 +42,17 @@ final class InlineVideoData {
     required this.posterUrl,
     required this.aspectRatio,
   });
+
+  /// Only app-owned staged files use this constructor; cooked URLs stay HTTP-only.
+  factory InlineVideoData.localFile({
+    required File file,
+    required String title,
+  }) => InlineVideoData._(
+    source: file.uri,
+    title: title,
+    posterUrl: null,
+    aspectRatio: 16 / 9,
+  );
 
   final Uri source;
   final String title;
@@ -398,6 +410,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
     required this.lifecycle,
     required this.sessionFactory,
     this.actionsBuilder,
+    this.allowFullscreen = true,
   });
 
   final InlineVideoData data;
@@ -406,6 +419,7 @@ class InlineVideoPlaybackSurface extends StatefulWidget {
   final SiteLifecycle? lifecycle;
   final InlineVideoPlaybackSessionFactory sessionFactory;
   final WidgetBuilder? actionsBuilder;
+  final bool allowFullscreen;
 
   @override
   State<InlineVideoPlaybackSurface> createState() =>
@@ -494,7 +508,8 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
     if (!(mediaActivity.attachment?.mayPlay ?? false) ||
         _fullscreenOpen ||
         session == null ||
-        !session.state.supportsFullscreen) {
+        !session.state.supportsFullscreen ||
+        !widget.allowFullscreen) {
       return;
     }
     final attachment = mediaActivity.attachment!;
@@ -580,7 +595,9 @@ class _InlineVideoPlaybackSurfaceState extends State<InlineVideoPlaybackSurface>
                       session: session,
                       onTogglePlayback: () => unawaited(_togglePlayback()),
                       onSeek: session.seekTo,
-                      onEnterFullscreen: () => unawaited(_openFullscreen()),
+                      onEnterFullscreen: widget.allowFullscreen
+                          ? () => unawaited(_openFullscreen())
+                          : null,
                     ),
                   ),
                   _PlaybackBuffering(session: session),

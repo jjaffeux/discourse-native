@@ -137,7 +137,8 @@ class CookedHtml extends StatelessWidget {
         _decorateLinkCount(element, linkCounts);
       }
 
-      return cookedTodoWidgetBuilder(
+      final widget =
+          cookedTodoWidgetBuilder(
             element,
             style: textStyle,
             content: content,
@@ -185,6 +186,20 @@ class CookedHtml extends StatelessWidget {
           cookedTableWidgetBuilder(element, content: content) ??
           codeBlockWidgetBuilder(element) ??
           inlineCodeWidgetBuilder(element, textStyle);
+      if (widget != null &&
+          element.localName == 'aside' &&
+          element.classes.contains('onebox')) {
+        return Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(
+              maxWidth: DPageReadingLane.maxWidth,
+            ),
+            child: widget,
+          ),
+        );
+      }
+      return widget;
     };
   }
 

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -5,9 +7,14 @@ import 'package:flutter/material.dart';
 import '../../data/site_pdf_thumbnail_repository.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
+import '../../theme/d_icons.dart';
+import '../inline_video.dart';
+import '../lightbox.dart';
 import '../pdf_attachment.dart';
+import '../shell_scope.dart';
 import '../site_image.dart';
 import 'controller.dart';
+import 'upload_preview.dart';
 
 class ComposerUploadAttachment extends StatelessWidget {
   const ComposerUploadAttachment({
@@ -21,6 +28,17 @@ class ComposerUploadAttachment extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final preview = composer.uploadPreview(upload.id);
+    preview?.start();
+    return preview == null
+        ? _build(context, null)
+        : ListenableBuilder(
+            listenable: preview,
+            builder: (context, _) => _build(context, preview),
+          );
+  }
+
+  Widget _build(BuildContext context, ComposerUploadPreview? preview) {
     final failed = upload.status == ComposerUploadStatus.failed;
     final completed = upload.status == ComposerUploadStatus.completed;
     final thumbnail = completed ? upload.result : null;
@@ -47,6 +65,9 @@ class ComposerUploadAttachment extends StatelessWidget {
             ((upload.progress * 100).round()).toString(),
             ((!(retrying)) ? (context.l10n.uploading) : '').toString(),
           );
+    final canPreview =
+        (isImage || upload.file.isVideo) &&
+        (thumbnail != null || preview?.file != null);
     return DAttachment(
       width: double.infinity,
       state: failed
@@ -58,13 +79,21 @@ class ComposerUploadAttachment extends StatelessWidget {
           : DAttachmentState.uploading,
       liveRegion: !completed,
       children: [
+        if (canPreview)
+          DAttachmentTrigger(
+            semanticLabel: context.l10n.previewOf(upload.file.name),
+            onPressed: () => unawaited(_openPreview(context)),
+          ),
         DAttachmentMedia(
           variant:
-              thumbnail != null &&
-                  (isPdf || isImage || thumbnail.thumbnailUrl != null)
+              preview?.file != null ||
+                  (thumbnail != null &&
+                      (isPdf || isImage || thumbnail.thumbnailUrl != null))
               ? DAttachmentMediaVariant.image
               : DAttachmentMediaVariant.icon,
-          child: thumbnail != null && isPdf && thumbnail.thumbnailUrl == null
+          child: thumbnail == null && preview?.file != null
+              ? _LocalPreview(preview: preview!)
+              : thumbnail != null && isPdf && thumbnail.thumbnailUrl == null
               ? PdfThumbnail(
                   url: thumbnail.url,
                   siteUrl: composer.target.siteUrl,
@@ -116,6 +145,118 @@ class ComposerUploadAttachment extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+
+  Future<void> _openPreview(BuildContext context) async {
+    final retired = Completer<void>();
+    final lease = ShellScope.maybeIdentityOf(
+      context,
+    )?.lifecycle.capture(composer.target.siteUrl);
+    final stopRetirement = lease?.onRetire(() {
+      if (!retired.isCompleted) retired.complete();
+    });
+    final releases = <VoidCallback>[];
+    final images = <LightboxImage>[];
+    final ids = <int>[];
+    for (final item in composer.uploads) {
+      final result = item.result;
+      final preview = composer.uploadPreview(item.id);
+      final video = item.file.isVideo;
+      if (!video && !SiteConfig.isImageFilename(item.file.name)) continue;
+      LightboxSource? source;
+      if (result != null) {
+        if (video) {
+          final data = InlineVideoData.fromUpload(
+            url: result.url,
+            title: item.file.name,
+            siteUrl: composer.target.siteUrl,
+            posterUrl: result.thumbnailUrl,
+          );
+          if (data != null) source = LightboxVideo(data);
+        } else {
+          source = RemoteLightboxImage(result.url);
+        }
+      } else if (preview?.file case final file?) {
+        releases.add(preview!.retain());
+        source = video
+            ? LightboxVideo(
+                InlineVideoData.localFile(file: file, title: item.file.name),
+              )
+            : LocalLightboxImage(file);
+      }
+      if (source == null) continue;
+      ids.add(item.id);
+      images.add(
+        LightboxImage(
+          source: source,
+          thumbnailSrc: result?.thumbnailUrl,
+          title: item.file.name,
+          description: item.file.name,
+          details: null,
+          downloadHref: null,
+          width: (result?.width ?? preview?.width)?.toDouble(),
+          height: (result?.height ?? preview?.height)?.toDouble(),
+          heroTag: ('composer-preview', composer, item.id),
+        ),
+      );
+    }
+    try {
+      final index = ids.indexOf(upload.id);
+      if (index < 0) return;
+      await showLightboxGallery(
+        context,
+        images: images,
+        initialIndex: index,
+        siteUrl: composer.target.siteUrl,
+        dismissWhen: Future.any([composer.disposed, retired.future]),
+      );
+    } finally {
+      stopRetirement?.call();
+      if (!retired.isCompleted) retired.complete();
+      for (final release in releases) {
+        release();
+      }
+    }
+  }
+}
+
+class _LocalPreview extends StatelessWidget {
+  const _LocalPreview({required this.preview});
+  final ComposerUploadPreview preview;
+  @override
+  Widget build(BuildContext context) {
+    final poster = preview.poster;
+    if (preview.isVideo && poster == null) {
+      return const DIcon(DIcons.play);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: preview.isVideo
+          ? Image(
+              image: ResizeImage(
+                MemoryImage(poster!),
+                width: 128,
+                height: 128,
+                policy: ResizeImagePolicy.fit,
+              ),
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const DIcon(DIcons.play),
+            )
+          : Image(
+              image: ResizeImage(
+                FileImage(preview.file!),
+                width: 128,
+                height: 128,
+                policy: ResizeImagePolicy.fit,
+              ),
+              width: 32,
+              height: 32,
+              fit: BoxFit.cover,
+              errorBuilder: (_, _, _) => const DIcon(DIcons.fileLines),
+            ),
     );
   }
 }

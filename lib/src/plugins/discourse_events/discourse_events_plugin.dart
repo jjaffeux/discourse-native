@@ -15,6 +15,7 @@ import 'event_data.dart';
 import 'event_directory.dart';
 import 'event_navigation.dart';
 import 'event_notifications.dart';
+import 'event_onebox.dart';
 import 'event_topic_title.dart';
 
 final class DiscourseEventsPlugin
@@ -109,9 +110,14 @@ final class DiscourseEventsPlugin
         !element.attributes.containsKey('data-username')) {
       event = record
           ?.oneboxes[int.tryParse(element.attributes['data-topic'] ?? '')];
-      if (event == null) return null;
+      if (event == null) return _eventOnebox(context.siteUrl, element);
     } else {
-      return null;
+      final data = EventOneboxData.from(element, context.siteUrl);
+      if (data == null) return null;
+      event = record?.oneboxes[data.topicId];
+      if (event == null) {
+        return EventOnebox(data: data, siteUrl: context.siteUrl);
+      }
     }
     final controller = PluginUiScope.maybe(
       context.buildContext,
@@ -137,7 +143,12 @@ final class DiscourseEventsPlugin
       eventHiddenCookedElement(element) ??
       (element.classes.contains('discourse-post-event')
           ? EventCookedFallback(element: element, siteUrl: siteUrl)
-          : null);
+          : _eventOnebox(siteUrl, element));
+
+  Widget? _eventOnebox(String? siteUrl, dom.Element element) {
+    final data = EventOneboxData.from(element, siteUrl);
+    return data == null ? null : EventOnebox(data: data, siteUrl: siteUrl);
+  }
 
   @override
   List<ComposerToolbarContribution> composerToolbar(
