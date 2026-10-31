@@ -612,21 +612,16 @@ class _TopicViewState extends State<TopicView>
     _viewport.scheduleLook();
   }
 
-  /// How a reply first built now builds its HTML. During a drag or fling the
-  /// reply enters the scroll cache offscreen, and its HTML builds a frame
-  /// later: with the rest of the reply it overruns a 120 Hz frame. Toward the
-  /// end the late body grows the reply below the viewport, so nothing on
-  /// screen moves. Toward the start the reply holds the height the list last
-  /// measured for it until the body lands, so the replies below it stay put;
-  /// one the list never measured builds at once. Jumps and keys land on
-  /// visible replies, which also build at once.
   _PostBodyStaging _bodyStaging(BuildContext item, int postId) {
     // The item's own scrollable: the reader's controller can briefly be
     // attached to a second scroll view while a page moves.
     final position = item.findAncestorStateOfType<ScrollableState>()?.position;
     if (position == null) return _bodyAtOnce;
     return switch (position.userScrollDirection) {
-      ScrollDirection.reverse => (followsFrame: true, reservedHeight: null),
+      ScrollDirection.reverse => (
+        followsFrame: true,
+        reservedHeight: _reader.measuredExtentFor(postId),
+      ),
       ScrollDirection.forward => switch (_reader.measuredExtentFor(postId)) {
         final height? => (followsFrame: true, reservedHeight: height),
         null => _bodyAtOnce,

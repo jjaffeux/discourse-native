@@ -1,0 +1,2288 @@
+{
+  "runsPerSide": 5,
+  "failures": 0,
+  "verdict": "inconclusive",
+  "comparisonErrors": [
+    "warmUp changed scroll distance by more than 5%: [40812.56403947854, 40806.86888626107, 40776.490171403224, 38910.339481435076, 40963.49698428968, 38826.38380940107, 40817.322890634874, 40965.14696045913, 40704.54198201058, 40963.88914574542]"
+  ],
+  "appFrameworkSha256": {
+    "baseline": "4ed5518e37e8364ed596dee9410a31db6d8ae0b435eb5272120d216a4a996cf6",
+    "candidate": "57e2d1819434b7bf99d77f44594560f0ce19fb4654e939f084512b409ce2837f"
+  },
+  "summary": {
+    "baseline": {
+      "coldDown": {
+        "updates": [
+          179,
+          181,
+          181,
+          181,
+          182
+        ],
+        "frames": [
+          179,
+          181,
+          181,
+          181,
+          182
+        ],
+        "reachedPosts": [
+          91,
+          91,
+          91,
+          89,
+          91
+        ],
+        "build": {
+          "medianP95Ms": 3.637,
+          "minP95Ms": 2.963,
+          "maxP95Ms": 4.279
+        },
+        "raster": {
+          "medianP95Ms": 1.051,
+          "minP95Ms": 0.937,
+          "maxP95Ms": 1.186
+        },
+        "total": {
+          "medianP95Ms": 5.051,
+          "minP95Ms": 4.897,
+          "maxP95Ms": 7.997
+        }
+      },
+      "warmUp": {
+        "updates": [
+          181,
+          182,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          181,
+          182,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          19,
+          19,
+          19,
+          19,
+          19
+        ],
+        "build": {
+          "medianP95Ms": 2.422,
+          "minP95Ms": 2.118,
+          "maxP95Ms": 3.52
+        },
+        "raster": {
+          "medianP95Ms": 0.963,
+          "minP95Ms": 0.857,
+          "maxP95Ms": 1.329
+        },
+        "total": {
+          "medianP95Ms": 3.503,
+          "minP95Ms": 2.829,
+          "maxP95Ms": 4.841
+        }
+      },
+      "warmDown": {
+        "updates": [
+          182,
+          183,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          182,
+          183,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          91,
+          91,
+          91,
+          91,
+          91
+        ],
+        "build": {
+          "medianP95Ms": 2.587,
+          "minP95Ms": 2.341,
+          "maxP95Ms": 3.056
+        },
+        "raster": {
+          "medianP95Ms": 0.981,
+          "minP95Ms": 0.945,
+          "maxP95Ms": 1.92
+        },
+        "total": {
+          "medianP95Ms": 3.82,
+          "minP95Ms": 3.534,
+          "maxP95Ms": 5.363
+        }
+      },
+      "warmUpAgain": {
+        "updates": [
+          182,
+          183,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          182,
+          183,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          19,
+          19,
+          19,
+          19,
+          19
+        ],
+        "build": {
+          "medianP95Ms": 2.451,
+          "minP95Ms": 2.259,
+          "maxP95Ms": 2.99
+        },
+        "raster": {
+          "medianP95Ms": 0.936,
+          "minP95Ms": 0.926,
+          "maxP95Ms": 1.849
+        },
+        "total": {
+          "medianP95Ms": 3.269,
+          "minP95Ms": 3.103,
+          "maxP95Ms": 5.1
+        }
+      }
+    },
+    "candidate": {
+      "coldDown": {
+        "updates": [
+          180,
+          180,
+          182,
+          181,
+          182
+        ],
+        "frames": [
+          180,
+          180,
+          182,
+          181,
+          182
+        ],
+        "reachedPosts": [
+          89,
+          91,
+          91,
+          91,
+          91
+        ],
+        "build": {
+          "medianP95Ms": 3.699,
+          "minP95Ms": 3.19,
+          "maxP95Ms": 3.941
+        },
+        "raster": {
+          "medianP95Ms": 1.087,
+          "minP95Ms": 0.959,
+          "maxP95Ms": 1.697
+        },
+        "total": {
+          "medianP95Ms": 5.089,
+          "minP95Ms": 4.315,
+          "maxP95Ms": 6.001
+        }
+      },
+      "warmUp": {
+        "updates": [
+          182,
+          182,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          182,
+          182,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          20,
+          19,
+          19,
+          19,
+          19
+        ],
+        "build": {
+          "medianP95Ms": 2.248,
+          "minP95Ms": 2.145,
+          "maxP95Ms": 2.961
+        },
+        "raster": {
+          "medianP95Ms": 0.935,
+          "minP95Ms": 0.855,
+          "maxP95Ms": 1.536
+        },
+        "total": {
+          "medianP95Ms": 3.226,
+          "minP95Ms": 2.977,
+          "maxP95Ms": 4.067
+        }
+      },
+      "warmDown": {
+        "updates": [
+          182,
+          182,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          182,
+          182,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          91,
+          91,
+          91,
+          91,
+          91
+        ],
+        "build": {
+          "medianP95Ms": 2.773,
+          "minP95Ms": 2.46,
+          "maxP95Ms": 3.161
+        },
+        "raster": {
+          "medianP95Ms": 0.965,
+          "minP95Ms": 0.891,
+          "maxP95Ms": 1.967
+        },
+        "total": {
+          "medianP95Ms": 3.511,
+          "minP95Ms": 3.278,
+          "maxP95Ms": 5.036
+        }
+      },
+      "warmUpAgain": {
+        "updates": [
+          180,
+          182,
+          182,
+          182,
+          182
+        ],
+        "frames": [
+          180,
+          182,
+          182,
+          182,
+          182
+        ],
+        "reachedPosts": [
+          19,
+          19,
+          19,
+          19,
+          19
+        ],
+        "build": {
+          "medianP95Ms": 2.315,
+          "minP95Ms": 2.06,
+          "maxP95Ms": 3.256
+        },
+        "raster": {
+          "medianP95Ms": 0.908,
+          "minP95Ms": 0.83,
+          "maxP95Ms": 1.475
+        },
+        "total": {
+          "medianP95Ms": 3.326,
+          "minP95Ms": 2.998,
+          "maxP95Ms": 4.958
+        }
+      }
+    }
+  },
+  "runs": {
+    "baseline": [
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1512.437,
+            "updates": 179,
+            "frames": 179,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50187.68035714285,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.13178089887640446,
+              "p50Ms": 0.058,
+              "p95Ms": 0.641,
+              "p99Ms": 1.147,
+              "maxMs": 1.436,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.4732905027932963,
+              "p50Ms": 1.059,
+              "p95Ms": 4.279,
+              "p99Ms": 12.822,
+              "maxMs": 12.841,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5578268156424581,
+              "p50Ms": 0.494,
+              "p95Ms": 1.1,
+              "p99Ms": 1.362,
+              "maxMs": 1.784,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.351893854748604,
+              "p50Ms": 1.753,
+              "p95Ms": 7.997,
+              "p99Ms": 13.467,
+              "maxMs": 13.528,
+              "over8ms": 7,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1509.499,
+            "updates": 181,
+            "frames": 181,
+            "offsetBefore": 50187.68035714285,
+            "offsetAfter": 9375.116317664317,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.1224611111111111,
+              "p50Ms": 0.055,
+              "p95Ms": 0.218,
+              "p99Ms": 1.11,
+              "maxMs": 4.289,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.1573314917127067,
+              "p50Ms": 0.879,
+              "p95Ms": 3.52,
+              "p99Ms": 6.559,
+              "maxMs": 8.11,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6638784530386741,
+              "p50Ms": 0.523,
+              "p95Ms": 1.329,
+              "p99Ms": 1.709,
+              "maxMs": 1.753,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.0551160220994475,
+              "p50Ms": 1.643,
+              "p95Ms": 4.841,
+              "p99Ms": 9.671,
+              "maxMs": 11.629,
+              "over8ms": 4,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1510.532,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9375.116317664317,
+            "offsetAfter": 50169.26167584158,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.11331491712707183,
+              "p50Ms": 0.058,
+              "p95Ms": 0.21,
+              "p99Ms": 1.043,
+              "maxMs": 4.136,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9640219780219783,
+              "p50Ms": 0.709,
+              "p95Ms": 2.341,
+              "p99Ms": 8.132,
+              "maxMs": 8.454,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.534153846153846,
+              "p50Ms": 0.474,
+              "p95Ms": 0.945,
+              "p99Ms": 1.085,
+              "maxMs": 1.337,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6261098901098905,
+              "p50Ms": 1.358,
+              "p95Ms": 3.82,
+              "p99Ms": 8.711,
+              "maxMs": 9.005,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1511.753,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50169.26167584158,
+            "offsetAfter": 9362.10648276993,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.13339226519337016,
+              "p50Ms": 0.069,
+              "p95Ms": 0.208,
+              "p99Ms": 2.805,
+              "maxMs": 3.926,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.013681318681318,
+              "p50Ms": 0.842,
+              "p95Ms": 2.259,
+              "p99Ms": 4.956,
+              "maxMs": 6.573,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5835109890109892,
+              "p50Ms": 0.533,
+              "p95Ms": 0.936,
+              "p99Ms": 1.353,
+              "maxMs": 1.55,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.7096813186813182,
+              "p50Ms": 1.571,
+              "p95Ms": 3.269,
+              "p99Ms": 5.702,
+              "maxMs": 7.191,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1522.528,
+            "updates": 181,
+            "frames": 181,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50187.68035714285,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.14266111111111113,
+              "p50Ms": 0.072,
+              "p95Ms": 0.633,
+              "p99Ms": 1.076,
+              "maxMs": 3.682,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.4343867403314918,
+              "p50Ms": 1.071,
+              "p95Ms": 4.014,
+              "p99Ms": 9.169,
+              "maxMs": 13.165,
+              "over8ms": 3,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5664972375690608,
+              "p50Ms": 0.506,
+              "p95Ms": 1.014,
+              "p99Ms": 1.264,
+              "maxMs": 1.531,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.2411491712707186,
+              "p50Ms": 1.776,
+              "p95Ms": 5.685,
+              "p99Ms": 15.007,
+              "maxMs": 18.135,
+              "over8ms": 5,
+              "over16ms": 1
+            }
+          },
+          "warmUp": {
+            "wallMs": 1511.108,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50187.68035714285,
+            "offsetAfter": 9380.811470881777,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.12892265193370167,
+              "p50Ms": 0.071,
+              "p95Ms": 0.179,
+              "p99Ms": 1.111,
+              "maxMs": 4.838,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.0853351648351648,
+              "p50Ms": 0.853,
+              "p95Ms": 2.39,
+              "p99Ms": 7.408,
+              "maxMs": 9.181,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5777252747252745,
+              "p50Ms": 0.528,
+              "p95Ms": 0.95,
+              "p99Ms": 1.447,
+              "maxMs": 1.589,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.7984835164835165,
+              "p50Ms": 1.559,
+              "p95Ms": 3.449,
+              "p99Ms": 8.067,
+              "maxMs": 9.72,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1510.708,
+            "updates": 183,
+            "frames": 183,
+            "offsetBefore": 9380.811470881777,
+            "offsetAfter": 50174.292394517,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.15224725274725276,
+              "p50Ms": 0.055,
+              "p95Ms": 0.364,
+              "p99Ms": 3.34,
+              "maxMs": 3.789,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.1327486338797816,
+              "p50Ms": 0.845,
+              "p95Ms": 3.056,
+              "p99Ms": 8.349,
+              "maxMs": 9.024,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7360819672131148,
+              "p50Ms": 0.535,
+              "p95Ms": 1.75,
+              "p99Ms": 1.942,
+              "maxMs": 1.953,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.1021202185792345,
+              "p50Ms": 1.818,
+              "p95Ms": 4.518,
+              "p99Ms": 9.112,
+              "maxMs": 9.573,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1514.274,
+            "updates": 183,
+            "frames": 183,
+            "offsetBefore": 50174.292394517,
+            "offsetAfter": 9355.553847646288,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.12239010989010989,
+              "p50Ms": 0.064,
+              "p95Ms": 0.199,
+              "p99Ms": 1.461,
+              "maxMs": 3.056,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.1483169398907103,
+              "p50Ms": 0.946,
+              "p95Ms": 2.759,
+              "p99Ms": 8.304,
+              "maxMs": 10.643,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7518743169398905,
+              "p50Ms": 0.522,
+              "p95Ms": 1.71,
+              "p99Ms": 2.143,
+              "maxMs": 2.319,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.1395409836065573,
+              "p50Ms": 1.897,
+              "p95Ms": 3.826,
+              "p99Ms": 11.553,
+              "maxMs": 13.678,
+              "over8ms": 4,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1512.525,
+            "updates": 181,
+            "frames": 181,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50187.68035714285,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.1573944444444444,
+              "p50Ms": 0.075,
+              "p95Ms": 0.656,
+              "p99Ms": 1.325,
+              "maxMs": 4.105,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.485972375690608,
+              "p50Ms": 1.203,
+              "p95Ms": 3.637,
+              "p99Ms": 9.416,
+              "maxMs": 9.466,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6049999999999999,
+              "p50Ms": 0.52,
+              "p95Ms": 1.186,
+              "p99Ms": 1.434,
+              "maxMs": 1.462,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.258613259668507,
+              "p50Ms": 1.988,
+              "p95Ms": 4.897,
+              "p99Ms": 9.99,
+              "maxMs": 10.051,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1512.034,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50187.68035714285,
+            "offsetAfter": 9411.190185739631,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.09802209944751379,
+              "p50Ms": 0.059,
+              "p95Ms": 0.167,
+              "p99Ms": 0.941,
+              "maxMs": 1.055,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9864560439560446,
+              "p50Ms": 0.773,
+              "p95Ms": 2.422,
+              "p99Ms": 6.483,
+              "maxMs": 9.187,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5555604395604393,
+              "p50Ms": 0.497,
+              "p95Ms": 0.963,
+              "p99Ms": 1.4,
+              "maxMs": 1.774,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6741813186813186,
+              "p50Ms": 1.442,
+              "p95Ms": 3.503,
+              "p99Ms": 7.154,
+              "maxMs": 9.834,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1511.401,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9411.190185739631,
+            "offsetAfter": 50114.67097359382,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.11112154696132596,
+              "p50Ms": 0.058,
+              "p95Ms": 0.232,
+              "p99Ms": 1.164,
+              "maxMs": 1.403,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.983379120879121,
+              "p50Ms": 0.72,
+              "p95Ms": 2.543,
+              "p99Ms": 7.388,
+              "maxMs": 8.983,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5454010989010987,
+              "p50Ms": 0.512,
+              "p95Ms": 0.981,
+              "p99Ms": 1.109,
+              "maxMs": 1.126,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6664560439560432,
+              "p50Ms": 1.433,
+              "p95Ms": 3.697,
+              "p99Ms": 8.03,
+              "maxMs": 9.655,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1511.61,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50114.67097359382,
+            "offsetAfter": 9406.126981852383,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11898342541436464,
+              "p50Ms": 0.05,
+              "p95Ms": 0.198,
+              "p99Ms": 2.755,
+              "maxMs": 3.416,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9052087912087913,
+              "p50Ms": 0.702,
+              "p95Ms": 2.451,
+              "p99Ms": 7.047,
+              "maxMs": 7.473,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5171758241758243,
+              "p50Ms": 0.459,
+              "p95Ms": 0.927,
+              "p99Ms": 1.541,
+              "maxMs": 1.617,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.5368296703296709,
+              "p50Ms": 1.406,
+              "p95Ms": 3.103,
+              "p99Ms": 7.554,
+              "maxMs": 8.016,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1519.886,
+            "updates": 181,
+            "frames": 181,
+            "offsetBefore": 0.0,
+            "offsetAfter": 48576.79285714286,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 89,
+            "inputDispatch": {
+              "meanMs": 0.17028333333333334,
+              "p50Ms": 0.078,
+              "p95Ms": 0.675,
+              "p99Ms": 2.835,
+              "maxMs": 4.409,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.5056022099447515,
+              "p50Ms": 1.05,
+              "p95Ms": 3.374,
+              "p99Ms": 11.304,
+              "maxMs": 11.354,
+              "over8ms": 5,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5970994475138125,
+              "p50Ms": 0.56,
+              "p95Ms": 0.937,
+              "p99Ms": 1.16,
+              "maxMs": 1.475,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.3204309392265188,
+              "p50Ms": 1.925,
+              "p95Ms": 4.901,
+              "p99Ms": 11.909,
+              "maxMs": 11.957,
+              "over8ms": 6,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1509.776,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 48576.79285714286,
+            "offsetAfter": 9666.453375707784,
+            "visiblePostBefore": 89,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.10490055248618788,
+              "p50Ms": 0.052,
+              "p95Ms": 0.159,
+              "p99Ms": 1.001,
+              "maxMs": 3.055,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9340604395604397,
+              "p50Ms": 0.8,
+              "p95Ms": 2.118,
+              "p99Ms": 7.056,
+              "maxMs": 8.015,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5159890109890112,
+              "p50Ms": 0.473,
+              "p95Ms": 0.857,
+              "p99Ms": 0.957,
+              "maxMs": 1.055,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.588912087912088,
+              "p50Ms": 1.415,
+              "p95Ms": 2.829,
+              "p99Ms": 7.663,
+              "maxMs": 8.621,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1510.605,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9666.453375707784,
+            "offsetAfter": 50327.16833901806,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.09103314917127071,
+              "p50Ms": 0.051,
+              "p95Ms": 0.219,
+              "p99Ms": 0.998,
+              "maxMs": 1.018,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.8923021978021977,
+              "p50Ms": 0.686,
+              "p95Ms": 2.587,
+              "p99Ms": 5.375,
+              "maxMs": 8.088,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5229670329670328,
+              "p50Ms": 0.47,
+              "p95Ms": 0.953,
+              "p99Ms": 1.047,
+              "maxMs": 1.779,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.5621318681318683,
+              "p50Ms": 1.351,
+              "p95Ms": 3.534,
+              "p99Ms": 6.155,
+              "maxMs": 8.69,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1510.981,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50327.16833901806,
+            "offsetAfter": 9461.359561347082,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.0947237569060773,
+              "p50Ms": 0.051,
+              "p95Ms": 0.145,
+              "p99Ms": 1.086,
+              "maxMs": 1.115,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9465659340659338,
+              "p50Ms": 0.71,
+              "p95Ms": 2.302,
+              "p99Ms": 8.23,
+              "maxMs": 10.325,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5239285714285712,
+              "p50Ms": 0.467,
+              "p95Ms": 0.926,
+              "p99Ms": 1.04,
+              "maxMs": 1.195,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6451648351648365,
+              "p50Ms": 1.441,
+              "p95Ms": 3.226,
+              "p99Ms": 8.856,
+              "maxMs": 10.958,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1524.393,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50380.489285714284,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.1488895027624309,
+              "p50Ms": 0.067,
+              "p95Ms": 0.709,
+              "p99Ms": 1.109,
+              "maxMs": 3.503,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.389489010989011,
+              "p50Ms": 0.998,
+              "p95Ms": 2.963,
+              "p99Ms": 9.686,
+              "maxMs": 11.461,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5756648351648354,
+              "p50Ms": 0.525,
+              "p95Ms": 1.051,
+              "p99Ms": 1.48,
+              "maxMs": 1.668,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.202153846153846,
+              "p50Ms": 1.8,
+              "p95Ms": 5.051,
+              "p99Ms": 11.242,
+              "maxMs": 12.034,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1511.367,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50380.489285714284,
+            "offsetAfter": 9416.9923014246,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.1162099447513812,
+              "p50Ms": 0.047,
+              "p95Ms": 0.225,
+              "p99Ms": 1.41,
+              "maxMs": 3.539,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.085901098901099,
+              "p50Ms": 0.821,
+              "p95Ms": 3.136,
+              "p99Ms": 5.401,
+              "maxMs": 11.087,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5847637362637363,
+              "p50Ms": 0.504,
+              "p95Ms": 1.064,
+              "p99Ms": 1.713,
+              "maxMs": 1.779,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.8876153846153843,
+              "p50Ms": 1.58,
+              "p95Ms": 3.99,
+              "p99Ms": 8.06,
+              "maxMs": 11.889,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1510.487,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9416.9923014246,
+            "offsetAfter": 50367.17534244887,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.1239060773480663,
+              "p50Ms": 0.061,
+              "p95Ms": 0.24,
+              "p99Ms": 1.187,
+              "maxMs": 2.676,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.235285714285714,
+              "p50Ms": 0.789,
+              "p95Ms": 3.039,
+              "p99Ms": 9.244,
+              "maxMs": 11.536,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7805000000000001,
+              "p50Ms": 0.534,
+              "p95Ms": 1.92,
+              "p99Ms": 2.31,
+              "maxMs": 2.934,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.3070714285714278,
+              "p50Ms": 1.867,
+              "p95Ms": 5.363,
+              "p99Ms": 9.814,
+              "maxMs": 12.154,
+              "over8ms": 4,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1513.888,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50367.17534244887,
+            "offsetAfter": 9392.250589875339,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11538121546961329,
+              "p50Ms": 0.063,
+              "p95Ms": 0.263,
+              "p99Ms": 1.201,
+              "maxMs": 1.429,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.1983296703296709,
+              "p50Ms": 0.898,
+              "p95Ms": 2.99,
+              "p99Ms": 6.06,
+              "maxMs": 11.871,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7730934065934063,
+              "p50Ms": 0.542,
+              "p95Ms": 1.849,
+              "p99Ms": 2.249,
+              "maxMs": 2.395,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.2963956043956046,
+              "p50Ms": 1.914,
+              "p95Ms": 5.1,
+              "p99Ms": 12.611,
+              "maxMs": 14.23,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          }
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1523.65,
+            "updates": 180,
+            "frames": 180,
+            "offsetBefore": 0.0,
+            "offsetAfter": 48567.80892857143,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 89,
+            "inputDispatch": {
+              "meanMs": 0.1586536312849162,
+              "p50Ms": 0.069,
+              "p95Ms": 0.643,
+              "p99Ms": 1.363,
+              "maxMs": 5.014,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.533177777777778,
+              "p50Ms": 1.199,
+              "p95Ms": 3.699,
+              "p99Ms": 10.488,
+              "maxMs": 13.852,
+              "over8ms": 3,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6606499999999998,
+              "p50Ms": 0.524,
+              "p95Ms": 1.697,
+              "p99Ms": 2.159,
+              "maxMs": 2.216,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.443833333333334,
+              "p50Ms": 1.888,
+              "p95Ms": 6.001,
+              "p99Ms": 14.634,
+              "maxMs": 16.208,
+              "over8ms": 5,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1510.373,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 48567.80892857143,
+            "offsetAfter": 9741.42511917036,
+            "visiblePostBefore": 89,
+            "visiblePostAfter": 20,
+            "inputDispatch": {
+              "meanMs": 0.10902209944751377,
+              "p50Ms": 0.059,
+              "p95Ms": 0.142,
+              "p99Ms": 1.098,
+              "maxMs": 2.993,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.940285714285714,
+              "p50Ms": 0.757,
+              "p95Ms": 2.145,
+              "p99Ms": 6.97,
+              "maxMs": 9.23,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5359560439560438,
+              "p50Ms": 0.487,
+              "p95Ms": 0.895,
+              "p99Ms": 1.543,
+              "maxMs": 1.568,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6097912087912083,
+              "p50Ms": 1.393,
+              "p95Ms": 3.226,
+              "p99Ms": 7.509,
+              "maxMs": 9.775,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1509.266,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9741.42511917036,
+            "offsetAfter": 50514.91480764811,
+            "visiblePostBefore": 20,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.13344751381215472,
+              "p50Ms": 0.062,
+              "p95Ms": 0.255,
+              "p99Ms": 2.681,
+              "maxMs": 2.955,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.169208791208791,
+              "p50Ms": 0.898,
+              "p95Ms": 3.033,
+              "p99Ms": 8.428,
+              "maxMs": 8.864,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7263516483516482,
+              "p50Ms": 0.542,
+              "p95Ms": 1.506,
+              "p99Ms": 1.997,
+              "maxMs": 2.997,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.131939560439561,
+              "p50Ms": 1.821,
+              "p95Ms": 4.575,
+              "p99Ms": 9.514,
+              "maxMs": 9.969,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1510.402,
+            "updates": 180,
+            "frames": 180,
+            "offsetBefore": 50514.91480764811,
+            "offsetAfter": 9427.664408423752,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.13669832402234636,
+              "p50Ms": 0.063,
+              "p95Ms": 0.313,
+              "p99Ms": 1.418,
+              "maxMs": 4.921,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.1737111111111111,
+              "p50Ms": 0.934,
+              "p95Ms": 3.256,
+              "p99Ms": 6.386,
+              "maxMs": 12.424,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7098833333333331,
+              "p50Ms": 0.566,
+              "p95Ms": 1.475,
+              "p99Ms": 1.692,
+              "maxMs": 2.0,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.1507722222222228,
+              "p50Ms": 1.806,
+              "p95Ms": 4.958,
+              "p99Ms": 10.386,
+              "maxMs": 13.296,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1513.875,
+            "updates": 180,
+            "frames": 180,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50187.68035714285,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.15191620111731846,
+              "p50Ms": 0.059,
+              "p95Ms": 0.712,
+              "p99Ms": 1.439,
+              "maxMs": 4.785,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.476055555555556,
+              "p50Ms": 1.118,
+              "p95Ms": 3.731,
+              "p99Ms": 11.259,
+              "maxMs": 11.854,
+              "over8ms": 3,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6182166666666667,
+              "p50Ms": 0.502,
+              "p95Ms": 1.598,
+              "p99Ms": 2.014,
+              "maxMs": 2.155,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.3410388888888884,
+              "p50Ms": 1.808,
+              "p95Ms": 5.174,
+              "p99Ms": 12.474,
+              "maxMs": 12.976,
+              "over8ms": 5,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1514.731,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50187.68035714285,
+            "offsetAfter": 9370.35746650798,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11644198895027624,
+              "p50Ms": 0.053,
+              "p95Ms": 0.192,
+              "p99Ms": 1.029,
+              "maxMs": 4.435,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.0371813186813186,
+              "p50Ms": 0.812,
+              "p95Ms": 2.961,
+              "p99Ms": 6.19,
+              "maxMs": 8.499,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5910274725274726,
+              "p50Ms": 0.48,
+              "p95Ms": 1.536,
+              "p99Ms": 1.913,
+              "maxMs": 2.269,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.887109890109891,
+              "p50Ms": 1.533,
+              "p95Ms": 4.067,
+              "p99Ms": 9.524,
+              "maxMs": 13.334,
+              "over8ms": 4,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1510.036,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9370.35746650798,
+            "offsetAfter": 50165.058023986814,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.12409392265193371,
+              "p50Ms": 0.072,
+              "p95Ms": 0.318,
+              "p99Ms": 1.098,
+              "maxMs": 1.117,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.2902637362637364,
+              "p50Ms": 0.974,
+              "p95Ms": 3.161,
+              "p99Ms": 8.596,
+              "maxMs": 8.89,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.8510384615384619,
+              "p50Ms": 0.557,
+              "p95Ms": 1.967,
+              "p99Ms": 2.353,
+              "maxMs": 2.889,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.346126373626374,
+              "p50Ms": 2.032,
+              "p95Ms": 5.036,
+              "p99Ms": 9.267,
+              "maxMs": 9.566,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1510.097,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50165.058023986814,
+            "offsetAfter": 9354.258054476999,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11683425414364643,
+              "p50Ms": 0.066,
+              "p95Ms": 0.185,
+              "p99Ms": 1.021,
+              "maxMs": 3.017,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.030901098901099,
+              "p50Ms": 0.869,
+              "p95Ms": 2.403,
+              "p99Ms": 6.709,
+              "maxMs": 9.179,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5893186813186814,
+              "p50Ms": 0.541,
+              "p95Ms": 1.014,
+              "p99Ms": 1.296,
+              "maxMs": 1.447,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.7479010989010983,
+              "p50Ms": 1.563,
+              "p95Ms": 3.197,
+              "p99Ms": 7.325,
+              "maxMs": 9.79,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1517.064,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50380.489285714284,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.14438674033149174,
+              "p50Ms": 0.068,
+              "p95Ms": 0.616,
+              "p99Ms": 1.012,
+              "maxMs": 3.871,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.397032967032967,
+              "p50Ms": 1.1,
+              "p95Ms": 3.19,
+              "p99Ms": 8.608,
+              "maxMs": 8.672,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5701923076923077,
+              "p50Ms": 0.511,
+              "p95Ms": 1.087,
+              "p99Ms": 1.282,
+              "maxMs": 1.421,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.138554945054944,
+              "p50Ms": 1.816,
+              "p95Ms": 4.823,
+              "p99Ms": 9.209,
+              "maxMs": 9.225,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1510.731,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50380.489285714284,
+            "offsetAfter": 9415.342325255151,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11102762430939224,
+              "p50Ms": 0.057,
+              "p95Ms": 0.146,
+              "p99Ms": 0.97,
+              "maxMs": 3.557,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9694615384615382,
+              "p50Ms": 0.812,
+              "p95Ms": 2.21,
+              "p99Ms": 7.593,
+              "maxMs": 8.383,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.52567032967033,
+              "p50Ms": 0.468,
+              "p95Ms": 0.96,
+              "p99Ms": 1.282,
+              "maxMs": 1.455,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6223571428571426,
+              "p50Ms": 1.464,
+              "p95Ms": 3.474,
+              "p99Ms": 8.2,
+              "maxMs": 8.948,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1511.28,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9415.342325255151,
+            "offsetAfter": 50365.717863499194,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.09796685082872934,
+              "p50Ms": 0.056,
+              "p95Ms": 0.172,
+              "p99Ms": 1.007,
+              "maxMs": 1.146,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.0361428571428566,
+              "p50Ms": 0.792,
+              "p95Ms": 2.773,
+              "p99Ms": 6.604,
+              "maxMs": 8.523,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5339890109890107,
+              "p50Ms": 0.495,
+              "p95Ms": 0.965,
+              "p99Ms": 1.082,
+              "maxMs": 1.119,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6931208791208796,
+              "p50Ms": 1.393,
+              "p95Ms": 3.511,
+              "p99Ms": 7.235,
+              "maxMs": 9.111,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1511.24,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50365.717863499194,
+            "offsetAfter": 9402.104550534392,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.09046408839779006,
+              "p50Ms": 0.048,
+              "p95Ms": 0.174,
+              "p99Ms": 0.969,
+              "maxMs": 0.995,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9359560439560436,
+              "p50Ms": 0.741,
+              "p95Ms": 2.06,
+              "p99Ms": 7.272,
+              "maxMs": 7.485,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5011868131868134,
+              "p50Ms": 0.455,
+              "p95Ms": 0.83,
+              "p99Ms": 1.082,
+              "maxMs": 1.492,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.5797582417582412,
+              "p50Ms": 1.328,
+              "p95Ms": 2.998,
+              "p99Ms": 7.824,
+              "maxMs": 8.041,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1511.684,
+            "updates": 181,
+            "frames": 181,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50187.68035714285,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.13844999999999996,
+              "p50Ms": 0.063,
+              "p95Ms": 0.634,
+              "p99Ms": 1.073,
+              "maxMs": 3.664,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.3425414364640886,
+              "p50Ms": 1.025,
+              "p95Ms": 3.409,
+              "p99Ms": 8.764,
+              "maxMs": 9.348,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5462265193370164,
+              "p50Ms": 0.483,
+              "p95Ms": 0.959,
+              "p99Ms": 1.166,
+              "maxMs": 1.564,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.067668508287293,
+              "p50Ms": 1.739,
+              "p95Ms": 4.315,
+              "p99Ms": 9.342,
+              "maxMs": 9.961,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1511.685,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50187.68035714285,
+            "offsetAfter": 9483.138375132272,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.09114917127071821,
+              "p50Ms": 0.052,
+              "p95Ms": 0.131,
+              "p99Ms": 1.002,
+              "maxMs": 1.04,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.914642857142857,
+              "p50Ms": 0.697,
+              "p95Ms": 2.248,
+              "p99Ms": 6.528,
+              "maxMs": 8.465,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5110714285714286,
+              "p50Ms": 0.464,
+              "p95Ms": 0.855,
+              "p99Ms": 1.148,
+              "maxMs": 1.35,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.5718461538461534,
+              "p50Ms": 1.413,
+              "p95Ms": 2.977,
+              "p99Ms": 7.094,
+              "maxMs": 9.128,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1511.786,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9483.138375132272,
+            "offsetAfter": 50178.22520755732,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.10813259668508289,
+              "p50Ms": 0.053,
+              "p95Ms": 0.156,
+              "p99Ms": 1.129,
+              "maxMs": 3.267,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9484340659340657,
+              "p50Ms": 0.729,
+              "p95Ms": 2.564,
+              "p99Ms": 6.202,
+              "maxMs": 7.659,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5058186813186814,
+              "p50Ms": 0.467,
+              "p95Ms": 0.891,
+              "p99Ms": 1.043,
+              "maxMs": 1.044,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.594582417582418,
+              "p50Ms": 1.373,
+              "p95Ms": 3.278,
+              "p99Ms": 6.886,
+              "maxMs": 8.203,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1511.095,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50178.22520755732,
+            "offsetAfter": 9371.121517846756,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.0954254143646409,
+              "p50Ms": 0.052,
+              "p95Ms": 0.161,
+              "p99Ms": 1.097,
+              "maxMs": 1.124,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9607032967032965,
+              "p50Ms": 0.77,
+              "p95Ms": 2.315,
+              "p99Ms": 8.326,
+              "maxMs": 9.609,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.516906593406593,
+              "p50Ms": 0.468,
+              "p95Ms": 0.847,
+              "p99Ms": 1.167,
+              "maxMs": 1.396,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6492197802197794,
+              "p50Ms": 1.427,
+              "p95Ms": 3.326,
+              "p99Ms": 8.91,
+              "maxMs": 10.3,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "label": "current",
+        "profileMode": true,
+        "profileCpu": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "loadedPosts": 200,
+        "streamPosts": 200,
+        "pageFetchesDuringDrag": 0,
+        "phases": {
+          "coldDown": {
+            "wallMs": 1525.204,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 0.0,
+            "offsetAfter": 50380.489285714284,
+            "visiblePostBefore": 1,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.16638674033149167,
+              "p50Ms": 0.069,
+              "p95Ms": 0.594,
+              "p99Ms": 3.743,
+              "maxMs": 4.156,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.4390769230769236,
+              "p50Ms": 1.147,
+              "p95Ms": 3.941,
+              "p99Ms": 9.144,
+              "maxMs": 11.69,
+              "over8ms": 2,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5704395604395601,
+              "p50Ms": 0.517,
+              "p95Ms": 1.017,
+              "p99Ms": 1.249,
+              "maxMs": 1.324,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.2547527472527475,
+              "p50Ms": 1.891,
+              "p95Ms": 5.089,
+              "p99Ms": 12.315,
+              "maxMs": 13.024,
+              "over8ms": 3,
+              "over16ms": 0
+            }
+          },
+          "warmUp": {
+            "wallMs": 1511.239,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50380.489285714284,
+            "offsetAfter": 9416.600139968863,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11229834254143646,
+              "p50Ms": 0.058,
+              "p95Ms": 0.18,
+              "p99Ms": 1.01,
+              "maxMs": 3.336,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 0.9617362637362636,
+              "p50Ms": 0.782,
+              "p95Ms": 2.287,
+              "p99Ms": 5.44,
+              "maxMs": 8.28,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.53110989010989,
+              "p50Ms": 0.48,
+              "p95Ms": 0.935,
+              "p99Ms": 1.228,
+              "maxMs": 1.454,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6556483516483516,
+              "p50Ms": 1.468,
+              "p95Ms": 3.174,
+              "p99Ms": 6.15,
+              "maxMs": 8.908,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmDown": {
+            "wallMs": 1511.374,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 9416.600139968863,
+            "offsetAfter": 50366.82893316297,
+            "visiblePostBefore": 19,
+            "visiblePostAfter": 91,
+            "inputDispatch": {
+              "meanMs": 0.11676795580110497,
+              "p50Ms": 0.056,
+              "p95Ms": 0.152,
+              "p99Ms": 1.388,
+              "maxMs": 3.592,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.0052967032967035,
+              "p50Ms": 0.782,
+              "p95Ms": 2.46,
+              "p99Ms": 6.538,
+              "maxMs": 8.398,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5227692307692304,
+              "p50Ms": 0.479,
+              "p95Ms": 0.95,
+              "p99Ms": 1.107,
+              "maxMs": 1.127,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.680593406593407,
+              "p50Ms": 1.433,
+              "p95Ms": 3.468,
+              "p99Ms": 7.23,
+              "maxMs": 9.006,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "warmUpAgain": {
+            "wallMs": 1511.338,
+            "updates": 182,
+            "frames": 182,
+            "offsetBefore": 50366.82893316297,
+            "offsetAfter": 9402.869153922715,
+            "visiblePostBefore": 91,
+            "visiblePostAfter": 19,
+            "inputDispatch": {
+              "meanMs": 0.11931491712707185,
+              "p50Ms": 0.066,
+              "p95Ms": 0.185,
+              "p99Ms": 1.356,
+              "maxMs": 1.422,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "build": {
+              "meanMs": 1.0551153846153847,
+              "p50Ms": 0.824,
+              "p95Ms": 2.299,
+              "p99Ms": 8.092,
+              "maxMs": 8.339,
+              "over8ms": 1,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5709835164835169,
+              "p50Ms": 0.524,
+              "p95Ms": 0.908,
+              "p99Ms": 1.002,
+              "maxMs": 1.151,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.8255824175824185,
+              "p50Ms": 1.545,
+              "p95Ms": 3.821,
+              "p99Ms": 8.71,
+              "maxMs": 9.074,
+              "over8ms": 2,
+              "over16ms": 0
+            }
+          }
+        }
+      }
+    ]
+  }
+}
