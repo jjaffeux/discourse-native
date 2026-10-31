@@ -14533,6 +14533,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get boardsNewCard => 'New card';
 
   @override
+  String get boardsAddToBoard => 'Add to board…';
+
+  @override
   String get boardsAddTopic => 'Add existing topic';
 
   @override

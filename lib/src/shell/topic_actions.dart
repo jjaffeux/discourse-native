@@ -610,53 +610,73 @@ class _TopicMoreActionsButton extends StatefulWidget {
 
 class _TopicMoreActionsButtonState extends State<_TopicMoreActionsButton> {
   List<Widget>? _openItems;
+  bool Function()? _openCurrent;
   TopicStatusButton get status => widget.status;
 
   @override
-  Widget build(BuildContext context) {
-    final current = _currentCheck(context, status.siteUrl);
-    final items = _ruledGroups([
-      _topicMenuItems(
-        this.context,
-        ShellScope.read(context).plugins.registry.topicMenuActions(
-          context,
-          status.siteUrl,
-          status.topic,
-        ),
-        current,
-      ),
-      status._moreItems(context, current),
-    ]);
-    return DDropdownMenu(
-      sheetOnMobile: true,
-      mobileSheetVariant: DSheetVariant.adaptiveMenu,
-      onOpenChange: (open, _) =>
-          setState(() => _openItems = open ? items : null),
-      content: DDropdownMenuContent(
-        width: 224,
-        semanticLabel: context.l10n.topicActionsMenu,
-        highlightInitialFocus: false,
-        padding: DControlStyle.isTouch(context)
-            ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
-            : DInsets.menu,
-        children: _openItems ?? items,
-      ),
-      child: DDropdownMenuTrigger(
-        builder: (context, state) => DButton.iconOnly(
-          key: const ValueKey('topic-more-actions'),
-          focusNode: state.focusNode,
-          hasPopup: true,
-          expanded: state.open,
-          onPressed: state.toggle,
-          variant: status.variant,
-          size: status.size,
-          density: status.density,
-          tooltip: context.l10n.topicActionsMenu,
-          icon: const DIcon(DIcons.ellipsis),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) =>
+      _withTopicMenuChanges(context, status.siteUrl, status.topic, (context) {
+        final current =
+            _openCurrent ?? _currentCheck(this.context, status.siteUrl);
+        final baseItems = status._moreItems(this.context, current);
+        final items = _ruledGroups([
+          if (current())
+            _pluginTopicMenuItems(
+              this.context,
+              status.siteUrl,
+              status.topic,
+              current,
+            ),
+          _openItems ?? baseItems,
+        ]);
+        return DDropdownMenu(
+          sheetOnMobile: true,
+          mobileSheetVariant: DSheetVariant.adaptiveMenu,
+          onOpenChange: (open, _) => setState(() {
+            _openItems = open ? baseItems : null;
+            _openCurrent = open ? current : null;
+          }),
+          content: DDropdownMenuContent(
+            width: 224,
+            semanticLabel: context.l10n.topicActionsMenu,
+            highlightInitialFocus: false,
+            padding: DControlStyle.isTouch(context)
+                ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
+                : DInsets.menu,
+            children: items,
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, state) => DButton.iconOnly(
+              key: const ValueKey('topic-more-actions'),
+              focusNode: state.focusNode,
+              hasPopup: true,
+              expanded: state.open,
+              onPressed: state.toggle,
+              variant: status.variant,
+              size: status.size,
+              density: status.density,
+              tooltip: context.l10n.topicActionsMenu,
+              icon: const DIcon(DIcons.ellipsis),
+            ),
+          ),
+        );
+      });
+}
+
+Widget _withTopicMenuChanges(
+  BuildContext context,
+  String siteUrl,
+  TopicDetail topic,
+  WidgetBuilder builder,
+) {
+  final changes = ShellScope.read(context).plugins.registry
+      .topicPropertiesRebuildOn(context, siteUrl, topic);
+  return changes == null
+      ? builder(context)
+      : ListenableBuilder(
+          listenable: changes,
+          builder: (context, _) => builder(context),
+        );
 }
 
 List<Widget> _topicMenuItems(
@@ -679,6 +699,21 @@ List<Widget> _topicMenuItems(
       child: Text(action.label),
     ),
 ];
+
+List<Widget> _pluginTopicMenuItems(
+  BuildContext context,
+  String siteUrl,
+  TopicDetail topic,
+  bool Function() current,
+) => _topicMenuItems(
+  context,
+  ShellScope.read(context).plugins.registry.topicMenuActions(
+    context,
+    siteUrl,
+    topic,
+  ),
+  current,
+);
 
 /// Whether a command chosen now still belongs to the account, tab and page
 /// [context] showed when its menu was built.
@@ -720,37 +755,43 @@ class TopicActionsButton extends StatefulWidget {
 
 class _TopicActionsButtonState extends State<TopicActionsButton> {
   List<Widget>? _openItems;
+  bool Function()? _openCurrent;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(
+    BuildContext context,
+  ) => _withTopicMenuChanges(context, widget.siteUrl, widget.topic, (context) {
     final status = TopicStatusButton(
       siteUrl: widget.siteUrl,
       topic: widget.topic,
       topicFlags: widget.topicFlags,
     );
-    final current = _currentCheck(context, widget.siteUrl);
-    final items = _ruledGroups([
+    final current = _openCurrent ?? _currentCheck(this.context, widget.siteUrl);
+    final baseItems = _ruledGroups([
       for (final actions in widget.sectionActions)
         _topicMenuItems(this.context, actions, current),
-      _topicMenuItems(
-        this.context,
-        ShellScope.read(context).plugins.registry.topicMenuActions(
-          context,
-          widget.siteUrl,
-          widget.topic,
-        ),
-        current,
-      ),
       status._moreItems(context, current),
       ...status._menuGroups(context),
+    ]);
+    final items = _ruledGroups([
+      if (current())
+        _pluginTopicMenuItems(
+          this.context,
+          widget.siteUrl,
+          widget.topic,
+          current,
+        ),
+      _openItems ?? baseItems,
     ]);
     return ShellSelector<bool>(
       select: status._busy,
       builder: (context, busy, _) => DDropdownMenu(
         sheetOnMobile: true,
         mobileSheetVariant: DSheetVariant.adaptiveMenu,
-        onOpenChange: (open, _) =>
-            setState(() => _openItems = open ? items : null),
+        onOpenChange: (open, _) => setState(() {
+          _openItems = open ? baseItems : null;
+          _openCurrent = open ? current : null;
+        }),
         content: DDropdownMenuContent(
           width: 224,
           semanticLabel: context.l10n.topicActionsMenu,
@@ -758,7 +799,7 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
           padding: DControlStyle.isTouch(context)
               ? const EdgeInsets.fromLTRB(8, 0, 8, 8)
               : DInsets.menu,
-          children: _openItems ?? items,
+          children: items,
         ),
         child: DDropdownMenuTrigger(
           builder: (context, state) => DButton.iconOnly(
@@ -779,7 +820,7 @@ class _TopicActionsButtonState extends State<TopicActionsButton> {
         ),
       ),
     );
-  }
+  });
 }
 
 /// The disabled [TopicStatusButton] shown while its topic loads, so the

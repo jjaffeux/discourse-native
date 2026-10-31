@@ -19022,6 +19022,10 @@
   "@boardsNewCard": {
     "description": "Native Boards plugin interface."
   },
+  "boardsAddToBoard": "Add to board…",
+  "@boardsAddToBoard": {
+    "description": "Topic menu action for adding the current topic to an eligible board."
+  },
   "boardsAddTopic": "Add existing topic",
   "@boardsAddTopic": {
     "description": "Native Boards plugin interface."

@@ -25,7 +25,8 @@ final class BoardsPlugin
         ContentMobileDockPlugin,
         TopicPropertiesPlugin,
         TopicListMetadataPlugin,
-        TopicMapActionPlugin {
+        TopicMenuPlugin,
+        TopicPropertiesRebuildPlugin {
   const BoardsPlugin();
   @override
   String get name => 'boards';
@@ -168,7 +169,14 @@ final class BoardsPlugin
   }
 
   @override
-  TopicMapActionContribution topicMapActions(
+  Listenable? topicPropertiesRebuildOn(
+    BuildContext context,
+    String siteUrl,
+    TopicDetail topic,
+  ) => PluginUiScope.require(context, boardsControllerKey);
+
+  @override
+  List<TopicMenuAction> topicMenuActions(
     BuildContext context,
     String siteUrl,
     TopicDetail topic,
@@ -176,17 +184,23 @@ final class BoardsPlugin
     final controller = PluginUiScope.require(context, boardsControllerKey);
     if (!controller.enabled(siteUrl) ||
         controller.siteState.currentUserFor(siteUrl) == null) {
-      return TopicMapActionContribution.none;
+      return const [];
     }
-    return TopicMapActionContribution(
-      actions: [
-        DButton(
-          label: Text(context.l10n.boardsAddTopic),
-          onPressed: () =>
-              unawaited(_chooseBoard(context, siteUrl, topic.id, controller)),
-        ),
-      ],
-    );
+    final boards = controller.eligibleBoards(siteUrl, topic.id);
+    if (boards == null) {
+      unawaited(controller.loadEligibleBoards(siteUrl, topic.id));
+      return const [];
+    }
+    if (boards.isEmpty) return const [];
+    return [
+      TopicMenuAction(
+        key: const ValueKey('boards-add-topic'),
+        label: context.l10n.boardsAddToBoard,
+        icon: boardsIcon,
+        onSelected: (context) =>
+            unawaited(_chooseBoard(context, siteUrl, topic.id, controller)),
+      ),
+    ];
   }
 
   Future<void> _chooseBoard(
@@ -196,9 +210,25 @@ final class BoardsPlugin
     BoardsController controller,
   ) async {
     try {
+      final navigation = PluginUiScope.require(
+        context,
+        boardsNavigationKey,
+      ).host;
+      final tab = navigation.activeTabId;
+      final route = navigation.currentContent;
       final lease = controller.requests.capture(site);
-      final boards = await controller.loadDirectory(site, topicId: topicId);
-      if (!context.mounted || !lease.isCurrent || !controller.enabled(site)) {
+      final revision = controller.accountRevision(site);
+      final boards = await controller.loadEligibleBoards(
+        site,
+        topicId,
+        force: true,
+      );
+      if (!context.mounted ||
+          !controller.sourceCurrent(site, lease, revision) ||
+          navigation.currentSite?.url != site ||
+          navigation.activeTabId != tab ||
+          !identical(navigation.currentContent, route) ||
+          boards.isEmpty) {
         return;
       }
       await addTopicToBoard(context, controller, site, topicId, boards);

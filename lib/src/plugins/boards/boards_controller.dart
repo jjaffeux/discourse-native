@@ -50,6 +50,8 @@ final class BoardsController extends FrameSafeNotifier
   static const _releasedLimit = 8;
   final _directory = <String, List<BoardSnapshot>>{};
   final _directoryReads = <String, Future<List<BoardSnapshot>>>{};
+  final _eligibleBoards = <(String, int), List<BoardSnapshot>>{};
+  final _eligibleReads = <(String, int), Future<List<BoardSnapshot>>>{};
   final _revisions = <String, int>{};
   final _trackers = <String, PluginLiveChannelHandle>{};
   bool _foreground = true;
@@ -66,6 +68,50 @@ final class BoardsController extends FrameSafeNotifier
   /// Null until a directory read has finished for the current account.
   List<BoardSnapshot>? directory(String site) =>
       enabled(site) ? _directory[site] : null;
+
+  List<BoardSnapshot>? eligibleBoards(String site, int topicId) =>
+      enabled(site) && siteState.currentUserFor(site) != null
+      ? _eligibleBoards[(site, topicId)]
+      : null;
+
+  Future<List<BoardSnapshot>> loadEligibleBoards(
+    String site,
+    int topicId, {
+    bool force = false,
+  }) async {
+    if (!enabled(site) || siteState.currentUserFor(site) == null) {
+      return const [];
+    }
+    final key = (site, topicId);
+    if (_eligibleReads[key] case final read?) return read;
+    if (!force) {
+      if (_eligibleBoards[key] case final boards?) return boards;
+    }
+    final lease = requests.capture(site);
+    final revision = accountRevision(site);
+    final future = () async {
+      List<BoardSnapshot> boards;
+      try {
+        boards = (await loadDirectory(site, topicId: topicId))
+            .where((board) => board.canWrite && board.columns.isNotEmpty)
+            .toList(growable: false);
+      } catch (_) {
+        boards = const [];
+      }
+      if (!sourceCurrent(site, lease, revision)) return <BoardSnapshot>[];
+      _eligibleBoards[key] = boards;
+      notifySafely();
+      return boards;
+    }();
+    _eligibleReads[key] = future;
+    try {
+      return await future;
+    } finally {
+      if (identical(_eligibleReads[key], future)) {
+        final _ = _eligibleReads.remove(key);
+      }
+    }
+  }
 
   /// Answers with the directory already read for this account unless
   /// [force] asks for a new read. Topic-scoped choices are always read.
@@ -115,6 +161,16 @@ final class BoardsController extends FrameSafeNotifier
   /// Board and directory reads share one serializer, so a board read is
   /// also that board's current directory entry. Null removes the entry.
   void _updateDirectory(String site, int id, BoardSnapshot? board) {
+    for (final key
+        in _eligibleBoards.keys.where((key) => key.$1 == site).toList()) {
+      _eligibleBoards[key] = [
+        for (final held in _eligibleBoards[key]!)
+          if (held.id != id)
+            held
+          else if (board != null && board.canWrite && board.columns.isNotEmpty)
+            board,
+      ];
+    }
     final boards = _directory[site];
     if (boards == null) return;
     _directory[site] = List.unmodifiable([
@@ -154,6 +210,8 @@ final class BoardsController extends FrameSafeNotifier
   void _resetSite(String site, {required bool retire}) {
     _revisions[site] = (_revisions[site] ?? 0) + 1;
     _directory.remove(site);
+    _eligibleBoards.removeWhere((key, _) => key.$1 == site);
+    _eligibleReads.removeWhere((key, _) => key.$1 == site);
     final _ = _directoryReads.remove(site);
     _trackers.remove(site);
     _createdTopics.removeWhere(
