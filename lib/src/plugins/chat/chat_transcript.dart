@@ -79,9 +79,7 @@ class ChatTranscriptData {
             (candidate) =>
                 candidate.classes.contains('chat-transcript-datetime'),
           );
-    final datetimeLink = datetime == null
-        ? null
-        : descendantWhere(datetime, (candidate) => candidate.localName == 'a');
+    final datetimeLink = _timestampLink(datetime);
     final messages = _ownedDescendant(
       visible,
       (candidate) => candidate.classes.contains('chat-transcript-messages'),
@@ -255,10 +253,7 @@ class ChatTranscriptGroupData {
       first,
       (candidate) => candidate.classes.contains('chat-transcript-datetime'),
     );
-    final linked =
-        user != null &&
-        descendantWhere(user, (candidate) => candidate.localName == 'a') !=
-            null;
+    final linked = _timestampLink(user) != null;
     final path = id == null
         ? null
         : siteUrl == null
@@ -317,6 +312,15 @@ Widget? chatTranscriptWidgetBuilder(dom.Element element, {String? siteUrl}) {
 bool _isTranscript(dom.Element element) =>
     (element.localName == 'div' || element.localName == 'details') &&
     element.classes.contains('chat-transcript');
+
+dom.Element? _timestampLink(dom.Element? timestamp) => timestamp == null
+    ? null
+    : childWhere(
+        timestamp,
+        (element) =>
+            element.localName == 'a' &&
+            !element.classes.contains('chat-transcript-channel'),
+      );
 
 bool _isContinuation(dom.Element element) =>
     (element.attributes['data-channel-name']?.isEmpty ?? true) &&

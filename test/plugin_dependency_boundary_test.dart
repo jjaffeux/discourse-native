@@ -29,8 +29,13 @@ const _approvedCrossFeatureContracts = <String, String>{
   'voice->chat': 'lib/src/plugins/chat/chat_contract.dart',
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
   'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
+  'discourse_ai->chat': 'lib/discourse_chat.dart',
   'discourse_github->local_dates':
       'lib/src/plugins/local_dates/local_dates_contract.dart',
+};
+
+const _publicPluginContracts = <String, String>{
+  'lib/discourse_chat.dart': 'chat',
 };
 
 const _removedCompatibilityFiles = <String>{
@@ -125,6 +130,7 @@ void main() {
       for (final file in _dartFilesUnder('lib')) {
         final path = _workspacePath(file);
         if (path.startsWith('lib/src/plugins/') ||
+            _publicPluginContracts.containsKey(path) ||
             path == 'lib/main.dart' ||
             path == 'lib/main_core.dart' ||
             path == 'lib/discourse_bundled.dart' ||
@@ -146,6 +152,7 @@ void main() {
 
         for (final directive in _localDirectives(file)) {
           if (!directive.target.startsWith('lib/src/plugins/') &&
+              !_publicPluginContracts.containsKey(directive.target) &&
               directive.target != 'lib/discourse_bundled.dart') {
             continue;
           }
@@ -162,6 +169,23 @@ void main() {
             'application composition roots may assemble bundled plugins.\n'
             '${violations.join('\n')}',
       );
+    });
+
+    test('public plugin libraries expose only their owned contracts', () {
+      for (final entry in _publicPluginContracts.entries) {
+        final directives = _localDirectives(File(entry.key)).toList();
+        expect(directives, hasLength(1));
+        final directive = directives.single;
+        expect(directive.kind, 'export');
+        expect(
+          directive.target,
+          'lib/src/plugins/${entry.value}/chat_message_contract.dart',
+        );
+        expect(
+          File(entry.key).readAsStringSync(),
+          contains('show ChatMessageContribution, chatMessageContributions;'),
+        );
+      }
     });
 
     test('limit bundled composition to feature module entrypoints', () {
@@ -289,6 +313,7 @@ void main() {
         }
         for (final directive in _localDirectives(file)) {
           if (directive.target.startsWith('lib/src/plugins/')) continue;
+          if (_publicPluginContracts.containsKey(directive.target)) continue;
           if (!const {
             'lib/discourse_plugin_sdk.dart',
             'lib/discourse_ui.dart',
@@ -395,7 +420,9 @@ void main() {
           }
 
           for (final directive in _localDirectives(file)) {
-            final targetDirectory = _pluginDirectory(directive.target);
+            final targetDirectory =
+                _publicPluginContracts[directive.target] ??
+                _pluginDirectory(directive.target);
             if (targetDirectory == null) {
               if (directive.target.startsWith('lib/src/plugins/')) {
                 violations.add(

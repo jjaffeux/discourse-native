@@ -252,6 +252,22 @@ void main() {
     );
   });
 
+  test('an archive channel link does not authorize message links', () {
+    final unlinked = threadTranscript.replaceFirst(
+      '<a href="/chat/c/-/5/101" title="2026-10-02T04:18:00Z"></a>',
+      '<span title="2026-10-02T04:18:00Z">'
+          '<a class="chat-transcript-channel" href="/chat/c/-/5">#general</a>'
+          '</span>',
+    );
+    final group = ChatTranscriptGroupData.from(
+      html.parseFragment(unlinked).children,
+    );
+    final message = group.messages.single;
+    expect(message.sourceLink, isNull);
+    expect(message.threadLink, isNull);
+    expect(message.replies.map((reply) => reply.sourceLink), [null, null]);
+  });
+
   testWidgets('promoted pre-grouped thread titles remain visible once', (
     tester,
   ) async {
