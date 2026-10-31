@@ -441,32 +441,30 @@ void main({bool useDeviceMetrics = false}) {
     });
   }
 
-  _testPresentation('desktop topic keeps its search words clear action', (
-    tester,
-  ) async {
-    final shell = await _pumpSearch(tester);
-    await _openAndSearch(tester, 'design');
-    final result = _panelText('A calmer, more useful global search').first;
-    await tester.ensureVisible(result);
-    await tester.pumpAndSettle();
-    await tester.tap(result);
-    await tester.pumpAndSettle();
-    expect(shell.currentContent?.topicId, 1038);
-    final clearWords = find.widgetWithText(DButton, 'design');
-    expect(clearWords, findsOneWidget);
-    await tester.tap(clearWords);
-    await tester.pumpAndSettle();
-    expect(
-      shell.search.wordsFor(
-        globalSearchFixtureSite,
-        shell.activeTabId,
-        'topic-1038',
-      ),
-      isEmpty,
-    );
-    expect(clearWords, findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+  _testPresentation(
+    'desktop topic highlights words without a clear-query button',
+    (tester) async {
+      final shell = await _pumpSearch(tester);
+      await _openAndSearch(tester, 'design');
+      final result = _panelText('A calmer, more useful global search').first;
+      await tester.ensureVisible(result);
+      await tester.pumpAndSettle();
+      await tester.tap(result);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 1038);
+      expect(find.widgetWithText(DButton, 'design'), findsNothing);
+      expect(
+        shell.search.wordsFor(
+          globalSearchFixtureSite,
+          shell.activeTabId,
+          'topic-1038',
+        ),
+        'design',
+      );
+      expect(SearchWords.of(tester.element(find.byType(TopicView))), 'design');
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final submit in [true, false]) {
     _testPresentation('mobile search keeps its query and results while '

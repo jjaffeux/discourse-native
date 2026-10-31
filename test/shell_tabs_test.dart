@@ -1196,7 +1196,7 @@ void main() {
     });
 
     group('tab lifecycle', () {
-      test('restorable tabs retain all their search words', () {
+      test('restorable tabs retain queries after topic highlighting ends', () {
         final site = forums.first.url;
         final id = controller.activeTabId!;
         controller.pushContent(_topic(101, 'Visited topic'));
@@ -1213,16 +1213,10 @@ void main() {
         controller.search.replaceUsersQuery(site, id, users);
 
         controller.closeTab(id);
-        expect(
-          controller.search.wordsFor(site, id, 'topic-101'),
-          'first words',
-        );
+        expect(controller.search.wordsFor(site, id, 'topic-101'), isEmpty);
         expect(controller.reopenClosedTab(id), isTrue);
         expect(controller.activeTabId, id);
-        expect(
-          controller.search.wordsFor(site, id, 'topic-101'),
-          'first words',
-        );
+        expect(controller.search.wordsFor(site, id, 'topic-101'), isEmpty);
         expect(
           controller.search.wordsFor(site, id, 'topic-202'),
           'second words',
@@ -1251,12 +1245,7 @@ void main() {
         final secondSite = forums.last.url;
         final oldest = controller.activeTabId!;
         controller.pushContent(_topic(101, 'Oldest topic'));
-        controller.search.setPageWords(
-          firstSite,
-          oldest,
-          'topic-101',
-          'oldest',
-        );
+        controller.search.setPageWords(firstSite, oldest, 'latest', 'oldest');
         controller.closeTab(oldest);
 
         controller.selectInstance(1);
@@ -1268,7 +1257,7 @@ void main() {
         controller.search.setPageWords(
           secondSite,
           restorable,
-          'topic-202',
+          'latest',
           'saved',
         );
         controller.closeTab(restorable);
@@ -1279,7 +1268,7 @@ void main() {
           controller.closeTab(controller.activeTabId!);
         }
         expect(
-          controller.search.wordsFor(firstSite, oldest, 'topic-101'),
+          controller.search.wordsFor(firstSite, oldest, 'latest'),
           'oldest',
         );
 
@@ -1289,17 +1278,17 @@ void main() {
         controller.closeTab(controller.activeTabId!);
 
         expect(
-          controller.search.wordsFor(firstSite, oldest, 'topic-101'),
+          controller.search.wordsFor(firstSite, oldest, 'latest'),
           isEmpty,
         );
         expect(controller.search.wordsFor(secondSite, live, 'latest'), 'live');
         expect(
-          controller.search.wordsFor(secondSite, restorable, 'topic-202'),
+          controller.search.wordsFor(secondSite, restorable, 'latest'),
           'saved',
         );
         expect(controller.reopenClosedTab(restorable), isTrue);
         expect(
-          controller.search.wordsFor(secondSite, restorable, 'topic-202'),
+          controller.search.wordsFor(secondSite, restorable, 'latest'),
           'saved',
         );
         controller.selectInstance(0);
@@ -1313,19 +1302,14 @@ void main() {
           final id = controller.activeTabId!;
           closed.add(id);
           controller.pushContent(_topic(100 + index, 'Closed topic'));
-          controller.search.setPageWords(
-            firstSite,
-            id,
-            'topic-${100 + index}',
-            'saved',
-          );
+          controller.search.setPageWords(firstSite, id, 'latest', 'saved');
           controller.closeTab(id);
         }
         controller.selectInstance(1);
         final site = forums.last.url;
         final kept = controller.activeTabId!;
         controller.pushContent(_topic(1000, 'Kept topic'));
-        controller.search.setPageWords(site, kept, 'topic-1000', 'kept');
+        controller.search.setPageWords(site, kept, 'latest', 'kept');
         controller.createTab();
         final start = controller.activeTabId!;
         controller.pushContent(_topic(2001, 'Visited topic'));
@@ -1337,30 +1321,22 @@ void main() {
           final id = controller.activeTabId!;
           restorable.add(id);
           controller.pushContent(_topic(topicId, 'Restorable topic'));
-          controller.search.setPageWords(site, id, 'topic-$topicId', 'recent');
+          controller.search.setPageWords(site, id, 'latest', 'recent');
         }
 
         controller.closeOtherTabs(kept);
 
         for (var index = 0; index < 2; index++) {
           expect(
-            controller.search.wordsFor(
-              firstSite,
-              closed[index],
-              'topic-${100 + index}',
-            ),
+            controller.search.wordsFor(firstSite, closed[index], 'latest'),
             isEmpty,
           );
         }
         expect(controller.search.wordsFor(site, start, 'topic-2001'), isEmpty);
-        expect(controller.search.wordsFor(site, kept, 'topic-1000'), 'kept');
+        expect(controller.search.wordsFor(site, kept, 'latest'), 'kept');
         for (var index = 0; index < restorable.length; index++) {
           expect(
-            controller.search.wordsFor(
-              site,
-              restorable[index],
-              'topic-${2002 + index}',
-            ),
+            controller.search.wordsFor(site, restorable[index], 'latest'),
             'recent',
           );
           expect(controller.reopenClosedTab(restorable[index]), isTrue);

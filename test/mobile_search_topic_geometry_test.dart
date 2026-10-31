@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/search_results.dart';
+import 'package:discourse_native/src/shell/search_words.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -51,19 +53,25 @@ void main() {
       );
       scroll.jumpTo(0);
       await tester.pumpAndSettle();
-      final clear = find.byKey(const ValueKey('topic-search-words'));
-      expect(clear.hitTestable(), findsOneWidget);
-      await tester.tap(clear);
-      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('topic-search-words')), findsNothing);
+      expect(find.widgetWithText(DButton, 'scrolling'), findsNothing);
       expect(
         shell.search.wordsFor(
           shell.currentInstance!.url,
           shell.activeTabId,
           shell.currentContent!.id,
         ),
-        isEmpty,
+        'scrolling',
       );
-      expect(clear, findsNothing);
+      final siteUrl = shell.currentInstance!.url;
+      final tabId = shell.activeTabId;
+      final routeId = shell.currentContent!.id;
+      shell.handleBack();
+      await tester.pumpAndSettle();
+      expect(shell.search.wordsFor(siteUrl, tabId, routeId), isEmpty);
+      shell.openTopicPost(siteUrl: siteUrl, topicId: 7, postNumber: 1);
+      await tester.pumpAndSettle();
+      expect(SearchWords.of(tester.element(find.byType(TopicView))), isEmpty);
       expect(tester.takeException(), isNull);
     },
     variant: const TargetPlatformVariant({
