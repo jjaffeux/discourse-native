@@ -5,6 +5,110 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final reverse in [false, true]) {
+    testWidgets(
+      'adaptive page title returns its lazy list to the top after resize (reverse: $reverse)',
+      (tester) async {
+        final scroll = ScrollController();
+        final embedded = ScrollController();
+        addTearDown(scroll.dispose);
+        addTearDown(embedded.dispose);
+        late StateSetter resize;
+        var height = 450.0;
+        Widget row(int index) => index == (reverse ? 35 : 4)
+            ? ListView(
+                controller: embedded,
+                children: [
+                  for (var line = 0; line < 20; line++)
+                    SizedBox(height: 25, child: Text('Embedded line $line')),
+                ],
+              )
+            : Text('Row $index');
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Align(
+              alignment: Alignment.topCenter,
+              child: StatefulBuilder(
+                builder: (_, setState) {
+                  resize = setState;
+                  return SizedBox(
+                    height: height,
+                    child: DPageHeaderHost(
+                      identity: 'adaptive-directory',
+                      titlesInBar: true,
+                      builder: (_, active, child) => Column(
+                        children: [
+                          ValueListenableBuilder<DPageHeader?>(
+                            valueListenable: active,
+                            builder: (_, header, _) => DButton(
+                              key: const ValueKey('adaptive-return'),
+                              label: const Text('Return to top'),
+                              onPressed: () => unawaited(header!.scrollToTop()),
+                            ),
+                          ),
+                          Expanded(child: child),
+                        ],
+                      ),
+                      child: DPageSurface.headed(
+                        key: const ValueKey('adaptive-page'),
+                        title: const Text('Directory'),
+                        controls: const SizedBox(height: 40),
+                        adaptiveBodyBuilder: (_, lazy) => lazy
+                            ? ListView.builder(
+                                controller: scroll,
+                                reverse: reverse,
+                                itemExtent: 50,
+                                itemCount: 40,
+                                itemBuilder: (_, index) => row(index),
+                              )
+                            : Column(
+                                children: [
+                                  for (var index = 0; index < 40; index++)
+                                    SizedBox(height: 50, child: row(index)),
+                                ],
+                              ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        scroll.jumpTo(reverse ? scroll.position.maxScrollExtent - 200 : 200);
+        await tester.pumpAndSettle();
+        resize(() => height = 500);
+        await tester.pumpAndSettle();
+        embedded.jumpTo(60);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('adaptive-return')));
+        await tester.pumpAndSettle();
+        expect(scroll.offset, reverse ? scroll.position.maxScrollExtent : 0);
+        expect(embedded.offset, 60);
+        resize(() => height = 100);
+        await tester.pumpAndSettle();
+        final natural = tester.state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('adaptive-page')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        );
+        natural.position.jumpTo(200);
+        await tester.pumpAndSettle();
+        embedded.jumpTo(80);
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('adaptive-return')));
+        await tester.pumpAndSettle();
+        expect(natural.position.pixels, 0);
+        expect(embedded.offset, 80);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'moving a page title into the phone bar remeasures its spacer in the same frame',
     (tester) async {
