@@ -2140,10 +2140,11 @@ class _TopicViewState extends State<TopicView>
     );
     Widget buildBody(DPageHeaderGeometry header) {
       _bindHeaderGeometry(header);
+      final waitingForPosition = snapshot.loading && !_restored;
       return _buildBodyFrame(
         header: header,
-        stream: buildPostStream(header),
-        skeleton: _openingPostId != null,
+        stream: waitingForPosition ? null : buildPostStream(header),
+        skeleton: waitingForPosition || _openingPostId != null,
         lanePadding: readingLane.padding,
         overlays: [
           _buildFloatingDayOverlay(readingLane.padding, header),

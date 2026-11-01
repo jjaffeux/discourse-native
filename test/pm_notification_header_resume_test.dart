@@ -1,25 +1,25 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/notification.dart';
-import 'package:discourse_native/src/shell/user_menu_button.dart';
-import 'package:discourse_native/src/shell/mobile_shell.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_module.dart';
+import 'package:discourse_native/src/shell/mobile_shell.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
-import 'support/fakes.dart';
 import 'support/bundled_plugins.dart';
-import 'support/topic_post_list.dart';
+import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 const _site = 'https://meta.discourse.org';
 const _platforms = TargetPlatformVariant({
@@ -96,8 +96,9 @@ void main() {
         if (find
             .byKey(const ValueKey('topic-header-morph'))
             .evaluate()
-            .isNotEmpty)
+            .isNotEmpty) {
           painted.add(_paintedTitleOpacity(tester));
+        }
       }
       gate.complete();
       for (var frame = 0; frame < 48; frame++) {
@@ -105,8 +106,9 @@ void main() {
         if (find
             .byKey(const ValueKey('topic-header-morph'))
             .evaluate()
-            .isNotEmpty)
+            .isNotEmpty) {
           painted.add(_paintedTitleOpacity(tester));
+        }
       }
       final page = DPageHeaderScope.maybeOf(
         tester.element(find.byKey(const ValueKey('topic-header-morph'))),
@@ -203,8 +205,9 @@ void main() {
         if (find
             .byKey(const ValueKey('topic-header-morph'))
             .evaluate()
-            .isNotEmpty)
+            .isNotEmpty) {
           painted.add(_paintedTitleOpacity(tester));
+        }
       }
       gate.complete();
       for (var frame = 0; frame < 48; frame++) {
@@ -212,8 +215,9 @@ void main() {
         if (find
             .byKey(const ValueKey('topic-header-morph'))
             .evaluate()
-            .isNotEmpty)
+            .isNotEmpty) {
           painted.add(_paintedTitleOpacity(tester));
+        }
       }
       expect(shell.currentContent?.postNumber, 100);
       expect(find.byKey(const ValueKey(100)), findsOneWidget);
@@ -233,7 +237,7 @@ void main() {
 class _WindowedPmApi extends FakeDiscourseApi {
   _WindowedPmApi(this.allPosts, this.positionGate)
     : super(
-        notificationList: [
+        notificationList: const [
           DiscourseNotification.test(
             id: 80,
             typeId: NotificationTypeId(6),
@@ -241,7 +245,7 @@ class _WindowedPmApi extends FakeDiscourseApi {
             postNumber: 100,
             slug: 'private',
             title: 'Private conversation notification',
-            data: const {'display_username': 'sender'},
+            data: {'display_username': 'sender'},
           ),
         ],
         feeds: {

@@ -3620,6 +3620,7 @@ class ShellController extends FrameSafeNotifier
     final row = store.read<Topic>(siteUrl, topicId);
     if (row == null) return false;
     if (!row.readingPolicy.allowsChronologicalResume) return true;
+    if (read == null && row.lastReadPostNumber == null) return false;
     return (read ?? 0) <= 1 && (row.lastReadPostNumber ?? 0) <= 1;
   }
 
