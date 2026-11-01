@@ -34,12 +34,10 @@ import 'list_boundary_shortcuts.dart';
 import 'message_archive_button.dart';
 import 'open_link.dart';
 import 'platform.dart';
-import 'post_action_owner.dart';
 import 'post_actions.dart';
 import 'post_footer.dart';
 import 'post_mutation_feedback.dart';
 import 'post_news_card.dart';
-import 'post_notice_editor.dart';
 import 'post_revision_history.dart';
 import 'post_text_selection.dart';
 import 'progressive_html_mode.dart';
@@ -4782,7 +4780,6 @@ class _PostTileState extends State<_PostTile> {
         if (post.notice case final notice?)
           _PostNoticeBanner(
             siteUrl: widget.siteUrl,
-            topicId: widget.topic.id,
             post: post,
             notice: notice,
           ),
@@ -4821,24 +4818,17 @@ final _welcomeSessions = Expando<Set<(String, int?, int)>>();
 class _PostNoticeBanner extends StatelessWidget {
   const _PostNoticeBanner({
     required this.siteUrl,
-    required this.topicId,
     required this.post,
     required this.notice,
   });
 
   final String siteUrl;
-  final int topicId;
   final Post post;
   final PostNotice notice;
 
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    final owner = PostActionOwner.capture(
-      context,
-      siteUrl: siteUrl,
-      postId: post.id,
-    );
     final cooked = notice.cooked;
     final label = switch (notice.type) {
       'new_user' => context.l10n.thisIsTheFirstTimeHasPostedLetSWelcomeThem(
@@ -4881,38 +4871,6 @@ class _PostNoticeBanner extends StatelessWidget {
           size: 16,
         ),
       ),
-      action:
-          controller.canEditPostNotice(
-            siteUrl: siteUrl,
-            topicId: topicId,
-            postId: post.id,
-          )
-          ? DAlertAction(
-              child: DButton(
-                size: DButtonSize.chip,
-                variant: DButtonVariant.ghost,
-                label: Text(context.l10n.changePostNotice),
-                onPressed: () {
-                  if (!owner.isCurrent(
-                    context,
-                    siteUrl: siteUrl,
-                    postId: post.id,
-                  )) {
-                    return;
-                  }
-                  unawaited(
-                    showPostNoticeEditor(
-                      context: context,
-                      controller: controller,
-                      siteUrl: siteUrl,
-                      topicId: topicId,
-                      post: post,
-                    ),
-                  );
-                },
-              ),
-            )
-          : null,
       description: DAlertDescription(
         child: cooked == null || cooked.isEmpty
             ? Text(label)

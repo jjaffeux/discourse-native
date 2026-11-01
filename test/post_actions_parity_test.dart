@@ -199,7 +199,14 @@ void main() {
       expect(find.text('Unhide post'), findsOneWidget);
       expect(tester.takeException(), isNull);
       await _capture(tester, 'posts-${dark ? 'dark' : 'light'}');
-      expect(find.text('Change post notice'), findsOneWidget);
+      expect(
+        find.textContaining(
+          'Staff notice: keep personal information out of public replies.',
+          findRichText: true,
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Change post notice'), findsNothing);
       final solution = tester.widget<DCard>(
         find.byKey(const ValueKey('post-news-card-8')),
       );
@@ -232,6 +239,46 @@ void main() {
       expect(find.textContaining('Tomorrow ·'), findsOneWidget);
       await _capture(tester, 'bookmark-editor-${dark ? 'dark' : 'light'}');
       expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      for (final type in ['new_user', 'returning_user']) {
+        controller.store.put(
+          'https://meta.example',
+          posts[1].copyWith(notice: PostNotice(type: type)),
+        );
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.forBrightness(
+                dark ? Brightness.dark : Brightness.light,
+                fontFamily: 'Lato',
+              ).copyWith(platform: TargetPlatform.iOS),
+              home: const Scaffold(
+                body: SingleChildScrollView(
+                  child: TopicPostPresentation(
+                    siteUrl: 'https://meta.example',
+                    topicId: 7,
+                    postId: 2,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.textContaining(
+            type == 'new_user'
+                ? 'This is the first time alex has posted'
+                : 'It’s been a while since we’ve seen alex',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Change post notice'), findsNothing);
+        expect(tester.takeException(), isNull);
+        await _capture(tester, 'post-notice-$type-${dark ? 'dark' : 'light'}');
+      }
       await tester.pumpWidget(const SizedBox.shrink());
       await tester.binding.setSurfaceSize(const Size(320, 1300));
       await tester.pumpWidget(
