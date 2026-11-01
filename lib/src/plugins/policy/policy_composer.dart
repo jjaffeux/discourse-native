@@ -151,14 +151,15 @@ class _PolicyProjection
     final newline = source.contains('\r\n') ? '\r\n' : '\n';
     final replacement = body.replaceAll(RegExp(r'\r\n?|\n'), newline);
     final suffix = source.substring(range.end - start);
-    final separator = replacement.isNotEmpty && !suffix.startsWith(newline)
+    final separatorLength = suffix.startsWith('\r\n')
+        ? 2
+        : suffix.startsWith('\n')
+        ? 1
+        : 0;
+    final separator = separatorLength > 0 || replacement.isNotEmpty
         ? newline
         : '';
-    return source.replaceRange(
-      range.start - start,
-      range.end - start,
-      '$replacement$separator',
-    );
+    return '${source.substring(0, range.start - start)}$replacement$separator${suffix.substring(separatorLength)}';
   }
 
   @override

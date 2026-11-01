@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/composer_upload.dart'
     show ComposerUploadFile;
 import 'package:discourse_native/src/plugins/policy/policy_builder.dart';
