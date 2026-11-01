@@ -36,7 +36,7 @@ final class UserNotesApiClient implements UserNotesApi {
     final body = await transport.pluginGetJson(
       siteUrl: siteUrl,
       path: Uri(
-        path: '/user_notes',
+        path: '/user_notes.json',
         queryParameters: {'user_id': '$userId'},
       ).toString(),
       apiKey: credentials.apiKey,
