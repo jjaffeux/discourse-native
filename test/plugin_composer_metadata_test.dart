@@ -178,6 +178,58 @@ void main() {
   );
 
   test(
+    'queued creation starts fresh metadata in the cleared category context',
+    () {
+      late ComposerController composer;
+      composer = ComposerController(
+        const NewTopicComposerTarget(
+          siteUrl: _site,
+          topicTitle: '',
+          initialCategoryId: 2,
+        ),
+        metadataBindings: const PluginRegistry([
+          _ExplicitChoicePlugin(),
+        ]).composerMetadataBindings,
+        pluginStateReader: () => ComposerPluginState(
+          categoryData: PluginData.none.withValue(
+            _category,
+            _Category(composer.categoryId == 2),
+          ),
+        ),
+      );
+      addTearDown(composer.dispose);
+      composer.restore(
+        const ComposerDraft(
+          reply: 'Queued body',
+          title: 'Queued title',
+          categoryId: 2,
+          pluginMetadata: {
+            'authoring-fixture/mode': false,
+            'absent/preserved': {'value': 7},
+          },
+        ),
+      );
+      expect(composer.updateMetadata(_mode, true), isTrue);
+      final sent = composer.composerCreateFields;
+
+      composer.enqueued(null);
+
+      expect(sent, {'fixture_mode': true});
+      expect(composer.raw, isEmpty);
+      expect(composer.title.text, isEmpty);
+      expect(composer.categoryId, isNull);
+      expect(composer.metadata(_mode), isFalse);
+      expect(composer.storedPluginMetadata, {'authoring-fixture/mode': false});
+      expect(composer.hasChanges, isFalse);
+      expect(composer.draftPending, isFalse);
+      expect(composer.updateMetadata(_mode, true), isTrue);
+      expect(composer.hasChanges, isTrue);
+      expect(composer.updateMetadata(_mode, false), isTrue);
+      expect(composer.hasChanges, isFalse);
+    },
+  );
+
+  test(
     'unknown metadata key has no authority and private messages emit no fields',
     () {
       final composer = editor();
@@ -341,6 +393,17 @@ final class _Plugin implements SitePlugin, ComposerMetadataPlugin<bool> {
           submit: 'Publish fixture',
         )
       : null;
+}
+
+final class _ExplicitChoicePlugin extends _Plugin {
+  const _ExplicitChoicePlugin();
+
+  @override
+  bool reconcileMetadata(
+    PluginComposerContext before,
+    PluginComposerContext after,
+    bool held,
+  ) => held;
 }
 
 final class _Codec extends PluginDataPersistenceCodec<bool> {

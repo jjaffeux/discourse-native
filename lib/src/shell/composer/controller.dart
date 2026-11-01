@@ -2410,6 +2410,12 @@ class ComposerController extends ChangeNotifier
       _replaceMetadata(titleValue: '', categoryId: null, tags: const []);
       _minimumRequiredTags = 0;
     }
+    _restoredPluginMetadata = const {};
+    _initialPluginMetadata = const {};
+    _metadataContexts.clear();
+    _pluginMetadata = PluginData.none;
+    _pluginMetadataEdited = false;
+    _refreshMetadata();
     _typing.reset();
     _openedAt = _now();
     _fieldGeneration++;
