@@ -1514,9 +1514,17 @@ class ShellController extends FrameSafeNotifier
   String? get destinationId => activeTab?.rootDestinationId;
 
   @override
-  List<ContentRoute> get contentStack => focusedTabContext.contentStack;
+  List<ContentRoute> get contentStack =>
+      _mobilePanelRoot ? const [] : focusedTabContext.contentStack;
+
+  bool get _mobilePanelRoot =>
+      mobileNavigationEnabled &&
+      _mobilePane == MobilePane.sidebar &&
+      mobileNavigation.panelOwner != null;
+
   @override
-  ContentRoute? get currentContent => focusedTabContext.currentContent;
+  ContentRoute? get currentContent =>
+      _mobilePanelRoot ? null : focusedTabContext.currentContent;
 
   String _recentAccountIdentity(String siteUrl) {
     final instance = _instanceAt(siteUrl);
@@ -4984,10 +4992,12 @@ class ShellController extends FrameSafeNotifier
       return TabOpenResult.unsupported;
     }
     if (currentInstance == null) return TabOpenResult.unsupported;
-    if (document.currentContent?.topicId == topicId) {
+    final source = _mobilePanelRoot && document.tabId == activeTabId
+        ? null
+        : document.currentContent;
+    if (source?.topicId == topicId) {
       return TabOpenResult.opened;
     }
-    final source = document.currentContent;
     final sourceWords =
         source?.isTopicList == true &&
             topicFeeds
@@ -5290,7 +5300,6 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
-    _setForumContentRoot();
     if (highlight) {
       _topicNavigation.requestHighlight(
         siteUrl: siteUrl,
@@ -5301,6 +5310,7 @@ class ShellController extends FrameSafeNotifier
       _topicNavigation.clearHighlight(notify: false);
     }
     if (currentContent?.topicId == topicId) {
+      showPluginContent();
       openCurrentTopicPost(postNumber, loadAroundPost: true);
       return;
     }
@@ -9263,12 +9273,13 @@ class ShellController extends FrameSafeNotifier
       openContentInPanel(route, panel: requestedPanel);
       return;
     }
+    final startsJourney = _mobilePanelRoot;
     final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
     _workspace.replaceActiveTab(
-      startsPluginPane
+      startsJourney || startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
               contentStack: [route],
@@ -9306,12 +9317,13 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void replaceCurrentContent(ContentRoute route) {
+    final startsJourney = _mobilePanelRoot;
     final startsPluginPane = _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
     _workspace.replaceActiveTab(
-      startsPluginPane
+      startsJourney || startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
               contentStack: [route],
@@ -9972,8 +9984,7 @@ final class _ShellPluginRouteNavigationHost
       _shell.forumActive &&
       (!_shell.mobileNavigationEnabled ||
           (_shell.mobilePane == MobilePane.content &&
-              !_shell.mobileNavigation.sidebarOpen &&
-              _shell.mobileNavigation.panelOwner == null));
+              !_shell.mobileNavigation.sidebarOpen));
 
   @override
   String? get activeTabId => _shell.activeTabId;

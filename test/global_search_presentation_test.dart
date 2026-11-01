@@ -480,48 +480,75 @@ void main({bool useDeviceMetrics = false}) {
     });
   }
 
-  for (final threaded in [false, true]) {
-    _testPresentation(
-      'mobile ${threaded ? 'thread' : 'channel'} sheet returns to retained search',
-      (tester) async {
-        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
-        final shell = await _pumpSearch(
-          tester,
-          size: phone,
-          api: threaded ? _ChatResultSearchApi(threaded: true) : null,
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final fromChat in [false, true]) {
+      for (final threaded in [false, true]) {
+        _testPresentation(
+          '$platform ${threaded ? 'thread' : 'channel'} sheet returns to retained search from ${fromChat ? 'Chat' : 'Topics'}',
+          (tester) async {
+            debugDefaultTargetPlatformOverride = platform;
+            final shell = await _pumpSearch(
+              tester,
+              size: phone,
+              api: threaded ? _ChatResultSearchApi(threaded: true) : null,
+            );
+            if (fromChat) {
+              shell.selectMobilePanel('chat');
+              await tester.pumpAndSettle();
+            }
+            await _openAndSearch(tester, 'design');
+            shell.globalSearch.setScope(chatSearchScope);
+            shell.globalSearch.addCondition(
+              const GlobalSearchCondition(
+                filterId: 'chatAuthor',
+                value: ['mira'],
+              ),
+            );
+            await _finishSearch(tester);
+            final panel = tester.state(find.byType(GlobalSearchPanel));
+            final result = _panelText(
+              'The search design is ready for a keyboard review.',
+            );
+            await tester.ensureVisible(result);
+            await tester.pumpAndSettle();
+            for (var activation = 0; activation < 2; activation++) {
+              await tester.tap(result);
+              await tester.pumpAndSettle();
+              expect(
+                shell.currentContent?.id,
+                threaded ? 'chat-c-2-t-3' : 'chat-c-2',
+              );
+              expect(find.byType(DSheetViewport), findsWidgets);
+              expect(shell.globalSearch.query, 'design');
+              expect(shell.globalSearch.conditions.single.text, 'mira');
+              expect(shell.handleBack(), isTrue);
+              await tester.pumpAndSettle();
+              expect(shell.currentContent?.isGlobalSearch, isTrue);
+              expect(tester.state(find.byType(GlobalSearchPanel)), same(panel));
+              expect(result, findsOneWidget);
+              expect(_editor(tester).controller.text, 'design');
+            }
+            await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.isGlobalSearch, isNot(isTrue));
+            expect(
+              find.byKey(const ValueKey('mobile-search-button')).hitTestable(),
+              findsOneWidget,
+            );
+            expect(
+              find.byKey(const ValueKey('mobile-bottom-bar')),
+              findsOneWidget,
+            );
+            await tester.tap(
+              find.byKey(const ValueKey('mobile-search-button')),
+            );
+            await tester.pumpAndSettle();
+            expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+            expect(tester.takeException(), isNull);
+          },
         );
-        await _openAndSearch(tester, 'design');
-        shell.globalSearch.setScope(chatSearchScope);
-        shell.globalSearch.addCondition(
-          const GlobalSearchCondition(filterId: 'chatAuthor', value: ['mira']),
-        );
-        await _finishSearch(tester);
-        final panel = tester.state(find.byType(GlobalSearchPanel));
-        final result = _panelText(
-          'The search design is ready for a keyboard review.',
-        );
-        await tester.ensureVisible(result);
-        await tester.pumpAndSettle();
-        for (var activation = 0; activation < 2; activation++) {
-          await tester.tap(result);
-          await tester.pumpAndSettle();
-          expect(
-            shell.currentContent?.id,
-            threaded ? 'chat-c-2-t-3' : 'chat-c-2',
-          );
-          expect(find.byType(DSheetViewport), findsWidgets);
-          expect(shell.globalSearch.query, 'design');
-          expect(shell.globalSearch.conditions.single.text, 'mira');
-          expect(shell.handleBack(), isTrue);
-          await tester.pumpAndSettle();
-          expect(shell.currentContent?.isGlobalSearch, isTrue);
-          expect(tester.state(find.byType(GlobalSearchPanel)), same(panel));
-          expect(result, findsOneWidget);
-          expect(_editor(tester).controller.text, 'design');
-        }
-        expect(tester.takeException(), isNull);
-      },
-    );
+      }
+    }
   }
 
   _testPresentation('mobile search retains results scroll after a chat sheet', (
@@ -706,29 +733,64 @@ void main({bool useDeviceMetrics = false}) {
   );
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
-    _testPresentation('$platform topic sheet returns to retained search', (
-      tester,
-    ) async {
-      debugDefaultTargetPlatformOverride = platform;
-      final shell = await _pumpSearch(tester, size: phone);
-      await _openAndSearch(tester, 'design');
-      final panelState = tester.state(find.byType(GlobalSearchPanel));
-      final result = _panelText('A calmer, more useful global search').first;
-      await tester.ensureVisible(result);
-      await tester.pumpAndSettle();
-      await tester.tap(result);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 1038);
-      expect(shell.globalSearch.query, 'design');
-      expect(find.byType(TopicView), findsOneWidget);
-      expect(shell.handleBack(), isTrue);
-      await tester.pumpAndSettle();
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(tester.state(find.byType(GlobalSearchPanel)), same(panelState));
-      expect(_editor(tester).controller.text, 'design');
-      expect(_panelText('A calmer, more useful global search'), findsWidgets);
-      expect(tester.takeException(), isNull);
-    });
+    for (final fromChat in [false, true]) {
+      _testPresentation(
+        '$platform topic sheet returns to retained search from ${fromChat ? 'Chat' : 'Topics'}',
+        (tester) async {
+          debugDefaultTargetPlatformOverride = platform;
+          final shell = await _pumpSearch(tester, size: phone);
+          if (fromChat) {
+            shell.selectMobilePanel('chat');
+            await tester.pumpAndSettle();
+          }
+          await _openAndSearch(tester, 'design');
+          final panelState = tester.state(find.byType(GlobalSearchPanel));
+          final result = _panelText(
+            'A calmer, more useful global search',
+          ).first;
+          await tester.ensureVisible(result);
+          await tester.pumpAndSettle();
+          await tester.tap(result);
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.topicId, 1038);
+          expect(shell.globalSearch.query, 'design');
+          expect(find.byType(TopicView), findsOneWidget);
+          expect(shell.handleBack(), isTrue);
+          await tester.pumpAndSettle();
+          expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+          expect(
+            tester.state(find.byType(GlobalSearchPanel)),
+            same(panelState),
+          );
+          expect(_editor(tester).controller.text, 'design');
+          expect(
+            _panelText('A calmer, more useful global search'),
+            findsWidgets,
+          );
+          await tester.tap(result);
+          await tester.pumpAndSettle();
+          final handle = find.byKey(const ValueKey('sheet-drag-handle'));
+          final drag = await tester.startGesture(tester.getCenter(handle));
+          await drag.moveBy(const Offset(0, 20));
+          await drag.moveBy(const Offset(0, 180));
+          await tester.pump();
+          await drag.up();
+          await tester.pumpAndSettle();
+          expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
+          await tester.tap(find.byKey(const ValueKey('mobile-search-back')));
+          await tester.pumpAndSettle();
+          expect(
+            find.byKey(const ValueKey('mobile-search-button')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(
+            find.byKey(const ValueKey('mobile-bottom-bar')),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {

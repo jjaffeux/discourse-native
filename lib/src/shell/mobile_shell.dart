@@ -124,6 +124,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       builder: (context, _) {
         final instance = shell.currentInstance;
         if (instance == null) return const SizedBox.shrink();
+        final route = widget.boundary ? null : shell.currentContent;
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
         final foot = MediaQuery.paddingOf(context).bottom;
@@ -228,7 +229,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final pageSheetOpen =
             !widget.boundary &&
             !panelRoot &&
-            switch (shell.currentContent) {
+            switch (route) {
               final route? =>
                 route.isTopic || registry.usesMobilePageSheet(context, route),
               null => false,
@@ -236,7 +237,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final hideDock =
             !widget.boundary &&
             !panelRoot &&
-            switch (shell.currentContent) {
+            switch (route) {
               final route? => registry.hidesMobileDock(context, route),
               null => false,
             };
@@ -252,19 +253,19 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final showReply =
             !widget.boundary &&
             !panelRoot &&
-            shell.currentContent?.isTopic == true &&
+            route?.isTopic == true &&
             shell.canReplyHere;
         final showNewTopic =
             !widget.boundary &&
             selected == MobileTab.topics &&
-            shell.currentContent?.isTopic != true &&
+            route?.isTopic != true &&
             source?.isTopicList == true &&
             source?.isMessages != true &&
             shell.canCreateTopicFromSidebar;
         final showNewMessage =
             !widget.boundary &&
             selected == MobileTab.messages &&
-            shell.currentContent?.isMessages == true &&
+            route?.isMessages == true &&
             instance.isConnected &&
             instance.user?.canSendPrivateMessages == true;
         final panelAction = widget.boundary
@@ -283,9 +284,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ValueListenable<DPageHeader?> header,
           Widget page,
         ) => _MobileFrame(
-          headerVisible:
-              shell.currentContent?.isGlobalSearch != true || sidebarOpen,
-          raised: pageSheetOpen && shell.currentContent?.isTopic == true,
+          headerVisible: route?.isGlobalSearch != true || sidebarOpen,
+          raised: pageSheetOpen && route?.isTopic == true,
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
           // fixed header independently of the moving page and dock.
@@ -332,7 +332,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                     variant: DButtonVariant.inline,
                                     size: DButtonSize.segment,
                                     onPressed: () {
-                                      final route = shell.currentContent;
                                       if (!sidebarOpen &&
                                           selected == MobileTab.topics &&
                                           route?.isTopicList == true &&
@@ -450,8 +449,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: content!,
                 ),
                 dockBuilder: (hidden) {
-                  if (shell.currentContent?.isGlobalSearch == true &&
-                      !sidebarOpen) {
+                  if (route?.isGlobalSearch == true && !sidebarOpen) {
                     return const SizedBox.shrink();
                   }
                   // A parked draft waits over the bar, which keeps pages
@@ -522,9 +520,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     child: Padding(
                       padding: EdgeInsets.only(
                         top:
-                            shell.currentContent?.isGlobalSearch == true ||
-                                pageSheetOpen &&
-                                    shell.currentContent?.isTopic == true
+                            route?.isGlobalSearch == true ||
+                                pageSheetOpen && route?.isTopic == true
                             ? 0
                             : 6,
                       ),
@@ -532,7 +529,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         key: const ValueKey('mobile-content-panel'),
                         sheet: !pageSheetOpen
                             ? ForumMobileSheet.none
-                            : shell.currentContent?.isTopic == true
+                            : route?.isTopic == true
                             ? ForumMobileSheet.raised
                             : ForumMobileSheet.page,
                         child: Stack(

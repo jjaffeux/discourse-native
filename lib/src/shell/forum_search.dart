@@ -78,6 +78,9 @@ class _ForumSearchState extends State<ForumSearch> {
     return _scoped ? shell.tabContext(_tabId) : shell.focusedTabContext;
   }
 
+  ContentRoute? get _sourceRoute =>
+      _scoped ? _document?.currentContent : _shell?.currentContent;
+
   bool _ownsInput(ShellTabContext? tab) =>
       tab != null &&
       tab.isCurrent &&
@@ -103,7 +106,7 @@ class _ForumSearchState extends State<ForumSearch> {
   String get _listExpression {
     final shell = _shell;
     final tab = _document;
-    final route = tab?.currentContent;
+    final route = _sourceRoute;
     if (shell == null || route == null) return '';
     return SearchPresentation.listExpression(
       route,
@@ -117,7 +120,7 @@ class _ForumSearchState extends State<ForumSearch> {
   bool get _shellPage => widget.fullScreen && _shell!.mobileNavigationEnabled;
 
   bool get _surfaceOpen => widget._pageContent
-      ? _document?.currentContent?.isGlobalSearch == true
+      ? _sourceRoute?.isGlobalSearch == true
       : widget.fullScreen
       ? _page != null
       : _popover.isOpen;
@@ -132,7 +135,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _closeSearch() {
     if (widget._pageContent) {
-      if (_document?.currentContent?.isGlobalSearch == true) {
+      if (_sourceRoute?.isGlobalSearch == true) {
         _openChanged(false, DPopoverChangeReason.imperative);
         _shell!.handleBack();
       }
@@ -231,17 +234,18 @@ class _ForumSearchState extends State<ForumSearch> {
     if (_shellPage &&
         !widget._pageContent &&
         _open &&
-        !_shell!.focusedTabContext.contentStack.any(
-          (route) => route.isGlobalSearch,
-        )) {
+        (_sourceRoute == null ||
+            !_shell!.focusedTabContext.contentStack.any(
+              (route) => route.isGlobalSearch,
+            ))) {
       _presentation.surfaceChanged(false, _text.value);
     }
     if (widget._pageContent &&
-        _document?.currentContent?.isGlobalSearch == true &&
+        _sourceRoute?.isGlobalSearch == true &&
         !_search.ownsPanel(_field)) {
       _search.activateField(_field);
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _document?.currentContent?.isGlobalSearch == true) {
+        if (mounted && _sourceRoute?.isGlobalSearch == true) {
           _requestEditorFocus();
         }
       });
@@ -317,7 +321,7 @@ class _ForumSearchState extends State<ForumSearch> {
   void _requestEditorFocus() {
     if (widget._pageContent && !_focus.canRequestFocus) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted && _document?.currentContent?.isGlobalSearch == true) {
+        if (mounted && _sourceRoute?.isGlobalSearch == true) {
           _focus.requestFocus();
         }
       });
@@ -352,7 +356,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   void _openSearch({SearchFocusMode? mode, GlobalSearchContext? context}) {
     if (_shellPage) {
-      if (_document?.currentContent?.isGlobalSearch == true) {
+      if (_sourceRoute?.isGlobalSearch == true) {
         if (widget._pageContent && mode != null) {
           _presentation.prepareOpening(
             source: _ForumSearchSource(this),
@@ -1178,7 +1182,7 @@ final class _ForumSearchSource implements SearchPresentationSource {
   String get expression => state._listExpression;
 
   @override
-  ContentRoute? get route => state._document?.currentContent;
+  ContentRoute? get route => state._sourceRoute;
 
   @override
   GlobalSearchContext? get pluginContext =>

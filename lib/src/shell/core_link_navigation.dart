@@ -32,13 +32,12 @@ extension _CoreLinkNavigation on ShellController {
     if (index < 0) return false;
     final instance = _instances[index];
     if (index != _instanceIndex) selectInstance(index);
-    final rootChanged = _setForumContentRoot();
     final refresh = intent == _CoreLinkIntent.notification;
 
     if (corePage) {
       if (route.sameDestinationAs(currentContent)) {
         _workspace.consumeHomepage(activeTabId);
-        if (rootChanged) _notify();
+        showPluginContent();
         return true;
       }
       pushContent(route);
@@ -56,19 +55,20 @@ extension _CoreLinkNavigation on ShellController {
       case BadgeDestination(route: final badge):
         if (currentContent?.badgeRoute != badge) {
           pushContent(route);
-        } else if (rootChanged) {
-          _notify();
+        } else {
+          showPluginContent();
         }
         unawaited(badges.load(instance, badge, refresh: refresh));
       case GroupDestination(route: final group):
         if (currentContent?.groupRoute == group) {
-          if (rootChanged) _notify();
+          showPluginContent();
           return true;
         }
         pushContent(route);
         if (route.feedPath != null) unawaited(loadFeed(route.id));
       case TopicDestination(:final topicId, :final slug, :final postNumber):
         if (currentContent?.topicId == topicId) {
+          final rootChanged = _setForumContentRoot();
           final queryChanged = route.topicQuery != currentContent?.topicQuery;
           final targetPost = refresh || queryChanged
               ? postNumber ?? 1
@@ -96,7 +96,7 @@ extension _CoreLinkNavigation on ShellController {
         );
       case FeedDestination():
         if (route.sameDestinationAs(currentContent)) {
-          if (rootChanged) _notify();
+          showPluginContent();
           return true;
         }
         pushContent(route);

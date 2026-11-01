@@ -3126,7 +3126,8 @@ void main() {
 
     await _tapDockTab(tester, 'panel/chat');
     // Panel roots keep the shared content route parked behind the panel.
-    expect(shell.currentContent?.isTopic, isTrue);
+    expect(shell.currentContent, isNull);
+    expect(shell.activeTab?.currentContent.isTopic, isTrue);
     expect(shell.mobileNavigation.atRoot, isTrue);
     expect(find.byKey(const ValueKey('mobile-topic-reply')), findsNothing);
     final action = find.byKey(const ValueKey('mobile-panel-action'));
