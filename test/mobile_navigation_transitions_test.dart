@@ -56,6 +56,29 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  testWidgets(
+    'replacing the same channel visit keeps dismissal bound to that visit',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      shell.selectMobilePanel('chat');
+      await tester.pumpAndSettle();
+      shell.openChatChannel(10);
+      await tester.pumpAndSettle();
+      final previousVisit = shell.mobileNavigation.entryId;
+      shell.replaceCurrentContent(shell.currentContent!);
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.entryId, isNot(previousVisit));
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, 600),
+      );
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.atRoot, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   testWidgets('search cancel preserves the topic visit and its source list', (
     tester,
   ) async {

@@ -11,6 +11,7 @@ final class MobilePresentation {
   MobilePresentation._(
     this._policies,
     this._predecessors, {
+    required this.identity,
     required this.route,
     required this.searchRoute,
     required this.searchSourceRoute,
@@ -79,6 +80,7 @@ final class MobilePresentation {
     return MobilePresentation._(
       policies,
       predecessors,
+      identity: (history: navigation.historyId, entry: navigation.entryId),
       route: route,
       searchRoute: search,
       searchSourceRoute: searchSource,
@@ -92,6 +94,7 @@ final class MobilePresentation {
     );
   }
 
+  final ({Object history, Object entry}) identity;
   final ContentRoute? route;
   final ContentRoute? searchRoute;
   final ContentRoute? searchSourceRoute;
@@ -126,7 +129,8 @@ class MobilePresentationScope extends InheritedWidget {
   @override
   bool updateShouldNotify(MobilePresentationScope oldWidget) {
     final previous = oldWidget.presentation;
-    return !identical(presentation.route, previous.route) ||
+    return presentation.identity != previous.identity ||
+        !identical(presentation.route, previous.route) ||
         !identical(presentation.searchRoute, previous.searchRoute) ||
         !identical(
           presentation.searchSourceRoute,
