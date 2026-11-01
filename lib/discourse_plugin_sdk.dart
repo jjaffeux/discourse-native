@@ -232,7 +232,7 @@ export 'src/shell/platform.dart'
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action.dart'
-    show PostAction, PostActionPlacement, PostActionRole;
+    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;
