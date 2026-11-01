@@ -500,6 +500,61 @@ void main() {
     },
   );
 
+  testWidgets('paging response does not rewind a continuing downward drag', (
+    tester,
+  ) async {
+    _size(tester, true);
+    final pending = Completer<Object?>();
+    final transport = RecordingPluginTransport(
+      responses: {
+        '$_rootPath&track_visit=true': {
+          ..._roots(),
+          'roots': [
+            for (var number = 2; number < 42; number++) _treePost(number),
+          ],
+          'has_more_roots': true,
+        },
+      },
+      responders: {
+        'GET /n/conversation/7.json?sort=top&page=1': (_) => pending.future,
+      },
+    );
+    await _mount(tester, transport);
+    await _frames(tester);
+    final scrollView = find.byType(CustomScrollView).first;
+    final scroll = tester.widget<CustomScrollView>(scrollView).controller!;
+    scroll.jumpTo(scroll.position.maxScrollExtent - 300);
+    await _frames(tester);
+    expect(transport.requests, hasLength(2));
+    final gesture = await tester.startGesture(tester.getCenter(scrollView));
+    await gesture.moveBy(const Offset(0, -40));
+    await tester.pump(const Duration(milliseconds: 16));
+    await gesture.moveBy(const Offset(0, -40));
+    await tester.pump(const Duration(milliseconds: 16));
+    final start = scroll.offset;
+    pending.complete({
+      'roots': [for (var number = 42; number < 62; number++) _treePost(number)],
+      'page': 1,
+      'has_more_roots': false,
+    });
+    await tester.pump(const Duration(milliseconds: 16));
+    final response = scroll.offset;
+    await gesture.moveBy(const Offset(0, -60));
+    final beforeFrame = scroll.offset;
+    await tester.pump(const Duration(milliseconds: 16));
+    final afterFrame = scroll.offset;
+    expect(
+      afterFrame,
+      greaterThanOrEqualTo(beforeFrame - 1),
+      reason:
+          'Downward drag offsets: before response $start, after response '
+          '$response, after continuing drag $beforeFrame, next frame $afterFrame',
+    );
+    await gesture.up();
+    await _frames(tester);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
   testWidgets(
     'late child pages preserve the later visible root screen position',
     (tester) async {
