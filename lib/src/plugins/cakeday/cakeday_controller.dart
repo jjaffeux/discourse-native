@@ -21,12 +21,13 @@ final class CakedayDirectoryState {
     this.loadingMore = false,
     this.failure,
     this.nextPage,
+    this.failedPage,
   });
   final List<CakedayMember> members;
   final int total;
   final bool loaded, loading, loadingMore;
   final CakedayFailure? failure;
-  final int? nextPage;
+  final int? nextPage, failedPage;
 }
 
 final class CakedayController extends FrameSafeNotifier
@@ -169,9 +170,16 @@ final class CakedayController extends FrameSafeNotifier
       });
     } catch (error) {
       if (!current()) return;
+      final status = switch (error) {
+        SiteLookupException(:final statusCode) => statusCode,
+        WriteException(:final statusCode) => statusCode,
+        _ => null,
+      };
       final forbidden =
-          error is WriteException && error.failure == WriteFailure.forbidden;
-      final unavailable = error is WriteException && error.statusCode == 404;
+          status == 401 ||
+          status == 403 ||
+          (error is WriteException && error.failure == WriteFailure.forbidden);
+      final unavailable = status == 404;
       if (forbidden || unavailable) {
         if (forbidden) {
           _forbidden.add(site);
@@ -189,6 +197,7 @@ final class CakedayController extends FrameSafeNotifier
           loaded: held.loaded,
           nextPage: held.nextPage,
           failure: CakedayFailure.request,
+          failedPage: page,
         );
       }
     } finally {

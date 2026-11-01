@@ -41,6 +41,7 @@ final class CakedayApi {
     final uri = Uri.tryParse(value), base = Uri.parse(site);
     if (uri == null ||
         uri.hasFragment ||
+        (uri.hasScheme && uri.scheme != 'http' && uri.scheme != 'https') ||
         (uri.hasScheme && !uri.hasAuthority) ||
         uri.userInfo.isNotEmpty ||
         (uri.hasAuthority && (uri.origin != base.origin))) {

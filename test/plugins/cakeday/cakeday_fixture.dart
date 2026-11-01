@@ -1,10 +1,10 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_api.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_controller.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_navigation.dart';
-import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
 import 'package:flutter/foundation.dart';
 import 'package:timezone/timezone.dart' as tz;
 
@@ -25,7 +25,7 @@ Map<String, dynamic> page(
 }) => {
   kind.name: rows,
   'total_rows_${kind.name}': total ?? rows.length,
-  if (next != null) 'load_more_${kind.name}': next,
+  'load_more_${kind.name}': ?next,
 };
 
 final class CakedayFixture {
@@ -33,9 +33,10 @@ final class CakedayFixture {
     bool connected = true,
     bool enabled = true,
     bool birthdays = true,
+    PluginApiTransport? actualTransport,
   }) {
     user = connected ? const DiscourseUser(id: 7, username: 'reader') : null;
-    config = ValueNotifier(
+    config = TrackedConfig(
       SiteConfig(
         emojiEnabled: false,
         plugins: PluginData.none.withValue(
@@ -52,7 +53,7 @@ final class CakedayFixture {
     );
     transport = RecordingPluginTransport();
     controller = CakedayController(
-      api: CakedayApi(transport),
+      api: CakedayApi(actualTransport ?? transport),
       requests: requests,
       siteState: PluginSiteStateHost(
         currentUserFor: (_) => user,
@@ -79,8 +80,8 @@ final class CakedayFixture {
   }
   DiscourseUser? user;
   DateTime clock = DateTime(2026, 11, 1, 12);
-  late final ValueNotifier<SiteConfig> config;
-  final timezoneChanges = ChangeNotifier();
+  late final TrackedConfig config;
+  final timezoneChanges = TrackedChanges();
   late final PluginTestRequestHost requests;
   late final RecordingPluginTransport transport;
   late final CakedayController controller;
@@ -127,4 +128,37 @@ final class CakedayRoutes implements PluginRouteNavigationHost {
 final class _EmojiPreferences implements EmojiPreferenceStore {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class TrackedConfig extends ValueNotifier<SiteConfig> {
+  TrackedConfig(super.value);
+  final _listeners = <VoidCallback>{};
+  int get listenerCount => _listeners.length;
+  @override
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+    super.removeListener(listener);
+  }
+}
+
+final class TrackedChanges extends ChangeNotifier {
+  final _listeners = <VoidCallback>{};
+  int get listenerCount => _listeners.length;
+  @override
+  void addListener(VoidCallback listener) {
+    _listeners.add(listener);
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    _listeners.remove(listener);
+    super.removeListener(listener);
+  }
 }

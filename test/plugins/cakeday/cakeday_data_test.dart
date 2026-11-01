@@ -67,7 +67,12 @@ void main() {
       expect(codec.decode({}, null).available, isFalse);
       expect(codec.decode({}, null).payload, isEmpty);
       expect(codec.decode({}, known), same(known));
-      for (final invalid in ['2026-04-31', false, {}, 'not-a-date']) {
+      for (final invalid in [
+        '2026-04-31',
+        false,
+        <String, Object?>{},
+        'not-a-date',
+      ]) {
         expect(codec.decode({'birthdate': invalid}, known).available, isFalse);
         expect(codec.decode({'birthdate': invalid}, known).payload, isEmpty);
       }
@@ -109,6 +114,26 @@ void main() {
         'birthdate': '1990-11-01',
       }, 'https://forum.example');
       expect(card.plugins.get(cakedayDatesKey)!.birthday!.month, 11);
+      final redacted = installed.models.post({
+        'id': 1,
+        'user_id': 4,
+      }, 'https://forum.example');
+      final merged = installed.registry.mergeAfterPostEdit(
+        held: post.plugins,
+        incoming: redacted.plugins,
+      );
+      expect(merged.get(cakedayDatesKey), isNull);
+      final nullDates = installed.models.post({
+        'id': 1,
+        'user_id': 4,
+        'user_birthdate': null,
+        'user_cakedate': null,
+      }, 'https://forum.example');
+      final explicit = installed.registry
+          .mergeAfterPostEdit(held: post.plugins, incoming: nullDates.plugins)
+          .get(cakedayDatesKey)!;
+      expect(explicit.birthday, isNull);
+      expect(explicit.joined, isNull);
     },
   );
   test('query IDs retain month and reject invalid/foreign destinations', () {

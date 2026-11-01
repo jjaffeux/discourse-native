@@ -1,7 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/shell/preferences_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -40,11 +39,12 @@ class PreferenceApi implements UserPreferencesApi {
     String? clientId,
   }) async {
     writes.add(values);
-    if (fail)
+    if (fail) {
       throw const WriteException(
         WriteFailure.validation,
         errors: ['Rejected birthday'],
       );
+    }
     return fallback;
   }
 }

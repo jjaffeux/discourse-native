@@ -83,9 +83,12 @@ class _CakedayDecorationState extends State<CakedayDecoration> {
         spacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (settings.birthdays && widget.dates.celebratesBirthday(now))
+          if (controller.enabled(site, CakedayKind.birthdays) &&
+              widget.dates.celebratesBirthday(now))
             mark(true),
-          if (widget.dates.celebratesAnniversary(now)) mark(false),
+          if (controller.enabled(site, CakedayKind.anniversaries) &&
+              widget.dates.celebratesAnniversary(now))
+            mark(false),
         ],
       );
     },

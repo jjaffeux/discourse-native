@@ -319,7 +319,9 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
                           },
                         ),
                       if (state.loaded && state.failure != null)
-                        SliverToBoxAdapter(child: _error(more: true)),
+                        SliverToBoxAdapter(
+                          child: _error(more: (state.failedPage ?? 0) > 0),
+                        ),
                       if (state.loadingMore)
                         SliverToBoxAdapter(
                           child: Center(
@@ -381,11 +383,12 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
   );
   Widget _member(CakedayMember member) {
     final config = widget.controller.siteState.siteConfigFor(widget.site);
+    final fullName = member.name?.trim();
     final name =
-        config.prioritizesFullName && (member.name?.isNotEmpty ?? false)
-        ? member.name!
+        !config.prioritizeUsernameInUx && (fullName?.isNotEmpty ?? false)
+        ? fullName!
         : member.username;
-    final secondary = name == member.username ? member.name : member.username;
+    final secondary = name == member.username ? fullName : member.username;
     final date = member.birthday != null
         ? DateFormat.MMMMd().format(member.birthday!.date)
         : DateFormat.yMMMMd().format(member.joined!.date);

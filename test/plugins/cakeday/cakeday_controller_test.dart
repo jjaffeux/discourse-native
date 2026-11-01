@@ -1,8 +1,14 @@
 import 'dart:async';
-import 'package:timezone/data/latest.dart' as tzdata;
+import 'dart:convert';
+import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:timezone/data/latest.dart' as tzdata;
+
 import 'cakeday_fixture.dart';
 
 void main() {
@@ -87,6 +93,10 @@ void main() {
         [2, 1, 3],
       );
       expect(f.controller.state(cakedaySite, birthdayQuery).nextPage, 2);
+      expect(
+        f.transport.reads.skip(1).map((request) => request.path),
+        List.filled(2, '/cakeday/birthdays.json?page=1&filter=today'),
+      );
     },
   );
   test('birthdays404 does not suppress available anniversaries', () async {
@@ -231,8 +241,8 @@ void main() {
       f.controller.dispose();
       pending.complete(page([celebration(2)]));
       await read;
-      expect(f.config.hasListeners, isFalse);
-      expect(f.timezoneChanges.hasListeners, isFalse);
+      expect(f.config.listenerCount, 0);
+      expect(f.timezoneChanges.listenerCount, 0);
       f.config.dispose();
       f.timezoneChanges.dispose();
     },
@@ -288,4 +298,50 @@ void main() {
       f.controller.release(cakedaySite, birthdayQuery);
     },
   );
+  for (final status in [401, 403, 404]) {
+    test(
+      'real HTTP adapter status $status clears held birthday rows with correct scope',
+      () async {
+        var responseStatus = 200;
+        final requests = <http.Request>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            requests.add(request);
+            return http.Response(
+              jsonEncode(
+                responseStatus == 200
+                    ? page([celebration(1)])
+                    : <String, Object?>{
+                        'errors': ['Not available'],
+                      },
+              ),
+              responseStatus,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        );
+        addTearDown(api.close);
+        final f = CakedayFixture(actualTransport: api);
+        addTearDown(f.dispose);
+        await f.controller.load(cakedaySite, birthdayQuery);
+        expect(
+          f.controller.state(cakedaySite, birthdayQuery).members.single.id,
+          1,
+        );
+        responseStatus = status;
+        await f.controller.load(cakedaySite, birthdayQuery, refresh: true);
+        expect(requests.last.url.path, '/community/cakeday/birthdays.json');
+        expect(requests.last.headers['user-api-key'], 'key');
+        expect(f.controller.state(cakedaySite, birthdayQuery).members, isEmpty);
+        expect(
+          f.controller.enabled(cakedaySite, CakedayKind.birthdays),
+          isFalse,
+        );
+        expect(
+          f.controller.enabled(cakedaySite, CakedayKind.anniversaries),
+          status == 404,
+        );
+      },
+    );
+  }
 }

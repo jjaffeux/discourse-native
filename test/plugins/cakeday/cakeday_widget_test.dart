@@ -4,7 +4,6 @@ import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_decoration.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_directory.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_preferences.dart';
-import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'cakeday_fixture.dart';
@@ -223,6 +222,126 @@ void main() {
       await tester.pumpWidget(editor('https://other.example', 'second'));
       await tester.pumpAndSettle();
       expect(find.text('April'), findsNothing);
+    },
+  );
+  testWidgets(
+    'retry after a failed refresh repeats page zero while keeping existing rows',
+    (tester) async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      const path = 'GET /cakeday/birthdays.json?page=0&filter=today';
+      f.transport.responders[path] = (_) => page([celebration(1)]);
+      await tester.pumpWidget(
+        frame(
+          CakedayDirectory(
+            site: cakedaySite,
+            query: birthdayQuery,
+            controller: f.controller,
+            navigation: f.navigation,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('member1'), findsOneWidget);
+      f.transport.failures[path] = const WriteException(
+        WriteFailure.unreachable,
+      );
+      await f.controller.load(cakedaySite, birthdayQuery, refresh: true);
+      await tester.pumpAndSettle();
+      expect(find.text('member1'), findsOneWidget);
+      expect(find.text('Retry'), findsOneWidget);
+      f.transport.responders[path] = (_) => page([celebration(3)]);
+      await tester.tap(find.text('Retry'));
+      await tester.pumpAndSettle();
+      expect(find.text('member3'), findsOneWidget);
+      expect(find.text('member1'), findsNothing);
+      expect(
+        f.transport.reads.map((r) => r.path),
+        List.filled(3, '/cakeday/birthdays.json?page=0&filter=today'),
+      );
+      f.controller.setForeground(false);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'birthday endpoint unavailability removes only birthday decoration',
+    (tester) async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      final dates = CakedayDates.read({
+        'cakedate': '2020-11-01',
+        'birthdate': '1992-11-01',
+      })!;
+      await tester.pumpWidget(
+        frame(
+          CakedayDecoration(
+            controller: f.controller,
+            site: cakedaySite,
+            dates: dates,
+            userId: 7,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(DTooltip), findsNWidgets(2));
+      f.transport.failures['GET /cakeday/birthdays.json?page=0&filter=today'] =
+          const WriteException(WriteFailure.validation, statusCode: 404);
+      await f.controller.load(cakedaySite, birthdayQuery);
+      await tester.pumpAndSettle();
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DTooltip && widget.message == 'Today is your birthday!',
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DTooltip &&
+              widget.message ==
+                  'Today is the anniversary of the day you joined our community!',
+        ),
+        findsOneWidget,
+      );
+      f.controller.setForeground(false);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'directory name priority follows member identity settings rather than post settings',
+    (tester) async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      f.config.value = SiteConfig(
+        prioritizeUsernameInUx: false,
+        displayNameOnPosts: false,
+        plugins: PluginData.none.withValue(
+          cakedaySettingsKey,
+          const CakedaySettings(enabled: true, birthdays: true),
+        ),
+      );
+      f
+              .transport
+              .responders['GET /cakeday/birthdays.json?page=0&filter=today'] =
+          (_) => page([celebration(1)]);
+      await tester.pumpWidget(
+        frame(
+          CakedayDirectory(
+            site: cakedaySite,
+            query: birthdayQuery,
+            controller: f.controller,
+            navigation: f.navigation,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester.getTopLeft(find.text('Member 1')).dy,
+        lessThan(tester.getTopLeft(find.text('member1')).dy),
+      );
+      f.controller.setForeground(false);
+      await tester.pumpWidget(const SizedBox.shrink());
     },
   );
 }
