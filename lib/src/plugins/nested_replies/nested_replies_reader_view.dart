@@ -73,14 +73,15 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
                 ),
               ),
             for (final ancestor in _controller.ancestors)
-              DButton(
-                label: Text(
-                  reader.post(ancestor.postId)?.displayName ??
-                      '#${ancestor.postNumber}',
+              if (!ancestor.data.hiddenDeleted)
+                DButton(
+                  label: Text(
+                    reader.post(ancestor.postId)?.displayName ??
+                        '#${ancestor.postNumber}',
+                  ),
+                  onPressed: () =>
+                      _navigate(target: ancestor.postNumber, context: 0),
                 ),
-                onPressed: () =>
-                    _navigate(target: ancestor.postNumber, context: 0),
-              ),
           ],
         ),
         if (_controller.ancestors.isEmpty &&
@@ -158,37 +159,26 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
     final visualDepth = math.min(displayLevel, visualLimit);
     final collapsed = _controller.isCollapsed(node.postNumber);
     final children = _controller.childrenFor(node.postNumber);
-    final childDepth = math.max(1, depth + 1);
     final atLimit = depth >= widget.settings.maxDepth;
-    final flattened =
-        widget.settings.capDepth && childDepth >= widget.settings.maxDepth;
-    final total = flattened
-        ? node.data.totalDescendantCount
-        : node.data.directReplyCount;
-    final childPage = _controller.childrenState(
-      node.postNumber,
-      depth: childDepth,
-    );
     final expanded = _controller.isExpanded(node.postNumber, depth: depth);
     final hasChildren =
         !collapsed &&
         expanded &&
         children.isNotEmpty &&
         (!phone || displayLevel < visualLimit);
-    final hasMore = childPage.fetchedFromServer
-        ? childPage.hasMore
-        : total > children.length;
     final ordinary =
         node.data.placeholder == NestedPostPlaceholder.none ||
-        (!node.data.redacted && reader.currentUserStaff);
+        !node.data.redacted;
     void collapse() => _collapsePost(node.postNumber, true);
-    void toggle() => _collapsePost(node.postNumber, !collapsed);
+    void toggle() => _collapsePost(node.postNumber, !collapsed && expanded);
     Widget rail({bool interactive = false}) => DThreadRail(
       onPressed: interactive ? collapse : null,
       semanticLabel: interactive ? appL10n.nestedRepliesCollapsePost : null,
     );
     Widget footerRail() => Stack(children: [Positioned.fill(child: rail())]);
-    final control = phone ? null : _collapseControl(node, collapsed: collapsed);
+    final control = phone
+        ? null
+        : _collapseControl(node, collapsed: collapsed || !expanded);
     final footer = phone
         ? null
         : Column(
@@ -241,11 +231,14 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
             onBodyPressed: phone ? toggle : null,
             bodyActionLabel: phone ? appL10n.nestedRepliesCollapsePost : null,
           )
-        : _placeholder(
-            node,
-            collapsed: collapsed,
-            control: control,
-            phone: phone,
+        : KeyedSubtree(
+            key: _postKeys.putIfAbsent(node.postId, GlobalKey.new),
+            child: _placeholder(
+              node,
+              collapsed: collapsed,
+              control: control,
+              phone: phone,
+            ),
           );
     if (phone) {
       post = DItem(
@@ -255,7 +248,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
         highlightOnInteraction: false,
         focusNode: _collapseFocus.putIfAbsent(node.postNumber, FocusNode.new),
         onPressed: toggle,
-        semanticLabel: collapsed
+        semanticLabel: collapsed || !expanded
             ? appL10n.nestedRepliesExpandPost
             : appL10n.nestedRepliesCollapsePost,
         children: [post],
@@ -264,22 +257,6 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
     final extras = <Widget>[
       if (_controller.pinnedPostIds.contains(node.postId))
         DBadge(child: Text(appL10n.pinned)),
-      if ((hasMore || (!expanded && total > 0)) &&
-          !atLimit &&
-          (!phone || displayLevel < visualLimit))
-        DButton(
-          variant: DButtonVariant.inline,
-          size: DButtonSize.chip,
-          label: Text(
-            childPage.loading ? appL10n.loading : appL10n.nestedRepliesLoadMore,
-          ),
-          onPressed: childPage.loading || _controller.restoringPages
-              ? null
-              : () => _controller.loadChildren(
-                  node.postNumber,
-                  depth: childDepth,
-                ),
-        ),
       if ((phone && displayLevel >= visualLimit) ||
           (atLimit && !widget.settings.capDepth))
         DButton(
@@ -305,7 +282,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
               ),
           ],
         ),
-        if (extras.isNotEmpty || childPage.error != null)
+        if (extras.isNotEmpty)
           DCollapsible(
             open: !collapsed,
             child: DCollapsibleContent(
@@ -326,14 +303,6 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
                           crossAxisAlignment: WrapCrossAlignment.center,
                           children: extras,
                         ),
-                        if (childPage.error != null)
-                          _error(
-                            appL10n.nestedRepliesCouldNotLoad,
-                            () => _controller.loadChildren(
-                              node.postNumber,
-                              depth: childDepth,
-                            ),
-                          ),
                       ],
                     ),
                   ),
@@ -472,22 +441,51 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
     ),
   );
 
+  Widget _childrenBoundary(
+    BuildContext context,
+    NestedChildrenBoundary boundary,
+    int depthOffset,
+  ) {
+    final state = _controller.childrenState(
+      boundary.node.postNumber,
+      depth: boundary.childDepth,
+    );
+    final active = boundary.ancestorPostNumbers.every(
+      (number) => !_controller.isCollapsed(number),
+    );
+    if (!active ||
+        (_usesMobileLayout &&
+            boundary.depth - depthOffset >= _phoneDepthLimit)) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox(
+      key: _boundaryKeys.putIfAbsent((
+        boundary.node.postNumber,
+        boundary.childDepth,
+      ), GlobalKey.new),
+      child: state.error != null
+          ? _error(
+              appL10n.nestedRepliesCouldNotLoad,
+              () => _loadChildren(
+                boundary.node.postNumber,
+                depth: boundary.childDepth,
+              ),
+            )
+          : state.loading
+          ? const Padding(
+              padding: EdgeInsets.all(8),
+              child: Center(child: DSpinner()),
+            )
+          : const SizedBox(height: 1),
+    );
+  }
+
   Widget _footer(BuildContext context) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       if (_controller.rootPageError != null)
-        _error(appL10n.nestedRepliesCouldNotLoad, _controller.loadMoreRoots),
-      if (_controller.hasMoreRoots)
-        DButton(
-          label: Text(
-            _controller.loadingMoreRoots
-                ? appL10n.loading
-                : appL10n.nestedRepliesLoadMore,
-          ),
-          onPressed: _controller.loadingMoreRoots || _controller.restoringPages
-              ? null
-              : _controller.loadMoreRoots,
-        ),
+        _error(appL10n.nestedRepliesCouldNotLoad, _loadMoreRoots),
+      if (_controller.loadingMoreRoots) const Center(child: DSpinner()),
       if (!_controller.loading &&
           _controller.error == null &&
           _controller.roots.isEmpty)

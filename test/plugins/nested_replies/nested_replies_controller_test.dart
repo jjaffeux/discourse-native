@@ -7,6 +7,160 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'deleted structural nodes promote readable children and retain request depth',
+    () async {
+      NestedReplyNode hidden(
+        int number,
+        List<NestedReplyNode> children, {
+        int count = 0,
+      }) => NestedReplyNode(
+        postId: number + 100,
+        postNumber: number,
+        data: NestedPostData(
+          placeholder: NestedPostPlaceholder.deleted,
+          contentRedacted: true,
+          directReplyCount: count,
+        ),
+        children: children,
+      );
+      final loader = _Loader()
+        ..rootHandler = (_) async => _roots([
+          hidden(2, [
+            node(3, parent: 2, children: [node(8, parent: 3)]),
+            hidden(4, [node(5, parent: 4)]),
+            node(6, parent: 2),
+          ], count: 4),
+          node(7),
+        ]);
+      final controller = NestedRepliesController(loader: loader);
+      addTearDown(controller.dispose);
+      await controller.open(collapse: true);
+      controller.setCollapsed(2, true);
+      controller.setCollapsed(4, true);
+      final rows = controller.visibleRows();
+      expect(rows.map((row) => row.node.postNumber), [3, 5, 6, 7]);
+      expect(rows.map((row) => row.depth), [0, 0, 0, 0]);
+      expect(rows.map((row) => row.actualDepth), [1, 2, 1, 0]);
+      expect(
+        rows.map((row) => row.displayParentPostNumber),
+        everyElement(isNull),
+      );
+      expect(rows.map((row) => row.ancestorPostNumbers), everyElement(isEmpty));
+      expect(rows[1].actualAncestorPostNumbers, [2, 4]);
+      final entries = controller.visibleEntries();
+      final boundary = entries.whereType<NestedChildrenBoundary>().single;
+      expect(boundary.node.postNumber, 2);
+      expect(boundary.childDepth, 1);
+      expect(entries.indexOf(boundary), 3);
+    },
+  );
+
+  test(
+    'hidden child pages advance without losing later readable descendants',
+    () async {
+      final hidden = NestedReplyNode(
+        postId: 102,
+        postNumber: 2,
+        data: const NestedPostData(
+          placeholder: NestedPostPlaceholder.deleted,
+          contentRedacted: true,
+          directReplyCount: 2,
+        ),
+      );
+      final hiddenChild = NestedReplyNode(
+        postId: 103,
+        postNumber: 3,
+        data: const NestedPostData(
+          placeholder: NestedPostPlaceholder.deleted,
+          contentRedacted: true,
+        ),
+      );
+      final loader = _Loader();
+      loader.rootHandler = (_) async => _roots([hidden]);
+      loader.childHandler = (request) async => _children(
+        request.page == 0 ? [hiddenChild] : [node(4, parent: 2)],
+        page: request.page,
+        hasMore: request.page == 0,
+      );
+      final controller = NestedRepliesController(loader: loader);
+      addTearDown(controller.dispose);
+      await controller.open();
+      expect(controller.visibleRows(), isEmpty);
+      await controller.loadChildren(2, depth: 1);
+      expect(controller.visibleRows(), isEmpty);
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        hasLength(1),
+      );
+      await controller.loadChildren(2, depth: 1);
+      expect(controller.visibleRows().single.node.postNumber, 4);
+      expect(controller.visibleRows().single.actualDepth, 1);
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        isEmpty,
+      );
+      expect(loader.childRequests.map((request) => request.page), [0, 1]);
+    },
+  );
+
+  test(
+    'nonadvancing root and child responses keep cursors retryable',
+    () async {
+      final loader = _Loader();
+      loader.rootHandler = (_) async => _roots([node(2)], hasMore: true);
+      loader.childHandler = (_) async => _children([node(3)], page: 7);
+      final controller = NestedRepliesController(loader: loader);
+      addTearDown(controller.dispose);
+      await controller.open();
+      await controller.loadMoreRoots();
+      expect(controller.rootPage, 0);
+      expect(controller.rootPageError, isFormatException);
+      await controller.loadChildren(2, depth: 1);
+      expect(controller.childrenFor(2), isEmpty);
+      expect(controller.childrenState(2, depth: 1).page, isNull);
+      expect(controller.childrenState(2, depth: 1).error, isFormatException);
+      loader.childHandler = (_) async => _children([node(3)], hasMore: false);
+      await controller.loadChildren(2, depth: 1);
+      expect(controller.childrenState(2, depth: 1).error, isNull);
+      expect(controller.childrenFor(2).single.postNumber, 3);
+    },
+  );
+
+  test(
+    'explicit collapse query waits for expanded intent on empty branches',
+    () async {
+      final parent = NestedReplyNode(
+        postId: 102,
+        postNumber: 2,
+        data: const NestedPostData(directReplyCount: 1),
+      );
+      final loader = _Loader()..rootHandler = (_) async => _roots([parent]);
+      final controller = NestedRepliesController(loader: loader);
+      addTearDown(controller.dispose);
+      await controller.open();
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        hasLength(1),
+      );
+      await controller.open(collapse: true);
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        isEmpty,
+      );
+      controller.setCollapsed(2, false);
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        hasLength(1),
+      );
+      controller.setCollapsed(2, true);
+      expect(
+        controller.visibleEntries().whereType<NestedChildrenBoundary>(),
+        isEmpty,
+      );
+    },
+  );
+
+  test(
     'rail projection follows displayed sibling branches and stops after collapse',
     () async {
       final loader = _Loader()

@@ -57,6 +57,99 @@ void main() {
     )..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'))).load();
   });
 
+  testWidgets(
+    'late child pages retain canonical root position through cooked body layout',
+    (tester) async {
+      final fixture = await _pump(tester, phone);
+      final pending = Completer<void>();
+      const path = '/n/harbour/7/children/3.json?sort=top&page=0&depth=1';
+      fixture.api.pluginReadGates[path] = pending;
+      fixture
+          .api
+          .pluginResponses['GET /n/harbour/7.json?sort=top&page=0&track_visit=true'] = {
+        ..._roots(),
+        'roots': [
+          {..._post(3), 'direct_reply_count': 21, 'total_descendant_count': 21},
+          for (var number = 20; number < 45; number++)
+            {
+              ..._post(number),
+              'cooked': '<p>Later root $number</p>',
+              'raw': 'Later root $number',
+            },
+        ],
+      };
+      fixture.api.pluginResponses['GET $path'] = {
+        'children': [
+          for (var number = 100; number < 120; number++)
+            {
+              ..._post(number),
+              'reply_to_post_number': 3,
+              'cooked':
+                  '<p>${List.filled(number == 100 ? 400 : 40, 'A long new reply fills the reading lane.').join(' ')}</p>${number == 100 ? '<p>Async body end marker</p>' : ''}',
+            },
+        ],
+        'page': 0,
+        'has_more': false,
+      };
+      fixture.shell.openTopic(fixture.row);
+      await _frames(tester);
+      expect(fixture.api.pluginReadPaths, contains(path));
+      final scrollView = find
+          .descendant(
+            of: find.byType(NestedRepliesReader),
+            matching: find.byType(CustomScrollView),
+          )
+          .first;
+      final scroll = tester.widget<CustomScrollView>(scrollView).controller!;
+      scroll.jumpTo(2500);
+      await _frames(tester);
+      final candidates =
+          <Finder>[
+                for (var number = 20; number < 45; number++)
+                  find.byKey(ValueKey('nested-row-${100 + number}')),
+              ]
+              .where(
+                (finder) =>
+                    finder.evaluate().isNotEmpty &&
+                    tester.getTopLeft(finder).dy >= 100 &&
+                    tester.getTopLeft(finder).dy < 650,
+              )
+              .toList();
+      expect(candidates, isNotEmpty);
+      final anchor = candidates.first;
+      final before = tester.getTopLeft(anchor).dy;
+      pending.complete();
+      await tester.pump();
+      await tester.pump();
+      final parsed = find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText().contains('Async body end marker'),
+        skipOffstage: false,
+      );
+      for (
+        var attempt = 0;
+        attempt < 100 && parsed.evaluate().isEmpty;
+        attempt++
+      ) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 10)),
+        );
+        await tester.pump(Duration.zero);
+      }
+      expect(parsed, findsOneWidget);
+      await _frames(tester);
+      expect(tester.getTopLeft(anchor).dy, closeTo(before, 1));
+      expect(
+        tester.widget<CustomScrollView>(scrollView).scrollCacheExtent,
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   for (final (enabled, staff, privateMessage, nestedMode, available) in [
     (true, true, false, true, true),
     (true, true, false, false, true),
