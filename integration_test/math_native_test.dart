@@ -56,18 +56,31 @@ void main() {
       },
     );
   }
-  for (final (name, initial) in [
-    ('dark inline', r'$2x + 3 = 12$'),
-    ('prose', r'Before $\frac{a}{b}$ after'),
-    ('display', 'Before\n\n\$\$\n\\frac{a}{b}\n\$\$\n\nAfter'),
-    ('list', r'- $\frac{a}{b}$'),
-    ('details', '[details="Math"]\n\$\\frac{a}{b}\$\n[/details]'),
+  for (final (name, initial, source, card, dark) in [
+    ('standalone inline', r'$2x + 3 = 12$', '2x + 3 = 12', false, true),
+    ('reported inline sentence', r'with. $x$', 'x', false, false),
+    ('prose', r'Before $\frac{a}{b}$ after', r'\frac{a}{b}', false, false),
+    ('dark display', r'$$2x + 3 = 12$$', '2x + 3 = 12', true, true),
+    (
+      'display',
+      'Before\n\n\$\$\n\\frac{a}{b}\n\$\$\n\nAfter',
+      r'\frac{a}{b}',
+      true,
+      false,
+    ),
+    ('list inline', r'- $\frac{a}{b}$', r'\frac{a}{b}', false, false),
+    (
+      'details inline',
+      '[details="Math"]\n\$\\frac{a}{b}\$\n[/details]',
+      r'\frac{a}{b}',
+      false,
+      false,
+    ),
+    ('list display', r'- $$\frac{a}{b}$$', r'\frac{a}{b}', true, false),
   ]) {
     testWidgets(
       'production $name pencil applies source with a real native math view',
       (tester) async {
-        final dark = name == 'dark inline';
-        final source = dark ? '2x + 3 = 12' : r'\frac{a}{b}';
         final state = ComposerPluginState(
           siteSettings: PluginData.none.withValue(
             mathSettingsKey,
@@ -127,23 +140,25 @@ void main() {
         await rendered(tester, source);
         expect(
           find.byType(MathComposerCard),
-          name == 'prose' ? findsNothing : findsOneWidget,
+          card ? findsOneWidget : findsNothing,
         );
-        if (name != 'prose') {
+        if (card) {
           expect(find.text('Math expression'), findsNothing);
           expect(find.byTooltip('Copy source'), findsOneWidget);
           expect(find.byTooltip('More options'), findsNothing);
         }
         if (dark) {
-          final surface = tester
-              .widgetList<Material>(
-                find.descendant(
-                  of: find.byType(MathComposerCard),
-                  matching: find.byType(Material),
-                ),
-              )
-              .last
-              .color!;
+          final surface = card
+              ? tester
+                    .widgetList<Material>(
+                      find.descendant(
+                        of: find.byType(MathComposerCard),
+                        matching: find.byType(Material),
+                      ),
+                    )
+                    .last
+                    .color!
+              : const Color(0xff20242a);
           final canvasColor =
               'rgb(${(surface.r * 255).round()}, ${(surface.g * 255).round()}, ${(surface.b * 255).round()})';
           final view = tester.widget<WebViewWidget>(find.byType(WebViewWidget));
@@ -155,8 +170,8 @@ void main() {
                 foreground:getComputedStyle(document.getElementById('math')).color
               })''');
           final canvas = jsonDecode(result as String) as Map<String, dynamic>;
-          expect(canvas['width'], greaterThan(100));
-          expect(canvas['height'], lessThan(40));
+          expect(canvas['width'], greaterThan(card ? 100 : 60));
+          expect(canvas['height'], lessThan(card ? 40 : 30));
           expect(canvas['background'], canvasColor);
           expect(canvas['foreground'], isNot(canvas['background']));
         }

@@ -125,7 +125,7 @@ void main() {
     final block = policy.parse('\$\$\nx\n\$\$').single;
     expect(block, isA<ComposerBlockSyntaxProjection>());
   });
-  test('standalone math is a block without changing display semantics', () {
+  test('inline delimiters stay inline even on their own line', () {
     final policy = MathComposerPolicy(
       ComposerSyntaxPolicyContext(
         siteUrl: 'https://example.test',
@@ -146,7 +146,7 @@ void main() {
       final projection = policy.parse(source).single;
       expect(
         projection,
-        isA<ComposerAtomicSelectionProjection>(),
+        isNot(isA<ComposerBlockSyntaxProjection>()),
         reason: source,
       );
       expect(projection.source, contains('x'));
@@ -171,6 +171,27 @@ void main() {
       }
     }
   });
+  for (final source in [
+    r'$x$',
+    r'with. $x$',
+    r'Before $x$ after',
+    r'\(x\)',
+    r'%x%',
+    r'- $x$',
+    '[details="Math"]\n\$x\$\n[/details]',
+  ]) {
+    testWidgets('inline notation never becomes a card: $source', (
+      tester,
+    ) async {
+      await pump(tester, source);
+      expect(find.byType(MathComposerCard), findsNothing);
+      final math = tester.widget<DMath>(find.byType(DMath));
+      expect(math.expression.display, isFalse);
+      expect(find.byTooltip('Edit math'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
+  }
   test(
     'card trailing gap preserves line endings and existing following text',
     () {
@@ -185,7 +206,7 @@ void main() {
         ),
       );
       for (final newline in ['\n', '\r\n']) {
-        final source = 'Before$newline$newline\$x\$';
+        final source = 'Before$newline$newline\$\$x\$\$';
         final projection = policy.parse(source).single;
         final moved = projection.moveCaretAfter(TextEditingValue(text: source));
         expect(moved.text, '$source$newline');
@@ -252,12 +273,12 @@ void main() {
   testWidgets(
     'standalone card has its own source actions while prose stays inline',
     (tester) async {
-      final composer = await pump(tester, r'$x$');
+      final composer = await pump(tester, r'$$x$$');
       expect(find.byType(MathComposerCard), findsOneWidget);
       expect(find.text('Math expression'), findsNothing);
       expect(
         tester.widget<DMath>(find.byType(DMath)).expression.display,
-        isFalse,
+        isTrue,
       );
       expect(tester.widget<DMath>(find.byType(DMath)).onEdit, isNull);
       expect(find.byTooltip('Edit math'), findsOneWidget);
@@ -277,6 +298,33 @@ void main() {
       await finish(tester);
     },
   );
+  testWidgets('display math uses one flat native code surface', (tester) async {
+    await pump(tester, r'$$x$$');
+    final cards = find.descendant(
+      of: find.byType(MathComposerCard),
+      matching: find.byType(DCard),
+    );
+    expect(cards, findsOneWidget);
+    final card = tester.widget<DCard>(cards);
+    expect(card.border, isFalse);
+    expect(card.backgroundColor, AppTheme.light.code.blockBackground);
+    await finish(tester);
+  });
+  testWidgets('card actions share ghost style and visible spacing', (
+    tester,
+  ) async {
+    await pump(tester, r'$$x$$');
+    final edit = find.byWidgetPredicate(
+      (w) => w is DButton && w.tooltip == 'Edit math',
+    );
+    final copy = find.byWidgetPredicate(
+      (w) => w is DButton && w.tooltip == 'Copy source',
+    );
+    expect(tester.widget<DButton>(edit).variant, DButtonVariant.ghost);
+    expect(tester.widget<DButton>(copy).variant, DButtonVariant.ghost);
+    expect(tester.getRect(copy).left - tester.getRect(edit).right, DSpacing.sm);
+    await finish(tester);
+  });
   testWidgets('card Copy source copies the equation without its delimiters', (
     tester,
   ) async {
@@ -296,14 +344,17 @@ void main() {
         null,
       ),
     );
-    final composer = await pump(tester, r'$\frac{a}{b}$');
+    final composer = await pump(tester, r'$$\frac{a}{b}$$');
     await tester.tap(find.byTooltip('Copy source'));
     await tester.pumpAndSettle();
     expect(copied, r'\frac{a}{b}');
-    expect(composer.text.text, r'$\frac{a}{b}$');
+    expect(composer.text.text, r'$$\frac{a}{b}$$');
     await finish(tester);
   });
-  for (final source in [r'- $x$', '[details="Math"]\n\$x\$\n[/details]']) {
+  for (final source in [
+    r'- $$x$$',
+    '[details="Math"]\n\$\$x\$\$\n[/details]',
+  ]) {
     testWidgets('host removal owns only its local equation: $source', (
       tester,
     ) async {
@@ -311,14 +362,14 @@ void main() {
       expect(find.byType(MathComposerCard), findsOneWidget);
       await removeCard(tester, composer);
       await tester.pumpAndSettle();
-      expect(composer.text.text, source.replaceFirst(r'$x$', ''));
+      expect(composer.text.text, source.replaceFirst(r'$$x$$', ''));
       expect(composer.history.undo(), isTrue);
       await tester.pumpAndSettle();
       expect(composer.text.text, source);
       await finish(tester);
     });
   }
-  for (final source in [r'$x$', '\$\$\nx\n\$\$']) {
+  for (final source in [r'$$x$$', '\$\$\nx\n\$\$']) {
     testWidgets('card is selected and deleted as one component: $source', (
       tester,
     ) async {
@@ -374,13 +425,13 @@ void main() {
     );
   }
   for (final (source, expected) in [
-    ('Before\n\n\$x\$\n\nAfter', 'Before\n\nAfter'),
-    ('Before\r\n\r\n\$x\$\r\n\r\nAfter', 'Before\r\n\r\nAfter'),
-    ('Before\n\$x\$\nAfter', 'Before\nAfter'),
-    ('\$x\$\n\nAfter', 'After'),
-    ('Before\n\n\$x\$', 'Before'),
-    ('Before\n\n\n\$x\$\n\n\nAfter', 'Before\n\n\n\nAfter'),
-    ('Before\n\n \t\$x\$ \t\n\nAfter', 'Before\n\nAfter'),
+    ('Before\n\n\$\$x\$\$\n\nAfter', 'Before\n\nAfter'),
+    ('Before\r\n\r\n\$\$x\$\$\r\n\r\nAfter', 'Before\r\n\r\nAfter'),
+    ('Before\n\$\$x\$\$\nAfter', 'Before\nAfter'),
+    ('\$\$x\$\$\n\nAfter', 'After'),
+    ('Before\n\n\$\$x\$\$', 'Before'),
+    ('Before\n\n\n\$\$x\$\$\n\n\nAfter', 'Before\n\n\n\nAfter'),
+    ('Before\n\n \t\$\$x\$\$ \t\n\nAfter', 'Before\n\nAfter'),
   ]) {
     testWidgets(
       'host removal removes only the card and its duplicated separator: $source',
@@ -399,7 +450,7 @@ void main() {
   testWidgets('native replacement cannot overwrite part of card source', (
     tester,
   ) async {
-    const source = 'Before\n\n\$x+1\$\n\nAfter';
+    const source = 'Before\n\n\$\$x+1\$\$\n\nAfter';
     final composer = await pump(tester, source);
     composer.requestFocus();
     const caret = 13;
@@ -418,11 +469,11 @@ void main() {
   testWidgets('host block moves keep the card source and undo intact', (
     tester,
   ) async {
-    const source = 'Before\n\n\$x\$\n\nAfter';
+    const source = 'Before\n\n\$\$x\$\$\n\nAfter';
     final composer = await pump(tester, source);
     final blocks = composer.blocks;
     final math = blocks.index.blocks.singleWhere(
-      (block) => block.source == r'$x$',
+      (block) => block.source == r'$$x$$',
     );
     expect(math.movable, isTrue);
     expect(
@@ -430,7 +481,7 @@ void main() {
       isTrue,
     );
     await tester.pumpAndSettle();
-    expect(composer.text.text, '\$x\$\n\nBefore\n\nAfter');
+    expect(composer.text.text, '\$\$x\$\$\n\nBefore\n\nAfter');
     expect(find.byType(MathComposerCard), findsOneWidget);
     expect(composer.history.undo(), isTrue);
     await tester.pumpAndSettle();
@@ -440,7 +491,7 @@ void main() {
   testWidgets('adjacent cards retain source and distinct actions', (
     tester,
   ) async {
-    const source = '\$x\$\n\n\$y\$';
+    const source = '\$\$x\$\$\n\n\$\$y\$\$';
     final composer = await pump(tester, source);
     expect(find.byType(MathComposerCard), findsNWidgets(2));
     final cards = tester.getRect(find.byType(MathComposerCard).first);
@@ -457,7 +508,7 @@ void main() {
     );
     await tester.tap(find.widgetWithText(DButton, 'Apply'));
     await tester.pumpAndSettle();
-    expect(composer.text.text, '\$x\$\n\n\$z\$');
+    expect(composer.text.text, '\$\$x\$\$\n\n\$\$z\$\$');
     await finish(tester);
   });
   for (final dark in [false, true]) {
@@ -466,7 +517,7 @@ void main() {
       (tester) async {
         await pump(
           tester,
-          r'$\frac{-b \pm \sqrt{b^2-4ac}}{2a}$',
+          r'$$\frac{-b \pm \sqrt{b^2-4ac}}{2a}$$',
           width: 320,
           dark: dark,
           textScale: 1.7,
