@@ -1,14 +1,57 @@
+import 'dart:convert';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_api.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'gamification_fixture.dart';
 
 void main() {
   late GamificationFixture f;
   setUp(() => f = GamificationFixture());
   tearDown(() => f.dispose());
+  test(
+    'default leaderboard negotiates JSON at the mounted subfolder root',
+    () async {
+      final requests = <http.Request>[];
+      final transport = DiscourseApi(
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path == '/community/leaderboard/') {
+            if (request.url.queryParameters['format'] == 'json') {
+              return http.Response(jsonEncode(gameResponse()), 200);
+            }
+            return http.Response('<html>Leaderboard</html>', 200);
+          }
+          return http.Response('Not Found', 404);
+        }),
+      );
+      addTearDown(transport.close);
+
+      final read =
+          await GamificationApi(transport).readLeaderboard(
+                gameSite,
+                gameAuth,
+                const GamificationQuery(period: GamificationPeriod.weekly),
+                previewUserLimit: 10,
+              )
+              as LeaderboardReady;
+
+      expect(read.board.id, 1);
+      expect(read.users.map((user) => user.position), [1, 1, 3]);
+      expect(requests.single.url.path, '/community/leaderboard/');
+      expect(requests.single.url.queryParameters, {
+        'format': 'json',
+        'page': '0',
+        'period': 'weekly',
+        'user_limit': '10',
+      });
+    },
+  );
   test(
     'default/detail paths, all period wires and authoritative ties',
     () async {
