@@ -1,8 +1,12 @@
 import 'dart:async';
+
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+
 import 'gamification_controller.dart';
+import 'gamification_models.dart';
 
 class GamificationCategories extends StatefulWidget {
   const GamificationCategories({
@@ -84,8 +88,8 @@ class _GamificationCategoriesState extends State<GamificationCategories> {
     ];
     final content = DComboboxContent(
       children: [
-        if (_error != null) Text(_error.toString()),
-        DComboboxEmpty<int>(child: Text(context.l10n.gamificationEmpty)),
+        if (_error != null) Text(gameError(_error!)),
+        DComboboxEmpty<int>(child: Text(context.l10n.noMatchingCategories)),
         const DComboboxList<int>(),
       ],
     );
@@ -135,6 +139,11 @@ class _GamificationCategoriesState extends State<GamificationCategories> {
             onQueryChanged: search,
             onValuesChanged: (values, _) => widget.onChanged(values.toSet()),
           ),
+        if (widget.single && widget.value.isNotEmpty)
+          DButton(
+            label: Text(context.l10n.gamificationClearCategory),
+            onPressed: widget.enabled ? () => widget.onChanged({}) : null,
+          ),
         if (!widget.single) Text(context.l10n.gamificationCategoryHint),
       ],
     );
@@ -143,3 +152,13 @@ class _GamificationCategoriesState extends State<GamificationCategories> {
 
 Widget gameNotice(String message) =>
     DAlert(description: DAlertDescription(child: Text(message)));
+
+String gameError(Object error) => switch (error) {
+  GamificationAmbiguousWrite() => appL10n.gamificationUnknownWrite,
+  GamificationUnsupportedResponse() ||
+  FormatException() ||
+  TypeError() => appL10n.gamificationUnsupported,
+  WriteException(:final message) ||
+  SiteLookupException(:final message) => message,
+  _ => appL10n.gamificationRequestFailed,
+};

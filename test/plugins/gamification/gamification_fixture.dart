@@ -79,6 +79,7 @@ final class GamificationFixture {
     bool installed = true,
     bool connected = true,
     bool admin = true,
+    DateTime Function()? clock,
   }) {
     config = ValueNotifier(
       SiteConfig(
@@ -137,6 +138,7 @@ final class GamificationFixture {
         'POST /admin/plugins/gamification/score_events.json': (request) {
           final event = gameEvent(id: events.length + 1);
           event.addAll(request.body);
+          if (event['category_id'] == '') event['category_id'] = null;
           events.add(event);
           return event;
         },
@@ -188,7 +190,7 @@ final class GamificationFixture {
         siteConfigFor: (_) => config.value,
         siteConfigListenableFor: (_) => config,
       ),
-      now: () => DateTime.utc(2026, 11, 1, 0, 10),
+      now: clock ?? () => DateTime.utc(2026, 11, 1, 0, 10),
     );
   }
   late final ValueNotifier<SiteConfig> config;

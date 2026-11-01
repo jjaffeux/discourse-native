@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'gamification_controller.dart';
 import 'gamification_fields.dart';
+import 'gamification_labels.dart';
 import 'gamification_models.dart';
 
 class GamificationScoreEvents extends StatefulWidget {
@@ -66,7 +67,7 @@ class _GamificationScoreEventsState extends State<GamificationScoreEvents> {
         ),
         DDatePicker.controlled(
           value: _date,
-          label: context.l10n.gamificationFromDate,
+          label: context.l10n.gamificationDate,
           onChanged: (v) => setState(() => _date = v),
         ),
         Wrap(
@@ -85,6 +86,9 @@ class _GamificationScoreEventsState extends State<GamificationScoreEvents> {
           ],
         ),
         Text(context.l10n.gamificationEventLimit),
+        if (widget.handle.eventsLoading) const Center(child: DSpinner()),
+        if (widget.handle.events?.isEmpty == true)
+          gameNotice(context.l10n.gamificationNoEvents),
         if (_error != null) gameNotice(_error!),
         for (final event in widget.handle.events ?? <GamificationScoreEvent>[])
           DCard(
@@ -95,14 +99,14 @@ class _GamificationScoreEventsState extends State<GamificationScoreEvents> {
                   spacing: DSpacing.sm,
                   children: [
                     Text(
-                      '${context.l10n.gamificationEventId} ${event.id} · ${event.date}',
+                      '${context.l10n.gamificationEventId} ${gameNumber(context, event.id)} · ${gameDateLabel(context, event.date)}',
                     ),
                     Text(
-                      '${context.l10n.gamificationUserId} ${event.userId} · ${context.l10n.gamificationPoints} ${event.points}',
+                      '${context.l10n.gamificationUserId} ${gameNumber(context, event.userId)} · ${context.l10n.gamificationPoints} ${gameNumber(context, event.points)}',
                     ),
                     if (event.categoryId != null)
                       Text(
-                        '${context.l10n.gamificationCategory} ${event.categoryId}',
+                        '${context.l10n.gamificationCategory} ${gameNumber(context, event.categoryId!)}',
                       ),
                     if (event.description?.isNotEmpty == true)
                       Text(event.description!),
@@ -157,6 +161,19 @@ class GamificationScoreEventEditor extends StatefulWidget {
 
 class _GamificationScoreEventEditorState
     extends State<GamificationScoreEventEditor> {
+  late final _viewLease = widget.handle.owner.requests.capture(
+    widget.handle.site,
+  );
+  late final _viewRevision = widget.handle.owner.revision(widget.handle.site);
+  bool get _viewCurrent =>
+      widget.handle.canManage &&
+      widget.handle.owner.current(
+        widget.handle.site,
+        _viewLease,
+        _viewRevision,
+        admin: true,
+      );
+
   late final _user = TextEditingController(
         text: widget.event?.userId.toString(),
       ),
@@ -179,6 +196,8 @@ class _GamificationScoreEventEditorState
 
   @override
   Widget build(BuildContext context) {
+    if (!_viewCurrent) return gameNotice(context.l10n.gamificationAdminOnly);
+
     final enabled = widget.handle.mayMutate;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -193,7 +212,7 @@ class _GamificationScoreEventEditorState
         ),
         DDatePicker.controlled(
           value: _date,
-          label: context.l10n.gamificationFromDate,
+          label: context.l10n.gamificationDate,
           enabled: enabled && widget.event == null,
           onChanged: (v) {
             if (v != null) setState(() => _date = v);
@@ -236,6 +255,7 @@ class _GamificationScoreEventEditorState
   }
 
   Future<void> _save() async {
+    if (!_viewCurrent) return;
     final user = int.tryParse(_user.text.trim()),
         points = int.tryParse(_points.text.trim());
     if (user == null || points == null) {

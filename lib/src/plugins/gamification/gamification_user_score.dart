@@ -29,7 +29,8 @@ class GamificationUserScoreMetadata extends StatelessWidget {
             variant: DButtonVariant.inline,
             onPressed: () {
               close?.call();
-              navigation.open(
+              navigation.openForSite(
+                site,
                 const GamificationRoute(period: GamificationPeriod.allTime),
               );
             },

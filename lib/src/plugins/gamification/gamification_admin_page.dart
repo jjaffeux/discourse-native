@@ -8,6 +8,7 @@ import 'gamification_controller.dart';
 import 'gamification_fields.dart';
 import 'gamification_labels.dart';
 import 'gamification_models.dart';
+import 'gamification_navigation.dart';
 import 'gamification_recalculation.dart';
 import 'gamification_score_events.dart';
 import 'gamification_settings_editor.dart';
@@ -21,11 +22,13 @@ class GamificationAdminPage extends StatefulWidget {
     required this.controller,
     this.initialBoardId,
     this.create = false,
+    this.navigation,
   });
   final String site;
   final GamificationController controller;
   final int? initialBoardId;
   final bool create;
+  final GamificationNavigation? navigation;
   @override
   State<GamificationAdminPage> createState() => _GamificationAdminPageState();
 }
@@ -35,7 +38,7 @@ class _GamificationAdminPageState extends State<GamificationAdminPage> {
   _AdminSection _section = _AdminSection.boards;
   GamificationAdminBoard? _board;
   bool _creating = false, _routeApplied = false;
-  int _selectionGeneration = 0;
+  int _selectionGeneration = 0, _reviewGeneration = 0;
   late int _revision;
   void _acquire() {
     handle = widget.controller.acquireAdmin(widget.site);
@@ -148,50 +151,60 @@ class _GamificationAdminPageState extends State<GamificationAdminPage> {
         SliverPadding(
           padding: const EdgeInsets.all(DSpacing.lg),
           sliver: SliverToBoxAdapter(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              spacing: DSpacing.md,
-              children: [
-                if (!handle.canManage)
-                  gameNotice(context.l10n.gamificationAdminOnly)
-                else ...[
-                  if (handle.loading) const Center(child: DSpinner()),
-                  if (handle.error != null) gameNotice(handle.error.toString()),
-                  if (handle.mutation.error != null)
-                    gameNotice(handle.mutation.error.toString()),
-                  if (handle.mutation.status ==
-                      GamificationMutationStatus.unknown) ...[
-                    gameNotice(context.l10n.gamificationUnknownWrite),
-                    DButton(
-                      label: Text(context.l10n.gamificationReadBack),
-                      onPressed: () => unawaited(handle.reviewUncertainWrite()),
-                    ),
+            child: DTouchFields(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.md,
+                children: [
+                  if (!handle.canManage)
+                    gameNotice(context.l10n.gamificationAdminOnly)
+                  else ...[
+                    if (handle.loading) const Center(child: DSpinner()),
+                    if (handle.error != null)
+                      gameNotice(gameError(handle.error!)),
+                    if (handle.mutation.error != null)
+                      gameNotice(gameError(handle.mutation.error!)),
+                    if (handle.mutation.status ==
+                        GamificationMutationStatus.unknown) ...[
+                      gameNotice(context.l10n.gamificationUnknownWrite),
+                      DButton(
+                        label: Text(context.l10n.gamificationReadBack),
+                        onPressed: () async {
+                          await handle.reviewUncertainWrite();
+                          if (mounted) setState(() => _reviewGeneration++);
+                        },
+                      ),
+                    ],
+                    if (handle.settings?.enabled == false &&
+                        _section != _AdminSection.settings)
+                      gameNotice(context.l10n.gamificationDisabledAdmin)
+                    else
+                      KeyedSubtree(
+                        key: ValueKey((
+                          widget.site,
+                          _revision,
+                          _section,
+                          _reviewGeneration,
+                        )),
+                        child: switch (_section) {
+                          _AdminSection.settings =>
+                            handle.settings == null
+                                ? const SizedBox.shrink()
+                                : GamificationSettingsEditor(
+                                    handle: handle,
+                                    settings: handle.settings!,
+                                  ),
+                          _AdminSection.events => GamificationScoreEvents(
+                            handle: handle,
+                          ),
+                          _AdminSection.recalculate =>
+                            GamificationRecalculation(handle: handle),
+                          _AdminSection.boards => _boards(context),
+                        },
+                      ),
                   ],
-                  if (handle.settings?.enabled == false &&
-                      _section != _AdminSection.settings)
-                    gameNotice(context.l10n.gamificationDisabledAdmin)
-                  else
-                    KeyedSubtree(
-                      key: ValueKey((widget.site, _revision, _section)),
-                      child: switch (_section) {
-                        _AdminSection.settings =>
-                          handle.settings == null
-                              ? const SizedBox.shrink()
-                              : GamificationSettingsEditor(
-                                  handle: handle,
-                                  settings: handle.settings!,
-                                ),
-                        _AdminSection.events => GamificationScoreEvents(
-                          handle: handle,
-                        ),
-                        _AdminSection.recalculate => GamificationRecalculation(
-                          handle: handle,
-                        ),
-                        _AdminSection.boards => _boards(context),
-                      },
-                    ),
                 ],
-              ],
+              ),
             ),
           ),
         ),
@@ -240,6 +253,13 @@ class _GamificationAdminPageState extends State<GamificationAdminPage> {
                 child: Wrap(
                   spacing: DSpacing.sm,
                   children: [
+                    if (widget.navigation != null)
+                      DButton(
+                        label: Text(context.l10n.gamificationView),
+                        onPressed: () => widget.navigation!.open(
+                          GamificationRoute(boardId: board.board.id),
+                        ),
+                      ),
                     DButton(
                       label: Text(context.l10n.gamificationEdit),
                       onPressed: handle.mayMutate
@@ -309,6 +329,19 @@ class GamificationBoardEditor extends StatefulWidget {
 }
 
 class _GamificationBoardEditorState extends State<GamificationBoardEditor> {
+  late final _viewLease = widget.handle.owner.requests.capture(
+    widget.handle.site,
+  );
+  late final _viewRevision = widget.handle.owner.revision(widget.handle.site);
+  bool get _viewCurrent =>
+      widget.handle.canManage &&
+      widget.handle.owner.current(
+        widget.handle.site,
+        _viewLease,
+        _viewRevision,
+        admin: true,
+      );
+
   late final _name = TextEditingController(
     text: (widget.board?.draft ?? widget.handle.pendingCreatedDraft)?.name,
   );
@@ -380,6 +413,8 @@ class _GamificationBoardEditorState extends State<GamificationBoardEditor> {
   );
   @override
   Widget build(BuildContext context) {
+    if (!_viewCurrent) return gameNotice(context.l10n.gamificationAdminOnly);
+
     final enabled = widget.handle.mayMutate;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -466,6 +501,7 @@ class _GamificationBoardEditorState extends State<GamificationBoardEditor> {
           DInput(
             controller: _weights[rule],
             labelText: gameRuleLabel(context, rule),
+            helperText: gameRuleHelp(context, rule),
             keyboardType: TextInputType.number,
             enabled: enabled,
           ),
@@ -496,6 +532,7 @@ class _GamificationBoardEditorState extends State<GamificationBoardEditor> {
   }
 
   Future<void> _save() async {
+    if (!_viewCurrent) return;
     final overrides = <GamificationRule, int>{};
     for (final e in _weights.entries) {
       if (e.value.text.trim().isEmpty) continue;

@@ -23973,10 +23973,10 @@ abstract class AppLocalizations {
   /// **'A recalculation completion was observed for your account. Results are refreshing.'**
   String get gamificationObserved;
 
-  /// Gamification: Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance.
+  /// Gamification: Completion could not be confirmed. Refresh to inspect results and remaining allowance.
   ///
   /// In en, this message translates to:
-  /// **'Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance.'**
+  /// **'Completion could not be confirmed. Refresh to inspect results and remaining allowance.'**
   String get gamificationCompletionUnknown;
 
   /// Gamification: Choose a date on or before today (UTC).
@@ -24158,6 +24158,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Category-scoped boards exclude visits, reading, invitations, flags and chat activity.'**
   String get gamificationCategoryScopeHelp;
+
+  /// Gamification: Creator
+  ///
+  /// In en, this message translates to:
+  /// **'Creator'**
+  String get gamificationCreator;
+
+  /// Gamification: View leaderboard
+  ///
+  /// In en, this message translates to:
+  /// **'View leaderboard'**
+  String get gamificationView;
+
+  /// Gamification: No matching score events.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching score events.'**
+  String get gamificationNoEvents;
+
+  /// Clear the optional score event category
+  ///
+  /// In en, this message translates to:
+  /// **'Clear category'**
+  String get gamificationClearCategory;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per complete hour of reading.'**
+  String get gamificationReadHourHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per complete group of 100 posts read.'**
+  String get gamificationReadPostsHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per accepted flag.'**
+  String get gamificationAcceptedFlagsHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'The global category filter applies to activity that has a category. Other sources keep their normal scoring.'**
+  String get gamificationGlobalCategoryHelp;
+
+  /// Exact score event date
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get gamificationDate;
+
+  /// Generic plugin request failure without developer diagnostics
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the request. Refresh to try again.'**
+  String get gamificationRequestFailed;
 }
 
 class _AppLocalizationsDelegate

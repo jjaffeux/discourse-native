@@ -29,7 +29,14 @@ void main() {
         f.publicResponse = gameResponse(
           users: [gameUser(score: 1234), gameUser(id: 2, rank: 1, score: 1234)],
         );
-        await tester.pumpWidget(gameApp(page(f)));
+        await tester.pumpWidget(
+          gameApp(
+            page(f),
+            platform: size.width < 600
+                ? TargetPlatform.iOS
+                : TargetPlatform.macOS,
+          ),
+        );
         await tester.pumpAndSettle();
         expect(find.text('Your position'), findsOneWidget);
         expect(find.text('Rank 12 · -2 Cheers'), findsOneWidget);
@@ -110,7 +117,9 @@ void main() {
         board: gameBoard(disabled: true),
         users: [gameUser(id: 88, score: -2, rank: 12)],
       );
-      await tester.pumpWidget(gameApp(page(f), scale: 2, rtl: true));
+      await tester.pumpWidget(
+        gameApp(page(f), scale: 2, rtl: true, platform: TargetPlatform.iOS),
+      );
       await tester.pumpAndSettle();
       expect(
         tester
@@ -153,13 +162,37 @@ void main() {
       await gameTap(tester, find.text('-1,234 Cheers'));
       expect(closed, isTrue);
       expect(host.currentContent!.id, 'gamification?period=all_time');
-      // Observe settings through a normal active read, as host lifecycle does.
-      final h = f.controller.acquire(gameSite, const GamificationQuery());
-      await tester.pumpAndSettle();
       f.disable();
       await tester.pumpAndSettle();
       expect(find.text('-1,234 Cheers'), findsNothing);
-      h.release();
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets(
+    'score metadata for another registered forum navigates to its own site',
+    (tester) async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final host = GamificationTestNavigationHost();
+      await tester.pumpWidget(
+        gameApp(
+          Center(
+            child: GamificationUserScoreMetadata(
+              controller: f.controller,
+              site: 'https://second.example/forum',
+              score: const GamificationUserScore(50),
+              navigation: GamificationNavigation(
+                host: host,
+                controller: f.controller,
+              ),
+            ),
+          ),
+        ),
+      );
+      await gameTap(tester, find.text('50 Cheers'));
+      expect(host.selected, 1);
+      expect(host.currentSite.url, 'https://second.example/forum');
+      expect(host.currentContent!.id, 'gamification?period=all_time');
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );

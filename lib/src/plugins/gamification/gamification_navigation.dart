@@ -103,16 +103,41 @@ final class GamificationNavigation implements PluginLinkHandler {
   final GamificationController controller;
   void open([GamificationRoute route = const GamificationRoute()]) {
     final site = host.currentSite;
-    if (site == null ||
+    if (site != null) openForSite(site.url, route);
+  }
+
+  void openForSite(String site, GamificationRoute route) {
+    final index = host.sites.indexWhere((entry) => entry.url == site);
+    if (index < 0 ||
         !(route.admin
-            ? controller.canManage(site.url)
-            : controller.enabled(site.url))) {
+            ? controller.canManage(site)
+            : controller.enabled(site))) {
       return;
     }
+    if (host.currentSite?.url != site) host.selectInstance(index);
     host.pushContent(
       ContentRoute(
         destination: ExtensionDestination(route.id),
         title: appL10n.gamificationTitle,
+        icon: gamificationIcon,
+      ),
+    );
+  }
+
+  void updatePeriod(String site, GamificationQuery query) {
+    final route = GamificationRoute.parse(host.currentContent?.id ?? '');
+    if (host.currentSite?.url != site ||
+        route == null ||
+        route.admin ||
+        route.boardId != query.target.id) {
+      return;
+    }
+    host.replaceCurrentContent(
+      ContentRoute(
+        destination: ExtensionDestination(
+          GamificationRoute(boardId: query.target.id, period: query.period).id,
+        ),
+        title: host.currentContent!.title,
         icon: gamificationIcon,
       ),
     );

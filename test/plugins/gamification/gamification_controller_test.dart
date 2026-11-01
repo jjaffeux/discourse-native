@@ -156,7 +156,10 @@ void main() {
       expect(f.transport.reads.length, reads);
       f.controller.forget(gameSite);
       expect(b.state, isA<GamificationUnavailable>());
-      expect(f.controller.installed(gameSite), isFalse);
+      final c = f.controller.acquire(gameSite, const GamificationQuery());
+      addTearDown(c.release);
+      await c.refresh();
+      expect(c.state, isA<GamificationReady>());
     },
   );
   test(

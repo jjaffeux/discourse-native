@@ -41,3 +41,12 @@ String gameNumber(BuildContext context, int value) =>
     NumberFormat.decimalPattern(context.l10n.localeName).format(value);
 String gameDateLabel(BuildContext context, DCalendarDate date) =>
     DateFormat.yMMMd(context.l10n.localeName).format(date.dateTimeUtc);
+
+String? gameRuleHelp(BuildContext context, GamificationRule rule) =>
+    switch (rule) {
+      GamificationRule.timeRead => context.l10n.gamificationReadHourHelp,
+      GamificationRule.postRead => context.l10n.gamificationReadPostsHelp,
+      GamificationRule.flagCreated =>
+        context.l10n.gamificationAcceptedFlagsHelp,
+      _ => null,
+    };

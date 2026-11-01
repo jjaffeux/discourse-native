@@ -47,7 +47,7 @@ class _GamificationPageState extends State<GamificationPage> {
   void didUpdateWidget(GamificationPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.site != widget.site ||
-        oldWidget.query != widget.query ||
+        (oldWidget.query != widget.query && handle.query != widget.query) ||
         oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_changed);
       handle.removeListener(_changed);
@@ -90,7 +90,10 @@ class _GamificationPageState extends State<GamificationPage> {
                   ),
               ],
               onChanged: (period) {
-                if (period != null) unawaited(handle.selectPeriod(period));
+                if (period != null) {
+                  unawaited(handle.selectPeriod(period));
+                  widget.navigation.updatePeriod(widget.site, handle.query);
+                }
               },
             ),
           DButton(
@@ -120,6 +123,11 @@ class _GamificationPageState extends State<GamificationPage> {
         ],
       ),
       bodyBuilder: (context, header) => CustomScrollView(
+        key: PageStorageKey((
+          widget.site,
+          widget.navigation.host.activeTabId,
+          handle.query.target.id,
+        )),
         slivers: [
           SliverToBoxAdapter(child: header.spacer),
           SliverPadding(
@@ -207,32 +215,45 @@ class GamificationResults extends StatelessWidget {
             ),
           },
           if (snapshot.users.isNotEmpty)
-            Wrap(
-              spacing: DSpacing.md,
-              runSpacing: DSpacing.md,
-              children: [
-                for (final user in snapshot.users.take(3))
-                  DCard(
-                    size: DCardSize.small,
-                    children: [
-                      DCardContent(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: DSpacing.sm,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final wide =
+                    constraints.maxWidth >= 720 &&
+                    MediaQuery.textScalerOf(context).scale(14) < 24;
+                final width = wide
+                    ? (constraints.maxWidth - 2 * DSpacing.md) / 3
+                    : constraints.maxWidth;
+                return Wrap(
+                  spacing: DSpacing.md,
+                  runSpacing: DSpacing.md,
+                  children: [
+                    for (final user in snapshot.users.take(3))
+                      SizedBox(
+                        width: width,
+                        child: DCard(
+                          size: DCardSize.small,
                           children: [
-                            Text(
-                              '${context.l10n.gamificationRank} ${gameNumber(context, user.position)}',
-                            ),
-                            _identity(context, user),
-                            Text(
-                              '${gameNumber(context, user.totalScore)} ${context.l10n.gamificationCheers}',
+                            DCardContent(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                spacing: DSpacing.sm,
+                                children: [
+                                  Text(
+                                    '${context.l10n.gamificationRank} ${gameNumber(context, user.position)}',
+                                  ),
+                                  _identity(context, user),
+                                  Text(
+                                    '${gameNumber(context, user.totalScore)} ${context.l10n.gamificationCheers}',
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-              ],
+                  ],
+                );
+              },
             ),
         ],
         if (snapshot.users.isEmpty)

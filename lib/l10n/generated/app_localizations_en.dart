@@ -15154,7 +15154,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get gamificationCompletionUnknown =>
-      'Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance.';
+      'Completion could not be confirmed. Refresh to inspect results and remaining allowance.';
 
   @override
   String get gamificationInvalidDate =>
@@ -15266,4 +15266,37 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get gamificationCategoryScopeHelp =>
       'Category-scoped boards exclude visits, reading, invitations, flags and chat activity.';
+
+  @override
+  String get gamificationCreator => 'Creator';
+
+  @override
+  String get gamificationView => 'View leaderboard';
+
+  @override
+  String get gamificationNoEvents => 'No matching score events.';
+
+  @override
+  String get gamificationClearCategory => 'Clear category';
+
+  @override
+  String get gamificationReadHourHelp => 'Points per complete hour of reading.';
+
+  @override
+  String get gamificationReadPostsHelp =>
+      'Points per complete group of 100 posts read.';
+
+  @override
+  String get gamificationAcceptedFlagsHelp => 'Points per accepted flag.';
+
+  @override
+  String get gamificationGlobalCategoryHelp =>
+      'The global category filter applies to activity that has a category. Other sources keep their normal scoring.';
+
+  @override
+  String get gamificationDate => 'Date';
+
+  @override
+  String get gamificationRequestFailed =>
+      'Could not complete the request. Refresh to try again.';
 }

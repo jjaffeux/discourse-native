@@ -21,6 +21,19 @@ class GamificationSettingsEditor extends StatefulWidget {
 
 class _GamificationSettingsEditorState
     extends State<GamificationSettingsEditor> {
+  late final _viewLease = widget.handle.owner.requests.capture(
+    widget.handle.site,
+  );
+  late final _viewRevision = widget.handle.owner.revision(widget.handle.site);
+  bool get _viewCurrent =>
+      widget.handle.canManage &&
+      widget.handle.owner.current(
+        widget.handle.site,
+        _viewLease,
+        _viewRevision,
+        admin: true,
+      );
+
   late bool _enabled = widget.settings.enabled;
   late Set<int> _categories = widget.settings.categoryIds;
   late GamificationRankingStrategy _ranking = widget.settings.ranking;
@@ -39,6 +52,8 @@ class _GamificationSettingsEditorState
 
   @override
   Widget build(BuildContext context) {
+    if (!_viewCurrent) return gameNotice(context.l10n.gamificationAdminOnly);
+
     final enabled = widget.handle.mayMutate;
     String ranking(GamificationRankingStrategy r) => switch (r) {
       GamificationRankingStrategy.denseRank =>
@@ -52,6 +67,7 @@ class _GamificationSettingsEditorState
       spacing: DSpacing.md,
       children: [
         Text(context.l10n.gamificationSettingsHelp),
+        Text(context.l10n.gamificationGlobalCategoryHelp),
         DToggle(
           pressed: _enabled,
           enabled: enabled,
@@ -84,8 +100,9 @@ class _GamificationSettingsEditorState
           DInput(
             controller: _weights[rule],
             labelText: gameRuleLabel(context, rule),
+            helperText: gameRuleHelp(context, rule),
             enabled: enabled,
-            keyboardType: TextInputType.number,
+            keyboardType: const TextInputType.numberWithOptions(signed: true),
           ),
         if (_notice != null) gameNotice(_notice!),
         DButton(
@@ -97,6 +114,7 @@ class _GamificationSettingsEditorState
   }
 
   Future<void> _save() async {
+    if (!_viewCurrent) return;
     final values = <GamificationRule, int>{};
     for (final entry in _weights.entries) {
       final parsed = int.tryParse(entry.value.text.trim());

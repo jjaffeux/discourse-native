@@ -103,6 +103,7 @@ final class GamificationPlugin
             site: site,
             controller: controller,
             initialBoardId: parsed.boardId,
+            navigation: navigation,
             create: parsed.create,
           )
         : GamificationPage(

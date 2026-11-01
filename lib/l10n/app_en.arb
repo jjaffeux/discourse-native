@@ -19794,9 +19794,9 @@
   "@gamificationObserved": {
     "description": "Gamification: A recalculation completion was observed for your account. Results are refreshing."
   },
-  "gamificationCompletionUnknown": "Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance.",
+  "gamificationCompletionUnknown": "Completion could not be confirmed. Refresh to inspect results and remaining allowance.",
   "@gamificationCompletionUnknown": {
-    "description": "Gamification: Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance."
+    "description": "Gamification: Completion could not be confirmed. Refresh to inspect results and remaining allowance."
   },
   "gamificationInvalidDate": "Choose a date on or before today (UTC).",
   "@gamificationInvalidDate": {
@@ -19933,5 +19933,45 @@
   "gamificationCategoryScopeHelp": "Category-scoped boards exclude visits, reading, invitations, flags and chat activity.",
   "@gamificationCategoryScopeHelp": {
     "description": "Scoring category scope explanation"
+  },
+  "gamificationCreator": "Creator",
+  "@gamificationCreator": {
+    "description": "Gamification: Creator"
+  },
+  "gamificationView": "View leaderboard",
+  "@gamificationView": {
+    "description": "Gamification: View leaderboard"
+  },
+  "gamificationNoEvents": "No matching score events.",
+  "@gamificationNoEvents": {
+    "description": "Gamification: No matching score events."
+  },
+  "gamificationClearCategory": "Clear category",
+  "@gamificationClearCategory": {
+    "description": "Clear the optional score event category"
+  },
+  "gamificationReadHourHelp": "Points per complete hour of reading.",
+  "@gamificationReadHourHelp": {
+    "description": "Gamification scoring rule explanation"
+  },
+  "gamificationReadPostsHelp": "Points per complete group of 100 posts read.",
+  "@gamificationReadPostsHelp": {
+    "description": "Gamification scoring rule explanation"
+  },
+  "gamificationAcceptedFlagsHelp": "Points per accepted flag.",
+  "@gamificationAcceptedFlagsHelp": {
+    "description": "Gamification scoring rule explanation"
+  },
+  "gamificationGlobalCategoryHelp": "The global category filter applies to activity that has a category. Other sources keep their normal scoring.",
+  "@gamificationGlobalCategoryHelp": {
+    "description": "Gamification scoring rule explanation"
+  },
+  "gamificationDate": "Date",
+  "@gamificationDate": {
+    "description": "Exact score event date"
+  },
+  "gamificationRequestFailed": "Could not complete the request. Refresh to try again.",
+  "@gamificationRequestFailed": {
+    "description": "Generic plugin request failure without developer diagnostics"
   }
 }

@@ -14,6 +14,19 @@ class GamificationRecalculation extends StatefulWidget {
 }
 
 class _GamificationRecalculationState extends State<GamificationRecalculation> {
+  late final _viewLease = widget.handle.owner.requests.capture(
+    widget.handle.site,
+  );
+  late final _viewRevision = widget.handle.owner.revision(widget.handle.site);
+  bool get _viewCurrent =>
+      widget.handle.canManage &&
+      widget.handle.owner.current(
+        widget.handle.site,
+        _viewLease,
+        _viewRevision,
+        admin: true,
+      );
+
   RecalculationPreset _preset = RecalculationPreset.tenDays;
   DCalendarDate? _custom;
   String? _error;
@@ -27,6 +40,8 @@ class _GamificationRecalculationState extends State<GamificationRecalculation> {
   };
   @override
   Widget build(BuildContext context) {
+    if (!_viewCurrent) return gameNotice(context.l10n.gamificationAdminOnly);
+
     final h = widget.handle;
     final today = DCalendarDate.fromDateTime(h.owner.now().toUtc());
     final from = recalculationDate(_preset, h.owner.now(), custom: _custom);
@@ -86,6 +101,7 @@ class _GamificationRecalculationState extends State<GamificationRecalculation> {
   }
 
   Future<void> _submit(DCalendarDate from, DCalendarDate today) async {
+    if (!_viewCurrent) return;
     if ((_preset == RecalculationPreset.custom && _custom == null) ||
         from.isAfter(today)) {
       setState(() => _error = context.l10n.gamificationInvalidDate);

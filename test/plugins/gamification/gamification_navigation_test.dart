@@ -1,6 +1,7 @@
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_navigation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'gamification_fixture.dart';
 
 void main() {
   test(
@@ -37,4 +38,42 @@ void main() {
     expect(GamificationRoute.web('/leaderboard/0', {}), isNull);
     expect(GamificationRoute.web('/leaderboard/42/other', {}), isNull);
   });
+  test(
+    'subfolder links select the serving forum and admin links retain new/edit identity',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final host = GamificationTestNavigationHost();
+      final navigation = GamificationNavigation(
+        host: host,
+        controller: f.controller,
+      );
+      expect(
+        await navigation.openPluginUrl('https://forum.example/leaderboard/7'),
+        isFalse,
+      );
+      expect(
+        await navigation.openPluginUrl(
+          'https://forum.example/community/leaderboard/7?period=weekly',
+        ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'gamification/7?period=weekly');
+      expect(
+        await navigation.openPluginUrl(
+          'https://second.example/forum/admin/plugins/discourse-gamification/leaderboards/new',
+        ),
+        isTrue,
+      );
+      expect(host.selected, 1);
+      expect(host.currentContent!.id, 'gamification/admin/new');
+      expect(
+        await navigation.openPluginUrl(
+          'https://second.example/forum/admin/plugins/discourse-gamification/leaderboards/7/edit',
+        ),
+        isTrue,
+      );
+      expect(host.currentContent!.id, 'gamification/admin/7');
+    },
+  );
 }

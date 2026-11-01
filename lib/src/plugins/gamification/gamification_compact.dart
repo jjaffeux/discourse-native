@@ -1,6 +1,10 @@
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
+
 import 'gamification_controller.dart';
 import 'gamification_models.dart';
+import 'gamification_navigation.dart';
 import 'gamification_page.dart';
 
 class GamificationCompact extends StatefulWidget {
@@ -8,11 +12,13 @@ class GamificationCompact extends StatefulWidget {
     super.key,
     required this.site,
     required this.controller,
+    required this.navigation,
     this.query = const GamificationQuery(),
-    this.limit = 5,
+    this.limit = 10,
   });
   final String site;
   final GamificationController controller;
+  final GamificationNavigation navigation;
   final GamificationQuery query;
   final int limit;
   @override
@@ -61,6 +67,33 @@ class _GamificationCompactState extends State<GamificationCompact> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      GamificationResults(handle: handle, compact: true);
+  Widget build(BuildContext context) {
+    final state = handle.state;
+    final snapshot = state is GamificationReady ? state.snapshot : null;
+    return DCard(
+      children: [
+        DCardHeader(
+          title: DCardTitle(
+            child: DButton(
+              variant: DButtonVariant.inline,
+              label: Text(
+                snapshot?.board.name ?? context.l10n.gamificationTitle,
+              ),
+              onPressed: snapshot == null
+                  ? null
+                  : () => widget.navigation.openForSite(
+                      widget.site,
+                      GamificationRoute(
+                        boardId: snapshot.board.id,
+                        period:
+                            handle.query.period ?? snapshot.board.defaultPeriod,
+                      ),
+                    ),
+            ),
+          ),
+        ),
+        DCardContent(child: GamificationResults(handle: handle, compact: true)),
+      ],
+    );
+  }
 }

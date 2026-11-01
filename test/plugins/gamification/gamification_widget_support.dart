@@ -9,17 +9,23 @@ Widget gameApp(
   bool scroll = false,
   double scale = 1,
   bool rtl = false,
+  TargetPlatform platform = TargetPlatform.macOS,
 }) => MaterialApp(
-  theme: AppTheme.light,
-  builder: (context, child) => nativeUiEvidenceBuilder(
-    context,
-    MediaQuery(
-      data: MediaQuery.of(
+  theme: AppTheme.light.copyWith(platform: platform),
+  builder: (context, child) => DTouchTargets(
+    child: DToaster(
+      child: nativeUiEvidenceBuilder(
         context,
-      ).copyWith(textScaler: TextScaler.linear(scale), disableAnimations: true),
-      child: Directionality(
-        textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-        child: child!,
+        MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: TextScaler.linear(scale),
+            disableAnimations: true,
+          ),
+          child: Directionality(
+            textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
+        ),
       ),
     ),
   ),
@@ -27,7 +33,7 @@ Widget gameApp(
     body: scroll
         ? SingleChildScrollView(
             padding: const EdgeInsets.all(DSpacing.lg),
-            child: child,
+            child: DTouchFields(child: child),
           )
         : child,
   ),
