@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'math_composer_card.dart';
 import 'math_settings.dart';
 import 'math_source.dart';
 
@@ -189,12 +190,39 @@ final class MathComposerPolicy implements ComposerSyntaxPolicy {
     final occurrences = scanMath(source, settings);
     return [
       for (final occurrence in occurrences)
-        if (occurrence.expression.display)
+        if (occurrence.expression.display || _standsAlone(source, occurrence))
           _MathBlockProjection(occurrence, reader, config, occurrences)
         else
           _MathProjection(occurrence, reader, config, occurrences),
     ];
   }
+}
+
+bool _standsAlone(String source, MathOccurrence occurrence) {
+  final lineStart = occurrence.start == 0
+      ? 0
+      : source.lastIndexOf('\n', occurrence.start - 1) + 1;
+  final nextLine = source.indexOf('\n', occurrence.end);
+  final lineEnd = nextLine < 0 ? source.length : nextLine;
+  return source.substring(lineStart, occurrence.start).trim().isEmpty &&
+      source.substring(occurrence.end, lineEnd).trim().isEmpty;
+}
+
+TextRange _cardRemovalRange(String text, int start, int end) {
+  var from = RegExp(r'[ \t]*$').firstMatch(text.substring(0, start))!.start;
+  var to = end + RegExp(r'^[ \t]*').firstMatch(text.substring(end))!.end;
+  final before = RegExp(r'(?:\r?\n){1,2}$').firstMatch(text.substring(0, from));
+  final after = RegExp(r'^(?:\r?\n){1,2}').firstMatch(text.substring(to));
+  if (before != null && after != null) {
+    final leading = RegExp(r'\r?\n').allMatches(before.group(0)!).length;
+    final trailing = RegExp(r'\r?\n').allMatches(after.group(0)!).toList();
+    to += trailing.take(leading).last.end;
+  } else if (from == 0 && after != null) {
+    to += after.end;
+  } else if (to == text.length && before != null) {
+    from -= before.group(0)!.length;
+  }
+  return TextRange(start: from, end: to);
 }
 
 class _MathProjection implements ComposerInteractiveSyntaxProjection {
@@ -214,6 +242,7 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
   int get end => occurrence.end;
   @override
   String get source => occurrence.original;
+  bool get blockPresentation => false;
   @override
   bool get supportsHover => false;
   @override
@@ -237,39 +266,54 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
       );
   @override
   List<InlineSpan> buildCollapsedSpans(ComposerSyntaxRenderContext context) {
-    Widget child = DMath(
-      key: context.pillKey,
-      expression: occurrence.expression,
-      configuration: config,
-      context: [for (final item in occurrences) item.expression],
-      contextIndex: occurrences.indexOf(occurrence),
-      onEdit: () =>
-          edit(context.pillKey.currentContext!, context.editor ?? readEditor()),
-    );
-    if (occurrence.expression.display) {
-      final blockChild = child;
+    final editor = context.editor ?? readEditor();
+    final expressions = [for (final item in occurrences) item.expression];
+    final index = occurrences.indexOf(occurrence);
+    void openEditor() => edit(context.pillKey.currentContext!, editor);
+    Widget child;
+    if (blockPresentation) {
       child = LayoutBuilder(
         builder: (_, constraints) => SizedBox(
           width: (constraints.maxWidth - 3).clamp(0, double.infinity),
           child: ComposerBlockSelection(
             selected: context.highlighted,
-            child: blockChild,
+            child: MathComposerCard(
+              key: context.pillKey,
+              expression: occurrence.expression,
+              configuration: config,
+              expressions: expressions,
+              expressionIndex: index,
+              onEdit: _editable(editor) ? openEditor : null,
+              onRemove: _editable(editor)
+                  ? () => remove(context.pillKey.currentContext!, editor)
+                  : null,
+            ),
           ),
         ),
       );
     } else {
       child = ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 240),
-        child: child,
+        child: DMath(
+          key: context.pillKey,
+          expression: occurrence.expression,
+          configuration: config,
+          context: expressions,
+          contextIndex: index,
+          onEdit: _editable(editor) ? openEditor : null,
+        ),
       );
     }
     final hiddenEnd =
         source.length -
-        (occurrence.expression.display && !context.followedByLineBreak ? 1 : 0);
+        (blockPresentation && !context.followedByLineBreak ? 1 : 0);
     return [
       WidgetSpan(
-        alignment: PlaceholderAlignment.baseline,
+        alignment: blockPresentation
+            ? PlaceholderAlignment.top
+            : PlaceholderAlignment.baseline,
         baseline: TextBaseline.alphabetic,
+        style: context.baseStyle,
         child: child,
       ),
       if (hiddenEnd > 1)
@@ -283,7 +327,7 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
             color: Colors.transparent,
           ),
         ),
-      if (occurrence.expression.display && !context.followedByLineBreak)
+      if (blockPresentation && !context.followedByLineBreak)
         TextSpan(
           text: '\n',
           style: context.baseStyle.copyWith(color: Colors.transparent),
@@ -323,22 +367,47 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
         text.substring(start, end) != source) {
       return;
     }
-    editor.commitText(
+    final range = blockPresentation
+        ? _cardRemovalRange(text, start, end)
+        : TextRange(start: start, end: end);
+    if (editor.commitText(
       expectedText: text,
       value: TextEditingValue(
-        text: text.replaceRange(start, end, ''),
-        selection: TextSelection.collapsed(offset: start),
+        text: text.replaceRange(range.start, range.end, ''),
+        selection: TextSelection.collapsed(offset: range.start),
       ),
-    );
+    )) {
+      editor.requestFocus();
+    }
   }
 }
 
 final class _MathBlockProjection extends _MathProjection
-    implements ComposerBlockSyntaxProjection {
+    implements ComposerAtomicSelectionProjection {
   const _MathBlockProjection(
     super.occurrence,
     super.readEditor,
     super.config,
     super.occurrences,
   );
+  @override
+  bool get blockPresentation => true;
+  @override
+  int caretAfter(String document) => document.startsWith('\r\n', end)
+      ? end + 2
+      : document.startsWith('\n', end)
+      ? end + 1
+      : end;
+  @override
+  TextEditingValue moveCaretAfter(TextEditingValue document) {
+    final newline = document.text.contains('\r\n') ? '\r\n' : '\n';
+    final atEnd = end == document.text.length;
+    return document.copyWith(
+      text: atEnd ? '${document.text}$newline' : document.text,
+      selection: TextSelection.collapsed(
+        offset: atEnd ? end + newline.length : caretAfter(document.text),
+      ),
+      composing: TextRange.empty,
+    );
+  }
 }

@@ -12,7 +12,13 @@ restricted Chat profiles. Cooking, including quotes/lists, HTML escaping,
 Unicode punctuation, currency, and incomplete multiline blocks, follows that
 parser. `vendor.mjs` includes Math in future complete snapshot upgrades.
 
-The ordinary composer renders top-level display equations and inline math.
+The ordinary composer presents display equations and equations alone on their
+line as Math cards. Each card has a named header, a framed equation preview,
+a pencil source action, and a menu for copying source or deleting the card.
+Math inside surrounding prose stays compact. Card placement does not change
+inline/display mathematical mode or source delimiters. Card selection and
+keyboard deletion use the host's atomic component behavior; deleting a card
+removes its duplicated paragraph separator while preserving extra author spacing.
 Native pencil actions open a source dialog. Insert defaults to display on an
 otherwise whitespace-only line and supports Shift+M. Apply rechecks the complete
 source and editability, preserves input language and delimiter notation, and

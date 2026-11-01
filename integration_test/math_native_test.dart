@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_composer.dart';
+import 'package:discourse_native/src/plugins/discourse_math/math_composer_card.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_settings.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter/material.dart';
@@ -58,6 +59,7 @@ void main() {
   for (final (name, initial) in [
     ('dark inline', r'$2x + 3 = 12$'),
     ('prose', r'Before $\frac{a}{b}$ after'),
+    ('display', 'Before\n\n\$\$\n\\frac{a}{b}\n\$\$\n\nAfter'),
     ('list', r'- $\frac{a}{b}$'),
     ('details', '[details="Math"]\n\$\\frac{a}{b}\$\n[/details]'),
   ]) {
@@ -123,7 +125,25 @@ void main() {
         );
         await tester.pump();
         await rendered(tester, source);
+        expect(
+          find.byType(MathComposerCard),
+          name == 'prose' ? findsNothing : findsOneWidget,
+        );
+        if (name != 'prose') {
+          expect(find.text('Math expression'), findsOneWidget);
+        }
         if (dark) {
+          final surface = tester
+              .widgetList<Material>(
+                find.descendant(
+                  of: find.byType(MathComposerCard),
+                  matching: find.byType(Material),
+                ),
+              )
+              .last
+              .color!;
+          final canvasColor =
+              'rgb(${(surface.r * 255).round()}, ${(surface.g * 255).round()}, ${(surface.b * 255).round()})';
           final view = tester.widget<WebViewWidget>(find.byType(WebViewWidget));
           final result = await view.platform.params.controller
               .runJavaScriptReturningResult('''JSON.stringify({
@@ -133,9 +153,9 @@ void main() {
                 foreground:getComputedStyle(document.getElementById('math')).color
               })''');
           final canvas = jsonDecode(result as String) as Map<String, dynamic>;
-          expect(canvas['width'], greaterThan(60));
-          expect(canvas['height'], lessThan(30));
-          expect(canvas['background'], 'rgb(32, 36, 42)');
+          expect(canvas['width'], greaterThan(100));
+          expect(canvas['height'], lessThan(40));
+          expect(canvas['background'], canvasColor);
           expect(canvas['foreground'], isNot(canvas['background']));
         }
         await tester.tap(find.byTooltip('Edit math'));
