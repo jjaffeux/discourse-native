@@ -126,6 +126,27 @@ abstract interface class UserCardRecordPlugin<T extends Object>
   T? readUserCard(Map<String, dynamic> json, String siteUrl);
 }
 
+/// Adds widgets immediately after the rendered post-author name, before status
+/// and role markers, in ordinary and plugin-provided topic presentations.
+abstract interface class PostAuthorDecorationPlugin {
+  List<Widget> postAuthorDecorations(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  );
+}
+
+/// Adds widgets immediately after the rendered display name in desktop cards,
+/// mobile cards, and their shared status-editor preview. Actions retain their
+/// own focus and callbacks. Other identity placements are not implied.
+abstract interface class UserCardIdentityDecorationPlugin {
+  List<Widget> userCardIdentityDecorations(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  );
+}
+
 abstract interface class UserCardActionPlugin {
   List<Widget> userCardActions(
     BuildContext context,

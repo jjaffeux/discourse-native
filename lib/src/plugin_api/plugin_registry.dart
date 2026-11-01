@@ -2017,6 +2017,38 @@ final class PluginRegistry
       ...plugin.composerShortcuts(_uiContext(context, plugin), editor),
   };
 
+  List<Widget> postAuthorDecorations(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => [
+    for (final plugin in plugins.whereType<PostAuthorDecorationPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.postAuthorDecorations(
+          _uiContext(context, plugin),
+          siteUrl,
+          post,
+        ),
+      ),
+  ];
+
+  List<Widget> userCardIdentityDecorations(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => [
+    for (final plugin in plugins.whereType<UserCardIdentityDecorationPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.userCardIdentityDecorations(
+          _uiContext(context, plugin),
+          siteUrl,
+          user,
+        ),
+      ),
+  ];
+
   List<Widget> userCardActions(
     BuildContext context,
     String siteUrl,

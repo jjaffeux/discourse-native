@@ -3,6 +3,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../models/user_card.dart';
+import '../plugin_api/plugin_registry.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import 'avatar_image.dart';
 import 'site_image.dart';
@@ -23,6 +25,28 @@ class UserCardHeader extends StatelessWidget {
   final Widget? statusContent;
   final bool mobileSheet;
   static const double avatarSize = 64;
+
+  Widget _decoratedName(BuildContext context, Widget name) {
+    final registry =
+        PluginScope.maybeOf(context)?.registry ??
+        PluginRegistryScope.maybeOf(context) ??
+        PluginRegistry.empty;
+    final decorations = registry.userCardIdentityDecorations(
+      context,
+      siteUrl,
+      card,
+    );
+    if (decorations.isEmpty) return name;
+    return Row(
+      children: [
+        Flexible(child: name),
+        for (final decoration in decorations) ...[
+          const SizedBox(width: 6),
+          decoration,
+        ],
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -83,12 +107,15 @@ class UserCardHeader extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    card.displayName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+                  _decoratedName(
+                    context,
+                    Text(
+                      card.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                   Text(
@@ -219,16 +246,19 @@ class UserCardHeader extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      card.displayName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: DiscourseTypography.xl,
-                        height: 1.25,
-                        color: tokens.foreground,
-                        fontWeight: FontWeight.w700,
-                        shadows: shadows,
+                    _decoratedName(
+                      context,
+                      Text(
+                        card.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: DiscourseTypography.xl,
+                          height: 1.25,
+                          color: tokens.foreground,
+                          fontWeight: FontWeight.w700,
+                          shadows: shadows,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 2),

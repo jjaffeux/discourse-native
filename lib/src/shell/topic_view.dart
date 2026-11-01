@@ -4175,7 +4175,10 @@ class _StoredPostState extends State<_StoredPost> {
                     layout: widget.layout,
                     contentExpanded: widget.contentExpanded,
                     enableDoubleTapReaction: widget.enableDoubleTapReaction,
-                    authorBadges: widget.authorBadges,
+                    authorBadges: [
+                      ...widget.authorBadges,
+                      ...registry.postAuthorDecorations(context, siteUrl, post),
+                    ],
                     leading: widget.leading,
                     bodyLeading: widget.bodyLeading,
                     footerLeading: widget.footerLeading,
