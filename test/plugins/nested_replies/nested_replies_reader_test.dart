@@ -684,6 +684,79 @@ void main() {
   );
 
   testWidgets(
+    'late child insertion preserves wheel motion during anchor materialization',
+    (tester) async {
+      _size(tester, false);
+      final pending = Completer<Object?>();
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(2, count: 21, children: [_treePost(3, parent: 2)]),
+              for (var number = 20; number < 65; number++) _treePost(number),
+            ],
+          },
+        },
+        responders: {
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+              (_) => pending.future,
+        },
+      );
+      await _mount(tester, transport);
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+          .controller!;
+      scroll.jumpTo(1500);
+      await _frames(tester);
+      final candidates =
+          <Finder>[
+                for (var number = 20; number < 45; number++)
+                  find.byKey(ValueKey(100 + number)),
+              ]
+              .where(
+                (finder) =>
+                    finder.evaluate().isNotEmpty &&
+                    tester.getTopLeft(finder).dy >= 0 &&
+                    tester.getTopLeft(finder).dy < 650,
+              )
+              .toList();
+      expect(candidates, isNotEmpty);
+      final anchor = candidates.first;
+      final before = tester.getTopLeft(anchor).dy;
+      pending.complete({
+        'children': [
+          for (var number = 100; number < 120; number++)
+            _treePost(number, parent: 2),
+        ],
+        'page': 0,
+        'has_more': false,
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(anchor, findsNothing);
+      final beforeWheel = scroll.offset;
+      scroll.position.pointerScroll(60);
+      expect(scroll.offset - beforeWheel, closeTo(60, 1));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(anchor, findsOneWidget);
+      expect(tester.getTopLeft(anchor).dy, closeTo(before - 60, 1));
+      final corrected = scroll.offset;
+      scroll.position.pointerScroll(60);
+      expect(scroll.offset - corrected, closeTo(60, 1));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getTopLeft(anchor).dy, closeTo(before - 120, 1));
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
     'late child insertion preserves anchor and continued downward fling',
     (tester) async {
       _size(tester, true);
@@ -786,7 +859,7 @@ void main() {
       expect(transport.requests, hasLength(2));
       await tester.pumpWidget(const SizedBox.shrink());
     },
-    variant: TargetPlatformVariant({
+    variant: const TargetPlatformVariant({
       TargetPlatform.iOS,
       TargetPlatform.android,
       TargetPlatform.macOS,
@@ -873,7 +946,7 @@ void main() {
       expect(transport.requests, hasLength(2));
       await tester.pumpWidget(const SizedBox.shrink());
     },
-    variant: TargetPlatformVariant({
+    variant: const TargetPlatformVariant({
       TargetPlatform.iOS,
       TargetPlatform.android,
       TargetPlatform.macOS,

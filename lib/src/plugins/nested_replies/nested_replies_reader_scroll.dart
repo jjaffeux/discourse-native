@@ -35,7 +35,9 @@ class _NestedRepliesScrollPosition extends ScrollPositionWithSingleContext {
   });
 
   bool get hasUserMotion =>
-      activity is DragScrollActivity || activity is BallisticScrollActivity;
+      activity is DragScrollActivity ||
+      activity is BallisticScrollActivity ||
+      (activity is IdleScrollActivity && isScrollingNotifier.value);
 
   void correctAnchor(double destination) {
     final current = activity;
