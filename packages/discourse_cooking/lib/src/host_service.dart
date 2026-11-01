@@ -179,11 +179,11 @@ final class CookingHostService implements CookingServicePort {
     }
     final pending = _HostPending(request, _epoch, transient: true);
     _transient.add(pending);
+    final abortTarget = WeakReference(pending);
     void abort() {
-      if (!pending.result.isCompleted) {
-        pending.result.complete(
-          _privateFallback(request, CookingFailure.stale),
-        );
+      final current = abortTarget.target;
+      if (current != null && !current.result.isCompleted) {
+        current.result.complete(current.fallback(CookingFailure.stale));
       }
     }
 

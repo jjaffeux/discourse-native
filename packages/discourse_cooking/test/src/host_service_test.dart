@@ -93,6 +93,47 @@ void main() {
   );
 
   test(
+    'completed transient work does not need its abort signal to finish',
+    () async {
+      final runtime = FakeRuntime();
+      final host = CookingHostService(
+        runtimeFactory: () => runtime,
+        maxPending: 1,
+      );
+      addTearDown(host.dispose);
+      final abort = Completer<void>();
+      final results = <CookingResult>[];
+      for (var i = 0; i < 3; i++) {
+        final result = host.cookTransient(
+          request(raw: 'private $i'),
+          abortTrigger: abort.future,
+        );
+        await flush();
+        runtime.finish('private rendered $i');
+        results.add(await result);
+        await flush();
+        expect(abort.isCompleted, isFalse);
+        expect(host.pendingCount, 0);
+        expect(host.cachedResultCount, 0);
+      }
+
+      abort.complete();
+      await flush();
+      expect(results.map((result) => result.html), [
+        'private rendered 0',
+        'private rendered 1',
+        'private rendered 2',
+      ]);
+      final ordinary = host.cook(request(raw: 'private 0'));
+      await flush();
+      expect(runtime.calls, 4);
+      runtime.finish('fresh public render');
+      expect((await ordinary).html, 'fresh public render');
+      expect(host.cachedResultCount, 1);
+    },
+  );
+
+  test(
     'transient abort revokes delivery without releasing occupied runtime capacity',
     () async {
       final runtime = FakeRuntime();
