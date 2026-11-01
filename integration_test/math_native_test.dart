@@ -156,7 +156,7 @@ void main() {
                         matching: find.byType(Material),
                       ),
                     )
-                    .last
+                    .first
                     .color!
               : const Color(0xff20242a);
           final canvasColor =
@@ -171,7 +171,12 @@ void main() {
               })''');
           final canvas = jsonDecode(result as String) as Map<String, dynamic>;
           expect(canvas['width'], greaterThan(card ? 100 : 60));
-          expect(canvas['height'], lessThan(card ? 40 : 30));
+          final math = tester.widget<DMath>(find.byType(DMath));
+          expect(canvas['height'], lessThan(card ? math.fontSize! * 3 : 30));
+          expect(
+            tester.getSize(find.byType(WebViewWidget)).height,
+            greaterThanOrEqualTo(canvas['height'] as num),
+          );
           expect(canvas['background'], canvasColor);
           expect(canvas['foreground'], isNot(canvas['background']));
         }

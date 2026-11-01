@@ -1,8 +1,8 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
 
 class MathComposerCard extends StatelessWidget {
   const MathComposerCard({
@@ -23,47 +23,57 @@ class MathComposerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DCard(
     size: DCardSize.small,
+    spacing: DSpacing.sm,
+    border: false,
+    borderRadius: BorderRadius.circular(DRadius.nested),
+    backgroundColor: Theme.of(context).code.blockBackground,
     children: [
-      DCardHeader(
-        title: const DIcon(DIcons.squareRootVariable),
-        action: DCardAction(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DButton.iconOnly(
-                icon: const DIcon(DIcons.pencil),
-                tooltip: context.l10n.editMath,
-                onPressed: onEdit,
+      DCardContent(
+        child: Row(
+          children: [
+            const Expanded(
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: DIcon(DIcons.squareRootVariable),
               ),
-              DButton.iconOnly(
-                variant: DButtonVariant.ghost,
-                icon: const DIcon(DIcons.copy),
-                tooltip: context.l10n.copySource,
-                onPressed: () =>
-                    Clipboard.setData(ClipboardData(text: expression.source)),
-              ),
-            ],
-          ),
+            ),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              spacing: DSpacing.sm,
+              children: [
+                DButton.iconOnly(
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  icon: const DIcon(DIcons.pencil),
+                  tooltip: context.l10n.editMath,
+                  onPressed: onEdit,
+                ),
+                DButton.iconOnly(
+                  variant: DButtonVariant.ghost,
+                  size: DButtonSize.small,
+                  icon: const DIcon(DIcons.copy),
+                  tooltip: context.l10n.copySource,
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: expression.source)),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
       DCardContent(
-        child: DCard(
-          variant: DCardVariant.well,
-          spacing: 0,
-          border: false,
-          child: Padding(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            child: Align(
-              alignment: Alignment.center,
-              child: DMath(
-                expression: expression,
-                configuration: configuration,
-                context: expressions,
-                contextIndex: expressionIndex,
-                fontSize: MediaQuery.textScalerOf(
-                  context,
-                ).scale(DiscourseTypography.xxl),
-              ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
+          child: Align(
+            alignment: Alignment.center,
+            child: DMath(
+              expression: expression,
+              configuration: configuration,
+              context: expressions,
+              contextIndex: expressionIndex,
+              fontSize: MediaQuery.textScalerOf(
+                context,
+              ).scale(DiscourseTypography.xxl),
             ),
           ),
         ),

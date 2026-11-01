@@ -142,22 +142,12 @@ final class MathComposerPolicy implements ComposerSyntaxPolicy {
     final occurrences = scanMath(source, settings);
     return [
       for (final occurrence in occurrences)
-        if (occurrence.expression.display || _standsAlone(source, occurrence))
+        if (occurrence.expression.display)
           _MathBlockProjection(occurrence, reader, config, occurrences)
         else
           _MathProjection(occurrence, reader, config, occurrences),
     ];
   }
-}
-
-bool _standsAlone(String source, MathOccurrence occurrence) {
-  final lineStart = occurrence.start == 0
-      ? 0
-      : source.lastIndexOf('\n', occurrence.start - 1) + 1;
-  final nextLine = source.indexOf('\n', occurrence.end);
-  final lineEnd = nextLine < 0 ? source.length : nextLine;
-  return source.substring(lineStart, occurrence.start).trim().isEmpty &&
-      source.substring(occurrence.end, lineEnd).trim().isEmpty;
 }
 
 TextRange _cardRemovalRange(String text, int start, int end) {
