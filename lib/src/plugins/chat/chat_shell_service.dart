@@ -924,7 +924,9 @@ final class ChatShellService
     if (_host.currentInstance?.url != siteUrl) return false;
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
-    if (desktopPanelsEnabled) {
+    if (desktopPanelsEnabled ||
+        _presentationHost?.mobileNavigationEnabled == true &&
+            _host.currentContent?.isGlobalSearch == true) {
       _host.pushContent(
         ContentRoute(
           destination: ExtensionDestination(route.routeId),

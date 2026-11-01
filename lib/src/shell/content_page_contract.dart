@@ -144,6 +144,11 @@ final class ContentPageContract {
         ),
         PageDestination(:final page) => switch (page) {
           CorePage.start => const ContentPageContract._(),
+          CorePage.search => const ContentPageContract._(
+            header: _ShellHeader.none,
+            showSearchWords: false,
+            allowsTopicCreation: false,
+          ),
           CorePage.categories => const ContentPageContract._(
             rootLoad: PageLoad.categories,
             urlLoad: PageLoad.categories,

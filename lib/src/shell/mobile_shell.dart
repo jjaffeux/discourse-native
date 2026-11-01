@@ -283,6 +283,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ValueListenable<DPageHeader?> header,
           Widget page,
         ) => _MobileFrame(
+          headerVisible:
+              shell.currentContent?.isGlobalSearch != true || sidebarOpen,
           raised: pageSheetOpen && shell.currentContent?.isTopic == true,
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
@@ -448,6 +450,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   child: content!,
                 ),
                 dockBuilder: (hidden) {
+                  if (shell.currentContent?.isGlobalSearch == true &&
+                      !sidebarOpen) {
+                    return const SizedBox.shrink();
+                  }
                   // A parked draft waits over the bar, which keeps pages
                   // clear of both.
                   final parked = ComposerDock.parkedDraftRoomOf(context);
@@ -516,8 +522,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     child: Padding(
                       padding: EdgeInsets.only(
                         top:
-                            pageSheetOpen &&
-                                shell.currentContent?.isTopic == true
+                            shell.currentContent?.isGlobalSearch == true ||
+                                pageSheetOpen &&
+                                    shell.currentContent?.isTopic == true
                             ? 0
                             : 6,
                       ),
@@ -1030,10 +1037,12 @@ class _MobileFrame extends StatelessWidget {
   const _MobileFrame({
     super.key,
     required this.header,
+    required this.headerVisible,
     required this.page,
     required this.raised,
   });
   final Widget header;
+  final bool headerVisible;
   final Widget page;
   final bool raised;
   @override
@@ -1043,7 +1052,13 @@ class _MobileFrame extends StatelessWidget {
       (extent) => DSheetDragScope.reportTopBar(context, extent),
     ),
     children: [
-      LayoutId(id: _MobileFrameSlot.header, child: header),
+      LayoutId(
+        id: _MobileFrameSlot.header,
+        child: Offstage(
+          offstage: !headerVisible,
+          child: ExcludeFocus(excluding: !headerVisible, child: header),
+        ),
+      ),
       LayoutId(id: _MobileFrameSlot.page, child: page),
     ],
   );

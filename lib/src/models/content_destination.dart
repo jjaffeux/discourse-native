@@ -149,6 +149,7 @@ final class BadgeDestination extends ContentDestination {
 
 enum CorePage {
   start('new-tab'),
+  search('global-search'),
   categories('all-categories'),
   tags('all-tags'),
   users('users'),

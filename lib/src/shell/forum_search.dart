@@ -34,8 +34,16 @@ class ForumSearch extends StatefulWidget {
     this.size = DControlSize.large,
     this.fullScreen = false,
     this.showNavigationControls = true,
-  });
+  }) : _pageContent = false;
 
+  const ForumSearch.page({super.key})
+    : dense = false,
+      size = DControlSize.large,
+      fullScreen = true,
+      showNavigationControls = false,
+      _pageContent = true;
+
+  final bool _pageContent;
   final bool dense;
   final DControlSize size;
   final bool showNavigationControls;
@@ -106,7 +114,13 @@ class _ForumSearchState extends State<ForumSearch> {
   GlobalSearchExpression get _closedExpression =>
       _presentation.closedExpression(_listExpression);
 
-  bool get _surfaceOpen => widget.fullScreen ? _page != null : _popover.isOpen;
+  bool get _shellPage => widget.fullScreen && _shell!.mobileNavigationEnabled;
+
+  bool get _surfaceOpen => widget._pageContent
+      ? _document?.currentContent?.isGlobalSearch == true
+      : widget.fullScreen
+      ? _page != null
+      : _popover.isOpen;
 
   List<GlobalSearchCondition> get _closedConditions => [
     ..._closedExpression.conditions,
@@ -117,6 +131,13 @@ class _ForumSearchState extends State<ForumSearch> {
   String get _query => (_open ? _global.query : _closedExpression.query);
 
   void _closeSearch() {
+    if (widget._pageContent) {
+      if (_document?.currentContent?.isGlobalSearch == true) {
+        _openChanged(false, DPopoverChangeReason.imperative);
+        _shell!.handleBack();
+      }
+      return;
+    }
     if (widget.fullScreen) {
       final page = _page;
       if (page != null) {
@@ -162,6 +183,11 @@ class _ForumSearchState extends State<ForumSearch> {
       if (!mounted || !identical(_shell, shell)) return;
       _syncSite();
       _syncText();
+      if (widget._pageContent) {
+        _search.activateField(_field);
+        _openChanged(true, DPopoverChangeReason.imperative);
+        _requestEditorFocus();
+      }
     });
   }
 
@@ -202,6 +228,24 @@ class _ForumSearchState extends State<ForumSearch> {
   void _siteChanged() {
     if (!mounted) return;
     _syncSite();
+    if (_shellPage &&
+        !widget._pageContent &&
+        _open &&
+        !_shell!.focusedTabContext.contentStack.any(
+          (route) => route.isGlobalSearch,
+        )) {
+      _presentation.surfaceChanged(false, _text.value);
+    }
+    if (widget._pageContent &&
+        _document?.currentContent?.isGlobalSearch == true &&
+        !_search.ownsPanel(_field)) {
+      _search.activateField(_field);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _document?.currentContent?.isGlobalSearch == true) {
+          _requestEditorFocus();
+        }
+      });
+    }
     _retireClosedDraftIfScopeChanged();
     _syncText();
 
@@ -221,10 +265,14 @@ class _ForumSearchState extends State<ForumSearch> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _syncScheduled = false;
       if (!mounted) return;
+      if (_shellPage && !widget._pageContent) {
+        setState(() {});
+        return;
+      }
       final active = _search.panelOpen && _search.ownsPanel(_field);
-      if (active) {
+      if (active && !widget._pageContent) {
         _openSearch();
-      } else if (_surfaceOpen) {
+      } else if (!active && _surfaceOpen) {
         _closeSearch();
       }
       setState(() {});
@@ -267,7 +315,17 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _requestEditorFocus() {
+    if (widget._pageContent && !_focus.canRequestFocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _document?.currentContent?.isGlobalSearch == true) {
+          _focus.requestFocus();
+        }
+      });
+      WidgetsBinding.instance.ensureVisualUpdate();
+      return;
+    }
     if (widget.fullScreen &&
+        !widget._pageContent &&
         (_page == null ||
             !_page!.isCurrent ||
             _page!.offstage ||
@@ -293,6 +351,27 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _openSearch({SearchFocusMode? mode, GlobalSearchContext? context}) {
+    if (_shellPage) {
+      if (_document?.currentContent?.isGlobalSearch == true) {
+        if (widget._pageContent && mode != null) {
+          _presentation.prepareOpening(
+            source: _ForumSearchSource(this),
+            mode: mode,
+            context: context,
+          );
+        }
+        return;
+      }
+      _presentation.prepareOpening(
+        source: _ForumSearchSource(this),
+        mode: mode,
+        context: context,
+      );
+      _presentation.surfaceChanged(true, _text.value);
+      _focus.unfocus();
+      _shell!.pushContent(ContentRoute.search());
+      return;
+    }
     if (_presentation.isLeaving) _pageLeft();
     if (!_search.canSearch) return;
     if (!widget.fullScreen) _measureAnchor();
@@ -474,9 +553,28 @@ class _ForumSearchState extends State<ForumSearch> {
       result: result,
     );
     unawaited(_global.recordSelection(result));
+    final resultRoute = result.destination == null
+        ? null
+        : ContentRoute(
+            destination: result.destination!,
+            title: result.title,
+            icon: DIcons.magnifyingGlass,
+          );
+    final preserveSearch =
+        widget._pageContent &&
+        (result.source is SearchPostHit ||
+            resultRoute != null &&
+                (resultRoute.isTopic ||
+                    shell.plugins.registry.usesMobilePageSheet(
+                      context,
+                      resultRoute,
+                    )));
     final page = _page;
-    _closeSearch();
-    if (page != null) await page.completed;
+    _focus.unfocus();
+    if (!preserveSearch && !widget._pageContent) {
+      _closeSearch();
+      if (page != null) await page.completed;
+    }
     if (!mounted ||
         !activation.canNavigate(
           currentHost: _shell,
@@ -488,8 +586,11 @@ class _ForumSearchState extends State<ForumSearch> {
         )) {
       return;
     }
-    _global.setQuery('');
-    _global.clearAllConditions();
+    if (!preserveSearch) {
+      if (widget._pageContent) _closeSearch();
+      _global.setQuery('');
+      _global.clearAllConditions();
+    }
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: activation.words);
     } else {
@@ -731,6 +832,20 @@ class _ForumSearchState extends State<ForumSearch> {
   @override
   Widget build(BuildContext context) {
     if (!_search.canSearch) return const SizedBox.shrink();
+    if (widget._pageContent) {
+      return DPageSurface(
+        border: false,
+        backgroundColor: DTokens.of(context).background,
+        child: SafeArea(
+          child: Padding(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.viewInsetsOf(context).bottom,
+            ),
+            child: _buildPageContent(),
+          ),
+        ),
+      );
+    }
     if (widget.fullScreen) return _buildPageTrigger();
     final platform = Theme.of(context).platform;
     final mobile =
@@ -947,55 +1062,56 @@ class _ForumSearchState extends State<ForumSearch> {
     onPressed: _requestFocus,
   );
 
+  Widget _buildPageContent() => ListenableBuilder(
+    listenable: Listenable.merge([_global, _pageRevision]),
+    builder: (context, _) => Column(
+      key: ForumSearch.panelKey,
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(DSpacing.sm),
+          child: Row(
+            children: [
+              Expanded(
+                child: LayoutBuilder(
+                  builder: (context, constraints) =>
+                      _editor(constraints.maxWidth, expanded: true),
+                ),
+              ),
+              DButton(
+                key: const ValueKey('mobile-search-back'),
+                label: Text(appL10n.cancel),
+                variant: DButtonVariant.ghost,
+                onPressed: _closeSearch,
+              ),
+            ],
+          ),
+        ),
+        const DSeparator(),
+        Expanded(
+          child: GlobalSearchPanel(
+            key: _panelKey,
+            showConditions: false,
+            showClearFilters:
+                _listExpression.isNotEmpty &&
+                _global.wordsQuery.isEmpty &&
+                _global.conditions.isEmpty,
+            controller: _global,
+            onApply: _apply,
+            onOpenSection: _openSection,
+            onRefocus: _focus.requestFocus,
+            selectedResultId: _selectedResultId,
+            onSelect: (id) {
+              _selectResult(id);
+              _pageRevision.value++;
+            },
+            onOpen: _openResult,
+          ),
+        ),
+      ],
+    ),
+  );
   void _openPage() {
-    final content = ListenableBuilder(
-      listenable: Listenable.merge([_global, _pageRevision]),
-      builder: (context, _) => Column(
-        key: ForumSearch.panelKey,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(DSpacing.sm),
-            child: Row(
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) =>
-                        _editor(constraints.maxWidth, expanded: true),
-                  ),
-                ),
-                DButton(
-                  key: const ValueKey('mobile-search-back'),
-                  label: Text(appL10n.cancel),
-                  variant: DButtonVariant.ghost,
-                  onPressed: _closeSearch,
-                ),
-              ],
-            ),
-          ),
-          const DSeparator(),
-          Expanded(
-            child: GlobalSearchPanel(
-              key: _panelKey,
-              showConditions: false,
-              showClearFilters:
-                  _listExpression.isNotEmpty &&
-                  _global.wordsQuery.isEmpty &&
-                  _global.conditions.isEmpty,
-              controller: _global,
-              onApply: _apply,
-              onOpenSection: _openSection,
-              onRefocus: _focus.requestFocus,
-              selectedResultId: _selectedResultId,
-              onSelect: (id) {
-                _selectResult(id);
-                _pageRevision.value++;
-              },
-              onOpen: _openResult,
-            ),
-          ),
-        ],
-      ),
-    );
+    final content = _buildPageContent();
     final page = MaterialPageRoute<void>(
       settings: const RouteSettings(name: '/search'),
       builder: (_) => InheritedTheme.captureAll(

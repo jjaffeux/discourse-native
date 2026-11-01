@@ -9,6 +9,14 @@ import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('global search survives saved navigation history', () {
+    final search = ContentRoute.search();
+    final restored = ContentRoute.fromJson(search.toJson());
+    expect(restored.isGlobalSearch, isTrue);
+    expect(restored.sameDestinationAs(search), isTrue);
+    expect(restored.title, search.title);
+  });
+
   test('topic query intent survives links, saved tabs, and display copies', () {
     const forum = DiscourseInstance(
       url: 'https://forum.example/community',

@@ -256,6 +256,14 @@ class ContentRoute {
     icon: DIcons.gear,
   );
 
+  factory ContentRoute.search() => ContentRoute(
+    destination: const PageDestination(CorePage.search),
+    title: appL10n.search,
+    icon: DIcons.magnifyingGlass,
+  );
+
+  bool get isGlobalSearch => isPage(CorePage.search);
+
   factory ContentRoute.newTab() => ContentRoute(
     destination: const PageDestination(CorePage.start),
     title: appL10n.startPage,

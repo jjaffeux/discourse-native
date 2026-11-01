@@ -4812,7 +4812,7 @@ class ShellController extends FrameSafeNotifier
       _taxonomy.knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
 
   void openSearchResult(SearchPostHit hit, {String words = ''}) {
-    search.clear();
+    if (currentContent?.isGlobalSearch != true) search.clear();
     if (currentContent?.topicId == hit.topicId) {
       search.setPageWords(
         currentInstance!.url,

@@ -24,8 +24,7 @@ class ShellSearchController extends ChangeNotifier {
   bool _authenticated = true;
   final Set<String> _anonymousSearchDenied = {};
   bool _panelOpen = false;
-  ValueChanged<SearchFocusRequest>? _focusField;
-  Object? _focusRegistration;
+  final Map<Object, ValueChanged<SearchFocusRequest>> _focusFields = {};
   Object? _activeField;
   bool _disposed = false;
   final Map<({String siteUrl, String tabId}), String> _startPageQueries = {};
@@ -189,13 +188,10 @@ class ShellSearchController extends ChangeNotifier {
     Object field,
     ValueChanged<SearchFocusRequest> focus,
   ) {
-    _focusRegistration = field;
-    _focusField = focus;
+    _focusFields.remove(field);
+    _focusFields[field] = focus;
     return () {
-      if (identical(_focusRegistration, field)) {
-        _focusRegistration = null;
-        _focusField = null;
-      }
+      _focusFields.remove(field);
       if (identical(_activeField, field)) {
         _activeField = null;
         closePanel();
@@ -220,7 +216,9 @@ class ShellSearchController extends ChangeNotifier {
     GlobalSearchContext? context,
   }) {
     if (!canSearch) return;
-    _focusField?.call(SearchFocusRequest(mode: mode, context: context));
+    _focusFields.values.lastOrNull?.call(
+      SearchFocusRequest(mode: mode, context: context),
+    );
     openPanel();
   }
 
@@ -233,8 +231,7 @@ class ShellSearchController extends ChangeNotifier {
     _disposed = true;
     _usersQueries.clear();
     if (_siteUrl case final site?) history.forget(site);
-    _focusField = null;
-    _focusRegistration = null;
+    _focusFields.clear();
     _activeField = null;
     super.dispose();
   }

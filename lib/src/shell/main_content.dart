@@ -80,7 +80,10 @@ class MainContent extends StatefulWidget {
 
 class _MainContentState extends State<MainContent> {
   final _sourceBodyKey = GlobalKey();
+  var _searchPageKey = GlobalKey();
   _MainContentSnapshot? _sourceList;
+  _MainContentSnapshot? _searchSource;
+  _MainContentSnapshot? _lastBody;
   Object? _sourceListOwner;
   final _aboutPageKey = GlobalKey<ForumAboutPageState>();
   final _dashboardPageKey = GlobalKey<DashboardHostState>();
@@ -111,9 +114,25 @@ class _MainContentState extends State<MainContent> {
     final mobile =
         shell.mobileNavigationEnabled && ForumTabScope.panelOf(context) == null;
     if (!mobile || owner != _sourceListOwner) _sourceList = null;
+    if (owner != _sourceListOwner) {
+      _searchPageKey = GlobalKey();
+      _searchSource = null;
+      _lastBody = null;
+    }
     _sourceListOwner = owner;
     final route = state.route;
-    if (mobile && route?.isTopicList == true) _sourceList = state;
+    final searchInHistory = shell
+        .tabContext(state.activeTabId)
+        .contentStack
+        .any((entry) => entry.isGlobalSearch);
+    final searchOpen = route?.isGlobalSearch == true;
+    if (searchOpen && _searchSource == null) _searchSource = _lastBody;
+    if (!searchInHistory) _searchSource = null;
+    final bodyState = searchOpen
+        ? _searchSource ?? state.revealPrevious()
+        : state;
+    if (!searchOpen) _lastBody = state;
+    if (mobile && bodyState.route?.isTopicList == true) _sourceList = bodyState;
     final source = _sourceList;
     final covered =
         source != null &&
@@ -138,21 +157,26 @@ class _MainContentState extends State<MainContent> {
       aboutPageKey: _aboutPageKey,
       dashboardPageKey: _dashboardPageKey,
     );
-    final primary = body(covered ? source : state, key: _sourceBodyKey);
+    final primary = body(covered ? source : bodyState, key: _sourceBodyKey);
+    final hidden = covered || searchOpen;
     return Stack(
       fit: StackFit.expand,
       children: [
         Offstage(
-          offstage: covered,
+          offstage: hidden,
           child: ExcludeFocus(
-            excluding: covered,
+            excluding: hidden,
             child: ExcludeSemantics(
-              excluding: covered,
+              excluding: hidden,
               child: IgnorePointer(
-                ignoring: covered,
+                ignoring: hidden,
                 child: ForumContentScope(
-                  route: covered ? source.route : null,
-                  child: covered
+                  route: covered
+                      ? source.route
+                      : searchOpen
+                      ? bodyState.route
+                      : null,
+                  child: hidden
                       ? DPageHeaderHost.exclude(child: primary)
                       : primary,
                 ),
@@ -160,7 +184,15 @@ class _MainContentState extends State<MainContent> {
             ),
           ),
         ),
-        if (covered) body(state),
+        if (covered && !searchOpen) body(state),
+        if (searchInHistory)
+          Offstage(
+            offstage: !searchOpen,
+            child: ExcludeFocus(
+              excluding: !searchOpen,
+              child: ForumSearch.page(key: _searchPageKey),
+            ),
+          ),
       ],
     );
   }
@@ -1076,6 +1108,7 @@ class _ContentViewport extends StatelessWidget {
                       : CategoriesPage(siteUrl: site, feed: categoryFeed!),
                 CorePage.tags => TagsPage(siteUrl: site),
                 CorePage.start => fallback,
+                CorePage.search => const ForumSearch.page(),
               },
       BadgeDestination(:final route) =>
         site == null ? fallback : BadgesHost(siteUrl: site, route: route),

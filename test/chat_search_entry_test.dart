@@ -9,6 +9,7 @@ import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/composer/presentation.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -79,13 +80,18 @@ void main() {
       shell.globalSearch.setQuery('previous words category:support ');
       shell.toggleMobileSidebar();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      await tester.pumpAndSettle();
 
       await tester.tap(find.byKey(const ValueKey('chat-search-entry')));
       await _finishSearch(tester);
 
       expect(shell.mobileNavigation.sidebarOpen, isFalse);
-      expect(shell.currentContent, same(routeBefore));
-      expect(find.byType(ForumSearch, skipOffstage: false), findsOneWidget);
+      expect(shell.currentContent?.isGlobalSearch, isTrue);
+      expect(
+        shell.mobileNavigation.previousLocation?.contentStack.last,
+        same(routeBefore),
+      );
+      expect(find.byType(ForumSearch), findsOneWidget);
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(find.text('Cancel'), findsOneWidget);
       final field = find.byType(DInputGroup);
@@ -263,7 +269,7 @@ void main() {
           home: const Scaffold(
             body: SafeArea(
               child: ComposerPresentationHost(
-                child: MobileForumRoot(content: SizedBox.expand()),
+                child: MobileForumRoot(content: _SearchVisitContent()),
               ),
             ),
           ),
@@ -326,6 +332,18 @@ EditableText _editor(WidgetTester tester) => tester.widget<EditableText>(
   ),
 );
 
+class _SearchVisitContent extends StatelessWidget {
+  const _SearchVisitContent();
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<bool>(
+    select: (shell) => shell.currentContent?.isGlobalSearch == true,
+    builder: (context, searchOpen, _) => searchOpen
+        ? const MainContent(layout: ShellLayout.compact)
+        : const SizedBox.expand(),
+  );
+}
+
 Future<void> _mount(
   WidgetTester tester,
   ShellController shell,
@@ -344,16 +362,27 @@ Future<void> _mount(
           ),
           home: Scaffold(
             body: SafeArea(
-              child: Column(
-                children: [
-                  const ForumSearch(fullScreen: true),
-                  PluginUiScope.own(
-                    chatPluginId,
-                    const ChatSidebarInboxHeader(
-                      siteUrl: globalSearchFixtureSite,
+              child: ShellSelector<bool>(
+                select: (shell) => shell.currentContent?.isGlobalSearch == true,
+                builder: (context, searchOpen, _) => Column(
+                  children: [
+                    Offstage(
+                      offstage: searchOpen,
+                      child: Column(
+                        children: [
+                          const ForumSearch(fullScreen: true),
+                          PluginUiScope.own(
+                            chatPluginId,
+                            const ChatSidebarInboxHeader(
+                              siteUrl: globalSearchFixtureSite,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    if (searchOpen) const Expanded(child: ForumSearch.page()),
+                  ],
+                ),
               ),
             ),
           ),

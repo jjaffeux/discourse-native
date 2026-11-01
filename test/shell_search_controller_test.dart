@@ -72,6 +72,31 @@ void main() {
     },
   );
 
+  test('closing the search page restores the previous focus registration', () {
+    final search = _search(
+      api: _SearchApi(),
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+    )..selectSite(site);
+    addTearDown(search.dispose);
+    final focused = <String>[];
+    final header = Object();
+    final page = Object();
+    final unregisterHeader = search.registerFocus(
+      header,
+      (_) => focused.add('header'),
+    );
+    addTearDown(unregisterHeader);
+    final unregisterPage = search.registerFocus(
+      page,
+      (_) => focused.add('page'),
+    );
+    search.requestFocus();
+    unregisterPage();
+    search.requestFocus();
+    expect(focused, ['page', 'header']);
+  });
+
   test('a denied anonymous search closes its panel and returns on sign-in', () {
     final search = _search(
       api: _SearchApi(),
