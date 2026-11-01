@@ -223,6 +223,13 @@ final class _IdentityPlugin
   @override
   String get name => _owner.value;
   @override
+  Listenable? userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => null;
+
+  @override
   List<Widget> userCardIdentityDecorations(
     BuildContext context,
     String siteUrl,

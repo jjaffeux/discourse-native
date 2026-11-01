@@ -2105,6 +2105,19 @@ final class PluginRegistry
       ...plugin.composerShortcuts(_uiContext(context, plugin), editor),
   };
 
+  Listenable postAuthorDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => Listenable.merge([
+    for (final plugin in plugins.whereType<PostAuthorDecorationPlugin>())
+      plugin.postAuthorDecorationsListenable(
+        _uiContext(context, plugin),
+        siteUrl,
+        post,
+      ),
+  ]);
+
   List<Widget> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
@@ -2124,6 +2137,19 @@ final class PluginRegistry
 
   bool get hasUserCardIdentityDecorations =>
       plugins.any((plugin) => plugin is UserCardIdentityDecorationPlugin);
+
+  Listenable userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => Listenable.merge([
+    for (final plugin in plugins.whereType<UserCardIdentityDecorationPlugin>())
+      plugin.userCardIdentityDecorationsListenable(
+        _uiContext(context, plugin),
+        siteUrl,
+        user,
+      ),
+  ]);
 
   List<Widget> userCardIdentityDecorations(
     BuildContext context,

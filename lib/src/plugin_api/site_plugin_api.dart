@@ -152,6 +152,12 @@ final class PostAuthorDecoration {
 /// Adds owned widgets at structural identity positions in ordinary and plugin
 /// topic readers. After-name contributions precede status and role markers.
 abstract interface class PostAuthorDecorationPlugin {
+  Listenable? postAuthorDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  );
+
   List<PostAuthorDecoration> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
@@ -164,6 +170,12 @@ abstract interface class PostAuthorDecorationPlugin {
 /// summary. Actions retain their own focus and callbacks. Other identity
 /// placements are not implied.
 abstract interface class UserCardIdentityDecorationPlugin {
+  Listenable? userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  );
+
   List<Widget> userCardIdentityDecorations(
     BuildContext context,
     String siteUrl,

@@ -105,7 +105,9 @@ final class CakedayPlugin
   ) {
     if (dates == null) return const [];
     final controller = PluginUiScope.maybe(context, cakedayControllerKey);
-    if (controller == null) return const [];
+    if (controller == null || controller.celebrations(site, dates).isEmpty) {
+      return const [];
+    }
     return [
       CakedayDecoration(
         controller: controller,
@@ -115,6 +117,26 @@ final class CakedayPlugin
       ),
     ];
   }
+
+  CakedayController? _observeDecorations(BuildContext context, String siteUrl) {
+    final controller = PluginUiScope.maybe(context, cakedayControllerKey);
+    controller?.observeDecorations(siteUrl);
+    return controller;
+  }
+
+  @override
+  Listenable? postAuthorDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => _observeDecorations(context, siteUrl);
+
+  @override
+  Listenable? userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => _observeDecorations(context, siteUrl);
 
   @override
   List<PostAuthorDecoration> postAuthorDecorations(

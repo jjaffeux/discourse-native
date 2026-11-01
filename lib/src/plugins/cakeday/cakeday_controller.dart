@@ -74,6 +74,14 @@ final class CakedayController extends FrameSafeNotifier
       siteState.currentUserFor(site) != null &&
       settings(site).enabled &&
       (kind != CakedayKind.birthdays || settings(site).birthdays);
+  List<CakedayKind> celebrations(String site, CakedayDates dates) => [
+    if (enabled(site, CakedayKind.birthdays) && dates.celebratesBirthday(now))
+      CakedayKind.birthdays,
+    if (enabled(site, CakedayKind.anniversaries) &&
+        dates.celebratesAnniversary(now))
+      CakedayKind.anniversaries,
+  ];
+
   DateTime viewerToday(String site) {
     final zone = timezone.readerTimezone(
       siteState.currentUserFor(site)?.timezone,

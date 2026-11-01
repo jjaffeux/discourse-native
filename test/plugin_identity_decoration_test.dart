@@ -284,6 +284,26 @@ final class _IdentityPlugin
     },
   );
   @override
+  Listenable? postAuthorDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) {
+    checkOwner(context);
+    return null;
+  }
+
+  @override
+  Listenable? userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) {
+    checkOwner(context);
+    return null;
+  }
+
+  @override
   List<PostAuthorDecoration> postAuthorDecorations(
     BuildContext context,
     String siteUrl,

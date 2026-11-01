@@ -44,7 +44,8 @@ class _CakedayDecorationState extends State<CakedayDecoration> {
     builder: (context, _) {
       final controller = widget.controller, site = widget.site;
       if (!controller.enabled(site)) return const SizedBox.shrink();
-      final settings = controller.settings(site), now = controller.now;
+      final settings = controller.settings(site);
+      final celebrations = controller.celebrations(site, widget.dates);
       final own =
           widget.userId != null &&
           controller.siteState.currentUserFor(site)?.id == widget.userId;
@@ -83,12 +84,7 @@ class _CakedayDecorationState extends State<CakedayDecoration> {
         spacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          if (controller.enabled(site, CakedayKind.birthdays) &&
-              widget.dates.celebratesBirthday(now))
-            mark(true),
-          if (controller.enabled(site, CakedayKind.anniversaries) &&
-              widget.dates.celebratesAnniversary(now))
-            mark(false),
+          for (final kind in celebrations) mark(kind == CakedayKind.birthdays),
         ],
       );
     },

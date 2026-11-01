@@ -375,15 +375,17 @@ class _ProfileCard extends StatelessWidget {
       ),
       builder: (context, _) {
         final card = controller.userCard(username, siteUrl: instance.url);
-        return _identity(
-          context,
-          card == null
-              ? const []
-              : registry.userCardIdentityDecorations(
-                  context,
-                  instance.url,
-                  card,
-                ),
+        if (card == null) return _identity(context, const []);
+        return ListenableBuilder(
+          listenable: registry.userCardIdentityDecorationsListenable(
+            context,
+            instance.url,
+            card,
+          ),
+          builder: (context, _) => _identity(
+            context,
+            registry.userCardIdentityDecorations(context, instance.url, card),
+          ),
         );
       },
     );

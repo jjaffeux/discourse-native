@@ -4177,34 +4177,45 @@ class _StoredPostState extends State<_StoredPost> {
             : Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _PostTile(
-                    siteUrl: siteUrl,
-                    topic: topic,
-                    post: post,
-                    layout: widget.layout,
-                    contentExpanded: widget.contentExpanded,
-                    enableDoubleTapReaction: widget.enableDoubleTapReaction,
-                    authorBadges: [
-                      ...widget.authorBadges,
-                      ...registry.postAuthorDecorations(context, siteUrl, post),
-                    ],
-                    beforeAuthorName: registry.postAuthorDecorations(
+                  ListenableBuilder(
+                    listenable: registry.postAuthorDecorationsListenable(
                       context,
                       siteUrl,
                       post,
-                      placement: PostAuthorDecorationPlacement.beforeName,
                     ),
-                    afterAvatar: registry.postAuthorDecorations(
-                      context,
-                      siteUrl,
-                      post,
-                      placement: PostAuthorDecorationPlacement.afterAvatar,
+                    builder: (context, _) => _PostTile(
+                      siteUrl: siteUrl,
+                      topic: topic,
+                      post: post,
+                      layout: widget.layout,
+                      contentExpanded: widget.contentExpanded,
+                      enableDoubleTapReaction: widget.enableDoubleTapReaction,
+                      authorBadges: [
+                        ...widget.authorBadges,
+                        ...registry.postAuthorDecorations(
+                          context,
+                          siteUrl,
+                          post,
+                        ),
+                      ],
+                      beforeAuthorName: registry.postAuthorDecorations(
+                        context,
+                        siteUrl,
+                        post,
+                        placement: PostAuthorDecorationPlacement.beforeName,
+                      ),
+                      afterAvatar: registry.postAuthorDecorations(
+                        context,
+                        siteUrl,
+                        post,
+                        placement: PostAuthorDecorationPlacement.afterAvatar,
+                      ),
+                      leading: widget.leading,
+                      bodyLeading: widget.bodyLeading,
+                      footerLeading: widget.footerLeading,
+                      onBodyPressed: widget.onBodyPressed,
+                      bodyActionLabel: widget.bodyActionLabel,
                     ),
-                    leading: widget.leading,
-                    bodyLeading: widget.bodyLeading,
-                    footerLeading: widget.footerLeading,
-                    onBodyPressed: widget.onBodyPressed,
-                    bodyActionLabel: widget.bodyActionLabel,
                   ),
                   if (post.postNumber == 1 &&
                       widget.layout == TopicPostLayout.standard)

@@ -31,20 +31,30 @@ class UserCardHeader extends StatelessWidget {
         PluginScope.maybeOf(context)?.registry ??
         PluginRegistryScope.maybeOf(context) ??
         PluginRegistry.empty;
-    final decorations = registry.userCardIdentityDecorations(
-      context,
-      siteUrl,
-      card,
-    );
-    if (decorations.isEmpty) return name;
-    return Row(
-      children: [
-        Flexible(child: name),
-        for (final decoration in decorations) ...[
-          const SizedBox(width: 6),
-          decoration,
-        ],
-      ],
+    return ListenableBuilder(
+      listenable: registry.userCardIdentityDecorationsListenable(
+        context,
+        siteUrl,
+        card,
+      ),
+      child: name,
+      builder: (context, name) {
+        final decorations = registry.userCardIdentityDecorations(
+          context,
+          siteUrl,
+          card,
+        );
+        if (decorations.isEmpty) return name!;
+        return Row(
+          children: [
+            Flexible(child: name!),
+            for (final decoration in decorations) ...[
+              const SizedBox(width: 6),
+              decoration,
+            ],
+          ],
+        );
+      },
     );
   }
 

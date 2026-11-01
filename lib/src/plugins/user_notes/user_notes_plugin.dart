@@ -47,6 +47,26 @@ final class UserNotesPlugin
     UserNotesCount? held,
     UserNotesCount? incoming,
   ) => incoming ?? held;
+  UserNotesController? _observe(BuildContext context, String siteUrl) {
+    final controller = PluginUiScope.maybe(context, userNotesControllerService);
+    controller?.observe(siteUrl);
+    return controller;
+  }
+
+  @override
+  Listenable? postAuthorDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    Post post,
+  ) => _observe(context, siteUrl);
+
+  @override
+  Listenable? userCardIdentityDecorationsListenable(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => _observe(context, siteUrl);
+
   @override
   List<Widget> userCardIdentityDecorations(
     BuildContext context,
@@ -55,7 +75,18 @@ final class UserNotesPlugin
   ) {
     final controller = PluginUiScope.maybe(context, userNotesControllerService),
         userId = user.id;
-    if (controller == null || userId == null || userId == 0) return const [];
+    if (controller == null ||
+        userId == null ||
+        userId == 0 ||
+        !controller.canOpen(siteUrl)) {
+      return const [];
+    }
+    final count = controller.count(
+      siteUrl,
+      userId,
+      fallback: user.plugins.get(userNotesCountKey)?.value,
+    );
+    if (count == null || count <= 0) return const [];
     return [
       UserNotesEntry(
         controller: controller,
@@ -75,21 +106,37 @@ final class UserNotesPlugin
   ) {
     final controller = PluginUiScope.maybe(context, userNotesControllerService),
         userId = post.userId;
-    if (controller == null || userId == null || userId == 0) return const [];
+    if (controller == null ||
+        userId == null ||
+        userId == 0 ||
+        !controller.canOpen(siteUrl)) {
+      return const [];
+    }
+    final count = controller.count(
+      siteUrl,
+      userId,
+      fallback: post.plugins.get(userNotesCountKey)?.value,
+    );
+    if (count == null || count <= 0) return const [];
+    final placement =
+        controller.settings(siteUrl).placement == UserNotesPlacement.avatar
+        ? PostAuthorDecorationPlacement.afterAvatar
+        : context.isTouch
+        ? PostAuthorDecorationPlacement.beforeName
+        : PostAuthorDecorationPlacement.afterName;
     return [
-      for (final placement in PostAuthorDecorationPlacement.values)
-        PostAuthorDecoration(
+      PostAuthorDecoration(
+        placement: placement,
+        child: UserNotesEntry(
+          controller: controller,
+          siteUrl: siteUrl,
+          userId: userId,
+          username: post.username,
+          postId: post.id,
+          count: count,
           placement: placement,
-          child: UserNotesEntry(
-            controller: controller,
-            siteUrl: siteUrl,
-            userId: userId,
-            username: post.username,
-            postId: post.id,
-            count: post.plugins.get(userNotesCountKey)?.value,
-            placement: placement,
-          ),
         ),
+      ),
     ];
   }
 
