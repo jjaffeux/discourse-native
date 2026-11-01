@@ -21,7 +21,6 @@ final class NestedRepliesPlugin
         TopicMapActionPlugin,
         TopicMenuPlugin,
         PostMenuPlugin,
-        TopicListHeaderPlugin,
         TopicListTitlePlugin {
   const NestedRepliesPlugin();
 
@@ -175,26 +174,6 @@ final class NestedRepliesPlugin
       ],
     );
   }
-
-  @override
-  List<Widget> topicListHeaderActions(
-    BuildContext context,
-    String siteUrl,
-    ContentRoute route,
-  ) => route.isMessages || route.isTopic
-      ? const []
-      : [
-          PluginServiceSelector<NestedRepliesServices, bool>(
-            service: nestedRepliesServiceKey,
-            select: (service) => service.bulk.available(siteUrl),
-            builder: (context, available, _) => available
-                ? NestedRepliesBulkActions(
-                    controller: _service(context).bulk,
-                    siteUrl: siteUrl,
-                  )
-                : const SizedBox.shrink(),
-          ),
-        ];
 
   @override
   Widget? decorateTopicListTitle(

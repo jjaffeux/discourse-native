@@ -58,7 +58,7 @@ void main() {
   });
 
   testWidgets(
-    'initial topic list shows bulk selection when fresh site settings arrive',
+    'topic list keeps bulk selection hidden after settings and navigation',
     (tester) async {
       final gate = Completer<void>();
       await _pump(
@@ -81,7 +81,12 @@ void main() {
           await _frames(tester);
           expect(renderedText(_title), findsOneWidget);
           expect(shell.currentContent!.isTopic, isFalse);
-          expect(find.text(appL10n.nestedRepliesBulkSelect), findsOneWidget);
+          expect(find.text(appL10n.nestedRepliesBulkSelect), findsNothing);
+          shell.openTopic(row);
+          await _frames(tester);
+          shell.closeTopic();
+          await _frames(tester);
+          expect(find.text(appL10n.nestedRepliesBulkSelect), findsNothing);
         },
       );
       expect(tester.takeException(), isNull);
