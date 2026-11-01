@@ -250,6 +250,8 @@ final class NestedPostData {
   final bool contentRedacted;
   bool get isRoot => replyToPostNumber == null || replyToPostNumber == 1;
   bool get redacted => contentRedacted;
+  bool get hiddenDeleted =>
+      placeholder == NestedPostPlaceholder.deleted && redacted;
 
   @override
   bool operator ==(Object other) =>

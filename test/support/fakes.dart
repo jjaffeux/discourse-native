@@ -841,6 +841,7 @@ class FakeDiscourseApi
   }
 
   final Map<String, Map<String, dynamic>> pluginResponses;
+  final pluginReadGates = <String, Completer<void>>{};
   final Map<String, WriteException> pluginWriteFailures;
   final List<
     ({String siteUrl, String method, String path, Map<String, Object?> body})
@@ -4004,6 +4005,7 @@ class FakeDiscourseApi
       };
     }
     pluginReadPaths.add(path);
+    await pluginReadGates[path]?.future;
     final response = pluginResponses['GET $path'];
     if (response == null) {
       throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);

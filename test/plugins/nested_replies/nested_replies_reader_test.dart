@@ -82,7 +82,7 @@ void main() {
       }) => {
         'id': 100 + number,
         'post_number': number,
-        'deleted_post_placeholder': true,
+        'ignored_post_placeholder': true,
         'direct_reply_count': children.length,
         'total_descendant_count': children.length,
         'children': children,
@@ -135,13 +135,12 @@ void main() {
       await _frames(tester);
       expect(find.byKey(const ValueKey(105)), findsOneWidget);
       expect(find.byKey(const ValueKey(106)), findsNothing);
-      final child = find.byKey(const ValueKey(105));
-      final load = find.descendant(
-        of: child,
-        matching: find.text('Load more replies'),
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey(105)),
+          matching: find.text('Ignored post'),
+        ),
       );
-      await tester.ensureVisible(load);
-      await tester.tap(load);
       await _frames(tester);
       expect(find.byKey(const ValueKey(106)), findsOneWidget);
       expect(
@@ -152,6 +151,516 @@ void main() {
       );
       await tester.pumpWidget(const SizedBox.shrink());
     },
+  );
+
+  for (final phone in [true, false]) {
+    testWidgets(
+      'short ${phone ? "phone" : "desktop"} pages fill through deleted-only roots',
+      (tester) async {
+        _size(tester, phone);
+        final transport = RecordingPluginTransport(
+          responses: {
+            '$_rootPath&track_visit=true': {
+              ..._roots(ignored: true),
+              'has_more_roots': true,
+              'op_post': _treePost(1, deleted: true),
+            },
+            'GET /n/conversation/7.json?sort=top&page=1': {
+              'roots': [_treePost(3, deleted: true)],
+              'page': 1,
+              'has_more_roots': true,
+            },
+            'GET /n/conversation/7.json?sort=top&page=2': {
+              'roots': [_treePost(4)],
+              'page': 2,
+              'has_more_roots': false,
+            },
+          },
+        );
+        final reader = _Reader()..currentUserStaff = true;
+        reader.posts[103] = const Post(
+          id: 103,
+          postNumber: 3,
+          username: 'cached-secret',
+          cooked: '<p>Cached secret</p>',
+        );
+        await _mount(tester, transport, reader: reader);
+        await _frames(tester);
+        expect(find.text('Load more replies'), findsNothing);
+        expect(find.text('Deleted post'), findsNothing);
+        expect(find.byKey(const ValueKey(103)), findsNothing);
+        expect(find.byKey(const ValueKey(104)), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (widget) => widget is PluginTopicPost && widget.postId == 101,
+          ),
+          findsNothing,
+        );
+        expect(reader.visibleIds, {102, 104});
+        expect(reader.posts[103]!.cooked, isEmpty);
+        expect(
+          reader.batches
+              .expand((batch) => batch.posts)
+              .where((post) => post.post.id == 103)
+              .single
+              .disposition,
+          TopicContentDisposition.redacted,
+        );
+        expect(transport.requests.map((request) => request.path), [
+          '/n/conversation/7.json?sort=top&page=0&track_visit=true',
+          '/n/conversation/7.json?sort=top&page=1',
+          '/n/conversation/7.json?sort=top&page=2',
+        ]);
+        await _frames(tester);
+        expect(transport.requests, hasLength(3));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(
+        phone ? TargetPlatform.iOS : TargetPlatform.linux,
+      ),
+    );
+
+    testWidgets(
+      '${phone ? "phone" : "desktop"} child pagination waits for loaded subtree end',
+      (tester) async {
+        _size(tester, phone);
+        final first = Completer<Object?>();
+        final transport = RecordingPluginTransport(
+          responses: {
+            '$_rootPath&track_visit=true': {
+              ..._roots(),
+              'roots': [
+                _treePost(
+                  2,
+                  count: 62,
+                  children: [
+                    for (var i = 3; i < 63; i++) _treePost(i, parent: 2),
+                  ],
+                ),
+                _treePost(80),
+              ],
+            },
+            'GET /n/conversation/7/children/2.json?sort=top&page=1&depth=1': {
+              'children': [_treePost(64, parent: 2)],
+              'page': 1,
+              'has_more': false,
+            },
+          },
+          responders: {
+            'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+                (_) => first.future,
+          },
+        );
+        await _mount(tester, transport);
+        await _frames(tester);
+        expect(transport.requests, hasLength(1));
+        expect(find.text('Load more replies'), findsNothing);
+        final scroll = tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+            .controller!;
+        scroll.jumpTo(scroll.position.maxScrollExtent);
+        await _frames(tester);
+        expect(
+          transport.requests.where(
+            (request) => request.path.contains('/children/'),
+          ),
+          hasLength(1),
+        );
+        expect(find.byType(DSpinner), findsOneWidget);
+        await _frames(tester);
+        expect(
+          transport.requests.where(
+            (request) => request.path.contains('/children/'),
+          ),
+          hasLength(1),
+        );
+        first.complete({
+          'children': [_treePost(63, parent: 2)],
+          'page': 0,
+          'has_more': true,
+        });
+        await _frames(tester);
+        expect(find.byKey(const ValueKey(164)), findsOneWidget);
+        expect(
+          transport.requests
+              .where((request) => request.path.contains('/children/'))
+              .map((request) => request.path),
+          [
+            '/n/conversation/7/children/2.json?sort=top&page=0&depth=1',
+            '/n/conversation/7/children/2.json?sort=top&page=1&depth=1',
+          ],
+        );
+        await _frames(tester);
+        expect(transport.requests, hasLength(3));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(
+        phone ? TargetPlatform.iOS : TargetPlatform.linux,
+      ),
+    );
+  }
+
+  testWidgets(
+    'hidden context target promotes readable descendants without ancestor identities',
+    (tester) async {
+      _size(tester, true);
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /n/conversation/7/context/4.json?sort=top&track_visit=true': {
+            'topic': {'id': 7, 'title': 'Conversation', 'is_nested_view': true},
+            'op_post': _treePost(1, deleted: true),
+            'target_post': _treePost(
+              4,
+              deleted: true,
+              count: 1,
+              children: [_treePost(5, parent: 4)],
+            ),
+            'ancestor_chain': [
+              _treePost(2, deleted: true),
+              _treePost(3, deleted: true),
+            ],
+            'ancestors_truncated': false,
+            'siblings': <String, dynamic>{},
+          },
+        },
+      );
+      final reader = _Reader(postNumber: 4, query: 'collapse_replies=true');
+      await _mount(
+        tester,
+        transport,
+        reader: reader,
+        settings: const NestedRepliesSettings(enabled: true, maxDepth: 10),
+      );
+      await _frames(tester);
+      expect(find.byKey(const ValueKey(105)), findsOneWidget);
+      expect(find.byKey(const ValueKey(104)), findsNothing);
+      expect(find.text('Deleted post'), findsNothing);
+      expect(find.text('#2'), findsNothing);
+      expect(find.text('#3'), findsNothing);
+      expect(reader.visibleIds, {105});
+      expect(transport.requests, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'deleted payload authority controls rows independently of local staff state',
+    (tester) async {
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              {
+                ..._treePost(2, deleted: true),
+                'username': 'authorized',
+                'cooked': '<p>Authorized deleted content</p>',
+              },
+            ],
+          },
+        },
+      );
+      final reader = _Reader();
+      await _mount(tester, transport, reader: reader);
+      await _frames(tester);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is PluginTopicPost && widget.postId == 102,
+        ),
+        findsOneWidget,
+      );
+      expect(reader.posts[102]!.cooked, '<p>Authorized deleted content</p>');
+      expect(
+        reader.batches.single.posts.single.disposition,
+        TopicContentDisposition.complete,
+      );
+      expect(find.text('Deleted post'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('child errors wait for retry and hidden-only pages keep loading', (
+    tester,
+  ) async {
+    final transport = RecordingPluginTransport(
+      responses: {
+        '$_rootPath&track_visit=true': {
+          ..._roots(),
+          'roots': [_treePost(2, deleted: true, count: 2)],
+        },
+        'GET /n/conversation/7/children/2.json?sort=top&page=1&depth=1': {
+          'children': [_treePost(4, parent: 2)],
+          'page': 1,
+          'has_more': false,
+        },
+      },
+      responders: {
+        'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+            (_) async => throw StateError('offline'),
+      },
+    );
+    await _mount(tester, transport);
+    await _frames(tester);
+    expect(find.text('Retry'), findsOneWidget);
+    expect(transport.requests, hasLength(2));
+    await _frames(tester);
+    expect(transport.requests, hasLength(2));
+    transport.responders.remove(
+      'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1',
+    );
+    transport
+        .responses['GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1'] = {
+      'children': [_treePost(3, deleted: true, parent: 2)],
+      'page': 0,
+      'has_more': true,
+    };
+    await tester.tap(find.text('Retry'));
+    await _frames(tester);
+    expect(find.byKey(const ValueKey(104)), findsOneWidget);
+    expect(find.byKey(const ValueKey(103)), findsNothing);
+    expect(find.text('Retry'), findsNothing);
+    expect(transport.requests, hasLength(4));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets(
+    'hidden capped branch continuation follows readable ancestor collapse',
+    (tester) async {
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(
+                2,
+                count: 1,
+                children: [_treePost(3, deleted: true, count: 1)],
+              ),
+            ],
+          },
+        },
+      );
+      await _mount(
+        tester,
+        transport,
+        settings: const NestedRepliesSettings(
+          enabled: true,
+          maxDepth: 1,
+          capDepth: false,
+        ),
+      );
+      await _frames(tester);
+      expect(find.text('Continue this thread'), findsOneWidget);
+      await tester.tap(find.text('Ignored post'));
+      await _frames(tester);
+      expect(find.text('Continue this thread'), findsNothing);
+      expect(transport.requests, hasLength(1));
+      await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
+      await _frames(tester);
+      expect(find.text('Continue this thread'), findsOneWidget);
+      expect(transport.requests, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'inactive reader defers viewport demand until foreground reconciliation',
+    (tester) async {
+      final initial = {
+        ..._roots(),
+        'roots': [_treePost(2, count: 1)],
+      };
+      final transport = RecordingPluginTransport(
+        responses: {
+          _rootPath: initial,
+          '$_rootPath&track_visit=true': initial,
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1': {
+            'children': [_treePost(3, parent: 2)],
+            'page': 0,
+            'has_more': false,
+          },
+        },
+      );
+      final reader = _Reader(foreground: false);
+      await _mount(tester, transport, reader: reader);
+      await _frames(tester);
+      expect(transport.requests, hasLength(1));
+      reader.foreground = true;
+      reader.notifyListeners();
+      await _frames(tester);
+      expect(transport.requests.map((request) => request.path), [
+        '/n/conversation/7.json?sort=top&page=0',
+        '/n/conversation/7.json?sort=top&page=0&track_visit=true',
+        '/n/conversation/7/children/2.json?sort=top&page=0&depth=1',
+      ]);
+      expect(find.byKey(const ValueKey(103)), findsOneWidget);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'late child pages preserve the later visible root screen position',
+    (tester) async {
+      _size(tester, true);
+      final pending = Completer<Object?>();
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(2, count: 21, children: [_treePost(3, parent: 2)]),
+              for (var number = 20; number < 45; number++) _treePost(number),
+            ],
+          },
+        },
+        responders: {
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+              (_) => pending.future,
+        },
+      );
+      await _mount(tester, transport);
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+          .controller!;
+      scroll.jumpTo(1500);
+      await _frames(tester);
+      final candidates =
+          <Finder>[
+                for (var number = 20; number < 45; number++)
+                  find.byKey(ValueKey(100 + number)),
+              ]
+              .where(
+                (finder) =>
+                    finder.evaluate().isNotEmpty &&
+                    tester.getTopLeft(finder).dy >= 0 &&
+                    tester.getTopLeft(finder).dy < 650,
+              )
+              .toList();
+      expect(candidates, isNotEmpty);
+      final anchor = candidates.first;
+      final before = tester.getTopLeft(anchor).dy;
+      pending.complete({
+        'children': [
+          for (var number = 100; number < 120; number++)
+            _treePost(number, parent: 2),
+        ],
+        'page': 0,
+        'has_more': false,
+      });
+      await _frames(tester);
+      expect(tester.getTopLeft(anchor).dy, closeTo(before, 1));
+      expect(transport.requests, hasLength(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'deep hidden phone context retains its continuation without loaded children',
+    (tester) async {
+      _size(tester, true);
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /n/conversation/7/context/12.json?sort=top&track_visit=true': {
+            'topic': {'id': 7, 'title': 'Conversation', 'is_nested_view': true},
+            'target_post': _treePost(12, deleted: true, count: 1),
+            'ancestor_chain': [
+              for (var number = 2; number < 12; number++) _treePost(number),
+            ],
+            'ancestors_truncated': false,
+            'siblings': <String, dynamic>{},
+          },
+        },
+      );
+      await _mount(
+        tester,
+        transport,
+        reader: _Reader(postNumber: 12),
+        settings: const NestedRepliesSettings(
+          enabled: true,
+          maxDepth: 10,
+          capDepth: false,
+        ),
+      );
+      await _frames(tester);
+      expect(find.text('Continue this thread'), findsOneWidget);
+      expect(find.text('Deleted post'), findsNothing);
+      expect(transport.requests, hasLength(1));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets(
+    'user collapse cancels a paging anchor on the closing descendant',
+    (tester) async {
+      _size(tester, false);
+      final pending = Completer<Object?>();
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /posts/102/cooked.json': {
+            'cooked': List.filled(30, '<p>A revealed paragraph.</p>').join(),
+          },
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(2, count: 2, children: [_treePost(3, parent: 2)]),
+              for (var number = 20; number < 50; number++) _treePost(number),
+            ],
+          },
+        },
+        responders: {
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+              (_) => pending.future,
+        },
+      );
+      await _mount(tester, transport);
+      await _frames(tester);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey(102)),
+          matching: find.text('Show ignored post'),
+        ),
+      );
+      await _frames(tester);
+      final scrollView = find.byType(CustomScrollView).first;
+      final scroll = tester.widget<CustomScrollView>(scrollView).controller!;
+      scroll.jumpTo(
+        tester.getBottomLeft(find.byKey(const ValueKey(102))).dy - 5,
+      );
+      await _frames(tester);
+      pending.complete({
+        'children': [_treePost(4, parent: 2)],
+        'page': 0,
+        'has_more': false,
+      });
+      await tester.pump();
+      final before = scroll.offset;
+      final connector = find
+          .descendant(
+            of: find.byKey(const ValueKey(103)),
+            matching: find.byType(DThreadConnector),
+          )
+          .first;
+      tester.widget<DThreadConnector>(connector).onPressed!();
+      await _frames(tester);
+      expect(scroll.offset, closeTo(before, 1));
+      expect(
+        tester.widget<CustomScrollView>(scrollView).scrollCacheExtent,
+        isNull,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsNothing,
+      );
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
   setUpAll(() async {
@@ -335,12 +844,18 @@ void main() {
         ),
       );
       await _frames(tester);
-      await tester.tap(find.text('Ignored post'));
+      await tester.tap(find.text('Ignored post').first);
       await _frames(tester);
       memory.invalidateTopic(_site, 7);
       await _frames(tester);
       expect(find.bySemanticsLabel(RegExp('^Expand post')), findsOneWidget);
-      expect(find.text('Deleted post'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsNothing,
+      );
       final reads = transport.requests
           .where((request) => request.path.startsWith('/n/'))
           .toList();
@@ -386,9 +901,15 @@ void main() {
       addTearDown(retired.dispose);
       await tester.pumpWidget(view(retired));
       await _frames(tester);
-      await tester.tap(find.text('Ignored post'));
+      await tester.tap(find.text('Ignored post').first);
       await _frames(tester);
-      expect(find.text('Deleted post'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsNothing,
+      );
       retired.close();
       memory.forgetSite(_site);
       retired.foreground = false;
@@ -399,7 +920,13 @@ void main() {
       addTearDown(successor.dispose);
       await tester.pumpWidget(view(successor));
       await _frames(tester);
-      expect(find.text('Deleted post'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -446,7 +973,13 @@ void main() {
         ),
       );
       await _frames(tester);
-      expect(find.text('Ignored post'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(102)),
+          matching: find.text('Ignored post'),
+        ),
+        findsOneWidget,
+      );
       await _export(tester, 'phone-placeholder.png');
       expect(find.text('Continue this thread'), findsNothing);
       expect(find.text('Authorized ignored content'), findsNothing);
@@ -495,20 +1028,56 @@ void main() {
       ),
     );
     await _frames(tester);
-    expect(find.text('Ignored post'), findsOneWidget);
-    expect(find.text('Deleted post'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(102)),
+        matching: find.text('Ignored post'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(103)),
+        matching: find.text('Ignored post'),
+      ),
+      findsOneWidget,
+    );
     expect(find.text('1 reply'), findsNothing);
     expect(reader.visibleIds, {102, 103});
-    await tester.tap(find.text('Ignored post'));
+    await tester.tap(find.text('Ignored post').first);
     await tester.pump();
     expect(reader.visibleIds, isEmpty);
-    expect(find.text('Deleted post'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(103)),
+        matching: find.text('Ignored post'),
+      ),
+      findsOneWidget,
+    );
     await _frames(tester);
-    expect(find.text('Deleted post'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(103)),
+        matching: find.text('Ignored post'),
+      ),
+      findsNothing,
+    );
     await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
     await _frames(tester);
-    expect(find.text('Ignored post'), findsOneWidget);
-    expect(find.text('Deleted post'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(102)),
+        matching: find.text('Ignored post'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey(103)),
+        matching: find.text('Ignored post'),
+      ),
+      findsOneWidget,
+    );
     expect(reader.visibleIds, {102, 103});
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
@@ -523,7 +1092,7 @@ void main() {
           <String, dynamic>{
             'id': 104,
             'post_number': 4,
-            'deleted_post_placeholder': true,
+            'ignored_post_placeholder': true,
             'direct_reply_count': 0,
             'total_descendant_count': 0,
             'children': <Object?>[],
@@ -562,7 +1131,6 @@ void main() {
       );
       await tester.pumpWidget(view());
       await _frames(tester);
-      await tester.tap(find.text('Load more replies'));
       await _frames(tester);
       expect(find.byKey(const ValueKey(104)), findsOneWidget);
       await tester.pumpWidget(const SizedBox.shrink());
@@ -622,7 +1190,7 @@ void main() {
           {
             'id': 104,
             'post_number': 4,
-            'deleted_post_placeholder': true,
+            'ignored_post_placeholder': true,
             'children': <Object?>[],
           },
           ..._roots(ignored: true)['roots'] as List,
@@ -762,16 +1330,40 @@ void main() {
         ),
       );
       await _frames(tester);
-      expect(find.text('Ignored post'), findsOneWidget);
-      expect(find.text('Deleted post'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(102)),
+          matching: find.text('Ignored post'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsOneWidget,
+      );
       await _export(tester, 'desktop-branches.png');
       expect(find.text('Continue this thread'), findsNothing);
-      await tester.tap(find.text('Ignored post'));
+      await tester.tap(find.text('Ignored post').first);
       await _frames(tester);
-      expect(find.text('Deleted post'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsNothing,
+      );
       await tester.tap(find.bySemanticsLabel(RegExp('^Expand post')));
       await _frames(tester);
-      expect(find.text('Deleted post'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey(103)),
+          matching: find.text('Ignored post'),
+        ),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
@@ -802,7 +1394,7 @@ Map<String, dynamic> _roots({bool ignored = false, bool child = false}) => {
             'id': 103,
             'post_number': 3,
             'reply_to_post_number': 2,
-            'deleted_post_placeholder': true,
+            'ignored_post_placeholder': true,
             'cooked': '',
             'raw': null,
             'direct_reply_count': 0,
@@ -944,4 +1536,64 @@ Future<void> _export(WidgetTester tester, String name) async {
       image.dispose();
     }
   });
+}
+
+void _size(WidgetTester tester, bool phone) {
+  tester.view.physicalSize = phone
+      ? const Size(390, 844)
+      : const Size(1200, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+}
+
+Map<String, dynamic> _treePost(
+  int number, {
+  bool deleted = false,
+  int? parent,
+  int count = 0,
+  List<Map<String, dynamic>> children = const [],
+}) => {
+  'id': 100 + number,
+  'post_number': number,
+  'topic_id': 7,
+  'reply_to_post_number': ?parent,
+  if (deleted)
+    'deleted_post_placeholder': true
+  else
+    'ignored_post_placeholder': true,
+  'cooked': '',
+  'raw': null,
+  'direct_reply_count': count,
+  'total_descendant_count': count,
+  'children': children,
+};
+
+Future<void> _mount(
+  WidgetTester tester,
+  RecordingPluginTransport transport, {
+  _Reader? reader,
+  NestedRepliesSettings settings = const NestedRepliesSettings(enabled: true),
+}) async {
+  final host = await PluginHostHarness.open(
+    transport: transport,
+    sites: [const PluginHostSite(url: _site)],
+  );
+  addTearDown(host.close);
+  final activeReader = reader ?? _Reader();
+  addTearDown(activeReader.dispose);
+  await tester.pumpWidget(
+    host.scope(
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: NestedRepliesReader(
+            reader: activeReader,
+            api: NestedRepliesApi(transport, activeReader.models),
+            settings: settings,
+          ),
+        ),
+      ),
+    ),
+  );
 }

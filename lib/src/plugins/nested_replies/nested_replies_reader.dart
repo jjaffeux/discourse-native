@@ -37,6 +37,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   late final ScrollController _scroll;
   final GlobalKey _viewport = GlobalKey();
   final Map<int, GlobalKey> _postKeys = {};
+  final Map<(int, int), GlobalKey> _boundaryKeys = {};
   final Map<int, FocusNode> _collapseFocus = {};
   final Map<int, String> _revealed = {};
   final Set<int> _revealing = {};
@@ -49,6 +50,9 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   late Object _memoryKey;
   _RememberedReader? _restore;
   bool _restoring = true;
+  bool _restoringPagingAnchor = false;
+  double? _pagingAnchorCacheExtent;
+  int _pagingAnchorSettleFrames = 0;
   bool _scheduled = false;
   bool _saveGraphAfterFrame = false;
   late bool _wasForeground;
@@ -184,6 +188,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     }
     _wasForeground = foreground;
     setState(() {});
+    _scheduleObservation();
   }
 
   void _changed() {
@@ -199,8 +204,9 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
-      _observe();
       _restoreAnchor();
+      _observe();
+      _loadViewportDemand();
       if (_saveGraphAfterFrame &&
           !_controller.loading &&
           !_controller.restoringPages) {
@@ -217,7 +223,22 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   }
 
   void _collapsePost(int postNumber, bool collapsed) {
+    _finishAnchorRestore();
+    final projection = _displayedRows(includeCollapsed: true);
+    final row = projection.rows
+        .where((row) => row.node.postNumber == postNumber)
+        .firstOrNull;
+    final suppressed =
+        row != null &&
+        !_controller.isExpanded(postNumber, depth: row.actualDepth);
     _controller.setCollapsed(postNumber, collapsed);
+    if (!collapsed &&
+        suppressed &&
+        row.actualDepth < widget.settings.maxDepth &&
+        (!_usesMobileLayout ||
+            row.depth - projection.depthOffset < _phoneDepthLimit)) {
+      unawaited(_loadChildren(postNumber, depth: row.actualDepth + 1));
+    }
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final focus = _collapseFocus[postNumber];
@@ -225,23 +246,35 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     });
   }
 
-  List<({int number, int id, double top})> _visible() {
+  List<({int number, int id, double top})> _visible({
+    bool readableOnly = true,
+  }) {
     final viewport = _viewport.currentContext?.findRenderObject();
     if (viewport is! RenderBox || !viewport.attached || !viewport.hasSize) {
       return const [];
     }
     final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
-    final readableIds = _readablePostIds();
+    final readableIds = readableOnly
+        ? _readablePostIds()
+        : {
+            if (_controller.op case final op?)
+              if (!op.data.hiddenDeleted) op.postId,
+            for (final row in _displayedRows().rows) row.node.postId,
+          };
     final visible = <({int number, int id, double top})>[];
     for (final entry in _postKeys.entries) {
-      if (!readableIds.contains(entry.key)) continue;
+      if (!readableIds.contains(entry.key) ||
+          (readableOnly &&
+              (_controller.post(entry.key)?.data.redacted ?? false))) {
+        continue;
+      }
       final box = entry.value.currentContext?.findRenderObject();
       final post = reader.post(entry.key);
       if (box is! RenderBox ||
           !box.attached ||
           !box.hasSize ||
           post == null ||
-          post.contentRedacted) {
+          (readableOnly && post.contentRedacted)) {
         continue;
       }
       final rect = box.localToGlobal(Offset.zero) & box.size;
@@ -260,7 +293,8 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   }
 
   Set<int> _readablePostIds() => {
-    if (_controller.op case final op?) op.postId,
+    if (_controller.op case final op?)
+      if (!op.data.hiddenDeleted) op.postId,
     for (final row in _displayedRows().rows)
       if (!_controller.isCollapsed(row.node.postNumber)) row.node.postId,
   };
@@ -281,7 +315,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
 
   _RememberedReader? _captureAnchor() {
     if (!_scroll.hasClients) return null;
-    final visible = _visible();
+    final visible = _visible(readableOnly: false);
     return _RememberedReader(
       siteUrl: reader.siteUrl,
       offset: _scroll.offset,
@@ -331,8 +365,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       context: _controller.contextDepth,
       collapse: query['collapse_replies'],
     );
-    _restore = null;
-    _restoring = false;
+    _finishAnchorRestore();
     _timingCandidates.clear();
     await _controller.changeSort(sort, foreground: reader.foreground);
     if (!mounted || !reader.isCurrent) return;
@@ -343,6 +376,10 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   }
 
   void _restoreAnchor() {
+    if (!reader.isCurrent) {
+      _finishAnchorRestore();
+      return;
+    }
     if (!_restoring ||
         _controller.loading ||
         _controller.restoringPages ||
@@ -351,22 +388,60 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     }
     final saved = _restore;
     if (saved != null && saved.anchor != null) {
-      final visible = _visible()
-          .where((post) => post.id == saved.anchor)
-          .firstOrNull;
-      if (visible != null) {
-        final destination =
-            (_scroll.offset + visible.top - (saved.anchorOffset ?? 0)).clamp(
-              0.0,
-              _scroll.position.maxScrollExtent,
-            );
+      final box = _postKeys[saved.anchor]?.currentContext?.findRenderObject();
+      final viewport = _viewport.currentContext?.findRenderObject();
+      if (box is RenderBox &&
+          box.attached &&
+          box.hasSize &&
+          viewport is RenderBox &&
+          viewport.attached &&
+          viewport.hasSize) {
+        final top =
+            box.localToGlobal(Offset.zero).dy -
+            viewport.localToGlobal(Offset.zero).dy;
+        final destination = (_scroll.offset + top - (saved.anchorOffset ?? 0))
+            .clamp(0.0, _scroll.position.maxScrollExtent);
         if ((destination - _scroll.offset).abs() > 1) {
           _scroll.jumpTo(destination);
         }
+        if (_restoringPagingAnchor && _pagingAnchorSettleFrames > 0) {
+          _pagingAnchorSettleFrames--;
+          setState(() {});
+          _scheduleObservation();
+          return;
+        }
+      } else if (_restoringPagingAnchor) {
+        final present =
+            _displayedRows().rows.any(
+              (row) => row.node.postId == saved.anchor,
+            ) ||
+            _controller.op?.postId == saved.anchor;
+        if (present) {
+          setState(
+            () => _pagingAnchorCacheExtent = math.max(
+              math.min(
+                (_pagingAnchorCacheExtent ?? 0) * 2,
+                double.maxFinite / 4,
+              ),
+              _scroll.position.maxScrollExtent +
+                  _scroll.position.viewportDimension,
+            ),
+          );
+          _scheduleObservation();
+          return;
+        }
       }
     }
+    _finishAnchorRestore();
+  }
+
+  void _finishAnchorRestore() {
     _restoring = false;
     _restore = null;
+    _restoringPagingAnchor = false;
+    if (_pagingAnchorCacheExtent != null) {
+      setState(() => _pagingAnchorCacheExtent = null);
+    }
   }
 
   void _navigate({int? target, int? context, bool? collapse}) {
@@ -542,34 +617,118 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     return math.max(1, ((lane.width - 250) / 16).floor());
   }
 
-  ({List<NestedVisibleRow> rows, int depthOffset}) _displayedRows({
+  ({List<NestedVisibleEntry> entries, int depthOffset}) _displayedEntries({
     bool includeCollapsed = false,
   }) {
-    var rows = _controller.visibleRows(includeCollapsed: includeCollapsed);
+    var entries = _controller.visibleEntries(
+      includeCollapsed: includeCollapsed,
+    );
     var baseDepth = 0;
     if (_usesMobileLayout && _controller.contextMode) {
-      final target = rows.indexWhere(
-        (row) => row.node.postNumber == _controller.targetPostNumber,
-      );
-      if (target >= 0) {
-        baseDepth = rows[target].depth;
-        rows = rows.sublist(target);
-      }
+      final target = _controller.targetPostNumber;
+      entries = entries
+          .where(
+            (entry) =>
+                entry.node.postNumber == target ||
+                entry.actualAncestorPostNumbers.contains(target),
+          )
+          .toList(growable: false);
+      final firstRow = entries.whereType<NestedVisibleRow>().firstOrNull;
+      baseDepth = firstRow?.depth ?? entries.firstOrNull?.depth ?? 0;
     }
     return (
-      rows: [
-        for (final row in rows)
-          if (!_usesMobileLayout || row.depth - baseDepth <= _phoneDepthLimit)
-            row,
+      entries: [
+        for (final entry in entries)
+          if (!_usesMobileLayout || entry.depth - baseDepth <= _phoneDepthLimit)
+            entry,
       ],
       depthOffset: baseDepth,
     );
   }
 
+  ({List<NestedVisibleRow> rows, int depthOffset}) _displayedRows({
+    bool includeCollapsed = false,
+  }) {
+    final projection = _displayedEntries(includeCollapsed: includeCollapsed);
+    return (
+      rows: projection.entries.whereType<NestedVisibleRow>().toList(
+        growable: false,
+      ),
+      depthOffset: projection.depthOffset,
+    );
+  }
+
+  void _preparePagingAnchorRestore() {
+    _prepareAnchorRestore();
+    _restoringPagingAnchor = _restore?.anchor != null;
+    // Canonical cooked bodies join layout on the following frame.
+    _pagingAnchorSettleFrames = 2;
+  }
+
+  Future<void> _loadMoreRoots() =>
+      _controller.loadMoreRoots(beforeApply: _preparePagingAnchorRestore);
+
+  Future<void> _loadChildren(int postNumber, {required int depth}) =>
+      _controller.loadChildren(
+        postNumber,
+        depth: depth,
+        beforeApply: _preparePagingAnchorRestore,
+      );
+
+  void _loadViewportDemand() {
+    if (!mounted ||
+        !reader.isCurrent ||
+        !reader.foreground ||
+        _restoring ||
+        _controller.loading ||
+        _controller.restoringPages ||
+        _controller.error != null ||
+        !_scroll.hasClients) {
+      return;
+    }
+    final prefetch = paginationPrefetchDistance(_scroll.position);
+    if (_controller.hasMoreRoots &&
+        !_controller.loadingMoreRoots &&
+        _controller.rootPageError == null &&
+        _scroll.position.extentAfter <= prefetch) {
+      unawaited(_loadMoreRoots());
+    }
+    final viewport = _viewport.currentContext?.findRenderObject();
+    if (viewport is! RenderBox || !viewport.attached || !viewport.hasSize) {
+      return;
+    }
+    final bounds = viewport.localToGlobal(Offset.zero) & viewport.size;
+    final projection = _displayedEntries();
+    for (final boundary
+        in projection.entries.whereType<NestedChildrenBoundary>()) {
+      if (_usesMobileLayout &&
+          boundary.depth - projection.depthOffset >= _phoneDepthLimit) {
+        continue;
+      }
+      final state = _controller.childrenState(
+        boundary.node.postNumber,
+        depth: boundary.childDepth,
+      );
+      if (state.loading || state.error != null) continue;
+      final box = _boundaryKeys[(boundary.node.postNumber, boundary.childDepth)]
+          ?.currentContext
+          ?.findRenderObject();
+      if (box is! RenderBox || !box.attached || !box.hasSize) continue;
+      final rect = box.localToGlobal(Offset.zero) & box.size;
+      if (rect.bottom >= bounds.top && rect.top <= bounds.bottom + prefetch) {
+        unawaited(
+          _loadChildren(boundary.node.postNumber, depth: boundary.childDepth),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final projection = _displayedRows(includeCollapsed: true);
-    final rows = projection.rows;
+    _scheduleObservation();
+    final projection = _displayedEntries(includeCollapsed: true);
+    final entries = projection.entries;
+    final rows = entries.whereType<NestedVisibleRow>().toList(growable: false);
     final logicalRows = rows
         .where(
           (row) => row.ancestorPostNumbers.every(
@@ -583,119 +742,198 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
             logicalRows[index + 1].depth == 0)
           logicalRows[index].node.postId,
     };
-    return PluginTopicHeader(
-      reader: reader,
-      bodyBuilder: (header) => NotificationListener<UserScrollNotification>(
-        onNotification: (notification) {
-          if (notification.direction != ScrollDirection.idle) {
-            _restoring = false;
-            _restore = null;
-          }
-          return false;
-        },
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            ContentReadingLane(
-              builder: (context, lane) => DScrollBar(
-                controller: _scroll,
-                child: CustomScrollView(
-                  key: _viewport,
-                  controller: _scroll,
-                  slivers: [
-                    SliverToBoxAdapter(child: header.spacer),
-                    SliverPadding(
-                      padding: lane.padding,
-                      sliver: SliverMainAxisGroup(
-                        slivers: [
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: _intro(context),
-                            ),
-                          ),
-                          if (_controller.op case final op?)
-                            SliverToBoxAdapter(child: _post(context, op, -1)),
-                          SliverList.builder(
-                            itemCount: rows.length,
-                            findChildIndexCallback: (key) {
-                              if (key is! ValueKey<int>) return null;
-                              final index = rows.indexWhere(
-                                (row) => row.node.postId == key.value,
-                              );
-                              return index < 0 ? null : index;
-                            },
-                            itemBuilder: (context, index) {
-                              final row = rows[index];
-                              final post = _post(
-                                context,
-                                row.node,
-                                row.depth,
-                                displayDepth:
-                                    row.depth - projection.depthOffset,
-                                continuations: row.ancestorContinuations
-                                    .skip(projection.depthOffset)
-                                    .toList(growable: false),
-                                ancestors: row.ancestorPostNumbers
-                                    .skip(projection.depthOffset)
-                                    .toList(growable: false),
-                                endOfThread: threadEnds.contains(
-                                  row.node.postId,
+    final boundaries = _displayedEntries().entries
+        .whereType<NestedChildrenBoundary>()
+        .where(
+          (entry) =>
+              !_usesMobileLayout ||
+              entry.depth - projection.depthOffset < _phoneDepthLimit,
+        )
+        .toList(growable: false);
+    return DScrollChromePagination(
+      hasMore: _controller.hasMoreRoots || boundaries.isNotEmpty,
+      loading:
+          _controller.loadingMoreRoots ||
+          boundaries.any(
+            (entry) => _controller
+                .childrenState(entry.node.postNumber, depth: entry.childDepth)
+                .loading,
+          ),
+      child: PluginTopicHeader(
+        reader: reader,
+        bodyBuilder: (header) => NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            _scheduleObservation();
+            return false;
+          },
+          child: NotificationListener<UserScrollNotification>(
+            onNotification: (notification) {
+              if (notification.direction != ScrollDirection.idle) {
+                _finishAnchorRestore();
+              }
+              return false;
+            },
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                ContentReadingLane(
+                  builder: (context, lane) => DScrollBar(
+                    controller: _scroll,
+                    child: CustomScrollView(
+                      key: _viewport,
+                      controller: _scroll,
+                      scrollCacheExtent: _pagingAnchorCacheExtent == null
+                          ? null
+                          : ScrollCacheExtent.pixels(_pagingAnchorCacheExtent!),
+                      slivers: [
+                        SliverToBoxAdapter(child: header.spacer),
+                        SliverPadding(
+                          padding: lane.padding,
+                          sliver: SliverMainAxisGroup(
+                            slivers: [
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(12),
+                                  child: _intro(context),
                                 ),
-                              );
-                              final presented = DCollapsible(
-                                open: row.ancestorPostNumbers.every(
-                                  (number) => !_controller.isCollapsed(number),
+                              ),
+                              if (_controller.op case final op?)
+                                if (!op.data.hiddenDeleted)
+                                  SliverToBoxAdapter(
+                                    child: _post(context, op, -1),
+                                  ),
+                              SliverList.builder(
+                                itemCount: entries.length,
+                                findChildIndexCallback: (key) {
+                                  final index = entries.indexWhere(
+                                    (entry) =>
+                                        key ==
+                                        (entry is NestedVisibleRow
+                                            ? ValueKey(entry.node.postId)
+                                            : ValueKey((
+                                                'nested-boundary',
+                                                entry.node.postId,
+                                              ))),
+                                  );
+                                  return index < 0 ? null : index;
+                                },
+                                itemBuilder: (context, index) {
+                                  final entry = entries[index];
+                                  if (entry is NestedChildrenBoundary) {
+                                    return KeyedSubtree(
+                                      key: ValueKey((
+                                        'nested-boundary',
+                                        entry.node.postId,
+                                      )),
+                                      child: _childrenBoundary(
+                                        context,
+                                        entry,
+                                        projection.depthOffset,
+                                      ),
+                                    );
+                                  }
+                                  if (entry is NestedThreadContinuation) {
+                                    return KeyedSubtree(
+                                      key: ValueKey((
+                                        'nested-boundary',
+                                        entry.node.postId,
+                                      )),
+                                      child: DCollapsible(
+                                        open: entry.ancestorPostNumbers.every(
+                                          (number) =>
+                                              !_controller.isCollapsed(number),
+                                        ),
+                                        child: DCollapsibleContent(
+                                          duration: DMotion.change,
+                                          child: DButton(
+                                            variant: DButtonVariant.inline,
+                                            size: DButtonSize.chip,
+                                            label: Text(
+                                              appL10n
+                                                  .nestedRepliesContinueThread,
+                                            ),
+                                            onPressed: () => _navigate(
+                                              target: entry.node.postNumber,
+                                              context: 0,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                  final row = entry as NestedVisibleRow;
+                                  final post = _post(
+                                    context,
+                                    row.node,
+                                    row.actualDepth,
+                                    displayDepth:
+                                        row.depth - projection.depthOffset,
+                                    continuations: row.ancestorContinuations
+                                        .skip(projection.depthOffset)
+                                        .toList(growable: false),
+                                    ancestors: row.ancestorPostNumbers
+                                        .skip(projection.depthOffset)
+                                        .toList(growable: false),
+                                    endOfThread: threadEnds.contains(
+                                      row.node.postId,
+                                    ),
+                                  );
+                                  final presented = DCollapsible(
+                                    open: row.ancestorPostNumbers.every(
+                                      (number) =>
+                                          !_controller.isCollapsed(number),
+                                    ),
+                                    child: DCollapsibleContent(
+                                      duration: DMotion.change,
+                                      child: post,
+                                    ),
+                                  );
+                                  return KeyedSubtree(
+                                    key: ValueKey(row.node.postId),
+                                    child:
+                                        _usesMobileLayout &&
+                                            row != rows.first &&
+                                            row.depth == 0
+                                        ? Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.stretch,
+                                            children: [
+                                              const DSeparator(thickness: 6),
+                                              presented,
+                                            ],
+                                          )
+                                        : presented,
+                                  );
+                                },
+                              ),
+                              SliverToBoxAdapter(
+                                child: Padding(
+                                  padding: const EdgeInsets.all(16),
+                                  child: _footer(context),
                                 ),
-                                child: DCollapsibleContent(
-                                  duration: DMotion.change,
-                                  child: post,
-                                ),
-                              );
-                              return KeyedSubtree(
-                                key: ValueKey(row.node.postId),
-                                child:
-                                    _usesMobileLayout &&
-                                        index > 0 &&
-                                        row.depth == 0
-                                    ? Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.stretch,
-                                        children: [
-                                          const DSeparator(thickness: 6),
-                                          presented,
-                                        ],
-                                      )
-                                    : presented,
-                              );
-                            },
+                              ),
+                            ],
                           ),
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: _footer(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    SliverPadding(
-                      padding: EdgeInsets.only(
-                        bottom: TopicCornerControls.bottomClearanceOf(
-                          context,
-                          TopicCornerControls.heightOf(context),
                         ),
-                      ),
+                        SliverPadding(
+                          padding: EdgeInsets.only(
+                            bottom: TopicCornerControls.bottomClearanceOf(
+                              context,
+                              TopicCornerControls.heightOf(context),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                TopicCornerControls(
+                  height: TopicCornerControls.heightOf(context),
+                  child: DReferenceTextScale(child: _sortControl(context)),
+                ),
+              ],
             ),
-            TopicCornerControls(
-              height: TopicCornerControls.heightOf(context),
-              child: DReferenceTextScale(child: _sortControl(context)),
-            ),
-          ],
+          ),
         ),
       ),
     );

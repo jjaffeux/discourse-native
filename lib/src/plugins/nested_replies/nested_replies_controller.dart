@@ -54,20 +54,57 @@ final class NestedChildrenState {
   bool get fetchedFromServer => page != null;
 }
 
-final class NestedVisibleRow {
-  const NestedVisibleRow({
+sealed class NestedVisibleEntry {
+  const NestedVisibleEntry({
     required this.node,
     required this.depth,
-    this.displayParentPostNumber,
-    this.ancestorContinuations = const [],
-    this.ancestorPostNumbers = const [],
+    required this.actualDepth,
+    required this.ancestorPostNumbers,
+    required this.actualAncestorPostNumbers,
   });
 
   final NestedReplyNode node;
   final int depth;
+  final int actualDepth;
+  final List<int> ancestorPostNumbers;
+  final List<int> actualAncestorPostNumbers;
+}
+
+final class NestedVisibleRow extends NestedVisibleEntry {
+  const NestedVisibleRow({
+    required super.node,
+    required super.depth,
+    required super.actualDepth,
+    this.displayParentPostNumber,
+    this.ancestorContinuations = const [],
+    super.ancestorPostNumbers = const [],
+    super.actualAncestorPostNumbers = const [],
+  });
+
   final int? displayParentPostNumber;
   final List<bool> ancestorContinuations;
-  final List<int> ancestorPostNumbers;
+}
+
+final class NestedChildrenBoundary extends NestedVisibleEntry {
+  const NestedChildrenBoundary({
+    required super.node,
+    required super.depth,
+    required super.actualDepth,
+    required super.ancestorPostNumbers,
+    required super.actualAncestorPostNumbers,
+  });
+
+  int get childDepth => actualDepth + 1;
+}
+
+final class NestedThreadContinuation extends NestedVisibleEntry {
+  const NestedThreadContinuation({
+    required super.node,
+    required super.depth,
+    required super.actualDepth,
+    required super.ancestorPostNumbers,
+    required super.actualAncestorPostNumbers,
+  });
 }
 
 final class NestedRepliesSnapshot {
@@ -213,9 +250,7 @@ final class NestedRepliesController extends ChangeNotifier {
       final targetDepth = _ancestorIds.length;
       return depth <= targetDepth;
     }
-    final node = this.postNumber(postNumber);
-    return childrenFor(postNumber).isNotEmpty ||
-        (node != null && node.data.placeholder != NestedPostPlaceholder.none);
+    return true;
   }
 
   Future<void> open({
@@ -343,7 +378,7 @@ final class NestedRepliesController extends ChangeNotifier {
         foreground: foreground,
       );
 
-  Future<void> loadMoreRoots() async {
+  Future<void> loadMoreRoots({VoidCallback? beforeApply}) async {
     if (!isCurrent ||
         loading ||
         restoringPages ||
@@ -363,6 +398,11 @@ final class NestedRepliesController extends ChangeNotifier {
       ).roots(sort: effectiveSort, page: pageNumber, trackVisit: false);
       if (!_accepts(generation) || receipt == null) return;
       final page = receipt.value;
+      if (page.page != pageNumber) {
+        throw const FormatException('Pagination did not advance');
+      }
+      beforeApply?.call();
+      if (!_accepts(generation)) return;
       _install(
         page.posts.map((value) => value.post.id).toSet(),
         page.roots,
@@ -385,7 +425,11 @@ final class NestedRepliesController extends ChangeNotifier {
     }
   }
 
-  Future<void> loadChildren(int parentPostNumber, {required int depth}) async {
+  Future<void> loadChildren(
+    int parentPostNumber, {
+    required int depth,
+    VoidCallback? beforeApply,
+  }) async {
     if (!isCurrent ||
         loading ||
         restoringPages ||
@@ -412,6 +456,11 @@ final class NestedRepliesController extends ChangeNotifier {
       );
       if (!_accepts(generation) || receipt == null) return;
       final page = receipt.value;
+      if (page.page != pageNumber) {
+        throw const FormatException('Pagination did not advance');
+      }
+      beforeApply?.call();
+      if (!_accepts(generation)) return;
       _install(
         page.posts.map((value) => value.post.id).toSet(),
         page.children,
@@ -456,6 +505,7 @@ final class NestedRepliesController extends ChangeNotifier {
       _collapsed.add(postNumber);
     } else {
       _collapsed.remove(postNumber);
+      _expanded.add(postNumber);
     }
     notifyListeners();
   }
@@ -498,47 +548,121 @@ final class NestedRepliesController extends ChangeNotifier {
     notifyListeners();
   }
 
-  List<NestedVisibleRow> visibleRows({bool includeCollapsed = false}) {
-    final rows = <NestedVisibleRow>[];
+  List<NestedVisibleRow> visibleRows({bool includeCollapsed = false}) =>
+      List.unmodifiable(
+        visibleEntries(
+          includeCollapsed: includeCollapsed,
+        ).whereType<NestedVisibleRow>(),
+      );
+
+  List<NestedVisibleEntry> visibleEntries({bool includeCollapsed = false}) {
+    final entries = <NestedVisibleEntry>[];
     final activePath = <int>{};
-    void visit(
-      int id,
+
+    int visibleHeads(int id, Set<int> path) {
+      final node = _nodes[id];
+      if (node == null || !path.add(id)) return 0;
+      if (!node.data.hiddenDeleted) return 1;
+      return (_children[node.postNumber] ?? const <int>[]).fold(
+        0,
+        (total, child) => total + visibleHeads(child, Set.of(path)),
+      );
+    }
+
+    void visitSiblings(
+      List<int> ids,
       int depth,
+      int actualDepth,
       int? displayParent,
       List<bool> continuations,
       List<int> ancestors,
-    ) {
-      final node = _nodes[id];
-      if (node == null || !activePath.add(id)) return;
-      rows.add(
-        NestedVisibleRow(
-          node: node,
-          depth: depth,
-          displayParentPostNumber: displayParent,
-          ancestorContinuations: continuations,
-          ancestorPostNumbers: ancestors,
-        ),
-      );
-      if ((includeCollapsed || !isCollapsed(node.postNumber)) &&
-          isExpanded(node.postNumber, depth: depth)) {
-        final children = _children[node.postNumber] ?? const <int>[];
-        for (var index = 0; index < children.length; index++) {
-          visit(
-            children[index],
-            depth + 1,
-            node.postNumber,
-            List.unmodifiable([...continuations, index < children.length - 1]),
-            List.unmodifiable([...ancestors, node.postNumber]),
+      List<int> actualAncestors, {
+      bool following = false,
+    }) {
+      final heads = [for (final id in ids) visibleHeads(id, {})];
+      var remaining = heads.fold(0, (total, count) => total + count);
+      for (var index = 0; index < ids.length; index++) {
+        final id = ids[index];
+        final node = _nodes[id];
+        remaining -= heads[index];
+        if (node == null || !activePath.add(id)) continue;
+        final hidden = node.data.hiddenDeleted;
+        final hasFollowing = following || remaining > 0;
+        final rowContinuations = depth == 0 || hidden
+            ? continuations
+            : List<bool>.unmodifiable([...continuations, hasFollowing]);
+        if (!hidden) {
+          entries.add(
+            NestedVisibleRow(
+              node: node,
+              depth: depth,
+              actualDepth: actualDepth,
+              displayParentPostNumber: displayParent,
+              ancestorContinuations: rowContinuations,
+              ancestorPostNumbers: ancestors,
+              actualAncestorPostNumbers: actualAncestors,
+            ),
           );
         }
+        final expanded =
+            hidden || isExpanded(node.postNumber, depth: actualDepth);
+        final open = hidden || !isCollapsed(node.postNumber);
+        if (expanded && (includeCollapsed || open)) {
+          visitSiblings(
+            _children[node.postNumber] ?? const <int>[],
+            hidden ? depth : depth + 1,
+            actualDepth + 1,
+            hidden ? displayParent : node.postNumber,
+            hidden ? continuations : rowContinuations,
+            hidden
+                ? ancestors
+                : List.unmodifiable([...ancestors, node.postNumber]),
+            List.unmodifiable([...actualAncestors, node.postNumber]),
+            following: hidden && hasFollowing,
+          );
+        }
+        final childDepth = actualDepth + 1;
+        final state = childrenState(node.postNumber, depth: childDepth);
+        final children = _children[node.postNumber] ?? const <int>[];
+        final total = settings.capDepth && childDepth >= settings.maxDepth
+            ? node.data.totalDescendantCount
+            : node.data.directReplyCount;
+        final hasMore = state.fetchedFromServer
+            ? state.hasMore
+            : total > children.length;
+        if (expanded && open && actualDepth < settings.maxDepth && hasMore) {
+          entries.add(
+            NestedChildrenBoundary(
+              node: node,
+              depth: hidden ? depth - 1 : depth,
+              actualDepth: actualDepth,
+              ancestorPostNumbers: ancestors,
+              actualAncestorPostNumbers: actualAncestors,
+            ),
+          );
+        }
+        if (hidden &&
+            expanded &&
+            open &&
+            hasMore &&
+            actualDepth >= settings.maxDepth &&
+            !settings.capDepth) {
+          entries.add(
+            NestedThreadContinuation(
+              node: node,
+              depth: depth,
+              actualDepth: actualDepth,
+              ancestorPostNumbers: ancestors,
+              actualAncestorPostNumbers: actualAncestors,
+            ),
+          );
+        }
+        activePath.remove(id);
       }
-      activePath.remove(id);
     }
 
-    for (final id in _rootIds) {
-      visit(id, 0, null, const [], const []);
-    }
-    return List.unmodifiable(rows);
+    visitSiblings(_rootIds, 0, 0, null, const [], const [], const []);
+    return List.unmodifiable(entries);
   }
 
   void _install(
