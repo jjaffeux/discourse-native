@@ -23618,6 +23618,702 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scale math'**
   String get mathScale;
+
+  /// Gamification: Leaderboard
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboard'**
+  String get gamificationTitle;
+
+  /// Gamification: Cheers
+  ///
+  /// In en, this message translates to:
+  /// **'Cheers'**
+  String get gamificationCheers;
+
+  /// Gamification: Manage leaderboards
+  ///
+  /// In en, this message translates to:
+  /// **'Manage leaderboards'**
+  String get gamificationManage;
+
+  /// Gamification: Refresh
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh'**
+  String get gamificationRefresh;
+
+  /// Gamification: Load more
+  ///
+  /// In en, this message translates to:
+  /// **'Load more'**
+  String get gamificationMore;
+
+  /// Gamification: Rank
+  ///
+  /// In en, this message translates to:
+  /// **'Rank'**
+  String get gamificationRank;
+
+  /// Gamification: Member
+  ///
+  /// In en, this message translates to:
+  /// **'Member'**
+  String get gamificationMember;
+
+  /// Gamification: About Cheers
+  ///
+  /// In en, this message translates to:
+  /// **'About Cheers'**
+  String get gamificationHelp;
+
+  /// Gamification: Cheers recognize community participation. Scores and ranks are calculated by the forum and may take time to update. Periods are rolling windows; contest dates still apply to All time.
+  ///
+  /// In en, this message translates to:
+  /// **'Cheers recognize community participation. Scores and ranks are calculated by the forum and may take time to update. Periods are rolling windows; contest dates still apply to All time.'**
+  String get gamificationHelpText;
+
+  /// Gamification: All time
+  ///
+  /// In en, this message translates to:
+  /// **'All time'**
+  String get gamificationAllTime;
+
+  /// Gamification: Last year
+  ///
+  /// In en, this message translates to:
+  /// **'Last year'**
+  String get gamificationYearly;
+
+  /// Gamification: Last quarter
+  ///
+  /// In en, this message translates to:
+  /// **'Last quarter'**
+  String get gamificationQuarterly;
+
+  /// Gamification: Last month
+  ///
+  /// In en, this message translates to:
+  /// **'Last month'**
+  String get gamificationMonthly;
+
+  /// Gamification: Last week
+  ///
+  /// In en, this message translates to:
+  /// **'Last week'**
+  String get gamificationWeekly;
+
+  /// Gamification: Today
+  ///
+  /// In en, this message translates to:
+  /// **'Today'**
+  String get gamificationDaily;
+
+  /// Gamification: Leaderboards are unavailable on this forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboards are unavailable on this forum.'**
+  String get gamificationUnavailable;
+
+  /// Gamification: This leaderboard is restricted or no longer available.
+  ///
+  /// In en, this message translates to:
+  /// **'This leaderboard is restricted or no longer available.'**
+  String get gamificationRestricted;
+
+  /// Gamification: Could not load the leaderboard. Refresh to try again.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load the leaderboard. Refresh to try again.'**
+  String get gamificationFailed;
+
+  /// Gamification: This forum returned an unsupported leaderboard response.
+  ///
+  /// In en, this message translates to:
+  /// **'This forum returned an unsupported leaderboard response.'**
+  String get gamificationUnsupported;
+
+  /// Gamification: No ranked members for this period.
+  ///
+  /// In en, this message translates to:
+  /// **'No ranked members for this period.'**
+  String get gamificationEmpty;
+
+  /// Gamification: You are not ranked for this period.
+  ///
+  /// In en, this message translates to:
+  /// **'You are not ranked for this period.'**
+  String get gamificationUnranked;
+
+  /// Gamification: Your position
+  ///
+  /// In en, this message translates to:
+  /// **'Your position'**
+  String get gamificationYourPosition;
+
+  /// Gamification: These results could be out of date. Refresh to try again.
+  ///
+  /// In en, this message translates to:
+  /// **'These results could be out of date. Refresh to try again.'**
+  String get gamificationStale;
+
+  /// Gamification: Gamification administration
+  ///
+  /// In en, this message translates to:
+  /// **'Gamification administration'**
+  String get gamificationAdminTitle;
+
+  /// Gamification: Only administrators can manage gamification.
+  ///
+  /// In en, this message translates to:
+  /// **'Only administrators can manage gamification.'**
+  String get gamificationAdminOnly;
+
+  /// Gamification: Leaderboards
+  ///
+  /// In en, this message translates to:
+  /// **'Leaderboards'**
+  String get gamificationBoards;
+
+  /// Gamification: Scoring settings
+  ///
+  /// In en, this message translates to:
+  /// **'Scoring settings'**
+  String get gamificationSettings;
+
+  /// Gamification: Score events
+  ///
+  /// In en, this message translates to:
+  /// **'Score events'**
+  String get gamificationEvents;
+
+  /// Gamification: Recalculate scores
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculate scores'**
+  String get gamificationRecalculate;
+
+  /// Gamification: New leaderboard
+  ///
+  /// In en, this message translates to:
+  /// **'New leaderboard'**
+  String get gamificationNewBoard;
+
+  /// Gamification: Edit
+  ///
+  /// In en, this message translates to:
+  /// **'Edit'**
+  String get gamificationEdit;
+
+  /// Gamification: Delete
+  ///
+  /// In en, this message translates to:
+  /// **'Delete'**
+  String get gamificationDelete;
+
+  /// Gamification: Save
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get gamificationSave;
+
+  /// Gamification: Cancel
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get gamificationCancel;
+
+  /// Gamification: Name
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get gamificationName;
+
+  /// Gamification: From date
+  ///
+  /// In en, this message translates to:
+  /// **'From date'**
+  String get gamificationFromDate;
+
+  /// Gamification: To date
+  ///
+  /// In en, this message translates to:
+  /// **'To date'**
+  String get gamificationToDate;
+
+  /// Gamification: Default period
+  ///
+  /// In en, this message translates to:
+  /// **'Default period'**
+  String get gamificationDefaultPeriod;
+
+  /// Gamification: Disable period filter
+  ///
+  /// In en, this message translates to:
+  /// **'Disable period filter'**
+  String get gamificationDisablePeriod;
+
+  /// Gamification: Visible to groups
+  ///
+  /// In en, this message translates to:
+  /// **'Visible to groups'**
+  String get gamificationVisibleGroups;
+
+  /// Gamification: Included groups
+  ///
+  /// In en, this message translates to:
+  /// **'Included groups'**
+  String get gamificationIncludedGroups;
+
+  /// Gamification: Excluded groups
+  ///
+  /// In en, this message translates to:
+  /// **'Excluded groups'**
+  String get gamificationExcludedGroups;
+
+  /// Gamification: Scorable categories
+  ///
+  /// In en, this message translates to:
+  /// **'Scorable categories'**
+  String get gamificationCategories;
+
+  /// Gamification: Score overrides
+  ///
+  /// In en, this message translates to:
+  /// **'Score overrides'**
+  String get gamificationOverrides;
+
+  /// Gamification: Blank values inherit global weights; zero disables a source. Excluded groups take precedence.
+  ///
+  /// In en, this message translates to:
+  /// **'Blank values inherit global weights; zero disables a source. Excluded groups take precedence.'**
+  String get gamificationInherit;
+
+  /// Gamification: Check the name, dates and numeric values. Weights must be non-negative integers.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the name, dates and numeric values. Weights must be non-negative integers.'**
+  String get gamificationInvalid;
+
+  /// Gamification: Saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved.'**
+  String get gamificationSaved;
+
+  /// Gamification: The leaderboard was created. Save again to finish its configuration.
+  ///
+  /// In en, this message translates to:
+  /// **'The leaderboard was created. Save again to finish its configuration.'**
+  String get gamificationPartialCreate;
+
+  /// Gamification: The request may have been applied. Read back and review the records before submitting another change.
+  ///
+  /// In en, this message translates to:
+  /// **'The request may have been applied. Read back and review the records before submitting another change.'**
+  String get gamificationUnknownWrite;
+
+  /// Gamification: Read back and review
+  ///
+  /// In en, this message translates to:
+  /// **'Read back and review'**
+  String get gamificationReadBack;
+
+  /// Gamification: Delete this leaderboard? This removes its configuration and scores.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this leaderboard? This removes its configuration and scores.'**
+  String get gamificationDeleteConfirm;
+
+  /// Gamification: Enable gamification
+  ///
+  /// In en, this message translates to:
+  /// **'Enable gamification'**
+  String get gamificationEnabled;
+
+  /// Gamification: Ranking strategy
+  ///
+  /// In en, this message translates to:
+  /// **'Ranking strategy'**
+  String get gamificationRanking;
+
+  /// Gamification: Dense rank (1, 1, 2)
+  ///
+  /// In en, this message translates to:
+  /// **'Dense rank (1, 1, 2)'**
+  String get gamificationDenseRank;
+
+  /// Gamification: Competition rank (1, 1, 3)
+  ///
+  /// In en, this message translates to:
+  /// **'Competition rank (1, 1, 3)'**
+  String get gamificationRankStrategy;
+
+  /// Gamification: Sequential positions (1, 2, 3)
+  ///
+  /// In en, this message translates to:
+  /// **'Sequential positions (1, 2, 3)'**
+  String get gamificationRowNumber;
+
+  /// Gamification: Select categories. Empty means all categories.
+  ///
+  /// In en, this message translates to:
+  /// **'Select categories. Empty means all categories.'**
+  String get gamificationCategoryHint;
+
+  /// Gamification: Event ID
+  ///
+  /// In en, this message translates to:
+  /// **'Event ID'**
+  String get gamificationEventId;
+
+  /// Gamification: User ID
+  ///
+  /// In en, this message translates to:
+  /// **'User ID'**
+  String get gamificationUserId;
+
+  /// Gamification: Points
+  ///
+  /// In en, this message translates to:
+  /// **'Points'**
+  String get gamificationPoints;
+
+  /// Gamification: Description
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get gamificationDescription;
+
+  /// Gamification: Category
+  ///
+  /// In en, this message translates to:
+  /// **'Category'**
+  String get gamificationCategory;
+
+  /// Gamification: Filter events
+  ///
+  /// In en, this message translates to:
+  /// **'Filter events'**
+  String get gamificationFilter;
+
+  /// Gamification: New score event
+  ///
+  /// In en, this message translates to:
+  /// **'New score event'**
+  String get gamificationNewEvent;
+
+  /// Gamification: Up to 100 matching events are returned. There is no guaranteed order or further page.
+  ///
+  /// In en, this message translates to:
+  /// **'Up to 100 matching events are returned. There is no guaranteed order or further page.'**
+  String get gamificationEventLimit;
+
+  /// Gamification: Saved; scores update after recalculation.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved; scores update after recalculation.'**
+  String get gamificationEventSaved;
+
+  /// Gamification: An existing event keeps its original user and date.
+  ///
+  /// In en, this message translates to:
+  /// **'An existing event keeps its original user and date.'**
+  String get gamificationEventImmutable;
+
+  /// Gamification: Recalculate from
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculate from'**
+  String get gamificationPreset;
+
+  /// Gamification: Last 10 days
+  ///
+  /// In en, this message translates to:
+  /// **'Last 10 days'**
+  String get gamificationTenDays;
+
+  /// Gamification: Last 30 days
+  ///
+  /// In en, this message translates to:
+  /// **'Last 30 days'**
+  String get gamificationThirtyDays;
+
+  /// Gamification: Last 90 days
+  ///
+  /// In en, this message translates to:
+  /// **'Last 90 days'**
+  String get gamificationNinetyDays;
+
+  /// Gamification: Custom date
+  ///
+  /// In en, this message translates to:
+  /// **'Custom date'**
+  String get gamificationCustom;
+
+  /// Gamification: Recalculation runs in the background. The forum allows five requests in 24 hours. A completion notice cannot identify a unique request when several jobs overlap.
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculation runs in the background. The forum allows five requests in 24 hours. A completion notice cannot identify a unique request when several jobs overlap.'**
+  String get gamificationRecalculateHelp;
+
+  /// Gamification: Queued. Waiting for a completion notice for your account.
+  ///
+  /// In en, this message translates to:
+  /// **'Queued. Waiting for a completion notice for your account.'**
+  String get gamificationQueued;
+
+  /// Gamification: A recalculation completion was observed for your account. Results are refreshing.
+  ///
+  /// In en, this message translates to:
+  /// **'A recalculation completion was observed for your account. Results are refreshing.'**
+  String get gamificationObserved;
+
+  /// Gamification: Completion could not be confirmed. Refresh to inspect results and remaining allowance.
+  ///
+  /// In en, this message translates to:
+  /// **'Completion could not be confirmed. Refresh to inspect results and remaining allowance.'**
+  String get gamificationCompletionUnknown;
+
+  /// Gamification: Choose a date on or before today (UTC).
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a date on or before today (UTC).'**
+  String get gamificationInvalidDate;
+
+  /// Gamification: Choose a from-date to recalculate scores.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a from-date to recalculate scores.'**
+  String get gamificationRecalcIdle;
+
+  /// Gamification: Recalculation could not be queued.
+  ///
+  /// In en, this message translates to:
+  /// **'Recalculation could not be queued.'**
+  String get gamificationRecalcFailed;
+
+  /// Gamification: No leaderboards yet. Create a leaderboard to make a default available.
+  ///
+  /// In en, this message translates to:
+  /// **'No leaderboards yet. Create a leaderboard to make a default available.'**
+  String get gamificationNoBoards;
+
+  /// Gamification: Gamification is disabled. Scoring settings remain available to enable it.
+  ///
+  /// In en, this message translates to:
+  /// **'Gamification is disabled. Scoring settings remain available to enable it.'**
+  String get gamificationDisabledAdmin;
+
+  /// Gamification: Likes given
+  ///
+  /// In en, this message translates to:
+  /// **'Likes given'**
+  String get gamificationLikeGiven;
+
+  /// Gamification: Likes received
+  ///
+  /// In en, this message translates to:
+  /// **'Likes received'**
+  String get gamificationLikeReceived;
+
+  /// Gamification: Solutions
+  ///
+  /// In en, this message translates to:
+  /// **'Solutions'**
+  String get gamificationSolution;
+
+  /// Gamification: Users invited
+  ///
+  /// In en, this message translates to:
+  /// **'Users invited'**
+  String get gamificationUserInvited;
+
+  /// Gamification: Time reading
+  ///
+  /// In en, this message translates to:
+  /// **'Time reading'**
+  String get gamificationTimeRead;
+
+  /// Gamification: Posts read
+  ///
+  /// In en, this message translates to:
+  /// **'Posts read'**
+  String get gamificationPostRead;
+
+  /// Gamification: Topics created
+  ///
+  /// In en, this message translates to:
+  /// **'Topics created'**
+  String get gamificationTopicCreated;
+
+  /// Gamification: Posts created
+  ///
+  /// In en, this message translates to:
+  /// **'Posts created'**
+  String get gamificationPostCreated;
+
+  /// Gamification: Flags created
+  ///
+  /// In en, this message translates to:
+  /// **'Flags created'**
+  String get gamificationFlagCreated;
+
+  /// Gamification: Days visited
+  ///
+  /// In en, this message translates to:
+  /// **'Days visited'**
+  String get gamificationDayVisited;
+
+  /// Gamification: Reactions received
+  ///
+  /// In en, this message translates to:
+  /// **'Reactions received'**
+  String get gamificationReactionReceived;
+
+  /// Gamification: Reactions given
+  ///
+  /// In en, this message translates to:
+  /// **'Reactions given'**
+  String get gamificationReactionGiven;
+
+  /// Gamification: Chat reactions received
+  ///
+  /// In en, this message translates to:
+  /// **'Chat reactions received'**
+  String get gamificationChatReactionReceived;
+
+  /// Gamification: Chat reactions given
+  ///
+  /// In en, this message translates to:
+  /// **'Chat reactions given'**
+  String get gamificationChatReactionGiven;
+
+  /// Gamification: Chat messages created
+  ///
+  /// In en, this message translates to:
+  /// **'Chat messages created'**
+  String get gamificationChatMessageCreated;
+
+  /// Gamification: Contest from
+  ///
+  /// In en, this message translates to:
+  /// **'Contest from'**
+  String get gamificationStarted;
+
+  /// Gamification: Contest through
+  ///
+  /// In en, this message translates to:
+  /// **'Contest through'**
+  String get gamificationEnded;
+
+  /// Gamification: Visibility and ranking groups are independent. Empty visibility permits all members who can access the forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Visibility and ranking groups are independent. Empty visibility permits all members who can access the forum.'**
+  String get gamificationScopeHelp;
+
+  /// Gamification: These are forum-wide scoring weights. Saving settings does not mean historical scores have finished recalculating.
+  ///
+  /// In en, this message translates to:
+  /// **'These are forum-wide scoring weights. Saving settings does not mean historical scores have finished recalculating.'**
+  String get gamificationSettingsHelp;
+
+  /// Gamification: Enter integer user ID, points and optional category ID.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter integer user ID, points and optional category ID.'**
+  String get gamificationEventValidation;
+
+  /// Gamification: Queue score recalculation from this date? This consumes one of the forum’s daily requests.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue score recalculation from this date? This consumes one of the forum’s daily requests.'**
+  String get gamificationRecalculateConfirm;
+
+  /// Remaining forum-wide recalculation allowance
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =0{No recalculations remaining} =1{1 recalculation remaining} other{{count} recalculations remaining}}'**
+  String gamificationRemaining(int count);
+
+  /// Invalid administrator scoring weights
+  ///
+  /// In en, this message translates to:
+  /// **'Enter an integer for each scoring weight.'**
+  String get gamificationSettingsInvalid;
+
+  /// Accessible leaderboard member rank and score
+  ///
+  /// In en, this message translates to:
+  /// **'{name}, rank {rank}, {score} Cheers'**
+  String gamificationMemberRank(String name, String rank, String score);
+
+  /// Scoring category scope explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Category-scoped boards exclude visits, reading, invitations, flags and chat activity.'**
+  String get gamificationCategoryScopeHelp;
+
+  /// Gamification: Creator
+  ///
+  /// In en, this message translates to:
+  /// **'Creator'**
+  String get gamificationCreator;
+
+  /// Gamification: View leaderboard
+  ///
+  /// In en, this message translates to:
+  /// **'View leaderboard'**
+  String get gamificationView;
+
+  /// Gamification: No matching score events.
+  ///
+  /// In en, this message translates to:
+  /// **'No matching score events.'**
+  String get gamificationNoEvents;
+
+  /// Clear the optional score event category
+  ///
+  /// In en, this message translates to:
+  /// **'Clear category'**
+  String get gamificationClearCategory;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per complete hour of reading.'**
+  String get gamificationReadHourHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per complete group of 100 posts read.'**
+  String get gamificationReadPostsHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'Points per accepted flag.'**
+  String get gamificationAcceptedFlagsHelp;
+
+  /// Gamification scoring rule explanation
+  ///
+  /// In en, this message translates to:
+  /// **'The global category filter applies to activity that has a category. Other sources keep their normal scoring.'**
+  String get gamificationGlobalCategoryHelp;
+
+  /// Exact score event date
+  ///
+  /// In en, this message translates to:
+  /// **'Date'**
+  String get gamificationDate;
+
+  /// Generic plugin request failure without developer diagnostics
+  ///
+  /// In en, this message translates to:
+  /// **'Could not complete the request. Refresh to try again.'**
+  String get gamificationRequestFailed;
 }
 
 class _AppLocalizationsDelegate

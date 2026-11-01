@@ -8,9 +8,10 @@ import 'discourse_ai/discourse_ai_module.dart';
 import 'discourse_events/discourse_events_module.dart';
 import 'discourse_github/discourse_github_module.dart';
 import 'discourse_lazy_videos/discourse_lazy_videos_module.dart';
-import 'discourse_mermaid/discourse_mermaid_module.dart';
 import 'discourse_math/discourse_math_module.dart';
+import 'discourse_mermaid/discourse_mermaid_module.dart';
 import 'discourse_placeholder/discourse_placeholder_module.dart';
+import 'gamification/gamification_module.dart';
 import 'gifs/gifs_module.dart';
 import 'local_dates/local_dates_module.dart';
 import 'nested_replies/nested_replies_module.dart';
@@ -40,6 +41,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   dataExplorerModule,
   assignModule,
   boardsModule,
+  gamificationModule,
   nestedRepliesModule,
   chatModule,
   voiceModule,

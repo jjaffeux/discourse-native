@@ -39,6 +39,8 @@ void main() {
       'discourse-data-explorer',
       'discourse-assign',
       'boards',
+      'discourse-gamification',
+      'nested-replies',
       'chat',
       'voice',
     ]);
@@ -95,17 +97,20 @@ void main() {
     expect(core.registry.plugins, isEmpty);
   });
 
-  test('host-focused widget manifest omits native media sessions', () async {
-    final installed = PluginInstaller.install(bundledWidgetTestManifest);
-    addTearDown(installed.close);
+  test(
+    'host-focused widget manifest omits native media and threaded readers',
+    () async {
+      final installed = PluginInstaller.install(bundledWidgetTestManifest);
+      addTearDown(installed.close);
 
-    expect(
-      installed.descriptors.map((descriptor) => descriptor.id.value),
-      bundledPluginManifest.modules
-          .map((module) => module.descriptor.id.value)
-          .where((id) => id != 'voice'),
-    );
-  });
+      expect(
+        installed.descriptors.map((descriptor) => descriptor.id.value),
+        bundledPluginManifest.modules
+            .map((module) => module.descriptor.id.value)
+            .where((id) => id != 'voice' && id != 'nested-replies'),
+      );
+    },
+  );
 
   test('bundled production sessions resolve the dependency chain', () {
     final installed = PluginInstaller.install(bundledPluginManifest);

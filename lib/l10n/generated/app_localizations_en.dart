@@ -14955,4 +14955,396 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mathScale => 'Scale math';
+
+  @override
+  String get gamificationTitle => 'Leaderboard';
+
+  @override
+  String get gamificationCheers => 'Cheers';
+
+  @override
+  String get gamificationManage => 'Manage leaderboards';
+
+  @override
+  String get gamificationRefresh => 'Refresh';
+
+  @override
+  String get gamificationMore => 'Load more';
+
+  @override
+  String get gamificationRank => 'Rank';
+
+  @override
+  String get gamificationMember => 'Member';
+
+  @override
+  String get gamificationHelp => 'About Cheers';
+
+  @override
+  String get gamificationHelpText =>
+      'Cheers recognize community participation. Scores and ranks are calculated by the forum and may take time to update. Periods are rolling windows; contest dates still apply to All time.';
+
+  @override
+  String get gamificationAllTime => 'All time';
+
+  @override
+  String get gamificationYearly => 'Last year';
+
+  @override
+  String get gamificationQuarterly => 'Last quarter';
+
+  @override
+  String get gamificationMonthly => 'Last month';
+
+  @override
+  String get gamificationWeekly => 'Last week';
+
+  @override
+  String get gamificationDaily => 'Today';
+
+  @override
+  String get gamificationUnavailable =>
+      'Leaderboards are unavailable on this forum.';
+
+  @override
+  String get gamificationRestricted =>
+      'This leaderboard is restricted or no longer available.';
+
+  @override
+  String get gamificationFailed =>
+      'Could not load the leaderboard. Refresh to try again.';
+
+  @override
+  String get gamificationUnsupported =>
+      'This forum returned an unsupported leaderboard response.';
+
+  @override
+  String get gamificationEmpty => 'No ranked members for this period.';
+
+  @override
+  String get gamificationUnranked => 'You are not ranked for this period.';
+
+  @override
+  String get gamificationYourPosition => 'Your position';
+
+  @override
+  String get gamificationStale =>
+      'These results could be out of date. Refresh to try again.';
+
+  @override
+  String get gamificationAdminTitle => 'Gamification administration';
+
+  @override
+  String get gamificationAdminOnly =>
+      'Only administrators can manage gamification.';
+
+  @override
+  String get gamificationBoards => 'Leaderboards';
+
+  @override
+  String get gamificationSettings => 'Scoring settings';
+
+  @override
+  String get gamificationEvents => 'Score events';
+
+  @override
+  String get gamificationRecalculate => 'Recalculate scores';
+
+  @override
+  String get gamificationNewBoard => 'New leaderboard';
+
+  @override
+  String get gamificationEdit => 'Edit';
+
+  @override
+  String get gamificationDelete => 'Delete';
+
+  @override
+  String get gamificationSave => 'Save';
+
+  @override
+  String get gamificationCancel => 'Cancel';
+
+  @override
+  String get gamificationName => 'Name';
+
+  @override
+  String get gamificationFromDate => 'From date';
+
+  @override
+  String get gamificationToDate => 'To date';
+
+  @override
+  String get gamificationDefaultPeriod => 'Default period';
+
+  @override
+  String get gamificationDisablePeriod => 'Disable period filter';
+
+  @override
+  String get gamificationVisibleGroups => 'Visible to groups';
+
+  @override
+  String get gamificationIncludedGroups => 'Included groups';
+
+  @override
+  String get gamificationExcludedGroups => 'Excluded groups';
+
+  @override
+  String get gamificationCategories => 'Scorable categories';
+
+  @override
+  String get gamificationOverrides => 'Score overrides';
+
+  @override
+  String get gamificationInherit =>
+      'Blank values inherit global weights; zero disables a source. Excluded groups take precedence.';
+
+  @override
+  String get gamificationInvalid =>
+      'Check the name, dates and numeric values. Weights must be non-negative integers.';
+
+  @override
+  String get gamificationSaved => 'Saved.';
+
+  @override
+  String get gamificationPartialCreate =>
+      'The leaderboard was created. Save again to finish its configuration.';
+
+  @override
+  String get gamificationUnknownWrite =>
+      'The request may have been applied. Read back and review the records before submitting another change.';
+
+  @override
+  String get gamificationReadBack => 'Read back and review';
+
+  @override
+  String get gamificationDeleteConfirm =>
+      'Delete this leaderboard? This removes its configuration and scores.';
+
+  @override
+  String get gamificationEnabled => 'Enable gamification';
+
+  @override
+  String get gamificationRanking => 'Ranking strategy';
+
+  @override
+  String get gamificationDenseRank => 'Dense rank (1, 1, 2)';
+
+  @override
+  String get gamificationRankStrategy => 'Competition rank (1, 1, 3)';
+
+  @override
+  String get gamificationRowNumber => 'Sequential positions (1, 2, 3)';
+
+  @override
+  String get gamificationCategoryHint =>
+      'Select categories. Empty means all categories.';
+
+  @override
+  String get gamificationEventId => 'Event ID';
+
+  @override
+  String get gamificationUserId => 'User ID';
+
+  @override
+  String get gamificationPoints => 'Points';
+
+  @override
+  String get gamificationDescription => 'Description';
+
+  @override
+  String get gamificationCategory => 'Category';
+
+  @override
+  String get gamificationFilter => 'Filter events';
+
+  @override
+  String get gamificationNewEvent => 'New score event';
+
+  @override
+  String get gamificationEventLimit =>
+      'Up to 100 matching events are returned. There is no guaranteed order or further page.';
+
+  @override
+  String get gamificationEventSaved =>
+      'Saved; scores update after recalculation.';
+
+  @override
+  String get gamificationEventImmutable =>
+      'An existing event keeps its original user and date.';
+
+  @override
+  String get gamificationPreset => 'Recalculate from';
+
+  @override
+  String get gamificationTenDays => 'Last 10 days';
+
+  @override
+  String get gamificationThirtyDays => 'Last 30 days';
+
+  @override
+  String get gamificationNinetyDays => 'Last 90 days';
+
+  @override
+  String get gamificationCustom => 'Custom date';
+
+  @override
+  String get gamificationRecalculateHelp =>
+      'Recalculation runs in the background. The forum allows five requests in 24 hours. A completion notice cannot identify a unique request when several jobs overlap.';
+
+  @override
+  String get gamificationQueued =>
+      'Queued. Waiting for a completion notice for your account.';
+
+  @override
+  String get gamificationObserved =>
+      'A recalculation completion was observed for your account. Results are refreshing.';
+
+  @override
+  String get gamificationCompletionUnknown =>
+      'Completion could not be confirmed. Refresh to inspect results and remaining allowance.';
+
+  @override
+  String get gamificationInvalidDate =>
+      'Choose a date on or before today (UTC).';
+
+  @override
+  String get gamificationRecalcIdle =>
+      'Choose a from-date to recalculate scores.';
+
+  @override
+  String get gamificationRecalcFailed => 'Recalculation could not be queued.';
+
+  @override
+  String get gamificationNoBoards =>
+      'No leaderboards yet. Create a leaderboard to make a default available.';
+
+  @override
+  String get gamificationDisabledAdmin =>
+      'Gamification is disabled. Scoring settings remain available to enable it.';
+
+  @override
+  String get gamificationLikeGiven => 'Likes given';
+
+  @override
+  String get gamificationLikeReceived => 'Likes received';
+
+  @override
+  String get gamificationSolution => 'Solutions';
+
+  @override
+  String get gamificationUserInvited => 'Users invited';
+
+  @override
+  String get gamificationTimeRead => 'Time reading';
+
+  @override
+  String get gamificationPostRead => 'Posts read';
+
+  @override
+  String get gamificationTopicCreated => 'Topics created';
+
+  @override
+  String get gamificationPostCreated => 'Posts created';
+
+  @override
+  String get gamificationFlagCreated => 'Flags created';
+
+  @override
+  String get gamificationDayVisited => 'Days visited';
+
+  @override
+  String get gamificationReactionReceived => 'Reactions received';
+
+  @override
+  String get gamificationReactionGiven => 'Reactions given';
+
+  @override
+  String get gamificationChatReactionReceived => 'Chat reactions received';
+
+  @override
+  String get gamificationChatReactionGiven => 'Chat reactions given';
+
+  @override
+  String get gamificationChatMessageCreated => 'Chat messages created';
+
+  @override
+  String get gamificationStarted => 'Contest from';
+
+  @override
+  String get gamificationEnded => 'Contest through';
+
+  @override
+  String get gamificationScopeHelp =>
+      'Visibility and ranking groups are independent. Empty visibility permits all members who can access the forum.';
+
+  @override
+  String get gamificationSettingsHelp =>
+      'These are forum-wide scoring weights. Saving settings does not mean historical scores have finished recalculating.';
+
+  @override
+  String get gamificationEventValidation =>
+      'Enter integer user ID, points and optional category ID.';
+
+  @override
+  String get gamificationRecalculateConfirm =>
+      'Queue score recalculation from this date? This consumes one of the forum’s daily requests.';
+
+  @override
+  String gamificationRemaining(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count recalculations remaining',
+      one: '1 recalculation remaining',
+      zero: 'No recalculations remaining',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get gamificationSettingsInvalid =>
+      'Enter an integer for each scoring weight.';
+
+  @override
+  String gamificationMemberRank(String name, String rank, String score) {
+    return '$name, rank $rank, $score Cheers';
+  }
+
+  @override
+  String get gamificationCategoryScopeHelp =>
+      'Category-scoped boards exclude visits, reading, invitations, flags and chat activity.';
+
+  @override
+  String get gamificationCreator => 'Creator';
+
+  @override
+  String get gamificationView => 'View leaderboard';
+
+  @override
+  String get gamificationNoEvents => 'No matching score events.';
+
+  @override
+  String get gamificationClearCategory => 'Clear category';
+
+  @override
+  String get gamificationReadHourHelp => 'Points per complete hour of reading.';
+
+  @override
+  String get gamificationReadPostsHelp =>
+      'Points per complete group of 100 posts read.';
+
+  @override
+  String get gamificationAcceptedFlagsHelp => 'Points per accepted flag.';
+
+  @override
+  String get gamificationGlobalCategoryHelp =>
+      'The global category filter applies to activity that has a category. Other sources keep their normal scoring.';
+
+  @override
+  String get gamificationDate => 'Date';
+
+  @override
+  String get gamificationRequestFailed =>
+      'Could not complete the request. Refresh to try again.';
 }

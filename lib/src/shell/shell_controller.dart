@@ -1853,7 +1853,17 @@ class ShellController extends FrameSafeNotifier
       case PageLoad.drafts:
         await draftList.load(instance, refresh: force);
       case PageLoad.summary:
-        await userSummary.load(instance, refresh: force);
+        await Future.wait([
+          userSummary.load(instance, refresh: force),
+          if (force &&
+              plugins.registry.hasUserProfileMetadata &&
+              instance.user != null)
+            loadUserCard(
+              instance.user!.username,
+              siteUrl: instance.url,
+              force: true,
+            ),
+        ]);
       case PageLoad.activity:
         await accountActivity.loadUserActivity(instance, refresh: force);
       case PageLoad.bookmarks:

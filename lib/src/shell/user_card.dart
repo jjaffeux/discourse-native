@@ -137,7 +137,9 @@ class _UserCardHoverPreview extends StatelessWidget {
           ]),
           builder: (context, _) {
             final card = controller.userCard(username, siteUrl: targetSite);
-            if (card != null) return _UserCardHoverContent(card: card);
+            if (card != null) {
+              return _UserCardHoverContent(card: card, siteUrl: targetSite);
+            }
             final error = controller.userCardError(
               username,
               siteUrl: targetSite,
@@ -167,9 +169,10 @@ typedef _PreviewTarget = ({
 });
 
 class _UserCardHoverContent extends StatelessWidget {
-  const _UserCardHoverContent({required this.card});
+  const _UserCardHoverContent({required this.card, required this.siteUrl});
 
   final UserCard card;
+  final String siteUrl;
 
   @override
   Widget build(BuildContext context) {
@@ -235,6 +238,9 @@ class _UserCardHoverContent extends StatelessWidget {
                     height: DiscourseTypography.lineHeightCaption,
                   ),
                 ),
+              ...PluginScope.of(
+                context,
+              ).registry.userCardMetadata(context, siteUrl, card, () {}),
             ],
           ),
         ),
@@ -533,6 +539,9 @@ class _CardContent extends StatelessWidget {
     final pluginActions = PluginScope.of(
       context,
     ).registry.userCardActions(context, siteUrl, card, close);
+    final pluginMetadata = PluginScope.of(
+      context,
+    ).registry.userCardMetadata(context, siteUrl, card, close);
     final profileAction = SizedBox(
       width: double.infinity,
       child: DButton(
@@ -637,6 +646,10 @@ class _CardContent extends StatelessWidget {
                   ],
                 ),
               ],
+              if (pluginMetadata.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Wrap(spacing: 12, runSpacing: 4, children: pluginMetadata),
+              ],
               if (card.badgeCount > 0) ...[
                 const SizedBox(height: 10),
                 _BadgeCount(count: card.badgeCount),
@@ -676,6 +689,9 @@ class _MobileCardContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
     final shell = ShellScope.read(context);
+    final pluginMetadata = PluginScope.of(
+      context,
+    ).registry.userCardMetadata(context, siteUrl, card, close);
     final current = shell.currentUserFor(siteUrl);
     final own =
         current != null &&
@@ -869,6 +885,10 @@ class _MobileCardContent extends StatelessWidget {
                       ),
                   ],
                 ),
+                const SizedBox(height: 14),
+              ],
+              if (pluginMetadata.isNotEmpty) ...[
+                Wrap(spacing: 16, runSpacing: 6, children: pluginMetadata),
                 const SizedBox(height: 14),
               ],
               if (card.featuredBadges.isNotEmpty || remainder > 0)

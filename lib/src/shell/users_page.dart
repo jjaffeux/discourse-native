@@ -10,6 +10,7 @@ import '../data/user_directory_column_width_store.dart';
 
 import '../foundation/short_number.dart';
 import '../models/user_directory.dart';
+import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
@@ -484,7 +485,15 @@ class _UsersPageState extends State<UsersPage> {
     for (final column in widget.data.columns)
       DDataTableColumn(
         id: _metricColumnWidthKey(column),
-        label: column.label,
+        label:
+            (PluginRegistryScope.maybeOf(context) ??
+                    PluginScope.maybeOf(context)?.registry)
+                ?.userDirectoryColumnLabel(
+                  context,
+                  widget.siteUrl,
+                  column.name,
+                ) ??
+            column.label,
         resizable: true,
         width: FixedColumnWidth(metricWidth),
         minWidth: 88,

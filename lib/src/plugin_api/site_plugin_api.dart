@@ -135,6 +135,31 @@ abstract interface class UserCardActionPlugin {
   );
 }
 
+abstract interface class UserCardMetadataPlugin {
+  List<Widget> userCardMetadata(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+    VoidCallback close,
+  );
+}
+
+abstract interface class UserProfileMetadataPlugin {
+  List<Widget> userProfileMetadata(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  );
+}
+
+abstract interface class UserDirectoryColumnLabelPlugin {
+  String? userDirectoryColumnLabel(
+    BuildContext context,
+    String siteUrl,
+    String columnName,
+  );
+}
+
 @immutable
 final class PluginUserMenuSectionId {
   const PluginUserMenuSectionId({required this.owner, required this.name});
