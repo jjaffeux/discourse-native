@@ -182,6 +182,16 @@ abstract interface class ComposerSyntaxProjection {
   FutureOr<void> remove(BuildContext context, ComposerEditorHost editor);
 }
 
+/// A projection with a plugin-defined body edited by the host's rich editor.
+abstract interface class ComposerEmbeddedDocumentProjection
+    implements ComposerSyntaxProjection {
+  /// Absolute document bounds of the editable body, excluding its delimiters.
+  TextRange get bodyRange;
+
+  /// Returns the complete projection source with the replacement body.
+  String replaceBody(String body, {bool multiline = false});
+}
+
 /// A block component whose leading source boundary selects the whole component.
 abstract interface class ComposerBlockSyntaxProjection
     implements ComposerSyntaxProjection {}
@@ -208,12 +218,13 @@ abstract interface class ComposerAtomicSelectionProjection
 /// The least authority a plugin needs to inspect and safely edit one composer.
 abstract interface class ComposerEditorHost {
   /// Builds a host-owned rich body inside a registered source projection.
-  /// A stale document or range outside that projection returns null.
+  /// The source range must match a registered embedded document projection.
+  /// A stale document or invalid projection returns null.
   Widget? buildEmbeddedDocument(
     BuildContext context, {
     required ComposerSyntaxKind kind,
     required Object identity,
-    required TextRange bodyRange,
+    required TextRange sourceRange,
     required String expectedText,
     required String semanticLabel,
   });

@@ -249,40 +249,59 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     BuildContext context, {
     required ComposerSyntaxKind kind,
     required Object identity,
-    required TextRange bodyRange,
+    required TextRange sourceRange,
     required String expectedText,
     required String semanticLabel,
   }) {
     if (!isCurrent ||
-        !bodyRange.isValid ||
-        bodyRange.start > bodyRange.end ||
-        bodyRange.end > expectedText.length ||
+        !sourceRange.isValid ||
+        sourceRange.start > sourceRange.end ||
+        sourceRange.end > expectedText.length ||
         value.text != expectedText) {
       return null;
     }
     final policy = syntaxPolicy<ComposerSyntaxPolicy>(kind);
     if (policy == null) return null;
-    final projection = policy
-        .parse(expectedText)
-        .where(
-          (part) =>
-              part.start <= bodyRange.start &&
-              part.end >= bodyRange.end &&
-              part.start >= 0 &&
-              part.end <= expectedText.length &&
-              expectedText.substring(part.start, part.end) == part.source,
-        )
-        .firstOrNull;
-    if (projection == null) return null;
+    ComposerDocumentBodyRange? resolveRange(String document, int start) {
+      if (!identical(syntaxPolicy<ComposerSyntaxPolicy>(kind), policy)) {
+        return null;
+      }
+      final projection = policy
+          .parse(document)
+          .whereType<ComposerEmbeddedDocumentProjection>()
+          .where((part) => part.start == start)
+          .firstOrNull;
+      if (projection == null ||
+          projection.start < 0 ||
+          projection.end < projection.start ||
+          projection.end > document.length ||
+          document.substring(projection.start, projection.end) !=
+              projection.source) {
+        return null;
+      }
+      final body = projection.bodyRange;
+      if (!body.isValid ||
+          body.start < projection.start ||
+          body.end < body.start ||
+          body.end > projection.end) {
+        return null;
+      }
+      return ComposerDocumentBodyRange(
+        start: projection.start,
+        source: projection.source,
+        bodyStart: body.start - projection.start,
+        bodyEnd: body.end - projection.start,
+        serialize: projection.replaceBody,
+      );
+    }
+
+    final range = resolveRange(expectedText, sourceRange.start);
+    if (range == null || range.end != sourceRange.end) return null;
     return ComposerDocumentBodyEditor(
       key: ValueKey((kind.id, identity)),
       parent: this,
-      range: ComposerDocumentBodyRange(
-        start: projection.start,
-        source: projection.source,
-        bodyStart: bodyRange.start - projection.start,
-        bodyEnd: bodyRange.end - projection.start,
-      ),
+      range: range,
+      resolveRange: resolveRange,
       semanticLabel: semanticLabel,
     );
   }

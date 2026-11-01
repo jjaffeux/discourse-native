@@ -526,7 +526,7 @@ class _Editor implements ComposerEditorHost {
     BuildContext context, {
     required ComposerSyntaxKind kind,
     required Object identity,
-    required TextRange bodyRange,
+    required TextRange sourceRange,
     required String expectedText,
     required String semanticLabel,
   }) => null;

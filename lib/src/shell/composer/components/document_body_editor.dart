@@ -10,11 +10,14 @@ class ComposerDocumentBodyEditor extends StatefulWidget {
     super.key,
     required this.parent,
     required this.range,
+    required this.resolveRange,
     required this.semanticLabel,
   });
 
   final ComposerController parent;
   final ComposerDocumentBodyRange range;
+  final ComposerDocumentBodyRange? Function(String document, int start)
+  resolveRange;
   final String semanticLabel;
 
   @override
@@ -27,6 +30,7 @@ class _ComposerDocumentBodyEditorState
   late ComposerDocumentBodyController _body = ComposerDocumentBodyController(
     widget.parent,
     widget.range,
+    resolveRange: widget.resolveRange,
   );
 
   @override
@@ -34,7 +38,11 @@ class _ComposerDocumentBodyEditorState
     super.didUpdateWidget(oldWidget);
     if (!identical(_body.parent, widget.parent) || !_body.isCurrent) {
       final previous = _body;
-      _body = ComposerDocumentBodyController(widget.parent, widget.range);
+      _body = ComposerDocumentBodyController(
+        widget.parent,
+        widget.range,
+        resolveRange: widget.resolveRange,
+      );
       WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
     } else {
       _body.updateRange(widget.range);

@@ -36,9 +36,9 @@ void main() {
               context,
               kind: boxKind,
               identity: 1,
-              bodyRange: TextRange(
-                start: 13,
-                end: parent.value.text.indexOf('\n[/box]'),
+              sourceRange: TextRange(
+                start: 7,
+                end: parent.value.text.indexOf('[/box]') + 6,
               ),
               expectedText: parent.value.text,
               semanticLabel: 'Box body',
@@ -66,6 +66,18 @@ void main() {
       expect(parent.value.text, source);
       expect(rich.composer.history.redo(), isTrue);
       expect(parent.value.text, 'Before\n[box]\n**hello**\n[/box]\nAfter');
+      rich.composer.text.text = '';
+      rich.composer.text.text = 'again';
+      expect(parent.value.text, 'Before\n[box]\nagain\n[/box]\nAfter');
+      expect(rich.composer.isCurrent, isTrue);
+      parent.history.startSession();
+      rich.composer.text.text = 'parent history';
+      expect(parent.history.undo(), isTrue);
+      expect(rich.composer.text.text, 'again');
+      expect(rich.composer.isCurrent, isTrue);
+      expect(parent.history.redo(), isTrue);
+      expect(rich.composer.text.text, 'parent history');
+      rich.composer.text.text = '**hello**';
       rich.composer.text.value = rich.composer.value.copyWith(
         selection: const TextSelection.collapsed(offset: 3),
         composing: const TextRange(start: 2, end: 5),
@@ -82,6 +94,7 @@ void main() {
         composing: TextRange.empty,
       );
 
+      parent.history.flush();
       await tester.pumpWidget(const SizedBox.shrink());
       expect(parent.activeEditor, same(parent));
     },
@@ -104,13 +117,13 @@ void main() {
               builder: (context) {
                 Widget? view({
                   ComposerSyntaxKind owner = boxKind,
-                  TextRange range = const TextRange(start: 13, end: 18),
+                  TextRange range = const TextRange(start: 7, end: 25),
                   String snapshot = source,
                 }) => parent.buildEmbeddedDocument(
                   context,
                   kind: owner,
                   identity: 1,
-                  bodyRange: range,
+                  sourceRange: range,
                   expectedText: snapshot,
                   semanticLabel: 'Body',
                 );
@@ -125,6 +138,10 @@ void main() {
                   isNull,
                 );
                 expect(view(range: const TextRange(start: 0, end: 5)), isNull);
+                expect(
+                  view(range: const TextRange(start: 13, end: 18)),
+                  isNull,
+                );
                 expect(
                   view(range: const TextRange(start: 18, end: 13)),
                   isNull,
@@ -166,7 +183,10 @@ class BoxPolicy implements ComposerSyntaxPolicy {
   }
 }
 
-class BoxProjection implements ComposerInteractiveSyntaxProjection {
+class BoxProjection
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerEmbeddedDocumentProjection {
   BoxProjection(this.start, this.source);
   @override
   final int start;
@@ -174,6 +194,11 @@ class BoxProjection implements ComposerInteractiveSyntaxProjection {
   final String source;
   @override
   int get end => start + source.length;
+  @override
+  TextRange get bodyRange => TextRange(start: start + 6, end: end - 7);
+  @override
+  String replaceBody(String body, {bool multiline = false}) =>
+      '[box]\n$body\n[/box]';
   @override
   bool get supportsHover => false;
   @override

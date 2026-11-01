@@ -123,6 +123,7 @@ Future<void> editPolicyDefinition(
 class _PolicyProjection
     implements
         ComposerInteractiveSyntaxProjection,
+        ComposerEmbeddedDocumentProjection,
         ComposerParagraphSpacingProjection {
   _PolicyProjection(this.policy, this.block);
   final PolicyComposerPolicy policy;
@@ -133,6 +134,33 @@ class _PolicyProjection
   int get end => block.end;
   @override
   String get source => block.source;
+  @override
+  TextRange get bodyRange {
+    final openingEnd = block.openingTagRange.end - start;
+    final bodyStart = source.indexOf('\n', openingEnd) + 1;
+    final closingLine =
+        source.lastIndexOf('\n', block.bodyRange.end - start - 1) + 1;
+    var bodyEnd = closingLine > bodyStart ? closingLine - 1 : bodyStart;
+    if (bodyEnd > bodyStart && source[bodyEnd - 1] == '\r') bodyEnd--;
+    return TextRange(start: start + bodyStart, end: start + bodyEnd);
+  }
+
+  @override
+  String replaceBody(String body, {bool multiline = false}) {
+    final range = bodyRange;
+    final newline = source.contains('\r\n') ? '\r\n' : '\n';
+    final replacement = body.replaceAll(RegExp(r'\r\n?|\n'), newline);
+    final suffix = source.substring(range.end - start);
+    final separator = replacement.isNotEmpty && !suffix.startsWith(newline)
+        ? newline
+        : '';
+    return source.replaceRange(
+      range.start - start,
+      range.end - start,
+      '$replacement$separator',
+    );
+  }
+
   @override
   bool get supportsHover => false;
   @override
@@ -225,10 +253,7 @@ class _PolicyProjection
                                   buildContext,
                                   kind: policyComposerKind,
                                   identity: context.pillKey,
-                                  bodyRange: _editableBodyRange(
-                                    document,
-                                    block,
-                                  ),
+                                  sourceRange: block.range,
                                   expectedText: document,
                                   semanticLabel: buildContext.l10n.policyBody,
                                 )
@@ -280,12 +305,4 @@ class _PolicyProjection
       ),
     );
   }
-}
-
-TextRange _editableBodyRange(String document, PolicySourceOccurrence block) {
-  final start = document.indexOf('\n', block.openingTagRange.end) + 1;
-  final closingLine = document.lastIndexOf('\n', block.bodyRange.end - 1) + 1;
-  var end = closingLine > start ? closingLine - 1 : start;
-  if (end > start && document[end - 1] == '\r') end--;
-  return TextRange(start: start, end: end);
 }
