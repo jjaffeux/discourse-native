@@ -313,16 +313,25 @@ void main() {
     },
   );
 
-  test('foreground refreshes only retained policies', () async {
-    final release = controller.retain(siteUrl: site, topicId: 3, postId: 7);
+  test('entry and foreground refresh only retained policies', () async {
     posts.afterRefresh = post(openPolicy);
-    controller.setForeground(true);
+    final release = controller.retain(siteUrl: site, topicId: 3, postId: 7);
     await flush();
     expect(posts.refreshes, 1);
+    controller.setForeground(false);
+    await flush();
+    expect(posts.refreshes, 1);
+    controller.setForeground(true);
+    await flush();
+    expect(posts.refreshes, 2);
     release();
     controller.setForeground(true);
     await flush();
-    expect(posts.refreshes, 1);
+    expect(posts.refreshes, 2);
+    final reentry = controller.retain(siteUrl: site, topicId: 3, postId: 7);
+    await flush();
+    expect(posts.refreshes, 3);
+    reentry();
   });
 
   test(
@@ -343,7 +352,6 @@ void main() {
       api.gate!.complete();
       expect(await write, PolicyMutationKind.inactive);
       expect(posts.writeInFlight(site, 7), isTrue);
-      // tearDown receives an already disposed ChangeNotifier only in this case.
       controller = PolicyController(
         api: api,
         requests: requests,

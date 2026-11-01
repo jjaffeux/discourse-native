@@ -319,6 +319,17 @@ class PolicyController extends FrameSafeNotifier
     final target = (siteUrl: siteUrl, postId: postId);
     final lease = _requests.capture(siteUrl);
     (_retained[target] ??= {})[lease] = topicId;
+    scheduleMicrotask(() {
+      if (_retained[target]?.containsKey(lease) != true) return;
+      unawaited(
+        checkStatus(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          postId: postId,
+          lease: lease,
+        ),
+      );
+    });
     return () {
       _retained[target]?.remove(lease);
       if (_retained[target]?.isEmpty == true) _retained.remove(target);
