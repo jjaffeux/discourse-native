@@ -20,6 +20,8 @@ import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -53,6 +55,31 @@ void main() {
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
+  testWidgets('search cancel preserves the topic visit and its source list', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    shell.openTopic(
+      const Topic(id: 7, title: 'Shared topic card', slug: 'shared'),
+    );
+    await tester.pumpAndSettle();
+    final list = find.byType(TopicListView, skipOffstage: false);
+    final topic = find.byType(TopicView, skipOffstage: false);
+    final listState = tester.state(list);
+    final visit = shell.mobileNavigation.entryId;
+
+    shell.pushContent(ContentRoute.search());
+    await tester.pumpAndSettle();
+    expect(tester.state(list), same(listState));
+    expect(topic, findsOneWidget);
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.entryId, visit);
+    expect(tester.state(list), same(listState));
+    expect(topic, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
 
   testWidgets(
     'chat restores chrome after topic and search dismissal',
