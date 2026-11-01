@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -52,6 +53,31 @@ void main() {
     expect(find.text('Revealed'), findsOneWidget);
   });
   for (final reduced in [false, true]) {
+    testWidgets('a declined claim stays still; reduced=$reduced', (
+      tester,
+    ) async {
+      var claims = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(800, 600),
+              disableAnimations: reduced,
+            ),
+            child: DConfetti(
+              claimCelebration: () {
+                claims++;
+                return false;
+              },
+              child: const Text('Welcome'),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(claims, 1);
+      expect(tester.binding.transientCallbackCount, 0);
+    });
     testWidgets('welcome fires once on becoming visible; reduced=$reduced', (
       tester,
     ) async {
@@ -67,7 +93,10 @@ void main() {
               enabled: visible,
               child: Center(
                 child: DConfetti(
-                  onSeen: () => seen++,
+                  claimCelebration: () {
+                    seen++;
+                    return true;
+                  },
                   child: const Text('Welcome'),
                 ),
               ),
@@ -241,6 +270,63 @@ void main() {
       expect(tester.takeException(), isNull);
       await _capture(tester, capture, 'components-${dark ? 'dark' : 'light'}');
       semantics.dispose();
+    });
+  }
+
+  testWidgets('an async claim delays celebration until accepted', (
+    tester,
+  ) async {
+    final claim = Completer<bool>();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: DConfetti(
+          claimCelebration: () => claim.future,
+          child: const Text('Welcome'),
+        ),
+      ),
+    );
+    expect(tester.binding.transientCallbackCount, 0);
+    claim.complete(true);
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+    await tester.pumpAndSettle();
+  });
+
+  for (final change in ['disposed', 'inactive', 'reduced motion']) {
+    testWidgets('an accepted claim cannot animate after $change', (
+      tester,
+    ) async {
+      final claim = Completer<bool>();
+      var claims = 0;
+      Widget host({bool active = true, bool reduced = false}) => MaterialApp(
+        home: MediaQuery(
+          data: MediaQueryData(
+            size: const Size(800, 600),
+            disableAnimations: reduced,
+          ),
+          child: TickerMode(
+            enabled: active,
+            child: DConfetti(
+              claimCelebration: () {
+                claims++;
+                return claim.future;
+              },
+              child: const Text('Welcome'),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(host());
+      expect(claims, 1);
+      await tester.pumpWidget(switch (change) {
+        'disposed' => const SizedBox.shrink(),
+        'inactive' => host(active: false),
+        _ => host(reduced: true),
+      });
+      claim.complete(true);
+      await tester.pump();
+      expect(tester.binding.transientCallbackCount, 0);
+      expect(tester.takeException(), isNull);
     });
   }
 }

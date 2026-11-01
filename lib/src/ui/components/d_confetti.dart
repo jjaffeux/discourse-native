@@ -1,20 +1,24 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
 import '../foundation/tokens.dart';
 
-/// Celebrates when its visible anchor is first seen. The host owns session memory.
+/// Celebrates when its visible anchor is first seen and the host accepts it.
 class DConfetti extends StatefulWidget {
   const DConfetti({
     super.key,
     required this.child,
     this.enabled = true,
-    this.onSeen,
+    this.claimCelebration,
   });
   final Widget child;
   final bool enabled;
-  final VoidCallback? onSeen;
+
+  /// Returns whether this visible encounter may celebrate. The host owns shared
+  /// history. Called even when reduced motion prevents the animation.
+  final FutureOr<bool> Function()? claimCelebration;
   @override
   State<DConfetti> createState() => _DConfettiState();
 }
@@ -56,7 +60,7 @@ class _DConfettiState extends State<DConfetti>
     if (!widget.enabled || _seen || !TickerMode.valuesOf(context).enabled) {
       return;
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       if (!mounted ||
           _seen ||
           !widget.enabled ||
@@ -69,10 +73,30 @@ class _DConfettiState extends State<DConfetti>
       final rect = box.localToGlobal(Offset.zero) & box.size;
       if (!rect.overlaps(Offset.zero & MediaQuery.sizeOf(context))) return;
       _seen = true;
-      widget.onSeen?.call();
+      final decision = widget.claimCelebration?.call() ?? true;
+      final accepted = decision is Future<bool> ? await decision : decision;
+      if (!mounted ||
+          !accepted ||
+          !widget.enabled ||
+          !TickerMode.valuesOf(context).enabled) {
+        return;
+      }
       if (MediaQuery.disableAnimationsOf(context)) return;
-      final overlayBox = overlay.context.findRenderObject()! as RenderBox;
-      final origin = overlayBox.globalToLocal(rect.center);
+      final currentBox = context.findRenderObject();
+      final currentOverlay = Overlay.maybeOf(context, rootOverlay: true);
+      if (currentBox is! RenderBox ||
+          !currentBox.hasSize ||
+          currentOverlay == null) {
+        return;
+      }
+      final currentRect =
+          currentBox.localToGlobal(Offset.zero) & currentBox.size;
+      if (!currentRect.overlaps(Offset.zero & MediaQuery.sizeOf(context))) {
+        return;
+      }
+      final overlayBox =
+          currentOverlay.context.findRenderObject()! as RenderBox;
+      final origin = overlayBox.globalToLocal(currentRect.center);
       final tokens = DTokens.of(context);
       final colors = [
         tokens.primary,
@@ -95,7 +119,7 @@ class _DConfettiState extends State<DConfetti>
           ),
         ),
       );
-      overlay.insert(_entry!);
+      currentOverlay.insert(_entry!);
       _animation.forward(from: 0);
     });
   }

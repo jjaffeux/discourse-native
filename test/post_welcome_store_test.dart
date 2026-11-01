@@ -7,26 +7,23 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   test('remembers the same welcome in a fresh store', () async {
-    final first = PostWelcomeStore();
-    addTearDown(first.dispose);
-    expect(await first.hasSeen('https://forum.example', 9, 42), isFalse);
-    await first.markSeen('https://forum.example', 9, 42);
+    const createStore = PostWelcomeStore.new;
+    final first = createStore();
+    expect(await first.claim('https://forum.example', 9, 42), isTrue);
 
-    final reopened = PostWelcomeStore();
-    addTearDown(reopened.dispose);
-    expect(await reopened.hasSeen('https://forum.example', 9, 42), isTrue);
-    expect(await reopened.hasSeen('https://forum.example', 10, 42), isFalse);
-    expect(await reopened.hasSeen('https://forum.example', null, 42), isFalse);
-    expect(await reopened.hasSeen('https://forum.example', 9, 43), isFalse);
-    expect(await reopened.hasSeen('https://other.example', 9, 42), isFalse);
+    final reopened = createStore();
+    expect(await reopened.claim('https://forum.example', 9, 42), isFalse);
+    expect(await reopened.claim('https://forum.example', 10, 42), isTrue);
+    expect(await reopened.claim('https://forum.example', null, 42), isTrue);
+    expect(await reopened.claim('https://forum.example', 9, 43), isTrue);
+    expect(await reopened.claim('https://other.example', 9, 42), isTrue);
   });
 
   test('retiring a forum removes its welcomes without a cached copy', () async {
-    final store = PostWelcomeStore();
-    addTearDown(store.dispose);
-    await store.markSeen('https://forum.example', 9, 42);
-    await store.markSeen('https://other.example', 9, 42);
-    expect(await store.hasSeen('https://forum.example', 9, 42), isTrue);
+    const store = PostWelcomeStore();
+    expect(await store.claim('https://forum.example', 9, 42), isTrue);
+    expect(await store.claim('https://other.example', 9, 42), isTrue);
+    expect(await store.claim('https://forum.example', 9, 42), isFalse);
 
     await forgetSitePreferences(
       const [],
@@ -36,7 +33,17 @@ void main() {
       ),
     );
 
-    expect(await store.hasSeen('https://forum.example', 9, 42), isFalse);
-    expect(await store.hasSeen('https://other.example', 9, 42), isTrue);
+    expect(await store.claim('https://forum.example', 9, 42), isTrue);
+    expect(await store.claim('https://other.example', 9, 42), isFalse);
+  });
+
+  test('concurrent stores grant one claim for the same welcome', () async {
+    const createStore = PostWelcomeStore.new;
+    final results = await Future.wait([
+      createStore().claim('https://forum.example', 9, 42),
+      createStore().claim('https://forum.example', 9, 42),
+    ]);
+    expect(results, [true, false]);
+    expect(await createStore().claim('https://forum.example', 9, 42), isFalse);
   });
 }

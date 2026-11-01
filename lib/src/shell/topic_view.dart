@@ -4823,7 +4823,7 @@ class _PostTileState extends State<_PostTile> {
   }
 }
 
-final _postWelcomes = PostWelcomeStore();
+const _postWelcomes = PostWelcomeStore();
 
 class _PostNoticeBanner extends StatelessWidget {
   const _PostNoticeBanner({
@@ -4857,31 +4857,18 @@ class _PostNoticeBanner extends StatelessWidget {
     };
     if (notice.type == 'new_user' || notice.type == 'returning_user') {
       final viewerId = controller.currentUserFor(siteUrl)?.id;
-      Widget mark({bool celebrate = false}) => DConfetti(
-        enabled: celebrate && !post.hidden && !post.isDeleted,
-        onSeen: () =>
-            unawaited(_postWelcomes.markSeen(siteUrl, viewerId, post.id)),
-        child: SvgPicture.asset(
-          'packages/discourse_native/src/ui/assets/post_notice/'
-          '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
-        ),
-      );
       return DAlert.postNotice(
         key: ValueKey('post-notice-${post.id}'),
         message: Text(label),
-        icon: notice.type == 'new_user'
-            ? ListenableBuilder(
-                listenable: _postWelcomes,
-                builder: (context, _) => FutureBuilder<bool>(
-                  future: _postWelcomes.hasSeen(siteUrl, viewerId, post.id),
-                  builder: (context, snapshot) => mark(
-                    celebrate:
-                        snapshot.connectionState == ConnectionState.done &&
-                        snapshot.data == false,
-                  ),
-                ),
-              )
-            : mark(),
+        icon: DConfetti(
+          enabled: notice.type == 'new_user' && !post.hidden && !post.isDeleted,
+          claimCelebration: () =>
+              _postWelcomes.claim(siteUrl, viewerId, post.id),
+          child: SvgPicture.asset(
+            'packages/discourse_native/src/ui/assets/post_notice/'
+            '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
+          ),
+        ),
       );
     }
     return DAlert(
