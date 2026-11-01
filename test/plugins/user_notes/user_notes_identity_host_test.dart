@@ -195,7 +195,7 @@ void main() {
               tester.getRect(find.byType(DAvatar).last).bottom,
             ),
           );
-          f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+          f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
               notesPage([]);
           await session.refresh();
           await tester.pumpAndSettle();
@@ -205,7 +205,7 @@ void main() {
             tester.getRect(find.text('Post body', findRichText: true)),
             baseline[2],
           );
-          f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+          f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
               notesPage([noteWire()]);
           await session.refresh();
           await tester.pumpAndSettle();

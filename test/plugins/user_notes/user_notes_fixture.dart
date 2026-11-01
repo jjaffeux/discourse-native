@@ -53,7 +53,7 @@ final class NotesFixture {
     );
     transport = RecordingPluginTransport(
       responders: {
-        'GET /user_notes?user_id=7': (_) => notesPage([noteWire()]),
+        'GET /user_notes.json?user_id=7': (_) => notesPage([noteWire()]),
         'POST /user_notes': (request) {
           final body = request.body['user_note']! as Map<String, Object?>;
           return {

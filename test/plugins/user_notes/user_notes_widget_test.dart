@@ -67,7 +67,11 @@ void main() {
         await tester.pump(const Duration(milliseconds: 250));
         await _settleCooking(tester);
         expect(find.byType(UserNotesPanel), findsOneWidget);
-        expect(find.text('Only staff can see these notes.'), findsOneWidget);
+        expect(find.text('Only staff can see these notes.'), findsNothing);
+        expect(find.text('Add a private staff note'), findsNothing);
+        expect(find.byType(DDialogHeader), findsNothing);
+        expect(find.text('Refresh notes'), findsNothing);
+        expect(find.byTooltip('Refresh notes'), findsNothing);
         expect(find.text('system'), findsOneWidget);
         expect(f.regularCooking, 0);
         expect(f.transientCooking, 1);
@@ -91,7 +95,7 @@ void main() {
         await tester.tap(find.widgetWithText(DButton, 'Add user note'));
         await tester.pump(const Duration(milliseconds: 250));
         await _settleCooking(tester);
-        expect(find.text('User notes (2)'), findsOneWidget);
+        expect(f.controller.count(notesSite, 7), 2);
         expect(
           tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
           isEmpty,
@@ -100,6 +104,86 @@ void main() {
       },
     );
   }
+  testWidgets('members cannot see the notes entry or open the sheet', (
+    tester,
+  ) async {
+    final f = NotesFixture(staff: false);
+    addTearDown(() => tester.runAsync(f.dispose));
+    await _mount(tester, f);
+    expect(find.byType(DButton), findsNothing);
+    final context = tester.element(find.byType(UserNotesEntry));
+    await showUserNotes(
+      context: context,
+      controller: f.controller,
+      siteUrl: notesSite,
+      userId: 7,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(UserNotesPanel), findsNothing);
+    expect(f.transport.requests, isEmpty);
+  });
+
+  for (final mobile in [false, true]) {
+    testWidgets(
+      '${mobile ? 'phone' : 'desktop'} notes build on scroll and pull to refresh preserves the draft',
+      (tester) async {
+        final f = NotesFixture(failCooking: true);
+        addTearDown(() => tester.runAsync(f.dispose));
+        f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
+            notesPage([
+              for (var i = 1; i <= 35; i++)
+                noteWire(id: 'note-$i', raw: 'Private note $i'),
+            ]);
+        await _mount(tester, f, mobile: mobile, count: 35);
+        await tester.tap(find.byTooltip('User notes (35)'));
+        await tester.pumpAndSettle();
+        expect(find.byType(UserNoteView).evaluate().length, lessThan(35));
+        expect(find.byType(DPullToRefresh), findsOneWidget);
+        final scroll = find.descendant(
+          of: find.byType(UserNotesPanel),
+          matching: find.byType(CustomScrollView),
+        );
+        await tester.scrollUntilVisible(
+          find.text('Private note 35'),
+          500,
+          scrollable: find
+              .descendant(of: scroll, matching: find.byType(Scrollable))
+              .first,
+          maxScrolls: 60,
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('Private note 35').hitTestable(), findsOneWidget);
+        expect(f.transport.requests.length, 1);
+        final position = tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: scroll, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(DTextarea), 'Keep this draft');
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(position.pixels, 0);
+        f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
+            notesPage([noteWire(raw: 'Freshly loaded note')]);
+        await tester.drag(scroll, const Offset(0, 400));
+        await tester.pumpAndSettle();
+        expect(f.transport.requests.length, 2);
+        expect(find.text('Freshly loaded note'), findsOneWidget);
+        expect(
+          tester.widget<DTextarea>(find.byType(DTextarea)).controller!.text,
+          'Keep this draft',
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   testWidgets(
     'identity icon hides at zero and disabling closes private overlay and clears draft',
     (tester) async {
@@ -133,8 +217,8 @@ void main() {
           .widget<DTextarea>(find.byType(DTextarea))
           .controller!;
       await tester.enterText(find.byType(DTextarea), 'Sensitive unsaved text');
-      f.transport.responders.remove('GET /user_notes?user_id=7');
-      f.transport.failures['GET /user_notes?user_id=7'] =
+      f.transport.responders.remove('GET /user_notes.json?user_id=7');
+      f.transport.failures['GET /user_notes.json?user_id=7'] =
           const SiteLookupException(
             SiteLookupFailure.notDiscourse,
             notesSite,
@@ -166,7 +250,7 @@ void main() {
       final f = NotesFixture(failCooking: true);
       addTearDown(() => tester.runAsync(f.dispose));
       final raw = '${'a' * 66000} END OF PRIVATE NOTE';
-      f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
           notesPage([noteWire(raw: raw)]);
       await _mount(tester, f);
       await tester.tap(find.byTooltip('User notes (1)'));

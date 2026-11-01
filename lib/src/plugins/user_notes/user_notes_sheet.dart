@@ -28,20 +28,18 @@ Future<void> showUserNotes({
       await showDSheet<void>(
         context: context,
         side: DSheetSide.bottom,
-        variant: DSheetVariant.adaptiveMenu,
-        sizeToContent: false,
-        initiallyExpanded: true,
+        fillAvailableHeight: true,
         builder: (context, dialog) => DSheetContent(
           side: DSheetSide.bottom,
-          variant: DSheetVariant.adaptiveMenu,
-          sizeToContent: false,
-          initiallyExpanded: true,
-          scrollWholeSheet: true,
+          fillAvailableHeight: true,
+          scrollWholeSheet: false,
           semanticLabel: context.l10n.userNotesTitle,
           children: [
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: UserNotesPanel(session: reader, onClose: dialog.close),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 44, 20, 20),
+                child: UserNotesPanel(session: reader, onClose: dialog.close),
+              ),
             ),
           ],
         ),
@@ -51,8 +49,16 @@ Future<void> showUserNotes({
         context: context,
         builder: (context, dialog) => DDialogContent(
           maxWidth: 640,
+          maxHeight: 720,
           semanticLabel: context.l10n.userNotesTitle,
-          children: [UserNotesPanel(session: reader, onClose: dialog.close)],
+          children: [
+            Flexible(
+              child: Padding(
+                padding: const EdgeInsets.only(top: DSpacing.xl),
+                child: UserNotesPanel(session: reader, onClose: dialog.close),
+              ),
+            ),
+          ],
         ),
       );
     }
@@ -75,6 +81,7 @@ class UserNotesPanel extends StatefulWidget {
 
 class _UserNotesPanelState extends State<UserNotesPanel> {
   final _input = TextEditingController();
+  final _scroll = ScrollController();
   bool _closing = false;
   @override
   void initState() {
@@ -99,6 +106,7 @@ class _UserNotesPanelState extends State<UserNotesPanel> {
   void dispose() {
     widget.session.removeListener(_changed);
     _input.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
@@ -151,127 +159,118 @@ class _UserNotesPanelState extends State<UserNotesPanel> {
     final ready = session.status == UserNotesReadStatus.ready;
     final editable = ready && !session.writing && !session.uncertain;
     final problem = session.failure;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      spacing: DSpacing.lg,
-      children: [
-        DDialogHeader(
-          children: [
-            DDialogTitle(
-              child: Text(
-                ready
-                    ? l10n.userNotesCount(session.notes.length)
-                    : l10n.userNotesTitle,
-              ),
-            ),
-            DDialogDescription(
-              child: Text(
-                l10n.userNotesAbout(session.username ?? '${session.userId}'),
-              ),
-            ),
-          ],
-        ),
-        DAlert(
-          liveRegion: false,
-          icon: const DIcon(DIcons.lock),
-          description: DAlertDescription(child: Text(l10n.userNotesPrivate)),
-        ),
-        DTextarea(
-          controller: _input,
-          enabled: editable,
-          labelText: l10n.userNotesField,
-          hintText: l10n.userNotesHint,
-          minLines: 3,
-          maxLines: 8,
-          onChanged: (_) => setState(() {}),
-        ),
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: DSpacing.md,
-          runSpacing: DSpacing.sm,
-          children: [
-            if (session.postId case final id?)
-              DText(l10n.userNotesLinkedPost(id), variant: DTextVariant.muted),
-            DButton(
-              label: Text(l10n.userNotesAdd),
-              loading: session.writing,
-              onPressed: editable && _input.text.trim().isNotEmpty
-                  ? () => unawaited(_add())
-                  : null,
-            ),
-          ],
-        ),
-        if (problem != null)
-          DAlert(
-            variant: DAlertVariant.destructive,
-            title: DAlertTitle(
-              child: Text(
-                session.status == UserNotesReadStatus.failed
-                    ? l10n.userNotesLoadError
-                    : l10n.userNotesWriteError,
-              ),
-            ),
-            description: DAlertDescription(
-              child: Text(
-                session.serverError ??
-                    switch (problem) {
-                      UserNotesFailure.blank => l10n.userNotesBlank,
-                      UserNotesFailure.tooLong => l10n.userNotesTooLong,
-                      UserNotesFailure.uncertain => l10n.userNotesUncertain,
-                      _ => l10n.userNotesLoadError,
-                    },
-              ),
-            ),
-            action: DAlertAction(
-              child: DButton(
-                label: Text(l10n.userNotesRefresh),
-                variant: DButtonVariant.outline,
-                onPressed: session.writing
-                    ? null
-                    : () => unawaited(session.refresh()),
-              ),
-            ),
-          ),
-        Row(
-          children: [
-            const Expanded(child: DSeparator()),
-            DButton.iconOnly(
-              icon: const DIcon(DIcons.arrowsRotate),
-              tooltip: l10n.userNotesRefresh,
-              variant: DButtonVariant.ghost,
-              onPressed: session.writing
-                  ? null
-                  : () => unawaited(session.refresh()),
-            ),
-          ],
-        ),
-        if (session.status == UserNotesReadStatus.loading) ...[
-          DSpinner(semanticLabel: l10n.userNotesLoading),
-          const DSkeleton(height: 64),
-        ],
-        if (ready && session.notes.isEmpty)
-          DEmpty(
-            children: [
-              DEmptyHeader(
+    return DScrollBar(
+      controller: _scroll,
+      child: DPullToRefresh(
+        onRefresh: session.writing ? null : session.refresh,
+        child: CustomScrollView(
+          controller: _scroll,
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.lg,
                 children: [
-                  DEmptyTitle(l10n.userNotesEmpty),
-                  DEmptyDescription(l10n.userNotesEmptyDescription),
+                  DTextarea(
+                    controller: _input,
+                    enabled: editable,
+                    semanticLabel: l10n.userNotesField,
+                    hintText: l10n.userNotesHint,
+                    minLines: 3,
+                    maxLines: 8,
+                    onChanged: (_) => setState(() {}),
+                  ),
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: DSpacing.md,
+                    runSpacing: DSpacing.sm,
+                    children: [
+                      if (session.postId case final id?)
+                        DText(
+                          l10n.userNotesLinkedPost(id),
+                          variant: DTextVariant.muted,
+                        ),
+                      DButton(
+                        label: Text(l10n.userNotesAdd),
+                        loading: session.writing,
+                        onPressed: editable && _input.text.trim().isNotEmpty
+                            ? () => unawaited(_add())
+                            : null,
+                      ),
+                    ],
+                  ),
+                  if (problem != null)
+                    DAlert(
+                      variant: DAlertVariant.destructive,
+                      title: DAlertTitle(
+                        child: Text(
+                          session.status == UserNotesReadStatus.failed
+                              ? l10n.userNotesLoadError
+                              : l10n.userNotesWriteError,
+                        ),
+                      ),
+                      description: DAlertDescription(
+                        child: Text(
+                          session.serverError ??
+                              switch (problem) {
+                                UserNotesFailure.blank => l10n.userNotesBlank,
+                                UserNotesFailure.tooLong =>
+                                  l10n.userNotesTooLong,
+                                UserNotesFailure.uncertain =>
+                                  l10n.userNotesUncertain,
+                                _ => l10n.userNotesLoadError,
+                              },
+                        ),
+                      ),
+                    ),
+                  if (session.status == UserNotesReadStatus.loading) ...[
+                    DSpinner(semanticLabel: l10n.userNotesLoading),
+                    const DSkeleton(height: 64),
+                  ],
+                  if (ready && session.notes.isEmpty)
+                    DEmpty(
+                      children: [
+                        DEmptyHeader(
+                          children: [
+                            DEmptyTitle(l10n.userNotesEmpty),
+                            DEmptyDescription(l10n.userNotesEmptyDescription),
+                          ],
+                        ),
+                      ],
+                    ),
                 ],
               ),
-            ],
-          ),
-        if (ready)
-          for (final note in session.notes)
-            UserNoteView(
-              note: note,
-              session: session,
-              onRemove: note.canDelete && !session.writing && !session.uncertain
-                  ? () => unawaited(_remove(note))
-                  : null,
             ),
-      ],
+            if (ready)
+              SliverPadding(
+                padding: const EdgeInsets.only(top: DSpacing.lg),
+                sliver: SliverList.builder(
+                  itemCount: session.notes.length,
+                  itemBuilder: (context, index) {
+                    final note = session.notes[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: DSpacing.lg),
+                      child: UserNoteView(
+                        key: ValueKey(note.id),
+                        note: note,
+                        session: session,
+                        onRemove:
+                            note.canDelete &&
+                                !session.writing &&
+                                !session.uncertain
+                            ? () => unawaited(_remove(note))
+                            : null,
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

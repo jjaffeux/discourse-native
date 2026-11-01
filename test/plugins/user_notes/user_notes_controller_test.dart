@@ -29,7 +29,7 @@ void main() {
       final f = NotesFixture();
       addTearDown(f.dispose);
       final pending = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
           pending.future;
       final session = f.controller.open(siteUrl: notesSite, userId: 7);
       await Future<void>.delayed(Duration.zero);
@@ -149,7 +149,7 @@ void main() {
   test('server delete permission is authoritative', () async {
     final f = NotesFixture();
     addTearDown(f.dispose);
-    f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+    f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
         notesPage([noteWire(canDelete: false)]);
     final session = f.controller.open(siteUrl: notesSite, userId: 7);
     await session.refresh();
@@ -330,7 +330,7 @@ void main() {
     () async {
       final f = NotesFixture();
       addTearDown(f.dispose);
-      f.transport.responders['GET /user_notes?user_id=7'] = (request) =>
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (request) =>
           notesPage([
             noteWire(
               raw: request.siteUrl == notesSite
@@ -365,7 +365,7 @@ void main() {
       await Future<void>.delayed(Duration.zero);
       f.requests.forget(notesSite);
       f.requests.apiKeys[notesSite] = 'successor-key';
-      f.transport.responders['GET /user_notes?user_id=7'] = (_) =>
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
           notesPage([noteWire(raw: 'Successor view')]);
       final current = f.controller.open(siteUrl: notesSite, userId: 7);
       await current.refresh();

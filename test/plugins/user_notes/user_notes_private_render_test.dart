@@ -9,7 +9,7 @@ import 'user_notes_fixture.dart';
 
 void main() {
   testWidgets(
-    'phone notes open expanded with one heading and the first note visible',
+    'phone notes open expanded without headings and the first note visible',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(430, 932);
@@ -41,10 +41,10 @@ void main() {
         () => Future<void>.delayed(const Duration(milliseconds: 350)),
       );
       await tester.pumpAndSettle();
-      expect(find.byType(DDialogTitle), findsOneWidget);
-      expect(find.text('User notes (1)'), findsOneWidget);
+      expect(find.byType(DDialogTitle), findsNothing);
+      expect(find.text('User notes (1)'), findsNothing);
       expect(find.text('system').hitTestable(), findsOneWidget);
-      expect(find.text('Only staff can see these notes.'), findsOneWidget);
+      expect(find.text('Only staff can see these notes.'), findsNothing);
       expect(tester.takeException(), isNull);
     },
   );
@@ -56,9 +56,10 @@ void main() {
       final f = NotesFixture();
       addTearDown(() => tester.runAsync(f.dispose));
       const source = 'def secret_note\n  puts "private evidence"\nend';
-      f.transport.responders['GET /user_notes?user_id=7'] = (_) => notesPage([
-        noteWire(raw: 'Staff **context**\n\n```ruby\n$source\n```'),
-      ]);
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
+          notesPage([
+            noteWire(raw: 'Staff **context**\n\n```ruby\n$source\n```'),
+          ]);
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
