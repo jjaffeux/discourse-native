@@ -41,7 +41,6 @@ final class MobileTab {
 final class MobileNavigation {
   static const maximumPages = ForumTab.maximumHistoryEntries;
 
-  Object? _owner;
   List<({Object id, ForumTabLocation? content})> _entries = [
     (id: Object(), content: null),
   ];
@@ -59,13 +58,12 @@ final class MobileNavigation {
     index: _index,
   );
 
-  /// Returns to a saved [state] for [owner]. Whether the bar still offers its
+  /// Returns to a saved [state]. Whether the bar still offers its
   /// place is the bar's to say. Answers false, changing nothing, for a place
   /// no build has written.
-  bool restore({required Object? owner, required MobileNavigationState state}) {
+  bool restore({required MobileNavigationState state}) {
     final tab = MobileTab.tryParse(state.place);
     if (tab == null) return false;
-    _owner = owner;
     closeSidebar();
     _tab = tab;
     _panelOwner = tab.panelOwner;
@@ -103,55 +101,53 @@ final class MobileNavigation {
   Object? get previousEntryId => canGoBack ? _entries[_index - 1].id : null;
   Object? get nextEntryId => canGoForward ? _entries[_index + 1].id : null;
 
-  /// Called after a navigation command, before the shell notifies its views.
-  /// Account/site changes discard history so Back cannot expose another owner.
-  void synchronize({
-    required Object? owner,
-    required ForumTabLocation? location,
-    bool contentRoot = false,
-  }) {
-    if (_owner != owner) {
-      _owner = owner;
-      reset();
-    }
-    final content = location;
-    if (contentRoot && atRoot && _panelOwner == null && content != null) {
-      _entries = [
-        for (var length = 1; length <= content.contentStack.length; length++)
-          (
-            id: length == 1 ? entryId : Object(),
-            content: ForumTabLocation(
-              rootDestinationId: content.rootDestinationId,
-              contentStack: content.contentStack.take(length).toList(),
-            ),
+  /// Starts an explicitly selected or restored document journey. Only this
+  /// bootstrap operation derives initial ancestry from the document stack.
+  void startJourney({required MobileTab tab, required ForumTabLocation? root}) {
+    selectTab(tab);
+    if (root == null) return;
+    _entries = [
+      for (var length = 1; length <= root.contentStack.length; length++)
+        (
+          id: length == 1 ? entryId : Object(),
+          content: ForumTabLocation(
+            rootDestinationId: root.rootDestinationId,
+            contentStack: root.contentStack.take(length).toList(),
           ),
-      ];
-      if (_entries.length > maximumPages + 1) {
-        _entries.removeRange(1, _entries.length - maximumPages);
-      }
-      _index = _entries.length - 1;
-      return;
+        ),
+    ];
+    if (_entries.length > maximumPages + 1) {
+      _entries.removeRange(1, _entries.length - maximumPages);
     }
-    if (_sameDestination(content, _entries[_index].content)) {
-      // Retain refreshed titles and other non-identity route metadata.
-      _entries[_index] = (id: entryId, content: content);
+    _index = _entries.length - 1;
+  }
+
+  void push(ForumTabLocation location) {
+    if (_sameDestination(location, this.location)) {
+      updateCurrent(location);
       return;
     }
     closeSidebar();
-    if (content == null) {
-      _index = 0;
-      return;
-    }
-    _entries = [..._entries.take(_index + 1), (id: Object(), content: content)];
+    _entries = [
+      ..._entries.take(_index + 1),
+      (id: Object(), content: location),
+    ];
     if (_entries.length > maximumPages + 1) _entries.removeAt(1);
     _index = _entries.length - 1;
   }
 
-  /// Filter and explicit replacement commands update the current visit.
-  /// A sidebar root opens its first page during synchronization.
   void replaceCurrent(ForumTabLocation location) {
-    if (atRoot) return;
+    closeSidebar();
+    if (atRoot) {
+      push(location);
+      return;
+    }
     _entries = [..._entries.take(_index), (id: Object(), content: location)];
+  }
+
+  void returnToPanelRoot() {
+    closeSidebar();
+    _index = 0;
   }
 
   void updateCurrent(ForumTabLocation location) {

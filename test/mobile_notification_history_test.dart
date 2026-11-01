@@ -28,6 +28,39 @@ void main() {
   setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
   tearDown(() => messenger.setMockMethodCallHandler(channel, null));
 
+  testWidgets('state notifications preserve parked visits and Forward', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    shell.selectMobilePanel('chat');
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    final channelVisit = shell.mobileNavigation.entryId;
+    expect(shell.handleBack(), isTrue);
+    await tester.pumpAndSettle();
+    final rootVisit = shell.mobileNavigation.entryId;
+    final before = shell.mobileNavigation.state;
+    final parked = shell.activeTab!.location;
+    expect(shell.currentContent, isNull);
+    shell.notifyPluginStateChanged();
+    shell.toggleMobileSidebar();
+    shell.notifyPluginStateChanged();
+    shell.closeMobileSidebar();
+    expect(shell.openAppSettingsModal(), isTrue);
+    shell.notifyPluginStateChanged();
+    shell.closeAppSettingsModal();
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.state, before);
+    expect(shell.mobileNavigation.entryId, same(rootVisit));
+    expect(shell.mobileNavigation.nextEntryId, same(channelVisit));
+    expect(shell.activeTab!.location, parked);
+    expect(shell.currentContent, isNull);
+    expect(shell.handleForward(), isTrue);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.entryId, same(channelVisit));
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
   for (final origin in [
     'latest',
     'inbox',

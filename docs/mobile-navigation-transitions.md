@@ -43,6 +43,12 @@ Search inside a scoped desktop panel uses that panel's document route.
 ## Shared commands and dismissal guards
 
 `ShellController.pushContent()` and `replaceCurrentContent()` publish document navigation.
+Workspace navigation commands require an explicit push or replacement and commit the active mobile visit before notifying views.
+Raw document writes only update persistence and tab normalization.
+Metadata hydration explicitly refreshes the current visit, preserving its identity and Forward history, and cannot reveal a parked document.
+Notifications publish state without inferring navigation or correcting the foreground pane.
+Only explicit journey selection or owner restoration bootstraps visits from a document stack.
+Ordinary navigation records the visits the user actually made.
 `selectMobileDestination()` and `selectMobilePanel()` select tab roots.
 `handleBack()` and `handleForward()` use `MobileNavigation` and restore its selected location.
 Search controls and completed horizontal swipes call these same commands.

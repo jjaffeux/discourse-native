@@ -514,10 +514,26 @@ final class ShellTabContext {
         plan.presentation == TopicListPresentation.sidebar) {
       shell._showMobileScopeList();
     }
-    shell._workspace.consumeHomepage(plan.replacement.id);
-    shell._workspace.replaceTab(siteUrl!, plan.replacement);
-    if (plan.mobileLocation case final location?) {
-      shell.mobileNavigation.replaceCurrent(location);
+    final startsJourney =
+        shell.mobileNavigationEnabled &&
+        shell.mobileNavigation.atRoot &&
+        shell.mobileNavigation.panelOwner == null;
+    if (startsJourney) {
+      shell._workspace.consumeHomepage(plan.replacement.id);
+      shell._workspace.replaceTab(siteUrl!, plan.replacement);
+      shell.mobileNavigation.startJourney(
+        tab: shell.mobileNavigation.tab,
+        root: plan.replacement.location,
+      );
+      shell._persistMobileNavigation();
+    } else {
+      shell._workspace.navigateTab(
+        siteUrl!,
+        plan.replacement,
+        mobile: plan.mobileLocation == null
+            ? _MobileVisitCommit.push
+            : _MobileVisitCommit.replace,
+      );
     }
     if (plan.presentation == TopicListPresentation.content ||
         plan.presentation == TopicListPresentation.sidebar) {

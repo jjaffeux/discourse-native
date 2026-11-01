@@ -52,6 +52,38 @@ const _megaTail = (
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'mobile post targets push query changes and refresh post numbers',
+    () async {
+      final (:shell, api: _, authenticator: _) = await _fixture(mobile: true);
+      final original = shell.mobileNavigation.entryId;
+      shell.openCurrentTopicPost(2);
+      expect(shell.mobileNavigation.entryId, same(original));
+      shell.openCurrentTopicPost(3, query: 'needle', replaceQuery: true);
+      final queried = shell.mobileNavigation.entryId;
+      expect(queried, isNot(same(original)));
+      expect(shell.mobileNavigation.previousEntryId, same(original));
+      expect(shell.currentContent?.topicQuery, 'needle');
+      shell.openCurrentTopicPost(2);
+      expect(shell.mobileNavigation.entryId, same(queried));
+      shell.pushContent(ContentRoute.topicList(TopicListMode.topWeekly));
+      final next = shell.mobileNavigation.entryId;
+      expect(shell.handleBack(), isTrue);
+      final reader = shell.createTopicReader(
+        shell.focusedTabContext,
+        shell.currentContent!,
+      );
+      addTearDown(reader.close);
+      expect(reader.updateQuery('replacement'), isTrue);
+      expect(shell.mobileNavigation.entryId, same(queried));
+      expect(shell.currentContent?.topicQuery, 'replacement');
+      expect(shell.mobileNavigation.nextEntryId, same(next));
+      expect(shell.handleForward(), isTrue);
+      expect(shell.mobileNavigation.entryId, same(next));
+      await pumpEventQueue();
+    },
+  );
+
   group('topic jump navigation ownership', () {
     for (final suffix in ['last', '99999999']) {
       for (final cold in [false, true]) {
@@ -573,7 +605,7 @@ void main() {
 Future<
   ({ShellController shell, _JumpApi api, _GatedAuthenticator authenticator})
 >
-_fixture() async {
+_fixture({bool mobile = false}) async {
   final api = _JumpApi();
   // Only a signed-in forum reads its stored key, so a gated lookup is reached.
   final authenticator = _GatedAuthenticator()..keys[_siteUrl] = 'api-key';
@@ -587,6 +619,7 @@ _fixture() async {
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
+    mobileNavigationEnabled: mobile,
   );
   addTearDown(shell.dispose);
   await shell.load();
