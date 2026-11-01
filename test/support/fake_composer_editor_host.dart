@@ -1,9 +1,19 @@
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 
 final class FakeComposerEditorHost implements ComposerEditorHost {
   FakeComposerEditorHost(this.value);
+
+  @override
+  Widget? buildEmbeddedDocument(
+    BuildContext context, {
+    required ComposerSyntaxKind kind,
+    required Object identity,
+    required TextRange bodyRange,
+    required String expectedText,
+    required String semanticLabel,
+  }) => null;
 
   @override
   TextEditingValue value;

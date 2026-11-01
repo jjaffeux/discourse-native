@@ -51,7 +51,9 @@ void main() {
             controller: ports.controller,
             navigation: EventNavigation(
               host: routes ?? _Routes(),
-              editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
+              editor: PluginPostEditorHost(
+                open: (_, _, {focusText, editReason}) => false,
+              ),
               controller: ports.controller,
             ),
           ),

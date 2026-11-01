@@ -18,6 +18,7 @@ class ComposerDraft {
     this.replyToPostNumber,
     this.replyToUsername,
     this.whisper = false,
+    this.editReason,
     this.typingTime = Duration.zero,
     this.composerTime = Duration.zero,
   });
@@ -52,6 +53,7 @@ class ComposerDraft {
       _ => null,
     },
     whisper: json['whisper'] == true,
+    editReason: jsonText(json['edit_reason']),
     typingTime: Duration(milliseconds: jsonInt(json['typingTime'])),
     composerTime: Duration(milliseconds: jsonInt(json['composerTime'])),
   );
@@ -108,6 +110,7 @@ class ComposerDraft {
   final int? replyToPostNumber;
   final String? replyToUsername;
   final bool whisper;
+  final String? editReason;
 
   final Duration typingTime;
 
@@ -128,6 +131,7 @@ class ComposerDraft {
         ? null
         : {'username': replyToUsername},
     'whisper': whisper,
+    'edit_reason': ?editReason,
     'typingTime': typingTime.inMilliseconds,
     'composerTime': composerTime.inMilliseconds,
   };
@@ -156,6 +160,7 @@ class ComposerDraft {
           other.replyToPostNumber == replyToPostNumber &&
           other.replyToUsername == replyToUsername &&
           other.whisper == whisper &&
+          other.editReason == editReason &&
           other.typingTime == typingTime &&
           other.composerTime == composerTime;
 
@@ -171,6 +176,7 @@ class ComposerDraft {
     replyToPostNumber,
     replyToUsername,
     whisper,
+    editReason,
     typingTime,
     composerTime,
   );

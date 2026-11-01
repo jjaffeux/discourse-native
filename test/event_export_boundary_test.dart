@@ -49,7 +49,9 @@ void main() {
     Future<void> pump(WidgetTester tester) async {
       final navigation = EventNavigation(
         host: _Routes(),
-        editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
+        editor: PluginPostEditorHost(
+          open: (_, _, {focusText, editReason}) => false,
+        ),
         controller: ports.controller,
       );
       await tester.pumpWidget(

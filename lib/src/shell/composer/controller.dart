@@ -23,6 +23,8 @@ import '../../plugin_api/plugin_data.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
 import 'components/core.dart';
+import 'components/document_body_controller.dart';
+import 'components/document_body_editor.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/list_source.dart';
@@ -155,6 +157,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     this._target, {
     this.onSaveDraft,
     this.onStageDraft,
+    String? editReason,
     ComposerSearch? search,
     this.onEmojiAccepted,
     String? Function(String name)? resolveEmoji,
@@ -179,7 +182,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     int minimumRequiredTags = 0,
     ComposerEditHistory? sharedHistory,
     DateTime Function()? now,
-  }) : _ownsHistory = sharedHistory == null,
+  }) : _editReason = _target.isEdit ? editReason : null,
+       _ownsHistory = sharedHistory == null,
        _enableAutoGridImages = enableAutoGridImages,
        text = MarkdownEditingController(
          protectComponentSource: true,
@@ -240,11 +244,56 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     _recomputeCanSubmit();
   }
 
+  @override
+  Widget? buildEmbeddedDocument(
+    BuildContext context, {
+    required ComposerSyntaxKind kind,
+    required Object identity,
+    required TextRange bodyRange,
+    required String expectedText,
+    required String semanticLabel,
+  }) {
+    if (!isCurrent ||
+        !bodyRange.isValid ||
+        bodyRange.end > expectedText.length ||
+        value.text != expectedText) {
+      return null;
+    }
+    final policy = syntaxPolicy<ComposerSyntaxPolicy>(kind);
+    if (policy == null) return null;
+    final projection = policy
+        .parse(expectedText)
+        .where(
+          (part) =>
+              part.start <= bodyRange.start &&
+              part.end >= bodyRange.end &&
+              part.start >= 0 &&
+              part.end <= expectedText.length &&
+              expectedText.substring(part.start, part.end) == part.source,
+        )
+        .firstOrNull;
+    if (projection == null) return null;
+    return ComposerDocumentBodyEditor(
+      key: ValueKey((kind.id, identity)),
+      parent: this,
+      range: ComposerDocumentBodyRange(
+        start: projection.start,
+        source: projection.source,
+        bodyStart: bodyRange.start - projection.start,
+        bodyEnd: bodyRange.end - projection.start,
+      ),
+      semanticLabel: semanticLabel,
+    );
+  }
+
   static const Duration draftDebounce = Duration(seconds: 2);
 
   static const Duration draftMaxWait = Duration(seconds: 15);
 
   static const int maxDraftFailures = 5;
+
+  String? _editReason;
+  String? get editReason => _editReason;
 
   final void Function(String code)? onEmojiAccepted;
 
@@ -1836,6 +1885,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     replyToPostNumber: _target.replyToPostNumber,
     replyToUsername: _target.replyToUsername,
     whisper: _whisper,
+    editReason: _target.isEdit ? _editReason : null,
     typingTime: typingDuration,
     composerTime: openDuration,
   );
@@ -1846,6 +1896,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     if (!canRestoreDraft(draft)) return false;
     _restoredDraft = true;
+    if (_target.isEdit) _editReason = draft.editReason ?? _editReason;
     final target = _target;
     final recipients = draft.recipients;
     if (target is PrivateMessageComposerTarget &&

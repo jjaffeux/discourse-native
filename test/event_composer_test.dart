@@ -522,6 +522,16 @@ class _Editor implements ComposerEditorHost {
   final EventSyntaxPolicy policy;
   bool editing = true;
   @override
+  Widget? buildEmbeddedDocument(
+    BuildContext context, {
+    required ComposerSyntaxKind kind,
+    required Object identity,
+    required TextRange bodyRange,
+    required String expectedText,
+    required String semanticLabel,
+  }) => null;
+
+  @override
   TextEditingValue value;
   @override
   String get siteUrl => 'https://forum.example';

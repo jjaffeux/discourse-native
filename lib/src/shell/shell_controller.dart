@@ -545,7 +545,7 @@ class ShellController extends FrameSafeNotifier
       PluginHostPort<Object>(
         corePluginPostEditorPort,
         PluginPostEditorHost(
-          open: (siteUrl, postId, {focusText}) {
+          open: (siteUrl, postId, {focusText, editReason}) {
             final post = store.read<Post>(siteUrl, postId);
             if (currentInstance?.url != siteUrl ||
                 post == null ||
@@ -554,7 +554,7 @@ class ShellController extends FrameSafeNotifier
                 !post.canEdit) {
               return false;
             }
-            openEdit(post, focusText: focusText);
+            openEdit(post, focusText: focusText, editReason: editReason);
             return switch (_composer?.target) {
               PostEditingComposerTarget(:final editingPostId) =>
                 editingPostId == postId,
@@ -6069,6 +6069,7 @@ class ShellController extends FrameSafeNotifier
   ComposerController _buildTextComposer(
     ComposerTarget target, {
     bool persistsDraft = false,
+    String? editReason,
     int minimumRequiredTags = 0,
   }) {
     final config = siteConfigFor(target.siteUrl);
@@ -6109,6 +6110,7 @@ class ShellController extends FrameSafeNotifier
     late final ComposerController composer;
     composer = ComposerController(
       target,
+      editReason: editReason,
       onSaveDraft: draftSession?.save,
       onStageDraft: draftSession?.stage,
       search: _composerSearch(target),
@@ -6748,7 +6750,12 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  void openEdit(Post post, {String? focusText, ShellTabContext? context}) {
+  void openEdit(
+    Post post, {
+    String? focusText,
+    String? editReason,
+    ShellTabContext? context,
+  }) {
     final origin = _existingTopicOpeningOrigin(context);
     if (origin == null) return;
     final plan = _existingTopicOpening.prepareEdit(
@@ -6763,6 +6770,7 @@ class ShellController extends FrameSafeNotifier
     // Published edits must never overwrite an unfinished reply's draft key.
     final composer = _buildTextComposer(
       plan.target,
+      editReason: editReason,
       minimumRequiredTags: plan.minimumRequiredTags,
     );
     _composerRegistry.add(composer);

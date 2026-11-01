@@ -49,6 +49,7 @@ final class _ComposerEdit {
   _ComposerEdit(ComposerController editor)
     : raw = editor.editRaw,
       originalRaw = editor.originalRaw,
+      editReason = editor.editReason,
       title = editor.title.text.trim(),
       originalTitle = editor.originalTitle,
       categoryId = editor.categoryId,
@@ -58,6 +59,7 @@ final class _ComposerEdit {
 
   final String raw;
   final String? originalRaw;
+  final String? editReason;
   final String title;
   final String originalTitle;
   final int? categoryId;
@@ -727,6 +729,7 @@ final class _ComposerSubmissionOwner {
             postId: target.editingPostId,
             raw: edit.raw,
             originalText: edit.originalRaw,
+            editReason: edit.editReason,
           ),
         );
       } on WriteException catch (failure) {

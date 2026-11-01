@@ -207,6 +207,17 @@ abstract interface class ComposerAtomicSelectionProjection
 
 /// The least authority a plugin needs to inspect and safely edit one composer.
 abstract interface class ComposerEditorHost {
+  /// Builds a host-owned rich body inside a registered source projection.
+  /// A stale document or range outside that projection returns null.
+  Widget? buildEmbeddedDocument(
+    BuildContext context, {
+    required ComposerSyntaxKind kind,
+    required Object identity,
+    required TextRange bodyRange,
+    required String expectedText,
+    required String semanticLabel,
+  });
+
   String get siteUrl;
   bool get isPluginTarget;
   TextEditingValue get value;

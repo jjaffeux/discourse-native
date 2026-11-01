@@ -19,6 +19,22 @@ import 'support/composer_submission.dart';
 import 'support/fakes.dart';
 
 void main() {
+  testWidgets('ordinary edit save carries the admitted revision reason', (
+    tester,
+  ) async {
+    final api = FakeDiscourseApi();
+    final shell = await _openComposer(
+      api,
+      editing: true,
+      editReason: 'Settings changed',
+    );
+    final composer = shell.visibleComposer!;
+    expect(composer.draft.editReason, 'Settings changed');
+    await shell.submitComposer();
+    expect(api.updated.single['editReason'], 'Settings changed');
+    expect(api.updated.single['raw'], _body);
+  });
+
   for (final editing in [false, true]) {
     final operation = editing ? 'updatePost' : 'createPost';
     for (final (key, control) in [
@@ -277,6 +293,7 @@ const _target = ReplyComposerTarget(
 Future<ShellController> _openComposer(
   FakeDiscourseApi api, {
   bool editing = false,
+  String? editReason,
 }) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -308,7 +325,7 @@ Future<ShellController> _openComposer(
       canEdit: true,
     ).withRaw('Original body');
     shell.store.put(_site, post);
-    shell.openEdit(post);
+    shell.openEdit(post, editReason: editReason);
   } else {
     shell.openReply();
     await shell.finishComposerDraftRestore(shell.visibleComposer!);

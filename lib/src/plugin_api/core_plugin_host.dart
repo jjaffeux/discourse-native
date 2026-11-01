@@ -368,7 +368,13 @@ const corePluginTimezonePort = PluginHostPortKey<PluginTimezoneHost>(
 final class PluginPostEditorHost {
   const PluginPostEditorHost({required this.open});
 
-  final bool Function(String siteUrl, int postId, {String? focusText}) open;
+  final bool Function(
+    String siteUrl,
+    int postId, {
+    String? focusText,
+    String? editReason,
+  })
+  open;
 }
 
 const corePluginPostEditorPort = PluginHostPortKey<PluginPostEditorHost>(

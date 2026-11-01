@@ -49,6 +49,18 @@ void main() {
     });
   });
 
+  test('retains a revision reason through local draft recovery', () {
+    const draft = ComposerDraft(
+      reply: 'Changed body',
+      editReason: 'Settings changed',
+    );
+    expect(
+      ComposerDraft.decodeLocal(draft.encodeLocal())?.editReason,
+      'Settings changed',
+    );
+    expect(draft, isNot(const ComposerDraft(reply: 'Changed body')));
+  });
+
   group('decode', () {
     test('reads a blob back, which is a JSON string and not an object', () {
       final draft = ComposerDraft.decode(

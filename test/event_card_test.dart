@@ -385,7 +385,7 @@ void main() {
                   navigation: EventNavigation(
                     host: _Routes(),
                     editor: PluginPostEditorHost(
-                      open: (_, _, {focusText}) => false,
+                      open: (_, _, {focusText, editReason}) => false,
                     ),
                     controller: ports.controller,
                   ),

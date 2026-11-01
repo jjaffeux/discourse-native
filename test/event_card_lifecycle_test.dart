@@ -23,7 +23,9 @@ void main() {
     ports.transport.responders[read] = (_) => {'event': current};
     navigation = EventNavigation(
       host: _Routes(),
-      editor: PluginPostEditorHost(open: (_, _, {focusText}) => false),
+      editor: PluginPostEditorHost(
+        open: (_, _, {focusText, editReason}) => false,
+      ),
       controller: ports.controller,
     );
   });
