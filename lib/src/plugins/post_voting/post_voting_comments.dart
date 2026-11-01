@@ -38,6 +38,16 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
       _anchorResolved = false;
   int? _editId;
   int _generation = 0;
+  final Map<int, bool> _voteIntents = {};
+  bool? _voted(PostVotingComment comment) =>
+      _voteIntents[comment.id] ?? comment.myUpvote;
+  int _score(PostVotingComment comment) {
+    final desired = _voteIntents[comment.id];
+    return desired == null || desired == comment.myUpvote
+        ? comment.score
+        : comment.score + (desired ? 1 : -1);
+  }
+
   Object? _error;
   bool _anchorUnavailable = false;
   List<PostVotingComment> get _comments =>
@@ -121,7 +131,11 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
   }
 
   Future<void> _open([PostVotingComment? comment]) async {
-    if (!_current || _closed || _loading) return;
+    if (!_current ||
+        _loading ||
+        (comment == null ? !_canCreate : !_canEdit(comment))) {
+      return;
+    }
     if (!_allLoaded && _comments.length < _count) await _remainder();
     if (!_current) return;
     setState(() {
@@ -149,7 +163,7 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
 
   Future<void> _save() async {
     final reader = _reader;
-    if (!_current || reader == null || _closed || _lengthError != null) return;
+    if (!_current || reader == null || _lengthError != null) return;
     if (_editId == null && !_canCreate) return;
     final raw = _text.text;
     final editing = _editId;
@@ -190,17 +204,15 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
   }
 
   bool _canEdit(PostVotingComment comment) =>
-      !_closed &&
       _reader?.currentUserId != null &&
       (_reader!.currentUserStaff ||
-          comment.authorId == _reader!.currentUserId &&
+          !_closed &&
+              comment.authorId == _reader!.currentUserId &&
               _reader!.topic?.canCreatePost == true);
   bool _canDelete(PostVotingComment comment) =>
-      !_closed &&
       _reader?.currentUserId != null &&
       (_reader!.currentUserStaff || comment.authorId == _reader!.currentUserId);
   bool _canFlag(PostVotingComment comment) =>
-      !_closed &&
       comment.authorId != null &&
       comment.authorId != _reader?.currentUserId &&
       (comment.availableFlags.isNotEmpty ||
@@ -258,6 +270,7 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
         comment.myUpvote == null) {
       return;
     }
+    setState(() => _voteIntents[comment.id] = comment.myUpvote != true);
     final result = await widget.services.actions.mutateComment(
       reader: reader,
       postId: widget.postId,
@@ -278,7 +291,12 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
         return null;
       },
     );
-    if (_current) setState(() => _error = result.error);
+    if (_current) {
+      setState(() {
+        _voteIntents.remove(comment.id);
+        _error = result.error;
+      });
+    }
   }
 
   void _resolveAnchor() {
@@ -324,6 +342,16 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
             variant: DDropdownMenuItemVariant.destructive,
             onPressed: busy ? null : () => unawaited(_delete(comment)),
             child: Text(context.l10n.postVotingDeleteComment),
+          ),
+        if (_reader?.currentUserStaff == true && comment.reviewableId != null)
+          DDropdownMenuItem(
+            leading: const DIcon(DIcons.flag),
+            onPressed: () => unawaited(
+              openExternalLink(
+                '${widget.siteUrl}/review/${comment.reviewableId}',
+              ),
+            ),
+            child: Text(context.l10n.postVotingReviewComment),
           ),
         if (_canFlag(comment))
           DDropdownMenuItem(
@@ -395,18 +423,18 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
                       quarterTurns: 2,
                       child: DIcon(DIcons.chevronDown),
                     ),
-                    pressed: comment.myUpvote == true,
+                    pressed: _voted(comment) == true,
                     enabled:
-                        !busy &&
                         !_closed &&
+                        !busy &&
                         _reader!.currentUserId != null &&
                         comment.authorId != _reader!.currentUserId &&
                         comment.myUpvote != null,
-                    semanticLabel: comment.myUpvote == true
+                    semanticLabel: _voted(comment) == true
                         ? context.l10n.postVotingRemoveUpvote
                         : context.l10n.postVotingUpvote,
                     onPressedChanged: (_) => unawaited(_vote(comment)),
-                    child: Text('${comment.score}'),
+                    child: Text('${_score(comment)}'),
                   ),
                   Expanded(
                     child: Column(
@@ -537,7 +565,7 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
                     semanticLabel: context.l10n.postVotingCommentLabel,
                     minLines: 2,
                     maxLines: 5,
-                    enabled: !busy && !_closed,
+                    enabled: !busy,
                     errorText: _text.text.isEmpty ? null : _lengthError,
                     onChanged: (_) => setState(() {}),
                   ),
@@ -553,13 +581,16 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
                     runSpacing: 6,
                     children: [
                       DButton(
+                        key: ValueKey(
+                          'post-voting-comment-submit-${widget.postId}',
+                        ),
                         label: Text(
                           _editId == null
                               ? context.l10n.postVotingAddComment
                               : context.l10n.save,
                         ),
                         loading: state.pending,
-                        onPressed: busy || _closed || _lengthError != null
+                        onPressed: busy || _lengthError != null
                             ? null
                             : () => unawaited(_save()),
                       ),

@@ -4,7 +4,7 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/plugins/boards/boards_module.dart';
-import 'package:discourse_native/src/plugins/gamification/gamification_module.dart';
+import 'package:discourse_native/src/plugins/cakeday/cakeday_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
@@ -13,12 +13,14 @@ import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_module.da
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_module.dart';
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_module.dart';
-import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_module.dart';
 import 'package:discourse_native/src/plugins/discourse_math/discourse_math_module.dart';
+import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_module.dart';
 import 'package:discourse_native/src/plugins/discourse_placeholder/discourse_placeholder_module.dart';
+import 'package:discourse_native/src/plugins/gamification/gamification_module.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_module.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_module.dart';
+import 'package:discourse_native/src/plugins/policy/policy_module.dart';
 import 'package:discourse_native/src/plugins/poll/poll_module.dart';
 import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
@@ -50,6 +52,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   discoursePlaceholderModule,
   const ReactionsModule(apiFactory: _reactionsApis),
   const PollModule(apiFactory: _pollsApi),
+  policyModule,
   discourseEventsModule,
   prometheusAlertReceiverModule,
   const GifsModule(apiFactory: _gifsApi),
@@ -57,6 +60,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   dataExplorerModule,
   assignModule,
   boardsModule,
+  cakedayModule,
   gamificationModule,
   const ChatModule(apiFactory: _chatApi),
 ]);

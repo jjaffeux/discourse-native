@@ -15817,4 +15817,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get postVotingLoadEarlier => 'Load earlier answers';
+
+  @override
+  String get postVotingReviewComment => 'Review comment on the forum';
+
+  @override
+  String get postVotingSiteSettings => 'Post Voting site settings';
 }

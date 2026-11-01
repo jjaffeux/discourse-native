@@ -1,4 +1,7 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'dart:async';
+
+import 'package:discourse_native/discourse_plugin_sdk.dart' hide DIcon;
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
@@ -83,7 +86,11 @@ final class PostVotingPlugin
         spacing: 5,
         children: [
           const DIcon(DIcons.chevronDown, size: 12),
-          Text(context.l10n.postVotingAnswerCount(data?.answerCount ?? 0)),
+          Text(
+            data?.answerCount == null
+                ? context.l10n.postVotingTitle
+                : context.l10n.postVotingAnswerCount(data!.answerCount!),
+          ),
           if (data?.lastAnswerer?.username case final name?) Text(name),
         ],
       ),
@@ -98,7 +105,7 @@ final class PostVotingPlugin
   ) {
     final service = _service(context);
     if (service.settingsFor(siteUrl).enabled != true ||
-        !service.staffFor(siteUrl) ||
+        service.siteState.currentUserFor(siteUrl) == null ||
         topic.privateMessage) {
       return const [];
     }
@@ -123,6 +130,16 @@ final class PostVotingPlugin
           }
         },
       ),
+      if (service.siteState.currentUserFor(siteUrl)?.admin == true)
+        TopicMenuAction(
+          label: context.l10n.postVotingSiteSettings,
+          icon: DIcons.gear,
+          onSelected: (_) => unawaited(
+            openExternalLink(
+              '$siteUrl/admin/site_settings/category/plugins?filter=post_voting',
+            ),
+          ),
+        ),
     ];
   }
 
@@ -146,7 +163,9 @@ final class PostVotingPlugin
       presentation: NotificationPresentation(
         icon: DIcons.comment,
         actor: actor is String ? actor : appL10n.someone,
-        phrase: appL10n.postVotingCommentNotification('', notification.title),
+        phrase: appL10n
+            .postVotingCommentNotification('', notification.title)
+            .trimLeft(),
       ),
       path: Uri.parse(
         path,
@@ -244,6 +263,7 @@ final class PostVotingPostPlugin
               privateMessage: topic.privateMessage,
             ) ||
         !service.settingsFor(siteUrl).commentsEnabled ||
+        post.plugins.get(postVotingPostKey)?.canHaveComments == false ||
         post.isSmallAction ||
         post.contentRedacted ||
         post.isDeleted) {

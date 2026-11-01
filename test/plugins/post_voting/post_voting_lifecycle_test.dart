@@ -202,7 +202,7 @@ void main() {
   });
 
   for (final target in [_root, _subfolder]) {
-    for (final endpoint in ['p/103', 't/project/7/3']) {
+    for (final endpoint in ['p/103', 't/project/7/3', 't/project/7']) {
       testWidgets(
         '$target/$endpoint comment link preserves serving site, query and panel intent',
         (tester) async {
@@ -224,7 +224,7 @@ void main() {
           expect(tab.panel, ForumPanel.secondary);
           final route = tab.currentContent;
           expect(route.topicId, 7);
-          expect(route.postNumber, 3);
+          expect(route.postNumber, endpoint == 't/project/7' ? 1 : 3);
           expect(Uri(query: route.topicQuery).queryParameters, {
             'filter': 'activity',
             'source': 'notification',

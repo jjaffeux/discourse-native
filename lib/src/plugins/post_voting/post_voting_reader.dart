@@ -370,6 +370,28 @@ class _PostVotingReaderState extends State<PostVotingReader> {
                     ),
                   if (question != null) _post(question),
                   if (count > 0) _answerControls(context),
+                  if (count == 0 &&
+                      question != null &&
+                      reader.topic?.canCreatePost == true)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: DButton(
+                          key: const ValueKey('post-voting-answer'),
+                          label: Text(context.l10n.answer),
+                          icon: const DIcon(DIcons.reply),
+                          onPressed:
+                              reader.topic?.closed == true ||
+                                  reader.topic?.archived == true
+                              ? null
+                              : () => reader.reply(),
+                        ),
+                      ),
+                    ),
                   if (_controller.hasEarlier)
                     Padding(
                       padding: const EdgeInsets.all(12),

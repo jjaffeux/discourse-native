@@ -16,7 +16,16 @@ final class PostVotingCategoryController extends ChangeNotifier {
     this.available,
   }) : categories = PluginCategorySettingsApi(api.transport),
        lease = requests.capture(reader.siteUrl),
-       categoryId = reader.topic?.categoryId;
+       categoryId = reader.topic?.categoryId {
+    reader.addListener(_changed);
+  }
+  void _changed() {
+    if (!disposed) {
+      if (!current) category = null;
+      notifyListeners();
+    }
+  }
+
   final PluginTopicReader reader;
   final PluginRequestHost requests;
   final PluginCategorySettingsApi categories;
@@ -31,7 +40,7 @@ final class PostVotingCategoryController extends ChangeNotifier {
       lease.isCurrent &&
       reader.isCurrent &&
       reader.foreground &&
-      reader.currentUserStaff &&
+      reader.currentUserId != null &&
       reader.topic?.categoryId == categoryId &&
       (available?.call() ?? true);
   bool get canEdit =>
@@ -114,6 +123,7 @@ final class PostVotingCategoryController extends ChangeNotifier {
 
   @override
   void dispose() {
+    reader.removeListener(_changed);
     disposed = true;
     super.dispose();
   }
@@ -163,8 +173,8 @@ Future<void> showPostVotingCategorySettings(
                   ),
                 ),
               ),
-            if (controller.category case final category?) ...[
-              Text(category.name),
+            if (controller.current && controller.category != null) ...[
+              Text(controller.category!.name),
               DToggle(
                 pressed: controller.defaultOn,
                 enabled: controller.canEdit,

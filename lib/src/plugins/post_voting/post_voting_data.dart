@@ -331,6 +331,7 @@ final class PostVotingPostData {
   final int? replyToPostNumber;
   bool get canHaveComments => replyToPostNumber == null;
   bool get hasData =>
+      replyToPostNumber != null ||
       score != null ||
       hasVotes != null ||
       myVoteKnown ||

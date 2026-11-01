@@ -180,9 +180,27 @@ class _VotersState extends State<_Voters> {
   Object? _error;
   bool _loading = true;
   int _generation = 0;
+  late final int _epoch;
+  bool get _current =>
+      widget.services.actions.available(widget.reader) &&
+      _epoch == widget.services.actions.epochFor(widget.reader.siteUrl);
+  void _changed() {
+    if (mounted) {
+      setState(() {
+        if (!_current) {
+          _value = null;
+          ++_generation;
+        }
+      });
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _epoch = widget.services.actions.epochFor(widget.reader.siteUrl);
+    widget.reader.addListener(_changed);
+    widget.services.addListener(_changed);
     unawaited(_load());
   }
 
@@ -197,23 +215,17 @@ class _VotersState extends State<_Voters> {
       final credentials = await widget.services.requests.credentialsFor(
         widget.reader.siteUrl,
       );
-      if (!lease.isCurrent || !widget.reader.isCurrent) return;
+      if (!lease.isCurrent || !_current) return;
       final value = await widget.services.api.voters(
         siteUrl: widget.reader.siteUrl,
         postId: widget.postId,
         credentials: credentials,
       );
-      if (mounted &&
-          generation == _generation &&
-          lease.isCurrent &&
-          widget.reader.isCurrent) {
+      if (mounted && generation == _generation && lease.isCurrent && _current) {
         setState(() => _value = value);
       }
     } catch (error) {
-      if (mounted &&
-          generation == _generation &&
-          lease.isCurrent &&
-          widget.reader.isCurrent) {
+      if (mounted && generation == _generation && lease.isCurrent && _current) {
         setState(() => _error = error);
       }
     } finally {
@@ -224,8 +236,16 @@ class _VotersState extends State<_Voters> {
   }
 
   @override
+  void dispose() {
+    ++_generation;
+    widget.reader.removeListener(_changed);
+    widget.services.removeListener(_changed);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (!widget.reader.isCurrent) return const SizedBox.shrink();
+    if (!_current) return const SizedBox.shrink();
     if (_loading) return const Center(child: DSpinner());
     if (_error != null) {
       return DAlert(

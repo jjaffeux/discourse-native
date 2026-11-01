@@ -1,488 +1,219 @@
 {
   "chatTranscript": "Transcript",
-  "@chatTranscript": {
-    "description": "Label for a quoted Chat transcript."
-  },
+  "@chatTranscript": {"description": "Label for a quoted Chat transcript."},
   "dsaVerifyEmailRequired": "Verify your contact email before submitting this report.",
-  "@dsaVerifyEmailRequired": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaVerifyEmailRequired": {"description": "Illegal content reporting form."},
   "dsaReportReceived": "Your report was received.",
-  "@dsaReportReceived": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaReportReceived": {"description": "Illegal content reporting form."},
   "dsaReportReference": "Report reference: {reference}",
-  "@dsaReportReference": {
-    "description": "Illegal content reporting form.",
-    "placeholders": {
-      "reference": {
-        "type": "String"
-      }
-    }
-  },
+  "@dsaReportReference": {"description": "Illegal content reporting form.", "placeholders": {"reference": {"type": "String"}}},
   "dsaReportDescription": "Report content you believe is illegal. Your report is handled separately from community guideline flags.",
-  "@dsaReportDescription": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaReportDescription": {"description": "Illegal content reporting form."},
   "dsaContentUrl": "Content URL",
-  "@dsaContentUrl": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaContentUrl": {"description": "Illegal content reporting form."},
   "dsaExplanationHelp": "Explain precisely why this content is illegal. Use at least 50 characters.",
-  "@dsaExplanationHelp": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaExplanationHelp": {"description": "Illegal content reporting form."},
   "dsaYourName": "Your name",
-  "@dsaYourName": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaYourName": {"description": "Illegal content reporting form."},
   "dsaAccountEmail": "Your confirmed account email will be used for this report.",
-  "@dsaAccountEmail": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaAccountEmail": {"description": "Illegal content reporting form."},
   "dsaContactEmail": "Contact email",
-  "@dsaContactEmail": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaContactEmail": {"description": "Illegal content reporting form."},
   "dsaResendCode": "Send another code",
-  "@dsaResendCode": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaResendCode": {"description": "Illegal content reporting form."},
   "dsaSendCode": "Send verification code",
-  "@dsaSendCode": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaSendCode": {"description": "Illegal content reporting form."},
   "dsaVerificationCode": "Six-digit verification code",
-  "@dsaVerificationCode": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaVerificationCode": {"description": "Illegal content reporting form."},
   "dsaVerifyEmail": "Verify email",
-  "@dsaVerifyEmail": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaVerifyEmail": {"description": "Illegal content reporting form."},
   "dsaEmailVerified": "Email verified",
-  "@dsaEmailVerified": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaEmailVerified": {"description": "Illegal content reporting form."},
   "dsaSubmitReport": "Submit report",
-  "@dsaSubmitReport": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaSubmitReport": {"description": "Illegal content reporting form."},
   "dsaUseNoticeForm": "Use the illegal content reporting form for this site.",
-  "@dsaUseNoticeForm": {
-    "description": "Illegal content reporting form."
-  },
+  "@dsaUseNoticeForm": {"description": "Illegal content reporting form."},
   "nestedRepliesSettings": "Nested replies",
-  "@nestedRepliesSettings": {
-    "description": "Nested replies plugin. Nested replies"
-  },
+  "@nestedRepliesSettings": {"description": "Nested replies plugin. Nested replies"},
   "nestedRepliesEnabled": "Use nested replies for this topic",
-  "@nestedRepliesEnabled": {
-    "description": "Nested replies plugin. Use nested replies for this topic"
-  },
+  "@nestedRepliesEnabled": {"description": "Nested replies plugin. Use nested replies for this topic"},
   "nestedRepliesCategoryDefault": "Use nested replies for new topics in this category",
-  "@nestedRepliesCategoryDefault": {
-    "description": "Nested replies plugin. Use nested replies for new topics in this category"
-  },
+  "@nestedRepliesCategoryDefault": {"description": "Nested replies plugin. Use nested replies for new topics in this category"},
   "nestedRepliesCategoryDefaultDescription": "This changes new topics. Existing topics change only when you convert them.",
-  "@nestedRepliesCategoryDefaultDescription": {
-    "description": "Nested replies plugin. This changes new topics. Existing topics change only when you convert them."
-  },
+  "@nestedRepliesCategoryDefaultDescription": {"description": "Nested replies plugin. This changes new topics. Existing topics change only when you convert them."},
   "nestedRepliesConvertExisting": "Convert existing topics",
-  "@nestedRepliesConvertExisting": {
-    "description": "Nested replies plugin. Convert existing topics"
-  },
+  "@nestedRepliesConvertExisting": {"description": "Nested replies plugin. Convert existing topics"},
   "nestedRepliesConvertConfirm": "Convert nondeleted regular topics directly in {categoryName} to nested replies? Subcategories and topics already converted are excluded.",
-  "@nestedRepliesConvertConfirm": {
-    "description": "Confirm historical conversion in a named category, excluding subcategories.",
-    "placeholders": {
-      "categoryName": {
-        "type": "String"
-      }
-    }
-  },
+  "@nestedRepliesConvertConfirm": {"description": "Confirm historical conversion in a named category, excluding subcategories.", "placeholders": {"categoryName": {"type": "String"}}},
   "nestedRepliesConversionComplete": "Converted {count} topics.",
-  "@nestedRepliesConversionComplete": {
-    "description": "Nested replies plugin. Converted the number of topics.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@nestedRepliesConversionComplete": {"description": "Nested replies plugin. Converted the number of topics.", "placeholders": {"count": {"type": "int"}}},
   "nestedRepliesActivity": "Topic activity",
-  "@nestedRepliesActivity": {
-    "description": "Nested replies plugin. Topic activity"
-  },
+  "@nestedRepliesActivity": {"description": "Nested replies plugin. Topic activity"},
   "nestedRepliesTopicCreated": "Topic created",
-  "@nestedRepliesTopicCreated": {
-    "description": "Nested replies plugin. Topic created"
-  },
+  "@nestedRepliesTopicCreated": {"description": "Nested replies plugin. Topic created"},
   "nestedRepliesModeUnavailable": "Nested replies settings are unavailable.",
-  "@nestedRepliesModeUnavailable": {
-    "description": "Nested replies plugin. Nested replies settings are unavailable."
-  },
+  "@nestedRepliesModeUnavailable": {"description": "Nested replies plugin. Nested replies settings are unavailable."},
   "nestedRepliesMutationUncertain": "The server may have applied this change. Refresh the state before trying again.",
-  "@nestedRepliesMutationUncertain": {
-    "description": "Nested replies plugin. The server may have applied this change. Refresh the state before trying again."
-  },
+  "@nestedRepliesMutationUncertain": {"description": "Nested replies plugin. The server may have applied this change. Refresh the state before trying again."},
   "nestedRepliesNoActivity": "No topic activity to show.",
-  "@nestedRepliesNoActivity": {
-    "description": "Nested replies plugin. No topic activity to show."
-  },
+  "@nestedRepliesNoActivity": {"description": "Nested replies plugin. No topic activity to show."},
   "nestedRepliesCouldNotLoad": "Could not load replies. Try again.",
-  "@nestedRepliesCouldNotLoad": {
-    "description": "Nested replies plugin. Could not load replies. Try again."
-  },
+  "@nestedRepliesCouldNotLoad": {"description": "Nested replies plugin. Could not load replies. Try again."},
   "nestedRepliesChangesSaved": "Changes saved.",
-  "@nestedRepliesChangesSaved": {
-    "description": "Nested replies plugin. Changes saved."
-  },
+  "@nestedRepliesChangesSaved": {"description": "Nested replies plugin. Changes saved."},
   "nestedRepliesAllReplies": "All replies",
-  "@nestedRepliesAllReplies": {
-    "description": "Nested replies plugin. All replies"
-  },
+  "@nestedRepliesAllReplies": {"description": "Nested replies plugin. All replies"},
   "nestedRepliesParentContext": "View parent context",
-  "@nestedRepliesParentContext": {
-    "description": "Nested replies plugin. View parent context"
-  },
+  "@nestedRepliesParentContext": {"description": "Nested replies plugin. View parent context"},
   "nestedRepliesContinueThread": "Continue this thread",
-  "@nestedRepliesContinueThread": {
-    "description": "Nested replies plugin. Continue this thread"
-  },
+  "@nestedRepliesContinueThread": {"description": "Nested replies plugin. Continue this thread"},
   "nestedRepliesCollapsePost": "Collapse post",
-  "@nestedRepliesCollapsePost": {
-    "description": "Nested replies plugin. Collapse post"
-  },
+  "@nestedRepliesCollapsePost": {"description": "Nested replies plugin. Collapse post"},
   "nestedRepliesExpandPost": "Expand post",
-  "@nestedRepliesExpandPost": {
-    "description": "Nested replies plugin. Expand post"
-  },
+  "@nestedRepliesExpandPost": {"description": "Nested replies plugin. Expand post"},
   "nestedRepliesLoadMore": "Load more replies",
-  "@nestedRepliesLoadMore": {
-    "description": "Nested replies plugin. Load more replies"
-  },
+  "@nestedRepliesLoadMore": {"description": "Nested replies plugin. Load more replies"},
   "nestedRepliesNewReplies": "New replies",
-  "@nestedRepliesNewReplies": {
-    "description": "Nested replies plugin. New replies"
-  },
+  "@nestedRepliesNewReplies": {"description": "Nested replies plugin. New replies"},
   "nestedRepliesIgnoredPost": "Ignored post",
-  "@nestedRepliesIgnoredPost": {
-    "description": "Nested replies plugin. Ignored post"
-  },
+  "@nestedRepliesIgnoredPost": {"description": "Nested replies plugin. Ignored post"},
   "nestedRepliesRevealIgnored": "Show ignored post",
-  "@nestedRepliesRevealIgnored": {
-    "description": "Nested replies plugin. Show ignored post"
-  },
+  "@nestedRepliesRevealIgnored": {"description": "Nested replies plugin. Show ignored post"},
   "nestedRepliesDeletedPost": "Deleted post",
-  "@nestedRepliesDeletedPost": {
-    "description": "Nested replies plugin. Deleted post"
-  },
+  "@nestedRepliesDeletedPost": {"description": "Nested replies plugin. Deleted post"},
   "nestedRepliesSortTop": "Top",
-  "@nestedRepliesSortTop": {
-    "description": "Nested replies plugin. Top"
-  },
+  "@nestedRepliesSortTop": {"description": "Nested replies plugin. Top"},
   "nestedRepliesSortHot": "Hot",
-  "@nestedRepliesSortHot": {
-    "description": "Nested replies plugin. Hot"
-  },
+  "@nestedRepliesSortHot": {"description": "Nested replies plugin. Hot"},
   "nestedRepliesSortNew": "Newest",
-  "@nestedRepliesSortNew": {
-    "description": "Nested replies plugin. Newest"
-  },
+  "@nestedRepliesSortNew": {"description": "Nested replies plugin. Newest"},
   "nestedRepliesSortOld": "Oldest",
-  "@nestedRepliesSortOld": {
-    "description": "Nested replies plugin. Oldest"
-  },
+  "@nestedRepliesSortOld": {"description": "Nested replies plugin. Oldest"},
   "nestedRepliesFullTopic": "View full topic",
-  "@nestedRepliesFullTopic": {
-    "description": "Nested replies plugin. View full topic"
-  },
+  "@nestedRepliesFullTopic": {"description": "Nested replies plugin. View full topic"},
   "nestedRepliesNoReplies": "No replies yet.",
-  "@nestedRepliesNoReplies": {
-    "description": "Nested replies plugin. No replies yet."
-  },
+  "@nestedRepliesNoReplies": {"description": "Nested replies plugin. No replies yet."},
   "nestedRepliesEarlierUnavailable": "Earlier replies are unavailable.",
-  "@nestedRepliesEarlierUnavailable": {
-    "description": "Nested replies plugin. Earlier replies are unavailable."
-  },
+  "@nestedRepliesEarlierUnavailable": {"description": "Nested replies plugin. Earlier replies are unavailable."},
   "nestedRepliesOriginalPosterShort": "OP",
-  "@nestedRepliesOriginalPosterShort": {
-    "description": "Nested replies plugin. Compact badge identifying replies by the original poster"
-  },
+  "@nestedRepliesOriginalPosterShort": {"description": "Nested replies plugin. Compact badge identifying replies by the original poster"},
   "nestedRepliesOriginalPoster": "Original poster",
-  "@nestedRepliesOriginalPoster": {
-    "description": "Nested replies plugin. Original poster"
-  },
+  "@nestedRepliesOriginalPoster": {"description": "Nested replies plugin. Original poster"},
   "nestedRepliesNotificationTopic": "{count} new replies in this topic",
-  "@nestedRepliesNotificationTopic": {
-    "description": "Nested replies plugin. the number of new replies in this topic",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@nestedRepliesNotificationTopic": {"description": "Nested replies plugin. the number of new replies in this topic", "placeholders": {"count": {"type": "int"}}},
   "nestedRepliesNotificationPost": "{count} new replies to your post",
-  "@nestedRepliesNotificationPost": {
-    "description": "Nested replies plugin. the number of new replies to your post",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@nestedRepliesNotificationPost": {"description": "Nested replies plugin. the number of new replies to your post", "placeholders": {"count": {"type": "int"}}},
   "nestedRepliesPin": "Pin reply",
-  "@nestedRepliesPin": {
-    "description": "Nested replies plugin. Pin reply"
-  },
+  "@nestedRepliesPin": {"description": "Nested replies plugin. Pin reply"},
   "nestedRepliesUnpin": "Unpin reply",
-  "@nestedRepliesUnpin": {
-    "description": "Nested replies plugin. Unpin reply"
-  },
+  "@nestedRepliesUnpin": {"description": "Nested replies plugin. Unpin reply"},
   "nestedRepliesBulkSelect": "Select topics",
-  "@nestedRepliesBulkSelect": {
-    "description": "Nested replies plugin. Select topics"
-  },
+  "@nestedRepliesBulkSelect": {"description": "Nested replies plugin. Select topics"},
   "nestedRepliesBulkEnable": "Enable nested replies",
-  "@nestedRepliesBulkEnable": {
-    "description": "Nested replies plugin. Enable nested replies"
-  },
+  "@nestedRepliesBulkEnable": {"description": "Nested replies plugin. Enable nested replies"},
   "nestedRepliesBulkDisable": "Disable nested replies",
-  "@nestedRepliesBulkDisable": {
-    "description": "Nested replies plugin. Disable nested replies"
-  },
+  "@nestedRepliesBulkDisable": {"description": "Nested replies plugin. Disable nested replies"},
   "nestedRepliesBulkPartial": "Some selected topics could not be changed.",
-  "@nestedRepliesBulkPartial": {
-    "description": "Nested replies plugin. Some selected topics could not be changed."
-  },
+  "@nestedRepliesBulkPartial": {"description": "Nested replies plugin. Some selected topics could not be changed."},
   "chatViewMore": "View {count} more",
-  "@chatViewMore": {
-    "description": "Expand the remaining rows in a Chat section.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@chatViewMore": {"description": "Expand the remaining rows in a Chat section.", "placeholders": {"count": {"type": "int"}}},
   "chatViewLess": "View less",
-  "@chatViewLess": {
-    "description": "Fold an expanded Chat section back to its first rows."
-  },
+  "@chatViewLess": {"description": "Fold an expanded Chat section back to its first rows."},
   "destinationBookmarkPageType": "Page",
-  "@destinationBookmarkPageType": {
-    "description": "Type label for an app-local bookmark of a whole page."
-  },
+  "@destinationBookmarkPageType": {"description": "Type label for an app-local bookmark of a whole page."},
   "destinationBookmarkUnavailable": "This destination is currently unavailable.",
-  "@destinationBookmarkUnavailable": {
-    "description": "A locally saved destination cannot currently be opened."
-  },
+  "@destinationBookmarkUnavailable": {"description": "A locally saved destination cannot currently be opened."},
   "@@locale": "en",
   "filterNoSubcategories": "No subcategories",
-  "@filterNoSubcategories": {
-    "description": "Category breadcrumb for an exact category filter."
-  },
+  "@filterNoSubcategories": {"description": "Category breadcrumb for an exact category filter."},
   "filterSearchCategories": "Search category…",
-  "@filterSearchCategories": {
-    "description": "Scoped category filter search placeholder."
-  },
+  "@filterSearchCategories": {"description": "Scoped category filter search placeholder."},
   "filterCategoryIn": "in {path}",
-  "@filterCategoryIn": {
-    "description": "Ancestry of a matching category.",
-    "placeholders": {
-      "path": {
-        "type": "String"
-      }
-    }
-  },
+  "@filterCategoryIn": {"description": "Ancestry of a matching category.", "placeholders": {"path": {"type": "String"}}},
   "filterTagged": "Tagged",
-  "@filterTagged": {
-    "description": "Topic filter for any tagged topics."
-  },
+  "@filterTagged": {"description": "Topic filter for any tagged topics."},
   "filterUntagged": "Untagged",
-  "@filterUntagged": {
-    "description": "Topic filter for topics without tags."
-  },
+  "@filterUntagged": {"description": "Topic filter for topics without tags."},
   "filterTagScopeAny": "any tag",
-  "@filterTagScopeAny": {
-    "description": "Tag filter pill for tagged topics."
-  },
+  "@filterTagScopeAny": {"description": "Tag filter pill for tagged topics."},
   "filterTagScopeNone": "no tags",
-  "@filterTagScopeNone": {
-    "description": "Tag filter pill for untagged topics."
-  },
+  "@filterTagScopeNone": {"description": "Tag filter pill for untagged topics."},
   "filterTagScopeGroup": "group {name}",
-  "@filterTagScopeGroup": {
-    "description": "Tag filter pill for a tag group.",
-    "placeholders": {
-      "name": {
-        "type": "String"
-      }
-    }
-  },
+  "@filterTagScopeGroup": {"description": "Tag filter pill for a tag group.", "placeholders": {"name": {"type": "String"}}},
   "filterTagScopeNoneOf": "none of {tags}",
-  "@filterTagScopeNoneOf": {
-    "description": "Excluded tags in a tag filter pill.",
-    "placeholders": {
-      "tags": {
-        "type": "String"
-      }
-    }
-  },
+  "@filterTagScopeNoneOf": {"description": "Excluded tags in a tag filter pill.", "placeholders": {"tags": {"type": "String"}}},
   "filterVotesTitle": "Votes",
-  "@filterVotesTitle": {
-    "description": "Topic vote count filter title."
-  },
+  "@filterVotesTitle": {"description": "Topic vote count filter title."},
   "filterCategoryOnly": "{category} only, not its subcategories",
-  "@filterCategoryOnly": {
-    "description": "Category picker choice excluding subcategories.",
-    "placeholders": {
-      "category": {
-        "type": "String"
-      }
-    }
-  },
+  "@filterCategoryOnly": {"description": "Category picker choice excluding subcategories.", "placeholders": {"category": {"type": "String"}}},
   "filterAssignedTitle": "Assigned to",
-  "@filterAssignedTitle": {
-    "description": "Assignment filter title."
-  },
+  "@filterAssignedTitle": {"description": "Assignment filter title."},
   "filterTagGroups": "Tag groups",
-  "@filterTagGroups": {
-    "description": "Tag group choices heading."
-  },
+  "@filterTagGroups": {"description": "Tag group choices heading."},
   "filterBefore": "Before",
-  "@filterBefore": {
-    "description": "Date filter relation."
-  },
+  "@filterBefore": {"description": "Date filter relation."},
   "filterAfter": "After",
-  "@filterAfter": {
-    "description": "Date filter relation."
-  },
+  "@filterAfter": {"description": "Date filter relation."},
   "filterApplyCount": "{count, plural, =1{Apply 1 filter} other{Apply {count} filters}}",
-  "@filterApplyCount": {
-    "description": "Applies the staged topic-list filters.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@filterApplyCount": {"description": "Applies the staged topic-list filters.", "placeholders": {"count": {"type": "int"}}},
   "filterWho": "Who",
-  "@filterWho": {
-    "description": "Filter menu heading for authors and assignees."
-  },
+  "@filterWho": {"description": "Filter menu heading for authors and assignees."},
   "filterState": "State",
-  "@filterState": {
-    "description": "Filter menu heading for topic state."
-  },
+  "@filterState": {"description": "Filter menu heading for topic state."},
   "filterNumbersDates": "Numbers & dates",
-  "@filterNumbersDates": {
-    "description": "Filter menu heading for counts and dates."
-  },
+  "@filterNumbersDates": {"description": "Filter menu heading for counts and dates."},
   "filterMine": "Mine",
-  "@filterMine": {
-    "description": "Filter menu heading for personal activity."
-  },
+  "@filterMine": {"description": "Filter menu heading for personal activity."},
   "filterCategoryHint": "Topics in a category",
-  "@filterCategoryHint": {
-    "description": "Category filter description."
-  },
+  "@filterCategoryHint": {"description": "Category filter description."},
   "filterTagsHint": "Topics by their tags, or a tag group",
-  "@filterTagsHint": {
-    "description": "Tags filter description."
-  },
+  "@filterTagsHint": {"description": "Tags filter description."},
   "filterTopicHint": "Posts in one topic",
-  "@filterTopicHint": {
-    "description": "Topic filter description."
-  },
+  "@filterTopicHint": {"description": "Topic filter description."},
   "filterPostedByHint": "Posts by someone",
-  "@filterPostedByHint": {
-    "description": "Author filter description."
-  },
+  "@filterPostedByHint": {"description": "Author filter description."},
   "filterStartedByHint": "Topics someone started",
-  "@filterStartedByHint": {
-    "description": "Topic author filter description."
-  },
+  "@filterStartedByHint": {"description": "Topic author filter description."},
   "filterGroupHint": "Posts by members of a group",
-  "@filterGroupHint": {
-    "description": "Author group filter description."
-  },
+  "@filterGroupHint": {"description": "Author group filter description."},
   "filterAssignedHint": "Topics assigned to someone, a group, or no one",
-  "@filterAssignedHint": {
-    "description": "Assignment filter description."
-  },
+  "@filterAssignedHint": {"description": "Assignment filter description."},
   "filterStatusHint": "Open, closed, solved and the like",
-  "@filterStatusHint": {
-    "description": "Topic status filter description; choices depend on the forum."
-  },
+  "@filterStatusHint": {"description": "Topic status filter description; choices depend on the forum."},
   "filterTypeHint": "Pinned topics",
-  "@filterTypeHint": {
-    "description": "Post type hint for the topic-list API's supported pinned filter."
-  },
+  "@filterTypeHint": {"description": "Post type hint for the topic-list API's supported pinned filter."},
   "filterLanguageHint": "What language a post is written in",
-  "@filterLanguageHint": {
-    "description": "Language filter description."
-  },
+  "@filterLanguageHint": {"description": "Language filter description."},
   "filterPostedHint": "Before or after a day",
-  "@filterPostedHint": {
-    "description": "Date filter description for supported topic-list relations."
-  },
+  "@filterPostedHint": {"description": "Date filter description for supported topic-list relations."},
   "filterRepliesHint": "How many replies a topic has",
-  "@filterRepliesHint": {
-    "description": "Reply count filter description."
-  },
+  "@filterRepliesHint": {"description": "Reply count filter description."},
   "filterViewsHint": "How often a topic has been read",
-  "@filterViewsHint": {
-    "description": "View count filter description."
-  },
+  "@filterViewsHint": {"description": "View count filter description."},
   "filterVotesHint": "How many votes a topic has",
-  "@filterVotesHint": {
-    "description": "Vote count filter description."
-  },
+  "@filterVotesHint": {"description": "Vote count filter description."},
   "filterActivityHint": "What you have watched, bookmarked or read",
-  "@filterActivityHint": {
-    "description": "Personal activity hint for the topic-list API's supported choices."
-  },
+  "@filterActivityHint": {"description": "Personal activity hint for the topic-list API's supported choices."},
   "filterSortHint": "The order results come in",
-  "@filterSortHint": {
-    "description": "Sort filter description."
-  },
+  "@filterSortHint": {"description": "Sort filter description."},
   "filterAny": "Any",
-  "@filterAny": {
-    "description": "Short tag matching mode."
-  },
+  "@filterAny": {"description": "Short tag matching mode."},
   "filterAll": "All",
-  "@filterAll": {
-    "description": "Short tag matching mode."
-  },
+  "@filterAll": {"description": "Short tag matching mode."},
   "filterNotAll": "Not all",
-  "@filterNotAll": {
-    "description": "Short tag matching mode excluding the combination."
-  },
+  "@filterNotAll": {"description": "Short tag matching mode excluding the combination."},
   "filterAnyHint": "Topics with at least one",
-  "@filterAnyHint": {
-    "description": "Tag matching mode explanation."
-  },
+  "@filterAnyHint": {"description": "Tag matching mode explanation."},
   "filterAllHint": "Topics with every one",
-  "@filterAllHint": {
-    "description": "Tag matching mode explanation."
-  },
+  "@filterAllHint": {"description": "Tag matching mode explanation."},
   "filterNoneHint": "Topics with none of them",
-  "@filterNoneHint": {
-    "description": "Tag matching mode explanation."
-  },
+  "@filterNoneHint": {"description": "Tag matching mode explanation."},
   "filterNotAllHint": "Leaves out topics with every one at once",
-  "@filterNotAllHint": {
-    "description": "Tag matching mode explanation."
-  },
+  "@filterNotAllHint": {"description": "Tag matching mode explanation."},
   "filterNoTagsYet": "No tags yet",
-  "@filterNoTagsYet": {
-    "description": "Disabled tag selection completion row."
-  },
+  "@filterNoTagsYet": {"description": "Disabled tag selection completion row."},
   "filterExactly": "Exactly",
-  "@filterExactly": {
-    "description": "Exact numeric filter comparison."
-  },
+  "@filterExactly": {"description": "Exact numeric filter comparison."},
   "mentionUsersOrGroups": "Mention users or groups",
   "@mentionUsersOrGroups": {
     "description": "Composer toolbar action that inserts @ and opens mention search."
@@ -1714,11 +1445,7 @@
   "threadInChannel": "Thread in #{channel}",
   "@threadInChannel": {
     "description": "Identifies the parent channel in a conversation header.",
-    "placeholders": {
-      "channel": {
-        "type": "String"
-      }
-    }
+    "placeholders": {"channel": {"type": "String"}}
   },
   "threadActions": "Thread actions",
   "@threadActions": {
@@ -3505,20 +3232,12 @@
   "localDateDaysEarlier": "{count, plural, =1{1 day earlier} other{{count} days earlier}}",
   "@localDateDaysEarlier": {
     "description": "The time zone's calendar date is multiple days before the reader's date.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
+    "placeholders": { "count": { "type": "int" } }
   },
   "localDateDaysLater": "{count, plural, =1{1 day later} other{{count} days later}}",
   "@localDateDaysLater": {
     "description": "The time zone's calendar date is multiple days after the reader's date.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
+    "placeholders": { "count": { "type": "int" } }
   },
   "localDateUniversalTime": "Universal time",
   "@localDateUniversalTime": {
@@ -12711,18 +12430,14 @@
   "@allOfCategory": {
     "description": "Category path menu option that returns to its parent category and includes all its descendants.",
     "placeholders": {
-      "categoryName": {
-        "type": "String"
-      }
+      "categoryName": { "type": "String" }
     }
   },
   "categoryPathSegment": "Category: {path}",
   "@categoryPathSegment": {
     "description": "Accessible label for an editable segment in the category filter path, including its ancestors.",
     "placeholders": {
-      "path": {
-        "type": "String"
-      }
+      "path": { "type": "String" }
     }
   },
   "subcategoryTopiccategoryselector": "Subcategory",
@@ -15324,33 +15039,15 @@
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
   },
   "hideSpoiler": "Hide spoiler",
-  "@hideSpoiler": {
-    "description": "Accessible label for a revealed spoiler."
-  },
+  "@hideSpoiler": {"description": "Accessible label for a revealed spoiler."},
   "returningUserLastPost": "It’s been a while since we’ve seen {username} — their last post was {duration} ago.",
-  "@returningUserLastPost": {
-    "description": "Returning user notice with the server-provided last post time.",
-    "placeholders": {
-      "username": {
-        "type": "String"
-      },
-      "duration": {
-        "type": "String"
-      }
-    }
-  },
+  "@returningUserLastPost": {"description": "Returning user notice with the server-provided last post time.", "placeholders": {"username": {"type": "String"}, "duration": {"type": "String"}}},
   "newSinceLastVisit": "New since your last visit",
-  "@newSinceLastVisit": {
-    "description": "Marker above the first unread post when entering a topic."
-  },
+  "@newSinceLastVisit": {"description": "Marker above the first unread post when entering a topic."},
   "reduceMotionDescription": "Keep cards, menus and celebrations still.",
-  "@reduceMotionDescription": {
-    "description": "App accessibility setting description."
-  },
+  "@reduceMotionDescription": {"description": "App accessibility setting description."},
   "reduceMotionFollowsDeviceDescription": "Keep cards, menus and celebrations still. Follows this device until you change it.",
-  "@reduceMotionFollowsDeviceDescription": {
-    "description": "App accessibility setting description before the user makes a choice."
-  },
+  "@reduceMotionFollowsDeviceDescription": {"description": "App accessibility setting description before the user makes a choice."},
   "reduceMotion": "Reduce motion",
   "@reduceMotion": {
     "description": "English UI message used by styleguide/styleguide_page.dart. Keep placeholders intact."
@@ -18860,13 +18557,9 @@
     }
   },
   "searchFilterMatch": "Match",
-  "@searchFilterMatch": {
-    "description": "Label for how selected search tags are combined."
-  },
+  "@searchFilterMatch": {"description": "Label for how selected search tags are combined."},
   "hatchTexture": "Hatch",
-  "@hatchTexture": {
-    "description": "Appearance material and texture setting."
-  },
+  "@hatchTexture": {"description": "Appearance material and texture setting."},
   "postHiddenAfterFlags": "Hidden after flags from the community",
   "@postHiddenAfterFlags": {
     "description": "Post status and solution action label."
@@ -18928,51 +18621,21 @@
     "description": "General topic menu for sharing, flagging, and marking unread."
   },
   "deleteComposerDraft": "Delete draft",
-  "@deleteComposerDraft": {
-    "description": "Composer saved-draft rollback action or accessible revision preview."
-  },
+  "@deleteComposerDraft": {"description": "Composer saved-draft rollback action or accessible revision preview."},
   "keepComposerDraft": "Keep draft",
-  "@keepComposerDraft": {
-    "description": "Composer saved-draft rollback action or accessible revision preview."
-  },
+  "@keepComposerDraft": {"description": "Composer saved-draft rollback action or accessible revision preview."},
   "draftPreviewRemoved": "Removed: {text}",
-  "@draftPreviewRemoved": {
-    "description": "Composer saved-draft rollback action or accessible revision preview.",
-    "placeholders": {
-      "text": {
-        "type": "String"
-      }
-    }
-  },
+  "@draftPreviewRemoved": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}},
   "draftPreviewRestored": "Restored: {text}",
-  "@draftPreviewRestored": {
-    "description": "Composer saved-draft rollback action or accessible revision preview.",
-    "placeholders": {
-      "text": {
-        "type": "String"
-      }
-    }
-  },
+  "@draftPreviewRestored": {"description": "Composer saved-draft rollback action or accessible revision preview.", "placeholders": {"text": {"type": "String"}}},
   "userCardMessageAction": "Message",
-  "@userCardMessageAction": {
-    "description": "Private message action in the profile card."
-  },
+  "@userCardMessageAction": {"description": "Private message action in the profile card."},
   "userCardEditProfileAction": "Edit profile",
-  "@userCardEditProfileAction": {
-    "description": "Open own profile preferences from the profile card."
-  },
+  "@userCardEditProfileAction": {"description": "Open own profile preferences from the profile card."},
   "userCardMoreBadges": "+{count} more",
-  "@userCardMoreBadges": {
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
-  },
+  "@userCardMoreBadges": {"placeholders": {"count": {"type": "int"}}},
   "userCardReadTime": "Read time",
-  "@userCardReadTime": {
-    "description": "Reading duration in the profile card."
-  },
+  "@userCardReadTime": {"description": "Reading duration in the profile card."},
   "postMutationSavedRefreshNeeded": "The change was saved, but this view could not be refreshed. Refresh to see the latest state.",
   "@postMutationSavedRefreshNeeded": {
     "description": "Feedback for a typed post moderation outcome or its read-only recovery."
@@ -19336,23 +18999,9 @@
     }
   },
   "dashboardMegabytes": "{value} MB",
-  "@dashboardMegabytes": {
-    "description": "Storage size in megabytes.",
-    "placeholders": {
-      "value": {
-        "type": "String"
-      }
-    }
-  },
+  "@dashboardMegabytes": {"description": "Storage size in megabytes.", "placeholders": {"value": {"type": "String"}}},
   "dashboardDurationHours": "{value} h",
-  "@dashboardDurationHours": {
-    "description": "Dashboard time to first response in hours.",
-    "placeholders": {
-      "value": {
-        "type": "String"
-      }
-    }
-  },
+  "@dashboardDurationHours": {"description": "Dashboard time to first response in hours.", "placeholders": {"value": {"type": "String"}}},
   "boardsTitle": "Boards",
   "@boardsTitle": {
     "description": "Native Boards plugin interface."
@@ -19655,29 +19304,17 @@
     "description": "Validation error for an HTTP Basic Auth username or password, without echoing either value."
   },
   "reportBackToDashboard": "Back to dashboard",
-  "@reportBackToDashboard": {
-    "description": "Native report viewer. Back to dashboard"
-  },
+  "@reportBackToDashboard": {"description": "Native report viewer. Back to dashboard"},
   "reportDateRange": "Date range",
-  "@reportDateRange": {
-    "description": "Native report viewer. Date range"
-  },
+  "@reportDateRange": {"description": "Native report viewer. Date range"},
   "reportStartDate": "Start date",
-  "@reportStartDate": {
-    "description": "Native report viewer. Start date"
-  },
+  "@reportStartDate": {"description": "Native report viewer. Start date"},
   "reportEndDate": "End date",
-  "@reportEndDate": {
-    "description": "Native report viewer. End date"
-  },
+  "@reportEndDate": {"description": "Native report viewer. End date"},
   "reportChart": "Chart",
-  "@reportChart": {
-    "description": "Native report viewer. Chart"
-  },
+  "@reportChart": {"description": "Native report viewer. Chart"},
   "reportLoadError": "Could not load this report. Refresh to try again.",
-  "@reportLoadError": {
-    "description": "Native report viewer. Could not load this report. Refresh to try again."
-  },
+  "@reportLoadError": {"description": "Native report viewer. Could not load this report. Refresh to try again."},
   "notificationSchedule": "Notification schedule",
   "@notificationSchedule": {
     "description": "Notification schedule sheet: Notification schedule"
@@ -19729,28 +19366,16 @@
   "voiceRoomHereNow": "{count, plural, one{1 person here now} other{{count} people here now}}",
   "@voiceRoomHereNow": {
     "description": "Live room onebox participant count from the viewer's current room directory.",
-    "placeholders": {
-      "count": {
-        "type": "int"
-      }
-    }
+    "placeholders": { "count": { "type": "int" } }
   },
   "voiceRoomDelete": "Delete room",
-  "@voiceRoomDelete": {
-    "description": "Action to delete a persistent Live room."
-  },
+  "@voiceRoomDelete": {"description": "Action to delete a persistent Live room."},
   "voiceRoomDeleteConfirm": "Delete this room? Everyone in the call will be disconnected. This cannot be undone.",
-  "@voiceRoomDeleteConfirm": {
-    "description": "Confirmation before deleting a Live room."
-  },
+  "@voiceRoomDeleteConfirm": {"description": "Confirmation before deleting a Live room."},
   "searchChat": "Search chat",
-  "@searchChat": {
-    "description": "Drawer entry opening the shared forum search scoped to Chat or the current channel."
-  },
+  "@searchChat": {"description": "Drawer entry opening the shared forum search scoped to Chat or the current channel."},
   "voiceRoomDeleteFailed": "Couldn’t delete the room.",
-  "@voiceRoomDeleteFailed": {
-    "description": "Error when a Live room could not be deleted."
-  },
+  "@voiceRoomDeleteFailed": {"description": "Error when a Live room could not be deleted."},
   "sidebarSelected": "Selected",
   "@sidebarSelected": {
     "description": "Category and tag sidebar preference editor."
@@ -19789,14 +19414,7 @@
     "description": "Category and tag sidebar preference editor."
   },
   "backToTopOf": "Back to the top of {title}",
-  "@backToTopOf": {
-    "description": "Accessible action for the visible mobile page title.",
-    "placeholders": {
-      "title": {
-        "type": "String"
-      }
-    }
-  },
+  "@backToTopOf": {"description": "Accessible action for the visible mobile page title.", "placeholders": {"title": {"type": "String"}}},
   "chatOrderByType": "By type",
   "@chatOrderByType": {
     "description": "Chat inbox and sidebar grouping option that separates starred conversations, channels and direct messages."
@@ -21011,5 +20629,13 @@
   "postVotingLoadEarlier": "Load earlier answers",
   "@postVotingLoadEarlier": {
     "description": "Load earlier server-ordered answers around a deep-linked post."
+  },
+  "postVotingReviewComment": "Review comment on the forum",
+  "@postVotingReviewComment": {
+    "description": "Opens the server review queue for a flagged Post Voting comment."
+  },
+  "postVotingSiteSettings": "Post Voting site settings",
+  "@postVotingSiteSettings": {
+    "description": "Opens Post Voting site settings on the forum."
   }
 }

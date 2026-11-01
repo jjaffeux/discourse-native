@@ -139,7 +139,22 @@ final class PostVotingActions extends FrameSafeNotifier {
         metadata: window.metadata,
       );
     });
-    return available(reader) && receipt?.postIds.contains(postId) == true;
+    final incoming = receipt?.value.posts
+        .where((item) => item.post.id == postId)
+        .firstOrNull
+        ?.post
+        .plugins
+        .get(postVotingPostKey);
+    final canonical = record(reader.siteUrl, postId);
+    return available(reader) &&
+        receipt?.postIds.contains(postId) == true &&
+        !posts.writeInFlight(reader.siteUrl, postId) &&
+        incoming != null &&
+        canonical != null &&
+        incoming.score == canonical.score &&
+        incoming.hasVotes == canonical.hasVotes &&
+        incoming.myVoteKnown == canonical.myVoteKnown &&
+        incoming.myVote == canonical.myVote;
   }
 
   Future<String?> vote(
@@ -155,7 +170,18 @@ final class PostVotingActions extends FrameSafeNotifier {
     }
     final lease = requests.capture(target.site), run = Object();
     if (!lease.isCurrent || !posts.beginWrite(target.site, id)) return null;
-    if (!lease.isCurrent || !available(reader)) return null;
+    if (!lease.isCurrent || !available(reader)) {
+      if (lease.isCurrent) posts.endWrite(target.site, id);
+      return null;
+    }
+    var ownsLane = true;
+    void releaseLane() {
+      if (ownsLane && lease.isCurrent) {
+        ownsLane = false;
+        posts.endWrite(target.site, id);
+      }
+    }
+
     _runs[(target, false)] = run;
     final original = record(target.site, id)?.myVote;
     var sent = false;
@@ -196,6 +222,7 @@ final class PostVotingActions extends FrameSafeNotifier {
         target,
         const PostVotingWriteState(phase: PostVotingWritePhase.refreshing),
       );
+      releaseLane();
       if (!await reconcilePost(reader, id)) {
         throw const WriteException(WriteFailure.unreachable);
       }
@@ -218,6 +245,7 @@ final class PostVotingActions extends FrameSafeNotifier {
           error: error,
         ),
       );
+      releaseLane();
       if (!uncertain) {
         try {
           await reconcilePost(reader, id);
@@ -229,7 +257,7 @@ final class PostVotingActions extends FrameSafeNotifier {
     } finally {
       if (lease.isCurrent && identical(_runs[(target, false)], run)) {
         _runs.remove((target, false));
-        posts.endWrite(target.site, id);
+        releaseLane();
       }
     }
   }
@@ -380,8 +408,6 @@ final class PostVotingActions extends FrameSafeNotifier {
         reader.currentUserId == null ||
         heldState.pending ||
         heldState.uncertain ||
-        reader.topic?.closed == true ||
-        reader.topic?.archived == true ||
         !settingsFor(target.site).commentsEnabled) {
       return const PostVotingCommentResult();
     }

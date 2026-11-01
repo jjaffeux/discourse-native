@@ -254,10 +254,11 @@ final class PostVotingServices extends FrameSafeNotifier
         topicId = location.topicId;
         number = location.postNumber;
         slug = location.slug;
-      } else if (parts.length == 4 && parts.first == 't') {
+      } else if ((parts.length == 3 || parts.length == 4) &&
+          parts.first == 't') {
         topicId = int.tryParse(parts[2]);
         slug = parts[1];
-        if (parts.length == 4) number = int.tryParse(parts[3]);
+        number = parts.length == 4 ? int.tryParse(parts[3]) : 1;
         if (parts.length == 4 && (number == null || number <= 0)) return false;
       } else {
         return false;

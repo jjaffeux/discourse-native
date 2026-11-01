@@ -72,8 +72,8 @@ final class PostVotingController extends FrameSafeNotifier {
           ? const []
           : answers.where((id) => !_unavailable.contains(id)).toList();
     }
-    final boundary = answers.indexOf(earlier ? held.first : held.last);
-    final range = earlier ? answers.take(boundary) : answers.skip(boundary + 1);
+    final boundary = answers.indexOf(held.first);
+    final range = earlier ? answers.take(boundary) : answers.skip(boundary);
     final missing = range
         .where((id) => !loadedIds.contains(id) && !_unavailable.contains(id))
         .toList();
@@ -208,6 +208,12 @@ final class PostVotingController extends FrameSafeNotifier {
 
   Future<void> changeOrder(PostVotingOrder value) async {
     if (!current || order == value) return;
+    final heldOrder = order,
+        heldQuery = reader.route.topicQuery,
+        heldNear = nearPostNumber;
+    final heldIds = orderedIds,
+        heldLoaded = Set<int>.of(loadedIds),
+        heldUnavailable = Set<int>.of(_unavailable);
     ++_generation;
     order = value;
     loading = false;
@@ -224,6 +230,19 @@ final class PostVotingController extends FrameSafeNotifier {
     if (!reader.updateQuery(Uri(queryParameters: query).query)) return;
     nearPostNumber = 1;
     await refresh();
+    if (current && order == value && error != null) {
+      order = heldOrder;
+      nearPostNumber = heldNear;
+      orderedIds = heldIds;
+      loadedIds
+        ..clear()
+        ..addAll(heldLoaded);
+      _unavailable
+        ..clear()
+        ..addAll(heldUnavailable);
+      reader.updateQuery(heldQuery);
+      notifySafely();
+    }
   }
 
   void _readerChanged() {

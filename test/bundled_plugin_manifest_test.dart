@@ -32,6 +32,7 @@ void main() {
       'discourse-placeholder',
       'discourse-reactions',
       'poll',
+      'discourse-policy',
       'discourse-events',
       'discourse-prometheus-alert-receiver',
       'gifs',
@@ -39,8 +40,10 @@ void main() {
       'discourse-data-explorer',
       'discourse-assign',
       'boards',
+      'discourse-cakeday',
       'discourse-gamification',
       'nested-replies',
+      'discourse-post-voting',
       'chat',
       'voice',
     ]);
@@ -107,7 +110,12 @@ void main() {
         installed.descriptors.map((descriptor) => descriptor.id.value),
         bundledPluginManifest.modules
             .map((module) => module.descriptor.id.value)
-            .where((id) => id != 'voice' && id != 'nested-replies'),
+            .where(
+              (id) =>
+                  id != 'voice' &&
+                  id != 'nested-replies' &&
+                  id != 'discourse-post-voting',
+            ),
       );
     },
   );

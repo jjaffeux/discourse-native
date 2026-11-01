@@ -3,6 +3,8 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_composer.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_data.dart';
@@ -31,6 +33,37 @@ const registry = PluginRegistry([
 ]);
 const models = DiscourseModelCodec(extensions: registry);
 const user = DiscourseUser(id: 9, username: 'reader', staff: true);
+
+class VotingTestApi extends FakeDiscourseApi {
+  VotingTestApi({
+    required super.models,
+    required super.user,
+    required super.siteConfigs,
+    required super.feeds,
+    required super.topics,
+    required super.pluginResponses,
+  });
+  Future<void>? writeGate;
+  @override
+  Future<Map<String, dynamic>> pluginWriteJson({
+    required String siteUrl,
+    required String path,
+    required String method,
+    required String apiKey,
+    required Map<String, Object?> body,
+    String? clientId,
+  }) async {
+    await writeGate;
+    return super.pluginWriteJson(
+      siteUrl: siteUrl,
+      path: path,
+      method: method,
+      apiKey: apiKey,
+      body: body,
+      clientId: clientId,
+    );
+  }
+}
 
 Map<String, dynamic> post(int number, {int? score}) => {
   'id': 100 + number,
@@ -104,25 +137,30 @@ Future<
     PluginTopicReader reader,
   })
 >
-pumpFixture(WidgetTester tester, Size size) async {
+pumpFixture(
+  WidgetTester tester,
+  Size size, {
+  Map<String, dynamic>? topicJson,
+}) async {
+  final wire = topicJson ?? topic();
   final configured = SiteConfig(
     plugins: PluginData.none.withValue(
       postVotingSettingsKey,
       const PostVotingSettings(enabled: true),
     ),
   );
-  final row = models.topicSummary(topic(), site);
-  final api = FakeDiscourseApi(
+  final row = models.topicSummary(wire, site);
+  final api = VotingTestApi(
     models: models,
     user: user,
     siteConfigs: {site: configured},
     feeds: {
       '/latest.json': [row],
     },
-    topics: {7: models.topic(topic(), site)},
+    topics: {7: models.topic(wire, site)},
     pluginResponses: {
-      'GET /t/7.json?post_number=1': topic(),
-      'GET /t/7.json': topic(),
+      'GET /t/7.json?post_number=1': wire,
+      'GET /t/7.json': wire,
       'GET /t/7.json?post_number=3': topic(),
       'GET /t/7.json?filter=activity&post_number=1': topic(activity: true),
       'GET /post_voting/comments.json?post_id=103&last_comment_id=0': {
@@ -146,6 +184,7 @@ pumpFixture(WidgetTester tester, Size size) async {
     pluginManifest: const PluginManifest([postVotingModule]),
   );
   final shell = ShellScope.read(tester.element(primaryMainContent));
+  await shell.appSettings.setThemeMode(AppThemeMode.dark);
   shell.openTopic(row);
   await frames(tester);
   final element = tester.element(find.byType(PostVotingReader));
@@ -225,6 +264,11 @@ void main() {
         await frames(tester);
         await capture(tester, '${entry.$1}-selected-vote');
         expect(fixture.api.pluginWrites.single.path, '/post_voting/vote.json');
+        expect(
+          fixture.services.actions.record(site, 103)!.myVote,
+          PostVoteDirection.up,
+        );
+        expect(fixture.services.actions.record(site, 103)!.score, 13);
         await tester.tap(find.text('Activity').last);
         await frames(tester);
         expect(
@@ -250,6 +294,23 @@ void main() {
     'authoritative same actor event removes optimistic overlay before HTTP returns',
     (tester) async {
       final fixture = await pumpFixture(tester, desktop);
+      final gate = Completer<void>();
+      (fixture.api as VotingTestApi).writeGate = gate.future;
+      fixture.api.pluginResponses['GET /t/7.json?post_number=3'] = topic(
+        posts: [
+          post(1),
+          {...post(3, score: 13), 'post_voting_user_voted_direction': 'up'},
+          post(2),
+        ],
+      );
+      final pending = fixture.services.actions.vote(
+        fixture.reader,
+        103,
+        PostVoteDirection.up,
+      );
+      await frames(tester);
+      expect(fixture.services.actions.displayedRecord(site, 103)!.score, 13);
+      expect(fixture.services.actions.voteState(site, 103).pending, isTrue);
       fixture.services.actions.votedEvent(fixture.reader, {
         'id': 103,
         'post_voting_vote_count': 13,
@@ -258,6 +319,9 @@ void main() {
         'post_voting_user_voted_direction': 'up',
       });
       expect(fixture.services.actions.displayedRecord(site, 103)!.score, 13);
+      gate.complete();
+      await pending;
+      expect(fixture.services.actions.record(site, 103)!.score, 13);
       fixture.services.actions.votedEvent(fixture.reader, {
         'id': 103,
         'post_voting_vote_count': 12,
@@ -299,6 +363,148 @@ void main() {
         fixture.services.actions.record(site, 103)!.initialComments!.single.raw,
         'Edited answer clarification',
       );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'refused Activity fetch restores the previously accepted sort and URL',
+    (tester) async {
+      final fixture = await pumpFixture(tester, desktop);
+      fixture.api.pluginResponses.remove(
+        'GET /t/7.json?filter=activity&post_number=1',
+      );
+      await tester.tap(find.text('Activity').last);
+      await frames(tester);
+      expect(
+        tester
+            .widget<DToggleGroup<PostVotingOrder>>(
+              find.byKey(const ValueKey('post-voting-order')),
+            )
+            .values,
+        [PostVotingOrder.votes],
+      );
+      expect(
+        fixture.reader.route.topicQuery,
+        isNot(contains('filter=activity')),
+      );
+      expect(
+        tester.getTopLeft(renderedText('Keep the boundaries simple')).dy,
+        lessThan(tester.getTopLeft(renderedText('Start with the smallest')).dy),
+      );
+      await capture(tester, 'desktop-activity-error');
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'dispatched vote timeout cannot replay before authoritative status check',
+    (tester) async {
+      final fixture = await pumpFixture(tester, desktop);
+      fixture.api.pluginWriteFailures['POST /post_voting/vote.json'] =
+          const WriteException(WriteFailure.unreachable);
+      await fixture.services.actions.vote(
+        fixture.reader,
+        103,
+        PostVoteDirection.up,
+      );
+      expect(fixture.services.actions.voteState(site, 103).uncertain, isTrue);
+      await fixture.services.actions.vote(
+        fixture.reader,
+        103,
+        PostVoteDirection.up,
+      );
+      expect(fixture.api.pluginWrites.length, 1);
+      fixture.api.pluginResponses['GET /t/7.json?post_number=3'] = topic(
+        posts: [
+          post(1),
+          {...post(3, score: 13), 'post_voting_user_voted_direction': 'up'},
+          post(2),
+        ],
+      );
+      await fixture.services.actions.checkVote(fixture.reader, 103);
+      expect(fixture.services.actions.voteState(site, 103).uncertain, isFalse);
+      expect(
+        fixture.services.actions.record(site, 103)!.myVote,
+        PostVoteDirection.up,
+      );
+      expect(fixture.api.pluginWrites.length, 1);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'comment draft survives refusal and accepted cooked response replaces editor',
+    (tester) async {
+      final fixture = await pumpFixture(tester, desktop);
+      final editor = find.byKey(
+        const ValueKey('post-voting-comment-editor-103'),
+      );
+      final section = find.byWidgetPredicate(
+        (w) =>
+            w.key ==
+            ValueKey((
+              'post-voting-comments',
+              site,
+              7,
+              103,
+              fixture.services.actions.epochFor(site),
+            )),
+      );
+      await tester.ensureVisible(
+        find.descendant(of: section, matching: find.text('Add a comment')).last,
+      );
+      await tester.tap(
+        find.descendant(of: section, matching: find.text('Add a comment')).last,
+      );
+      await frames(tester);
+      await tester.enterText(
+        find.descendant(of: editor, matching: find.byType(EditableText)),
+        'A new clarification',
+      );
+      await capture(tester, 'desktop-comment-editor');
+      fixture.api.pluginWriteFailures['POST /post_voting/comments.json'] =
+          const WriteException(WriteFailure.forbidden);
+      final save = find.byKey(const ValueKey('post-voting-comment-submit-103'));
+      await tester.ensureVisible(save);
+      await tester.pump();
+      await tester.tap(save);
+      await frames(tester);
+      expect(
+        tester
+            .widget<EditableText>(
+              find.descendant(of: editor, matching: find.byType(EditableText)),
+            )
+            .controller
+            .text,
+        'A new clarification',
+      );
+      expect(fixture.api.pluginWrites.length, 1);
+      final created = {...comment(body: 'A new clarification'), 'id': 52};
+      fixture.api.pluginResponses['POST /post_voting/comments.json'] = created;
+      fixture
+          .api
+          .pluginResponses['GET /post_voting/comments.json?post_id=103&last_comment_id=0'] = {
+        'comments': [comment(), created],
+      };
+      await tester.ensureVisible(save);
+      await tester.pump();
+      expect(tester.widget<DButton>(save).onPressed, isNotNull);
+      await tester.tap(save);
+      await frames(tester);
+      expect(
+        fixture.api.pluginWrites.length,
+        2,
+        reason: '${fixture.services.actions.commentState(site, 103).error}',
+      );
+      expect(fixture.services.actions.commentState(site, 103).error, isNull);
+      expect(editor, findsNothing);
+      expect(
+        fixture.services.actions
+            .record(site, 103)!
+            .initialComments!
+            .map((c) => c.id),
+        [51, 52],
+      );
+      expect(renderedText('A new clarification'), findsOneWidget);
+      await capture(tester, 'desktop-comment-created');
       await tester.pumpWidget(const SizedBox());
     },
   );

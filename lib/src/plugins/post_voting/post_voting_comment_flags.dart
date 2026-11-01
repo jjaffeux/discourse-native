@@ -61,6 +61,22 @@ class _FlagForm extends StatefulWidget {
 
 class _FlagFormState extends State<_FlagForm> {
   final _message = TextEditingController();
+  late final int _epoch;
+  bool get _current =>
+      widget.services.actions.available(widget.reader) &&
+      _epoch == widget.services.actions.epochFor(widget.reader.siteUrl);
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _epoch = widget.services.actions.epochFor(widget.reader.siteUrl);
+    widget.reader.addListener(_changed);
+    widget.services.addListener(_changed);
+  }
+
   PostFlagType? _choice;
   bool _warning = false, _takeAction = false, _queue = false, _saving = false;
   Object? _error;
@@ -81,7 +97,7 @@ class _FlagFormState extends State<_FlagForm> {
     if (_saving ||
         choice == null ||
         !_choices.any((item) => item.id == choice.id) ||
-        !widget.reader.isCurrent) {
+        !_current) {
       return;
     }
     final latest = widget.services.actions
@@ -126,12 +142,15 @@ class _FlagFormState extends State<_FlagForm> {
 
   @override
   void dispose() {
+    widget.reader.removeListener(_changed);
+    widget.services.removeListener(_changed);
     _message.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (!_current) return const SizedBox.shrink();
     final dsa = widget.services
         .settingsFor(widget.reader.siteUrl)
         .dsaReportingEnabled;

@@ -25106,6 +25106,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load earlier answers'**
   String get postVotingLoadEarlier;
+
+  /// Opens the server review queue for a flagged Post Voting comment.
+  ///
+  /// In en, this message translates to:
+  /// **'Review comment on the forum'**
+  String get postVotingReviewComment;
+
+  /// Opens Post Voting site settings on the forum.
+  ///
+  /// In en, this message translates to:
+  /// **'Post Voting site settings'**
+  String get postVotingSiteSettings;
 }
 
 class _AppLocalizationsDelegate
