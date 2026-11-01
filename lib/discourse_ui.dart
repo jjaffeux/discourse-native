@@ -138,3 +138,5 @@ export 'src/ui/foundation/oklab.dart';
 export 'src/ui/foundation/surface_depth.dart';
 export 'src/ui/foundation/tokens.dart';
 export 'src/ui/foundation/touch_target.dart';
+
+export 'src/ui/components/d_math.dart';

@@ -29022,12 +29022,12 @@
     const max = str.length;
     let pos = 0;
     let ch = str.charCodeAt(pos);
-    let isEscaped = false;
+    let isEscaped2 = false;
     let lastPos = 0;
     let current = "";
     while (pos < max) {
       if (ch === 124) {
-        if (!isEscaped) {
+        if (!isEscaped2) {
           result.push(current + str.substring(lastPos, pos));
           current = "";
           lastPos = pos + 1;
@@ -29036,7 +29036,7 @@
           lastPos = pos;
         }
       }
-      isEscaped = ch === 92;
+      isEscaped2 = ch === 92;
       pos++;
       ch = str.charCodeAt(pos);
     }
@@ -34694,8 +34694,8 @@
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup40, priority: priority3 = 0 }) {
-    return { id, setup: setup40, priority: priority3 };
+  function feature(id, { setup: setup42, priority: priority3 = 0 }) {
+    return { id, setup: setup42, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -34877,19 +34877,19 @@
       if (options.setup) {
         return;
       }
-      const setup40 = new _Setup(options);
+      const setup42 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup40.#setupFeature(feature2.id, feature2.setup);
+        setup42.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup40.allowList(entry);
+        setup42.allowList(entry);
       }
-      setup40.#runOptionsCallbacks(siteSettings, state);
-      setup40.#enableMarkdownFeatures();
-      setup40.#finalizeGetOptions(siteSettings);
-      setup40.#makeEngine();
-      setup40.#buildCookFunctions();
+      setup42.#runOptionsCallbacks(siteSettings, state);
+      setup42.#enableMarkdownFeatures();
+      setup42.#finalizeGetOptions(siteSettings);
+      setup42.#makeEngine();
+      setup42.#buildCookFunctions();
     }
     #context;
     #options;
@@ -35045,17 +35045,17 @@
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup40) {
+    constructor(featureName, context, setup42) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup40;
+      this.#setup = setup42;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup40(methodName, ...args);
+        return setup42(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -35644,7 +35644,7 @@
         return true;
       }
     };
-    function setup40(helper) {
+    function setup42(helper) {
       helper.allowList([
         "svg[class=fa d-icon d-icon-discourse-threads svg-icon svg-node]",
         "use[href=#discourse-threads]",
@@ -35699,12 +35699,12 @@
         );
       });
     }
-    return setup40;
+    return setup42;
   }
 
   // src/modules/chat-transcript.js
   function setup26(helper, context, api) {
-    const setup40 = createSetup((key, values) => i18n(key, values, api.context.locale));
+    const setup42 = createSetup((key, values) => i18n(key, values, api.context.locale));
     helper.allowList([
       "div[data-chained]",
       "div[data-reactions]",
@@ -35726,7 +35726,7 @@
         hashtag_configurations: { "chat-composer": api.hashtagPriorities.chat || ["channel", "category", "tag"] }
       } };
     });
-    setup40({
+    setup42({
       allowList: (values) => helper.allowList(values),
       registerOptions: (callback) => helper.registerOptions((options) => callback(options, { chat_enabled: true })),
       registerPlugin: (callback) => helper.registerPlugin((md) => {
@@ -44399,6 +44399,389 @@
     });
   }
 
+  // src/modules/discourse-math.js
+  init_environment();
+
+  // vendor/plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js
+  init_environment();
+  var CHAR_CODES = {
+    DOLLAR: 36,
+    PERCENT: 37,
+    BACKSLASH: 92,
+    OPEN_BRACKET: 91,
+    CLOSE_BRACKET: 93
+  };
+  var MATH_TYPES = {
+    TEX: "tex",
+    ASCIIMATH: "asciimath"
+  };
+  var TOKEN_TYPES = {
+    INLINE: "math_inline",
+    BLOCK: "math_block"
+  };
+  var CSS_CLASSES = {
+    MATH: "math",
+    ASCIIMATH: "asciimath"
+  };
+  var additionalPunctuation = [
+    // Chinese and Japanese punctuation
+    12289,
+    // 、
+    12290,
+    // 。
+    // Full-width punctuation used in East Asian languages
+    65292,
+    // ，
+    65306,
+    // ：
+    65307,
+    // ；
+    65294,
+    // ．
+    65311,
+    // ？
+    65281,
+    // ！
+    // Arabic punctuation
+    1548,
+    // ،
+    1563,
+    // ؛
+    1567,
+    // ؟
+    // Thai punctuation
+    3631
+    // ฯ
+  ];
+  function isSafeBoundary(character_code, delimiter_code, md) {
+    if (character_code === delimiter_code) {
+      return false;
+    }
+    if (md.utils.isWhiteSpace(character_code)) {
+      return true;
+    }
+    if (md.utils.isMdAsciiPunct(character_code)) {
+      return true;
+    }
+    if (md.utils.isPunctChar(character_code)) {
+      return true;
+    }
+    if (additionalPunctuation.includes(character_code)) {
+      return true;
+    }
+    return false;
+  }
+  function addInlineMathToken(state, content, mathType) {
+    const token = state.push(TOKEN_TYPES.INLINE, "", 0);
+    token.content = content;
+    token.meta = { mathType };
+  }
+  function addBlockMathToken(state, content) {
+    const token = state.push(TOKEN_TYPES.BLOCK, "", 0);
+    token.content = content;
+    token.block = true;
+  }
+  function findClosingInlineDelimiter(src, start, posMax, delimiterCode) {
+    for (let i = start; i < posMax; i++) {
+      const code2 = src.charCodeAt(i);
+      if (code2 === delimiterCode && !isEscaped(src, i)) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  function isEscaped(src, index) {
+    let backslashes = 0;
+    let i = index - 1;
+    while (i >= 0 && src.charCodeAt(i) === CHAR_CODES.BACKSLASH) {
+      backslashes++;
+      i--;
+    }
+    return backslashes % 2 === 1;
+  }
+  function math_input(state, silent, delimiterCode) {
+    const pos = state.pos;
+    const posMax = state.posMax;
+    if (silent || state.src.charCodeAt(pos) !== delimiterCode || posMax < pos + 2) {
+      return false;
+    }
+    if (state.src.charCodeAt(pos + 1) === delimiterCode) {
+      return false;
+    }
+    if (pos > 0) {
+      const prev = state.src.charCodeAt(pos - 1);
+      if (!isSafeBoundary(prev, delimiterCode, state.md)) {
+        return false;
+      }
+      if (prev === delimiterCode) {
+        return false;
+      }
+    }
+    const found = findClosingInlineDelimiter(
+      state.src,
+      pos + 1,
+      posMax,
+      delimiterCode
+    );
+    if (found === -1) {
+      return false;
+    }
+    if (found + 1 <= posMax) {
+      const next = state.src.charCodeAt(found + 1);
+      if (next && !isSafeBoundary(next, delimiterCode, state.md)) {
+        return false;
+      }
+      if (next === delimiterCode) {
+        return false;
+      }
+    }
+    const data = state.src.slice(pos + 1, found);
+    if (data.includes("\n")) {
+      return false;
+    }
+    const mathType = delimiterCode === CHAR_CODES.DOLLAR ? MATH_TYPES.TEX : MATH_TYPES.ASCIIMATH;
+    addInlineMathToken(state, data, mathType);
+    state.pos = found + 1;
+    return true;
+  }
+  function findClosingDelimiter(src, start, close) {
+    const closeLength = close.length;
+    for (let i = start; i <= src.length - closeLength; i++) {
+      if (src.slice(i, i + closeLength) !== close) {
+        continue;
+      }
+      let backslashes = 0;
+      let j = i - 1;
+      while (j >= 0 && src.charCodeAt(j) === CHAR_CODES.BACKSLASH) {
+        backslashes++;
+        j--;
+      }
+      if (backslashes % 2 === 0) {
+        return i;
+      }
+    }
+    return -1;
+  }
+  function math_input_delimited(state, silent, open, close) {
+    const pos = state.pos;
+    const posMax = state.posMax;
+    if (silent || posMax < pos + open.length) {
+      return false;
+    }
+    if (state.src.slice(pos, pos + open.length) !== open) {
+      return false;
+    }
+    const start = pos + open.length;
+    const end = findClosingDelimiter(state.src, start, close);
+    if (end === -1) {
+      return false;
+    }
+    const data = state.src.slice(start, end);
+    if (!data || data.includes("\n")) {
+      return false;
+    }
+    addInlineMathToken(state, data, MATH_TYPES.TEX);
+    state.pos = end + close.length;
+    return true;
+  }
+  function inlineMath(state, silent) {
+    return math_input(state, silent, CHAR_CODES.DOLLAR);
+  }
+  function inlineMathParen(state, silent) {
+    return math_input_delimited(state, silent, "\\(", "\\)");
+  }
+  function asciiMath(state, silent) {
+    return math_input(state, silent, CHAR_CODES.PERCENT);
+  }
+  function hasOnlyWhitespaceAfter(src, start, max, md) {
+    for (let i = start; i < max; i++) {
+      if (!md.utils.isSpace(src.charCodeAt(i))) {
+        return false;
+      }
+    }
+    return true;
+  }
+  function isDollarBlockMarker(state, start, max, md) {
+    if (state.src.charCodeAt(start) !== CHAR_CODES.DOLLAR) {
+      return false;
+    }
+    if (state.src.charCodeAt(start + 1) !== CHAR_CODES.DOLLAR) {
+      return false;
+    }
+    return hasOnlyWhitespaceAfter(state.src, start + 2, max, md);
+  }
+  function isBracketBlockMarker(state, start, max, md) {
+    if (state.src.charCodeAt(start) !== CHAR_CODES.BACKSLASH) {
+      return false;
+    }
+    if (state.src.charCodeAt(start + 1) !== CHAR_CODES.OPEN_BRACKET) {
+      return false;
+    }
+    return hasOnlyWhitespaceAfter(state.src, start + 2, max, md);
+  }
+  function isBracketBlockEnd(state, start, max, md) {
+    if (state.src.charCodeAt(start) !== CHAR_CODES.BACKSLASH) {
+      return false;
+    }
+    if (state.src.charCodeAt(start + 1) !== CHAR_CODES.CLOSE_BRACKET) {
+      return false;
+    }
+    return hasOnlyWhitespaceAfter(state.src, start + 2, max, md);
+  }
+  function trySingleLineBlockMath(state, startLine, line, silent, enableLatexDelimiters) {
+    const patterns2 = [{ start: "$$", end: "$$" }];
+    if (enableLatexDelimiters) {
+      patterns2.push({ start: "\\[", end: "\\]" });
+    }
+    for (const { start, end } of patterns2) {
+      if (line.startsWith(start) && line.endsWith(end) && line.length > start.length + end.length) {
+        if (silent) {
+          return true;
+        }
+        const content = line.slice(start.length, -end.length).trim();
+        if (!content) {
+          return false;
+        }
+        addBlockMathToken(state, content);
+        state.line = startLine + 1;
+        return true;
+      }
+    }
+    return null;
+  }
+  function findClosingBlockLine(state, startLine, endLine, isEndMarker) {
+    let nextLine = startLine;
+    for (; ; ) {
+      nextLine++;
+      if (nextLine >= endLine) {
+        return { nextLine, closed: false };
+      }
+      const lineStart = state.bMarks[nextLine] + state.tShift[nextLine];
+      const lineEnd2 = state.eMarks[nextLine];
+      if (isEndMarker(state, lineStart, lineEnd2, state.md)) {
+        return { nextLine, closed: true };
+      }
+    }
+  }
+  function extractMultilineBlockContent(state, startLine, nextLine, closed) {
+    const contentStart = state.bMarks[startLine + 1] + state.tShift[startLine + 1];
+    const contentEnd = closed ? state.eMarks[nextLine - 1] : state.eMarks[nextLine];
+    return state.src.slice(contentStart, contentEnd);
+  }
+  function processMultilineBlock(state, startLine, endLine, silent, isEndMarker) {
+    if (silent) {
+      return true;
+    }
+    const { nextLine, closed } = findClosingBlockLine(
+      state,
+      startLine,
+      endLine,
+      isEndMarker
+    );
+    const content = extractMultilineBlockContent(
+      state,
+      startLine,
+      nextLine,
+      closed
+    );
+    addBlockMathToken(state, content);
+    state.line = closed ? nextLine + 1 : nextLine;
+    return true;
+  }
+  function blockMath(state, startLine, endLine, silent) {
+    const start = state.bMarks[startLine] + state.tShift[startLine];
+    const max = state.eMarks[startLine];
+    const enableLatexDelimiters = state.md.options.discourse.features.enable_latex_delimiters;
+    const line = state.src.slice(start, max).trim();
+    const singleLineResult = trySingleLineBlockMath(
+      state,
+      startLine,
+      line,
+      silent,
+      enableLatexDelimiters
+    );
+    if (singleLineResult !== null) {
+      return singleLineResult;
+    }
+    if (isDollarBlockMarker(state, start, max, state.md)) {
+      return processMultilineBlock(
+        state,
+        startLine,
+        endLine,
+        silent,
+        isDollarBlockMarker
+      );
+    }
+    if (enableLatexDelimiters && isBracketBlockMarker(state, start, max, state.md)) {
+      return processMultilineBlock(
+        state,
+        startLine,
+        endLine,
+        silent,
+        isBracketBlockEnd
+      );
+    }
+    return false;
+  }
+  function setup40(helper) {
+    if (!helper.markdownIt) {
+      return;
+    }
+    helper.allowList([
+      `span.${CSS_CLASSES.MATH}`,
+      `span.${CSS_CLASSES.ASCIIMATH}`,
+      `div.${CSS_CLASSES.MATH}`
+    ]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.math = siteSettings.discourse_math_enabled;
+      opts.features.asciimath = siteSettings.discourse_math_enable_asciimath && siteSettings.discourse_math_provider === "mathjax";
+      opts.features.enable_latex_delimiters = siteSettings.discourse_math_enable_latex_delimiters;
+    });
+    helper.registerPlugin((md) => {
+      if (md.options.discourse.features.math) {
+        md.renderer.rules[TOKEN_TYPES.INLINE] = (tokens, idx) => {
+          const token = tokens[idx];
+          const mathType = token.meta?.mathType;
+          const className = mathType === MATH_TYPES.ASCIIMATH ? CSS_CLASSES.ASCIIMATH : CSS_CLASSES.MATH;
+          const escaped = md.utils.escapeHtml(token.content);
+          return `<span class='${className}'>${escaped}</span>`;
+        };
+        md.renderer.rules[TOKEN_TYPES.BLOCK] = (tokens, idx) => {
+          const token = tokens[idx];
+          const escaped = md.utils.escapeHtml(token.content);
+          return `<div class='${CSS_CLASSES.MATH}'>
+${escaped}
+</div>
+`;
+        };
+        if (md.options.discourse.features.asciimath) {
+          md.inline.ruler.after("escape", CSS_CLASSES.ASCIIMATH, asciiMath);
+        }
+        if (md.options.discourse.features.enable_latex_delimiters) {
+          md.inline.ruler.before("text", "math-paren", inlineMathParen);
+        }
+        md.inline.ruler.after("escape", CSS_CLASSES.MATH, inlineMath);
+        md.block.ruler.after("code", CSS_CLASSES.MATH, blockMath, {
+          alt: ["paragraph", "reference", "blockquote", "list"]
+        });
+      }
+    });
+  }
+
+  // src/modules/discourse-math.js
+  function setup41(helper, context) {
+    setup40({
+      markdownIt: true,
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => {
+        callback(options, context.settings || {});
+        const enabled = ["math", "asciimath", "enable_latex_delimiters"].filter((name) => options.features[name]);
+        if (options.featuresOverride) options.featuresOverride.push(...enabled);
+      }),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
   // catalog:catalog
   if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
   if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
@@ -44422,7 +44805,8 @@
   if (typeof setup37 !== "function") throw Error("Invalid module implementation: livestream-preview");
   if (typeof transform10 !== "function") throw Error("Invalid module implementation: livestream-visibility");
   if (typeof setup39 !== "function") throw Error("Invalid module implementation: checklist");
-  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } } };
+  if (typeof setup41 !== "function") throw Error("Invalid module implementation: discourse-math");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } }, "discourse-math": { ...{ "id": "discourse-math", "owner": "discourse-math", "version": "1", "source": "discourse-math.js", "stage": "syntax", "policy": { "span": ["class"], "div": ["class"] } }, implementation: { setup: setup41 } } };
 
   // src/final-sanitize.js
   init_environment();

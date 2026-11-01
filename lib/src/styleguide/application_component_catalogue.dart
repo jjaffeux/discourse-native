@@ -135,6 +135,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Editable code', 'Read-only code', 'Long code viewer'],
   ),
   ComponentReference(
+    id: 'math',
+    name: 'Math',
+    sections: ['Inline', 'Display', 'Chemistry', 'ASCII'],
+  ),
+  ComponentReference(
     id: 'mermaid',
     name: 'Mermaid',
     sections: [

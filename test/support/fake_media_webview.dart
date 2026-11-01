@@ -43,6 +43,7 @@ final class FakeMediaWebViewController extends PlatformWebViewController {
   final documents = <({String html, String? baseUrl})>[];
   final channels = <String, JavaScriptChannelParams>{};
   final scripts = <String>[];
+  final assets = <String>[];
   final userScripts = <WebViewUserScript>[];
   FakeMediaNavigationDelegate? delegate;
 
@@ -94,6 +95,11 @@ final class FakeMediaWebViewController extends PlatformWebViewController {
     userScripts.add(userScript);
     await _configure(MediaWebViewConfigurationStage.userScript);
     return 'script-${userScripts.length}';
+  }
+
+  @override
+  Future<void> loadFlutterAsset(String key) async {
+    assets.add(key);
   }
 
   @override

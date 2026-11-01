@@ -23522,6 +23522,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Watch recording'**
   String get eventWatchRecording;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Math expression'**
+  String get mathExpression;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit math'**
+  String get editMath;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Insert math'**
+  String get insertMath;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'LaTeX'**
+  String get mathSource;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Display as a block'**
+  String get mathDisplay;
+
+  /// Math expression authoring and rendering.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply'**
+  String get mathApply;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Use SVG renderer'**
+  String get mathUseSvg;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Use HTML renderer'**
+  String get mathUseHtml;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Math accessibility'**
+  String get mathAccessibility;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset math settings'**
+  String get mathReset;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'MathML code'**
+  String get mathMathml;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'SVG image code'**
+  String get mathSvg;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Speech text'**
+  String get mathSpeech;
+
+  /// Native math menu action.
+  ///
+  /// In en, this message translates to:
+  /// **'Braille code'**
+  String get mathBraille;
 }
 
 class _AppLocalizationsDelegate

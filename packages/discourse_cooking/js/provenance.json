@@ -60,6 +60,10 @@
     "plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js": "35e119043e8cf87da16c199bc00325f58784ef453a6bcf8a9f53d4cb1619bca2",
     "plugins/poll/spec/lib/pretty_text_spec.rb": "1aedfefe4115191cdd3fbcf5130dcb33a1419ab239b411fa474b8ef6cde9ac94",
     "plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js": "ff60240fed180297ab7e1cef10efbc0619bf38ca975e9f3f55c168dbd265f378",
-    "pnpm-lock.yaml": "969114736212a4ce30f368b927fe714534274ee82f2e42b37e8e9be25743e18a"
+    "pnpm-lock.yaml": "969114736212a4ce30f368b927fe714534274ee82f2e42b37e8e9be25743e18a",
+    "plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "00cf4270260aba35fb7037c96722637b05007a79efd9aa532fbcf00a878c2df2"
+  },
+  "featureRevisions": {
+    "discourse-math": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8"
   }
 }

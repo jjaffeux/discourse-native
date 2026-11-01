@@ -1,0 +1,170 @@
+import 'dart:async';
+import 'dart:convert';
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:webview_all/webview_all.dart';
+import '../support/fake_media_webview.dart';
+
+void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  late FakeMediaWebViewPlatform platform;
+  late WebViewPlatform? previous;
+  setUp(() {
+    previous = WebViewPlatform.instance ?? FakeMediaWebViewPlatform();
+    platform = FakeMediaWebViewPlatform();
+    WebViewPlatform.instance = platform;
+  });
+  tearDown(() {
+    WebViewPlatform.instance = previous;
+  });
+  Widget host({
+    String source = r'\frac{a}{b}',
+    bool display = false,
+    VoidCallback? edit,
+  }) => MaterialApp(
+    home: Scaffold(
+      body: Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 320,
+          child: DMath(
+            expression: DMathExpression(source, display: display),
+            configuration: const DMathJax(),
+            onEdit: edit,
+          ),
+        ),
+      ),
+    ),
+  );
+  void send(
+    Map<String, Object?> data, {
+    FakeMediaWebViewController? controller,
+  }) => (controller ?? platform.controllers.last).channels['NativeMath']!
+      .onMessageReceived(
+        JavaScriptMessage(message: jsonEncode({'v': 1, ...data})),
+      );
+  test('exact engines and bootstrap are Flutter assets', () async {
+    const prefix = 'packages/discourse_native/src/ui/assets/math';
+    expect(
+      await rootBundle.loadString('$prefix/index.html'),
+      contains('Content-Security-Policy'),
+    );
+    expect(
+      await rootBundle.loadString('$prefix/mathjax/tex-mml-chtml.js'),
+      isNotEmpty,
+    );
+    expect(
+      await rootBundle.loadString('$prefix/katex/dist/katex.min.js'),
+      contains('0.16.27'),
+    );
+  });
+  testWidgets('source stays visible until current bounded result arrives', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    await tester.pump();
+    expect(find.text(r'\frac{a}{b}'), findsOneWidget);
+    expect(
+      platform.controllers.single.assets.single,
+      endsWith('/math/index.html'),
+    );
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(
+      platform.controllers.single.scripts.single,
+      contains('window.renderMath('),
+    );
+    send({
+      'type': 'result',
+      'generation': 0,
+      'width': 50,
+      'height': 30,
+      'baseline': 22,
+    });
+    await tester.pump();
+    expect(find.text(r'\frac{a}{b}'), findsOneWidget);
+    send({
+      'type': 'result',
+      'generation': 1,
+      'width': 50,
+      'height': 30,
+      'baseline': 40,
+    });
+    await tester.pump();
+    expect(find.text(r'\frac{a}{b}'), findsOneWidget);
+    send({
+      'type': 'result',
+      'generation': 1,
+      'width': 50,
+      'height': 30,
+      'baseline': 22,
+    });
+    await tester.pump();
+    expect(find.text(r'\frac{a}{b}'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    expect(platform.controllers.single.channels, isEmpty);
+  });
+  testWidgets('source update retires old view and rejects late callbacks', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(source: 'a'));
+    await tester.pump();
+    final first = platform.controllers.single;
+    final callback = first.channels['NativeMath']!.onMessageReceived;
+    await tester.pumpWidget(host(source: 'b'));
+    await tester.pump();
+    callback(
+      JavaScriptMessage(
+        message: jsonEncode({
+          'v': 1,
+          'type': 'result',
+          'generation': 1,
+          'width': 50,
+          'height': 30,
+          'baseline': 22,
+        }),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('b'), findsOneWidget);
+    expect(first.channels, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+  testWidgets('disposal during setup removes late channel and document', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    platform.nextGate = (
+      MediaWebViewConfigurationStage.background,
+      gate.future,
+    );
+    await tester.pumpWidget(host());
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox());
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+    expect(platform.controllers.single.channels, isEmpty);
+    expect(platform.controllers.single.assets, isEmpty);
+  });
+  testWidgets(
+    'inline and display expose the Native pencil action without overflow',
+    (tester) async {
+      var edits = 0;
+      for (final display in [false, true]) {
+        await tester.pumpWidget(host(display: display, edit: () => edits++));
+        await tester.pump();
+        await tester.tap(find.byTooltip('Edit math'));
+        await tester.pump();
+        expect(tester.takeException(), isNull);
+      }
+      expect(edits, 2);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+}

@@ -19493,5 +19493,61 @@
   "eventWatchRecording": "Watch recording",
   "@eventWatchRecording": {
     "description": "Event recording control."
+  },
+  "mathExpression": "Math expression",
+  "editMath": "Edit math",
+  "insertMath": "Insert math",
+  "mathSource": "LaTeX",
+  "mathDisplay": "Display as a block",
+  "mathApply": "Apply",
+  "@mathExpression": {
+    "description": "Math expression authoring and rendering."
+  },
+  "@editMath": {
+    "description": "Math expression authoring and rendering."
+  },
+  "@insertMath": {
+    "description": "Math expression authoring and rendering."
+  },
+  "@mathSource": {
+    "description": "Math expression authoring and rendering."
+  },
+  "@mathDisplay": {
+    "description": "Math expression authoring and rendering."
+  },
+  "@mathApply": {
+    "description": "Math expression authoring and rendering."
+  },
+  "mathUseSvg": "Use SVG renderer",
+  "mathUseHtml": "Use HTML renderer",
+  "mathAccessibility": "Math accessibility",
+  "mathReset": "Reset math settings",
+  "mathMathml": "MathML code",
+  "mathSvg": "SVG image code",
+  "mathSpeech": "Speech text",
+  "mathBraille": "Braille code",
+  "@mathUseSvg": {
+    "description": "Native math menu action."
+  },
+  "@mathUseHtml": {
+    "description": "Native math menu action."
+  },
+  "@mathAccessibility": {
+    "description": "Native math menu action."
+  },
+  "@mathReset": {
+    "description": "Native math menu action."
+  },
+  "@mathMathml": {
+    "description": "Native math menu action."
+  },
+  "@mathSvg": {
+    "description": "Native math menu action."
+  },
+  "@mathSpeech": {
+    "description": "Native math menu action."
+  },
+  "@mathBraille": {
+    "description": "Native math menu action."
   }
 }

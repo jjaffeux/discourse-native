@@ -313,5 +313,20 @@
     "source": "checklist.js",
     "stage": "syntax",
     "policy": {}
+  },
+  {
+    "id": "discourse-math",
+    "owner": "discourse-math",
+    "version": "1",
+    "source": "discourse-math.js",
+    "stage": "syntax",
+    "policy": {
+      "span": [
+        "class"
+      ],
+      "div": [
+        "class"
+      ]
+    }
   }
 ]

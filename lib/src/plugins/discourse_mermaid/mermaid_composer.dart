@@ -113,7 +113,10 @@ class MermaidComposerPolicy implements ComposerSyntaxPolicy {
         ];
 }
 
-class _MermaidProjection implements ComposerInteractiveSyntaxProjection {
+class _MermaidProjection
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerBlockSyntaxProjection {
   _MermaidProjection(this.readEditor, this.block);
   final ComposerEditorHost Function() readEditor;
   final MermaidComposerBlock block;

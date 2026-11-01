@@ -1,11 +1,11 @@
 {
   "discourseRevision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb",
   "buildScriptSha256": "1ee8ddad4c9639acefb92a74b59fd83cfbefc78d4490d9e5c39710f643cc28fc",
-  "bundleSha256": "212bc6431c8e799a1bce1f50cd0593671cccd8de48ff6d9dc11500cf1c28506c",
-  "vendorManifestSha256": "9d35d205594f09d0f0e8b4717cb9bfa59a2d12e6391808a220983b597a93d18b",
+  "bundleSha256": "c1c15e6b074b0ca949bcc75f61b25f42a7fe14a325a67166dbfdccaf544a79dc",
+  "vendorManifestSha256": "bf69e4fc98008ea8c5e52f9e399245e4958fd651ec6200a08ea26d04e05fd7ec",
   "npmLockSha256": "c96c32eb2a680963e23edf48aee660bc567c72b744f6513a87cb53356d373c56",
   "moduleAssemblySha256": "7c60a9bea8076652f2acf215295f6834f754d720c847ab58c33e2f16f3d3ab97",
-  "moduleCatalogSha256": "271e2731339669db01fe427402129e8b064e59e94cfd944c5f1d951a8d06c270",
+  "moduleCatalogSha256": "3d359e96b06c3268f4fe69c883585f6a5f96ae369ba3be6490b14c9cadc631b2",
   "inputs": {
     "node_modules/cssfilter/lib/css.js": "cfa9c0dcf575073f1b46656ff7e955711c6cc98ae36d511c52b6be44b81263ca",
     "node_modules/cssfilter/lib/default.js": "22312f09d8e3347112e20240a5d66cba2e84ddb0b59204905b14230093e08faa",
@@ -76,6 +76,7 @@
     "src/modules/d-wrap.js": "6b15e4db1e61af07b677ba3e8a59366d8255eb4e3d08a50765447a5aff09c796",
     "src/modules/details.js": "07e2847fcd4598f413fe029eeea25f57f0b2b53c9e676f97df1061e3acaaacd9",
     "src/modules/discourse-local-dates.js": "b2b395e7340b0b90a04b373ceb8a882d67894ce0006e29d72fa89149bb8aa5fc",
+    "src/modules/discourse-math.js": "91a501c7f2475f468dcfbfb86af60dc88a8751013ffc3421253191aa8332e9bc",
     "src/modules/fixture-document.js": "3ac9cb2c0cfd3fa2e37a49116bdf34ab2cc45210ce9cc33346aaa3d3c9f0a436",
     "src/modules/fixture-mark.js": "fcc15e525c95141893a54ea6c224096bd7a7151032957015461431b63ed0d342",
     "src/modules/fixture-tokens.js": "b554bbbe3800a98e5c819b9181e24d0618df2b69809d62a905433240da59b973",
@@ -133,6 +134,7 @@
     "vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/discourse-post-event-block.js": "5197af23c126ea1d1229bb0fb1ad894f6092218f41547d55913d721ce13e534d",
     "vendor/plugins/discourse-events/assets/javascripts/discourse/lib/discourse-markdown/livestream-preview.js": "9d60a168e8e501fbdbf7d223d33f6d59d09a8bf8ab907281e90b70e6ab4082e4",
     "vendor/plugins/discourse-local-dates/assets/javascripts/lib/discourse-markdown/discourse-local-dates.js": "13c4f16ca2de36b2900de5fae13e04fb28ca2a4c48aa3a73df058712ad7d3653",
+    "vendor/plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js": "00cf4270260aba35fb7037c96722637b05007a79efd9aa532fbcf00a878c2df2",
     "vendor/plugins/poll/assets/javascripts/lib/discourse-markdown/poll.js": "35e119043e8cf87da16c199bc00325f58784ef453a6bcf8a9f53d4cb1619bca2",
     "vendor/plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js": "ff60240fed180297ab7e1cef10efbc0619bf38ca975e9f3f55c168dbd265f378"
   }

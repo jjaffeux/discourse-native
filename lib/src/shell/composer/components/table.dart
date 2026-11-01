@@ -47,7 +47,10 @@ final class ComposerTablePolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class _TableProjection implements ComposerInteractiveSyntaxProjection {
+final class _TableProjection
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerBlockSyntaxProjection {
   _TableProjection(this.composer, this.table);
   final ComposerController composer;
   final ComposerTableBlock table;

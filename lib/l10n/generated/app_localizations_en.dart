@@ -14907,4 +14907,46 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get eventWatchRecording => 'Watch recording';
+
+  @override
+  String get mathExpression => 'Math expression';
+
+  @override
+  String get editMath => 'Edit math';
+
+  @override
+  String get insertMath => 'Insert math';
+
+  @override
+  String get mathSource => 'LaTeX';
+
+  @override
+  String get mathDisplay => 'Display as a block';
+
+  @override
+  String get mathApply => 'Apply';
+
+  @override
+  String get mathUseSvg => 'Use SVG renderer';
+
+  @override
+  String get mathUseHtml => 'Use HTML renderer';
+
+  @override
+  String get mathAccessibility => 'Math accessibility';
+
+  @override
+  String get mathReset => 'Reset math settings';
+
+  @override
+  String get mathMathml => 'MathML code';
+
+  @override
+  String get mathSvg => 'SVG image code';
+
+  @override
+  String get mathSpeech => 'Speech text';
+
+  @override
+  String get mathBraille => 'Braille code';
 }

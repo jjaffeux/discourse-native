@@ -15,6 +15,7 @@ const requiredFiles = [
   ...['allow-lister','guid','sanitizer','text-replace','emoji','emoji/data','emoji/version','mentions','censored-words'].map(n => `frontend/pretty-text/addon/${n}.js`),
   ...['object','escape','case-converter'].map(n => `frontend/discourse/app/lib/${n}.js`),
   'plugins/spoiler-alert/assets/javascripts/lib/discourse-markdown/spoiler-alert.js',
+  'plugins/discourse-math/assets/javascripts/lib/discourse-markdown/discourse-math.js',
   'plugins/checklist/assets/javascripts/lib/discourse-markdown/checklist.js',
   'frontend/pretty-text-processor/build.mjs',
   'frontend/pretty-text-processor/pretty-text-ruby-interface.js',

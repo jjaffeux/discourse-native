@@ -68,7 +68,10 @@ final class ComposerDetailsPolicy implements ComposerSyntaxPolicy {
   ];
 }
 
-final class _DetailsProjection implements ComposerInteractiveSyntaxProjection {
+final class _DetailsProjection
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerBlockSyntaxProjection {
   _DetailsProjection(this.composer, this.block);
   final ComposerController composer;
   final ComposerDetailsBlock block;

@@ -188,16 +188,18 @@ abstract interface class ComposerBlockSyntaxProjection
 abstract interface class ComposerParagraphSpacingProjection
     implements ComposerBlockSyntaxProjection {}
 
-/// A block whose Native controls own pointer interaction and nested editing.
+/// A projection whose Native controls own pointer interaction and nested editing.
 /// Its widget identity survives source updates at the same document position,
 /// so cell focus, selection and IME composition survive its own edits.
 abstract interface class ComposerInteractiveSyntaxProjection
-    implements ComposerBlockSyntaxProjection {}
+    implements ComposerSyntaxProjection {}
 
 /// An embedded editor whose hidden source is selected only as a whole in the
 /// outer document. Its inner editor owns all caret positions within the block.
 abstract interface class ComposerAtomicSelectionProjection
-    implements ComposerInteractiveSyntaxProjection {}
+    implements
+        ComposerInteractiveSyntaxProjection,
+        ComposerBlockSyntaxProjection {}
 
 /// The least authority a plugin needs to inspect and safely edit one composer.
 abstract interface class ComposerEditorHost {

@@ -51,6 +51,7 @@ import 'examples/live_reaction_examples.dart';
 import 'examples/marker_examples.dart';
 import 'examples/menubar_examples.dart';
 import 'examples/mermaid_examples.dart';
+import 'examples/math_examples.dart';
 import 'examples/message_examples.dart';
 import 'examples/message_inbox_menu_examples.dart';
 import 'examples/message_scroller_examples.dart';
@@ -110,6 +111,7 @@ final componentExamples = <String, ComponentExamples>{
   'color-picker': colorPickerExamples,
   'pull-to-refresh': pullToRefreshExamples,
   'mermaid': mermaidExamples,
+  'math': mathExamples,
   'code-editor': codeEditorExamples,
   'image-preview': imagePreviewExamples,
   'message-inbox-menu': messageInboxMenuExamples,

@@ -1,0 +1,5 @@
+html,body {margin:0;padding:0;background:transparent;overflow:hidden}
+#math {display:inline-block;max-width:none;white-space:nowrap;padding:2px 0}
+#math.display {display:inline-block;width:max-content;text-align:center}
+mjx-container[display="true"],.katex-display {margin:0!important}
+.context {display:none}
