@@ -184,7 +184,7 @@ pumpFixture(
     pluginManifest: const PluginManifest([postVotingModule]),
   );
   final shell = ShellScope.read(tester.element(primaryMainContent));
-  await shell.appSettings.setThemeMode(AppThemeMode.dark);
+  await shell.forumSettings.setThemeMode(site, AppThemeMode.dark);
   shell.openTopic(row);
   await frames(tester);
   final element = tester.element(find.byType(PostVotingReader));
@@ -201,6 +201,7 @@ Future<void> frames(WidgetTester tester) async {
 }
 
 Future<void> capture(WidgetTester tester, String name) async {
+  await tester.pump();
   final dir = Platform.environment['NATIVE_UI_EVIDENCE_DIR'];
   if (dir == null) return;
   expect(tester.takeException(), isNull);

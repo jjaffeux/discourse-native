@@ -7,6 +7,7 @@ import 'package:discourse_native/src/plugins/post_voting/post_voting_controller.
 import 'package:discourse_native/src/plugins/post_voting/post_voting_data.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_plugin.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_reader.dart';
+import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -112,9 +113,9 @@ void main() {
         },
       );
       expect(find.byKey(const ValueKey('post-voting-order')), findsNothing);
-      await tester.ensureVisible(find.text('Answer').first);
-      await tester.pump();
-      await tester.tap(find.text('Answer').first);
+      await tester.tap(find.byType(PostMoreActionsButton).first);
+      await fixture.frames(tester);
+      await tester.tap(find.text('Answer').last);
       await fixture.frames(tester);
       expect(state.shell.visibleComposer, isNotNull);
       expect(state.shell.visibleComposer!.target.replyToPostNumber, isNull);
