@@ -32,8 +32,18 @@ Future<void> showUserNotes({
         sizeToContent: false,
         initiallyExpanded: true,
         builder: (context, dialog) => DSheetContent(
+          side: DSheetSide.bottom,
+          variant: DSheetVariant.adaptiveMenu,
+          sizeToContent: false,
+          initiallyExpanded: true,
           scrollWholeSheet: true,
-          children: [UserNotesPanel(session: reader, onClose: dialog.close)],
+          semanticLabel: context.l10n.userNotesTitle,
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: UserNotesPanel(session: reader, onClose: dialog.close),
+            ),
+          ],
         ),
       );
     } else {
