@@ -350,6 +350,67 @@ void main() {
     }, variant: _platforms);
   }
 
+  testWidgets(
+    'PM notification keeps its resumed header while earlier posts load',
+    (tester) async {
+      final gate = Completer<void>();
+      final earlier = Completer<void>();
+      final posts = [
+        for (var number = 1; number <= 100; number++)
+          Post(
+            id: number,
+            postNumber: number,
+            username: 'reader',
+            cooked: '<p>A short private message $number.</p>',
+          ),
+      ];
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topicGate: gate,
+        postGate: earlier,
+        postsById: {for (final post in posts) post.id: post},
+        onApi: (api) {
+          api.topics[8] = topicPayload(
+            id: 8,
+            title: 'Resumed private conversation',
+            privateMessage: true,
+            stream: [for (final post in posts) post.id],
+            postsCount: posts.length,
+            posts: [posts.last],
+          );
+        },
+      );
+      expect(await shell.openNotificationUrl('$_site/t/private/8/100'), isTrue);
+      await tester.pump();
+      double barOpacity() => DPageHeaderScope.maybeOf(
+        tester.element(find.byKey(const ValueKey('topic-header-morph'))),
+      )!.barOpacity;
+      expect(barOpacity(), 1);
+      gate.complete();
+      for (var frame = 0; frame < 48; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(
+          barOpacity(),
+          1,
+          reason: 'Resume frame $frame keeps the title in the bar.',
+        );
+      }
+      expect(shell.currentContent?.postNumber, 100);
+      earlier.complete();
+      await tester.pumpAndSettle();
+      expect(barOpacity(), 1);
+      final scroll = topicPostList(tester).controller!;
+      for (var page = 0; page < 6; page++) {
+        scroll.jumpTo(0);
+        await tester.pumpAndSettle();
+      }
+      expect(find.byKey(const ValueKey(1)), findsOneWidget);
+      expect(barOpacity(), 0);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   for (final fromHeader in [false, true]) {
     testWidgets(
       'a scrolled private message opened outside Inbox dismisses from ${fromHeader ? 'header' : 'indicator'}',

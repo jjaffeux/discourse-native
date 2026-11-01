@@ -259,6 +259,8 @@ Future<ShellController> pumpMobileShellFixture(
   int chatUnreadCount = 0,
   TopicPayload? topic,
   Completer<void>? topicGate,
+  Completer<void>? postGate,
+  Map<int, Post> postsById = const {},
   List<DiscourseNotification>? notifications,
   PluginManifest? pluginManifest,
   ChatChannels? conversations,
@@ -295,6 +297,8 @@ Future<ShellController> pumpMobileShellFixture(
   final account = user ?? _user;
   final api = FakeDiscourseApi(
     topicGate: topicGate,
+    postGate: postGate,
+    postsById: postsById,
     notificationList: notifications,
     user: account,
     doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
