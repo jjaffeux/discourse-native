@@ -28,23 +28,25 @@ void main() {
       );
       parent.text.text = source;
       addTearDown(parent.dispose);
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: DCard(
-            child: Builder(
-              builder: (context) => parent.buildEmbeddedDocument(
-                context,
-                kind: boxKind,
-                identity: 1,
-                bodyRange: const TextRange(start: 13, end: 18),
-                expectedText: source,
-                semanticLabel: 'Box body',
-              )!,
-            ),
+      Widget frame() => MaterialApp(
+        theme: AppTheme.light,
+        home: DCard(
+          child: Builder(
+            builder: (context) => parent.buildEmbeddedDocument(
+              context,
+              kind: boxKind,
+              identity: 1,
+              bodyRange: TextRange(
+                start: 13,
+                end: parent.value.text.indexOf('\n[/box]'),
+              ),
+              expectedText: parent.value.text,
+              semanticLabel: 'Box body',
+            )!,
           ),
         ),
       );
+      await tester.pumpWidget(frame());
       final rich = tester.widget<ComposerRichBodyEditor>(
         find.byType(ComposerRichBodyEditor),
       );
@@ -60,6 +62,26 @@ void main() {
       await tester.pump();
       expect(parent.value.text, 'Before\n[box]\n**hello**\n[/box]\nAfter');
       expect(rich.composer.isCurrent, isTrue);
+      expect(rich.composer.history.undo(), isTrue);
+      expect(parent.value.text, source);
+      expect(rich.composer.history.redo(), isTrue);
+      expect(parent.value.text, 'Before\n[box]\n**hello**\n[/box]\nAfter');
+      rich.composer.text.value = rich.composer.value.copyWith(
+        selection: const TextSelection.collapsed(offset: 3),
+        composing: const TextRange(start: 2, end: 5),
+      );
+      final editingValue = rich.composer.value;
+      await tester.pumpWidget(frame());
+      final rebound = tester.widget<ComposerRichBodyEditor>(
+        find.byType(ComposerRichBodyEditor),
+      );
+      expect(rebound.composer, same(rich.composer));
+      expect(rebound.composer.value, editingValue);
+      expect(rebound.composer.focus.hasFocus, isTrue);
+      rebound.composer.text.value = editingValue.copyWith(
+        composing: TextRange.empty,
+      );
+
       await tester.pumpWidget(const SizedBox.shrink());
       expect(parent.activeEditor, same(parent));
     },
@@ -103,6 +125,10 @@ void main() {
                   isNull,
                 );
                 expect(view(range: const TextRange(start: 0, end: 5)), isNull);
+                expect(
+                  view(range: const TextRange(start: 18, end: 13)),
+                  isNull,
+                );
                 return view()!;
               },
             ),

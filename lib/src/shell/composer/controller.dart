@@ -255,6 +255,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }) {
     if (!isCurrent ||
         !bodyRange.isValid ||
+        bodyRange.start > bodyRange.end ||
         bodyRange.end > expectedText.length ||
         value.text != expectedText) {
       return null;
