@@ -15432,4 +15432,202 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cakedayLoadMore => 'Load more members';
+
+  @override
+  String get policyTitle => 'Policy';
+
+  @override
+  String get policyAccepted => 'You accepted this policy';
+
+  @override
+  String get policyAccept => 'Accept Policy';
+
+  @override
+  String get policyRevoke => 'Revoke acceptance';
+
+  @override
+  String get policyEditSettings => 'Edit policy settings';
+
+  @override
+  String get policyNoPossibleUsers => 'This policy has no possible users';
+
+  @override
+  String get policyParticipantsPrivate =>
+      'Participant status is private to administrators.';
+
+  @override
+  String get policyCheckStatus => 'Check status';
+
+  @override
+  String get policyStatusUnknown => 'Could not confirm acceptance';
+
+  @override
+  String get policyStatusUnknownDescription =>
+      'Your status could not be refreshed. Check again before trying to accept.';
+
+  @override
+  String get policyAcceptedUsersTooltip =>
+      'Users who have accepted this policy';
+
+  @override
+  String get policyOutstandingUsersTooltip =>
+      'Users who have not accepted this policy';
+
+  @override
+  String get policyParticipantsUnavailable => 'Participant list is unavailable';
+
+  @override
+  String get policyCouldNotUpdate => 'Could not update policy';
+
+  @override
+  String get policyCreate => 'Create Policy';
+
+  @override
+  String get policyInsert => 'Insert';
+
+  @override
+  String get policyBodyPlaceholder => 'I accept this policy';
+
+  @override
+  String get policyGroups => 'Groups';
+
+  @override
+  String get policyGroupsHelp => 'Members of any selected group can accept.';
+
+  @override
+  String get policyVersion => 'Version';
+
+  @override
+  String get policyVersionHelp =>
+      'Changing the version requires everyone to accept again.';
+
+  @override
+  String get policyRenewal => 'Renewal';
+
+  @override
+  String get policyNoRenewal => 'No renewal';
+
+  @override
+  String get policyRenewDays => 'Every number of days';
+
+  @override
+  String get policyDays => 'Days';
+
+  @override
+  String get policyMonthly => 'Monthly';
+
+  @override
+  String get policyQuarterly => 'Quarterly';
+
+  @override
+  String get policyYearly => 'Yearly';
+
+  @override
+  String get policyRenewStart => 'Renew start';
+
+  @override
+  String get policyReminder => 'Reminder';
+
+  @override
+  String get policyNoReminder => 'No reminder';
+
+  @override
+  String get policyDaily => 'Daily';
+
+  @override
+  String get policyWeekly => 'Weekly';
+
+  @override
+  String get policyAcceptLabel => 'Accept button text';
+
+  @override
+  String get policyRevokeLabel => 'Revoke button text';
+
+  @override
+  String get policyTargetGroup => 'Add accepting users to group';
+
+  @override
+  String get policyNoGroup => 'No group';
+
+  @override
+  String get policyTargetHelp =>
+      'Accepting adds the member to this group. Revoking removes them.';
+
+  @override
+  String get policyPrivate => 'Private participant status';
+
+  @override
+  String get policyPrivateHelp =>
+      'Only administrators can see counts and participant lists.';
+
+  @override
+  String get policyGroupsRequired => 'Choose at least one group.';
+
+  @override
+  String get policyVersionRequired => 'Version is required.';
+
+  @override
+  String get policyPositiveDays => 'Enter a positive number of days.';
+
+  @override
+  String get policySourceChanged =>
+      'The policy changed while its settings were open. Open the settings again.';
+
+  @override
+  String get policySettingsModified => 'Policy settings have been modified';
+
+  @override
+  String get policyBody => 'Policy text';
+
+  @override
+  String get policyGroupsUnavailable =>
+      'Groups could not be loaded. Retry to choose groups.';
+
+  @override
+  String get policyReminderClearNotice =>
+      'The site may retain an existing reminder when it is cleared. Verify the saved policy settings.';
+
+  @override
+  String get policyEmailLabel => 'Email me when a policy needs my review';
+
+  @override
+  String get policyEmailNever => 'Never';
+
+  @override
+  String get policyEmailAway => 'Only when away';
+
+  @override
+  String get policyEmailAlways => 'Always';
+
+  @override
+  String get policyEmailAwayHelp =>
+      'We\'ll only email you if we haven\'t seen you in the last 10 minutes when the policy status changes, and only if you\'ve also opted in for new activity emails.';
+
+  @override
+  String get policyEmailAlwaysHelp =>
+      'We\'ll only email you if you\'ve also opted in for new activity emails.';
+
+  @override
+  String get policyInvalidAttribute =>
+      'This value cannot be represented in policy markup.';
+
+  @override
+  String policyAcceptedCount(String count) {
+    return '$count accepted';
+  }
+
+  @override
+  String policyOutstandingCount(String count) {
+    return '$count outstanding';
+  }
+
+  @override
+  String policyLoadMoreUsers(String count) {
+    return 'Load $count more users';
+  }
+
+  @override
+  String policyVersionGroups(String version, String groups) {
+    return 'Version $version · $groups';
+  }
 }

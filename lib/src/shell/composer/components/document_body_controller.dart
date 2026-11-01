@@ -153,7 +153,6 @@ class ComposerDocumentBodyController extends ComposerController {
       return;
     }
     final next = resolveRange?.call(parent.text.text, _range.start);
-    // A removed/moved body range retires its async picker and editing host.
     if (next == null) {
       _retired = true;
       return;
@@ -209,9 +208,7 @@ class ComposerDocumentBodyController extends ComposerController {
     }
   }
 
-  int _parentOffset(int offset) {
-    // Uploads can introduce LF into a CRLF draft. Map the actual source,
-    // rather than assuming every local newline has the same stored width.
+  int _localOffsetToParentOffset(int offset) {
     final body = _range.body;
     var sourceOffset = 0;
     for (var local = 0; local < offset && sourceOffset < body.length; local++) {
@@ -248,7 +245,7 @@ class ComposerDocumentBodyController extends ComposerController {
     return parent.text.galleryBlocks
         .where(
           (candidate) =>
-              candidate.start == _parentOffset(gallery.start) &&
+              candidate.start == _localOffsetToParentOffset(gallery.start) &&
               candidate.source.replaceAll('\r\n', '\n') == gallery.source,
         )
         .firstOrNull;
@@ -263,14 +260,15 @@ class ComposerDocumentBodyController extends ComposerController {
     if (!_prepareUpload()) return;
     parent.addFiles(
       files,
-      _parentOffset(offset),
+      _localOffsetToParentOffset(offset),
       gallery: _parentGallery(gallery),
     );
   }
 
   @override
   void addImages(Iterable<ComposerUploadFile> files, int offset) {
-    if (_prepareUpload()) parent.addImages(files, _parentOffset(offset));
+    if (_prepareUpload())
+      parent.addImages(files, _localOffsetToParentOffset(offset));
   }
 
   @override

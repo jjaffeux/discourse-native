@@ -2,7 +2,6 @@ import '../controller.dart';
 import 'details_source.dart';
 import 'document_body_controller.dart';
 
-/// Binds the generic host range editor to the built-in details source format.
 class ComposerDetailsBodyController extends ComposerDocumentBodyController {
   ComposerDetailsBodyController(
     ComposerController parent,

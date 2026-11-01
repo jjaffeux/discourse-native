@@ -20145,5 +20145,264 @@
   "cakedayLoadMore": "Load more members",
   "@cakedayLoadMore": {
     "description": "Cakeday plugin member celebrations."
+  },
+  "policyTitle": "Policy",
+  "@policyTitle": {
+    "description": "Policy plugin. Policy"
+  },
+  "policyAccepted": "You accepted this policy",
+  "@policyAccepted": {
+    "description": "Policy plugin. You accepted this policy"
+  },
+  "policyAccept": "Accept Policy",
+  "@policyAccept": {
+    "description": "Policy plugin. Accept Policy"
+  },
+  "policyRevoke": "Revoke acceptance",
+  "@policyRevoke": {
+    "description": "Policy plugin. Revoke acceptance"
+  },
+  "policyEditSettings": "Edit policy settings",
+  "@policyEditSettings": {
+    "description": "Policy plugin. Edit policy settings"
+  },
+  "policyNoPossibleUsers": "This policy has no possible users",
+  "@policyNoPossibleUsers": {
+    "description": "Policy plugin. This policy has no possible users"
+  },
+  "policyParticipantsPrivate": "Participant status is private to administrators.",
+  "@policyParticipantsPrivate": {
+    "description": "Policy plugin. Participant status is private to administrators."
+  },
+  "policyCheckStatus": "Check status",
+  "@policyCheckStatus": {
+    "description": "Policy plugin. Check status"
+  },
+  "policyStatusUnknown": "Could not confirm acceptance",
+  "@policyStatusUnknown": {
+    "description": "Policy plugin. Could not confirm acceptance"
+  },
+  "policyStatusUnknownDescription": "Your status could not be refreshed. Check again before trying to accept.",
+  "@policyStatusUnknownDescription": {
+    "description": "Policy plugin. Your status could not be refreshed. Check again before trying to accept."
+  },
+  "policyAcceptedUsersTooltip": "Users who have accepted this policy",
+  "@policyAcceptedUsersTooltip": {
+    "description": "Policy plugin. Users who have accepted this policy"
+  },
+  "policyOutstandingUsersTooltip": "Users who have not accepted this policy",
+  "@policyOutstandingUsersTooltip": {
+    "description": "Policy plugin. Users who have not accepted this policy"
+  },
+  "policyParticipantsUnavailable": "Participant list is unavailable",
+  "@policyParticipantsUnavailable": {
+    "description": "Policy plugin. Participant list is unavailable"
+  },
+  "policyCouldNotUpdate": "Could not update policy",
+  "@policyCouldNotUpdate": {
+    "description": "Policy plugin. Could not update policy"
+  },
+  "policyCreate": "Create Policy",
+  "@policyCreate": {
+    "description": "Policy plugin. Create Policy"
+  },
+  "policyInsert": "Insert",
+  "@policyInsert": {
+    "description": "Policy plugin. Insert"
+  },
+  "policyBodyPlaceholder": "I accept this policy",
+  "@policyBodyPlaceholder": {
+    "description": "Policy plugin. I accept this policy"
+  },
+  "policyGroups": "Groups",
+  "@policyGroups": {
+    "description": "Policy plugin. Groups"
+  },
+  "policyGroupsHelp": "Members of any selected group can accept.",
+  "@policyGroupsHelp": {
+    "description": "Policy plugin. Members of any selected group can accept."
+  },
+  "policyVersion": "Version",
+  "@policyVersion": {
+    "description": "Policy plugin. Version"
+  },
+  "policyVersionHelp": "Changing the version requires everyone to accept again.",
+  "@policyVersionHelp": {
+    "description": "Policy plugin. Changing the version requires everyone to accept again."
+  },
+  "policyRenewal": "Renewal",
+  "@policyRenewal": {
+    "description": "Policy plugin. Renewal"
+  },
+  "policyNoRenewal": "No renewal",
+  "@policyNoRenewal": {
+    "description": "Policy plugin. No renewal"
+  },
+  "policyRenewDays": "Every number of days",
+  "@policyRenewDays": {
+    "description": "Policy plugin. Every number of days"
+  },
+  "policyDays": "Days",
+  "@policyDays": {
+    "description": "Policy plugin. Days"
+  },
+  "policyMonthly": "Monthly",
+  "@policyMonthly": {
+    "description": "Policy plugin. Monthly"
+  },
+  "policyQuarterly": "Quarterly",
+  "@policyQuarterly": {
+    "description": "Policy plugin. Quarterly"
+  },
+  "policyYearly": "Yearly",
+  "@policyYearly": {
+    "description": "Policy plugin. Yearly"
+  },
+  "policyRenewStart": "Renew start",
+  "@policyRenewStart": {
+    "description": "Policy plugin. Renew start"
+  },
+  "policyReminder": "Reminder",
+  "@policyReminder": {
+    "description": "Policy plugin. Reminder"
+  },
+  "policyNoReminder": "No reminder",
+  "@policyNoReminder": {
+    "description": "Policy plugin. No reminder"
+  },
+  "policyDaily": "Daily",
+  "@policyDaily": {
+    "description": "Policy plugin. Daily"
+  },
+  "policyWeekly": "Weekly",
+  "@policyWeekly": {
+    "description": "Policy plugin. Weekly"
+  },
+  "policyAcceptLabel": "Accept button text",
+  "@policyAcceptLabel": {
+    "description": "Policy plugin. Accept button text"
+  },
+  "policyRevokeLabel": "Revoke button text",
+  "@policyRevokeLabel": {
+    "description": "Policy plugin. Revoke button text"
+  },
+  "policyTargetGroup": "Add accepting users to group",
+  "@policyTargetGroup": {
+    "description": "Policy plugin. Add accepting users to group"
+  },
+  "policyNoGroup": "No group",
+  "@policyNoGroup": {
+    "description": "Policy plugin. No group"
+  },
+  "policyTargetHelp": "Accepting adds the member to this group. Revoking removes them.",
+  "@policyTargetHelp": {
+    "description": "Policy plugin. Accepting adds the member to this group. Revoking removes them."
+  },
+  "policyPrivate": "Private participant status",
+  "@policyPrivate": {
+    "description": "Policy plugin. Private participant status"
+  },
+  "policyPrivateHelp": "Only administrators can see counts and participant lists.",
+  "@policyPrivateHelp": {
+    "description": "Policy plugin. Only administrators can see counts and participant lists."
+  },
+  "policyGroupsRequired": "Choose at least one group.",
+  "@policyGroupsRequired": {
+    "description": "Policy plugin. Choose at least one group."
+  },
+  "policyVersionRequired": "Version is required.",
+  "@policyVersionRequired": {
+    "description": "Policy plugin. Version is required."
+  },
+  "policyPositiveDays": "Enter a positive number of days.",
+  "@policyPositiveDays": {
+    "description": "Policy plugin. Enter a positive number of days."
+  },
+  "policySourceChanged": "The policy changed while its settings were open. Open the settings again.",
+  "@policySourceChanged": {
+    "description": "Policy plugin. The policy changed while its settings were open. Open the settings again."
+  },
+  "policySettingsModified": "Policy settings have been modified",
+  "@policySettingsModified": {
+    "description": "Policy plugin. Policy settings have been modified"
+  },
+  "policyBody": "Policy text",
+  "@policyBody": {
+    "description": "Policy plugin. Policy text"
+  },
+  "policyGroupsUnavailable": "Groups could not be loaded. Retry to choose groups.",
+  "@policyGroupsUnavailable": {
+    "description": "Policy plugin. Groups could not be loaded. Retry to choose groups."
+  },
+  "policyReminderClearNotice": "The site may retain an existing reminder when it is cleared. Verify the saved policy settings.",
+  "@policyReminderClearNotice": {
+    "description": "Policy plugin. The site may retain an existing reminder when it is cleared. Verify the saved policy settings."
+  },
+  "policyEmailLabel": "Email me when a policy needs my review",
+  "@policyEmailLabel": {
+    "description": "Policy plugin. Email me when a policy needs my review"
+  },
+  "policyEmailNever": "Never",
+  "@policyEmailNever": {
+    "description": "Policy plugin. Never"
+  },
+  "policyEmailAway": "Only when away",
+  "@policyEmailAway": {
+    "description": "Policy plugin. Only when away"
+  },
+  "policyEmailAlways": "Always",
+  "@policyEmailAlways": {
+    "description": "Policy plugin. Always"
+  },
+  "policyEmailAwayHelp": "We''ll only email you if we haven''t seen you in the last 10 minutes when the policy status changes, and only if you''ve also opted in for new activity emails.",
+  "@policyEmailAwayHelp": {
+    "description": "Policy plugin. We'll only email you if we haven't seen you in the last 10 minutes when the policy status changes, and only if you've also opted in for new activity emails."
+  },
+  "policyEmailAlwaysHelp": "We''ll only email you if you''ve also opted in for new activity emails.",
+  "@policyEmailAlwaysHelp": {
+    "description": "Policy plugin. We'll only email you if you've also opted in for new activity emails."
+  },
+  "policyInvalidAttribute": "This value cannot be represented in policy markup.",
+  "@policyInvalidAttribute": {
+    "description": "Policy plugin. This value cannot be represented in policy markup."
+  },
+  "policyAcceptedCount": "{count} accepted",
+  "@policyAcceptedCount": {
+    "description": "Policy plugin participant presentation.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "policyOutstandingCount": "{count} outstanding",
+  "@policyOutstandingCount": {
+    "description": "Policy plugin participant presentation.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "policyLoadMoreUsers": "Load {count} more users",
+  "@policyLoadMoreUsers": {
+    "description": "Policy plugin participant presentation.",
+    "placeholders": {
+      "count": {
+        "type": "String"
+      }
+    }
+  },
+  "policyVersionGroups": "Version {version} · {groups}",
+  "@policyVersionGroups": {
+    "description": "Policy plugin participant presentation.",
+    "placeholders": {
+      "version": {
+        "type": "String"
+      },
+      "groups": {
+        "type": "String"
+      }
+    }
   }
 }

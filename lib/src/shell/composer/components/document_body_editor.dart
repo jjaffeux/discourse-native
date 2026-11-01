@@ -5,7 +5,6 @@ import '../embedded_editor.dart';
 import '../panel.dart';
 import 'document_body_controller.dart';
 
-/// The host keeps the nested controller and retires it with the rendered range.
 class ComposerDocumentBodyEditor extends StatefulWidget {
   const ComposerDocumentBodyEditor({
     super.key,

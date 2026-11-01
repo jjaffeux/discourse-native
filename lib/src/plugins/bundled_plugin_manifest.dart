@@ -17,6 +17,7 @@ import 'gifs/gifs_module.dart';
 import 'local_dates/local_dates_module.dart';
 import 'nested_replies/nested_replies_module.dart';
 import 'poll/poll_module.dart';
+import 'policy/policy_module.dart';
 import 'prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'reactions/reactions_module.dart';
 import 'solved/solved_module.dart';
@@ -35,6 +36,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   discoursePlaceholderModule,
   reactionsModule,
   pollModule,
+  policyModule,
   discourseEventsModule,
   prometheusAlertReceiverModule,
   gifsModule,

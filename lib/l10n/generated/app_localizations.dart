@@ -24464,6 +24464,360 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load more members'**
   String get cakedayLoadMore;
+
+  /// Policy plugin. Policy
+  ///
+  /// In en, this message translates to:
+  /// **'Policy'**
+  String get policyTitle;
+
+  /// Policy plugin. You accepted this policy
+  ///
+  /// In en, this message translates to:
+  /// **'You accepted this policy'**
+  String get policyAccepted;
+
+  /// Policy plugin. Accept Policy
+  ///
+  /// In en, this message translates to:
+  /// **'Accept Policy'**
+  String get policyAccept;
+
+  /// Policy plugin. Revoke acceptance
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke acceptance'**
+  String get policyRevoke;
+
+  /// Policy plugin. Edit policy settings
+  ///
+  /// In en, this message translates to:
+  /// **'Edit policy settings'**
+  String get policyEditSettings;
+
+  /// Policy plugin. This policy has no possible users
+  ///
+  /// In en, this message translates to:
+  /// **'This policy has no possible users'**
+  String get policyNoPossibleUsers;
+
+  /// Policy plugin. Participant status is private to administrators.
+  ///
+  /// In en, this message translates to:
+  /// **'Participant status is private to administrators.'**
+  String get policyParticipantsPrivate;
+
+  /// Policy plugin. Check status
+  ///
+  /// In en, this message translates to:
+  /// **'Check status'**
+  String get policyCheckStatus;
+
+  /// Policy plugin. Could not confirm acceptance
+  ///
+  /// In en, this message translates to:
+  /// **'Could not confirm acceptance'**
+  String get policyStatusUnknown;
+
+  /// Policy plugin. Your status could not be refreshed. Check again before trying to accept.
+  ///
+  /// In en, this message translates to:
+  /// **'Your status could not be refreshed. Check again before trying to accept.'**
+  String get policyStatusUnknownDescription;
+
+  /// Policy plugin. Users who have accepted this policy
+  ///
+  /// In en, this message translates to:
+  /// **'Users who have accepted this policy'**
+  String get policyAcceptedUsersTooltip;
+
+  /// Policy plugin. Users who have not accepted this policy
+  ///
+  /// In en, this message translates to:
+  /// **'Users who have not accepted this policy'**
+  String get policyOutstandingUsersTooltip;
+
+  /// Policy plugin. Participant list is unavailable
+  ///
+  /// In en, this message translates to:
+  /// **'Participant list is unavailable'**
+  String get policyParticipantsUnavailable;
+
+  /// Policy plugin. Could not update policy
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update policy'**
+  String get policyCouldNotUpdate;
+
+  /// Policy plugin. Create Policy
+  ///
+  /// In en, this message translates to:
+  /// **'Create Policy'**
+  String get policyCreate;
+
+  /// Policy plugin. Insert
+  ///
+  /// In en, this message translates to:
+  /// **'Insert'**
+  String get policyInsert;
+
+  /// Policy plugin. I accept this policy
+  ///
+  /// In en, this message translates to:
+  /// **'I accept this policy'**
+  String get policyBodyPlaceholder;
+
+  /// Policy plugin. Groups
+  ///
+  /// In en, this message translates to:
+  /// **'Groups'**
+  String get policyGroups;
+
+  /// Policy plugin. Members of any selected group can accept.
+  ///
+  /// In en, this message translates to:
+  /// **'Members of any selected group can accept.'**
+  String get policyGroupsHelp;
+
+  /// Policy plugin. Version
+  ///
+  /// In en, this message translates to:
+  /// **'Version'**
+  String get policyVersion;
+
+  /// Policy plugin. Changing the version requires everyone to accept again.
+  ///
+  /// In en, this message translates to:
+  /// **'Changing the version requires everyone to accept again.'**
+  String get policyVersionHelp;
+
+  /// Policy plugin. Renewal
+  ///
+  /// In en, this message translates to:
+  /// **'Renewal'**
+  String get policyRenewal;
+
+  /// Policy plugin. No renewal
+  ///
+  /// In en, this message translates to:
+  /// **'No renewal'**
+  String get policyNoRenewal;
+
+  /// Policy plugin. Every number of days
+  ///
+  /// In en, this message translates to:
+  /// **'Every number of days'**
+  String get policyRenewDays;
+
+  /// Policy plugin. Days
+  ///
+  /// In en, this message translates to:
+  /// **'Days'**
+  String get policyDays;
+
+  /// Policy plugin. Monthly
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly'**
+  String get policyMonthly;
+
+  /// Policy plugin. Quarterly
+  ///
+  /// In en, this message translates to:
+  /// **'Quarterly'**
+  String get policyQuarterly;
+
+  /// Policy plugin. Yearly
+  ///
+  /// In en, this message translates to:
+  /// **'Yearly'**
+  String get policyYearly;
+
+  /// Policy plugin. Renew start
+  ///
+  /// In en, this message translates to:
+  /// **'Renew start'**
+  String get policyRenewStart;
+
+  /// Policy plugin. Reminder
+  ///
+  /// In en, this message translates to:
+  /// **'Reminder'**
+  String get policyReminder;
+
+  /// Policy plugin. No reminder
+  ///
+  /// In en, this message translates to:
+  /// **'No reminder'**
+  String get policyNoReminder;
+
+  /// Policy plugin. Daily
+  ///
+  /// In en, this message translates to:
+  /// **'Daily'**
+  String get policyDaily;
+
+  /// Policy plugin. Weekly
+  ///
+  /// In en, this message translates to:
+  /// **'Weekly'**
+  String get policyWeekly;
+
+  /// Policy plugin. Accept button text
+  ///
+  /// In en, this message translates to:
+  /// **'Accept button text'**
+  String get policyAcceptLabel;
+
+  /// Policy plugin. Revoke button text
+  ///
+  /// In en, this message translates to:
+  /// **'Revoke button text'**
+  String get policyRevokeLabel;
+
+  /// Policy plugin. Add accepting users to group
+  ///
+  /// In en, this message translates to:
+  /// **'Add accepting users to group'**
+  String get policyTargetGroup;
+
+  /// Policy plugin. No group
+  ///
+  /// In en, this message translates to:
+  /// **'No group'**
+  String get policyNoGroup;
+
+  /// Policy plugin. Accepting adds the member to this group. Revoking removes them.
+  ///
+  /// In en, this message translates to:
+  /// **'Accepting adds the member to this group. Revoking removes them.'**
+  String get policyTargetHelp;
+
+  /// Policy plugin. Private participant status
+  ///
+  /// In en, this message translates to:
+  /// **'Private participant status'**
+  String get policyPrivate;
+
+  /// Policy plugin. Only administrators can see counts and participant lists.
+  ///
+  /// In en, this message translates to:
+  /// **'Only administrators can see counts and participant lists.'**
+  String get policyPrivateHelp;
+
+  /// Policy plugin. Choose at least one group.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose at least one group.'**
+  String get policyGroupsRequired;
+
+  /// Policy plugin. Version is required.
+  ///
+  /// In en, this message translates to:
+  /// **'Version is required.'**
+  String get policyVersionRequired;
+
+  /// Policy plugin. Enter a positive number of days.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a positive number of days.'**
+  String get policyPositiveDays;
+
+  /// Policy plugin. The policy changed while its settings were open. Open the settings again.
+  ///
+  /// In en, this message translates to:
+  /// **'The policy changed while its settings were open. Open the settings again.'**
+  String get policySourceChanged;
+
+  /// Policy plugin. Policy settings have been modified
+  ///
+  /// In en, this message translates to:
+  /// **'Policy settings have been modified'**
+  String get policySettingsModified;
+
+  /// Policy plugin. Policy text
+  ///
+  /// In en, this message translates to:
+  /// **'Policy text'**
+  String get policyBody;
+
+  /// Policy plugin. Groups could not be loaded. Retry to choose groups.
+  ///
+  /// In en, this message translates to:
+  /// **'Groups could not be loaded. Retry to choose groups.'**
+  String get policyGroupsUnavailable;
+
+  /// Policy plugin. The site may retain an existing reminder when it is cleared. Verify the saved policy settings.
+  ///
+  /// In en, this message translates to:
+  /// **'The site may retain an existing reminder when it is cleared. Verify the saved policy settings.'**
+  String get policyReminderClearNotice;
+
+  /// Policy plugin. Email me when a policy needs my review
+  ///
+  /// In en, this message translates to:
+  /// **'Email me when a policy needs my review'**
+  String get policyEmailLabel;
+
+  /// Policy plugin. Never
+  ///
+  /// In en, this message translates to:
+  /// **'Never'**
+  String get policyEmailNever;
+
+  /// Policy plugin. Only when away
+  ///
+  /// In en, this message translates to:
+  /// **'Only when away'**
+  String get policyEmailAway;
+
+  /// Policy plugin. Always
+  ///
+  /// In en, this message translates to:
+  /// **'Always'**
+  String get policyEmailAlways;
+
+  /// Policy plugin. We'll only email you if we haven't seen you in the last 10 minutes when the policy status changes, and only if you've also opted in for new activity emails.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'\'ll only email you if we haven\'\'t seen you in the last 10 minutes when the policy status changes, and only if you\'\'ve also opted in for new activity emails.'**
+  String get policyEmailAwayHelp;
+
+  /// Policy plugin. We'll only email you if you've also opted in for new activity emails.
+  ///
+  /// In en, this message translates to:
+  /// **'We\'\'ll only email you if you\'\'ve also opted in for new activity emails.'**
+  String get policyEmailAlwaysHelp;
+
+  /// Policy plugin. This value cannot be represented in policy markup.
+  ///
+  /// In en, this message translates to:
+  /// **'This value cannot be represented in policy markup.'**
+  String get policyInvalidAttribute;
+
+  /// Policy plugin participant presentation.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} accepted'**
+  String policyAcceptedCount(String count);
+
+  /// Policy plugin participant presentation.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} outstanding'**
+  String policyOutstandingCount(String count);
+
+  /// Policy plugin participant presentation.
+  ///
+  /// In en, this message translates to:
+  /// **'Load {count} more users'**
+  String policyLoadMoreUsers(String count);
+
+  /// Policy plugin participant presentation.
+  ///
+  /// In en, this message translates to:
+  /// **'Version {version} · {groups}'**
+  String policyVersionGroups(String version, String groups);
 }
 
 class _AppLocalizationsDelegate
