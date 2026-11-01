@@ -350,6 +350,42 @@ void main() {
     }, variant: _platforms);
   }
 
+  testWidgets('short PM notification restores past the first post', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(
+      tester,
+      topic: topicPayload(
+        id: 7,
+        title: 'Short private conversation',
+        privateMessage: true,
+        posts: [
+          for (var number = 1; number <= 2; number++)
+            Post(
+              id: number,
+              postNumber: number,
+              username: 'reader',
+              cooked: '<p>A short private message.</p>',
+            ),
+        ],
+      ),
+    );
+    expect(await shell.openNotificationUrl('$_site/t/private/7/2'), isTrue);
+    await tester.pumpAndSettle();
+    final page = DPageHeaderScope.maybeOf(
+      tester.element(find.byKey(const ValueKey('topic-header-morph'))),
+    )!;
+    expect(page.barOpacity, 1);
+    expect(
+      tester.getRect(find.byKey(const ValueKey(1))).bottom,
+      lessThanOrEqualTo(topicReadingViewportRect(tester).top + 1),
+    );
+    topicPostList(tester).controller!.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(page.barOpacity, 0);
+    expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
   testWidgets(
     'PM notification keeps its resumed header while earlier posts load',
     (tester) async {
