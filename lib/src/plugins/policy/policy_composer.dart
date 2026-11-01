@@ -79,6 +79,16 @@ Future<void> editPolicyDefinition(
     initial:
         occurrence?.definition ?? PolicyDefinition(audienceGroups: const []),
     insert: occurrence == null,
+    persistedDefinition:
+        occurrence != null &&
+            editor.isEdit &&
+            const PolicySourceCodec().find(before.text).firstOrNull?.range ==
+                occurrence.range
+        ? const PolicySourceCodec()
+              .find(editor.originalRaw ?? '')
+              .firstOrNull
+              ?.definition
+        : null,
     loadGroups: () => groups.load(editor.siteUrl),
     isCurrent: () =>
         policy.canAuthor(editor) && editor.value.text == before.text,

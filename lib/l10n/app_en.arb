@@ -20334,9 +20334,13 @@
   "@policyGroupsUnavailable": {
     "description": "Policy plugin. Groups could not be loaded. Retry to choose groups."
   },
-  "policyReminderClearNotice": "The site may retain an existing reminder when it is cleared. Verify the saved policy settings.",
+  "policyRenewalClearNotice": "This site does not support turning off existing calendar renewal. Choose a renewal schedule.",
+  "@policyRenewalClearNotice": {
+    "description": "Explains why the server cannot clear a persisted calendar renewal."
+  },
+  "policyReminderClearNotice": "This site does not support turning off an existing policy reminder. Keep a reminder selected.",
   "@policyReminderClearNotice": {
-    "description": "Policy plugin. The site may retain an existing reminder when it is cleared. Verify the saved policy settings."
+    "description": "Policy plugin. This site does not support turning off an existing policy reminder. Keep a reminder selected."
   },
   "policyEmailLabel": "Email me when a policy needs my review",
   "@policyEmailLabel": {

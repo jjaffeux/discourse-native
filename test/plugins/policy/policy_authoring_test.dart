@@ -1,4 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/composer_upload.dart'
+    show ComposerUploadFile;
 import 'package:discourse_native/src/plugins/policy/policy_builder.dart';
 import 'package:discourse_native/src/plugins/policy/policy_composer.dart';
 import 'package:discourse_native/src/plugins/policy/policy_data.dart';
@@ -123,10 +126,80 @@ void main() {
     );
   });
 
+  for (final reminder in [false, true]) {
+    testWidgets(
+      'persisted unsupported disable is explained (reminder: $reminder)',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            builder: (context, child) => Scaffold(body: child),
+            home: SizedBox(
+              height: 800,
+              child: PolicyBuilder(
+                persistedDefinition: PolicyDefinition(
+                  audienceGroups: const ['crew'],
+                  reminder: reminder
+                      ? PolicyReminder.daily
+                      : PolicyReminder.none,
+                  renewal: reminder
+                      ? const PolicyNoRenewal()
+                      : const PolicyRenewByCalendar(
+                          PolicyCalendarInterval.monthly,
+                        ),
+                ),
+                initial: PolicyDefinition(
+                  audienceGroups: const ['crew'],
+                  reminder: reminder
+                      ? PolicyReminder.daily
+                      : PolicyReminder.none,
+                  renewal: reminder
+                      ? const PolicyNoRenewal()
+                      : const PolicyRenewByCalendar(
+                          PolicyCalendarInterval.monthly,
+                        ),
+                ),
+                loadGroups: () async => const [PolicyGroup(41, 'crew', false)],
+                isCurrent: () => true,
+                onClose: (_) => fail('unsupported transition saved'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        if (reminder) {
+          tester
+              .widget<DSelect<PolicyReminder>>(
+                find.byType(DSelect<PolicyReminder>),
+              )
+              .onChanged!(PolicyReminder.none);
+        } else {
+          tester
+              .widget<DSelect<String>>(find.byType(DSelect<String>).first)
+              .onChanged!('none');
+        }
+        await tester.pump();
+        await tester.tap(find.text('Save changes'));
+        await tester.pump();
+        expect(
+          find.text(
+            reminder
+                ? 'This site does not support turning off an existing policy reminder. Keep a reminder selected.'
+                : 'This site does not support turning off existing calendar renewal. Choose a renewal schedule.',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final variant in [
-    (separator: '\n', body: 'hello'),
-    (separator: '\r\n', body: 'hello'),
-    (separator: '\n', body: ''),
+    (separator: '\n', body: 'hello', tight: false),
+    (separator: '\r\n', body: 'hello', tight: false),
+    (separator: '\n', body: '', tight: false),
+    (separator: '\n', body: '', tight: true),
+    (separator: '\r\n', body: '', tight: true),
   ]) {
     testWidgets('Policy rich body preserves wrapper for $variant', (
       tester,
@@ -161,13 +234,23 @@ void main() {
           privateMessageTopic: false,
         ),
         syntaxPolicies: [policy],
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async =>
+                const ComposerUploadResult(
+                  id: 1,
+                  originalFilename: 'new.png',
+                  shortUrl: 'upload://new',
+                  url: 'https://example.test/new.png',
+                  width: 100,
+                  height: 80,
+                ),
       );
       addTearDown(composer.dispose);
       final source = [
         'Before',
         '',
         '[policy groups="crew" version="v2"]',
-        variant.body,
+        if (!variant.tight) variant.body,
         '[/policy]',
         '',
         'After',
@@ -196,6 +279,21 @@ void main() {
           .widget<ComposerRichBodyEditor>(find.byType(ComposerRichBodyEditor))
           .composer;
       expect(body.value.text, variant.body);
+      if (variant.tight) {
+        body.addFiles([
+          ComposerUploadFile(
+            name: 'new.png',
+            length: () async => 3,
+            openRead: () => Stream.value([1, 2, 3]),
+          ),
+        ], 0);
+        await tester.pumpAndSettle();
+        expect(
+          const PolicySourceCodec().find(composer.value.text).single.body,
+          contains('upload://new'),
+        );
+        expect(body.isCurrent, isTrue);
+      }
       body.text.text = 'updated body';
       await tester.pump();
       expect(
@@ -218,6 +316,23 @@ void main() {
         composer.value.text,
         endsWith('[/policy]${variant.separator}${variant.separator}After'),
       );
+      body.text.text = '';
+      body.text.text = 'second edit';
+      expect(
+        composer.value.text,
+        contains(
+          '${variant.separator}second edit${variant.separator}[/policy]',
+        ),
+      );
+      expect(body.history.undo(), isTrue);
+      expect(body.history.redo(), isTrue);
+      expect(
+        composer.value.text,
+        contains(
+          '${variant.separator}second edit${variant.separator}[/policy]',
+        ),
+      );
+      expect(body.isCurrent, isTrue);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     });

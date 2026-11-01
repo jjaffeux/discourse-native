@@ -24747,10 +24747,16 @@ abstract class AppLocalizations {
   /// **'Groups could not be loaded. Retry to choose groups.'**
   String get policyGroupsUnavailable;
 
-  /// Policy plugin. The site may retain an existing reminder when it is cleared. Verify the saved policy settings.
+  /// Explains why the server cannot clear a persisted calendar renewal.
   ///
   /// In en, this message translates to:
-  /// **'The site may retain an existing reminder when it is cleared. Verify the saved policy settings.'**
+  /// **'This site does not support turning off existing calendar renewal. Choose a renewal schedule.'**
+  String get policyRenewalClearNotice;
+
+  /// Policy plugin. This site does not support turning off an existing policy reminder. Keep a reminder selected.
+  ///
+  /// In en, this message translates to:
+  /// **'This site does not support turning off an existing policy reminder. Keep a reminder selected.'**
   String get policyReminderClearNotice;
 
   /// Policy plugin. Email me when a policy needs my review

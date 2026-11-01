@@ -15584,8 +15584,12 @@ class AppLocalizationsEn extends AppLocalizations {
       'Groups could not be loaded. Retry to choose groups.';
 
   @override
+  String get policyRenewalClearNotice =>
+      'This site does not support turning off existing calendar renewal. Choose a renewal schedule.';
+
+  @override
   String get policyReminderClearNotice =>
-      'The site may retain an existing reminder when it is cleared. Verify the saved policy settings.';
+      'This site does not support turning off an existing policy reminder. Keep a reminder selected.';
 
   @override
   String get policyEmailLabel => 'Email me when a policy needs my review';

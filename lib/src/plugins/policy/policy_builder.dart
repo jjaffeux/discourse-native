@@ -13,6 +13,7 @@ Future<PolicyDefinition?> showPolicyBuilder(
   required Future<List<PolicyGroup>> Function() loadGroups,
   required bool Function() isCurrent,
   bool insert = false,
+  required PolicyDefinition? persistedDefinition,
 }) => showDSheet<PolicyDefinition>(
   context: context,
   side: context.isTouch ? DSheetSide.bottom : DSheetSide.right,
@@ -44,6 +45,7 @@ Future<PolicyDefinition?> showPolicyBuilder(
           loadGroups: loadGroups,
           isCurrent: isCurrent,
           insert: insert,
+          persistedDefinition: persistedDefinition,
           onClose: sheet.close,
         ),
       ),
@@ -59,12 +61,14 @@ class PolicyBuilder extends StatefulWidget {
     required this.isCurrent,
     required this.onClose,
     this.insert = false,
+    this.persistedDefinition,
   });
   final PolicyDefinition initial;
   final Future<List<PolicyGroup>> Function() loadGroups;
   final bool Function() isCurrent;
   final ValueChanged<PolicyDefinition?> onClose;
   final bool insert;
+  final PolicyDefinition? persistedDefinition;
   @override
   State<PolicyBuilder> createState() => _PolicyBuilderState();
 }
@@ -131,6 +135,13 @@ class _PolicyBuilderState extends State<PolicyBuilder> {
     String? error;
     if (!widget.isCurrent()) {
       error = context.l10n.policySourceChanged;
+    } else if ((widget.persistedDefinition?.reminder ?? PolicyReminder.none) !=
+            PolicyReminder.none &&
+        _reminder == PolicyReminder.none) {
+      error = context.l10n.policyReminderClearNotice;
+    } else if (widget.persistedDefinition?.renewal is PolicyRenewByCalendar &&
+        _renewal == 'none') {
+      error = context.l10n.policyRenewalClearNotice;
     } else if (_audience.isEmpty) {
       error = context.l10n.policyGroupsRequired;
     } else if (_version.text.trim().isEmpty) {
