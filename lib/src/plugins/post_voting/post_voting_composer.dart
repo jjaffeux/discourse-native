@@ -33,7 +33,7 @@ final class PostVotingComposerPlugin
     implements
         SitePlugin,
         ComposerMetadataPlugin<PostVotingComposerChoice>,
-        ComposerHeaderPlugin {
+        ComposerOptionsPlugin {
   const PostVotingComposerPlugin();
   @override
   String get name => postVotingPluginId.value;
@@ -98,29 +98,30 @@ final class PostVotingComposerPlugin
   }
 
   @override
-  List<Widget> composerHeader(BuildContext context, ComposerEditorHost editor) {
+  List<Widget> composerOptions(
+    BuildContext context,
+    ComposerEditorHost editor,
+  ) {
     if (!editor.isCurrent) return const [];
     final metadata = editor.metadataContext;
-    if (!_eligible(metadata)) return const [];
+    if (!_eligible(metadata) ||
+        metadata.categoryData.get(postVotingCategoryKey)?.requiredOn == true) {
+      return const [];
+    }
     final held = editor.metadata(context, postVotingComposerKey);
     if (held == null) return const [];
-    final required =
-        metadata.categoryData.get(postVotingCategoryKey)?.requiredOn == true;
     return [
-      DToggle(
-        semanticLabel: context.l10n.postVotingCreationToggle,
-        pressed: _selected(metadata, held),
-        enabled: editor.isEditing && !required,
-        onPressedChanged: (value) => editor.updateMetadata(
-          context,
-          postVotingComposerKey,
-          PostVotingComposerChoice(value),
-        ),
-        child: Text(
-          required
-              ? context.l10n.postVotingCategoryRequired
-              : context.l10n.postVotingCreationToggle,
-        ),
+      DDropdownMenuCheckboxItem(
+        checked: _selected(metadata, held),
+        closeOnSelect: true,
+        onChanged: editor.isEditing
+            ? (value) => editor.updateMetadata(
+                context,
+                postVotingComposerKey,
+                PostVotingComposerChoice(value),
+              )
+            : null,
+        child: Text(context.l10n.postVotingCreationToggle),
       ),
     ];
   }

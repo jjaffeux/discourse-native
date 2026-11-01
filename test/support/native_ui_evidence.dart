@@ -19,6 +19,8 @@ Future<void> prepareNativeUiEvidence(WidgetTester tester) async {
     final font = File('/System/Library/Fonts/SFNS.ttf').readAsBytesSync();
     for (final family in [
       '.AppleSystemUIFont',
+      'CupertinoSystemText',
+      'CupertinoSystemDisplay',
       'Roboto',
       'SF Pro Text',
       'SF Pro Display',

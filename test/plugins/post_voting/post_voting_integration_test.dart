@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_composer.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_data.dart';
@@ -42,6 +43,7 @@ class VotingTestApi extends FakeDiscourseApi {
     required super.feeds,
     required super.topics,
     required super.pluginResponses,
+    super.categoryList,
   });
   Future<void>? writeGate;
   @override
@@ -142,6 +144,7 @@ pumpFixture(
   Size size, {
   Map<String, dynamic>? topicJson,
   DiscourseUser actor = user,
+  List<TopicCategory> categories = const [],
 }) async {
   final wire = topicJson ?? topic();
   final configured = SiteConfig(
@@ -159,6 +162,7 @@ pumpFixture(
       '/latest.json': [row],
     },
     topics: {7: models.topic(wire, site)},
+    categoryList: categories,
     pluginResponses: {
       'GET /t/7.json?post_number=1': wire,
       'GET /t/7.json': wire,
@@ -206,11 +210,10 @@ Future<void> capture(WidgetTester tester, String name) async {
   final dir = Platform.environment['NATIVE_UI_EVIDENCE_DIR'];
   if (dir == null) return;
   expect(tester.takeException(), isNull);
-  final boundary = tester.renderObject<RenderRepaintBoundary>(
-    find.byType(RepaintBoundary).first,
-  );
+  final view = tester.binding.renderViews.single;
+  final layer = view.debugLayer! as OffsetLayer;
   await tester.runAsync(() async {
-    final image = await boundary.toImage(pixelRatio: 1);
+    final image = await layer.toImage(Offset.zero & view.size);
     try {
       final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
       Directory(dir).createSync(recursive: true);
@@ -234,6 +237,124 @@ void main() {
         .setMockMethodCallHandler(channel, null),
   );
   for (final entry in [('desktop', desktop), ('mobile', phone)]) {
+    testWidgets(
+      'production ${entry.$1} composer offers post voting in options and follows category policy',
+      (tester) async {
+        await prepareNativeUiEvidence(tester);
+        final fixture = await pumpFixture(
+          tester,
+          entry.$2,
+          actor: const DiscourseUser(
+            id: 9,
+            username: 'reader',
+            staff: true,
+            canCreateTopic: true,
+          ),
+          categories: [
+            const TopicCategory(
+              id: 1,
+              name: 'General',
+              color: '0088CC',
+              permission: 1,
+            ),
+            TopicCategory(
+              id: 2,
+              name: 'Questions',
+              color: '0088CC',
+              permission: 1,
+              plugins: PluginData.none.withValue(
+                postVotingCategoryKey,
+                const PostVotingCategoryData(defaultOn: true),
+              ),
+            ),
+            TopicCategory(
+              id: 3,
+              name: 'Required voting',
+              color: '0088CC',
+              permission: 1,
+              plugins: PluginData.none.withValue(
+                postVotingCategoryKey,
+                const PostVotingCategoryData(requiredOn: true),
+              ),
+            ),
+          ],
+        );
+        await fixture.shell.openNewTopicFromSidebar();
+        await frames(tester);
+        final composer = fixture.shell.visibleComposer!;
+        final options = find.byKey(const ValueKey('composer-options'));
+        final voting = find.widgetWithText(
+          DDropdownMenuCheckboxItem,
+          'Post voting topic',
+        );
+        Future<void> openOptions() async {
+          await tester.ensureVisible(options);
+          await frames(tester);
+          await tester.tap(options);
+          await frames(tester);
+          expect(voting, findsOneWidget);
+        }
+
+        expect(find.text('Post voting topic'), findsNothing);
+        expect(composer.composerCreateFields, isEmpty);
+        await capture(tester, '${entry.$1}-composer-header');
+        await openOptions();
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(voting).checked,
+          isFalse,
+        );
+        await capture(tester, '${entry.$1}-composer-options');
+        await tester.tap(voting);
+        await frames(tester);
+        expect(voting, findsNothing);
+        expect(composer.composerCreateFields, {'create_as_post_voting': true});
+        expect(composer.pluginLabels?.submit, 'Create post voting topic');
+        await openOptions();
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(voting).checked,
+          isTrue,
+        );
+        await tester.tap(voting);
+        await frames(tester);
+        expect(composer.composerCreateFields, isEmpty);
+
+        await fixture.shell.changeComposerCategory(composer, 2);
+        await frames(tester);
+        expect(composer.composerCreateFields, {'create_as_post_voting': true});
+        await openOptions();
+        expect(
+          tester.widget<DDropdownMenuCheckboxItem>(voting).checked,
+          isTrue,
+        );
+        await tester.tap(voting);
+        await frames(tester);
+        expect(composer.composerCreateFields, isEmpty);
+        await fixture.shell.changeComposerCategory(composer, 1);
+        await frames(tester);
+        expect(composer.composerCreateFields, isEmpty);
+        await fixture.shell.changeComposerCategory(composer, 2);
+        await frames(tester);
+        expect(composer.composerCreateFields, {'create_as_post_voting': true});
+
+        await fixture.shell.changeComposerCategory(composer, 3);
+        await frames(tester);
+        expect(composer.composerCreateFields, {'create_as_post_voting': true});
+        expect(composer.pluginLabels?.submit, 'Create post voting topic');
+        expect(composer.pluginLabels?.title, 'Create post voting topic');
+        expect(find.text('Post voting topic'), findsNothing);
+        expect(
+          find.text('This category requires Post Voting topics.'),
+          findsNothing,
+        );
+        expect(options, findsNothing);
+        expect(tester.takeException(), isNull);
+        await capture(tester, '${entry.$1}-composer-required');
+        await tester.pumpWidget(const SizedBox());
+      },
+      variant: TargetPlatformVariant.only(
+        entry.$1 == 'desktop' ? TargetPlatform.macOS : TargetPlatform.iOS,
+      ),
+    );
     testWidgets(
       'production ${entry.$1} orders answers, selects vote, and opens full host answer composer',
       (tester) async {
