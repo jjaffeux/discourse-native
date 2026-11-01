@@ -2033,6 +2033,9 @@ final class PluginRegistry
       ),
   ];
 
+  bool get hasUserCardIdentityDecorations =>
+      plugins.any((plugin) => plugin is UserCardIdentityDecorationPlugin);
+
   List<Widget> userCardIdentityDecorations(
     BuildContext context,
     String siteUrl,

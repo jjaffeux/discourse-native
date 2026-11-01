@@ -73,7 +73,8 @@ class _UserSummaryViewState extends State<UserSummaryView> {
       username,
       controller.lifecycle.capture(widget.siteUrl),
     );
-    if (PluginScope.of(context).registry.hasUserProfileMetadata) {
+    if (PluginScope.of(context).registry.hasUserProfileMetadata ||
+        PluginScope.of(context).registry.hasUserCardIdentityDecorations) {
       unawaited(controller.loadUserCard(username, siteUrl: widget.siteUrl));
     }
     unawaited(controller.userSummary.load(instance));
@@ -94,7 +95,8 @@ class _UserSummaryViewState extends State<UserSummaryView> {
     if (instance != null) {
       await Future.wait([
         controller.userSummary.load(instance, refresh: true),
-        if (PluginScope.of(context).registry.hasUserProfileMetadata)
+        if (PluginScope.of(context).registry.hasUserProfileMetadata ||
+            PluginScope.of(context).registry.hasUserCardIdentityDecorations)
           controller.loadUserCard(
             instance.user!.username,
             siteUrl: widget.siteUrl,
@@ -360,9 +362,85 @@ class _ProfileCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final registry = PluginScope.of(context).registry;
+    if (!registry.hasUserCardIdentityDecorations) {
+      return _identity(context, const []);
+    }
+    final controller = ShellScope.read(context);
+    final username = instance.user!.username;
+    return ListenableBuilder(
+      listenable: controller.store.ref<UserCard>(
+        instance.url,
+        username.toLowerCase(),
+      ),
+      builder: (context, _) {
+        final card = controller.userCard(username, siteUrl: instance.url);
+        return _identity(
+          context,
+          card == null
+              ? const []
+              : registry.userCardIdentityDecorations(
+                  context,
+                  instance.url,
+                  card,
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _identity(BuildContext context, List<Widget> decorations) {
     final user = instance.user!;
     final name = user.name?.trim();
     final label = name == null || name.isEmpty ? user.username : name;
+    final identity = Semantics(
+      header: true,
+      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    );
+    final facts = _ProfileFacts(
+      facts: [
+        (icon: null, text: '@${user.username}'),
+        (icon: DIcons.globe, text: instance.title),
+        if (summary.canSeeSummaryStats)
+          (
+            icon: DIcons.calendarDays,
+            text:
+                '${_number(summary.daysVisited)} ${context.l10n.daysVisited.toLowerCase()}',
+          ),
+      ],
+    );
+    // The face stays the name's size as text grows.
+    final avatar = MediaQuery.textScalerOf(context).scale(_avatar);
+    if (decorations.isNotEmpty) {
+      return Row(
+        key: const ValueKey('user-summary-profile'),
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _SummaryAvatar(
+            username: user.username,
+            avatarUrl: user.avatarUrl,
+            dimension: avatar,
+          ),
+          const SizedBox(width: _gap),
+          Expanded(
+            child: Wrap(
+              spacing: _gap,
+              runSpacing: 4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [identity, ...decorations],
+                ),
+                facts,
+              ],
+            ),
+          ),
+        ],
+      );
+    }
     return LayoutBuilder(
       builder: (context, constraints) {
         final painter = TextPainter(
@@ -375,14 +453,13 @@ class _ProfileCard extends StatelessWidget {
           maxLines: 1,
         )..layout();
         final natural = painter.width.ceilToDouble();
-        // The face stays the name's size as text grows.
-        final avatar = MediaQuery.textScalerOf(context).scale(_avatar);
         painter.dispose();
         final room = constraints.hasBoundedWidth
             ? math.max(0.0, constraints.maxWidth - avatar - _gap)
             : natural;
         final nameWidth = math.min(natural, room);
         final factsWidth = room - nameWidth - _gap;
+
         return Row(
           key: const ValueKey('user-summary-profile'),
           children: [
@@ -392,35 +469,10 @@ class _ProfileCard extends StatelessWidget {
               dimension: avatar,
             ),
             const SizedBox(width: _gap),
-            SizedBox(
-              width: nameWidth,
-              child: Semantics(
-                header: true,
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
+            SizedBox(width: nameWidth, child: identity),
             if (factsWidth >= _minimumFacts) ...[
               const SizedBox(width: _gap),
-              SizedBox(
-                width: factsWidth,
-                child: _ProfileFacts(
-                  facts: [
-                    (icon: null, text: '@${user.username}'),
-                    (icon: DIcons.globe, text: instance.title),
-                    if (summary.canSeeSummaryStats)
-                      (
-                        icon: DIcons.calendarDays,
-                        text:
-                            '${_number(summary.daysVisited)} '
-                            '${context.l10n.daysVisited.toLowerCase()}',
-                      ),
-                  ],
-                ),
-              ),
+              SizedBox(width: factsWidth, child: facts),
             ],
           ],
         );

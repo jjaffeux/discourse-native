@@ -1856,7 +1856,8 @@ class ShellController extends FrameSafeNotifier
         await Future.wait([
           userSummary.load(instance, refresh: force),
           if (force &&
-              plugins.registry.hasUserProfileMetadata &&
+              (plugins.registry.hasUserProfileMetadata ||
+                  plugins.registry.hasUserCardIdentityDecorations) &&
               instance.user != null)
             loadUserCard(
               instance.user!.username,
