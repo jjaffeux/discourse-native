@@ -135,6 +135,34 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('two visible readers share one welcome celebration', (
+    tester,
+  ) async {
+    final controller = await _controller();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.forBrightness(
+            Brightness.light,
+          ).copyWith(platform: TargetPlatform.iOS),
+          home: const Stack(
+            children: [
+              Scaffold(body: TopicView()),
+              Scaffold(body: TopicView()),
+            ],
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pump(const Duration(milliseconds: 350));
+    expect(tester.binding.transientCallbackCount, 1);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<ShellController> _controller({
