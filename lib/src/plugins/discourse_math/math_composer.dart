@@ -284,9 +284,6 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
               expressions: expressions,
               expressionIndex: index,
               onEdit: _editable(editor) ? openEditor : null,
-              onRemove: _editable(editor)
-                  ? () => remove(context.pillKey.currentContext!, editor)
-                  : null,
             ),
           ),
         ),

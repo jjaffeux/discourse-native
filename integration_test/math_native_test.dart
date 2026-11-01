@@ -130,7 +130,9 @@ void main() {
           name == 'prose' ? findsNothing : findsOneWidget,
         );
         if (name != 'prose') {
-          expect(find.text('Math expression'), findsOneWidget);
+          expect(find.text('Math expression'), findsNothing);
+          expect(find.byTooltip('Copy source'), findsOneWidget);
+          expect(find.byTooltip('More options'), findsNothing);
         }
         if (dark) {
           final surface = tester

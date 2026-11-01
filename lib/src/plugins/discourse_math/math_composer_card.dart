@@ -12,7 +12,6 @@ class MathComposerCard extends StatelessWidget {
     required this.expressions,
     required this.expressionIndex,
     this.onEdit,
-    this.onRemove,
   });
 
   final DMathExpression expression;
@@ -20,22 +19,13 @@ class MathComposerCard extends StatelessWidget {
   final List<DMathExpression> expressions;
   final int expressionIndex;
   final VoidCallback? onEdit;
-  final VoidCallback? onRemove;
 
   @override
   Widget build(BuildContext context) => DCard(
     size: DCardSize.small,
     children: [
       DCardHeader(
-        title: DCardTitle(
-          child: Row(
-            spacing: DSpacing.sm,
-            children: [
-              const DIcon(DIcons.squareRootVariable),
-              Flexible(child: Text(context.l10n.mathExpression)),
-            ],
-          ),
-        ),
+        title: const DIcon(DIcons.squareRootVariable),
         action: DCardAction(
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -45,33 +35,12 @@ class MathComposerCard extends StatelessWidget {
                 tooltip: context.l10n.editMath,
                 onPressed: onEdit,
               ),
-              DDropdownMenu(
-                content: DDropdownMenuContent(
-                  children: [
-                    DDropdownMenuItem(
-                      onPressed: () => Clipboard.setData(
-                        ClipboardData(text: expression.source),
-                      ),
-                      child: Text(context.l10n.copySource),
-                    ),
-                    const DDropdownMenuSeparator(),
-                    DDropdownMenuItem(
-                      variant: DDropdownMenuItemVariant.destructive,
-                      onPressed: onRemove,
-                      child: Text(context.l10n.delete),
-                    ),
-                  ],
-                ),
-                child: DDropdownMenuTrigger(
-                  builder: (context, state) => DButton.iconOnly(
-                    variant: DButtonVariant.ghost,
-                    icon: const DIcon(DIcons.ellipsis),
-                    tooltip: context.l10n.moreOptions,
-                    expanded: state.open,
-                    hasPopup: true,
-                    onPressed: state.toggle,
-                  ),
-                ),
+              DButton.iconOnly(
+                variant: DButtonVariant.ghost,
+                icon: const DIcon(DIcons.copy),
+                tooltip: context.l10n.copySource,
+                onPressed: () =>
+                    Clipboard.setData(ClipboardData(text: expression.source)),
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_composer.dart';
@@ -6,10 +7,13 @@ import 'package:discourse_native/src/plugins/discourse_math/math_composer_card.d
 import 'package:discourse_native/src/plugins/discourse_math/math_settings.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart'
+    show ComposerRichBodyEditor;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:webview_all/webview_all.dart';
+
 import '../../support/fake_media_webview.dart';
 
 void main() {
@@ -88,6 +92,22 @@ void main() {
   Future<void> finish(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
+  }
+
+  Future<void> removeCard(
+    WidgetTester tester,
+    ComposerController composer,
+  ) async {
+    final context = tester.element(find.byType(MathComposerCard));
+    final local =
+        context
+            .findAncestorWidgetOfExactType<ComposerRichBodyEditor>()
+            ?.composer ??
+        composer;
+    final occurrence = local.text.syntaxAtOffset(
+      local.text.text.indexOf(r'$'),
+    )!;
+    await occurrence.projection.remove(context, local);
   }
 
   test('interactive inline projections do not acquire block layout', () {
@@ -188,78 +208,70 @@ void main() {
       }
     },
   );
-  testWidgets(
-    'read-only card keeps Copy source and disables edit and deletion',
-    (tester) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: const Scaffold(
-            body: SizedBox(
-              width: 320,
-              child: MathComposerCard(
-                expression: DMathExpression('x'),
-                configuration: DMathJax(),
-                expressions: [DMathExpression('x')],
-                expressionIndex: 0,
-              ),
+  testWidgets('read-only card keeps direct Copy source and disables edit', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: MathComposerCard(
+              expression: DMathExpression('x'),
+              configuration: DMathJax(),
+              expressions: [DMathExpression('x')],
+              expressionIndex: 0,
             ),
           ),
         ),
-      );
-      await tester.pump();
-      expect(
-        tester
-            .widget<DButton>(
-              find.byWidgetPredicate(
-                (widget) => widget is DButton && widget.tooltip == 'Edit math',
-              ),
-            )
-            .onPressed,
-        isNull,
-      );
-      await tester.tap(find.byTooltip('More options'));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .widget<DDropdownMenuItem>(
-              find.widgetWithText(DDropdownMenuItem, 'Copy source'),
-            )
-            .onPressed,
-        isNotNull,
-      );
-      expect(
-        tester
-            .widget<DDropdownMenuItem>(
-              find.widgetWithText(DDropdownMenuItem, 'Delete'),
-            )
-            .onPressed,
-        isNull,
-      );
-      await finish(tester);
-    },
-  );
+      ),
+    );
+    await tester.pump();
+    expect(
+      tester
+          .widget<DButton>(
+            find.byWidgetPredicate(
+              (widget) => widget is DButton && widget.tooltip == 'Edit math',
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<DButton>(
+            find.byWidgetPredicate(
+              (widget) => widget is DButton && widget.tooltip == 'Copy source',
+            ),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(find.byTooltip('More options'), findsNothing);
+    await finish(tester);
+  });
   testWidgets(
     'standalone card has its own source actions while prose stays inline',
     (tester) async {
       final composer = await pump(tester, r'$x$');
       expect(find.byType(MathComposerCard), findsOneWidget);
-      expect(find.text('Math expression'), findsOneWidget);
+      expect(find.text('Math expression'), findsNothing);
       expect(
         tester.widget<DMath>(find.byType(DMath)).expression.display,
         isFalse,
       );
       expect(tester.widget<DMath>(find.byType(DMath)).onEdit, isNull);
-      await tester.tap(find.byTooltip('More options'));
-      await tester.pumpAndSettle();
-      expect(find.text('Copy source'), findsOneWidget);
-      expect(find.text('Delete'), findsOneWidget);
-      await tester.tap(find.text('Delete'));
-      await tester.pumpAndSettle();
-      expect(composer.text.text, isEmpty);
-      expect(composer.history.undo(), isTrue);
-      await tester.pumpAndSettle();
-      expect(composer.text.text, r'$x$');
+      expect(find.byTooltip('Edit math'), findsOneWidget);
+      expect(find.byTooltip('Copy source'), findsOneWidget);
+      expect(find.byTooltip('More options'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(MathComposerCard),
+          matching: find.byType(DButton),
+        ),
+        findsNWidgets(2),
+      );
       composer.text.value = const TextEditingValue(text: r'Before $x$ after');
       await tester.pumpAndSettle();
       expect(find.byType(MathComposerCard), findsNothing);
@@ -287,23 +299,19 @@ void main() {
       ),
     );
     final composer = await pump(tester, r'$\frac{a}{b}$');
-    await tester.tap(find.byTooltip('More options'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Copy source'));
+    await tester.tap(find.byTooltip('Copy source'));
     await tester.pumpAndSettle();
     expect(copied, r'\frac{a}{b}');
     expect(composer.text.text, r'$\frac{a}{b}$');
     await finish(tester);
   });
   for (final source in [r'- $x$', '[details="Math"]\n\$x\$\n[/details]']) {
-    testWidgets('nested card Delete owns only its local equation: $source', (
+    testWidgets('host removal owns only its local equation: $source', (
       tester,
     ) async {
       final composer = await pump(tester, source);
       expect(find.byType(MathComposerCard), findsOneWidget);
-      await tester.tap(find.byTooltip('More options'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Delete'));
+      await removeCard(tester, composer);
       await tester.pumpAndSettle();
       expect(composer.text.text, source.replaceFirst(r'$x$', ''));
       expect(composer.history.undo(), isTrue);
@@ -377,12 +385,10 @@ void main() {
     ('Before\n\n \t\$x\$ \t\n\nAfter', 'Before\n\nAfter'),
   ]) {
     testWidgets(
-      'Delete removes only the card and its duplicated separator: $source',
+      'host removal removes only the card and its duplicated separator: $source',
       (tester) async {
         final composer = await pump(tester, source);
-        await tester.tap(find.byTooltip('More options'));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Delete'));
+        await removeCard(tester, composer);
         await tester.pumpAndSettle();
         expect(composer.text.text, expected);
         expect(composer.history.undo(), isTrue);
@@ -467,9 +473,9 @@ void main() {
           dark: dark,
           textScale: 1.7,
         );
-        expect(find.text('Math expression'), findsOneWidget);
+        expect(find.text('Math expression'), findsNothing);
         expect(find.byTooltip('Edit math'), findsOneWidget);
-        expect(find.byTooltip('More options'), findsOneWidget);
+        expect(find.byTooltip('Copy source'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await finish(tester);
       },
