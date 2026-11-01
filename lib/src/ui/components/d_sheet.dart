@@ -25,6 +25,7 @@ import 'd_page_header.dart';
 import 'd_page_surface.dart';
 
 part 'd_sheet_adaptive_menu.dart';
+part 'd_sheet_lifecycle.dart';
 
 const _sheetMenuCorner = Radius.circular(22);
 const _sheetKeyboardGap = 1.0;
@@ -849,38 +850,15 @@ class _DSheetKeyboardCorners extends StatefulWidget {
   State<_DSheetKeyboardCorners> createState() => _DSheetKeyboardCornersState();
 }
 
-class _DSheetKeyboardCornersState extends State<_DSheetKeyboardCorners> {
+class _DSheetKeyboardCornersState extends State<_DSheetKeyboardCorners>
+    with _DSheetKeyboardCoverRefresh<_DSheetKeyboardCorners> {
   _DSheetKeyboardFrame? _frame;
-  ValueListenable<int>? _cover;
-  bool _wasCovered = false;
 
   @override
   void initState() {
     super.initState();
     _DSheetKeyboardTransitions.frame.addListener(_frameChanged);
     unawaited(_DSheetKeyboardTransitions.refresh());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final cover = DOverlayRoute.modalCoverCountOf(context);
-    if (!identical(cover, _cover)) {
-      _cover?.removeListener(_coverChanged);
-      _cover = cover..addListener(_coverChanged);
-    }
-    _coverChanged();
-  }
-
-  void _coverChanged() {
-    if (!mounted || ModalRoute.of(context)?.isActive == false) return;
-    if ((_cover?.value ?? 0) > 0 ||
-        ModalRoute.of(context)?.isCurrent == false) {
-      _wasCovered = true;
-    } else if (_wasCovered) {
-      _wasCovered = false;
-      unawaited(_DSheetKeyboardTransitions.refresh());
-    }
   }
 
   void _frameChanged() {
@@ -895,7 +873,6 @@ class _DSheetKeyboardCornersState extends State<_DSheetKeyboardCorners> {
   @override
   void dispose() {
     _DSheetKeyboardTransitions.frame.removeListener(_frameChanged);
-    _cover?.removeListener(_coverChanged);
     super.dispose();
   }
 
@@ -1925,11 +1902,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   bool _dragging = false;
   bool _exiting = false;
   bool _swipeIntercepted = false;
-  DOverlayRoute<dynamic, Object>? _route;
-  Simulation? Function()? _pendingSimulation;
-  _DSheetDismissSimulation? _dismissal;
-  double _dismissOrigin = 0;
-  double _dismissCurve = 1;
+  final _exit = _DSheetExitLifecycle<_DSheetSwipeExitGeometry>();
   double _swipeExtent = 1;
   final _scrollPositions = <ScrollPosition, BuildContext>{};
   Timer? _wheelEnd;
@@ -2034,12 +2007,14 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   double get _offset {
-    final dismissal = _dismissal;
-    return dismissal == null
+    final geometry = _exit.geometry;
+    return geometry == null
         ? _travel.value
-        : _dismissOrigin +
-              dismissal.distance *
-                  (1 - widget.routeAnimation.value / dismissal.initialValue);
+        : geometry.origin +
+              geometry.simulation.distance *
+                  (1 -
+                      widget.routeAnimation.value /
+                          geometry.simulation.initialValue);
   }
 
   void _syncBackdrop() {
@@ -2054,24 +2029,22 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   Simulation _beginDismissal(double velocity) {
     _travel.stop();
-    _dismissOrigin = _travel.value;
-    _dismissCurve = widget.popupCurve.value;
+    final origin = _travel.value;
     final box = context.findRenderObject()! as RenderBox;
     final viewportHeight = MediaQuery.sizeOf(context).height;
-    final top = box.localToGlobal(Offset.zero).dy + _dismissOrigin;
-    _swipeExtent = math.max(1, viewportHeight - top + _dismissOrigin);
-    return _dismissal = _DSheetDismissSimulation(
+    final top = box.localToGlobal(Offset.zero).dy + origin;
+    _swipeExtent = math.max(1, viewportHeight - top + origin);
+    final simulation = _DSheetDismissSimulation(
       math.max(1, viewportHeight - top),
       math.max(0, velocity),
       widget.routeAnimation.value,
     );
-  }
-
-  void _clearPendingSimulation() {
-    if (_route?.reverseSimulationBuilder == _pendingSimulation) {
-      _route?.reverseSimulationBuilder = null;
-    }
-    _pendingSimulation = null;
+    _exit.geometry = (
+      origin: origin,
+      curve: widget.popupCurve.value,
+      simulation: simulation,
+    );
+    return simulation;
   }
 
   @override
@@ -2113,7 +2086,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       1,
       MediaQuery.sizeOf(context).height - box.localToGlobal(Offset.zero).dy,
     );
-    _clearPendingSimulation();
+    _exit.detach();
     _travel.stop();
     _dragging = true;
   }
@@ -2142,21 +2115,16 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
 
   void _restore() {
     if (!mounted) return;
-    final pending = _pendingSimulation;
-    _travel
-        .animateTo(
-          0,
-          duration: DMotion.duration(
-            context,
-            widget.page ? const Duration(milliseconds: 280) : DMotion.change,
-          ),
-          curve: Curves.easeOutCubic,
-        )
-        .whenCompleteOrCancel(() {
-          if (mounted && _dismissal == null && _pendingSimulation == pending) {
-            _clearPendingSimulation();
-          }
-        });
+    _exit.releaseAfterRestore(
+      _travel.animateTo(
+        0,
+        duration: DMotion.duration(
+          context,
+          widget.page ? const Duration(milliseconds: 280) : DMotion.change,
+        ),
+        curve: Curves.easeOutCubic,
+      ),
+    );
   }
 
   void _dismissRetained(double velocity) {
@@ -2223,9 +2191,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
       final route = ModalRoute.of(context);
       if (!MediaQuery.disableAnimationsOf(context) &&
           route is DOverlayRoute<dynamic, Object>) {
-        _route = route;
-        _pendingSimulation = () => _beginDismissal(velocity);
-        route.reverseSimulationBuilder = _pendingSimulation;
+        _exit.attach(route, () => _beginDismissal(velocity));
       }
       widget.onDismiss?.call();
       // Controlled owners can decline the close request. Let their route
@@ -2363,7 +2329,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   void dispose() {
     _dragOwner?._detach(this);
     _wheelEnd?.cancel();
-    _clearPendingSimulation();
+    _exit.detach();
     widget.routeAnimation.removeListener(_syncBackdrop);
     widget.routeAnimation.removeStatusListener(_onRouteStatus);
     _travel.dispose();
@@ -2374,13 +2340,13 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   Widget build(BuildContext context) => AnimatedBuilder(
     animation: Listenable.merge([_travel, widget.routeAnimation]),
     builder: (context, child) {
-      final dismissal = _dismissal;
+      final geometry = _exit.geometry;
       return Transform.translate(
         offset: Offset(0, _offset),
         child: _DSheetMotion(
-          curve: dismissal == null
+          curve: geometry == null
               ? widget.popupCurve
-              : AlwaysStoppedAnimation(_dismissCurve),
+              : AlwaysStoppedAnimation(geometry.curve),
           beginOffset: const Offset(0, 40),
           scale: widget.scale,
           page: widget.page,
