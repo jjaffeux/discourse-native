@@ -2035,6 +2035,64 @@ final class PluginRegistry
       ),
   ];
 
+  List<Widget> userCardMetadata(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+    VoidCallback close,
+  ) => [
+    for (final plugin in plugins.whereType<UserCardMetadataPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.userCardMetadata(
+          _uiContext(context, plugin),
+          siteUrl,
+          user,
+          close,
+        ),
+      ),
+  ];
+
+  bool get hasUserProfileMetadata =>
+      plugins.any((plugin) => plugin is UserProfileMetadataPlugin);
+
+  List<Widget> userProfileMetadata(
+    BuildContext context,
+    String siteUrl,
+    UserCard user,
+  ) => [
+    for (final plugin in plugins.whereType<UserProfileMetadataPlugin>())
+      ..._ownedAll(
+        plugin,
+        plugin.userProfileMetadata(_uiContext(context, plugin), siteUrl, user),
+      ),
+  ];
+
+  String? userDirectoryColumnLabel(
+    BuildContext context,
+    String siteUrl,
+    String columnName,
+  ) {
+    String? label;
+    String? owner;
+    for (final plugin in plugins.whereType<UserDirectoryColumnLabelPlugin>()) {
+      final candidate = plugin.userDirectoryColumnLabel(
+        _uiContext(context, plugin),
+        siteUrl,
+        columnName,
+      );
+      if (candidate == null) continue;
+      if (owner != null) {
+        throw StateError(
+          'Directory column $columnName claimed by $owner and ${_ownerOf(plugin)}.',
+        );
+      }
+      label = candidate;
+      owner = _ownerOf(plugin);
+    }
+    return label;
+  }
+
   List<PluginUserMenuSection> userMenuSections(PluginUserMenuContext context) {
     final sections = <PluginUserMenuSection>[];
     final owners = <PluginUserMenuSectionId>{};

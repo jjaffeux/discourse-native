@@ -9,6 +9,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import '../data/site_lifecycle.dart';
 import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
+import '../models/user_card.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
@@ -72,6 +73,9 @@ class _UserSummaryViewState extends State<UserSummaryView> {
       username,
       controller.lifecycle.capture(widget.siteUrl),
     );
+    if (PluginScope.of(context).registry.hasUserProfileMetadata) {
+      unawaited(controller.loadUserCard(username, siteUrl: widget.siteUrl));
+    }
     unawaited(controller.userSummary.load(instance));
   }
 
@@ -88,7 +92,15 @@ class _UserSummaryViewState extends State<UserSummaryView> {
     final controller = ShellScope.read(context);
     final instance = _instance(controller);
     if (instance != null) {
-      await controller.userSummary.load(instance, refresh: true);
+      await Future.wait([
+        controller.userSummary.load(instance, refresh: true),
+        if (PluginScope.of(context).registry.hasUserProfileMetadata)
+          controller.loadUserCard(
+            instance.user!.username,
+            siteUrl: widget.siteUrl,
+            force: true,
+          ),
+      ]);
     }
   }
 
@@ -191,9 +203,13 @@ class _SummaryContentState extends State<_SummaryContent> {
     children: [
       Expanded(
         child: _SummaryLayout(
-          profile: _ProfileCard(
-            instance: widget.instance,
-            summary: widget.summary,
+          profile: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _ProfileCard(instance: widget.instance, summary: widget.summary),
+              _SummaryProfileMetadata(instance: widget.instance),
+            ],
           ),
           controls: DTabList<_SummaryTab>(
             variant: DTabListVariant.line,
@@ -301,6 +317,40 @@ class _SummaryLayout extends StatelessWidget {
 // The person where a page's title would be, and after the name what is known
 // about them. The name keeps its room; the facts beside it give way first, a
 // whole fact at a time.
+class _SummaryProfileMetadata extends StatelessWidget {
+  const _SummaryProfileMetadata({required this.instance});
+
+  final DiscourseInstance instance;
+
+  @override
+  Widget build(BuildContext context) {
+    final registry = PluginScope.of(context).registry;
+    if (!registry.hasUserProfileMetadata) return const SizedBox.shrink();
+    final controller = ShellScope.read(context);
+    final username = instance.user!.username;
+    return ListenableBuilder(
+      listenable: controller.store.ref<UserCard>(
+        instance.url,
+        username.toLowerCase(),
+      ),
+      builder: (context, _) {
+        final card = controller.userCard(username, siteUrl: instance.url);
+        if (card == null) return const SizedBox.shrink();
+        final metadata = registry.userProfileMetadata(
+          context,
+          instance.url,
+          card,
+        );
+        if (metadata.isEmpty) return const SizedBox.shrink();
+        return Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: Wrap(spacing: 12, runSpacing: 6, children: metadata),
+        );
+      },
+    );
+  }
+}
+
 class _ProfileCard extends StatelessWidget {
   const _ProfileCard({required this.instance, required this.summary});
   final DiscourseInstance instance;
