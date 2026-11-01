@@ -160,10 +160,7 @@ class _MathSourceDialogState extends State<_MathSourceDialog> {
                     (!display && controller.text.contains('\n'))
                 ? null
                 : () => widget.dialog.close(
-                    DMathExpression(
-                      widget.editing ? controller.text : controller.text.trim(),
-                      display: display,
-                    ),
+                    DMathExpression(controller.text, display: display),
                   ),
           ),
         ],

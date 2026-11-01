@@ -38,12 +38,13 @@ Flutter prose; copy-tex applies inside the equation view and Copy source remains
 explicit. Device VoiceOver/TalkBack need device verification; enriched DOM is
 not evidence of screen-reader parity.
 
-Rendering is bounded to 16,384 source units, 128 contextual expressions,
+Rendering is bounded to 16,384 units per source expression,
 131,072 request units, two million generated HTML units, 16,384 by 4,096 output
-points, 16 visible live views, 64 queued requests, and a 20 second admission/render
-timeout. Offscreen views retire and visible expressions are admitted as the
-viewport moves. Large documents retain the selected expression and prioritize
-macro/label dependencies within the bounded context. Oversized, unsupported,
+points, 16 concurrent engine startups, 64 queued startups, and a 20 second admission/render
+timeout. Completed views release startup admission while retaining their interactive
+document. Offscreen views retire as the viewport moves. Document context is
+kept in full; a request that exceeds the byte bound retains source rather than
+silently dropping macro definitions or references. Oversized, unsupported,
 saturated, or rejected expressions retain source. Retired setup finishes before channels, script execution, and documents
 are cleared. Settings/source changes replace the isolated view and generation.
 

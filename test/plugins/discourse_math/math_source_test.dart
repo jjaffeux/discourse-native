@@ -62,6 +62,11 @@ void main() {
     ).single;
     expect(occurrence.expression.display, isTrue);
     expect(occurrence.replace('y+2'), '\\[\r\ny+2\r\n\\]');
+    expect(occurrence.replace('y\r\n+2'), '\\[\r\ny\r\n+2\r\n\\]');
+    expect(
+      scanMath(r'$$x$$', settings).single.replace('x\ny'),
+      '\$\$\nx\ny\n\$\$',
+    );
     expect(scanMath('\$\$\nx+1', settings).single.expression.source, 'x+1');
     final ascii = scanMath('%sqrt(x)%', settings).single;
     expect(ascii.expression.input, DMathInput.ascii);

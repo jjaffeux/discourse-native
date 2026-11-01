@@ -33,9 +33,11 @@ final class MathOccurrence {
     if (!expression.display) {
       return '$open${escapeMathDelimiter(body, open)}$close';
     }
-    if (!original.contains('\n')) return '$open$body$close';
+    if (!original.contains('\n') && !body.contains('\n')) {
+      return '$open$body$close';
+    }
     final newline = original.contains('\r\n') ? '\r\n' : '\n';
-    return '$open$newline${body.split('\n').map((line) => '$prefix$line').join(newline)}$newline$prefix$close';
+    return '$open$newline${body.split(RegExp(r'\r?\n')).map((line) => '$prefix$line').join(newline)}$newline$prefix$close';
   }
 }
 

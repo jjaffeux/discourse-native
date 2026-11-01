@@ -224,7 +224,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
   void _update() {
     _scheduleVisibility();
     if (!_visible || !TickerMode.valuesOf(context).enabled) return;
-    final bounded = _boundedMathContext(
+    final bounded = _mathContext(
       widget.expression,
       widget.context,
       widget.contextIndex,
@@ -252,9 +252,12 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
     _formats = const {};
     _engineMenu = const [];
     final generation = ++_generation;
-    if (widget.expression.source.length > 16384 ||
+    if (widget.expression.source.trim().isEmpty ||
+        widget.expression.source.length > 16384 ||
         identity.length > 131072 ||
-        bounded.expressions.length > 128) {
+        bounded.expressions.any(
+          (expression) => expression.source.length > 16384,
+        )) {
       return;
     }
     final view = _view = _MathView(
@@ -323,7 +326,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
           widget.onLink?.call(url);
         }
       case 'menu':
-        if (widget.configuration case DMathJax(menu: true)) {
+        if (widget.configuration case DMathJax(menu: true) || DMathKatex()) {
           final x = data['x'], y = data['y'];
           if (x is num && y is num && x.isFinite && y.isFinite) {
             _menu.openAt(Offset(x.toDouble(), y.toDouble()));
@@ -348,13 +351,21 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
           unawaited(_expand(scale: scale.toDouble()));
         }
       case 'scale':
-        unawaited(_showScale());
+        final scale = data['scale'];
+        if (scale is num && scale.isFinite && scale >= .5 && scale <= 4) {
+          unawaited(_showScale(scale.toDouble()));
+        }
       case 'activate':
         break;
     }
   }
 
   Future<void> _expand({double scale = 1.75}) async {
+    final fontSize =
+        widget.fontSize ??
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(DefaultTextStyle.of(context).style.fontSize ?? 16);
     await showDDialog<void>(
       context: context,
       builder: (context, controller) => DDialogContent(
@@ -363,7 +374,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
           DDialogTitle(child: Text(context.l10n.mathExpression)),
           DMath(
             expression: widget.expression,
-            configuration: switch (widget.configuration) {
+            configuration: switch (_configuration) {
               DMathJax(:final output, :final accessibility) => DMathJax(
                 output: output,
                 accessibility: accessibility,
@@ -373,11 +384,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
             context: widget.context,
             contextIndex: widget.contextIndex,
             onLink: widget.onLink,
-            fontSize:
-                (widget.fontSize ??
-                    DefaultTextStyle.of(context).style.fontSize ??
-                    16) *
-                1.75,
+            fontSize: fontSize * scale,
           ),
           DButton(
             label: Text(context.l10n.close),
@@ -467,8 +474,8 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
       child: Text(entry.label),
     ),
   };
-  Future<void> _showScale() async {
-    var scale = 100.0;
+  Future<void> _showScale(double initialScale) async {
+    var scale = initialScale * 100;
     await showDDialog<void>(
       context: context,
       builder: (context, dialog) => StatefulBuilder(
@@ -528,7 +535,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
         ),
       );
     }
-    if (widget.configuration case DMathJax(menu: true)) {
+    if (widget.configuration case DMathJax(menu: true) || DMathKatex()) {
       content = DContextMenu(
         content: DContextMenuContent(
           children: [
@@ -733,20 +740,26 @@ final class _MathView {
     }
   }
 
-  void finish() => _timeout?.cancel();
+  void finish() {
+    _timeout?.cancel();
+    _releaseAdmission();
+  }
+
+  void _releaseAdmission() {
+    if (!_admitted) return;
+    _admitted = false;
+    _active.remove(this);
+    while (_active.length < 16 && _waiting.isNotEmpty) {
+      _waiting.removeAt(0)._admit();
+    }
+  }
+
   void retire() {
     if (_retired) return;
     _retired = true;
     _waiting.remove(this);
     _timeout?.cancel();
-    unawaited(
-      _release().whenComplete(() {
-        if (_admitted) _active.remove(this);
-        while (_active.length < 16 && _waiting.isNotEmpty) {
-          _waiting.removeAt(0)._admit();
-        }
-      }),
-    );
+    unawaited(_release().whenComplete(_releaseAdmission));
   }
 
   Future<void> _release() async {
@@ -790,43 +803,21 @@ class _RenderMathBaseline extends RenderProxyBox {
       _baseline.clamp(0, size.height);
 }
 
-({List<DMathExpression> expressions, int? index}) _boundedMathContext(
+({List<DMathExpression> expressions, int? index}) _mathContext(
   DMathExpression selected,
   List<DMathExpression> context,
   int? index,
 ) {
-  final candidates = index == null ? [...context, selected] : context;
-  final selectedIndex = index ?? context.length;
-  final selectedExpression =
-      selectedIndex >= 0 && selectedIndex < candidates.length
-      ? candidates[selectedIndex]
-      : selected;
-  final chosen = <DMathExpression>[];
-  int? resultIndex;
-  var length = jsonEncode(selectedExpression.toMessage()).length;
-  final hasDependencies = RegExp(
-    r'\\(?:gdef|def|newcommand|renewcommand|DeclareMathOperator|label|tag)\b',
+  if (index == null || index < 0 || index >= context.length) {
+    return (expressions: [...context, selected], index: context.length);
+  }
+  return (
+    expressions: [
+      for (var i = 0; i < context.length; i++)
+        i == index ? selected : context[i],
+    ],
+    index: index,
   );
-  for (var i = 0; i < candidates.length; i++) {
-    final expression = candidates[i];
-    final current = i == selectedIndex;
-    if (!current &&
-        (expression.source.length > 16384 ||
-            (candidates.length > 128 &&
-                !hasDependencies.hasMatch(expression.source)) ||
-            chosen.length >= 127 ||
-            length + jsonEncode(expression.toMessage()).length > 100000)) {
-      continue;
-    }
-    if (current) resultIndex = chosen.length;
-    chosen.add(expression);
-    if (!current) length += jsonEncode(expression.toMessage()).length;
-  }
-  if (resultIndex == null) {
-    resultIndex = chosen.length;
-    chosen.add(selectedExpression);
-  }
-  return (expressions: chosen, index: resultIndex);
 }
 
 final class _MathMenuEntry {

@@ -162,7 +162,7 @@ void main() {
     await tester.pump();
     await tester.tap(find.widgetWithText(DButton, 'Insert'));
     await tester.pumpAndSettle();
-    expect(composer.text.text, r'Before $x+1$');
+    expect(composer.text.text, r'Before $ x+1 $');
     await finish(tester);
   });
   testWidgets('Insert defaults to display on a whitespace-only line', (
@@ -218,6 +218,29 @@ void main() {
       await finish(tester);
     },
   );
+  testWidgets('Insert retains significant escaped terminal space', (
+    tester,
+  ) async {
+    final composer = await pump(tester, 'abc ');
+    final pending = insertMath(
+      tester.element(find.byType(ComposerEditor)),
+      composer,
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(DTextarea),
+        matching: find.byType(EditableText),
+      ),
+      r'x\ ',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(DButton, 'Insert'));
+    await tester.pumpAndSettle();
+    await pending;
+    expect(composer.text.text, r'abc $x\ $');
+    await finish(tester);
+  });
   testWidgets('unchanged Apply retains significant escaped trailing space', (
     tester,
   ) async {
