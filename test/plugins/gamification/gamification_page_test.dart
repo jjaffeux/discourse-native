@@ -1,3 +1,6 @@
+import 'dart:async';
+
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_navigation.dart';
@@ -18,9 +21,19 @@ void main() {
       controller: f.controller,
     ),
   );
-  for (final size in [const Size(1360, 900), const Size(390, 844)]) {
+  Future<void> pull(WidgetTester tester) async {
+    await tester.drag(find.byType(CustomScrollView), const Offset(0, 800));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+  }
+
+  for (final (size, dark) in [
+    (const Size(1360, 900), false),
+    (const Size(390, 844), false),
+    (const Size(390, 844), true),
+  ]) {
     testWidgets(
-      'production leaderboard ranks, personal context and identity at ${size.width}',
+      'production leaderboard ranks, personal context and identity at ${size.width}, dark: $dark',
       (tester) async {
         gameSize(tester, size);
         await prepareNativeUiEvidence(tester);
@@ -32,6 +45,7 @@ void main() {
         await tester.pumpWidget(
           gameApp(
             page(f),
+            theme: dark ? AppTheme.dark : AppTheme.light,
             platform: size.width < 600
                 ? TargetPlatform.iOS
                 : TargetPlatform.macOS,
@@ -39,45 +53,92 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(find.text('Your position'), findsOneWidget);
-        expect(find.text('Rank 12 · -2 Cheers'), findsOneWidget);
+        expect(find.text('12'), findsOneWidget);
+        expect(find.text('-2'), findsOneWidget);
+        final personal = find.ancestor(
+          of: find.text('Your position'),
+          matching: find.byType(DCard),
+        );
+        expect(
+          find.descendant(of: personal, matching: find.text('Rank')),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(of: personal, matching: find.text('Cheers')),
+          findsOneWidget,
+        );
+        expect(find.text('Refresh'), findsNothing);
+        expect(find.text('About Cheers'), findsOneWidget);
         expect(find.text('1,234'), findsNWidgets(2));
         expect(find.byType(DAvatar), findsNWidgets(4));
         expect(tester.takeException(), isNull);
         await captureNativeUi(
           tester,
-          'gamification-member-${size.width.toInt()}',
+          'gamification-member-${size.width.toInt()}${dark ? '-dark' : ''}',
         );
         await tester.pumpWidget(const SizedBox.shrink());
       },
     );
   }
-  testWidgets('period, refresh and append actions request server data', (
-    tester,
-  ) async {
-    gameSize(tester, const Size(1200, 1000));
-    final f = GamificationFixture();
-    addTearDown(f.dispose);
-    await tester.pumpWidget(gameApp(page(f)));
-    await tester.pumpAndSettle();
-    await gameTap(tester, find.text('All time'));
-    await gameTap(tester, find.text('Last week'));
-    expect(
-      f.transport.reads.last.path,
-      '/leaderboard/?format=json&page=0&period=weekly',
-    );
-    await gameTap(tester, find.text('Load more'));
-    expect(
-      f.transport.reads.last.path,
-      '/leaderboard/?format=json&page=1&period=weekly',
-    );
-    expect(find.text('Load more'), findsNothing);
-    await gameTap(tester, find.text('Refresh'));
-    expect(
-      f.transport.reads.last.path,
-      '/leaderboard/?format=json&page=0&period=weekly',
-    );
-    await tester.pumpWidget(const SizedBox.shrink());
-  });
+  testWidgets(
+    'pull refresh retains period and results until server data arrives',
+    (tester) async {
+      gameSize(tester, const Size(1200, 1000));
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      await tester.pumpWidget(gameApp(page(f)));
+      await tester.pumpAndSettle();
+      await gameTap(tester, find.text('All time'));
+      await gameTap(tester, find.text('Last week'));
+      expect(
+        f.transport.reads.last.path,
+        '/leaderboard/?format=json&page=0&period=weekly',
+      );
+      await gameTap(tester, find.text('Load more'));
+      expect(
+        f.transport.reads.last.path,
+        '/leaderboard/?format=json&page=1&period=weekly',
+      );
+      expect(find.text('Load more'), findsNothing);
+      tester
+          .state<ScrollableState>(
+            find.descendant(
+              of: find.byType(CustomScrollView),
+              matching: find.byWidgetPredicate(
+                (w) => w is Scrollable && w.axisDirection == AxisDirection.down,
+              ),
+            ),
+          )
+          .position
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      final readback = Completer<Map<String, dynamic>>();
+      f
+              .transport
+              .responders['GET /leaderboard/?format=json&page=0&period=weekly'] =
+          (_) => readback.future;
+      final before = f.transport.reads.length;
+      await pull(tester);
+      expect(f.transport.reads.length, before + 1);
+      expect(
+        f.transport.reads.last.path,
+        '/leaderboard/?format=json&page=0&period=weekly',
+      );
+      expect(find.text('Last week'), findsOneWidget);
+      expect(find.text('Member 1'), findsWidgets);
+      expect(find.byType(DSpinner), findsOneWidget);
+      await pull(tester);
+      expect(f.transport.reads.length, before + 1);
+      readback.complete(gameResponse(users: [gameUser(id: 9, score: 4321)]));
+      await tester.pumpAndSettle();
+      expect(find.text('Member 9'), findsWidgets);
+      expect(find.text('4,321'), findsOneWidget);
+      expect(find.text('Member 1'), findsNothing);
+      expect(find.text('Last week'), findsOneWidget);
+      expect(find.text('Refresh'), findsNothing);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
   testWidgets('empty unranked, anonymous and preparing states stay distinct', (
     tester,
   ) async {
@@ -93,9 +154,15 @@ void main() {
       'users': <Object?>[],
       'reason': 'Preparing positions',
     };
-    await gameTap(tester, find.text('Refresh'));
+    await pull(tester);
+    await tester.pumpAndSettle();
     expect(find.text('Preparing positions'), findsOneWidget);
     expect(find.text('No ranked members for this period.'), findsNothing);
+    f.publicResponse = gameResponse(users: [gameUser(id: 9)]);
+    await pull(tester);
+    await tester.pumpAndSettle();
+    expect(find.text('Member 9'), findsWidgets);
+    expect(find.text('Preparing positions'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
     final anon = GamificationFixture(connected: false);
     addTearDown(anon.dispose);
@@ -104,6 +171,50 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Your position'), findsNothing);
     expect(find.text('You are not ranked for this period.'), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('pull retries a restricted short page after access changes', (
+    tester,
+  ) async {
+    final f = GamificationFixture();
+    addTearDown(f.dispose);
+    const path = 'GET /leaderboard/?format=json&page=0';
+    f.transport.failures[path] = const SiteLookupException(
+      SiteLookupFailure.unreachable,
+      '',
+      statusCode: 403,
+    );
+    await tester.pumpWidget(gameApp(page(f)));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('This leaderboard is restricted or no longer available.'),
+      findsOneWidget,
+    );
+    final before = f.transport.reads.length;
+    f.transport.failures.remove(path);
+    f.publicResponse = gameResponse(users: [gameUser(id: 9)]);
+    await pull(tester);
+    await tester.pumpAndSettle();
+    expect(f.transport.reads.length, before + 1);
+    expect(find.text('Member 9'), findsWidgets);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+  testWidgets('pull cannot duplicate the initial leaderboard read', (
+    tester,
+  ) async {
+    final f = GamificationFixture();
+    addTearDown(f.dispose);
+    final initial = Completer<Map<String, dynamic>>();
+    f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
+        initial.future;
+    await tester.pumpWidget(gameApp(page(f)));
+    await tester.pumpAndSettle();
+    expect(f.transport.reads, hasLength(1));
+    await pull(tester);
+    expect(f.transport.reads, hasLength(1));
+    initial.complete(gameResponse());
+    await tester.pumpAndSettle();
+    expect(find.text('Your position'), findsOneWidget);
     await tester.pumpWidget(const SizedBox.shrink());
   });
   testWidgets(

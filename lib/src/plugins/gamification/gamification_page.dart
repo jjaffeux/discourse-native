@@ -97,12 +97,6 @@ class _GamificationPageState extends State<GamificationPage> {
               },
             ),
           DButton(
-            label: Text(context.l10n.gamificationRefresh),
-            onPressed: ready?.refreshing == true || state is GamificationLoading
-                ? null
-                : () => unawaited(handle.refresh()),
-          ),
-          DButton(
             label: Text(context.l10n.gamificationHelp),
             onPressed: () => showDDialog<void>(
               context: context,
@@ -122,21 +116,27 @@ class _GamificationPageState extends State<GamificationPage> {
             ),
         ],
       ),
-      bodyBuilder: (context, header) => CustomScrollView(
-        key: PageStorageKey((
-          widget.site,
-          widget.navigation.host.activeTabId,
-          handle.query.target.id,
-        )),
-        slivers: [
-          SliverToBoxAdapter(child: header.spacer),
-          SliverPadding(
-            padding: const EdgeInsets.all(DSpacing.lg),
-            sliver: SliverToBoxAdapter(
-              child: GamificationResults(handle: handle),
+      bodyBuilder: (context, header) => DPullToRefresh(
+        onRefresh: ready?.refreshing == true || state is GamificationLoading
+            ? null
+            : handle.refresh,
+        child: CustomScrollView(
+          key: PageStorageKey((
+            widget.site,
+            widget.navigation.host.activeTabId,
+            handle.query.target.id,
+          )),
+          physics: const AlwaysScrollableScrollPhysics(),
+          slivers: [
+            SliverToBoxAdapter(child: header.spacer),
+            SliverPadding(
+              padding: const EdgeInsets.all(DSpacing.lg),
+              sliver: SliverToBoxAdapter(
+                child: GamificationResults(handle: handle),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -170,7 +170,6 @@ class GamificationResults extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       spacing: DSpacing.md,
       children: [
-        if (state.refreshing) const Center(child: DSpinner()),
         if (state.error != null)
           DAlert(
             description: DAlertDescription(
@@ -200,15 +199,51 @@ class GamificationResults extends StatelessWidget {
               ),
             ),
             RankedMember(:final user) => DCard(
+              size: DCardSize.small,
+              variant: DCardVariant.well,
               children: [
-                DCardHeader(
-                  title: DCardTitle(
-                    child: Text(context.l10n.gamificationYourPosition),
-                  ),
-                ),
                 DCardContent(
-                  child: Text(
-                    '${context.l10n.gamificationRank} ${gameNumber(context, user.position)} · ${gameNumber(context, user.totalScore)} ${context.l10n.gamificationCheers}',
+                  child: Wrap(
+                    spacing: DSpacing.xl,
+                    runSpacing: DSpacing.md,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      DText(
+                        context.l10n.gamificationYourPosition,
+                        variant: DTextVariant.muted,
+                      ),
+                      for (final (label, value) in [
+                        (
+                          context.l10n.gamificationRank,
+                          gameNumber(context, user.position),
+                        ),
+                        (
+                          context.l10n.gamificationCheers,
+                          gameNumber(context, user.totalScore),
+                        ),
+                      ])
+                        Semantics(
+                          container: true,
+                          label: '$label: $value',
+                          excludeSemantics: true,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: DSpacing.xs,
+                            children: [
+                              DText(label, variant: DTextVariant.small),
+                              Directionality(
+                                textDirection: TextDirection.ltr,
+                                child: DText(
+                                  value,
+                                  variant: DTextVariant.h3,
+                                  headingLevel: 0,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               ],

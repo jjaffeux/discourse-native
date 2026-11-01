@@ -9,9 +9,10 @@ Widget gameApp(
   bool scroll = false,
   double scale = 1,
   bool rtl = false,
+  ThemeData? theme,
   TargetPlatform platform = TargetPlatform.macOS,
 }) => MaterialApp(
-  theme: AppTheme.light.copyWith(platform: platform),
+  theme: (theme ?? AppTheme.light).copyWith(platform: platform),
   builder: (context, child) => DTouchTargets(
     child: DToaster(
       child: nativeUiEvidenceBuilder(
