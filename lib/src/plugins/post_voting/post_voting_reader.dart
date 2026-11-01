@@ -250,6 +250,7 @@ class _PostVotingReaderState extends State<PostVotingReader> {
             child: PluginTopicPost(
               reader: reader,
               postId: id,
+              layout: TopicPostLayout.stacked,
               enableDoubleTapReaction: likes,
             ),
           ),
