@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_composer.dart';

@@ -23550,12 +23550,6 @@ abstract class AppLocalizations {
   /// Math expression authoring and rendering.
   ///
   /// In en, this message translates to:
-  /// **'Display as a block'**
-  String get mathDisplay;
-
-  /// Math expression authoring and rendering.
-  ///
-  /// In en, this message translates to:
   /// **'Apply'**
   String get mathApply;
 

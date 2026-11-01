@@ -23,58 +23,17 @@ Future<void> insertMath(BuildContext context, ComposerEditorHost editor) async {
   final before = editor.value;
   final selection = before.selection;
   if (!selection.isValid) return;
-  final lineStart = selection.start == 0
-      ? 0
-      : before.text.lastIndexOf('\n', selection.start - 1) + 1;
-  final block = before.text
-      .substring(lineStart, selection.start)
-      .trim()
-      .isEmpty;
   final result = await _mathDialog(
     context,
     source: before.text.substring(selection.start, selection.end),
-    display: block,
+    display: true,
   );
   if (result == null || !_editable(editor)) return;
-  final source = result.display
-      ? '\$\$\n${result.source}\n\$\$'
-      : '\$${escapeMathDelimiter(result.source, r'$')}\$';
-  if (editor.value.text != before.text) return;
-  if (result.display) {
-    editor.commitText(expectedText: before.text, value: before);
-    editor.insertBlock(expectedValue: editor.value, markdown: source);
-  } else {
-    final left =
-        selection.start > 0 &&
-            !RegExp(
-              r'[\s\p{P}]',
-              unicode: true,
-            ).hasMatch(before.text[selection.start - 1])
-        ? ' '
-        : '';
-    final right =
-        selection.end < before.text.length &&
-            !RegExp(
-              r'[\s\p{P}]',
-              unicode: true,
-            ).hasMatch(before.text[selection.end])
-        ? ' '
-        : '';
-    final inserted = '$left$source$right';
-    editor.commitText(
-      expectedText: before.text,
-      value: TextEditingValue(
-        text: before.text.replaceRange(
-          selection.start,
-          selection.end,
-          inserted,
-        ),
-        selection: TextSelection.collapsed(
-          offset: selection.start + inserted.length,
-        ),
-      ),
-    );
-  }
+  if (!editor.commitText(expectedText: before.text, value: before)) return;
+  editor.insertBlock(
+    expectedValue: editor.value,
+    markdown: '\$\$\n${result.source}\n\$\$',
+  );
   editor.requestFocus();
 }
 
@@ -109,7 +68,6 @@ class _MathSourceDialog extends StatefulWidget {
 
 class _MathSourceDialogState extends State<_MathSourceDialog> {
   late final controller = TextEditingController(text: widget.source);
-  late bool display = widget.display;
   @override
   void dispose() {
     controller.dispose();
@@ -137,12 +95,6 @@ class _MathSourceDialogState extends State<_MathSourceDialog> {
         maxLength: 16384,
         onChanged: (_) => setState(() {}),
       ),
-      if (!widget.editing)
-        DToggle(
-          pressed: display,
-          onPressedChanged: (value) => setState(() => display = value),
-          child: Text(context.l10n.mathDisplay),
-        ),
       Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
@@ -158,10 +110,10 @@ class _MathSourceDialogState extends State<_MathSourceDialog> {
             ),
             onPressed:
                 controller.text.trim().isEmpty ||
-                    (!display && controller.text.contains('\n'))
+                    (!widget.display && controller.text.contains('\n'))
                 ? null
                 : () => widget.dialog.close(
-                    DMathExpression(controller.text, display: display),
+                    DMathExpression(controller.text, display: widget.display),
                   ),
           ),
         ],

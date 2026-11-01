@@ -19,9 +19,10 @@ Math inside surrounding prose stays compact. Card placement does not change
 inline/display mathematical mode or source delimiters. Card selection and
 keyboard deletion use the host's atomic component behavior; deleting a card
 removes its duplicated paragraph separator while preserving extra author spacing.
-Native pencil actions open a source dialog. Insert defaults to display on an
-otherwise whitespace-only line and supports Shift+M. Apply rechecks the complete
-source and editability, preserves input language and delimiter notation, and
+Native pencil actions open a source dialog. Insert always creates a display
+math block and supports Shift+M. Inline math can be typed directly in prose.
+Apply rechecks the complete source and editability, preserves input language
+and delimiter notation, and
 uses the host transaction/undo history. Cancel never changes the draft.
 Nested list/details body editors render math and own their local edit offsets.
 Quoted display blocks and links remain source where the enclosing projection

@@ -14921,9 +14921,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get mathSource => 'LaTeX';
 
   @override
-  String get mathDisplay => 'Display as a block';
-
-  @override
   String get mathApply => 'Apply';
 
   @override
