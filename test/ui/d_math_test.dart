@@ -125,6 +125,123 @@ void main() {
       expect(await delegate.navigate(initial), NavigationDecision.prevent);
     });
   }
+  Map<String, dynamic> request(FakeMediaWebViewController controller) {
+    final script = controller.scripts.last;
+    return jsonDecode(
+          script.substring('window.renderMath('.length, script.length - 2),
+        )
+        as Map<String, dynamic>;
+  }
+
+  testWidgets('math canvas uses its enclosing dark card surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: DCard(
+            backgroundColor: Color(0xff234567),
+            child: DMath(
+              expression: DMathExpression('2x + 3 = 12'),
+              configuration: DMathJax(),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(request(platform.controllers.single)['background'], '#234567');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('transparent material keeps the underlying math surface', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: DCard(
+            backgroundColor: Color(0xff204060),
+            child: Material(
+              color: Color(0x80ffffff),
+              child: Material(
+                type: MaterialType.transparency,
+                child: DMath(
+                  expression: DMathExpression('x'),
+                  configuration: DMathJax(),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(request(platform.controllers.single)['background'], '#90a0b0');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets('expanded math canvas uses the dialog surface', (tester) async {
+    await tester.pumpWidget(host());
+    await tester.pump();
+    send({'type': 'zoom', 'generation': 1, 'scale': 2});
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+    send({'type': 'ready'});
+    await tester.pump();
+    final tokens = DTokens.of(tester.element(find.byType(DDialogContent)));
+    final color = tokens.surface.toARGB32().toRadixString(16).substring(2);
+    expect(request(platform.controllers.last)['background'], '#$color');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
+
+  testWidgets(
+    'inactive app restores source and removes its retired math view',
+    (tester) async {
+      await tester.pumpWidget(host(source: '2x + 3 = 12'));
+      await tester.pump();
+      final first = platform.controllers.single;
+      send({
+        'type': 'result',
+        'generation': 1,
+        'width': 73,
+        'height': 22,
+        'baseline': 16,
+      });
+      await tester.pump();
+      expect(find.text('2x + 3 = 12'), findsNothing);
+      expect(find.byType(WebViewWidget), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(first.channels, isEmpty);
+      expect(find.byType(WebViewWidget), findsNothing);
+      expect(find.text('2x + 3 = 12'), findsOneWidget);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(platform.controllers, hasLength(2));
+      send({
+        'type': 'result',
+        'generation': 3,
+        'width': 73,
+        'height': 22,
+        'baseline': 16,
+      });
+      await tester.pump();
+      expect(find.text('2x + 3 = 12'), findsNothing);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+    },
+  );
+
   testWidgets('source stays visible until current bounded result arrives', (
     tester,
   ) async {
