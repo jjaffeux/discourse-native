@@ -619,6 +619,50 @@ void main() {
     }
   }
 
+  for (final dark in [false, true]) {
+    testWidgets('phone close covers scrolled topic content dark=$dark', (
+      tester,
+    ) async {
+      final h = await _Harness.create(
+        tester,
+        mobile: true,
+        dark: dark,
+        size: const Size(390, 844),
+      );
+      final composer = h.shell.visibleComposer!;
+      composer.title.text = 'A topic title behind the close button';
+      composer.text.text = List.generate(
+        60,
+        (i) => 'Line $i ${'word ' * 12}',
+      ).join('\n');
+      composer.focus.unfocus();
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+      final before = await _closeSurfacePixels(tester);
+      final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+      await tester.drag(viewport, const Offset(0, -137));
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<CustomScrollView>(viewport).controller!.offset,
+        greaterThan(50),
+      );
+      await _render(tester, 'close-layer-${dark ? 'dark' : 'light'}');
+      final after = await _closeSurfacePixels(tester);
+      expect(
+        after,
+        before,
+        reason: 'Topic text must not show through the close button surface.',
+      );
+      final close = find.byKey(const ValueKey('composer-close'));
+      expect(close.hitTestable(), findsOneWidget);
+      await tester.tap(close);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('composer-save-draft')), findsOneWidget);
+      expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
+    });
+  }
+
   {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 2.0]) {
@@ -662,7 +706,7 @@ void main() {
               tester
                   .widget<DButton>(find.byKey(const ValueKey('composer-close')))
                   .variant,
-              DButtonVariant.ghost,
+              DButtonVariant.outline,
             );
             expect(
               tester
@@ -731,6 +775,26 @@ void main() {
       },
     );
   }
+}
+
+Future<List<int>> _closeSurfacePixels(WidgetTester tester) async {
+  final center = tester.getCenter(find.byKey(const ValueKey('composer-close')));
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_capture),
+  );
+  final local = boundary.globalToLocal(center);
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final pixels = <int>[
+      for (var y = local.dy.round() - 8; y < local.dy.round() + 8; y++)
+        for (var x = local.dx.round() - 16; x < local.dx.round() - 12; x++)
+          for (var channel = 0; channel < 3; channel++)
+            bytes!.getUint8((y * image.width + x) * 4 + channel),
+    ];
+    image.dispose();
+    return pixels;
+  }))!;
 }
 
 Future<void> _minimize(WidgetTester tester, {required bool mobile}) async {
