@@ -12,6 +12,8 @@ final class ChatViewportWindow {
     required this.messageIds,
     required this.atPresent,
     required this.canLoadMoreFuture,
+    this.foregroundResyncs = 0,
+    this.revalidating = false,
   });
 
   final Object revision;
@@ -20,6 +22,8 @@ final class ChatViewportWindow {
   final List<int> messageIds;
   final bool atPresent;
   final bool canLoadMoreFuture;
+  final int foregroundResyncs;
+  final bool revalidating;
 
   int? get newestId => messageIds.lastOrNull;
   ChatViewportAnchor get anchor => (route: route, fetches: fetches);
@@ -68,7 +72,13 @@ final class ChatViewportTransitions {
       return const ChatViewportChange(changedRoute: true);
     }
     final newestChanged = previous.newestId != current.newestId;
+    final holdForwardGrowth =
+        (previous.revalidating ||
+            previous.foregroundResyncs != current.foregroundResyncs) &&
+        sameFetch &&
+        newestChanged;
     final holdArrival =
+        !holdForwardGrowth &&
         _away &&
         sameFetch &&
         previous.atPresent &&
@@ -82,8 +92,12 @@ final class ChatViewportTransitions {
     }
     return ChatViewportChange(
       changedRoute: false,
-      holdArrival: holdArrival,
-      forwardAnchorId: previous.canLoadMoreFuture && sameFetch && newestChanged
+      holdArrival: holdArrival || holdForwardGrowth,
+      forwardAnchorId:
+          !holdForwardGrowth &&
+              previous.canLoadMoreFuture &&
+              sameFetch &&
+              newestChanged
           ? previous.newestId
           : null,
     );

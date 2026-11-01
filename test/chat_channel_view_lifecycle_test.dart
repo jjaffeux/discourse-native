@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -3649,6 +3651,136 @@ void main() {
     ScrollPosition chatScroll(WidgetTester tester) =>
         tester.state<ScrollableState>(_verticalChatScroll()).position;
 
+    for (final distance in [0.0, 40.0, 320.0]) {
+      for (final missed in [0, 1]) {
+        testWidgets(
+          'foreground revalidation keeps a reader ${distance.round()}px back '
+          'in place with $missed missed messages',
+          (tester) async {
+            var now = DateTime.utc(2026, 11, 1, 12);
+            final newer = Completer<ChatMessagePage>();
+            final api = _ChatApi(
+              openPages: {
+                firstSite: [
+                  (
+                    messages: present,
+                    canLoadMorePast: false,
+                    canLoadMoreFuture: false,
+                    targetMessageId: null,
+                  ),
+                ],
+              },
+              gatedNewer: newer,
+            );
+            final controller = await _controller(
+              api,
+              sites: const [firstSite],
+              clock: () => now,
+            );
+            addTearDown(controller.dispose);
+            controller.chatRecords.put(firstSite, _channel(lastRead: 40));
+            await tester.binding.setSurfaceSize(const Size(390, 844));
+            addTearDown(() => tester.binding.setSurfaceSize(null));
+            await tester.pumpWidget(_TestView(controller: controller));
+            await tester.pumpAndSettle();
+            chatScroll(tester).jumpTo(distance);
+            await tester.pumpAndSettle();
+            final seen = _visibleMessageTops(tester);
+            expect(seen, isNotEmpty);
+
+            void expectHeld() {
+              final visible = _visibleMessageTops(tester);
+              for (final entry in seen.entries) {
+                expect(
+                  visible[entry.key],
+                  moreOrLessEquals(entry.value),
+                  reason: 'message ${entry.key} moved on foreground',
+                );
+              }
+            }
+
+            controller.setForeground(false);
+            now = now.add(ChatController.resumeResyncThreshold);
+            controller.setForeground(true);
+            await tester.pump();
+            expect(api.newerSites, [firstSite]);
+            await tester.pump();
+            expect(
+              find.byKey(const ValueKey('chat-loading-newer-skeleton')),
+              findsNothing,
+            );
+            expectHeld();
+
+            newer.complete(_messagesPage(41, missed));
+            await tester.pump();
+            await tester.pump();
+            for (var frame = 0; frame < 6; frame++) {
+              await tester.pump(const Duration(milliseconds: 16));
+              expectHeld();
+            }
+            await tester.pumpAndSettle();
+            expect(controller.chat.stream(firstSite, 9).newestId, 40 + missed);
+            expectHeld();
+          },
+          variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+        );
+      }
+    }
+
+    testWidgets(
+      'repeated immediate foreground catchups keep the reader in place',
+      (tester) async {
+        var now = DateTime.utc(2026, 11, 1, 12);
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [
+              (
+                messages: present,
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            ],
+          },
+          newerPages: [_messagesPage(41, 1), _messagesPage(42, 1)],
+        );
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          clock: () => now,
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 40));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        final seen = _visibleMessageTops(tester);
+
+        for (var resync = 1; resync <= 2; resync++) {
+          controller.setForeground(false);
+          now = now.add(ChatController.resumeResyncThreshold);
+          controller.setForeground(true);
+          await tester.pump();
+          await tester.pump();
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(api.newerSites, hasLength(resync));
+          expect(controller.chat.stream(firstSite, 9).newestId, 40 + resync);
+          final visible = _visibleMessageTops(tester);
+          for (final entry in seen.entries) {
+            expect(
+              visible[entry.key],
+              moreOrLessEquals(entry.value),
+              reason: 'message ${entry.key} moved on foreground $resync',
+            );
+          }
+        }
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
+
     for (final distance in [160.0, 320.0, 800.0]) {
       testWidgets(
         'a live message leaves a reader ${distance.round()}px into history '
@@ -4056,18 +4188,29 @@ Future<ShellController> _controller(
   List<String> sites = const ['https://one.example', 'https://two.example'],
   _MessageReads? messageReads,
   DiscourseUser? user,
+  DateTime Function()? clock,
 }) async {
   final account = user ?? const DiscourseUser(id: 7, username: 'joffreyj');
   final authenticator = _SynchronousAuthenticator();
   for (final siteUrl in sites) {
     authenticator.keys[siteUrl] = 'key';
   }
-  final plugins = messageReads == null
+  final plugins = clock != null
+      ? PluginInstaller.install(
+          PluginManifest([
+            for (final module in bundledWidgetTestManifest.modules)
+              if (module is ChatModule)
+                ChatModule(apiFactory: (_) => api, clock: clock)
+              else
+                module,
+          ]),
+        )
+      : messageReads == null
       ? installedPlugins
       : installBundledPluginsWithChatStore(
           (policy) => _CountingStore(policy, messageReads),
         );
-  if (messageReads != null) addTearDown(plugins.close);
+  if (messageReads != null || clock != null) addTearDown(plugins.close);
   final controller = ShellController(
     plugins: plugins,
     instanceStore: FakeInstanceStore([
@@ -4191,6 +4334,8 @@ final class _ChatApi extends FakeDiscourseApi {
     this.gatedOpen,
     this.failedOpen,
     this.gatedOlder,
+    this.gatedNewer,
+    this.newerPages = const [],
   });
 
   final Map<String, List<ChatMessagePage>> openPages;
@@ -4199,6 +4344,8 @@ final class _ChatApi extends FakeDiscourseApi {
   final _OpenGate? gatedOpen;
   final _FailedOpen? failedOpen;
   final Completer<ChatMessagePage>? gatedOlder;
+  final Completer<ChatMessagePage>? gatedNewer;
+  final List<ChatMessagePage> newerPages;
   final Map<String, int> _openCounts = {};
   final List<String> olderSites = [];
   final List<String> newerSites = [];
@@ -4226,6 +4373,12 @@ final class _ChatApi extends FakeDiscourseApi {
     if (after != null) {
       newerSites.add(siteUrl);
       if (failNewer) throw StateError('newer page refused');
+      if (gatedNewer case final gate?) return gate.future;
+      if (newerPages.isNotEmpty) {
+        return SynchronousFuture(
+          newerPages[(newerSites.length - 1).clamp(0, newerPages.length - 1)],
+        );
+      }
       return SynchronousFuture(_messagesPage(after + 1, 1));
     }
 

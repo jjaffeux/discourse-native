@@ -1070,6 +1070,8 @@ class _StreamState extends State<ChatMessageStream>
         messageIds: view.stream.messageIds,
         atPresent: view.stream.atPresent,
         canLoadMoreFuture: view.stream.canLoadMoreFuture,
+        foregroundResyncs: view.stream.foregroundResyncs,
+        revalidating: view.stream.revalidating,
       );
 
   void _holdStillThroughForwardPage(int was) {
@@ -1380,7 +1382,8 @@ class _StreamState extends State<ChatMessageStream>
     unawaited(_chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId));
   }
 
-  int get _leadingRows => widget.stream.loadingNewer ? 1 : 0;
+  int get _leadingRows =>
+      widget.stream.loadingNewer && !widget.stream.revalidating ? 1 : 0;
 
   /// Centralizes reversal: `_leadingRows` is newest and indices count backward.
   ChatStreamItem? _itemAt(int row) {

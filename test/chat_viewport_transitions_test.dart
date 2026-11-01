@@ -14,6 +14,8 @@ ChatViewportWindow _window({
   int fetches = 1,
   bool atPresent = true,
   bool canLoadMoreFuture = false,
+  int foregroundResyncs = 0,
+  bool revalidating = false,
   Object? revision,
 }) => ChatViewportWindow(
   revision: revision ?? Object(),
@@ -22,6 +24,8 @@ ChatViewportWindow _window({
   messageIds: ids,
   atPresent: atPresent,
   canLoadMoreFuture: canLoadMoreFuture,
+  foregroundResyncs: foregroundResyncs,
+  revalidating: revalidating,
 );
 
 void main() {
@@ -114,6 +118,82 @@ void main() {
     expect(change.forwardAnchorId, isNull);
     expect(change.holdArrival, isFalse);
     expect(owner.presentState(0).pendingCount, 0);
+  });
+
+  test('foreground catchup pages retain the reader without live counts', () {
+    final owner = ChatViewportTransitions();
+    owner.observePresent(atPresent: false, beyondSlack: false);
+    final change = owner.observeWindow(
+      _window(
+        atPresent: false,
+        canLoadMoreFuture: true,
+        foregroundResyncs: 1,
+        revalidating: true,
+      ),
+      _window(ids: [1, 2, 3, 4, 5], foregroundResyncs: 1),
+    );
+    expect(change.holdArrival, isTrue);
+    expect(change.forwardAnchorId, isNull);
+    expect(owner.presentState(0).pendingCount, 0);
+  });
+
+  test('repeated foreground catchups survive coalesced request states', () {
+    final owner = ChatViewportTransitions();
+    owner.observePresent(atPresent: true, beyondSlack: true);
+    for (var generation = 1; generation <= 2; generation++) {
+      final change = owner.observeWindow(
+        _window(ids: [generation + 1], foregroundResyncs: generation - 1),
+        _window(
+          ids: [generation + 1, generation + 2],
+          foregroundResyncs: generation,
+        ),
+      );
+      expect(change.holdArrival, isTrue);
+      expect(change.forwardAnchorId, isNull);
+      expect(owner.presentState(0).pendingCount, 0);
+    }
+  });
+
+  test(
+    'live growth after catchup follows the live edge and counts while away',
+    () {
+      final owner = ChatViewportTransitions();
+      final previous = _window(foregroundResyncs: 1);
+      final current = _window(ids: [1, 2, 3, 4], foregroundResyncs: 1);
+      final atEdge = owner.observeWindow(previous, current);
+      expect(atEdge.holdArrival, isFalse);
+      expect(atEdge.forwardAnchorId, isNull);
+
+      owner.observePresent(atPresent: true, beyondSlack: true);
+      final away = owner.observeWindow(
+        current,
+        _window(ids: [1, 2, 3, 4, 5], foregroundResyncs: 1),
+      );
+      expect(away.holdArrival, isTrue);
+      expect(owner.presentState(0).pendingCount, 1);
+    },
+  );
+
+  test('a replacement fetch resets foreground catchup positioning', () {
+    final owner = ChatViewportTransitions();
+    final replacement = _window(fetches: 2, ids: [40, 41]);
+    final change = owner.observeWindow(
+      _window(foregroundResyncs: 2, canLoadMoreFuture: true),
+      replacement,
+    );
+    expect(change.holdArrival, isFalse);
+    expect(change.forwardAnchorId, isNull);
+    expect(owner.needsAnchor(replacement.anchor), isTrue);
+  });
+
+  test('ordinary paging after catchup keeps the history landing policy', () {
+    final owner = ChatViewportTransitions();
+    final change = owner.observeWindow(
+      _window(atPresent: false, canLoadMoreFuture: true, foregroundResyncs: 2),
+      _window(ids: [1, 2, 3, 4], foregroundResyncs: 2),
+    );
+    expect(change.holdArrival, isFalse);
+    expect(change.forwardAnchorId, 3);
   });
 
   test('thread and site transitions retire arrival and day holds', () {
