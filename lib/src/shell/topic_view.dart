@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
@@ -4735,7 +4736,15 @@ class _PostTileState extends State<_PostTile> {
     final postContent = Padding(
       padding: compact
           ? const EdgeInsets.fromLTRB(16, 0, 16, 0)
-          : const EdgeInsets.fromLTRB(16, 14, 16, 16),
+          : EdgeInsets.fromLTRB(
+              16,
+              switch (post.notice?.type) {
+                'new_user' || 'returning_user' => 0,
+                _ => 14,
+              },
+              16,
+              16,
+            ),
       child: compact || context.isTouch
           ? content
           : Stack(
@@ -4851,26 +4860,31 @@ class _PostNoticeBanner extends StatelessWidget {
       controller.currentUserFor(siteUrl)?.id,
       post.id,
     );
+    if (notice.type == 'new_user' || notice.type == 'returning_user') {
+      return DAlert.postNotice(
+        key: ValueKey('post-notice-${post.id}'),
+        message: Text(label),
+        icon: DConfetti(
+          enabled:
+              notice.type == 'new_user' &&
+              !post.hidden &&
+              !post.isDeleted &&
+              !seen.contains(welcomeId),
+          onSeen: () => seen.add(welcomeId),
+          child: SvgPicture.asset(
+            'packages/discourse_native/src/ui/assets/post_notice/'
+            '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
+          ),
+        ),
+      );
+    }
     return DAlert(
       key: ValueKey('post-notice-${post.id}'),
       backgroundColor: Colors.transparent,
       borderColor: Colors.transparent,
       liveRegion: false,
       descriptionColor: DTokens.of(context).foreground,
-      icon: DConfetti(
-        enabled:
-            notice.type == 'new_user' &&
-            !post.hidden &&
-            !post.isDeleted &&
-            !seen.contains(welcomeId),
-        onSeen: () => seen.add(welcomeId),
-        child: DIcon(
-          notice.type == 'new_user' || notice.type == 'returning_user'
-              ? DIcons.hand
-              : DIcons.user,
-          size: 16,
-        ),
-      ),
+      icon: const DIcon(DIcons.user, size: 16),
       description: DAlertDescription(
         child: cooked == null || cooked.isEmpty
             ? Text(label)

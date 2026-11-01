@@ -1,0 +1,5 @@
+Twemoji 17.0.3 graphics by Twitter, Inc. and other contributors.
+Source: https://github.com/jdecked/twemoji/tree/v17.0.3/assets/svg
+celebration.svg is 1f389.svg. wave.svg is 1f44b.svg. Both are unmodified.
+Licensed under Creative Commons Attribution 4.0 International.
+See LICENSE-GRAPHICS and https://creativecommons.org/licenses/by/4.0/.

@@ -177,6 +177,10 @@ flutter:
   shaders:
     - packages/discourse_native/src/shell/shaders/forum_texture.frag
   assets:
+    - packages/discourse_native/src/ui/assets/post_notice/celebration.svg
+    - packages/discourse_native/src/ui/assets/post_notice/wave.svg
+    - packages/discourse_native/src/ui/assets/post_notice/NOTICE.txt
+    - packages/discourse_native/src/ui/assets/post_notice/LICENSE-GRAPHICS
     # BEGIN math assets
     - packages/discourse_native/src/ui/assets/math/NOTICE.txt
     - packages/discourse_native/src/ui/assets/math/index.html

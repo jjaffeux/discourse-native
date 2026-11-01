@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
+import 'd_avatar.dart';
 
 enum DAlertVariant { normal, destructive }
 
@@ -27,7 +28,25 @@ class DAlert extends StatelessWidget {
     this.foregroundColor,
     this.descriptionColor,
     this.borderColor,
-  });
+  }) : _postNoticeMessage = null;
+
+  /// A heading inside a post card, with a tinted mark and wrapping message.
+  const DAlert.postNotice({
+    super.key,
+    required Widget this.icon,
+    required Widget message,
+  }) : _postNoticeMessage = message,
+       title = null,
+       description = null,
+       action = null,
+       variant = DAlertVariant.normal,
+       liveRegion = false,
+       backgroundColor = null,
+       foregroundColor = null,
+       descriptionColor = null,
+       borderColor = null;
+
+  final Widget? _postNoticeMessage;
 
   final Widget? icon;
   final DAlertTitle? title;
@@ -43,6 +62,40 @@ class DAlert extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    if (_postNoticeMessage case final message?) {
+      return Semantics(
+        container: true,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+          child: Row(
+            spacing: 9,
+            children: [
+              DAvatar(
+                dimension: 30,
+                border: false,
+                decorative: true,
+                fallback: DAvatarFallback(
+                  backgroundColor: tokens.primary.withValues(alpha: .22),
+                  child: SizedBox.square(dimension: 16, child: icon),
+                ),
+              ),
+              Expanded(
+                child: DefaultTextStyle(
+                  style: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                    color: tokens.foreground,
+                    fontSize: 14,
+                    height: 1.5,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0,
+                  ),
+                  child: message,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     final destructive = variant == DAlertVariant.destructive;
     final foreground =
         foregroundColor ??

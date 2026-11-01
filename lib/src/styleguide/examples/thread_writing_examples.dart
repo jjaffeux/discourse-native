@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import '../styleguide_example.dart';
 
@@ -76,21 +77,26 @@ class _ThreadWritingExampleState extends State<ThreadWritingExample> {
             children: [
               DReveal(
                 visible: _notice,
-                child: DAlert(
-                  backgroundColor: Colors.transparent,
-                  borderColor: Colors.transparent,
+                child: DAlert.postNotice(
                   icon: DConfetti(
                     key: ValueKey(_celebration),
-                    child: const DIcon(DIcons.hand),
+                    child: SvgPicture.asset(
+                      'packages/discourse_native/src/ui/assets/post_notice/celebration.svg',
+                    ),
                   ),
-                  description: const DAlertDescription(
-                    child: Text('A first post — welcome to the community!'),
+                  message: const Text(
+                    'A first post — welcome to the community!',
                   ),
                 ),
               ),
-              const Padding(
-                padding: EdgeInsets.all(DSpacing.lg),
-                child: Text(
+              Padding(
+                padding: EdgeInsets.fromLTRB(
+                  DSpacing.lg,
+                  _notice ? 0 : DSpacing.lg,
+                  DSpacing.lg,
+                  DSpacing.lg,
+                ),
+                child: const Text(
                   'The discussion continues here. Its content stays in place when a notice changes.',
                 ),
               ),

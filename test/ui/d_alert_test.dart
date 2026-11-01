@@ -31,6 +31,41 @@ void main() {
     description: DAlertDescription(child: Text('Description')),
   );
 
+  testWidgets('post notice owns its mark, spacing and static semantics', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    for (final direction in [TextDirection.ltr, TextDirection.rtl]) {
+      await tester.pumpWidget(
+        host(
+          const DAlert.postNotice(
+            icon: Text('Decorative mark'),
+            message: Text('Welcome'),
+          ),
+          direction: direction,
+        ),
+      );
+      final alert = tester.getRect(find.byType(DAlert));
+      final mark = tester.getRect(find.byType(DAvatar));
+      final message = tester.getRect(find.text('Welcome'));
+      expect(alert.height, 56);
+      expect(mark.size, const Size(30, 30));
+      expect(mark.top - alert.top, 14);
+      expect(alert.bottom - mark.bottom, 12);
+      expect(message.center.dy, mark.center.dy);
+      expect(
+        direction == TextDirection.ltr
+            ? message.left - mark.right
+            : mark.left - message.right,
+        9,
+      );
+      final node = tester.getSemantics(find.byType(DAlert));
+      expect(node.flagsCollection.isLiveRegion, isFalse);
+      expect(find.bySemanticsLabel('Decorative mark'), findsNothing);
+    }
+    semantics.dispose();
+  });
+
   testWidgets('source grid metrics and live-region semantics', (tester) async {
     final semantics = tester.ensureSemantics();
 
