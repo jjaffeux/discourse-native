@@ -19493,5 +19493,445 @@
   "eventWatchRecording": "Watch recording",
   "@eventWatchRecording": {
     "description": "Event recording control."
+  },
+  "gamificationTitle": "Leaderboard",
+  "@gamificationTitle": {
+    "description": "Gamification: Leaderboard"
+  },
+  "gamificationCheers": "Cheers",
+  "@gamificationCheers": {
+    "description": "Gamification: Cheers"
+  },
+  "gamificationManage": "Manage leaderboards",
+  "@gamificationManage": {
+    "description": "Gamification: Manage leaderboards"
+  },
+  "gamificationRefresh": "Refresh",
+  "@gamificationRefresh": {
+    "description": "Gamification: Refresh"
+  },
+  "gamificationMore": "Load more",
+  "@gamificationMore": {
+    "description": "Gamification: Load more"
+  },
+  "gamificationRank": "Rank",
+  "@gamificationRank": {
+    "description": "Gamification: Rank"
+  },
+  "gamificationMember": "Member",
+  "@gamificationMember": {
+    "description": "Gamification: Member"
+  },
+  "gamificationHelp": "About Cheers",
+  "@gamificationHelp": {
+    "description": "Gamification: About Cheers"
+  },
+  "gamificationHelpText": "Cheers recognize community participation. Scores and ranks are calculated by the forum and may take time to update. Periods are rolling windows; contest dates still apply to All time.",
+  "@gamificationHelpText": {
+    "description": "Gamification: Cheers recognize community participation. Scores and ranks are calculated by the forum and may take time to update. Periods are rolling windows; contest dates still apply to All time."
+  },
+  "gamificationAllTime": "All time",
+  "@gamificationAllTime": {
+    "description": "Gamification: All time"
+  },
+  "gamificationYearly": "Last year",
+  "@gamificationYearly": {
+    "description": "Gamification: Last year"
+  },
+  "gamificationQuarterly": "Last quarter",
+  "@gamificationQuarterly": {
+    "description": "Gamification: Last quarter"
+  },
+  "gamificationMonthly": "Last month",
+  "@gamificationMonthly": {
+    "description": "Gamification: Last month"
+  },
+  "gamificationWeekly": "Last week",
+  "@gamificationWeekly": {
+    "description": "Gamification: Last week"
+  },
+  "gamificationDaily": "Today",
+  "@gamificationDaily": {
+    "description": "Gamification: Today"
+  },
+  "gamificationUnavailable": "Leaderboards are unavailable on this forum.",
+  "@gamificationUnavailable": {
+    "description": "Gamification: Leaderboards are unavailable on this forum."
+  },
+  "gamificationRestricted": "This leaderboard is restricted or no longer available.",
+  "@gamificationRestricted": {
+    "description": "Gamification: This leaderboard is restricted or no longer available."
+  },
+  "gamificationFailed": "Could not load the leaderboard. Refresh to try again.",
+  "@gamificationFailed": {
+    "description": "Gamification: Could not load the leaderboard. Refresh to try again."
+  },
+  "gamificationUnsupported": "This forum returned an unsupported leaderboard response.",
+  "@gamificationUnsupported": {
+    "description": "Gamification: This forum returned an unsupported leaderboard response."
+  },
+  "gamificationEmpty": "No ranked members for this period.",
+  "@gamificationEmpty": {
+    "description": "Gamification: No ranked members for this period."
+  },
+  "gamificationUnranked": "You are not ranked for this period.",
+  "@gamificationUnranked": {
+    "description": "Gamification: You are not ranked for this period."
+  },
+  "gamificationYourPosition": "Your position",
+  "@gamificationYourPosition": {
+    "description": "Gamification: Your position"
+  },
+  "gamificationStale": "These results could be out of date. Refresh to try again.",
+  "@gamificationStale": {
+    "description": "Gamification: These results could be out of date. Refresh to try again."
+  },
+  "gamificationAdminTitle": "Gamification administration",
+  "@gamificationAdminTitle": {
+    "description": "Gamification: Gamification administration"
+  },
+  "gamificationAdminOnly": "Only administrators can manage gamification.",
+  "@gamificationAdminOnly": {
+    "description": "Gamification: Only administrators can manage gamification."
+  },
+  "gamificationBoards": "Leaderboards",
+  "@gamificationBoards": {
+    "description": "Gamification: Leaderboards"
+  },
+  "gamificationSettings": "Scoring settings",
+  "@gamificationSettings": {
+    "description": "Gamification: Scoring settings"
+  },
+  "gamificationEvents": "Score events",
+  "@gamificationEvents": {
+    "description": "Gamification: Score events"
+  },
+  "gamificationRecalculate": "Recalculate scores",
+  "@gamificationRecalculate": {
+    "description": "Gamification: Recalculate scores"
+  },
+  "gamificationNewBoard": "New leaderboard",
+  "@gamificationNewBoard": {
+    "description": "Gamification: New leaderboard"
+  },
+  "gamificationEdit": "Edit",
+  "@gamificationEdit": {
+    "description": "Gamification: Edit"
+  },
+  "gamificationDelete": "Delete",
+  "@gamificationDelete": {
+    "description": "Gamification: Delete"
+  },
+  "gamificationSave": "Save",
+  "@gamificationSave": {
+    "description": "Gamification: Save"
+  },
+  "gamificationCancel": "Cancel",
+  "@gamificationCancel": {
+    "description": "Gamification: Cancel"
+  },
+  "gamificationName": "Name",
+  "@gamificationName": {
+    "description": "Gamification: Name"
+  },
+  "gamificationFromDate": "From date",
+  "@gamificationFromDate": {
+    "description": "Gamification: From date"
+  },
+  "gamificationToDate": "To date",
+  "@gamificationToDate": {
+    "description": "Gamification: To date"
+  },
+  "gamificationDefaultPeriod": "Default period",
+  "@gamificationDefaultPeriod": {
+    "description": "Gamification: Default period"
+  },
+  "gamificationDisablePeriod": "Disable period filter",
+  "@gamificationDisablePeriod": {
+    "description": "Gamification: Disable period filter"
+  },
+  "gamificationVisibleGroups": "Visible to groups",
+  "@gamificationVisibleGroups": {
+    "description": "Gamification: Visible to groups"
+  },
+  "gamificationIncludedGroups": "Included groups",
+  "@gamificationIncludedGroups": {
+    "description": "Gamification: Included groups"
+  },
+  "gamificationExcludedGroups": "Excluded groups",
+  "@gamificationExcludedGroups": {
+    "description": "Gamification: Excluded groups"
+  },
+  "gamificationCategories": "Scorable categories",
+  "@gamificationCategories": {
+    "description": "Gamification: Scorable categories"
+  },
+  "gamificationOverrides": "Score overrides",
+  "@gamificationOverrides": {
+    "description": "Gamification: Score overrides"
+  },
+  "gamificationInherit": "Blank values inherit global weights; zero disables a source. Excluded groups take precedence.",
+  "@gamificationInherit": {
+    "description": "Gamification: Blank values inherit global weights; zero disables a source. Excluded groups take precedence."
+  },
+  "gamificationInvalid": "Check the name, dates and numeric values. Weights must be non-negative integers.",
+  "@gamificationInvalid": {
+    "description": "Gamification: Check the name, dates and numeric values. Weights must be non-negative integers."
+  },
+  "gamificationSaved": "Saved.",
+  "@gamificationSaved": {
+    "description": "Gamification: Saved."
+  },
+  "gamificationPartialCreate": "The leaderboard was created. Save again to finish its configuration.",
+  "@gamificationPartialCreate": {
+    "description": "Gamification: The leaderboard was created. Save again to finish its configuration."
+  },
+  "gamificationUnknownWrite": "The request may have been applied. Read back and review the records before submitting another change.",
+  "@gamificationUnknownWrite": {
+    "description": "Gamification: The request may have been applied. Read back and review the records before submitting another change."
+  },
+  "gamificationReadBack": "Read back and review",
+  "@gamificationReadBack": {
+    "description": "Gamification: Read back and review"
+  },
+  "gamificationDeleteConfirm": "Delete this leaderboard? This removes its configuration and scores.",
+  "@gamificationDeleteConfirm": {
+    "description": "Gamification: Delete this leaderboard? This removes its configuration and scores."
+  },
+  "gamificationEnabled": "Enable gamification",
+  "@gamificationEnabled": {
+    "description": "Gamification: Enable gamification"
+  },
+  "gamificationRanking": "Ranking strategy",
+  "@gamificationRanking": {
+    "description": "Gamification: Ranking strategy"
+  },
+  "gamificationDenseRank": "Dense rank (1, 1, 2)",
+  "@gamificationDenseRank": {
+    "description": "Gamification: Dense rank (1, 1, 2)"
+  },
+  "gamificationRankStrategy": "Competition rank (1, 1, 3)",
+  "@gamificationRankStrategy": {
+    "description": "Gamification: Competition rank (1, 1, 3)"
+  },
+  "gamificationRowNumber": "Sequential positions (1, 2, 3)",
+  "@gamificationRowNumber": {
+    "description": "Gamification: Sequential positions (1, 2, 3)"
+  },
+  "gamificationCategoryHint": "Select categories. Empty means all categories.",
+  "@gamificationCategoryHint": {
+    "description": "Gamification: Select categories. Empty means all categories."
+  },
+  "gamificationEventId": "Event ID",
+  "@gamificationEventId": {
+    "description": "Gamification: Event ID"
+  },
+  "gamificationUserId": "User ID",
+  "@gamificationUserId": {
+    "description": "Gamification: User ID"
+  },
+  "gamificationPoints": "Points",
+  "@gamificationPoints": {
+    "description": "Gamification: Points"
+  },
+  "gamificationDescription": "Description",
+  "@gamificationDescription": {
+    "description": "Gamification: Description"
+  },
+  "gamificationCategory": "Category",
+  "@gamificationCategory": {
+    "description": "Gamification: Category"
+  },
+  "gamificationFilter": "Filter events",
+  "@gamificationFilter": {
+    "description": "Gamification: Filter events"
+  },
+  "gamificationNewEvent": "New score event",
+  "@gamificationNewEvent": {
+    "description": "Gamification: New score event"
+  },
+  "gamificationEventLimit": "Up to 100 matching events are returned. There is no guaranteed order or further page.",
+  "@gamificationEventLimit": {
+    "description": "Gamification: Up to 100 matching events are returned. There is no guaranteed order or further page."
+  },
+  "gamificationEventSaved": "Saved; scores update after recalculation.",
+  "@gamificationEventSaved": {
+    "description": "Gamification: Saved; scores update after recalculation."
+  },
+  "gamificationEventImmutable": "An existing event keeps its original user and date.",
+  "@gamificationEventImmutable": {
+    "description": "Gamification: An existing event keeps its original user and date."
+  },
+  "gamificationPreset": "Recalculate from",
+  "@gamificationPreset": {
+    "description": "Gamification: Recalculate from"
+  },
+  "gamificationTenDays": "Last 10 days",
+  "@gamificationTenDays": {
+    "description": "Gamification: Last 10 days"
+  },
+  "gamificationThirtyDays": "Last 30 days",
+  "@gamificationThirtyDays": {
+    "description": "Gamification: Last 30 days"
+  },
+  "gamificationNinetyDays": "Last 90 days",
+  "@gamificationNinetyDays": {
+    "description": "Gamification: Last 90 days"
+  },
+  "gamificationCustom": "Custom date",
+  "@gamificationCustom": {
+    "description": "Gamification: Custom date"
+  },
+  "gamificationRecalculateHelp": "Recalculation runs in the background. The forum allows five requests in 24 hours. A completion notice cannot identify a unique request when several jobs overlap.",
+  "@gamificationRecalculateHelp": {
+    "description": "Gamification: Recalculation runs in the background. The forum allows five requests in 24 hours. A completion notice cannot identify a unique request when several jobs overlap."
+  },
+  "gamificationQueued": "Queued. Waiting for a completion notice for your account.",
+  "@gamificationQueued": {
+    "description": "Gamification: Queued. Waiting for a completion notice for your account."
+  },
+  "gamificationObserved": "A recalculation completion was observed for your account. Results are refreshing.",
+  "@gamificationObserved": {
+    "description": "Gamification: A recalculation completion was observed for your account. Results are refreshing."
+  },
+  "gamificationCompletionUnknown": "Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance.",
+  "@gamificationCompletionUnknown": {
+    "description": "Gamification: Completion is unknown after losing the live connection. Refresh to inspect results and remaining allowance."
+  },
+  "gamificationInvalidDate": "Choose a date on or before today (UTC).",
+  "@gamificationInvalidDate": {
+    "description": "Gamification: Choose a date on or before today (UTC)."
+  },
+  "gamificationRecalcIdle": "Choose a from-date to recalculate scores.",
+  "@gamificationRecalcIdle": {
+    "description": "Gamification: Choose a from-date to recalculate scores."
+  },
+  "gamificationRecalcFailed": "Recalculation could not be queued.",
+  "@gamificationRecalcFailed": {
+    "description": "Gamification: Recalculation could not be queued."
+  },
+  "gamificationNoBoards": "No leaderboards yet. Create a leaderboard to make a default available.",
+  "@gamificationNoBoards": {
+    "description": "Gamification: No leaderboards yet. Create a leaderboard to make a default available."
+  },
+  "gamificationDisabledAdmin": "Gamification is disabled. Scoring settings remain available to enable it.",
+  "@gamificationDisabledAdmin": {
+    "description": "Gamification: Gamification is disabled. Scoring settings remain available to enable it."
+  },
+  "gamificationLikeGiven": "Likes given",
+  "@gamificationLikeGiven": {
+    "description": "Gamification: Likes given"
+  },
+  "gamificationLikeReceived": "Likes received",
+  "@gamificationLikeReceived": {
+    "description": "Gamification: Likes received"
+  },
+  "gamificationSolution": "Solutions",
+  "@gamificationSolution": {
+    "description": "Gamification: Solutions"
+  },
+  "gamificationUserInvited": "Users invited",
+  "@gamificationUserInvited": {
+    "description": "Gamification: Users invited"
+  },
+  "gamificationTimeRead": "Time reading",
+  "@gamificationTimeRead": {
+    "description": "Gamification: Time reading"
+  },
+  "gamificationPostRead": "Posts read",
+  "@gamificationPostRead": {
+    "description": "Gamification: Posts read"
+  },
+  "gamificationTopicCreated": "Topics created",
+  "@gamificationTopicCreated": {
+    "description": "Gamification: Topics created"
+  },
+  "gamificationPostCreated": "Posts created",
+  "@gamificationPostCreated": {
+    "description": "Gamification: Posts created"
+  },
+  "gamificationFlagCreated": "Flags created",
+  "@gamificationFlagCreated": {
+    "description": "Gamification: Flags created"
+  },
+  "gamificationDayVisited": "Days visited",
+  "@gamificationDayVisited": {
+    "description": "Gamification: Days visited"
+  },
+  "gamificationReactionReceived": "Reactions received",
+  "@gamificationReactionReceived": {
+    "description": "Gamification: Reactions received"
+  },
+  "gamificationReactionGiven": "Reactions given",
+  "@gamificationReactionGiven": {
+    "description": "Gamification: Reactions given"
+  },
+  "gamificationChatReactionReceived": "Chat reactions received",
+  "@gamificationChatReactionReceived": {
+    "description": "Gamification: Chat reactions received"
+  },
+  "gamificationChatReactionGiven": "Chat reactions given",
+  "@gamificationChatReactionGiven": {
+    "description": "Gamification: Chat reactions given"
+  },
+  "gamificationChatMessageCreated": "Chat messages created",
+  "@gamificationChatMessageCreated": {
+    "description": "Gamification: Chat messages created"
+  },
+  "gamificationStarted": "Contest from",
+  "@gamificationStarted": {
+    "description": "Gamification: Contest from"
+  },
+  "gamificationEnded": "Contest through",
+  "@gamificationEnded": {
+    "description": "Gamification: Contest through"
+  },
+  "gamificationScopeHelp": "Visibility and ranking groups are independent. Empty visibility permits all members who can access the forum.",
+  "@gamificationScopeHelp": {
+    "description": "Gamification: Visibility and ranking groups are independent. Empty visibility permits all members who can access the forum."
+  },
+  "gamificationSettingsHelp": "These are forum-wide scoring weights. Saving settings does not mean historical scores have finished recalculating.",
+  "@gamificationSettingsHelp": {
+    "description": "Gamification: These are forum-wide scoring weights. Saving settings does not mean historical scores have finished recalculating."
+  },
+  "gamificationEventValidation": "Enter integer user ID, points and optional category ID.",
+  "@gamificationEventValidation": {
+    "description": "Gamification: Enter integer user ID, points and optional category ID."
+  },
+  "gamificationRecalculateConfirm": "Queue score recalculation from this date? This consumes one of the forum’s daily requests.",
+  "@gamificationRecalculateConfirm": {
+    "description": "Gamification: Queue score recalculation from this date? This consumes one of the forum’s daily requests."
+  },
+  "gamificationRemaining": "{count, plural, =0{No recalculations remaining} =1{1 recalculation remaining} other{{count} recalculations remaining}}",
+  "@gamificationRemaining": {
+    "description": "Remaining forum-wide recalculation allowance",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "gamificationSettingsInvalid": "Enter an integer for each scoring weight.",
+  "@gamificationSettingsInvalid": {
+    "description": "Invalid administrator scoring weights"
+  },
+  "gamificationMemberRank": "{name}, rank {rank}, {score} Cheers",
+  "@gamificationMemberRank": {
+    "description": "Accessible leaderboard member rank and score",
+    "placeholders": {
+      "name": {
+        "type": "String"
+      },
+      "rank": {
+        "type": "String"
+      },
+      "score": {
+        "type": "String"
+      }
+    }
+  },
+  "gamificationCategoryScopeHelp": "Category-scoped boards exclude visits, reading, invitations, flags and chat activity.",
+  "@gamificationCategoryScopeHelp": {
+    "description": "Scoring category scope explanation"
   }
 }

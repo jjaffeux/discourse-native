@@ -38,6 +38,7 @@ void main() {
       'discourse-data-explorer',
       'discourse-assign',
       'boards',
+      'discourse-gamification',
       'chat',
       'voice',
     ]);
