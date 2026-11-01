@@ -28153,21 +28153,21 @@
     /** @internal */
     __compile__() {
       const chains = /* @__PURE__ */ new Set();
-      this.__rules__.forEach((rule8) => {
-        if (!rule8.enabled) return;
-        rule8.alt.forEach((altName) => {
+      this.__rules__.forEach((rule9) => {
+        if (!rule9.enabled) return;
+        rule9.alt.forEach((altName) => {
           if (altName) chains.add(altName);
         });
       });
       this.__cache__ = /* @__PURE__ */ Object.create(null);
       this.__cache__[""] = [];
-      this.__rules__.forEach((rule8) => {
-        if (rule8.enabled) this.__cache__[""].push(rule8.fn);
+      this.__rules__.forEach((rule9) => {
+        if (rule9.enabled) this.__cache__[""].push(rule9.fn);
       });
       chains.forEach((chain) => {
         this.__cache__[chain] = [];
-        this.__rules__.forEach((rule8) => {
-          if (rule8.enabled && rule8.alt.indexOf(chain) >= 0) this.__cache__[chain].push(rule8.fn);
+        this.__rules__.forEach((rule9) => {
+          if (rule9.enabled && rule9.alt.indexOf(chain) >= 0) this.__cache__[chain].push(rule9.fn);
         });
       });
     }
@@ -28296,8 +28296,8 @@
     */
     enableOnly(list2, ignoreInvalid = false) {
       if (!Array.isArray(list2)) list2 = [list2];
-      this.__rules__.forEach((rule8) => {
-        rule8.enabled = false;
+      this.__rules__.forEach((rule9) => {
+        rule9.enabled = false;
       });
       this.enable(list2, ignoreInvalid);
     }
@@ -31940,7 +31940,7 @@
     return closeTag;
   }
   function applyBBCode(state, startLine, endLine, silent, md) {
-    let nextLine, oldParent, oldLineMax, rule8, start = state.bMarks[startLine] + state.tShift[startLine], initial = start, max = state.eMarks[startLine];
+    let nextLine, oldParent, oldLineMax, rule9, start = state.bMarks[startLine] + state.tShift[startLine], initial = start, max = state.eMarks[startLine];
     if (91 !== state.src.charCodeAt(start)) {
       return false;
     }
@@ -31952,7 +31952,7 @@
     if (!ruleInfo) {
       return false;
     }
-    rule8 = ruleInfo.rule;
+    rule9 = ruleInfo.rule;
     if (silent) {
       return true;
     }
@@ -31974,19 +31974,19 @@
     oldParent = state.parentType;
     oldLineMax = state.lineMax;
     state.lineMax = nextLine;
-    if (rule8.replace) {
+    if (rule9.replace) {
       let content;
       if (startLine === nextLine) {
         content = state.src.slice(start + info.length, closeTag.start);
       } else {
         content = state.getLines(startLine + 1, nextLine, 0, false);
       }
-      if (!rule8.replace.call(this, state, info, content)) {
+      if (!rule9.replace.call(this, state, info, content)) {
         return false;
       }
     } else {
-      if (rule8.before) {
-        rule8.before.call(
+      if (rule9.before) {
+        rule9.before.call(
           this,
           state,
           info,
@@ -31994,19 +31994,19 @@
         );
       }
       let wrapTag;
-      if (rule8.wrap) {
+      if (rule9.wrap) {
         let token;
-        if (typeof rule8.wrap === "function") {
+        if (typeof rule9.wrap === "function") {
           token = new state.Token("wrap_bbcode", "div", 1);
           token.level = state.level + 1;
-          if (!rule8.wrap(token, info)) {
+          if (!rule9.wrap(token, info)) {
             return false;
           }
           state.tokens.push(token);
           state.level = token.level;
           wrapTag = token.tag;
         } else {
-          let split = rule8.wrap.split(".");
+          let split = rule9.wrap.split(".");
           wrapTag = split[0];
           let className = split.slice(1).join(" ");
           token = state.push("wrap_bbcode", wrapTag, 1);
@@ -32028,11 +32028,11 @@
         token.content = state.src.slice(start + info.length, closeTag.start);
         state.push("paragraph_close", "p", -1);
       }
-      if (rule8.wrap) {
+      if (rule9.wrap) {
         state.push("wrap_bbcode", wrapTag, -1);
       }
-      if (rule8.after) {
-        rule8.after.call(
+      if (rule9.after) {
+        rule9.after.call(
           this,
           state,
           lastToken,
@@ -32126,8 +32126,8 @@
       }
     }
     // TODO validate inputs
-    push(name, rule8) {
-      this.rules.push({ name, rule: rule8 });
+    push(name, rule9) {
+      this.rules.push({ name, rule: rule9 });
       this.matcher = null;
     }
   };
@@ -32480,8 +32480,8 @@
         this.cache[info.rule.tag] = info;
       }
     }
-    push(name, rule8) {
-      this.rules.push({ name, rule: rule8 });
+    push(name, rule9) {
+      this.rules.push({ name, rule: rule9 });
       this.cache = null;
     }
   };
@@ -32557,13 +32557,13 @@
     if (!tagInfo) {
       return false;
     }
-    let rule8, i;
+    let rule9, i;
     let ruleInfo = ruler.getRuleForTag(tagInfo.tag);
     if (!ruleInfo) {
       return false;
     }
-    rule8 = ruleInfo.rule;
-    if (rule8.replace) {
+    rule9 = ruleInfo.rule;
+    if (rule9.replace) {
       if (tagInfo.closing) {
         return false;
       }
@@ -32579,14 +32579,14 @@
         return false;
       }
       let content = state.src.slice(state.pos + tagInfo.length, i);
-      if (rule8.replace(state, tagInfo, content)) {
+      if (rule9.replace(state, tagInfo, content)) {
         state.pos = i + closeTag.length;
         return true;
       } else {
         return false;
       }
     } else {
-      tagInfo.rule = rule8;
+      tagInfo.rule = rule9;
       if (tagInfo.closing && state.tokens.at(-1)?.meta === "bbcode") {
         state.push("text", "", 0);
       }
@@ -33442,11 +33442,11 @@
   }
   function setup10(helper) {
     helper.registerPlugin((md) => {
-      const rule8 = {
+      const rule9 = {
         matcher: MATCHER,
         onMatch: addHashtag
       };
-      md.core.textPostProcess.ruler.push("hashtag-autocomplete", rule8);
+      md.core.textPostProcess.ruler.push("hashtag-autocomplete", rule9);
     });
     helper.allowList([
       "a.hashtag-cooked",
@@ -33827,11 +33827,11 @@
       opts.features.unicodeUsernames = !!siteSettings.unicode_usernames;
     });
     helper.registerPlugin((md) => {
-      const rule8 = {
+      const rule9 = {
         matcher: mentionRegex(md.options.discourse.unicodeUsernames),
         onMatch: addMention
       };
-      md.core.textPostProcess.ruler.push("mentions", rule8);
+      md.core.textPostProcess.ruler.push("mentions", rule9);
     });
   }
 
@@ -34694,8 +34694,8 @@
     feature("bbcode-block", bbcode_block_exports),
     feature("anchor", anchor_exports)
   ];
-  function feature(id, { setup: setup42, priority: priority3 = 0 }) {
-    return { id, setup: setup42, priority: priority3 };
+  function feature(id, { setup: setup44, priority: priority3 = 0 }) {
+    return { id, setup: setup44, priority: priority3 };
   }
 
   // vendor/frontend/discourse-markdown-it/src/options.js
@@ -34877,19 +34877,19 @@
       if (options.setup) {
         return;
       }
-      const setup42 = new _Setup(options);
+      const setup44 = new _Setup(options);
       features.sort((a, b) => a.priority - b.priority);
       for (const feature2 of features) {
-        setup42.#setupFeature(feature2.id, feature2.setup);
+        setup44.#setupFeature(feature2.id, feature2.setup);
       }
       for (const entry of Object.entries(state.allowListed ?? {})) {
-        setup42.allowList(entry);
+        setup44.allowList(entry);
       }
-      setup42.#runOptionsCallbacks(siteSettings, state);
-      setup42.#enableMarkdownFeatures();
-      setup42.#finalizeGetOptions(siteSettings);
-      setup42.#makeEngine();
-      setup42.#buildCookFunctions();
+      setup44.#runOptionsCallbacks(siteSettings, state);
+      setup44.#enableMarkdownFeatures();
+      setup44.#finalizeGetOptions(siteSettings);
+      setup44.#makeEngine();
+      setup44.#buildCookFunctions();
     }
     #context;
     #options;
@@ -35045,17 +35045,17 @@
     #context;
     #setup;
     #deprecate;
-    constructor(featureName, context, setup42) {
+    constructor(featureName, context, setup44) {
       this.#name = featureName;
       this.#context = context;
-      this.#setup = setup42;
+      this.#setup = setup44;
       this.#deprecate = (methodName, ...args) => {
         if (window.console && window.console.log) {
           window.console.log(
             featureName + ": " + methodName + " is deprecated, please use the new markdown it APIs"
           );
         }
-        return setup42(methodName, ...args);
+        return setup44(methodName, ...args);
       };
     }
     get markdownIt() {
@@ -35644,7 +35644,7 @@
         return true;
       }
     };
-    function setup42(helper) {
+    function setup44(helper) {
       helper.allowList([
         "svg[class=fa d-icon d-icon-discourse-threads svg-icon svg-node]",
         "use[href=#discourse-threads]",
@@ -35699,12 +35699,12 @@
         );
       });
     }
-    return setup42;
+    return setup44;
   }
 
   // src/modules/chat-transcript.js
   function setup26(helper, context, api) {
-    const setup42 = createSetup((key, values) => i18n(key, values, api.context.locale));
+    const setup44 = createSetup((key, values) => i18n(key, values, api.context.locale));
     helper.allowList([
       "div[data-chained]",
       "div[data-reactions]",
@@ -35726,18 +35726,18 @@
         hashtag_configurations: { "chat-composer": api.hashtagPriorities.chat || ["channel", "category", "tag"] }
       } };
     });
-    setup42({
+    setup44({
       allowList: (values) => helper.allowList(values),
       registerOptions: (callback) => helper.registerOptions((options) => callback(options, { chat_enabled: true })),
       registerPlugin: (callback) => helper.registerPlugin((md) => {
         const ruler = md.block.bbcode.ruler, push = ruler.push;
-        ruler.push = function(name, rule8) {
-          push.call(this, name, { ...rule8, replace(state, tag, content) {
+        ruler.push = function(name, rule9) {
+          push.call(this, name, { ...rule9, replace(state, tag, content) {
             const attrs = { ...tag.attrs };
             for (const key of ["channel", "threadTitle"]) if (attrs[key]) attrs[key] = escape(attrs[key]);
             for (const key of ["channelId", "threadId"]) if (attrs[key] && !/^[1-9][0-9]*$/.test(attrs[key])) delete attrs[key];
             if (attrs.reactions && !attrs.reactions.split(";").every((r) => /^[^:;]+:[^:;]+$/.test(r))) delete attrs.reactions;
-            return rule8.replace(state, { ...tag, attrs }, content);
+            return rule9.replace(state, { ...tag, attrs }, content);
           } });
         };
         try {
@@ -44782,6 +44782,44 @@ ${escaped}
     });
   }
 
+  // ../../../lib/src/plugins/policy/tool/cooking/policy.js
+  init_environment();
+
+  // ../../../lib/src/plugins/policy/tool/cooking/upstream-policy.js
+  init_environment();
+  var rule8 = {
+    tag: "policy",
+    wrap(token, info) {
+      if (!info.attrs.group && !info.attrs.groups) {
+        return false;
+      }
+      token.attrs = [["class", "policy"]];
+      info.attrs.version ||= 1;
+      for (let key of Object.keys(info.attrs).sort()) {
+        token.attrs.push([`data-${key}`, info.attrs[key]]);
+      }
+      return true;
+    }
+  };
+  function setup42(helper) {
+    helper.allowList(["div.policy"]);
+    helper.registerOptions((opts, siteSettings) => {
+      opts.features.policy = !!siteSettings.policy_enabled;
+    });
+    helper.registerPlugin((md) => {
+      md.block.bbcode.ruler.push("policy", rule8);
+    });
+  }
+
+  // ../../../lib/src/plugins/policy/tool/cooking/policy.js
+  function setup43(helper, context) {
+    setup42({
+      allowList: (values) => helper.allowList(values),
+      registerOptions: (callback) => helper.registerOptions((options) => callback(options, context.settings || {})),
+      registerPlugin: (callback) => helper.registerPlugin(callback)
+    });
+  }
+
   // catalog:catalog
   if (typeof setup22 !== "function") throw Error("Invalid module implementation: spoiler-alert");
   if (typeof setup23 !== "function") throw Error("Invalid module implementation: offline-missing-uploads");
@@ -44806,7 +44844,8 @@ ${escaped}
   if (typeof transform10 !== "function") throw Error("Invalid module implementation: livestream-visibility");
   if (typeof setup39 !== "function") throw Error("Invalid module implementation: checklist");
   if (typeof setup41 !== "function") throw Error("Invalid module implementation: discourse-math");
-  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } }, "discourse-math": { ...{ "id": "discourse-math", "owner": "discourse-math", "version": "1", "source": "discourse-math.js", "stage": "syntax", "policy": { "span": ["class"], "div": ["class"] } }, implementation: { setup: setup41 } } };
+  if (typeof setup43 !== "function") throw Error("Invalid module implementation: discourse-policy");
+  var bundledModules = { "spoiler-alert": { ...{ "id": "spoiler-alert", "owner": "cooking", "version": "1", "source": "spoiler.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup22 } }, "offline-missing-uploads": { ...{ "id": "offline-missing-uploads", "owner": "cooking", "version": "1", "source": "missing-uploads.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup23 } }, "fixture-mark": { ...{ "id": "fixture-mark", "owner": "cooking-fixture", "version": "1", "source": "fixture-mark.js", "stage": "syntax", "policy": { "mark": ["data-fixture"] } }, implementation: { setup: setup24 } }, "fixture-tokens": { ...{ "id": "fixture-tokens", "owner": "cooking-fixture", "version": "1", "source": "fixture-tokens.js", "stage": "token", "policy": {} }, implementation: { transform } }, "fixture-document": { ...{ "id": "fixture-document", "owner": "cooking-fixture", "version": "1", "source": "fixture-document.js", "stage": "document", "policy": {} }, implementation: { transform: transform2 } }, "chat-source": { ...{ "id": "chat-source", "owner": "chat", "version": "1", "source": "chat-source.js", "stage": "source", "policy": {} }, implementation: { transform: transform3 } }, "chat-html-inline": { ...{ "id": "chat-html-inline", "owner": "chat", "version": "1", "source": "chat-html-inline.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup25 } }, "chat-transcript": { ...{ "id": "chat-transcript", "owner": "chat", "version": "1", "source": "chat-transcript.js", "stage": "syntax", "policy": { "div": ["data-message-id", "data-channel-name", "data-channel-id", "data-username", "data-datetime", "data-chained", "data-reactions", "data-multiquote", "data-thread-id", "data-thread-title"], "details": ["class"], "summary": [], "span": ["title"] } }, implementation: { setup: setup26 } }, "chat-slash-format": { ...{ "id": "chat-slash-format", "owner": "chat", "version": "1", "source": "chat-slash-format.js", "stage": "document", "policy": { "em": ["class"] } }, implementation: { transform: transform4 } }, "discourse-local-dates": { ...{ "id": "discourse-local-dates", "owner": "discourse-local-dates", "version": "1", "source": "discourse-local-dates.js", "stage": "syntax", "policy": { "span": ["data-calendar", "data-countdown", "data-date", "data-displayed-timezone", "data-email-preview", "data-format", "data-ics", "data-recurring", "data-time", "data-timezone", "data-timezones", "data-range"] } }, implementation: { setup: setup28 } }, "cooking-links": { ...{ "id": "cooking-links", "owner": "cooking", "version": "1", "source": "cooking-links.js", "stage": "document", "policy": {} }, implementation: { transform: transform5 } }, "cooking-bidi": { ...{ "id": "cooking-bidi", "owner": "cooking", "version": "1", "source": "cooking-bidi.js", "stage": "document", "policy": { "span": ["title"], "pre": ["data-code-wrap", "data-code-height"] } }, implementation: { transform: transform6 } }, "cooking-media": { ...{ "id": "cooking-media", "owner": "cooking", "version": "1", "source": "cooking-media.js", "stage": "document", "policy": { "div": ["data-video-src", "data-thumbnail-src", "data-video-base62-sha1", "data-blocked-hotlinked-src", "data-mode"], "img": ["data-blocked-hotlinked-src"] } }, implementation: { transform: transform7 } }, "cooking-mentions": { ...{ "id": "cooking-mentions", "owner": "cooking", "version": "1", "source": "cooking-mentions.js", "stage": "document", "policy": {} }, implementation: { transform: transform8 } }, "details": { ...{ "id": "details", "owner": "cooking", "version": "1", "source": "details.js", "stage": "syntax", "policy": { "details": ["open"], "summary": ["title"] } }, implementation: { setup: setup29 } }, "d-wrap": { ...{ "id": "d-wrap", "owner": "cooking", "version": "1", "source": "d-wrap.js", "stage": "document", "policy": { "div": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"], "span": ["data-wrap", "data-key", "data-description", "data-delimiter", "data-default", "data-defaults"] } }, implementation: { transform: transform9 } }, "poll": { ...{ "id": "poll", "owner": "poll", "version": "1", "source": "poll.js", "stage": "syntax", "policy": { "div": ["data-poll-charttype", "data-poll-close", "data-poll-groups", "data-poll-max", "data-poll-min", "data-poll-name", "data-poll-order", "data-poll-public", "data-poll-results", "data-poll-status", "data-poll-step", "data-poll-type", "data-poll-dynamic"], "li": ["data-poll-option-id"] } }, implementation: { setup: setup31 } }, "post-event": { ...{ "id": "post-event", "owner": "discourse-events", "version": "1", "source": "post-event.js", "stage": "syntax", "policy": { "div": ["data-name", "data-start", "data-end", "data-timezone", "data-recurrence", "data-recurrence-until", "data-allowed-groups", "data-url", "data-location", "data-max-attendees", "data-reminders", "data-image", "data-all-day", "data-show-local-time", "data-minimal", "data-closed", "data-chat-enabled", "data-livestream", "data-status"] } }, implementation: { setup: setup33 } }, "calendar": { ...{ "id": "calendar", "owner": "discourse-events", "version": "1", "source": "calendar.js", "stage": "syntax", "policy": { "div": ["data-calendar-type", "data-calendar-default-timezone", "data-calendar-default-view", "data-weekends", "data-calendar-show-add-to-calendar", "data-calendar-full-day", "data-hidden-days", "data-group", "data-size"] } }, implementation: { setup: setup35 } }, "livestream-preview": { ...{ "id": "livestream-preview", "owner": "discourse-events", "version": "1", "source": "livestream-preview.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup37 } }, "livestream-visibility": { ...{ "id": "livestream-visibility", "owner": "discourse-events", "version": "1", "source": "livestream-visibility.js", "stage": "document", "policy": {} }, implementation: { transform: transform10 } }, "checklist": { ...{ "id": "checklist", "owner": "cooking", "version": "1", "source": "checklist.js", "stage": "syntax", "policy": {} }, implementation: { setup: setup39 } }, "discourse-math": { ...{ "id": "discourse-math", "owner": "discourse-math", "version": "1", "source": "discourse-math.js", "stage": "syntax", "policy": { "span": ["class"], "div": ["class"] } }, implementation: { setup: setup41 } }, "discourse-policy": { ...{ "id": "discourse-policy", "owner": "discourse-policy", "version": "1", "source": "policy.js", "stage": "syntax", "policy": { "div": ["class", "data-group", "data-groups", "data-version", "data-renew", "data-renew-start", "data-reminder", "data-accept", "data-revoke", "data-add-users-to-group", "data-private"] }, "inputs": { "policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712", "upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8" }, "provenance": { "repository": "https://github.com/discourse/discourse", "revision": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8", "path": "plugins/discourse-policy/assets/javascripts/lib/discourse-markdown/policy.js", "license": "GPL-2.0-only" }, "importPath": "../../../../lib/src/plugins/policy/tool/cooking/policy.js", "sourceManifest": "lib/src/plugins/policy/tool/cooking/module.json", "sourceManifestSha256": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4" }, implementation: { setup: setup43 } } };
 
   // src/final-sanitize.js
   init_environment();

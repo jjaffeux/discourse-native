@@ -1,5 +1,6 @@
 import { build } from 'esbuild';
 import { assembleModules, validateBundle } from './module-assembly.mjs';
+import { loadModuleCatalog, pluginSourceImports } from './module-sources.mjs';
 import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,16 +11,18 @@ const provenance = JSON.parse(readFileSync(join(root,'provenance.json')));
 for (const [path,hash] of Object.entries(provenance.sha256)) {
   if (sha(readFileSync(join(root,'vendor',path))) !== hash) throw Error(`Vendor hash mismatch: ${path}`);
 }
-const modules=JSON.parse(readFileSync(join(root,'src/modules/catalog.json')));
+const modules=loadModuleCatalog(JSON.parse(readFileSync(join(root,'src/modules/catalog.json'))), join(root,'../../..'), root);
 const ids=new Set();
 for(const m of modules) {
- if(ids.has(m.id)||!m.id||!m.owner||!m.version||!['source','syntax','token','document'].includes(m.stage)||!/^[a-z-]+\.js$/.test(m.source)) throw Error('Invalid module catalog');
+ if(ids.has(m.id)||!m.id||!m.owner||!m.version||!['source','syntax','token','document'].includes(m.stage)) throw Error('Invalid module catalog');
  ids.add(m.id);
  for(const [tag,attrs] of Object.entries(m.policy)) {
   if(!/^(?:img|em|mark|span|div|details|summary|time|kbd|abbr|a|pre|code|aside|li|p|ol|ul|blockquote|table|td|th)$/.test(tag)||!attrs.every(a=>(a==='open' && tag==='details' || /^(?:class|title|datetime|data-[a-z0-9-]+|aria-[a-z0-9-]+)$/.test(a)) && (!/^data-.*(?:url|href|src)/.test(a) || ['data-url','data-orig-href','data-orig-src','data-video-src','data-thumbnail-src','data-blocked-hotlinked-src'].includes(a)))) throw Error('Unsafe module HTML policy');
  }
 }
 const moduleSource=assembleModules(modules);
+const resolvePluginImport=pluginSourceImports(modules, join(root,'../../..'));
+const pluginSourceGuard={name:'trusted-plugin-sources',setup(b){b.onResolve({filter:/.*/},args=>{const path=resolvePluginImport(args.importer,args.path);return path?{path}:undefined;});}};
 const isolatedUpstream={name:'isolated-upstream',setup(b){
  b.onLoad({filter:/discourse-markdown-it\/src\/setup\.js$/},args=>({
    contents:readFileSync(args.path,'utf8').replace('...defaultOptions.discourse,','...defaultOptions.discourse, ...engineOptions,'),loader:'js'
@@ -48,7 +51,7 @@ const result = await build({
   absWorkingDir:root, entryPoints:['src/entry.js'], bundle:true, write:false,
   platform:'neutral', mainFields:['module','main'], format:'iife', target:'es2022', charset:'ascii',
   legalComments:'inline', inject:[join(root,'src/environment.js')],
-  plugins:[isolatedUpstream,modulePlugin,{ name:'closed-import-allowlist',setup(b) {
+  plugins:[isolatedUpstream,modulePlugin,pluginSourceGuard,{ name:'closed-import-allowlist',setup(b) {
     b.onResolve({filter:/^(?:discourse(?:-i18n|\/)|pretty-text\/)/},args => {
       if (aliases[args.path]) return {path:aliases[args.path]};
       if (/^pretty-text\/(allow-lister|guid|sanitizer|text-replace|emoji(?:\/data|\/version)?|mentions|censored-words)$/.test(args.path)) return {path:join(root,`vendor/frontend/pretty-text/addon/${args.path.slice('pretty-text/'.length)}.js`)};
@@ -63,6 +66,9 @@ const dart = `// GENERATED FILE. Run node js/build.mjs; do not edit.\n// ignore_
 const notices = ['Discourse offline cooking bundle\n',
   `Discourse source: ${provenance.repository} at ${provenance.revision}\nGPL-2.0-only. Complete bundled source is in vendor/. Full license: vendor/LICENSE.txt.\n`,
   'Local adapters and final output policy are in src/. They replace Ruby/browser lookups with per-request memory snapshots. No upstream source files are edited.\n'];
+for (const module of modules) {
+  if (module.provenance) notices.push('\n=== '+module.id+' ===\n'+JSON.stringify(module.provenance)+'\nComplete source: '+module.sourceManifest+'\n');
+}
 // Include licenses of every npm dependency whose source is bundled.
 const names = [...new Set(Object.keys(result.metafile.inputs).filter(p=>p.startsWith('node_modules/')).map(p=>p.split('/')[1]))].sort();
 for (const name of names) {
@@ -97,6 +103,8 @@ const manifest = {
   vendorManifestSha256:sha(readFileSync(join(root,'provenance.json'))),
   npmLockSha256:sha(readFileSync(join(root,'package-lock.json'))),
   moduleAssemblySha256:sha(readFileSync(join(root,'module-assembly.mjs'))),
+  moduleSourceResolverSha256:sha(readFileSync(join(root,'module-sources.mjs'))),
+  pluginSourceManifests:Object.fromEntries(modules.filter(m=>m.sourceManifest).map(m=>[m.sourceManifest,m.sourceManifestSha256])),
   moduleCatalogSha256:sha(readFileSync(join(root,'src/modules/catalog.json'))),
   inputs:Object.fromEntries(Object.keys(result.metafile.inputs).filter(p=>!p.startsWith('catalog:')).sort().map(p=>[p,sha(readFileSync(join(root,p)))])),
 };

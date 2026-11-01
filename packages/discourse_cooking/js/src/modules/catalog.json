@@ -328,5 +328,10 @@
         "class"
       ]
     }
+  },
+  {
+    "owner": "discourse-policy",
+    "manifest": "lib/src/plugins/policy/tool/cooking/module.json",
+    "sha256": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4"
   }
 ]

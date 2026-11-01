@@ -1,0 +1,5 @@
+Discourse Policy Markdown parser
+GPL-2.0-only, Discourse contributors.
+Source: https://github.com/discourse/discourse/blob/96ce8d44401a8a568ecc71561c26dca8ec6bfeb8/plugins/discourse-policy/assets/javascripts/lib/discourse-markdown/policy.js
+upstream-policy.js is an unmodified snapshot. policy.js is the Native settings adapter.
+The complete GPL-2.0 text is redistributed at packages/discourse_cooking/js/vendor/LICENSE.txt.

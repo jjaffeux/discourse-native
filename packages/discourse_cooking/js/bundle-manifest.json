@@ -1,12 +1,18 @@
 {
   "discourseRevision": "f18a1985b22e5d4c0a0fffd6f91812105467afdb",
-  "buildScriptSha256": "1ee8ddad4c9639acefb92a74b59fd83cfbefc78d4490d9e5c39710f643cc28fc",
-  "bundleSha256": "c1c15e6b074b0ca949bcc75f61b25f42a7fe14a325a67166dbfdccaf544a79dc",
+  "buildScriptSha256": "0c559e1ce36362831b7a6ed1429320a38750f8767a97ce613098fdc351c1c860",
+  "bundleSha256": "4f0fdaa6164fb0ba86363c67969d8c78acb051b83a6ba59d1a7e25f1982c9206",
   "vendorManifestSha256": "bf69e4fc98008ea8c5e52f9e399245e4958fd651ec6200a08ea26d04e05fd7ec",
   "npmLockSha256": "c96c32eb2a680963e23edf48aee660bc567c72b744f6513a87cb53356d373c56",
-  "moduleAssemblySha256": "7c60a9bea8076652f2acf215295f6834f754d720c847ab58c33e2f16f3d3ab97",
-  "moduleCatalogSha256": "3d359e96b06c3268f4fe69c883585f6a5f96ae369ba3be6490b14c9cadc631b2",
+  "moduleAssemblySha256": "06755409c319dc990567bd644f032908d0df6ed1930ffa24cb1ee4d45edd9348",
+  "moduleSourceResolverSha256": "46b235e3aa1a2ab3486098aa0c0033ad4b25bb1175ead3045e1b4ae5376fd7c8",
+  "pluginSourceManifests": {
+    "lib/src/plugins/policy/tool/cooking/module.json": "c6c6dc90e1d955b96a9b853e8160fd49149e7f1f760e2538cb2c63f321ec58b4"
+  },
+  "moduleCatalogSha256": "4a0d1cd2c4ac00afe5ead6e5cb9c7d403026c3d17c5cccdde021a20d3fa315fd",
   "inputs": {
+    "../../../lib/src/plugins/policy/tool/cooking/policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712",
+    "../../../lib/src/plugins/policy/tool/cooking/upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8",
     "node_modules/cssfilter/lib/css.js": "cfa9c0dcf575073f1b46656ff7e955711c6cc98ae36d511c52b6be44b81263ca",
     "node_modules/cssfilter/lib/default.js": "22312f09d8e3347112e20240a5d66cba2e84ddb0b59204905b14230093e08faa",
     "node_modules/cssfilter/lib/index.js": "14d8000e2d405cc6265d3b086fe44124092e6a31932994c3b22742bc3e04fbcc",

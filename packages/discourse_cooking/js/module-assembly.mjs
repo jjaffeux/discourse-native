@@ -4,7 +4,7 @@ import vm from 'node:vm';
 // also run during VM startup, before any request can select a module.
 export function assembleModules(modules) {
   const capability = m => m.stage === 'syntax' ? 'setup' : 'transform';
-  return modules.map((m,i) => `import { ${capability(m)} as implementation${i} } from './modules/${m.source}';`).join('\n') + '\n' +
+  return modules.map((m,i) => `import { ${capability(m)} as implementation${i} } from '${m.importPath || './modules/'+m.source}';`).join('\n') + '\n' +
     modules.map((m,i) => `if(typeof implementation${i} !== 'function') throw Error(${JSON.stringify('Invalid module implementation: '+m.id)});`).join('\n') +
     '\nexport const bundledModules = {' + modules.map((m,i) => `${JSON.stringify(m.id)}:{...${JSON.stringify(m)},implementation:{${capability(m)}:implementation${i}}}`).join(',') + '};\n';
 }

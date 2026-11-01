@@ -1,0 +1,32 @@
+{
+  "id": "discourse-policy",
+  "owner": "discourse-policy",
+  "version": "1",
+  "source": "policy.js",
+  "stage": "syntax",
+  "policy": {
+    "div": [
+      "class",
+      "data-group",
+      "data-groups",
+      "data-version",
+      "data-renew",
+      "data-renew-start",
+      "data-reminder",
+      "data-accept",
+      "data-revoke",
+      "data-add-users-to-group",
+      "data-private"
+    ]
+  },
+  "inputs": {
+    "policy.js": "9e1b416ceb18b7407d9f7bedff703a5fb2de6be535747586d326965c487b5712",
+    "upstream-policy.js": "70c64078143ca9ee4e6898bdf31c7b58d695c44b41f2a6eeb1a282dc794493e8"
+  },
+  "provenance": {
+    "repository": "https://github.com/discourse/discourse",
+    "revision": "96ce8d44401a8a568ecc71561c26dca8ec6bfeb8",
+    "path": "plugins/discourse-policy/assets/javascripts/lib/discourse-markdown/policy.js",
+    "license": "GPL-2.0-only"
+  }
+}
