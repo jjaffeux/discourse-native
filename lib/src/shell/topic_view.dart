@@ -286,6 +286,7 @@ class _TopicViewState extends State<TopicView>
   final _topicControlsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
+  ({int postId, double viewportOffset})? _openingScrollAnchor;
   int? _visitLastReadPostNumber;
 
   ScrollController? get _scroll => _viewport.scrollController;
@@ -477,6 +478,7 @@ class _TopicViewState extends State<TopicView>
     _topicControlsCovered.value = false;
     _initialBodyChecked = false;
     _openingPostId = null;
+    _openingScrollAnchor = null;
     _laidOutDayStarts = const [];
     _visibleContextCurrentPostId = null;
     _reader.clear();
@@ -1833,6 +1835,12 @@ class _TopicViewState extends State<TopicView>
           _initialBodyChecked = true;
           final postId = postIds[index];
           final post = controller.store.read<Post>(siteUrl, postId);
+          if ((post?.postNumber ?? 1) > 1 || position.viewportOffset != 0) {
+            _openingScrollAnchor = (
+              postId: postId,
+              viewportOffset: position.viewportOffset,
+            );
+          }
           if ((position.itemIndex > 0 || position.viewportOffset != 0) &&
               post != null &&
               (CookedHtml.buildsAsynchronously(post.cooked) ||
@@ -1995,16 +2003,39 @@ class _TopicViewState extends State<TopicView>
         ],
         if (controller.mobileNavigationEnabled ||
             (!context.isTouch && snapshot.progressTotal > 1))
-          SliverPadding(
-            padding: EdgeInsets.only(
-              bottom:
+          SliverLayoutBuilder(
+            builder: (context, constraints) {
+              var bottom =
                   (controller.mobileNavigationEnabled
                       ? DScrollChrome.bottomInsetOf(context)
                       : 0) +
                   (_topicControlsHeight ??
                       TopicProgressButton.floatingHeightOf(context)) +
-                  DSpacing.sm,
-            ),
+                  DSpacing.sm;
+              final anchor = _openingScrollAnchor;
+              if (controller.mobileNavigationEnabled &&
+                  anchor != null &&
+                  constraints.precedingScrollExtent + bottom <
+                      constraints.viewportMainAxisExtent +
+                          header.naturalExtent) {
+                final target = _reader.offsetForPost(
+                  anchor.postId,
+                  viewportOffset: _reader.constrainPostViewportOffset(
+                    anchor.postId,
+                    anchor.viewportOffset,
+                  ),
+                );
+                if (target != null) {
+                  bottom = math.max(
+                    bottom,
+                    constraints.viewportMainAxisExtent +
+                        target -
+                        constraints.precedingScrollExtent,
+                  );
+                }
+              }
+              return SliverPadding(padding: EdgeInsets.only(bottom: bottom));
+            },
           ),
       ];
       final postStream = NotificationListener<ScrollMetricsNotification>(
