@@ -108,13 +108,13 @@ final class _UnusedPostHost implements PluginPostHost {
   bool topicArchived(String siteUrl, int topicId) => false;
 
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
     required String? apiKey,
     required PluginSiteLease lease,
-  }) async {}
+  }) async => false;
 
   @override
   void updatePluginRecord<T extends Object>(
@@ -150,13 +150,13 @@ final class _LanePostHost implements PluginPostHost {
   bool topicArchived(String siteUrl, int topicId) => false;
 
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
     required String? apiKey,
     required PluginSiteLease lease,
-  }) async {}
+  }) async => false;
 
   @override
   void updatePluginRecord<T extends Object>(

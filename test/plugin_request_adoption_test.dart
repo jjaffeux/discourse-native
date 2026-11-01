@@ -345,7 +345,7 @@ final class _Posts implements PluginPostHost {
     T? Function(T?) update,
   ) {}
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
@@ -353,5 +353,6 @@ final class _Posts implements PluginPostHost {
     required PluginSiteLease lease,
   }) async {
     refreshes++;
+    return false;
   }
 }

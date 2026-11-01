@@ -160,7 +160,7 @@ final class _FailingPollRecoveryHost
   bool writeInFlight(String siteUrl, int postId) => writing;
 
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
@@ -1052,6 +1052,62 @@ void main() {
   });
 
   group('shared post refresh admission', () {
+    test(
+      'confirms an unchanged post read without replacing the record',
+      () async {
+        final api = _api(
+          initial: _post(poll: _poll()),
+          postsById: {11: _post(poll: _poll())},
+        );
+        final (:shell, tracker: _) = await _loadShell(api);
+        addTearDown(shell.dispose);
+        final original = shell.store.read<Post>(_site, 11);
+        expect(original, isNotNull);
+        expect(api.postsById[11], isNot(same(original)));
+
+        final fresh = await shell.refreshPluginPost(
+          _site,
+          7,
+          11,
+          'api-key',
+          shell.lifecycle.capture(_site),
+        );
+
+        expect(fresh, isTrue);
+        expect(api.postFetches, [
+          [11],
+        ]);
+        expect(shell.store.read<Post>(_site, 11), same(original));
+      },
+    );
+
+    test('reports a failed post read as stale', () async {
+      final gate = Completer<void>();
+      final api = _api(
+        initial: _post(poll: _poll()),
+        postGate: gate,
+      );
+      final (:shell, tracker: _) = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final original = shell.store.read<Post>(_site, 11);
+
+      final refreshing = shell.refreshPluginPost(
+        _site,
+        7,
+        11,
+        'api-key',
+        shell.lifecycle.capture(_site),
+      );
+      await pumpEventQueue();
+      gate.completeError(const WriteException(WriteFailure.unreachable));
+
+      expect(await refreshing, isFalse);
+      expect(api.postFetches, [
+        [11],
+      ]);
+      expect(shell.store.read<Post>(_site, 11), same(original));
+    });
+
     for (final change in ['disconnect', 'shell disposal']) {
       test('rejects a retained refresh after $change', () async {
         final api = _api(initial: _post(poll: _poll()));
@@ -1071,7 +1127,10 @@ void main() {
         await pumpEventQueue();
         expect(api.postFetches, isEmpty);
 
-        await shell.refreshPluginPost(_site, 7, 11, 'api-key', lease);
+        expect(
+          await shell.refreshPluginPost(_site, 7, 11, 'api-key', lease),
+          isFalse,
+        );
 
         expect(api.postFetches, isEmpty);
       });

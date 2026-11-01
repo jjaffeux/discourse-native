@@ -228,18 +228,15 @@ class PolicyController extends FrameSafeNotifier
     PluginSiteLease lease,
     int epoch,
   ) async {
-    final before = _posts.readPost(siteUrl, postId);
     if (!_current(siteUrl, lease, epoch)) return false;
-    await _posts.refreshPost(
+    final fresh = await _posts.refreshPost(
       siteUrl: siteUrl,
       topicId: topicId,
       postId: postId,
       apiKey: apiKey,
       lease: lease,
     );
-    // The host's void refresh may no-op after a topic window retires.
-    return _current(siteUrl, lease, epoch) &&
-        !identical(before, _posts.readPost(siteUrl, postId));
+    return _current(siteUrl, lease, epoch) && fresh;
   }
 
   Future<void> checkStatus({

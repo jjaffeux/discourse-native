@@ -101,9 +101,11 @@ void main() {
   );
 
   test(
-    'ambiguous response cannot be retried until a real refresh replaces the record',
+    'ambiguous response cannot be retried until the host confirms a refresh',
     () async {
       api.failure = const WriteException(WriteFailure.unreachable);
+      posts.fresh = false;
+      final original = posts.records[site];
       expect(
         await controller.act(
           siteUrl: site,
@@ -126,7 +128,14 @@ void main() {
         PolicyMutationKind.busy,
       );
       expect(api.writes, 1);
-      posts.afterRefresh = post(acceptedPolicy);
+      await controller.checkStatus(
+        siteUrl: site,
+        topicId: 3,
+        postId: 7,
+        lease: controller.captureSiteSession(site),
+      );
+      expect(controller.interaction(site, 7).phase, PolicyWritePhase.uncertain);
+      posts.fresh = true;
       await controller.checkStatus(
         siteUrl: site,
         topicId: 3,
@@ -134,6 +143,8 @@ void main() {
         lease: controller.captureSiteSession(site),
       );
       expect(controller.interaction(site, 7).phase, PolicyWritePhase.idle);
+      expect(posts.records[site], same(original));
+      expect(posts.records[site]!.plugins.policy!.canAccept, isTrue);
       expect(api.writes, 1);
     },
   );
@@ -415,6 +426,7 @@ final class _Posts implements PluginPostHost {
   VoidCallback? onBegin;
   Completer<void>? refreshGate;
   Post? afterRefresh;
+  bool fresh = true;
   @override
   bool beginWrite(String siteUrl, int postId) {
     final admitted = busy.add((siteUrl, postId));
@@ -439,7 +451,7 @@ final class _Posts implements PluginPostHost {
     T? Function(T?) update,
   ) => throw UnimplementedError();
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
@@ -451,6 +463,7 @@ final class _Posts implements PluginPostHost {
     if (afterRefresh case final value?) {
       lease.commit(() => records[siteUrl] = value);
     }
+    return fresh && lease.isCurrent;
   }
 }
 

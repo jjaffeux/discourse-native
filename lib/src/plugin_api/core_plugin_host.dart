@@ -128,7 +128,9 @@ abstract interface class PluginPostHost {
   void endWrite(String siteUrl, int postId);
   bool writeInFlight(String siteUrl, int postId);
 
-  Future<void> refreshPost({
+  /// Returns true when a server read confirms the current post projection.
+  /// Returns false when refresh fails, is retired, or cannot run.
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,

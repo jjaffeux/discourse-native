@@ -147,11 +147,11 @@ final class EventTestPosts implements PluginPostHost {
     T? Function(T?) update,
   ) {}
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
     required String? apiKey,
     required PluginSiteLease lease,
-  }) async {}
+  }) async => false;
 }

@@ -897,16 +897,17 @@ class ShellController extends FrameSafeNotifier
   bool pluginPostWriteInFlight(String siteUrl, int postId) =>
       _topicData.forSite(siteUrl).postWriting(postId);
 
-  Future<void> refreshPluginPost(
+  Future<bool> refreshPluginPost(
     String siteUrl,
     int topicId,
     int postId,
     String? apiKey,
     SiteLease lease,
   ) async {
-    await _topicData
+    final projection = await _topicData
         .forLease(siteUrl, lease)
         ?.repairPost(topicId, postId, apiKey, lease);
+    return projection == PostProjectionFreshness.fresh;
   }
 
   void notifyPluginStateChanged() => _notify();
@@ -9870,7 +9871,7 @@ final class _ShellPluginPostHost implements PluginPostHost {
       _shell.pluginPostWriteInFlight(siteUrl, postId);
 
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,

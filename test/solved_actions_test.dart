@@ -338,7 +338,7 @@ class _Posts implements PluginPostHost {
     T? Function(T?) update,
   ) {}
   @override
-  Future<void> refreshPost({
+  Future<bool> refreshPost({
     required String siteUrl,
     required int topicId,
     required int postId,
@@ -348,6 +348,7 @@ class _Posts implements PluginPostHost {
     refreshed.add(postId);
     onRefresh?.call();
     if (refreshFailure != null) throw refreshFailure!;
+    return lease.isCurrent;
   }
 }
 
