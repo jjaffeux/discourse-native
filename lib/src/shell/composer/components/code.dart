@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
@@ -217,6 +219,100 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
   );
   final _focus = FocusNode();
   bool _synchronizing = false;
+  late TextEditingValue _previousValue;
+  String? _beforeEnter;
+  bool _observationScheduled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _previousValue = _controller.value;
+    _controller.addListener(_scheduleObservation);
+    _focus.addListener(_focusChanged);
+  }
+
+  void _focusChanged() {
+    _beforeEnter = null;
+    _previousValue = _controller.value;
+  }
+
+  void _scheduleObservation() {
+    if (_observationScheduled) return;
+    _observationScheduled = true;
+    scheduleMicrotask(() {
+      _observationScheduled = false;
+      if (mounted) _observeCode();
+    });
+  }
+
+  bool _atCodeEnd(TextEditingValue value) =>
+      value.selection.isValid &&
+      value.selection.isCollapsed &&
+      value.selection.extentOffset <= value.text.length &&
+      !value.text
+          .substring(value.selection.extentOffset)
+          .contains(RegExp(r'[^ \t]'));
+
+  void _observeCode() {
+    final value = _controller.value;
+    final previous = _previousValue;
+    if (value.text == previous.text &&
+        value.selection.baseOffset == previous.selection.baseOffset &&
+        value.selection.extentOffset == previous.selection.extentOffset &&
+        value.composing == previous.composing) {
+      _previousValue = value;
+      return;
+    }
+    _previousValue = value;
+    final beforeEnter = _beforeEnter;
+    _beforeEnter = null;
+    if (_synchronizing ||
+        !_focus.hasFocus ||
+        !widget.composer.isEditing ||
+        HardwareKeyboard.instance.isShiftPressed ||
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed ||
+        HardwareKeyboard.instance.isAltPressed ||
+        !previous.composing.isCollapsed ||
+        !value.composing.isCollapsed ||
+        !_atCodeEnd(previous) ||
+        !_atCodeEnd(value)) {
+      return;
+    }
+    final caret = previous.selection.extentOffset;
+    final added = value.text.length - previous.text.length;
+    if (added <= 0 ||
+        !value.text.startsWith(previous.text.substring(0, caret)) ||
+        value.text.substring(caret + added) != previous.text.substring(caret)) {
+      return;
+    }
+    final inserted = value.text.substring(caret, caret + added);
+    if (!inserted.startsWith('\n') ||
+        inserted.substring(1).contains(RegExp(r'[^ \t]'))) {
+      return;
+    }
+    if (beforeEnter == null) {
+      _beforeEnter = previous.text;
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted ||
+          !_focus.hasFocus ||
+          _controller.text != value.text ||
+          _controller.selection.baseOffset != value.selection.baseOffset ||
+          _controller.selection.extentOffset != value.selection.extentOffset ||
+          !_controller.value.composing.isCollapsed) {
+        return;
+      }
+      _controller.value = TextEditingValue(
+        text: beforeEnter,
+        selection: TextSelection.collapsed(offset: beforeEnter.length),
+      );
+      _replace(_block.withBody(beforeEnter));
+      _finish();
+    });
+  }
+
   String get _body => _block.body.replaceAll('\r\n', '\n');
   String get _language => switch (_block.language) {
     '' || 'plain' || 'plaintext' || 'nohighlight' => 'text',
@@ -229,12 +325,14 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
     _block = widget.block;
     _synchronizing = true;
     if (_controller.text != _body) {
+      _beforeEnter = null;
       _controller.value = TextEditingValue(
         text: _body,
         selection: TextSelection.collapsed(
           offset: _controller.selection.extentOffset.clamp(0, _body.length),
         ),
       );
+      _previousValue = _controller.value;
     }
     if (oldWidget.block.language != _block.language) {
       _controller.language = highlightMode(_body, _block.language);
@@ -244,6 +342,8 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
 
   @override
   void dispose() {
+    _controller.removeListener(_scheduleObservation);
+    _focus.removeListener(_focusChanged);
     _controller.dispose();
     _focus.dispose();
     super.dispose();
