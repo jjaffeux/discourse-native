@@ -607,6 +607,14 @@ void main() {
           'chat.capture.context',
           'chat.row.layout',
           'CookingProfile.chat',
+          'gamification_score',
+          'discourse_gamification_enabled',
+          'default_gamification_leaderboard_id',
+          '/leaderboard',
+          '/admin/plugins/gamification',
+          '/recalculate_scores',
+          'score_overrides',
+          'scorable_category_ids',
         };
         final violations = <String>[];
         for (final file in _dartFilesUnder('lib/src')) {
