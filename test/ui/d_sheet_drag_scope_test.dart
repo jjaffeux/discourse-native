@@ -68,8 +68,13 @@ void main() {
       await drag.moveBy(const Offset(0, 20));
       await drag.moveBy(const Offset(0, 70));
       await tester.pump();
+      final progress = DSheetDragScope.dismissProgressOf(
+        tester.element(_header),
+      )!;
+      expect(progress.value, greaterThan(0));
       state.show(2);
       await tester.pumpAndSettle();
+      expect(progress.value, 0);
       final nextPage = tester.getRect(_sheet);
       await drag.moveBy(const Offset(0, 200));
       await drag.up();
