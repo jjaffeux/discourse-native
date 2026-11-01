@@ -156,6 +156,23 @@ final class PluginData {
     return next;
   }
 
+  PluginData mergeCategoryRecordsFrom(PluginData held) {
+    final values = {...held._values, ..._values};
+    for (final entry in _values.entries) {
+      if (entry.value case final TopicRecordValue value) {
+        values[entry.key] = value.mergeTopicRecord(held._values[entry.key]);
+      }
+    }
+    return _from(values, {
+      ...held._preservedNamespaces,
+      ..._preservedNamespaces,
+    });
+  }
+
+  bool get repliesToTopic => _values.values
+      .whereType<TopicReplyPolicyRecord>()
+      .any((record) => record.repliesToTopic);
+
   PluginData markTopicRead() {
     var next = this;
     for (final entry in _values.entries) {
@@ -208,6 +225,10 @@ final class PluginData {
   ]);
 }
 
+abstract interface class TopicReplyPolicyRecord {
+  bool get repliesToTopic;
+}
+
 abstract interface class PluginDataDecoder {
   Set<String> get userPreferenceFields;
   Map<String, UserPreferenceValues> readUserPreferences(
@@ -216,6 +237,12 @@ abstract interface class PluginDataDecoder {
   );
 
   PluginData readGroup(Map<String, dynamic> json, String siteUrl);
+
+  PluginData readCategory(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  });
 
   PluginData readPost(Map<String, dynamic> json, String siteUrl);
 
@@ -271,6 +298,13 @@ final class EmptyPluginDataDecoder
   @override
   PluginData readGroup(Map<String, dynamic> json, String siteUrl) =>
       PluginData.none;
+
+  @override
+  PluginData readCategory(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => PluginData.preserveNamespaces(json['plugins']);
 
   @override
   PluginData readPost(Map<String, dynamic> json, String siteUrl) =>

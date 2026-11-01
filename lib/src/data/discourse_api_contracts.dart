@@ -905,6 +905,7 @@ abstract interface class ComposerPersistenceApi {
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
+    Map<String, Object?> extraFields = const {},
   });
 
   Future<Post> updatePost({

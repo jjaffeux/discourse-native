@@ -121,6 +121,7 @@ class ReactionsPlugin
             },
       entries: [
         PostAction(
+          role: PostActionRole.reaction,
           icon: DIcons.farFaceSmile,
           showInMenu: false,
           placement: PostActionPlacement.toolbar,

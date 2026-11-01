@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/topic_read_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -126,6 +127,43 @@ void main() {
       for (final request in api.requests.skip(first)) request.postNumbers,
     ];
   }
+
+  test(
+    'ranked visible positions preserve supplied unread count until server refresh',
+    () async {
+      const site = 'https://one.example';
+      const key = PluginDataKey<_RankedPolicy>(
+        owner: 'ranked-fixture',
+        name: 'topic',
+      );
+      credentials.keys[site] = 'key';
+      store.put(
+        site,
+        _topic(lastRead: 2, highest: 100, unread: 12).copyWith(
+          plugins: PluginData.none.withValue(key, const _RankedPolicy()),
+        ),
+      );
+      expect(
+        await sent(
+          () => controller.mark(
+            site,
+            1,
+            99,
+            caughtUp: false,
+            readPostNumbers: [99],
+          ),
+        ),
+        [
+          [99],
+        ],
+      );
+      final row = store.read<Topic>(site, 1)!;
+      expect(row.unreadPosts, 12);
+      expect(row.lastReadPostNumber, 2);
+      expect(row.showUnreadCount, isTrue);
+      expect(controller.project(site, row).unreadPosts, 12);
+    },
+  );
 
   test(
     'activity catch-up position does not suppress actual visible timings',
@@ -1369,4 +1407,13 @@ void main() {
       expect(store.read<Topic>(siteUrl, 1)?.lastReadPostNumber, 2);
     });
   });
+}
+
+final class _RankedPolicy implements TopicReadingPolicyRecord {
+  const _RankedPolicy();
+  @override
+  TopicReadingPolicy get topicReadingPolicy =>
+      const NonchronologicalTopicReadingPolicy();
+  @override
+  Object markTopicRead() => this;
 }

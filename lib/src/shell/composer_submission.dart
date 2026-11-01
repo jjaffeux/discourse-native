@@ -26,7 +26,8 @@ final class _SentComposerSubmission implements ComposerSubmission {
       categoryId = attempt.editor.categoryId,
       tags = List.unmodifiable(attempt.editor.tags),
       typingDuration = attempt.editor.typingDuration,
-      openDuration = attempt.editor.openDuration;
+      openDuration = attempt.editor.openDuration,
+      createFields = attempt.editor.composerCreateFields;
 
   @override
   final _ComposerAttempt attempt;
@@ -37,6 +38,7 @@ final class _SentComposerSubmission implements ComposerSubmission {
   final List<TopicTag> tags;
   final Duration typingDuration;
   final Duration openDuration;
+  final Map<String, Object?> createFields;
   late final ReplySendBoundary? replyBoundary;
 
   /// The newest reviewable id in the reader's queue before a new topic was
@@ -222,7 +224,19 @@ final class _ComposerSubmissionOwner {
     await shell._composerDrafts.finishRetiredSaves(editor);
     if (!_editorCurrent(attempt)) return _SubmissionInactive(attempt);
 
-    final sent = _SentComposerSubmission(attempt);
+    final _SentComposerSubmission sent;
+    try {
+      sent = _SentComposerSubmission(attempt);
+    } catch (_) {
+      return _refuse(
+        attempt,
+        WriteException(
+          WriteFailure.validation,
+          errors: [appL10n.couldnTPrepareThisPostNothingWasPosted],
+          notSent: true,
+        ),
+      );
+    }
     final credential = await shell._credentialForWrite(
       target.siteUrl,
       lease: attempt.lease,
@@ -262,6 +276,7 @@ final class _ComposerSubmissionOwner {
               composerOpenDuration: sent.openDuration,
               targetRecipients: target.targetRecipients,
               draftKey: target.draftKey,
+              extraFields: sent.createFields,
             ),
           ReplyComposerTarget() => shell.api.composerPersistence.createPost(
             siteUrl: target.siteUrl,

@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/draft_coordinator.dart';
 import 'package:discourse_native/src/shell/composer/existing_topic_opening_owner.dart';
@@ -62,6 +63,35 @@ void main() {
       h.owner.reuseReply(plan);
       expect(first.target.replyToPostNumber, 2);
       expect(first.target.replyingToWhisper, isTrue);
+    },
+  );
+
+  test(
+    'topic reply policy removes reply parents for replies and quoted answers',
+    () {
+      final h = _Harness();
+      addTearDown(h.dispose);
+      const key = PluginDataKey<_TopicReplies>(
+        owner: 'reply-fixture',
+        name: 'topic',
+      );
+      final data = PluginData.none.withValue(key, const _TopicReplies());
+      final origin = h.origin(plugins: data);
+      final reply = h.owner.prepareReply(
+        origin,
+        replyToPostNumber: 2,
+        replyToUsername: 'sam',
+        replyingToWhisper: true,
+      )!;
+      expect(reply.target.replyToPostNumber, isNull);
+      expect(reply.target.replyToUsername, isNull);
+      expect(reply.target.replyingToWhisper, isFalse);
+      final existing = h.reply(replyToPostNumber: 3);
+      final quote = h.owner.prepareQuote(origin, _post, _quote)!;
+      final reuse = quote.reply! as ReuseReplyOpeningPlan;
+      h.owner.reuseReply(reuse);
+      expect(reuse.composer, same(existing));
+      expect(existing.target.replyToPostNumber, isNull);
     },
   );
 
@@ -497,6 +527,7 @@ final class _Harness
   ExistingTopicOpeningOrigin origin({
     bool canReply = true,
     bool canEditTopic = true,
+    PluginData plugins = PluginData.none,
   }) => ExistingTopicOpeningOrigin(
     siteUrl: _site,
     lease: lifecycle.capture(_site),
@@ -510,6 +541,7 @@ final class _Harness
       stream: const [9],
       canEdit: canEditTopic,
       categoryId: 5,
+      plugins: plugins,
       privateMessage: true,
       tags: const [TopicTag(name: 'bug')],
     ),
@@ -569,4 +601,10 @@ final class _OpeningCredentials extends FakeAuthenticator {
     await readGate?.future;
     return super.apiKeyFor(siteUrl);
   }
+}
+
+final class _TopicReplies implements TopicReplyPolicyRecord {
+  const _TopicReplies();
+  @override
+  bool get repliesToTopic => true;
 }

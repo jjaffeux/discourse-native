@@ -20,6 +20,7 @@ import '../shell/composer/controller.dart';
 import '../shell/global_search_models.dart';
 import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
+import 'composer_metadata.dart';
 import 'composer_syntax.dart';
 import 'notification_counters.dart';
 import 'notification_feed_host.dart';
@@ -30,6 +31,7 @@ import 'plugin_icon_catalog.dart';
 export 'background_retention.dart';
 export 'composer_component.dart';
 export 'composer_footer_layout.dart';
+export 'composer_metadata.dart';
 export 'composer_syntax.dart';
 export 'emoji_usage.dart';
 export 'hashtag_kind.dart';
@@ -115,6 +117,15 @@ abstract interface class TopicRecordPlugin<T extends Object>
   /// A topic list row and a full topic response can carry different subsets of
   /// one feature's state, so the plugin owns their interpretation.
   T? readTopic(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  });
+}
+
+abstract interface class CategoryRecordPlugin<T extends Object>
+    implements PluginRecord<T> {
+  T? readCategory(
     Map<String, dynamic> json,
     String siteUrl, {
     TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
@@ -632,6 +643,20 @@ abstract interface class ComposerFooterPlugin {
   List<Widget> composerFooter(BuildContext context, ComposerEditorHost editor);
 }
 
+abstract interface class ComposerMetadataPlugin<T extends Object>
+    implements PluginRecord<T> {
+  PluginDataPersistenceCodec<T> get composerMetadataCodec;
+  Set<String> get createWireFields;
+  T initialMetadata(PluginComposerContext context);
+  T reconcileMetadata(
+    PluginComposerContext before,
+    PluginComposerContext after,
+    T held,
+  );
+  Map<String, Object?> createPayload(PluginComposerContext context, T held);
+  PluginComposerLabels? labels(PluginComposerContext context, T held);
+}
+
 /// Resolves one exact, namespaced plugin composer target.
 ///
 /// A capability claims a key rather than answering a predicate. This makes a
@@ -1051,6 +1076,8 @@ class PostMenuContribution {
   const PostMenuContribution({
     this.entries = const [],
     this.replacesLike = false,
+    this.replacesReply = false,
+    this.suppressesReactions = false,
     this.rebuildOn,
     this.quickReaction,
   });
@@ -1061,6 +1088,10 @@ class PostMenuContribution {
 
   /// A feature which replaces Like semantics must suppress the core write path.
   final bool replacesLike;
+
+  final bool replacesReply;
+
+  final bool suppressesReactions;
 
   /// Adds the site's primary reaction without opening a picker.
   final Future<String?> Function()? quickReaction;

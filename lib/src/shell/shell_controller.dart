@@ -6078,6 +6078,8 @@ class ShellController extends FrameSafeNotifier
     final draftSession = persistsDraft
         ? _composerDrafts.openSession(target)
         : null;
+    late final ComposerController composer;
+    var composerBuilt = false;
     ComposerPluginState readPluginState() {
       final currentUser = currentUserFor(target.siteUrl);
       final freshCurrentUser = freshCurrentUserFor(target.siteUrl);
@@ -6104,11 +6106,22 @@ class ShellController extends FrameSafeNotifier
         freshCurrentUserIsStaff: freshCurrentUser?.staff == true,
         createsTopic: target.createsTopic,
         editingPostNumber: editingPostNumber ?? editingPost?.postNumber,
+        categoryData:
+            categoryFor(
+              composerBuilt ? composer.categoryId : target.initialCategoryId,
+              siteUrl: target.siteUrl,
+            )?.plugins ??
+            PluginData.none,
+        topicData: target is ExistingTopicComposerTarget
+            ? store
+                      .read<TopicDetail>(target.siteUrl, target.topicId)
+                      ?.plugins ??
+                  PluginData.none
+            : PluginData.none,
       );
     }
 
     final initialPluginState = readPluginState();
-    late final ComposerController composer;
     composer = ComposerController(
       target,
       editReason: editReason,
@@ -6145,6 +6158,7 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       pluginStateReader: readPluginState,
+      metadataBindings: plugins.registry.composerMetadataBindings,
       // Plugin surfaces own and dispose their composers; only topic composers
       // are registered in the shell's per-tab map.
       isCurrentComposer: () =>
@@ -6188,6 +6202,7 @@ class ShellController extends FrameSafeNotifier
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
     );
+    composerBuilt = true;
     if (draftSession != null) _composerDrafts.attach(draftSession, composer);
     return composer;
   }

@@ -5,7 +5,9 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'composer_metadata.dart';
 import 'plugin_data.dart';
+import 'plugin_scope.dart';
 
 @immutable
 final class ComposerSyntaxKind {
@@ -48,6 +50,8 @@ final class ComposerPluginState {
     this.freshCurrentUserIsStaff = false,
     this.createsTopic = false,
     this.editingPostNumber,
+    this.categoryData = PluginData.none,
+    this.topicData = PluginData.none,
   });
 
   final PluginData siteSettings;
@@ -58,6 +62,8 @@ final class ComposerPluginState {
   final bool freshCurrentUserIsStaff;
   final bool createsTopic;
   final int? editingPostNumber;
+  final PluginData categoryData;
+  final PluginData topicData;
 }
 
 typedef ComposerPluginStateReader = ComposerPluginState Function();
@@ -284,4 +290,31 @@ abstract interface class ComposerShortcutPlugin {
     BuildContext context,
     ComposerEditorHost editor,
   );
+}
+
+extension ComposerMetadataEditor on ComposerEditorHost {
+  PluginComposerContext get metadataContext =>
+      this is ComposerMetadataEditorHost
+      ? (this as ComposerMetadataEditorHost).metadataContext
+      : PluginComposerContext(
+          siteUrl: siteUrl,
+          createsTopic: isNewTopic,
+          isEdit: isEdit,
+          isPrivateMessage: isPrivateMessage,
+        );
+
+  T? metadata<T extends Object>(BuildContext context, PluginDataKey<T> key) =>
+      PluginUiScope.maybeOwnerOf(context)?.value == key.owner &&
+          this is ComposerMetadataEditorHost
+      ? (this as ComposerMetadataEditorHost).metadata(key)
+      : null;
+
+  bool updateMetadata<T extends Object>(
+    BuildContext context,
+    PluginDataKey<T> key,
+    T value,
+  ) =>
+      PluginUiScope.maybeOwnerOf(context)?.value == key.owner &&
+      this is ComposerMetadataEditorHost &&
+      (this as ComposerMetadataEditorHost).updateMetadata(key, value);
 }

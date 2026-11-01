@@ -512,6 +512,9 @@ final class DiscourseSiteApi {
             entry.key == uncategorizedId
                 ? {...entry.value, 'is_uncategorized': true}
                 : entry.value,
+            siteUrl: siteUrl,
+            extensions: _models.extensions,
+            context: const TopicRecordDecodeContext.detail(),
           ),
       ],
       rootCategoryIds: rootCategoryIds,
@@ -597,7 +600,11 @@ final class DiscourseSiteApi {
     );
     return List.unmodifiable([
       for (final category in jsonObjects(body['categories']))
-        TopicCategory.fromJson(category),
+        TopicCategory.fromJson(
+          category,
+          siteUrl: siteUrl,
+          extensions: _models.extensions,
+        ),
     ]);
   }
 
@@ -631,7 +638,11 @@ final class DiscourseSiteApi {
       ...jsonObjects(body['categories']),
       if (includeAncestors) ...jsonObjects(body['ancestors']),
     ]) {
-      final parsed = TopicCategory.fromJson(category);
+      final parsed = TopicCategory.fromJson(
+        category,
+        siteUrl: siteUrl,
+        extensions: _models.extensions,
+      );
       byId.putIfAbsent(parsed.id, () => parsed);
     }
     return List.unmodifiable(byId.values);

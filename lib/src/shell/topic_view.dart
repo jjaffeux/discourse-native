@@ -540,6 +540,15 @@ class _TopicViewState extends State<TopicView>
             true) {
       return false;
     }
+    final tab = ForumTabScope.tabOf(context);
+    final menu = controller.plugins.registry.postMenu(
+      context,
+      siteUrl,
+      post,
+      topic: tab.currentTopic,
+      currentUser: controller.currentUserFor(siteUrl),
+    );
+    if (menu.replacesReply) return false;
     ForumTabScope.tabOf(context).openReply(
       replyToPostNumber: post.postNumber,
       replyToUsername: post.username,

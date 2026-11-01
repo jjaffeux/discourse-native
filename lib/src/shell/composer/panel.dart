@@ -194,6 +194,8 @@ class ComposerPanel extends StatelessWidget {
             composer.loadingBody;
         final submitLabel = switch (composer) {
           _ when composer.canRecheck => context.l10n.checkAgain,
+          _ when composer.pluginLabels?.submit != null =>
+            composer.pluginLabels!.submit!,
           _ when target.isEdit => context.l10n.save,
           _ when target.isPrivateMessage => context.l10n.sendMessage,
           _ when target.isNewTopic => context.l10n.createTopic,

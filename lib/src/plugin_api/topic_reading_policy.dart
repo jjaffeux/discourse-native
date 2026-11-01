@@ -102,3 +102,35 @@ final class ActivityTopicReadingPolicy extends TopicReadingPolicy {
   @override
   int get hashCode => Object.hash(runtimeType, activity);
 }
+
+/// Ranked readers retain server unread counts without positional inference.
+final class NonchronologicalTopicReadingPolicy extends TopicReadingPolicy {
+  const NonchronologicalTopicReadingPolicy({this.serverReadState});
+
+  final bool? serverReadState;
+
+  @override
+  bool get allowsChronologicalResume => false;
+  @override
+  bool get usesPositionForCatchUp => false;
+  @override
+  bool get showsUnreadBoundary => false;
+  @override
+  bool get showsActivityDot => false;
+  @override
+  bool? get explicitReadState => serverReadState;
+  @override
+  bool showUnreadCount(int unreadCount) => unreadCount > 0;
+  @override
+  bool showNewTopicDot(bool seen) => !seen;
+  @override
+  bool hasUnseenActivity({required bool seen, required int unreadCount}) =>
+      !seen || unreadCount > 0 || serverReadState == false;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NonchronologicalTopicReadingPolicy &&
+      other.serverReadState == serverReadState;
+  @override
+  int get hashCode => Object.hash(runtimeType, serverReadState);
+}

@@ -81,6 +81,17 @@ final class DiscourseModelCodec {
     pluginValues: extensions.readUserPreferences(json, fallback),
   );
 
+  TopicCategory category(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => TopicCategory.fromJson(
+    json,
+    siteUrl: siteUrl,
+    extensions: extensions,
+    context: context,
+  );
+
   Post post(Map<String, dynamic> json, String siteUrl) =>
       Post.fromJson(json, siteUrl, extensions: extensions);
 

@@ -113,6 +113,11 @@ final class ExistingTopicComposerOpeningOwner {
     if (_disposed || !origin.isCurrent || !origin.canReply || topicId == null) {
       return null;
     }
+    if (origin.topic?.plugins.repliesToTopic == true) {
+      replyToPostNumber = null;
+      replyToUsername = null;
+      replyingToWhisper = false;
+    }
     final target = ReplyComposerTarget(
       siteUrl: origin.siteUrl,
       tabId: origin.tabId,
@@ -195,7 +200,8 @@ final class ExistingTopicComposerOpeningOwner {
       return null;
     }
     final composer = _editors.selectedComposer;
-    if (_isReplyFor(composer, origin)) {
+    if (_isReplyFor(composer, origin) &&
+        origin.topic?.plugins.repliesToTopic != true) {
       return QuoteOpeningPlan._(origin, composer, null);
     }
     final reply = prepareReply(

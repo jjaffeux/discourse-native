@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../plugin_api/preserved_json.dart';
 import 'json.dart';
 import 'topic_tag.dart';
 
@@ -19,6 +20,7 @@ class ComposerDraft {
     this.replyToUsername,
     this.whisper = false,
     this.editReason,
+    this.pluginMetadata = const {},
     this.typingTime = Duration.zero,
     this.composerTime = Duration.zero,
   });
@@ -54,6 +56,7 @@ class ComposerDraft {
     },
     whisper: json['whisper'] == true,
     editReason: jsonText(json['edit_reason']),
+    pluginMetadata: Map.unmodifiable(preserveJsonNamespaces(json['plugins'])),
     typingTime: Duration(milliseconds: jsonInt(json['typingTime'])),
     composerTime: Duration(milliseconds: jsonInt(json['composerTime'])),
   );
@@ -111,6 +114,7 @@ class ComposerDraft {
   final String? replyToUsername;
   final bool whisper;
   final String? editReason;
+  final Map<String, Object?> pluginMetadata;
 
   final Duration typingTime;
 
@@ -132,6 +136,8 @@ class ComposerDraft {
         : {'username': replyToUsername},
     'whisper': whisper,
     'edit_reason': ?editReason,
+    if (pluginMetadata.isNotEmpty)
+      'plugins': preserveJsonNamespaces(pluginMetadata),
     'typingTime': typingTime.inMilliseconds,
     'composerTime': composerTime.inMilliseconds,
   };
@@ -161,6 +167,7 @@ class ComposerDraft {
           other.replyToUsername == replyToUsername &&
           other.whisper == whisper &&
           other.editReason == editReason &&
+          deepJsonEquals(other.pluginMetadata, pluginMetadata) &&
           other.typingTime == typingTime &&
           other.composerTime == composerTime;
 
@@ -177,6 +184,7 @@ class ComposerDraft {
     replyToUsername,
     whisper,
     editReason,
+    deepJsonHash(pluginMetadata),
     typingTime,
     composerTime,
   );

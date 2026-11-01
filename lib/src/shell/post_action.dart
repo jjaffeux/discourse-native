@@ -7,6 +7,8 @@ enum PostActionGroup { share, change, report, staff }
 
 enum PostActionPlacement { toolbar, overflow, trailing }
 
+enum PostActionRole { ordinary, reaction }
+
 @immutable
 class PostAction {
   const PostAction({
@@ -17,6 +19,7 @@ class PostAction {
     this.onInvokeAnchored,
     this.enabled = true,
     this.group = PostActionGroup.change,
+    this.role = PostActionRole.ordinary,
     this.destructive = false,
     this.tint,
     this.emojiUrl,
@@ -36,6 +39,7 @@ class PostAction {
   final bool enabled;
 
   final PostActionGroup group;
+  final PostActionRole role;
 
   final bool destructive;
 

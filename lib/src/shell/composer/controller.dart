@@ -17,9 +17,11 @@ import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../models/site_emoji.dart';
 import '../../models/topic_tag.dart';
+import '../../plugin_api/composer_metadata.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/hashtag_kind.dart';
 import '../../plugin_api/plugin_data.dart';
+import '../../plugin_api/preserved_json.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
 import 'components/core.dart';
@@ -152,7 +154,8 @@ final class _ComposerUnresolved extends _ComposerSentState {
   const _ComposerUnresolved(super.sent);
 }
 
-class ComposerController extends ChangeNotifier implements ComposerEditorHost {
+class ComposerController extends ChangeNotifier
+    implements ComposerEditorHost, ComposerMetadataEditorHost {
   ComposerController(
     this._target, {
     this.onSaveDraft,
@@ -167,6 +170,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     ComposerQuoteContentsFormatter? formatQuoteContents,
     List<ComposerSyntaxPolicy> syntaxPolicies = const [],
     this.pluginStateReader,
+    this.metadataBindings = const [],
     this.isCurrentComposer,
     this.imageUploader,
     this.prepareUpload,
@@ -340,6 +344,141 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   }) => text.updateMarkdownLinkify(enabled: enabled, tlds: tlds);
 
   final ComposerPluginStateReader? pluginStateReader;
+  final List<ComposerMetadataBinding> metadataBindings;
+  PluginData _pluginMetadata = PluginData.none;
+  Map<String, Object?> _restoredPluginMetadata = const {};
+  final Map<String, PluginComposerContext> _metadataContexts = {};
+  bool _pluginMetadataEdited = false;
+  Map<String, Object?> _initialPluginMetadata = const {};
+
+  @override
+  PluginComposerContext get metadataContext {
+    final state = pluginStateReader?.call() ?? const ComposerPluginState();
+    return PluginComposerContext(
+      siteUrl: siteUrl,
+      createsTopic: isNewTopic,
+      isEdit: isEdit,
+      isPrivateMessage: isPrivateMessage,
+      categoryId: categoryId,
+      categoryData: state.categoryData,
+      topicData: state.topicData,
+      siteSettings: state.siteSettings,
+      currentUserData: state.currentUser,
+    );
+  }
+
+  void _refreshMetadata() {
+    final context = metadataContext;
+    for (final binding in metadataBindings) {
+      final key = binding.codec.key;
+      final before = _metadataContexts[key.id];
+      final held = _pluginMetadata.get(key);
+      Object next;
+      if (before == null || held == null) {
+        final stored = _restoredPluginMetadata[key.id];
+        next = binding.codec.decode(stored) ?? binding.initialMetadata(context);
+        // Restored category rules are authoritative for the current context.
+        next = binding.reconcileMetadata(context, context, next);
+        _initialPluginMetadata = {
+          ..._restoredPluginMetadata,
+          ..._initialPluginMetadata,
+          key.id: binding.codec.encode(next),
+        };
+      } else {
+        next = binding.reconcileMetadata(before, context, held);
+      }
+      _pluginMetadata = _pluginMetadata.withValueFor(key, next);
+      _metadataContexts[key.id] = context;
+    }
+  }
+
+  @override
+  T? metadata<T extends Object>(PluginDataKey<T> key) {
+    _refreshMetadata();
+    if (!metadataBindings.any((binding) => binding.codec.key == key)) {
+      return null;
+    }
+    return _pluginMetadata.get(key);
+  }
+
+  @override
+  bool updateMetadata<T extends Object>(PluginDataKey<T> key, T value) {
+    if (!isCurrent || !isEditing) return false;
+    _refreshMetadata();
+    final binding = metadataBindings
+        .where((entry) => entry.codec.key == key)
+        .firstOrNull;
+    if (binding == null) return false;
+    final copied = freezeJson(binding.codec.encode(value));
+    if (!copied.valid) return false;
+    final next = binding.codec.decode(copied.value);
+    if (next == null) return false;
+    _pluginMetadata = _pluginMetadata.withValueFor(
+      binding.codec.key,
+      binding.reconcileMetadata(metadataContext, metadataContext, next),
+    );
+    _pluginMetadataEdited = true;
+    _onMetadataChanged();
+    return true;
+  }
+
+  Map<String, Object?> get storedPluginMetadata {
+    _refreshMetadata();
+    return Map.unmodifiable({
+      ..._restoredPluginMetadata,
+      for (final binding in metadataBindings)
+        if (_pluginMetadata.get(binding.codec.key) case final value?)
+          binding.codec.key.id: freezeJson(binding.codec.encode(value)).value,
+    });
+  }
+
+  Map<String, Object?> get composerCreateFields {
+    if (!isNewTopic || isPrivateMessage || isEdit) return const {};
+    _refreshMetadata();
+    final context = metadataContext;
+    final result = <String, Object?>{};
+    for (final binding in metadataBindings) {
+      final held = _pluginMetadata.get(binding.codec.key);
+      if (held == null) continue;
+      final fields = freezeComposerCreateFields(
+        binding.createPayload(context, held),
+        allowed: binding.createWireFields,
+      );
+      for (final entry in fields.entries) {
+        if (result.containsKey(entry.key)) {
+          throw StateError('Duplicate composer field ${entry.key}');
+        }
+        result[entry.key] = entry.value;
+      }
+    }
+    return freezeComposerCreateFields(result);
+  }
+
+  PluginComposerLabels? get pluginLabels {
+    _refreshMetadata();
+    String? title;
+    String? submit;
+    final context = metadataContext;
+    for (final binding in metadataBindings) {
+      final held = _pluginMetadata.get(binding.codec.key);
+      if (held == null) continue;
+      final labels = binding.labels(context, held);
+      if (labels?.title case final value?) {
+        if (title != null) throw StateError('Multiple composer title owners');
+        title = value;
+      }
+      if (labels?.submit case final value?) {
+        if (submit != null) {
+          throw StateError('Multiple composer submit label owners');
+        }
+        submit = value;
+      }
+    }
+    return title == null && submit == null
+        ? null
+        : PluginComposerLabels(title: title, submit: submit);
+  }
+
   final bool Function()? isCurrentComposer;
 
   final MarkdownEditingController text;
@@ -429,6 +568,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
   /// whether Discard needs confirmation. An applied category template is the
   /// body's baseline, as core makes it the composer's original text.
   bool get hasChanges =>
+      (_pluginMetadataEdited &&
+          !deepJsonEquals(storedPluginMetadata, _initialPluginMetadata)) ||
       text.text.trim() !=
           (_originalRaw ?? _appliedTopicTemplate ?? '').trim() ||
       (_target.isPrivateMessage &&
@@ -456,7 +597,8 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
         current.recipients != saved.recipients ||
         current.replyToPostNumber != saved.replyToPostNumber ||
         current.replyToUsername != saved.replyToUsername ||
-        current.whisper != saved.whisper;
+        current.whisper != saved.whisper ||
+        !deepJsonEquals(current.pluginMetadata, saved.pluginMetadata);
   }
 
   void captureDraftSavepoint() {
@@ -534,6 +676,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     autocomplete.close();
     _target = target;
+    _restoredPluginMetadata = saved.pluginMetadata;
+    _initialPluginMetadata = const {};
+    _metadataContexts.clear();
+    _pluginMetadata = PluginData.none;
+    _pluginMetadataEdited = false;
     _whisper = saved.whisper;
     _replacingDocument = true;
     try {
@@ -1906,6 +2053,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     replyToUsername: _target.replyToUsername,
     whisper: _whisper,
     editReason: _target.isEdit ? _editReason : null,
+    pluginMetadata: storedPluginMetadata,
     typingTime: typingDuration,
     composerTime: openDuration,
   );
@@ -1916,6 +2064,11 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
     }
     if (!canRestoreDraft(draft)) return false;
     _restoredDraft = true;
+    _restoredPluginMetadata = draft.pluginMetadata;
+    _initialPluginMetadata = const {};
+    _pluginMetadataEdited = false;
+    _metadataContexts.clear();
+    _pluginMetadata = PluginData.none;
     if (_target.isEdit) _editReason = draft.editReason ?? _editReason;
     final target = _target;
     final recipients = draft.recipients;

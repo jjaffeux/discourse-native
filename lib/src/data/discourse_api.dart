@@ -42,7 +42,9 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
+import '../plugin_api/composer_metadata.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import '../plugin_api/topic_reading_policy.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
@@ -1174,6 +1176,7 @@ class DiscourseApi
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
+    Map<String, Object?> extraFields = const {},
   }) async => _composer.createTopic(
     siteUrl: siteUrl,
     apiKey: apiKey,
@@ -1186,6 +1189,7 @@ class DiscourseApi
     targetRecipients: targetRecipients,
     draftKey: draftKey,
     clientId: clientId,
+    extraFields: extraFields,
   );
 
   @override

@@ -223,6 +223,7 @@ final class TopicReadController {
     // never starts one. Reaching the row's highest post without catching up
     // means the row is behind the stream: it keeps its count until a list
     // update says how many posts follow.
+    if (!row.readingPolicy.usesPositionForCatchUp) return row;
     final remaining = row.highestPostNumber - position;
     final updated = row.copyWith(
       lastReadPostNumber: position,

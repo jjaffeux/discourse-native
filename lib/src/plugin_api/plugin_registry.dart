@@ -62,7 +62,11 @@ TopicRecommendationSourceDecoder Function() _topicRecommendationDecoderFactory(
     ]);
 
 final class _TopicRecordDecoderPlugin
-    implements SitePlugin, PostRecordPlugin<Object>, TopicRecordPlugin<Object> {
+    implements
+        SitePlugin,
+        PostRecordPlugin<Object>,
+        TopicRecordPlugin<Object>,
+        CategoryRecordPlugin<Object> {
   const _TopicRecordDecoderPlugin(this._source, this.record);
 
   final SitePlugin _source;
@@ -77,6 +81,19 @@ final class _TopicRecordDecoderPlugin
   Object? readPost(Map<String, dynamic> json, String siteUrl) =>
       _source is PostRecordPlugin<Object>
       ? (_source as PostRecordPlugin<Object>).readPost(json, siteUrl)
+      : null;
+
+  @override
+  Object? readCategory(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => _source is CategoryRecordPlugin<Object>
+      ? (_source as CategoryRecordPlugin<Object>).readCategory(
+          json,
+          siteUrl,
+          context: context,
+        )
       : null;
 
   @override
@@ -235,7 +252,8 @@ final class PluginRegistry
     final recipes = <_TopicRecordDecoderRecipe>[];
     for (final plugin in plugins) {
       if (plugin is! PostRecordPlugin<Object> &&
-          plugin is! TopicRecordPlugin<Object>) {
+          plugin is! TopicRecordPlugin<Object> &&
+          plugin is! CategoryRecordPlugin<Object>) {
         continue;
       }
       if (plugin is! IsolateTopicDecoderPlugin) return null;
@@ -948,6 +966,7 @@ final class PluginRegistry
       }
     }
 
+    composerMetadataBindings;
     final owners = <PluginDataKey<Object>, String>{};
     for (final plugin in plugins) {
       if (plugin is PluginRecord<Object>) {
@@ -1306,6 +1325,63 @@ final class PluginRegistry
       final value = plugin.readGroup(json, siteUrl);
       if (value != null) {
         values = values.withValueFor(_groupRecordKeyFor(plugin), value);
+      }
+    }
+    return values;
+  }
+
+  List<ComposerMetadataBinding> get composerMetadataBindings {
+    final fields = <String>{...composerCoreCreateFields};
+    final keys = <PluginDataKey<Object>>{};
+    return List.unmodifiable([
+      for (final plugin in plugins.whereType<ComposerMetadataPlugin<Object>>())
+        _composerMetadataBinding(plugin, fields, keys),
+    ]);
+  }
+
+  ComposerMetadataBinding _composerMetadataBinding(
+    ComposerMetadataPlugin<Object> plugin,
+    Set<String> fields,
+    Set<PluginDataKey<Object>> keys,
+  ) {
+    final captured = _installed?.composerMetadataBindings[plugin];
+    final codec = captured?.codec ?? plugin.composerMetadataCodec;
+    final key = _recordKeyFor(plugin);
+    _validateCodecOwner(codec, _ownerOf(plugin));
+    if (codec.key != key || !keys.add(key)) {
+      throw ArgumentError('Invalid composer metadata key ${key.id}');
+    }
+    final owned =
+        captured?.createWireFields ??
+        Set<String>.unmodifiable(plugin.createWireFields);
+    freezeComposerCreateFields({for (final field in owned) field: null});
+    for (final field in owned) {
+      if (!fields.add(field)) {
+        throw ArgumentError('Duplicate composer field $field');
+      }
+    }
+    return captured ??
+        ComposerMetadataBinding(
+          codec: codec,
+          createWireFields: owned,
+          initialMetadata: plugin.initialMetadata,
+          reconcileMetadata: plugin.reconcileMetadata,
+          createPayload: plugin.createPayload,
+          labels: plugin.labels,
+        );
+  }
+
+  @override
+  PluginData readCategory(
+    Map<String, dynamic> json,
+    String siteUrl, {
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) {
+    var values = PluginData.preserveNamespaces(json['plugins']);
+    for (final plugin in plugins.whereType<CategoryRecordPlugin<Object>>()) {
+      final value = plugin.readCategory(json, siteUrl, context: context);
+      if (value != null) {
+        values = values.withValueFor(_recordKeyFor(plugin), value);
       }
     }
     return values;
@@ -1855,6 +1931,8 @@ final class PluginRegistry
     final entries = <PostAction>[];
     final rebuildListenables = <Listenable>[];
     var replacesLike = false;
+    var replacesReply = false;
+    var suppressesReactions = false;
     Future<String?> Function()? quickReaction;
     for (final plugin in plugins.whereType<PostMenuPlugin>()) {
       final contribution = plugin.postMenu(
@@ -1868,6 +1946,8 @@ final class PluginRegistry
       );
       entries.addAll(contribution.entries);
       replacesLike |= contribution.replacesLike;
+      replacesReply |= contribution.replacesReply;
+      suppressesReactions |= contribution.suppressesReactions;
       quickReaction ??= contribution.quickReaction;
       if (contribution.rebuildOn case final listenable?) {
         rebuildListenables.add(listenable);
@@ -1875,14 +1955,22 @@ final class PluginRegistry
     }
     if (entries.isEmpty &&
         !replacesLike &&
+        !replacesReply &&
+        !suppressesReactions &&
         rebuildListenables.isEmpty &&
         quickReaction == null) {
       return PostMenuContribution.none;
     }
     return PostMenuContribution(
-      entries: entries,
-      replacesLike: replacesLike,
-      quickReaction: quickReaction,
+      entries: suppressesReactions
+          ? entries
+                .where((action) => action.role != PostActionRole.reaction)
+                .toList(growable: false)
+          : entries,
+      replacesLike: replacesLike || suppressesReactions,
+      replacesReply: replacesReply,
+      suppressesReactions: suppressesReactions,
+      quickReaction: suppressesReactions ? null : quickReaction,
       rebuildOn: switch (rebuildListenables) {
         [] => null,
         [final listenable] => listenable,
@@ -2722,6 +2810,21 @@ final class _InstalledDeclarations {
             plugins,
             (plugin) => _InstalledPersistenceCodec(plugin.currentUserCodec),
           ),
+      composerMetadataBindings =
+          _captureDeclarations<
+            ComposerMetadataPlugin<Object>,
+            ComposerMetadataBinding
+          >(
+            plugins,
+            (plugin) => ComposerMetadataBinding(
+              codec: _InstalledPersistenceCodec(plugin.composerMetadataCodec),
+              createWireFields: plugin.createWireFields,
+              initialMetadata: plugin.initialMetadata,
+              reconcileMetadata: plugin.reconcileMetadata,
+              createPayload: plugin.createPayload,
+              labels: plugin.labels,
+            ),
+          ),
       targetKinds =
           _captureDeclarations<ComposerTargetPlugin, ComposerTargetKind>(
             plugins,
@@ -2821,6 +2924,8 @@ final class _InstalledDeclarations {
   siteSettingsCodecs;
   final Map<CurrentUserPlugin<Object>, PluginDataPersistenceCodec<Object>>
   currentUserCodecs;
+  final Map<ComposerMetadataPlugin<Object>, ComposerMetadataBinding>
+  composerMetadataBindings;
   final Map<ComposerTargetPlugin, ComposerTargetKind> targetKinds;
   final Map<ComposerSyntaxPlugin, ComposerSyntaxKind> syntaxKinds;
   final Map<ComposerComponentPlugin, ComposerSyntaxKind> componentKinds;

@@ -406,7 +406,7 @@ class _PostActionsState extends State<PostActions> {
               if (reply != null) unawaited(reply());
             },
           ),
-        if (tab.canReplyHere)
+        if (tab.canReplyHere && !contribution.replacesReply)
           PostAction(
             icon: DIcons.reply,
             placement: PostActionPlacement.trailing,

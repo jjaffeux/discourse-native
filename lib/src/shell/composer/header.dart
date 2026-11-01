@@ -79,19 +79,20 @@ class ComposerHeader extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final target = composer.target;
-    final modeLabel = switch (target) {
-      NewTopicComposerTarget() => context.l10n.newTopic,
-      PrivateMessageComposerTarget() => context.l10n.newMessage,
-      CategoryEditComposerTarget() => context.l10n.editCategory,
-      TagsEditComposerTarget() => context.l10n.editTags,
-      TopicEditComposerTarget() => context.l10n.editTopic,
-      PostEditComposerTarget(:final editingPostNumber) => context.l10n.editPost(
-        editingPostNumber.toString(),
-      ),
-      PluginComposerTarget() => target.topicTitle,
-      ReplyComposerTarget() =>
-        composer.whisper ? context.l10n.whisper : context.l10n.reply,
-    };
+    final modeLabel =
+        composer.pluginLabels?.title ??
+        switch (target) {
+          NewTopicComposerTarget() => context.l10n.newTopic,
+          PrivateMessageComposerTarget() => context.l10n.newMessage,
+          CategoryEditComposerTarget() => context.l10n.editCategory,
+          TagsEditComposerTarget() => context.l10n.editTags,
+          TopicEditComposerTarget() => context.l10n.editTopic,
+          PostEditComposerTarget(:final editingPostNumber) =>
+            context.l10n.editPost(editingPostNumber.toString()),
+          PluginComposerTarget() => target.topicTitle,
+          ReplyComposerTarget() =>
+            composer.whisper ? context.l10n.whisper : context.l10n.reply,
+        };
     final destination = target.createsTopic
         ? composer.title.text
         : target.topicTitle;

@@ -174,6 +174,7 @@ final class _TopicSiteApi extends FakeDiscourseApi {
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
+    Map<String, Object?> extraFields = const {},
   }) async {
     topicCreates.add(raw);
     if (createLands && queues) {

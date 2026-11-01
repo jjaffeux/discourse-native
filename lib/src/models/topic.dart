@@ -720,7 +720,11 @@ class TopicList {
         for (final value in jsonObjects(
           list['categories'],
         ).take(maximumCategoriesPerPage))
-          TopicCategory.fromJson(value),
+          TopicCategory.fromJson(
+            value,
+            siteUrl: siteUrl,
+            extensions: extensions,
+          ),
       ]),
       moreTopicsUrl: DiscourseInstance.pathAndQueryWithinUrl(
         siteUrl,
@@ -906,6 +910,7 @@ class TopicCategory with Storable<TopicCategory> {
     this.notificationLevel = CategoryNotificationLevel.normal,
     this.featuredTopics = const [],
     this.topicTemplate,
+    this.plugins = PluginData.none,
   }) : _unreported = const {};
 
   const TopicCategory._({
@@ -927,10 +932,17 @@ class TopicCategory with Storable<TopicCategory> {
     required this.notificationLevel,
     required this.featuredTopics,
     required this.topicTemplate,
+    required this.plugins,
     required this._unreported,
   });
 
-  factory TopicCategory.fromJson(Map<String, dynamic> json) => TopicCategory._(
+  factory TopicCategory.fromJson(
+    Map<String, dynamic> json, {
+    String siteUrl = '',
+    PluginDataDecoder extensions = const EmptyPluginDataDecoder(),
+    TopicRecordDecodeContext context = const TopicRecordDecodeContext.partial(),
+  }) => TopicCategory._(
+    plugins: extensions.readCategory(json, siteUrl, context: context),
     id: jsonInt(json['id']),
     name: jsonString(json['name']),
     color: jsonString(json['color'], fallback: '888888'),
@@ -999,6 +1011,7 @@ class TopicCategory with Storable<TopicCategory> {
   /// The body a new topic in this category starts from, or null when it has
   /// none.
   final String? topicTemplate;
+  final PluginData plugins;
 
   /// The details this category's payload left out, which read as their
   /// defaults here. A merge must not mistake them for the site clearing what
@@ -1029,6 +1042,7 @@ class TopicCategory with Storable<TopicCategory> {
         notificationLevel: level,
         featuredTopics: featuredTopics,
         topicTemplate: topicTemplate,
+        plugins: plugins,
         unreported: _unreported.difference(const {
           _CategoryDetail.notificationLevel,
         }),
@@ -1045,9 +1059,7 @@ class TopicCategory with Storable<TopicCategory> {
   /// stay. A payload that reports a detail as empty clears it.
   @override
   TopicCategory merge(TopicCategory incoming) {
-    final merged = incoming._unreported.isEmpty
-        ? incoming
-        : incoming._completedBy(this);
+    final merged = incoming._completedBy(this);
     return this == merged ? this : merged;
   }
 
@@ -1105,6 +1117,7 @@ class TopicCategory with Storable<TopicCategory> {
         topicTemplate,
         held.topicTemplate,
       ),
+      plugins: plugins.mergeCategoryRecordsFrom(held.plugins),
       unreported: _unreported.intersection(held._unreported),
     );
   }
@@ -1130,7 +1143,8 @@ class TopicCategory with Storable<TopicCategory> {
           other.isUncategorized == isUncategorized &&
           other.notificationLevel == notificationLevel &&
           listEquals(other.featuredTopics, featuredTopics) &&
-          other.topicTemplate == topicTemplate;
+          other.topicTemplate == topicTemplate &&
+          other.plugins == plugins;
 
   @override
   int get hashCode => Object.hash(
@@ -1152,6 +1166,7 @@ class TopicCategory with Storable<TopicCategory> {
     notificationLevel,
     Object.hashAll(featuredTopics),
     topicTemplate,
+    plugins,
   );
 }
 

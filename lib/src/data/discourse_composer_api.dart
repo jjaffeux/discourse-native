@@ -105,11 +105,18 @@ final class DiscourseComposerApi {
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
+    Map<String, Object?> extraFields = const {},
   }) async {
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
     final recipients = targetRecipients == null
         ? null
         : _normalizePrivateMessageRecipients(targetRecipients);
+    final additions = freezeComposerCreateFields(extraFields);
+    if (recipients != null && additions.isNotEmpty) {
+      throw ArgumentError(
+        'Private messages cannot carry topic creation extensions',
+      );
+    }
     final body = await _write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
@@ -117,6 +124,7 @@ final class DiscourseComposerApi {
       apiKey: apiKey,
       clientId: clientId,
       body: {
+        ...additions,
         'title': title,
         'raw': raw,
         'category': categoryId,

@@ -107,6 +107,7 @@ export 'src/plugin_api/background_retention.dart';
 export 'src/plugin_api/bookmark_host.dart';
 export 'src/plugin_api/category_settings.dart';
 export 'src/plugin_api/composer_component.dart';
+export 'src/plugin_api/composer_metadata.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/composer_syntax.dart';
@@ -230,7 +231,8 @@ export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
-export 'src/shell/post_action.dart' show PostAction, PostActionPlacement;
+export 'src/shell/post_action.dart'
+    show PostAction, PostActionPlacement, PostActionRole;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;

@@ -2685,6 +2685,7 @@ class FakeDiscourseApi
     String? targetRecipients,
     String draftKey = ComposerDraft.newTopicDraftKey,
     String? clientId,
+    Map<String, Object?> extraFields = const {},
   }) async {
     topicsCreated.add({
       'siteUrl': siteUrl,
@@ -2694,6 +2695,7 @@ class FakeDiscourseApi
       'tags': tags.toList(),
       'targetRecipients': targetRecipients,
       'draftKey': draftKey,
+      if (extraFields.isNotEmpty) 'extraFields': extraFields,
     });
     final failure = writeFailure;
     if (failure != null) throw failure;
