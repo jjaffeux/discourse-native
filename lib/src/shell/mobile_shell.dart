@@ -27,6 +27,7 @@ import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
 import 'mobile_page_title.dart';
 import 'mobile_place_order.dart';
+import 'mobile_presentation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -124,7 +125,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       builder: (context, _) {
         final instance = shell.currentInstance;
         if (instance == null) return const SizedBox.shrink();
-        final route = widget.boundary ? null : shell.currentContent;
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
         final foot = MediaQuery.paddingOf(context).bottom;
@@ -226,30 +226,18 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             !widget.boundary &&
             shell.mobileNavigation.atRoot &&
             panelOwner != null;
-        final pageSheetOpen =
-            !widget.boundary &&
-            !panelRoot &&
-            switch (route) {
-              final route? =>
-                route.isTopic || registry.usesMobilePageSheet(context, route),
-              null => false,
-            };
-        final hideDock =
-            !widget.boundary &&
-            !panelRoot &&
-            switch (route) {
-              final route? => registry.hidesMobileDock(context, route),
-              null => false,
-            };
+        final presentation = MobilePresentation.resolve(
+          context,
+          shell: shell,
+          registry: registry,
+          panelRoot: panelRoot,
+          boundary: widget.boundary,
+        );
+        final route = presentation.route;
+        final pageSheetOpen = presentation.pageSheetOpen;
+        final hideDock = presentation.hideDock;
+        final preservePageChrome = presentation.preservePageChrome;
         final source = shell.topicListContent;
-        // A board covers its source without starting a new scroll-chrome session.
-        final previousRoute =
-            shell.mobileNavigation.previousLocation?.contentStack.last;
-        final preservePageChrome =
-            pageSheetOpen &&
-            hideDock &&
-            (previousRoute?.isTopicList == true ||
-                previousRoute?.isTopic == true);
         final showReply =
             !widget.boundary &&
             !panelRoot &&
@@ -504,72 +492,75 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           builder: frameWithHeader,
           child: page,
         );
-        return MobileHistoryGestures(
-          tab: (id: selected, index: tabOrder.indexOf(selected)),
-          navigationPreview: navigationPage,
-          frameBuilder: frame,
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Offstage(
-                offstage: sidebarOpen,
-                child: TickerMode(
-                  enabled: !sidebarOpen,
-                  child: ExcludeFocus(
-                    excluding: sidebarOpen,
-                    child: Padding(
-                      padding: EdgeInsets.only(
-                        top:
-                            route?.isGlobalSearch == true ||
-                                pageSheetOpen && route?.isTopic == true
-                            ? 0
-                            : 6,
-                      ),
-                      child: ForumMobileSurface(
-                        key: const ValueKey('mobile-content-panel'),
-                        sheet: !pageSheetOpen
-                            ? ForumMobileSheet.none
-                            : route?.isTopic == true
-                            ? ForumMobileSheet.raised
-                            : ForumMobileSheet.page,
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            for (final entry in panels)
-                              Offstage(
-                                offstage:
-                                    !(panelRoot &&
-                                        panelOwner == entry.owner.value),
-                                child: TickerMode(
-                                  enabled:
-                                      panelRoot &&
-                                      panelOwner == entry.owner.value,
-                                  child: ExcludeFocus(
-                                    excluding:
-                                        !(panelRoot &&
-                                            panelOwner == entry.owner.value),
-                                    child: InstanceSidebar(
-                                      key: ValueKey((
-                                        'mobile-panel',
-                                        entry.owner.value,
-                                        owner,
-                                      )),
-                                      mobile: true,
-                                      panelOwner: entry.owner.value,
+        return MobilePresentationScope(
+          presentation: presentation,
+          child: MobileHistoryGestures(
+            tab: (id: selected, index: tabOrder.indexOf(selected)),
+            navigationPreview: navigationPage,
+            frameBuilder: frame,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Offstage(
+                  offstage: sidebarOpen,
+                  child: TickerMode(
+                    enabled: !sidebarOpen,
+                    child: ExcludeFocus(
+                      excluding: sidebarOpen,
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                          top:
+                              route?.isGlobalSearch == true ||
+                                  pageSheetOpen && route?.isTopic == true
+                              ? 0
+                              : 6,
+                        ),
+                        child: ForumMobileSurface(
+                          key: const ValueKey('mobile-content-panel'),
+                          sheet: !pageSheetOpen
+                              ? ForumMobileSheet.none
+                              : route?.isTopic == true
+                              ? ForumMobileSheet.raised
+                              : ForumMobileSheet.page,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              for (final entry in panels)
+                                Offstage(
+                                  offstage:
+                                      !(panelRoot &&
+                                          panelOwner == entry.owner.value),
+                                  child: TickerMode(
+                                    enabled:
+                                        panelRoot &&
+                                        panelOwner == entry.owner.value,
+                                    child: ExcludeFocus(
+                                      excluding:
+                                          !(panelRoot &&
+                                              panelOwner == entry.owner.value),
+                                      child: InstanceSidebar(
+                                        key: ValueKey((
+                                          'mobile-panel',
+                                          entry.owner.value,
+                                          owner,
+                                        )),
+                                        mobile: true,
+                                        panelOwner: entry.owner.value,
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            if (!panelRoot) widget.content,
-                          ],
+                              if (!panelRoot) widget.content,
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
-              ),
-              if (sidebarOpen) navigationPage,
-            ],
+                if (sidebarOpen) navigationPage,
+              ],
+            ),
           ),
         );
       },

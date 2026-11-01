@@ -43,16 +43,28 @@ Search inside a scoped desktop panel uses that panel's document route.
 ## Shared commands and dismissal guards
 
 `ShellController.pushContent()` and `replaceCurrentContent()` publish document navigation.
+Workspace navigation commands require an explicit push or replacement and commit the active mobile visit before notifying views.
+Raw document writes only update persistence and tab normalization.
+Metadata hydration explicitly refreshes the current visit, preserving its identity and Forward history, and cannot reveal a parked document.
+Notifications publish state without inferring navigation or correcting the foreground pane.
+Only explicit journey selection or owner restoration bootstraps visits from a document stack.
+Ordinary navigation records the visits the user actually made.
 `selectMobileDestination()` and `selectMobilePanel()` select tab roots.
 `handleBack()` and `handleForward()` use `MobileNavigation` and restore its selected location.
 Search controls and completed horizontal swipes call these same commands.
 
-[`MobileForumRoot`](../lib/src/shell/mobile_shell.dart) resolves the foreground route once for header, dock, and page presentation.
+[`MobilePresentation`](../lib/src/shell/mobile_presentation.dart) derives the foreground route, per-visit predecessors, retained sources, and sheet/chrome policy from visit history.
+[`MobileForumRoot`](../lib/src/shell/mobile_shell.dart) shares that value with header, dock, and content through one inherited scope.
+The scope changes only when its presentation facts change; unrelated shell notifications do not invalidate retained content.
+The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
+It rebuilds route data through the corresponding `ShellTabContext` instead of keeping earlier permission, account, and busy-state snapshots.
+Retained list lookup stops at a nonsheet page, and every projected route uses its own actual predecessor.
 [`ForumSearch`](../lib/src/shell/forum_search.dart) uses the same foreground route for unscoped search activation and context.
 Plugin route hosts receive foreground content and report visibility independently of the selected tab's plugin owner.
 
-Both mobile sheet paths in [`MainContent`](../lib/src/shell/main_content.dart) capture the visit's `entryId`.
-A completed dismissal calls Back only while that entry remains current.
+Both mobile geometry paths use one private page-sheet wrapper in the content host.
+It captures the visit's `entryId` and calls Back only while that entry remains current.
+Android keeps its stable source viewport and separate reader key; the other path keeps its visit-keyed viewport.
 [`DHistoryTransition`](../lib/src/ui/components/d_history_transition.dart) cancels stale gesture completion when its entry, history, owner, or route changes.
 These guards prevent an old animation from navigating a newer visit.
 

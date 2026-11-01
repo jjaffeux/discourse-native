@@ -1,5 +1,7 @@
 part of 'shell_controller.dart';
 
+enum _MobileVisitCommit { push, replace }
+
 final class _WorkspaceController {
   _WorkspaceController(this._shell);
 
@@ -297,6 +299,27 @@ final class _WorkspaceController {
     );
   }
 
+  void navigateTab(
+    String siteUrl,
+    ForumTab replacement, {
+    required _MobileVisitCommit mobile,
+  }) {
+    consumeHomepage(replacement.id);
+    replaceTab(siteUrl, replacement);
+    if (_shell.currentInstance?.url == siteUrl &&
+        _shell.activeTabId == replacement.id) {
+      _shell._commitMobileDocument(mobile);
+    }
+  }
+
+  void navigateActiveTab(
+    ForumTab replacement, {
+    required _MobileVisitCommit mobile,
+  }) {
+    final siteUrl = _shell.currentInstance?.url;
+    if (siteUrl != null) navigateTab(siteUrl, replacement, mobile: mobile);
+  }
+
   void replaceActiveTab(ForumTab replacement, {bool persist = true}) {
     _pendingHomepageTabs.remove(replacement.id);
     final siteUrl = _shell.currentInstance?.url;
@@ -369,6 +392,7 @@ final class _WorkspaceController {
     _shell._rememberRoute(instance.url, workspace.accountIdentity, route);
     if (activate && _shell.currentInstance?.url == instance.url) {
       _shell._mobilePane = MobilePane.content;
+      _shell._commitMobileDocument(_MobileVisitCommit.push);
       _shell._hydrateActiveTab(instance);
     }
     _shell._syncTopicChannels();
@@ -398,7 +422,11 @@ final class _WorkspaceController {
       final anchors = Map<String, ForumTabAnchor>.of(source.anchors);
       if (resetScrollPosition) anchors.remove(route.id);
       _pendingHomepageTabs.remove(source.id);
-      replaceTab(instance.url, source.copyWith(anchors: anchors).push(route));
+      navigateTab(
+        instance.url,
+        source.copyWith(anchors: anchors).push(route),
+        mobile: _MobileVisitCommit.push,
+      );
       _shell._setForumContentRoot();
       _shell._syncTopicChannels();
       _shell._notify();
@@ -459,6 +487,7 @@ final class _WorkspaceController {
       ),
     );
     _shell._setForumContentRoot();
+    _shell._commitMobileDocument(_MobileVisitCommit.push);
     _shell._syncTopicChannels();
     _shell._notify();
     _shell._hydrateActiveTab(instance);
@@ -520,6 +549,7 @@ final class _WorkspaceController {
       ),
     );
     _shell._mobilePane = MobilePane.content;
+    _shell._commitMobileDocument(_MobileVisitCommit.push);
     _shell._syncTopicChannels();
     _shell._notify();
     switchPanel();
@@ -537,6 +567,7 @@ final class _WorkspaceController {
       workspace.copyWith(tabs: [...workspace.tabs, tab], activeTabId: tab.id),
     );
     _shell._mobilePane = MobilePane.content;
+    _shell._commitMobileDocument(_MobileVisitCommit.push);
     _shell._syncTopicChannels();
     _shell._notify();
     _shell._hydrateActiveTab(instance);
@@ -551,6 +582,7 @@ final class _WorkspaceController {
       put(workspace.copyWith(activeTabId: id), persist: false);
       _tabSelectionPersistencePending = true;
       _shell._mobilePane = MobilePane.content;
+      _shell._commitMobileDocument(_MobileVisitCommit.push);
       _pendingTabSelection = _shell.tabContext(id);
       _shell._notify();
       _scheduleTabSelectionSettlement();
@@ -706,6 +738,9 @@ final class _WorkspaceController {
     }
 
     put(replacement);
+    if (workspace.activeTabId != replacement.activeTabId) {
+      _shell._commitMobileDocument(_MobileVisitCommit.push);
+    }
     if (closedVisible) {
       _shell._syncTopicChannels();
       _shell._hydrateActiveTab(instance);
@@ -733,6 +768,7 @@ final class _WorkspaceController {
       tabs.insert(closed.index.clamp(0, tabs.length), closed.tab);
       put(workspace.copyWith(tabs: tabs, activeTabId: closed.tab.id));
       _shell._mobilePane = MobilePane.content;
+      _shell._commitMobileDocument(_MobileVisitCommit.push);
       _shell._syncTopicChannels();
       _shell._notify();
       _shell._hydrateActiveTab(instance);
@@ -807,6 +843,7 @@ final class _WorkspaceController {
     }
     put(workspace.copyWith(tabs: remaining, activeTabId: id));
     if (activeChanged) {
+      _shell._commitMobileDocument(_MobileVisitCommit.push);
       _shell._syncTopicChannels();
       _shell._hydrateActiveTab(instance);
     }

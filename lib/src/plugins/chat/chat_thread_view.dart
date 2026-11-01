@@ -20,6 +20,7 @@ import 'chat_stream_target.dart';
 import 'chat_thread.dart';
 import 'chat_thread_panel_width_store.dart';
 import 'chat_thread_settings.dart';
+import 'chat_view_lifetime.dart';
 
 class ChatThreadWorkspace extends StatelessWidget {
   const ChatThreadWorkspace({super.key, required this.route});
@@ -246,9 +247,7 @@ class ChatThreadView extends StatefulWidget {
 }
 
 class _ChatThreadViewState extends State<ChatThreadView> {
-  Object? _viewToken;
-  bool _tickerEnabled = true;
-  ChatShellService? _shell;
+  late final ChatViewLifetime _viewing;
   Listenable? _navigation;
   Listenable? _timeChanges;
   bool _opened = false;
@@ -271,10 +270,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
-  bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
-
   void _handleShellChanged() {
-    _syncViewing();
     if (_projectedTimezone != widget.chat.timeFor(widget.siteUrl).name) {
       _handleTimeChanged();
     }
@@ -284,30 +280,20 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     if (mounted) setState(() {});
   }
 
-  void _syncViewing() {
-    if (_viewerActive) {
-      if (_viewToken == null) {
-        _viewToken = widget.chat.beginViewingThread(
-          widget.siteUrl,
-          widget.target,
-        );
-        if (_opened) {
-          unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
-        }
-      }
-      return;
-    }
-    final viewToken = _viewToken;
-    _viewToken = null;
-    if (viewToken != null) {
-      widget.chat.endViewingThread(widget.siteUrl, widget.target, viewToken);
-    }
-  }
-
   @override
   void initState() {
     super.initState();
-    _viewToken = widget.chat.beginViewingThread(widget.siteUrl, widget.target);
+    _viewing = ChatViewLifetime(
+      chat: widget.chat,
+      siteUrl: widget.siteUrl,
+      target: widget.target,
+      onAcquire: () {
+        if (_opened) {
+          unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+        }
+      },
+      onShellChanged: _handleShellChanged,
+    );
   }
 
   @override
@@ -319,12 +305,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _timeChanges = timeChanges..addListener(_handleTimeChanged);
     }
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!identical(shell, _shell)) {
-      _shell?.removeListener(_handleShellChanged);
-      _shell = shell..addListener(_handleShellChanged);
-    }
-    _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _syncViewing();
+    _viewing.bind(shell, tickerEnabled: TickerMode.valuesOf(context).enabled);
 
     final navigation = shell.navigation;
     if (!identical(navigation, _navigation)) {
@@ -340,7 +321,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   bool _consumeNavigation() {
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!mounted || !_tickerEnabled) {
+    if (!mounted || !_viewing.tickerEnabled) {
       return false;
     }
     final pending = shell.navigation.take(
@@ -372,13 +353,9 @@ class _ChatThreadViewState extends State<ChatThreadView> {
 
   @override
   void dispose() {
-    _shell?.removeListener(_handleShellChanged);
+    _viewing.dispose();
     _timeChanges?.removeListener(_handleTimeChanged);
     _navigation?.removeListener(_consumeNavigation);
-    final viewToken = _viewToken;
-    if (viewToken != null) {
-      widget.chat.endViewingThread(widget.siteUrl, widget.target, viewToken);
-    }
     super.dispose();
   }
 

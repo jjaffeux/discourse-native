@@ -11,6 +11,8 @@ import 'chat_controller.dart';
 import 'chat_my_threads_view.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+import 'chat_stream_target.dart';
+import 'chat_view_lifetime.dart';
 
 class ChatChannelThreadsView extends StatefulWidget {
   const ChatChannelThreadsView({
@@ -29,14 +31,7 @@ class ChatChannelThreadsView extends StatefulWidget {
 class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
   late ChatController _chat;
   late final ScrollController _scroll;
-  ChatShellService? _shell;
-  Object? _viewToken;
-  bool _viewStartScheduled = false;
-  bool _ready = false;
-  bool _tickerEnabled = true;
-
-  bool get _viewerActive =>
-      _ready && _tickerEnabled && (_shell?.forumActive ?? false);
+  ChatViewLifetime? _viewing;
 
   @override
   void initState() {
@@ -44,44 +39,19 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
     _scroll = ScrollController()..addListener(_maybeLoadMore);
   }
 
-  void _handleShellChanged() => _syncViewing();
-
-  void _syncViewing() {
-    if (!_viewerActive) {
-      if (_viewToken case final token?) {
-        _viewToken = null;
-        _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
-      }
-      return;
-    }
-    if (_viewToken != null || _viewStartScheduled) return;
-    _viewStartScheduled = true;
-    // Advancing lastViewedAt updates the channel record consumed by the
-    // sibling header, so wait until the current frame has finished building.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewStartScheduled = false;
-      if (!mounted || !_viewerActive || _viewToken != null) return;
-      _viewToken = _chat.beginViewingChannel(widget.siteUrl, widget.channelId);
-    });
-  }
-
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final chat = PluginUiScope.require(context, chatControllerService);
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!identical(shell, _shell)) {
-      _shell?.removeListener(_handleShellChanged);
-      _shell = shell..addListener(_handleShellChanged);
-    }
-    _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    if (!_ready || !identical(chat, _chat)) {
-      if (_viewToken case final token?) {
-        _viewToken = null;
-        _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
-      }
+    if (_viewing == null || !identical(chat, _chat)) {
+      _viewing?.dispose();
       _chat = chat;
-      _ready = true;
+      _viewing = ChatViewLifetime(
+        chat: chat,
+        siteUrl: widget.siteUrl,
+        target: ChatChannelTarget(widget.channelId),
+      );
       // Live events never add a thread to a held list, so each visit
       // revalidates it behind the rows already shown.
       unawaited(
@@ -92,15 +62,12 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
         ),
       );
     }
-    _syncViewing();
+    _viewing!.bind(shell, tickerEnabled: TickerMode.valuesOf(context).enabled);
   }
 
   @override
   void dispose() {
-    _shell?.removeListener(_handleShellChanged);
-    if (_viewToken case final token?) {
-      _chat.endViewingChannel(widget.siteUrl, widget.channelId, token);
-    }
+    _viewing?.dispose();
     _scroll.dispose();
     super.dispose();
   }

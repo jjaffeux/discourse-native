@@ -1378,6 +1378,53 @@ void main() {
   });
 
   for (final sizeToContent in [true, false]) {
+    testWidgets(
+      'a controlled adaptive menu restores repeated declined swipes (content: $sizeToContent)',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final changes = <DSheetChangeDetails<void>>[];
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: DSheet<void>(
+              open: true,
+              onOpenChanged: changes.add,
+              trigger: DSheetTrigger(
+                builder: (_, open) =>
+                    DButton(label: const Text('Open menu'), onPressed: open),
+              ),
+              content: DSheetContent(
+                variant: DSheetVariant.adaptiveMenu,
+                side: DSheetSide.bottom,
+                sizeToContent: sizeToContent,
+                children: const [
+                  SizedBox(height: 180, child: Text('Controlled menu')),
+                ],
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final sheet = find.byType(DSheetContent);
+        final bounds = tester.getRect(sheet);
+        for (var attempt = 1; attempt <= 2; attempt++) {
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            Offset(0, sizeToContent ? 150 : 250),
+          );
+          await tester.pumpAndSettle();
+          expect(changes, hasLength(attempt));
+          expect(changes.last.open, isFalse);
+          expect(tester.getRect(sheet), bounds);
+          expect(tester.takeException(), isNull);
+        }
+      },
+    );
+  }
+
+  for (final sizeToContent in [true, false]) {
     for (final backdrop in [false, true]) {
       testWidgets(
         'retained adaptive menu finishes its swipe (content: $sizeToContent, backdrop: $backdrop)',

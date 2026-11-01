@@ -1403,8 +1403,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   bool _revealNotificationTarget() {
-    final changed = _setForumContentRoot();
-    if (changed) _notify();
+    if (_revealMobileDocument()) _notify();
     return true;
   }
 
@@ -1525,8 +1524,9 @@ class ShellController extends FrameSafeNotifier
       mobileNavigation.panelOwner != null;
 
   @override
-  ContentRoute? get currentContent =>
-      _mobilePanelRoot ? null : focusedTabContext.currentContent;
+  ContentRoute? get currentContent => mobileNavigationEnabled
+      ? mobileNavigation.location?.contentStack.last
+      : focusedTabContext.currentContent;
 
   String _recentAccountIdentity(String siteUrl) {
     final instance = _instanceAt(siteUrl);
@@ -1707,8 +1707,9 @@ class ShellController extends FrameSafeNotifier
     _workspace.preparePluginPaneForRoute(route);
     final tab = activeTab;
     if (tab == null) return TabOpenResult.unsupported;
-    _workspace.replaceActiveTab(
+    _workspace.navigateActiveTab(
       tab.navigate(rootDestinationId: route.id, contentStack: [route]),
+      mobile: _MobileVisitCommit.push,
     );
     _setForumContentRoot();
     _mobilePane = MobilePane.content;
@@ -2169,7 +2170,6 @@ class ShellController extends FrameSafeNotifier
     // The lookup that described this forum has just read its basic info.
     _basicInfoRefreshes.add(instance.url);
     _resetToInstanceDefault();
-    _mobilePane = MobilePane.sidebar;
     _notify();
 
     return _instanceRail.settleAddition(
@@ -5071,7 +5071,13 @@ class ShellController extends FrameSafeNotifier
               )
             : sourceTab.push(route);
         _workspace.consumeHomepage(replacement.id);
-        _workspace.replaceTab(document.siteUrl!, replacement);
+        _workspace.navigateTab(
+          document.siteUrl!,
+          replacement,
+          mobile: replace
+              ? _MobileVisitCommit.replace
+              : _MobileVisitCommit.push,
+        );
         _setForumContentRoot();
         _mobilePane = MobilePane.content;
         _syncTopicChannels();
@@ -5286,7 +5292,7 @@ class ShellController extends FrameSafeNotifier
         color: route.color,
       );
       _topicNavigation.explicitTarget(tab.id);
-      _workspace.replaceTab(
+      _workspace.navigateTab(
         document.siteUrl!,
         tab.copyWith(
           contentStack: [
@@ -5295,6 +5301,7 @@ class ShellController extends FrameSafeNotifier
           ],
           anchors: anchors,
         ),
+        mobile: _MobileVisitCommit.push,
       );
       _notify();
       return (topicId: topicId, slug: route.slug ?? '');
@@ -5582,7 +5589,10 @@ class ShellController extends FrameSafeNotifier
         ),
       );
     }
-    if (changed) _workspace.put(workspace.copyWith(tabs: tabs));
+    if (changed) {
+      _workspace.put(workspace.copyWith(tabs: tabs));
+      _refreshMobileVisit(siteUrl, workspace.activeTabId);
+    }
   }
 
   /// What routes call a topic the store holds: its detail's title, else its
@@ -5643,7 +5653,10 @@ class ShellController extends FrameSafeNotifier
       changed = changed || !identical(updated, tab);
       tabs.add(updated);
     }
-    if (changed) _workspace.put(workspace.copyWith(tabs: tabs));
+    if (changed) {
+      _workspace.put(workspace.copyWith(tabs: tabs));
+      _refreshMobileVisit(siteUrl, workspace.activeTabId);
+    }
     return changed;
   }
 
@@ -6396,7 +6409,7 @@ class ShellController extends FrameSafeNotifier
       minimumRequiredTags: plan.category?.minimumRequiredTags ?? 0,
     );
     _composerRegistry.add(composer);
-    if (revealContent) _mobilePane = MobilePane.content;
+    if (revealContent) _revealMobileDocument();
     final enrichment = _composerOpening.start(plan, composer);
     _notify();
     await enrichment;
@@ -8114,11 +8127,12 @@ class ShellController extends FrameSafeNotifier
         } else if (tabId != null) {
           final tab = workspace?.tabById(tabId);
           if (tab != null) {
-            _workspace.replaceTab(
+            _workspace.navigateTab(
               target.siteUrl,
               tab.push(
                 ContentRoute.topic(topicId: topicId, slug: slug, title: title),
               ),
+              mobile: _MobileVisitCommit.push,
             );
             _notify();
           }
@@ -8555,11 +8569,18 @@ class ShellController extends FrameSafeNotifier
     if (currentInstance?.url == replacement.url) {
       switch (phase) {
         case AccountSessionPhase.connecting:
-          break;
+          if (_workspaceAccountIdentity(held) !=
+              _workspaceAccountIdentity(applied)) {
+            _resetMobileOwnerFromDocument();
+          }
         case AccountSessionPhase.connected:
           _resetToInstanceDefault(refreshAppearance: false);
           unawaited(_presentation.refreshAppearance(replacement.url));
         case AccountSessionPhase.disconnecting:
+          if (_workspaceAccountIdentity(held) !=
+              _workspaceAccountIdentity(applied)) {
+            _resetMobileOwnerFromDocument();
+          }
           // The coordinator has published the pending signed-out boundary and
           // still owns persistence, revocation and deletion. Starting anonymous
           // presentation work here would race that teardown and read the same
@@ -8660,12 +8681,16 @@ class ShellController extends FrameSafeNotifier
   }) {
     final instance = currentInstance;
     if (instance == null) {
+      _resetMobileOwnerFromDocument();
       search.selectSite(null);
       _syncTracking();
       return;
     }
 
     _workspace.ensure(instance);
+    if (mobileNavigationEnabled && !_restoreMobileNavigation()) {
+      _resetMobileOwnerFromDocument();
+    }
     _activateInstanceWorkspace(
       instance,
       refreshAppearance: refreshAppearance,
@@ -8676,12 +8701,14 @@ class ShellController extends FrameSafeNotifier
   void _resetToInstanceDefault({bool refreshAppearance = true}) {
     final instance = currentInstance;
     if (instance == null) {
+      _resetMobileOwnerFromDocument();
       search.selectSite(null);
       _syncTracking();
       return;
     }
 
     _workspace.reset(instance);
+    _resetMobileOwnerFromDocument();
     _activateInstanceWorkspace(instance, refreshAppearance: refreshAppearance);
   }
 
@@ -8776,6 +8803,7 @@ class ShellController extends FrameSafeNotifier
         contentStack: [_homepageFor(_instanceAt(instance.url) ?? instance)],
       ),
     );
+    _refreshMobileVisit(instance.url, initialTab.id);
     _notify();
     _hydrateActiveTab(instance);
   }
@@ -8824,7 +8852,6 @@ class ShellController extends FrameSafeNotifier
     assert(index >= 0 && index < _instances.length);
 
     _rootMode = ShellRootMode.forum;
-    if (mobileNavigationEnabled) mobileNavigation.reset();
     final switched = index != _instanceIndex;
     if (currentWorkspace case final previous? when switched) {
       _workspace.clearDepartedTopicSearchWords(previous);
@@ -8849,7 +8876,7 @@ class ShellController extends FrameSafeNotifier
         );
       }
     }
-    _mobilePane = MobilePane.sidebar;
+    if (!mobileNavigationEnabled) _mobilePane = MobilePane.sidebar;
     _notify();
   }
 
@@ -8904,7 +8931,20 @@ class ShellController extends FrameSafeNotifier
       rootDestinationId: destination.id,
       contentStack: [content],
     );
-    _workspace.replaceActiveTab(updated);
+    final startsJourney =
+        mobileNavigationEnabled &&
+        mobileNavigation.atRoot &&
+        mobileNavigation.panelOwner == null;
+    if (startsJourney) {
+      _workspace.replaceActiveTab(updated);
+      mobileNavigation.startJourney(
+        tab: mobileNavigation.tab,
+        root: updated.location,
+      );
+      _persistMobileNavigation();
+    } else {
+      _workspace.navigateActiveTab(updated, mobile: _MobileVisitCommit.push);
+    }
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -8977,6 +9017,7 @@ class ShellController extends FrameSafeNotifier
         ],
       ),
     );
+    _refreshMobileVisit(workspace.siteUrl, tab.id);
     _notify();
   }
 
@@ -9311,7 +9352,7 @@ class ShellController extends FrameSafeNotifier
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
-    _workspace.replaceActiveTab(
+    _workspace.navigateActiveTab(
       startsJourney || startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
@@ -9320,6 +9361,7 @@ class ShellController extends FrameSafeNotifier
               forwardHistory: const [],
             )
           : tab.push(route),
+      mobile: _MobileVisitCommit.push,
     );
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
@@ -9355,7 +9397,7 @@ class ShellController extends FrameSafeNotifier
     final tab = activeTab;
     if (tab == null) return;
     _setForumContentRoot();
-    _workspace.replaceActiveTab(
+    _workspace.navigateActiveTab(
       startsJourney || startsPluginPane
           ? tab.copyWith(
               rootDestinationId: route.id,
@@ -9369,10 +9411,8 @@ class ShellController extends FrameSafeNotifier
                 route,
               ],
             ),
+      mobile: _MobileVisitCommit.replace,
     );
-    if (mobileNavigationEnabled) {
-      mobileNavigation.replaceCurrent(activeTab!.location);
-    }
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -9380,8 +9420,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void showPluginContent() {
-    if (!_setForumContentRoot()) return;
-    _notify();
+    if (_revealMobileDocument()) _notify();
   }
 
   bool handleBack({bool canReturnToSidebar = true}) =>
@@ -9393,35 +9432,76 @@ class ShellController extends FrameSafeNotifier
     _notifyCurrentWorkspace();
   }
 
+  void _persistMobileNavigation() {
+    if (!mobileNavigationEnabled) return;
+    final workspace = currentWorkspace;
+    final state = mobileNavigation.state;
+    if (workspace != null &&
+        workspace.accountIdentity == currentAccountIdentity &&
+        workspace.mobile != state) {
+      _workspace.put(workspace.copyWith(mobile: state));
+    }
+  }
+
+  void _commitMobileDocument(_MobileVisitCommit commit) {
+    if (!mobileNavigationEnabled) return;
+    final tab = activeTab;
+    if (tab == null) return;
+    _setForumContentRoot();
+    mobileNavigation.closeSidebar();
+    switch (commit) {
+      case _MobileVisitCommit.push:
+        mobileNavigation.push(tab.location);
+      case _MobileVisitCommit.replace:
+        mobileNavigation.replaceCurrent(tab.location);
+    }
+    _persistMobileNavigation();
+  }
+
+  void _refreshMobileVisit(String siteUrl, String? tabId) {
+    if (!mobileNavigationEnabled ||
+        currentInstance?.url != siteUrl ||
+        activeTabId != tabId ||
+        mobileNavigation.atRoot) {
+      return;
+    }
+    final tab = activeTab;
+    if (tab == null) return;
+    mobileNavigation.updateCurrent(tab.location);
+    _persistMobileNavigation();
+  }
+
+  void _resetMobileOwnerFromDocument() {
+    if (!mobileNavigationEnabled) return;
+    mobileNavigation.startJourney(
+      tab: MobileTab.topics,
+      root: activeTab?.location,
+    );
+    _mobilePane = mobileNavigation.atRoot
+        ? MobilePane.sidebar
+        : MobilePane.content;
+    _persistMobileNavigation();
+  }
+
+  bool _revealMobileDocument() {
+    final changed = _setForumContentRoot();
+    if (!mobileNavigationEnabled) return changed;
+    if (mobileNavigation.atRoot) {
+      _commitMobileDocument(_MobileVisitCommit.push);
+      return true;
+    }
+    if (currentInstance case final instance?) {
+      _refreshMobileVisit(instance.url, activeTabId);
+    }
+    return changed;
+  }
+
   void _notifyCurrentWorkspace() {
     if (loaded && forumTabs.selectedSiteUrl != currentInstance?.url) {
       _workspace.persist();
     }
     _rememberCurrentContent();
     _topicData.validatePrefetch();
-    if (mobileNavigationEnabled) {
-      if (_mobilePane == MobilePane.sidebar &&
-          mobileNavigation.panelOwner == null &&
-          activeTab != null) {
-        _mobilePane = MobilePane.content;
-      }
-      mobileNavigation.synchronize(
-        owner: (currentInstance?.url, currentAccountIdentity),
-        contentRoot: true,
-        location:
-            _mobilePane == MobilePane.content &&
-                _rootMode == ShellRootMode.forum
-            ? activeTab?.location
-            : null,
-      );
-      final workspace = currentWorkspace;
-      final state = mobileNavigation.state;
-      if (workspace != null &&
-          workspace.accountIdentity == currentAccountIdentity &&
-          workspace.mobile != state) {
-        _workspace.put(workspace.copyWith(mobile: state));
-      }
-    }
     final request = _pendingTopicProperty;
     if (request != null &&
         (currentInstance?.url != request.siteUrl ||
@@ -9450,7 +9530,19 @@ class ShellController extends FrameSafeNotifier
     }
     mobileNavigation.selectPanel(owner);
     _rootMode = ShellRootMode.forum;
-    _mobilePane = MobilePane.sidebar;
+    if (owner == null) {
+      if (mobileNavigation.atRoot) {
+        mobileNavigation.startJourney(
+          tab: MobileTab.topics,
+          root: activeTab?.location,
+        );
+      }
+      _mobilePane = MobilePane.content;
+    } else {
+      mobileNavigation.returnToPanelRoot();
+      _mobilePane = MobilePane.sidebar;
+    }
+    _persistMobileNavigation();
     _notify();
   }
 
@@ -9466,6 +9558,11 @@ class ShellController extends FrameSafeNotifier
     _workspace.replaceActiveTab(
       tab.navigate(rootDestinationId: 'latest', contentStack: [route]),
     );
+    mobileNavigation.startJourney(
+      tab: MobileTab.topics,
+      root: activeTab!.location,
+    );
+    _persistMobileNavigation();
     _mobilePane = MobilePane.content;
     _syncTopicChannels();
     _notify();
@@ -9490,10 +9587,7 @@ class ShellController extends FrameSafeNotifier
     final state = currentWorkspace?.mobile;
     if (instance == null ||
         state == null ||
-        !mobileNavigation.restore(
-          owner: (instance.url, currentAccountIdentity),
-          state: state,
-        )) {
+        !mobileNavigation.restore(state: state)) {
       return false;
     }
     _mobilePane = mobileNavigation.atRoot
@@ -9519,6 +9613,7 @@ class ShellController extends FrameSafeNotifier
       );
       _mobilePane = MobilePane.content;
     }
+    _persistMobileNavigation();
     _syncTopicChannels();
     _notify();
     if (currentInstance case final instance? when location != null) {
@@ -10551,9 +10646,7 @@ final class _ShellTopicReader extends ChangeNotifier
       ],
     );
     _shell._workspace.replaceTab(siteUrl, updatedTab);
-    if (_shell.mobileNavigationEnabled && _shell.activeTabId == tabId) {
-      _shell.mobileNavigation.updateCurrent(updatedTab.location);
-    }
+    _shell._refreshMobileVisit(siteUrl, tabId);
     _shell._syncTopicChannels();
     _shell._notify();
     return true;
@@ -10578,7 +10671,7 @@ final class _ShellTopicReader extends ChangeNotifier
     } else {
       final tab = _context.tab;
       if (tab == null) return;
-      _shell._workspace.replaceTab(
+      _shell._workspace.navigateTab(
         siteUrl,
         replace
             ? tab.navigate(
@@ -10588,6 +10681,7 @@ final class _ShellTopicReader extends ChangeNotifier
                 ],
               )
             : tab.push(destination),
+        mobile: replace ? _MobileVisitCommit.replace : _MobileVisitCommit.push,
       );
       _shell._syncTopicChannels();
       _shell._notify();

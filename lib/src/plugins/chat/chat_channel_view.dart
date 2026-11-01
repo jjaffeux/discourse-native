@@ -26,6 +26,7 @@ import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream.dart';
 import 'chat_stream_target.dart';
+import 'chat_view_lifetime.dart';
 import 'chat_viewport_transitions.dart';
 
 class ChatChannelView extends StatelessWidget {
@@ -120,10 +121,17 @@ class _ChatChannelBody extends StatefulWidget {
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
   static const _maxHeaderShare = 0.4;
 
-  Object? _viewToken;
-  bool _viewStartScheduled = false;
-  bool _tickerEnabled = true;
-  ChatShellService? _shell;
+  late final _viewing = ChatViewLifetime(
+    chat: widget.chat,
+    siteUrl: widget.siteUrl,
+    target: ChatChannelTarget(widget.channelId),
+    onAcquire: () {
+      if (_opened) {
+        unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+      }
+    },
+    onShellChanged: _handleShellChanged,
+  );
   Listenable? _navigation;
   Listenable? _timeChanges;
   bool _opened = false;
@@ -144,10 +152,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   final ChatUploadDropController _uploadDropController =
       ChatUploadDropController();
 
-  bool get _viewerActive => _tickerEnabled && (_shell?.forumActive ?? false);
-
   void _handleShellChanged() {
-    _syncViewing();
     if (_projectedTimezone != widget.chat.timeFor(widget.siteUrl).name) {
       _handleTimeChanged();
     }
@@ -155,36 +160,6 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   void _handleTimeChanged() {
     if (mounted) setState(() {});
-  }
-
-  void _syncViewing() {
-    if (!_viewerActive) {
-      final viewToken = _viewToken;
-      _viewToken = null;
-      if (viewToken != null) {
-        widget.chat.endViewingChannel(
-          widget.siteUrl,
-          widget.channelId,
-          viewToken,
-        );
-      }
-      return;
-    }
-    if (_viewToken != null || _viewStartScheduled) return;
-    _viewStartScheduled = true;
-    // The sibling header may still be building when beginViewing advances the
-    // channel record, so register after the first frame.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _viewStartScheduled = false;
-      if (!mounted || !_viewerActive || _viewToken != null) return;
-      _viewToken = widget.chat.beginViewingChannel(
-        widget.siteUrl,
-        widget.channelId,
-      );
-      if (_opened) {
-        unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
-      }
-    });
   }
 
   @override
@@ -196,12 +171,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _timeChanges = timeChanges..addListener(_handleTimeChanged);
     }
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!identical(shell, _shell)) {
-      _shell?.removeListener(_handleShellChanged);
-      _shell = shell..addListener(_handleShellChanged);
-    }
-    _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _syncViewing();
+    _viewing.bind(shell, tickerEnabled: TickerMode.valuesOf(context).enabled);
 
     final navigation = shell.navigation;
     if (!identical(navigation, _navigation)) {
@@ -218,7 +188,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   bool _consumeNavigation() {
     if (!mounted) return false;
     final shell = PluginUiScope.require(context, chatShellService);
-    if (!_tickerEnabled) {
+    if (!_viewing.tickerEnabled) {
       return false;
     }
     final pending = shell.navigation.take(
@@ -247,17 +217,9 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
 
   @override
   void dispose() {
-    _shell?.removeListener(_handleShellChanged);
+    _viewing.dispose();
     _timeChanges?.removeListener(_handleTimeChanged);
     _navigation?.removeListener(_consumeNavigation);
-    final viewToken = _viewToken;
-    if (viewToken != null) {
-      widget.chat.endViewingChannel(
-        widget.siteUrl,
-        widget.channelId,
-        viewToken,
-      );
-    }
     super.dispose();
   }
 

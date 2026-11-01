@@ -22,10 +22,10 @@ void main() {
     'updating the current visit keeps its identity and surrounding history',
     () {
       final navigation = MobileNavigation();
-      navigation.synchronize(owner: 'account', location: page('latest'));
-      navigation.synchronize(owner: 'account', location: page('reader'));
+      navigation.push(page('latest'));
+      navigation.push(page('reader'));
       final readerEntry = navigation.entryId;
-      navigation.synchronize(owner: 'account', location: page('next'));
+      navigation.push(page('next'));
       final nextEntry = navigation.entryId;
       expect(navigation.goBack(), isTrue);
       navigation.updateCurrent(page('updated reader'));
@@ -43,18 +43,10 @@ void main() {
 
   test('updating a restored root visit does not create a new entry', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(
-      owner: 'account',
-      location: page('reader'),
-      contentRoot: true,
-    );
+    navigation.startJourney(tab: MobileTab.topics, root: page('reader'));
     final entry = navigation.entryId;
     navigation.updateCurrent(page('updated reader'));
-    navigation.synchronize(
-      owner: 'account',
-      location: page('updated reader'),
-      contentRoot: true,
-    );
+    navigation.push(page('updated reader'));
     expect(navigation.entryId, entry);
     expect(navigation.canGoBack, isFalse);
     expect(navigation.location, page('updated reader'));
@@ -85,9 +77,9 @@ void main() {
               ],
             );
         final navigation = MobileNavigation();
-        navigation.synchronize(owner: 'owner', location: location(before));
+        navigation.push(location(before));
         final firstId = navigation.entryId;
-        navigation.synchronize(owner: 'owner', location: location(after));
+        navigation.push(location(after));
         expect(navigation.entryId, isNot(firstId));
         expect(navigation.goBack(), isTrue);
         expect(
@@ -105,43 +97,23 @@ void main() {
 
   test('content tabs root their own history and isolate earlier journeys', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(
-      owner: 'account',
-      location: page('latest'),
-      contentRoot: true,
-    );
+    navigation.startJourney(tab: MobileTab.topics, root: page('latest'));
     expect(navigation.canGoBack, isFalse);
-    navigation.synchronize(
-      owner: 'account',
-      location: page('topic'),
-      contentRoot: true,
-    );
+    navigation.push(page('topic'));
     expect(navigation.goBack(), isTrue);
     expect(navigation.location, page('latest'));
     navigation.selectTab(MobileTab.messages);
-    navigation.synchronize(
-      owner: 'account',
-      location: page('messages'),
-      contentRoot: true,
-    );
+    navigation.startJourney(tab: MobileTab.messages, root: page('messages'));
     expect(navigation.tab, MobileTab.messages);
     expect(navigation.canGoBack, isFalse);
     expect(navigation.canGoForward, isFalse);
     navigation.selectTab(const MobileTab.panel('chat'));
-    navigation.synchronize(owner: 'account', location: null, contentRoot: true);
-    navigation.synchronize(
-      owner: 'account',
-      location: page('channel'),
-      contentRoot: true,
-    );
+    navigation.returnToPanelRoot();
+    navigation.push(page('channel'));
     expect(navigation.goBack(), isTrue);
     expect(navigation.atRoot, isTrue);
     expect(navigation.tab, const MobileTab.panel('chat'));
-    navigation.synchronize(
-      owner: 'another account',
-      location: page('latest'),
-      contentRoot: true,
-    );
+    navigation.startJourney(tab: MobileTab.topics, root: page('latest'));
     expect(navigation.tab, MobileTab.topics);
     expect(navigation.panelOwner, isNull);
     expect(navigation.canGoForward, isFalse);
@@ -149,7 +121,7 @@ void main() {
 
   test('hydrated display metadata updates without creating a visit', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(owner: 'forum', location: page('topic'));
+    navigation.push(page('topic'));
     final entryId = navigation.entryId;
     final historyId = navigation.historyId;
     final rootId = navigation.previousEntryId;
@@ -163,7 +135,7 @@ void main() {
         ),
       ],
     );
-    navigation.synchronize(owner: 'forum', location: hydrated);
+    navigation.updateCurrent(hydrated);
     expect(navigation.location, hydrated);
     expect(navigation.entryId, entryId);
     expect(navigation.historyId, historyId);
@@ -176,14 +148,38 @@ void main() {
     expect(navigation.entryId, entryId);
   });
 
+  test(
+    'ordinary navigation keeps actual visits separate from document ancestry',
+    () {
+      final navigation = MobileNavigation();
+      navigation.selectPanel('chat');
+      final root = navigation.entryId;
+      final source = page('source').contentStack.single;
+      final reader = page('reader').contentStack.single;
+      navigation.replaceCurrent(
+        ForumTabLocation(
+          rootDestinationId: 'source',
+          contentStack: [source, reader],
+        ),
+      );
+      expect(navigation.previousEntryId, same(root));
+      expect(navigation.state.visits, hasLength(2));
+      expect(navigation.goBack(), isTrue);
+      expect(navigation.atRoot, isTrue);
+      expect(navigation.canGoBack, isFalse);
+      expect(navigation.goForward(), isTrue);
+      expect(navigation.location!.contentStack, [source, reader]);
+    },
+  );
+
   test('replacement updates this visit and clears a forward branch', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(owner: 'forum', location: page('latest'));
-    navigation.synchronize(owner: 'forum', location: page('topic'));
+    navigation.push(page('latest'));
+    navigation.push(page('topic'));
     navigation.goBack();
     final entryId = navigation.entryId;
     navigation.replaceCurrent(page('new'));
-    navigation.synchronize(owner: 'forum', location: page('new'));
+    navigation.push(page('new'));
     expect(navigation.location, page('new'));
     expect(navigation.canGoForward, isFalse);
     expect(navigation.entryId, isNot(entryId));
@@ -194,14 +190,14 @@ void main() {
 
   test('root, content, back and forward form one mobile journey', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(owner: ('forum', 'user'), location: null);
+    navigation.returnToPanelRoot();
     navigation.selectPanel('chat');
-    navigation.synchronize(owner: ('forum', 'user'), location: page('channel'));
-    navigation.synchronize(owner: ('forum', 'user'), location: page('thread'));
+    navigation.push(page('channel'));
+    navigation.push(page('thread'));
     expect(navigation.goBack(), isTrue);
     expect(navigation.location, page('channel'));
     // Projecting a restored location must not create another visit.
-    navigation.synchronize(owner: ('forum', 'user'), location: page('channel'));
+    navigation.push(page('channel'));
     expect(navigation.goBack(), isTrue);
     expect(navigation.atRoot, isTrue);
     expect(navigation.panelOwner, 'chat');
@@ -214,10 +210,10 @@ void main() {
 
   test('new destinations after back discard forward history', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(owner: 'forum', location: page('topics'));
-    navigation.synchronize(owner: 'forum', location: page('topic'));
+    navigation.push(page('topics'));
+    navigation.push(page('topic'));
     navigation.goBack();
-    navigation.synchronize(owner: 'forum', location: page('category'));
+    navigation.push(page('category'));
     expect(navigation.goForward(), isFalse);
     navigation.goBack();
     expect(navigation.location, page('topics'));
@@ -227,21 +223,22 @@ void main() {
 
   test('site/account and sidebar-mode changes isolate history', () {
     final navigation = MobileNavigation();
-    navigation.synchronize(owner: ('forum', 'one'), location: page('private'));
+    navigation.push(page('private'));
     navigation.openSidebar();
     final privateHistoryId = navigation.historyId;
-    navigation.synchronize(owner: ('forum', 'two'), location: null);
+    navigation.reset();
     expect(navigation.sidebarOpen, isFalse);
     expect(navigation.historyId, isNot(privateHistoryId));
     expect(navigation.canGoForward, isFalse);
     expect(navigation.canGoBack, isFalse);
-    navigation.synchronize(owner: ('forum', 'two'), location: page('topics'));
+    navigation.push(page('topics'));
     navigation.goBack();
     final historyId = navigation.historyId;
     navigation.selectPanel('chat');
     expect(navigation.historyId, isNot(historyId));
     expect(navigation.canGoForward, isFalse);
-    navigation.synchronize(owner: ('another', 'two'), location: page('link'));
+    navigation.reset();
+    navigation.push(page('link'));
     expect(navigation.panelOwner, isNull);
     navigation.goBack();
     expect(navigation.atRoot, isTrue);
@@ -251,7 +248,7 @@ void main() {
   test('bounded history always retains the sidebar root', () {
     final navigation = MobileNavigation();
     for (var i = 0; i < MobileNavigation.maximumPages + 20; i++) {
-      navigation.synchronize(owner: 'forum', location: page('$i'));
+      navigation.push(page('$i'));
     }
     var count = 0;
     while (navigation.goBack()) {
@@ -267,10 +264,9 @@ void main() {
         page('$i').contentStack.single,
     ];
     final navigation = MobileNavigation();
-    navigation.synchronize(
-      owner: 'forum',
-      contentRoot: true,
-      location: ForumTabLocation(rootDestinationId: '0', contentStack: routes),
+    navigation.startJourney(
+      tab: MobileTab.topics,
+      root: ForumTabLocation(rootDestinationId: '0', contentStack: routes),
     );
     final currentId = navigation.entryId;
     expect(navigation.location?.contentStack.last, routes.last);
@@ -285,17 +281,18 @@ void main() {
     expect(count, MobileNavigation.maximumPages);
     expect(navigation.location?.contentStack, [routes.first]);
     expect(navigation.canGoBack, isFalse);
-    navigation.synchronize(owner: 'another forum', location: page('private'));
+    navigation.reset();
+    navigation.push(page('private'));
     expect(navigation.previousLocation, isNull);
     expect(navigation.canGoForward, isFalse);
   });
 
   test('a saved place and its visits survive a JSON round trip', () {
     final navigation = MobileNavigation()
-      ..synchronize(owner: 'owner', location: null)
+      ..returnToPanelRoot()
       ..selectPanel('chat');
-    navigation.synchronize(owner: 'owner', location: page('chat-c-10'));
-    navigation.synchronize(owner: 'owner', location: page('chat-t-10-4'));
+    navigation.push(page('chat-c-10'));
+    navigation.push(page('chat-t-10-4'));
     expect(navigation.goBack(), isTrue);
 
     final saved = MobileNavigationState.tryFromJson(
@@ -304,7 +301,7 @@ void main() {
     expect(saved, navigation.state);
 
     final relaunched = MobileNavigation();
-    expect(relaunched.restore(owner: 'owner', state: saved!), isTrue);
+    expect(relaunched.restore(state: saved!), isTrue);
     expect(relaunched.tab, const MobileTab.panel('chat'));
     expect(relaunched.panelOwner, 'chat');
     expect(relaunched.location, page('chat-c-10'));
@@ -314,9 +311,9 @@ void main() {
     expect(relaunched.canGoBack, isFalse);
 
     // The same owner keeps the restored visits; another owner starts over.
-    relaunched.synchronize(owner: 'owner', location: null);
+    relaunched.returnToPanelRoot();
     expect(relaunched.tab, const MobileTab.panel('chat'));
-    relaunched.synchronize(owner: 'other', location: null);
+    relaunched.reset();
     expect(relaunched.tab, MobileTab.topics);
   });
 
@@ -340,7 +337,6 @@ void main() {
     final navigation = MobileNavigation();
     expect(
       navigation.restore(
-        owner: 'owner',
         state: MobileNavigationState(
           place: 'sideways',
           visits: const [null],

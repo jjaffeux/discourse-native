@@ -40,6 +40,7 @@ import 'keyboard_navigation.dart';
 import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
+import 'mobile_presentation.dart';
 import 'new_tab_page.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -68,6 +69,8 @@ import 'user_menu_button.dart';
 import 'user_summary.dart';
 import 'users_page.dart';
 
+part 'mobile_content_host.dart';
+
 class MainContent extends StatefulWidget {
   const MainContent({super.key, required this.layout, this.registry});
 
@@ -79,12 +82,6 @@ class MainContent extends StatefulWidget {
 }
 
 class _MainContentState extends State<MainContent> {
-  final _sourceBodyKey = GlobalKey();
-  var _searchPageKey = GlobalKey();
-  _MainContentSnapshot? _sourceList;
-  _MainContentSnapshot? _searchSource;
-  _MainContentSnapshot? _lastBody;
-  Object? _sourceListOwner;
   final _aboutPageKey = GlobalKey<ForumAboutPageState>();
   final _dashboardPageKey = GlobalKey<DashboardHostState>();
   final GroupPagesCoordinator _groupPages = GroupPagesCoordinator();
@@ -111,89 +108,19 @@ class _MainContentState extends State<MainContent> {
       state.groupSessionIdentity,
       state.activeTabId,
     );
-    final mobile =
-        shell.mobileNavigationEnabled && ForumTabScope.panelOf(context) == null;
-    if (!mobile || owner != _sourceListOwner) _sourceList = null;
-    if (owner != _sourceListOwner) {
-      _searchPageKey = GlobalKey();
-      _searchSource = null;
-      _lastBody = null;
-    }
-    _sourceListOwner = owner;
-    final route = state.route;
-    final searchInHistory = shell
-        .tabContext(state.activeTabId)
-        .contentStack
-        .any((entry) => entry.isGlobalSearch);
-    final searchOpen = route?.isGlobalSearch == true;
-    if (searchOpen && _searchSource == null) _searchSource = _lastBody;
-    if (!searchInHistory) _searchSource = null;
-    final bodyState = searchOpen
-        ? _searchSource ?? state.revealPrevious()
-        : state;
-    if (!searchOpen) _lastBody = state;
-    if (mobile && bodyState.route?.isTopicList == true) _sourceList = bodyState;
-    final source = _sourceList;
-    final covered =
-        source != null &&
-        state.sourceRoute == null &&
-        route != null &&
-        (route.isTopic || registry.usesMobilePageSheet(context, route)) &&
-        shell
-            .tabContext(state.activeTabId)
-            .contentStack
-            .any(source.route!.sameDestinationAs);
-    if (!covered && state.sourceRoute == null) {
-      _sourceList = null;
-    }
-
-    Widget body(_MainContentSnapshot snapshot, {Key? key}) => _MainContentBody(
-      key: key,
-      layout: widget.layout,
-      state: snapshot,
-      registry: registry,
-      groupPages: _groupPages,
-      groupPagesPort: port,
-      aboutPageKey: _aboutPageKey,
-      dashboardPageKey: _dashboardPageKey,
-    );
-    final primary = body(covered ? source : bodyState, key: _sourceBodyKey);
-    final hidden = covered || searchOpen;
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        Offstage(
-          offstage: hidden,
-          child: ExcludeFocus(
-            excluding: hidden,
-            child: ExcludeSemantics(
-              excluding: hidden,
-              child: IgnorePointer(
-                ignoring: hidden,
-                child: ForumContentScope(
-                  route: covered
-                      ? source.route
-                      : searchOpen
-                      ? bodyState.route
-                      : null,
-                  child: hidden
-                      ? DPageHeaderHost.exclude(child: primary)
-                      : primary,
-                ),
-              ),
-            ),
-          ),
-        ),
-        if (covered && !searchOpen) body(state),
-        if (searchInHistory)
-          Offstage(
-            offstage: !searchOpen,
-            child: ExcludeFocus(
-              excluding: !searchOpen,
-              child: ForumSearch.page(key: _searchPageKey),
-            ),
-          ),
-      ],
+    return _MobileContentHost(
+      owner: owner,
+      state: state,
+      builder: (snapshot, key) => _MainContentBody(
+        key: key,
+        layout: widget.layout,
+        state: snapshot,
+        registry: registry,
+        groupPages: _groupPages,
+        groupPagesPort: port,
+        aboutPageKey: _aboutPageKey,
+        dashboardPageKey: _dashboardPageKey,
+      ),
     );
   }
 
@@ -378,7 +305,10 @@ class _MainContentBody extends StatelessWidget {
       );
     }
     final pluginContent = registry.content(context, route);
-    final pluginOwnsChrome = registry.ownsContentChrome(context, route);
+    final presentation = MobilePresentationScope.maybeOf(context);
+    final pluginOwnsChrome =
+        presentation?.ownsChrome(route) ??
+        registry.ownsContentChrome(context, route);
     final sourceRoute = state.sourceRoute;
     if (pluginContent == null &&
         !pluginOwnsChrome &&
@@ -542,33 +472,31 @@ class _MainContentBody extends StatelessWidget {
         ),
       ),
     );
-    if ((route.isTopic || registry.usesMobilePageSheet(context, route)) &&
+    if ((presentation?.usesSheet(route) ??
+            (route.isTopic || registry.usesMobilePageSheet(context, route))) &&
         sourceRoute == null &&
         ShellScope.read(context).mobileNavigationEnabled) {
       final controller = ShellScope.read(context);
       final entry = controller.mobileNavigation.entryId;
-      final previous = state.previousRoute;
+      final previous = presentation != null
+          ? presentation.previousOf(route)
+          : state.previousRoute;
       // A plugin page that draws its own chrome renders live, as it will once
       // the sheet is dismissed.
       final livePrevious =
           previous != null &&
-          registry.ownsContentChrome(context, previous) &&
-          !registry.usesMobilePageSheet(context, previous);
-      return DSheetViewport(
-        readerStart: route.isTopic
-            ? (controller.topicOpensAtTop(route.topicId!)
-                  ? DSheetReaderStart.top
-                  : DSheetReaderStart.scrolled)
-            : null,
-        key: ValueKey((
+          (presentation?.ownsChrome(previous) ??
+              registry.ownsContentChrome(context, previous)) &&
+          !(presentation?.usesSheet(previous) ??
+              registry.usesMobilePageSheet(context, previous));
+      return _MobilePageSheet(
+        route: route,
+        entry: entry,
+        viewportKey: ValueKey((
           route.isTopic ? 'mobile-topic-sheet' : 'mobile-plugin-page-sheet',
           entry,
         )),
-        onDismiss: () {
-          if (controller.mobileNavigation.entryId == entry) {
-            controller.handleBack();
-          }
-        },
+        reader: page,
         underlay: livePrevious
             ? DPageSurface(
                 border: false,
@@ -577,7 +505,12 @@ class _MainContentBody extends StatelessWidget {
                 depth: DSurfaceDepth.panel,
                 child: _MainContentBody(
                   layout: layout,
-                  state: state.revealPrevious(),
+                  state: _MainContentSnapshot.forRoute(
+                    controller,
+                    controller.tabContext(state.activeTabId),
+                    previous,
+                    previousRoute: presentation?.previousOf(previous),
+                  ),
                   registry: registry,
                   groupPages: groupPages,
                   groupPagesPort: groupPagesPort,
@@ -586,14 +519,6 @@ class _MainContentBody extends StatelessWidget {
                 ),
               )
             : DHistoryTransition.previousPageUnderlayOf(context),
-        content: DSheetContent(
-          side: DSheetSide.bottom,
-          variant: DSheetVariant.page,
-          showCloseButton: false,
-          semanticLabel: route.title,
-          backgroundColor: ForumWindowBackground.panelColor(context),
-          children: [Expanded(child: page)],
-        ),
       );
     }
     if (!route.isTopic || sourceRoute == null) return page;
@@ -883,22 +808,16 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
             mobileSheet && Theme.of(context).platform == TargetPlatform.android;
         if (retainedMobileSource || mobileSheet && readerPane != null) {
           final entry = controller.mobileNavigation.entryId;
-          return DSheetViewport(
-            readerStart: readerPane == null
-                ? null
-                : controller.topicOpensAtTop(state.route!.topicId!)
-                ? DSheetReaderStart.top
-                : DSheetReaderStart.scrolled,
-            key: retainedMobileSource
+          return _MobilePageSheet(
+            route: state.route!,
+            entry: entry,
+            viewportKey: retainedMobileSource
                 ? const ValueKey('mobile-topic-source-slot')
                 : ValueKey(('mobile-topic-sheet', entry)),
-            onDismiss: readerPane == null
-                ? null
-                : () {
-                    if (controller.mobileNavigation.entryId == entry) {
-                      controller.handleBack();
-                    }
-                  },
+            readerKey: retainedMobileSource
+                ? ValueKey(('mobile-topic-reader', entry))
+                : null,
+            reader: readerPane,
             underlay: retainedMobileSource
                 ? DCard(
                     border: false,
@@ -921,19 +840,6 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                     backgroundColor: ForumWindowBackground.panelColor(context),
                     depth: DSurfaceDepth.panel,
                     child: listPane,
-                  ),
-            content: readerPane == null
-                ? null
-                : DSheetContent(
-                    key: retainedMobileSource
-                        ? ValueKey(('mobile-topic-reader', entry))
-                        : null,
-                    side: DSheetSide.bottom,
-                    variant: DSheetVariant.page,
-                    showCloseButton: false,
-                    semanticLabel: state.route!.title,
-                    backgroundColor: ForumWindowBackground.panelColor(context),
-                    children: [Expanded(child: readerPane)],
                   ),
           );
         }
@@ -1968,11 +1874,24 @@ class _MainContentSnapshot {
     ShellController controller,
     ShellTabContext tab,
   ) {
-    final route = tab.currentContent;
-    final source = tab.topicListContent;
-    final previous = controller.mobileNavigationEnabled
-        ? controller.mobileNavigation.previousLocation?.contentStack.last
-        : null;
+    return _MainContentSnapshot.forRoute(
+      controller,
+      tab,
+      tab.currentContent,
+      previousRoute: controller.mobileNavigationEnabled
+          ? controller.mobileNavigation.previousLocation?.contentStack.last
+          : null,
+    );
+  }
+
+  factory _MainContentSnapshot.forRoute(
+    ShellController controller,
+    ShellTabContext tab,
+    ContentRoute? route, {
+    required ContentRoute? previousRoute,
+  }) {
+    final document = route == null ? null : tab.atContent(route);
+    final source = document?.topicListContent;
     return _MainContentSnapshot(
       siteUrl: controller.currentInstance?.url,
       activeTabId: tab.activeTabId,
@@ -1980,15 +1899,16 @@ class _MainContentSnapshot {
       sourceRoute:
           controller.mobileNavigationEnabled &&
               route?.isTopic == true &&
-              (source == null || previous?.sameDestinationAs(source) != true)
+              (source == null ||
+                  previousRoute?.sameDestinationAs(source) != true)
           ? null
           : source,
-      previousRoute: previous,
-      canPop: tab.canPopContent,
-      canReply: tab.canReplyHere,
+      previousRoute: previousRoute,
+      canPop: document?.canPopContent ?? false,
+      canReply: document?.canReplyHere ?? false,
       bookmarkBusy: switch ((
         controller.currentInstance?.url,
-        tab.currentTopic,
+        document?.currentTopic,
       )) {
         (final siteUrl?, final topic?) => controller.bookmarkWriteInFlight(
           siteUrl: siteUrl,
@@ -2028,24 +1948,6 @@ class _MainContentSnapshot {
   final CategoryFeed? categoryFeed;
   final String? groupAccountIdentity;
   final Object groupSessionIdentity;
-
-  /// [previousRoute] as it renders once a page sheet over it is dismissed.
-  /// Only plugin pages that draw their own chrome are revealed this way, so
-  /// the shell header's Back state is never consulted.
-  _MainContentSnapshot revealPrevious() => _MainContentSnapshot(
-    siteUrl: siteUrl,
-    activeTabId: activeTabId,
-    route: previousRoute,
-    sourceRoute: null,
-    previousRoute: null,
-    canPop: false,
-    canReply: false,
-    bookmarkBusy: false,
-    isConnected: isConnected,
-    categoryFeed: null,
-    groupAccountIdentity: null,
-    groupSessionIdentity: groupSessionIdentity,
-  );
 
   @override
   bool operator ==(Object other) =>
