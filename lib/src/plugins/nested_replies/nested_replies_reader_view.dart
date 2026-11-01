@@ -140,7 +140,11 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
     if (depth < 0) {
       return KeyedSubtree(
         key: _postKeys.putIfAbsent(node.postId, GlobalKey.new),
-        child: PluginTopicPost(reader: reader, postId: node.postId),
+        child: PluginTopicPost(
+          reader: reader,
+          postId: node.postId,
+          enableDoubleTapReaction: false,
+        ),
       );
     }
     final authorId = reader.post(node.postId)?.userId;
@@ -207,6 +211,7 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
             reader: reader,
             postId: node.postId,
             contentExpanded: !collapsed,
+            enableDoubleTapReaction: false,
             authorBadges: [
               if (isOriginalAuthor)
                 DBadge.inline(

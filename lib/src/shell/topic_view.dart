@@ -124,6 +124,7 @@ class TopicPostPresentation extends StatelessWidget {
     required this.postId,
     this.layout = TopicPostLayout.standard,
     this.contentExpanded = true,
+    this.enableDoubleTapReaction = true,
     this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
@@ -137,6 +138,7 @@ class TopicPostPresentation extends StatelessWidget {
   final int postId;
   final TopicPostLayout layout;
   final bool contentExpanded;
+  final bool enableDoubleTapReaction;
   final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
@@ -160,6 +162,7 @@ class TopicPostPresentation extends StatelessWidget {
                   postId: postId,
                   layout: layout,
                   contentExpanded: contentExpanded,
+                  enableDoubleTapReaction: enableDoubleTapReaction,
                   authorBadges: authorBadges,
                   leading: leading,
                   bodyLeading: bodyLeading,
@@ -4066,6 +4069,7 @@ class _StoredPost extends StatefulWidget {
     required this.keyboardSelection,
     this.layout = TopicPostLayout.standard,
     this.contentExpanded = true,
+    this.enableDoubleTapReaction = true,
     this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
@@ -4079,6 +4083,7 @@ class _StoredPost extends StatefulWidget {
   final int postId;
   final TopicPostLayout layout;
   final bool contentExpanded;
+  final bool enableDoubleTapReaction;
   final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
@@ -4103,6 +4108,7 @@ class _StoredPost extends StatefulWidget {
     keyboardSelection,
     layout,
     contentExpanded,
+    enableDoubleTapReaction,
     authorBadges,
     leading,
     bodyLeading,
@@ -4168,6 +4174,7 @@ class _StoredPostState extends State<_StoredPost> {
                     post: post,
                     layout: widget.layout,
                     contentExpanded: widget.contentExpanded,
+                    enableDoubleTapReaction: widget.enableDoubleTapReaction,
                     authorBadges: widget.authorBadges,
                     leading: widget.leading,
                     bodyLeading: widget.bodyLeading,
@@ -4229,6 +4236,7 @@ class _PostTile extends StatefulWidget {
     required this.post,
     this.layout = TopicPostLayout.standard,
     this.contentExpanded = true,
+    this.enableDoubleTapReaction = true,
     this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
@@ -4242,6 +4250,7 @@ class _PostTile extends StatefulWidget {
   final Post post;
   final TopicPostLayout layout;
   final bool contentExpanded;
+  final bool enableDoubleTapReaction;
   final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
@@ -4555,6 +4564,7 @@ class _PostTileState extends State<_PostTile> {
                             mentionedUserStatuses: post.mentionedUserStatuses,
                           ),
                         ),
+                        enabled: widget.enableDoubleTapReaction,
                       ),
                     ),
                   ),

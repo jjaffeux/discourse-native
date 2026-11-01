@@ -185,6 +185,81 @@ void main() {
     );
   }
 
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets(
+      'body tap starts collapsing without a double-tap wait on $platform',
+      (tester) async {
+        final fixture = await _pump(tester, phone);
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        final root = find.byKey(const ValueKey('nested-row-103'));
+        final childFrame = find.byKey(const ValueKey(104));
+        final height = tester.getSize(childFrame).height;
+        final body = renderedText(_bodies[3]!).first;
+        final delays = <int>[];
+        final framesToMotion = <int>[];
+        for (var sample = 0; sample < 5; sample++) {
+          await tester.tap(body);
+          final started = tester.binding.clock.now();
+          await tester.pump();
+          var frames = 0;
+          while (frames < 25 && tester.getSize(childFrame).height == height) {
+            await tester.pump(const Duration(milliseconds: 16));
+            frames++;
+          }
+          expect(tester.getSize(childFrame).height, lessThan(height));
+          delays.add(
+            tester.binding.clock.now().difference(started).inMilliseconds,
+          );
+          framesToMotion.add(frames);
+          await tester.pumpAndSettle();
+          expect(find.byKey(const ValueKey('nested-row-104')), findsNothing);
+          expect(tester.getSize(root).height, 64);
+          final rect = tester.getRect(root);
+          await tester.tapAt(rect.topLeft + Offset(rect.width * .7, 24));
+          await tester.pumpAndSettle();
+          expect(tester.getSize(childFrame).height, height);
+        }
+        debugPrint(
+          'NESTED_BODY_TAP_LATENCY $platform $delays ms $framesToMotion frames',
+        );
+        expect(framesToMotion, everyElement(lessThanOrEqualTo(2)));
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
+  for (final (platform, size) in [
+    (TargetPlatform.iOS, phone),
+    (TargetPlatform.android, phone),
+    (TargetPlatform.iOS, const Size(820, 1100)),
+    (TargetPlatform.android, const Size(820, 1100)),
+  ]) {
+    testWidgets(
+      'nested opening post ignores double-tap reactions on $platform at ${size.width}',
+      (tester) async {
+        final fixture = await _pump(tester, size);
+        fixture.shell.openTopic(fixture.row);
+        await _frames(tester);
+        final body = renderedText(_bodies[1]!).first;
+        await tester.ensureVisible(body);
+        await tester.pumpAndSettle();
+        await tester.tap(body);
+        await tester.pump(const Duration(milliseconds: 50));
+        await tester.tap(body);
+        await tester.pumpAndSettle();
+        expect(fixture.api.liked, isEmpty);
+        expect(fixture.api.unliked, isEmpty);
+        expect(body, findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   for (final (platform, size) in [
     (TargetPlatform.linux, desktop),
     (TargetPlatform.iOS, phone),

@@ -124,6 +124,7 @@ class PluginTopicPost extends StatelessWidget {
     required this.postId,
     this.layout = TopicPostLayout.standard,
     this.contentExpanded = true,
+    this.enableDoubleTapReaction = true,
     this.authorBadges = const [],
     this.leading,
     this.bodyLeading,
@@ -136,6 +137,7 @@ class PluginTopicPost extends StatelessWidget {
   final int postId;
   final TopicPostLayout layout;
   final bool contentExpanded;
+  final bool enableDoubleTapReaction;
   final List<Widget> authorBadges;
   final Widget? leading;
   final Widget? bodyLeading;
@@ -153,6 +155,7 @@ class PluginTopicPost extends StatelessWidget {
           postId: postId,
           layout: layout,
           contentExpanded: contentExpanded,
+          enableDoubleTapReaction: enableDoubleTapReaction,
           authorBadges: authorBadges,
           leading: leading,
           bodyLeading: bodyLeading,

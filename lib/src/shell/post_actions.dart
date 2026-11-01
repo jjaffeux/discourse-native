@@ -47,7 +47,12 @@ class PostActions extends StatefulWidget {
   final bool persistent;
 
   /// Keeps body gestures separate from the post's action controls.
-  static Widget reactOnDoubleTap(BuildContext context, Widget child) {
+  static Widget reactOnDoubleTap(
+    BuildContext context,
+    Widget child, {
+    bool enabled = true,
+  }) {
+    if (!enabled) return child;
     final onReact = context
         .dependOnInheritedWidgetOfExactType<_PostQuickReactionScope>()
         ?.onReact;
