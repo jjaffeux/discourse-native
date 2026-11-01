@@ -385,9 +385,12 @@ final class UserNotesSession extends FrameSafeNotifier {
     }
   }
 
-  static bool _forbidden(Object error) =>
-      error is WriteException &&
-      (error.failure == WriteFailure.forbidden || error.statusCode == 404);
+  static bool _forbidden(Object error) => switch (error) {
+    SiteLookupException(statusCode: 401 || 403 || 404) => true,
+    WriteException(failure: WriteFailure.forbidden) => true,
+    WriteException(statusCode: 401 || 403 || 404) => true,
+    _ => false,
+  };
   void close() {
     if (status == UserNotesReadStatus.closed) return;
     status = UserNotesReadStatus.closed;

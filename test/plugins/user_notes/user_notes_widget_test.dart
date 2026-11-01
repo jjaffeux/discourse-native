@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugins/user_notes/user_notes_controller.dart';
 import 'package:discourse_native/src/plugins/user_notes/user_notes_data.dart';
 import 'package:discourse_native/src/plugins/user_notes/user_notes_entry.dart';
 import 'package:discourse_native/src/plugins/user_notes/user_notes_sheet.dart';
@@ -119,6 +120,46 @@ void main() {
       expect(find.byType(DButton), findsNothing);
     },
   );
+  testWidgets(
+    'GET refusal closes private overlay and clears the unsaved draft',
+    (tester) async {
+      final f = NotesFixture();
+      addTearDown(() => tester.runAsync(f.dispose));
+      await _mount(tester, f);
+      await tester.tap(find.byTooltip('User notes (1)'));
+      await tester.pump(const Duration(milliseconds: 250));
+      await _settleCooking(tester);
+      final input = tester
+          .widget<DTextarea>(find.byType(DTextarea))
+          .controller!;
+      await tester.enterText(find.byType(DTextarea), 'Sensitive unsaved text');
+      f.transport.responders.remove('GET /user_notes?user_id=7');
+      f.transport.failures['GET /user_notes?user_id=7'] =
+          const SiteLookupException(
+            SiteLookupFailure.notDiscourse,
+            notesSite,
+            statusCode: 403,
+            errorType: 'invalid_access',
+          );
+      final session = f.controller.open(
+        siteUrl: notesSite,
+        userId: 7,
+        postId: 11,
+      );
+      await tester.pumpAndSettle();
+      expect(session.status, UserNotesReadStatus.closed);
+      expect(session.notes, isEmpty);
+      expect(session.username, isNull);
+      expect(f.controller.count(notesSite, 7), isNull);
+      expect(f.controller.canOpen(notesSite), isFalse);
+      expect(input.text, isEmpty);
+      expect(find.byType(UserNotesPanel), findsNothing);
+      expect(find.text('Sensitive unsaved text'), findsNothing);
+      expect(find.byType(DButton), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'full long raw text survives cooker limit and renders in scrollable notes',
     (tester) async {
