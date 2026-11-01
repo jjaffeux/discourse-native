@@ -556,85 +556,154 @@ void main() {
     expect(composer.text.text, r'$new$');
     await finish(tester);
   });
-  testWidgets('Insert defaults to inline in prose and rejects empty source', (
-    tester,
-  ) async {
-    final composer = await pump(tester, 'Before');
-    unawaited(
-      insertMath(tester.element(find.byType(ComposerEditor)), composer),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggle>(find.byType(DToggle)).pressed, isFalse);
-    final button = tester.widget<DButton>(
-      find.widgetWithText(DButton, 'Insert'),
-    );
-    expect(button.onPressed, isNull);
-    await tester.enterText(
-      find.descendant(
-        of: find.byType(DTextarea),
-        matching: find.byType(EditableText),
-      ),
-      ' x+1 ',
-    );
-    await tester.pump();
-    await tester.tap(find.widgetWithText(DButton, 'Insert'));
-    await tester.pumpAndSettle();
-    expect(composer.text.text, r'Before $ x+1 $');
-    await finish(tester);
-  });
-  testWidgets('Insert defaults to display on a whitespace-only line', (
-    tester,
-  ) async {
-    final composer = await pump(tester, 'Before\n\n');
-    unawaited(
-      insertMath(tester.element(find.byType(ComposerEditor)), composer),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.widget<DToggle>(find.byType(DToggle)).pressed, isTrue);
-    await tester.enterText(
-      find.descendant(
-        of: find.byType(DTextarea),
-        matching: find.byType(EditableText),
-      ),
-      'x+1',
-    );
-    await tester.pump();
-    await tester.tap(find.widgetWithText(DButton, 'Insert'));
-    await tester.pumpAndSettle();
-    expect(composer.text.text, contains('\$\$\nx+1\n\$\$'));
-    await finish(tester);
-  });
-  testWidgets(
-    'empty insertion at offset zero and multiline inline validation',
-    (tester) async {
-      final composer = await pump(tester, '');
-      unawaited(
-        insertMath(tester.element(find.byType(ComposerEditor)), composer),
+  for (final source in ['Before', 'Before\n\n']) {
+    testWidgets('Insert creates display math without a mode toggle: $source', (
+      tester,
+    ) async {
+      final composer = await pump(tester, source);
+      final pending = insertMath(
+        tester.element(find.byType(ComposerEditor)),
+        composer,
       );
       await tester.pumpAndSettle();
-      expect(find.byType(DTextarea), findsOneWidget);
-      await tester.tap(find.byType(DToggle));
-      await tester.pump();
-      await tester.enterText(
-        find.descendant(
-          of: find.byType(DTextarea),
-          matching: find.byType(EditableText),
-        ),
-        'x\ny',
-      );
-      await tester.pump();
+      expect(find.byType(DToggle), findsNothing);
       expect(
         tester
             .widget<DButton>(find.widgetWithText(DButton, 'Insert'))
             .onPressed,
         isNull,
       );
-      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DTextarea),
+          matching: find.byType(EditableText),
+        ),
+        ' x+1 ',
+      );
+      await tester.pump();
+      await tester.tap(find.widgetWithText(DButton, 'Insert'));
       await tester.pumpAndSettle();
-      expect(composer.text.text, isEmpty);
+      await pending;
+      expect(composer.text.text, 'Before\n\n\$\$\n x+1 \n\$\$\n\n');
+      expect(find.byType(MathComposerCard), findsOneWidget);
+      expect(
+        tester.widget<DMath>(find.byType(DMath)).expression.display,
+        isTrue,
+      );
+      expect(composer.history.undo(), isTrue);
+      await tester.pumpAndSettle();
+      expect(composer.text.text, source);
       await finish(tester);
-    },
-  );
+    });
+  }
+  testWidgets('Insert replaces selected prose with a separate math block', (
+    tester,
+  ) async {
+    final composer = await pump(tester, 'Before x After');
+    composer.text.selection = const TextSelection(
+      baseOffset: 7,
+      extentOffset: 8,
+    );
+    final pending = insertMath(
+      tester.element(find.byType(ComposerEditor)),
+      composer,
+    );
+    await tester.pumpAndSettle();
+    final input = find.descendant(
+      of: find.byType(DTextarea),
+      matching: find.byType(EditableText),
+    );
+    expect(tester.widget<EditableText>(input).controller.text, 'x');
+    await tester.enterText(input, 'x+1');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(DButton, 'Insert'));
+    await tester.pumpAndSettle();
+    await pending;
+    expect(composer.text.text, 'Before \n\n\$\$\nx+1\n\$\$\n\n After');
+    expect(composer.history.undo(), isTrue);
+    await tester.pumpAndSettle();
+    expect(composer.text.text, 'Before x After');
+    await finish(tester);
+  });
+  testWidgets('Insert at offset zero accepts multiline math', (tester) async {
+    final composer = await pump(tester, '');
+    final pending = insertMath(
+      tester.element(find.byType(ComposerEditor)),
+      composer,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(DToggle), findsNothing);
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(DTextarea),
+        matching: find.byType(EditableText),
+      ),
+      'x\ny',
+    );
+    await tester.pump();
+    await tester.tap(find.widgetWithText(DButton, 'Insert'));
+    await tester.pumpAndSettle();
+    await pending;
+    expect(composer.text.text, '\$\$\nx\ny\n\$\$\n\n');
+    expect(find.byType(MathComposerCard), findsOneWidget);
+    await finish(tester);
+  });
+  testWidgets('inline source editing still rejects multiline math', (
+    tester,
+  ) async {
+    const source = r'Before $x$ after';
+    final composer = await pump(tester, source);
+    await tester.tap(find.byTooltip('Edit math'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(DTextarea),
+        matching: find.byType(EditableText),
+      ),
+      'x\ny',
+    );
+    await tester.pump();
+    expect(
+      tester.widget<DButton>(find.widgetWithText(DButton, 'Apply')).onPressed,
+      isNull,
+    );
+    await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+    await tester.pumpAndSettle();
+    expect(composer.text.text, source);
+    await finish(tester);
+  });
+  for (final change in ['cancel', 'stale', 'loading']) {
+    testWidgets('Insert leaves the document intact when $change', (
+      tester,
+    ) async {
+      final composer = await pump(tester, 'Before');
+      final pending = insertMath(
+        tester.element(find.byType(ComposerEditor)),
+        composer,
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DTextarea),
+          matching: find.byType(EditableText),
+        ),
+        'x+1',
+      );
+      await tester.pump();
+      if (change == 'stale') composer.text.text = 'Replacement draft';
+      if (change == 'loading') composer.beginLoadingBody();
+      await tester.tap(
+        find.widgetWithText(DButton, change == 'cancel' ? 'Cancel' : 'Insert'),
+      );
+      await tester.pumpAndSettle();
+      await pending;
+      expect(
+        composer.text.text,
+        change == 'stale' ? 'Replacement draft' : 'Before',
+      );
+      await finish(tester);
+    });
+  }
   testWidgets('Insert retains significant escaped terminal space', (
     tester,
   ) async {
@@ -655,7 +724,7 @@ void main() {
     await tester.tap(find.widgetWithText(DButton, 'Insert'));
     await tester.pumpAndSettle();
     await pending;
-    expect(composer.text.text, r'abc $x\ $');
+    expect(composer.text.text, 'abc \n\n\$\$\nx\\ \n\$\$\n\n');
     await finish(tester);
   });
   testWidgets('unchanged Apply retains significant escaped trailing space', (
