@@ -137,8 +137,9 @@ abstract interface class PostAuthorDecorationPlugin {
 }
 
 /// Adds widgets immediately after the rendered display name in desktop cards,
-/// mobile cards, and their shared status-editor preview. Actions retain their
-/// own focus and callbacks. Other identity placements are not implied.
+/// mobile cards, their shared status-editor preview, and the current-account
+/// summary. Actions retain their own focus and callbacks. Other identity
+/// placements are not implied.
 abstract interface class UserCardIdentityDecorationPlugin {
   List<Widget> userCardIdentityDecorations(
     BuildContext context,
