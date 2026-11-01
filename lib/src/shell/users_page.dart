@@ -486,11 +486,13 @@ class _UsersPageState extends State<UsersPage> {
       DDataTableColumn(
         id: _metricColumnWidthKey(column),
         label:
-            PluginScope.maybeOf(context)?.registry.userDirectoryColumnLabel(
-              context,
-              widget.siteUrl,
-              column.name,
-            ) ??
+            (PluginRegistryScope.maybeOf(context) ??
+                    PluginScope.maybeOf(context)?.registry)
+                ?.userDirectoryColumnLabel(
+                  context,
+                  widget.siteUrl,
+                  column.name,
+                ) ??
             column.label,
         resizable: true,
         width: FixedColumnWidth(metricWidth),

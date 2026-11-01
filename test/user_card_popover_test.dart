@@ -27,6 +27,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/bundled_plugins.dart';
 import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
+import 'support/user_metadata_plugin.dart';
 
 const _siteUrl = 'https://meta.example';
 const _foot = 34.0;
@@ -127,6 +128,59 @@ void main() {
         .load();
   });
   userCardBackdropTests();
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'plugin metadata renders in ${platform.name} card and closes it',
+      (tester) async {
+        await _pumpTarget(
+          tester,
+          platform: platform,
+          cardPlugins: PluginInstaller.install(
+            const PluginManifest([userMetadataTestModule]),
+          ),
+        );
+        ShellScope.read(tester.element(_target)).store.put(_siteUrl, _profile);
+        await tester.tap(_target);
+        await tester.pumpAndSettle();
+        final metadata = find.descendant(
+          of: _surface,
+          matching: find.text(
+            'Card metadata sam: Community member user-metadata-test/user-metadata-test',
+          ),
+        );
+        expect(metadata, findsOneWidget);
+        await tester.tap(
+          find.descendant(of: _surface, matching: find.text('Close metadata')),
+        );
+        await tester.pumpAndSettle();
+        expect(_surface, findsNothing);
+      },
+    );
+  }
+  testWidgets('passive hover preview includes owner-scoped metadata', (
+    tester,
+  ) async {
+    await _pumpTarget(
+      tester,
+      cardPlugins: PluginInstaller.install(
+        const PluginManifest([userMetadataTestModule]),
+      ),
+    );
+    ShellScope.read(tester.element(_target)).store.put(_siteUrl, _profile);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(_target));
+    await tester.pump(const Duration(milliseconds: 650));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(
+        'Card metadata sam: Community member user-metadata-test/user-metadata-test',
+      ),
+      findsOneWidget,
+    );
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+  });
   testWidgets(
     'mobile card actions, banner, facts and badges match in both materials',
     (tester) async {

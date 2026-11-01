@@ -314,9 +314,6 @@ class _SummaryLayout extends StatelessWidget {
   );
 }
 
-// The person where a page's title would be, and after the name what is known
-// about them. The name keeps its room; the facts beside it give way first, a
-// whole fact at a time.
 class _SummaryProfileMetadata extends StatelessWidget {
   const _SummaryProfileMetadata({required this.instance});
 

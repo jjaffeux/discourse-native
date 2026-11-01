@@ -13,7 +13,10 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_manifest.dart';
+import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_filters.dart';
@@ -45,6 +48,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 import 'support/page_scrollbar.dart';
+import 'support/user_metadata_plugin.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
 const _topTopic = UserSummaryTopic(
@@ -126,6 +130,70 @@ void main() {
     }
   });
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  testWidgets(
+    'profile metadata reuses the canonical card and updates on normal refresh',
+    (tester) async {
+      final cards = <String, UserCard>{
+        'reader': const UserCard(username: 'reader', title: 'before'),
+      };
+      final fixture = await _pump(
+        tester,
+        cards: cards,
+        pluginManifest: const PluginManifest([userMetadataTestModule]),
+      );
+      await _openSummaryFromMenu(tester);
+      expect(fixture.api.cardsRequested, ['reader']);
+      expect(
+        find.text(
+          'Profile metadata reader: before user-metadata-test/user-metadata-test',
+        ),
+        findsOneWidget,
+      );
+      await fixture.controller.loadUserCard('reader', siteUrl: _siteUrl);
+      expect(fixture.api.cardsRequested, ['reader']);
+      cards['reader'] = const UserCard(username: 'reader', title: 'after');
+      await fixture.controller.refreshCurrentTab();
+      await tester.pumpAndSettle();
+      expect(fixture.api.cardsRequested, ['reader', 'reader']);
+      expect(
+        find.text(
+          'Profile metadata reader: after user-metadata-test/user-metadata-test',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'Profile metadata reader: before user-metadata-test/user-metadata-test',
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('absent metadata performs no extra user-card request', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester);
+    await _openSummaryFromMenu(tester);
+    await fixture.controller.refreshCurrentTab();
+    await tester.pumpAndSettle();
+    expect(fixture.api.cardsRequested, isEmpty);
+  });
+
+  testWidgets('metadata card failure does not prevent summary rendering', (
+    tester,
+  ) async {
+    final fixture = await _pump(
+      tester,
+      pluginManifest: const PluginManifest([userMetadataTestModule]),
+    );
+    await _openSummaryFromMenu(tester);
+    expect(fixture.api.cardsRequested, ['reader']);
+    expect(find.text('Highlights'), findsOneWidget);
+    expect(find.textContaining('Profile metadata'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   for (final tab in ['Highlights', 'Connections', 'Reading']) {
     testWidgets(
@@ -797,6 +865,8 @@ Future<_Fixture> _pump(
   Completer<void>? summaryGate,
   FakeForumTabStore? forumTabs,
   bool badgesEnabled = true,
+  Map<String, UserCard> cards = const {},
+  PluginManifest? pluginManifest,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -815,6 +885,7 @@ Future<_Fixture> _pump(
     user: site.user,
     totals: const NotificationTotals(),
     summary: summary,
+    cards: cards,
     userSummaryGate: summaryGate,
     feeds: const {'/latest.json': []},
   );
@@ -830,6 +901,7 @@ Future<_Fixture> _pump(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
+      pluginManifest: pluginManifest ?? corePluginManifest,
     ),
   );
   await tester.pumpAndSettle();
