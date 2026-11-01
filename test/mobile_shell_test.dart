@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -258,6 +259,7 @@ Future<ShellController> pumpMobileShellFixture(
   int chatUnreadCount = 0,
   TopicPayload? topic,
   Completer<void>? topicGate,
+  List<DiscourseNotification>? notifications,
   PluginManifest? pluginManifest,
   ChatChannels? conversations,
   List<Topic>? topics,
@@ -293,6 +295,7 @@ Future<ShellController> pumpMobileShellFixture(
   final account = user ?? _user;
   final api = FakeDiscourseApi(
     topicGate: topicGate,
+    notificationList: notifications,
     user: account,
     doNotDisturbUntil: DateTime.now().add(const Duration(minutes: 30)),
     customSidebarSectionsBySite: const {

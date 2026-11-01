@@ -5493,7 +5493,7 @@ class ShellController extends FrameSafeNotifier
     String? tabId,
     TopicDetail detail,
   ) {
-    if (!detail.privateMessage) return;
+    if (mobileNavigationEnabled || !detail.privateMessage) return;
     final workspace = _workspace.forSite(siteUrl);
     final tab = workspace?.tabs.where((tab) => tab.id == tabId).firstOrNull;
     if (workspace == null ||
@@ -5541,9 +5541,6 @@ class ShellController extends FrameSafeNotifier
       ),
     );
     if (currentInstance?.url == siteUrl && activeTabId == tabId) {
-      if (mobileNavigationEnabled) {
-        mobileNavigation.replaceCurrent(activeTab!.location);
-      }
       unawaited(loadFeed(messages.id));
     }
   }

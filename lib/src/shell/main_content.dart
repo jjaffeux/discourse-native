@@ -1969,14 +1969,21 @@ class _MainContentSnapshot {
     ShellTabContext tab,
   ) {
     final route = tab.currentContent;
+    final source = tab.topicListContent;
+    final previous = controller.mobileNavigationEnabled
+        ? controller.mobileNavigation.previousLocation?.contentStack.last
+        : null;
     return _MainContentSnapshot(
       siteUrl: controller.currentInstance?.url,
       activeTabId: tab.activeTabId,
       route: route,
-      sourceRoute: tab.topicListContent,
-      previousRoute: controller.mobileNavigationEnabled
-          ? controller.mobileNavigation.previousLocation?.contentStack.last
-          : null,
+      sourceRoute:
+          controller.mobileNavigationEnabled &&
+              route?.isTopic == true &&
+              (source == null || previous?.sameDestinationAs(source) != true)
+          ? null
+          : source,
+      previousRoute: previous,
       canPop: tab.canPopContent,
       canReply: tab.canReplyHere,
       bookmarkBusy: switch ((
