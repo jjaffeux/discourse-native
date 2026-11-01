@@ -58,6 +58,39 @@ void main() {
   });
 
   testWidgets(
+    'initial topic list shows bulk selection when fresh site settings arrive',
+    (tester) async {
+      final gate = Completer<void>();
+      await _pump(
+        tester,
+        phone,
+        enabled: null,
+        configGate: gate,
+        beforeSettle: (shell, api, row) async {
+          await _frames(tester);
+          expect(shell.mobileNavigationEnabled, isTrue);
+          expect(shell.freshCurrentUserFor(_site)?.staff, isTrue);
+          expect(find.text(appL10n.nestedRepliesBulkSelect), findsNothing);
+          api.siteConfigs[_site] = SiteConfig(
+            plugins: PluginData.none.withValue(
+              nestedRepliesSettingsKey,
+              const NestedRepliesSettings(enabled: true),
+            ),
+          );
+          gate.complete();
+          await _frames(tester);
+          expect(renderedText(_title), findsOneWidget);
+          expect(shell.currentContent!.isTopic, isFalse);
+          expect(find.text(appL10n.nestedRepliesBulkSelect), findsOneWidget);
+        },
+      );
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  testWidgets(
     'late child pages retain canonical root position through cooked body layout',
     (tester) async {
       final fixture = await _pump(tester, phone);
