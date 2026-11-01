@@ -1,8 +1,13 @@
+import 'dart:convert';
+
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/plugins/user_notes/user_notes_api.dart';
 import 'package:discourse_native/src/plugins/user_notes/user_notes_data.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'user_notes_fixture.dart';
 
 const _credentials = PluginRequestCredentials(
@@ -10,6 +15,36 @@ const _credentials = PluginRequestCredentials(
   clientId: 'client',
 );
 void main() {
+  test('list requests JSON through the authenticated mounted transport', () async {
+    final requests = <http.Request>[];
+    final transport = DiscourseApi(
+      client: MockClient((request) async {
+        requests.add(request);
+        final jsonRequest =
+            request.url.path.endsWith('.json') ||
+            request.headers['accept'] == 'application/json' ||
+            request.headers['x-requested-with'] == 'XMLHttpRequest';
+        return jsonRequest
+            ? http.Response(jsonEncode(notesPage([noteWire()])), 200)
+            : http.Response('', 200, headers: {'content-type': 'text/html'});
+      }),
+    );
+    addTearDown(transport.close);
+    final result = await UserNotesApiClient(transport).list(
+      siteUrl: notesSite,
+      userId: 7,
+      credentials: _credentials,
+    );
+    expect(result.username, 'mira');
+    expect(result.notes.single.raw, 'Private **staff** context.');
+    final request = requests.single;
+    expect(request.method, 'GET');
+    expect(request.url.path, '/community/user_notes.json');
+    expect(request.url.queryParameters, {'user_id': '7'});
+    expect(request.headers['user-api-key'], 'staff-key');
+    expect(request.headers['user-api-client-id'], 'client');
+  });
+
   test(
     'exact list/create/delete routes and serializer envelopes remain plugin-owned',
     () async {
