@@ -146,22 +146,29 @@ void main() {
         await tester.scrollUntilVisible(
           find.text('Private note 35'),
           500,
-          scrollable: find.descendant(
-            of: scroll,
-            matching: find.byType(Scrollable),
-          ).first,
+          scrollable: find
+              .descendant(of: scroll, matching: find.byType(Scrollable))
+              .first,
           maxScrolls: 60,
         );
         await tester.pumpAndSettle();
         expect(find.text('Private note 35').hitTestable(), findsOneWidget);
         expect(f.transport.requests.length, 1);
-        final position = tester.state<ScrollableState>(
-          find.descendant(of: scroll, matching: find.byType(Scrollable)).first,
-        ).position;
+        final position = tester
+            .state<ScrollableState>(
+              find
+                  .descendant(of: scroll, matching: find.byType(Scrollable))
+                  .first,
+            )
+            .position;
         position.jumpTo(0);
         await tester.pumpAndSettle();
         await tester.enterText(find.byType(DTextarea), 'Keep this draft');
-        await tester.testTextInput.receiveAction(TextInputAction.done);
+        FocusManager.instance.primaryFocus?.unfocus();
+        await tester.pumpAndSettle();
+        position.jumpTo(0);
+        await tester.pumpAndSettle();
+        expect(position.pixels, 0);
         f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
             notesPage([noteWire(raw: 'Freshly loaded note')]);
         await tester.drag(scroll, const Offset(0, 400));

@@ -56,9 +56,10 @@ void main() {
       final f = NotesFixture();
       addTearDown(() => tester.runAsync(f.dispose));
       const source = 'def secret_note\n  puts "private evidence"\nend';
-      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) => notesPage([
-        noteWire(raw: 'Staff **context**\n\n```ruby\n$source\n```'),
-      ]);
+      f.transport.responders['GET /user_notes.json?user_id=7'] = (_) =>
+          notesPage([
+            noteWire(raw: 'Staff **context**\n\n```ruby\n$source\n```'),
+          ]);
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
