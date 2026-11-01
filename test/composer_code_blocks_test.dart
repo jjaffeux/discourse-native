@@ -438,6 +438,153 @@ void main() {
     expect(formatter.formatEditUpdate(old, history), history);
   });
 
+  testWidgets('double Enter exits code into prose', (tester) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello');
+    await tester.pump();
+    final input = tester.widget<EditableText>(_codeInput);
+    for (final body in ['hello\n', 'hello\n\n']) {
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: body,
+          selection: TextSelection.collapsed(offset: body.length),
+        ),
+      );
+      await tester.pump();
+    }
+    expect(input.focusNode.hasFocus, isFalse);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(composer.value.text, '```text\nhello\n```\n');
+    expect(composer.text.selection.extentOffset, composer.value.text.length);
+    tester.testTextInput.updateEditingValue(
+      composer.value.copyWith(
+        text: '${composer.value.text}After',
+        selection: TextSelection.collapsed(
+          offset: composer.value.text.length + 5,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, '```text\nhello\n```\nAfter');
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final body in ['hello', '  hello', 'if (true) {']) {
+    testWidgets('hardware double Enter exits code after $body', (tester) async {
+      final composer = await _pump(tester, composerCodeMarkdown(body));
+      await tester.tap(_codeInput);
+      await tester.enterText(_codeInput, body);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(composer.focus.hasFocus, isTrue);
+      expect(parseComposerCodeBlocks(composer.raw).single.body, body);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('Shift+Enter preserves code lines and restarts double Enter', (
+    tester,
+  ) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'hello\n\n',
+        selection: TextSelection.collapsed(offset: 7),
+      ),
+    );
+    await tester.pump();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    expect(parseComposerCodeBlocks(composer.raw).single.body, 'hello\n\n');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(composer.focus.hasFocus, isTrue);
+    expect(parseComposerCodeBlocks(composer.raw).single.body, 'hello\n\n');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('moving the code caret interrupts consecutive Enter', (
+    tester,
+  ) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    expect(parseComposerCodeBlocks(composer.raw).single.body, 'hello\n\n');
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(composer.focus.hasFocus, isTrue);
+    expect(parseComposerCodeBlocks(composer.raw).single.body, 'hello\n');
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pasted trailing blank lines and middle Enters stay in code', (
+    tester,
+  ) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello\n\n');
+    await tester.pump();
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    await tester.enterText(_codeInput, 'hello\nworld');
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'hello\nworld',
+        selection: TextSelection.collapsed(offset: 5),
+      ),
+    );
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    expect(
+      parseComposerCodeBlocks(composer.raw).single.body,
+      'hello\n\n\nworld',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('composing a newline does not arm code exit', (tester) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello');
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'hello\n',
+        selection: TextSelection.collapsed(offset: 6),
+        composing: TextRange(start: 5, end: 6),
+      ),
+    );
+    await tester.pump();
+    tester.testTextInput.updateEditingValue(
+      const TextEditingValue(
+        text: 'hello\n\n',
+        selection: TextSelection.collapsed(offset: 7),
+      ),
+    );
+    await tester.pump();
+    expect(tester.widget<EditableText>(_codeInput).focusNode.hasFocus, isTrue);
+    expect(parseComposerCodeBlocks(composer.raw).single.body, 'hello\n\n');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'editing code updates the draft and preserves focus and selection',
     (tester) async {
