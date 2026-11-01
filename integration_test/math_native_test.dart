@@ -52,77 +52,85 @@ void main() {
       },
     );
   }
-  testWidgets(
-    'production composer pencil applies source with a real native math view',
-    (tester) async {
-      const initial = r'Before $\frac{a}{b}$ after';
-      final state = ComposerPluginState(
-        siteSettings: PluginData.none.withValue(
-          mathSettingsKey,
-          const MathSettings(enabled: true),
-        ),
-      );
-      late ComposerController composer;
-      final policy = MathComposerPolicy(
-        ComposerSyntaxPolicyContext(
-          siteUrl: 'https://example.test',
-          isPluginTarget: false,
-          isEdit: false,
-          initialState: state,
-          readState: () => state,
-          readEditor: () => composer,
-        ),
-      );
-      composer = ComposerController(
-        const ReplyComposerTarget(
-          privateMessageTopic: false,
-          siteUrl: 'https://example.test',
-          topicId: 1,
-          slug: 'math',
-          topicTitle: 'Math',
-        ),
-        syntaxPolicies: [policy],
-        pluginStateReader: () => state,
-      );
-      composer.text.value = const TextEditingValue(
-        text: initial,
-        selection: TextSelection.collapsed(offset: initial.length),
-      );
-      await tester.pumpWidget(
-        MaterialApp(
-          theme: AppTheme.light,
-          home: Scaffold(
-            body: SizedBox(
-              width: 700,
-              height: 450,
-              child: ComposerEditor(
-                composer: composer,
-                hintText: 'Reply',
-                textStyle: const TextStyle(fontSize: 16, height: 1.5),
-                hintStyle: null,
+  for (final (name, initial) in [
+    ('prose', r'Before $\frac{a}{b}$ after'),
+    ('list', r'- $\frac{a}{b}$'),
+    ('details', '[details="Math"]\n\$\\frac{a}{b}\$\n[/details]'),
+  ]) {
+    testWidgets(
+      'production $name pencil applies source with a real native math view',
+      (tester) async {
+        final state = ComposerPluginState(
+          siteSettings: PluginData.none.withValue(
+            mathSettingsKey,
+            const MathSettings(enabled: true),
+          ),
+        );
+        late ComposerController composer;
+        final policy = MathComposerPolicy(
+          ComposerSyntaxPolicyContext(
+            siteUrl: 'https://example.test',
+            isPluginTarget: false,
+            isEdit: false,
+            initialState: state,
+            readState: () => state,
+            readEditor: () => composer,
+          ),
+        );
+        composer = ComposerController(
+          const ReplyComposerTarget(
+            privateMessageTopic: false,
+            siteUrl: 'https://example.test',
+            topicId: 1,
+            slug: 'math',
+            topicTitle: 'Math',
+          ),
+          syntaxPolicies: [policy],
+          pluginStateReader: () => state,
+        );
+        composer.text.value = TextEditingValue(
+          text: initial,
+          selection: TextSelection.collapsed(offset: initial.length),
+        );
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: SizedBox(
+                width: 700,
+                height: 450,
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: 'Reply',
+                  textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                  hintStyle: null,
+                ),
               ),
             ),
           ),
-        ),
-      );
-      await tester.pump();
-      await rendered(tester, r'\frac{a}{b}');
-      await tester.tap(find.byTooltip('Edit math'));
-      await tester.pumpAndSettle();
-      final input = find.descendant(
-        of: find.byType(DTextarea),
-        matching: find.byType(EditableText),
-      );
-      expect(input, findsOneWidget);
-      await tester.enterText(input, r'\sqrt{x}');
-      await tester.tap(find.widgetWithText(DButton, 'Apply'));
-      await tester.pumpAndSettle();
-      expect(composer.text.text, r'Before $\sqrt{x}$ after');
-      await rendered(tester, r'\sqrt{x}');
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-      composer.dispose();
-      expect(tester.takeException(), isNull);
-    },
-  );
+        );
+        await tester.pump();
+        await rendered(tester, r'\frac{a}{b}');
+        await tester.tap(find.byTooltip('Edit math'));
+        await tester.pumpAndSettle();
+        final input = find.descendant(
+          of: find.byType(DTextarea),
+          matching: find.byType(EditableText),
+        );
+        expect(input, findsOneWidget);
+        await tester.enterText(input, r'\sqrt{x}');
+        await tester.tap(find.widgetWithText(DButton, 'Apply'));
+        await tester.pumpAndSettle();
+        expect(
+          composer.text.text,
+          initial.replaceFirst(r'\frac{a}{b}', r'\sqrt{x}'),
+        );
+        await rendered(tester, r'\sqrt{x}');
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump();
+        composer.dispose();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
