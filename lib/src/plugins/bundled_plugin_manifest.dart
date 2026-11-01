@@ -23,6 +23,7 @@ import 'prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'reactions/reactions_module.dart';
 import 'solved/solved_module.dart';
 import 'topic_voting/topic_voting_module.dart';
+import 'user_notes/user_notes_module.dart';
 import 'voice/voice_module.dart';
 
 final PluginManifest bundledPluginManifest = PluginManifest([
@@ -51,4 +52,5 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   postVotingModule,
   chatModule,
   voiceModule,
+  userNotesModule,
 ]);

@@ -25118,6 +25118,162 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Post Voting site settings'**
   String get postVotingSiteSettings;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'User notes'**
+  String get userNotesTitle;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'User notes ({count})'**
+  String userNotesCount(int count);
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'About @{username}'**
+  String userNotesAbout(String username);
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Only staff can see these notes.'**
+  String get userNotesPrivate;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Add user note'**
+  String get userNotesAdd;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a private staff note'**
+  String get userNotesField;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Add context that will help the staff team…'**
+  String get userNotesHint;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Linked to post #{postId}'**
+  String userNotesLinkedPost(int postId);
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Show post'**
+  String get userNotesShowPost;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Show flag'**
+  String get userNotesShowFlag;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove user note'**
+  String get userNotesRemove;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Are you sure you want to delete this user note?'**
+  String get userNotesDeleteConfirm;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'No user notes yet'**
+  String get userNotesEmpty;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Add context for the rest of the staff team above.'**
+  String get userNotesEmptyDescription;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not load notes'**
+  String get userNotesLoadError;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save this change. Your note has been kept.'**
+  String get userNotesWriteError;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'The note may have been saved. Refresh and check the list before deciding whether to try again.'**
+  String get userNotesUncertain;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh notes'**
+  String get userNotesRefresh;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a note before saving.'**
+  String get userNotesBlank;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'The note exceeds the site’s maximum length.'**
+  String get userNotesTooLong;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Deleted user'**
+  String get userNotesUnknownAuthor;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Shown as unformatted text'**
+  String get userNotesUnformatted;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'View notes on the website'**
+  String get userNotesOnWeb;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get userNotesRetry;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get userNotesCancel;
+
+  /// User Notes plugin text.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading user notes'**
+  String get userNotesLoading;
 }
 
 class _AppLocalizationsDelegate

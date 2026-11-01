@@ -15823,4 +15823,92 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get postVotingSiteSettings => 'Post Voting site settings';
+
+  @override
+  String get userNotesTitle => 'User notes';
+
+  @override
+  String userNotesCount(int count) {
+    return 'User notes ($count)';
+  }
+
+  @override
+  String userNotesAbout(String username) {
+    return 'About @$username';
+  }
+
+  @override
+  String get userNotesPrivate => 'Only staff can see these notes.';
+
+  @override
+  String get userNotesAdd => 'Add user note';
+
+  @override
+  String get userNotesField => 'Add a private staff note';
+
+  @override
+  String get userNotesHint => 'Add context that will help the staff team…';
+
+  @override
+  String userNotesLinkedPost(int postId) {
+    return 'Linked to post #$postId';
+  }
+
+  @override
+  String get userNotesShowPost => 'Show post';
+
+  @override
+  String get userNotesShowFlag => 'Show flag';
+
+  @override
+  String get userNotesRemove => 'Remove user note';
+
+  @override
+  String get userNotesDeleteConfirm =>
+      'Are you sure you want to delete this user note?';
+
+  @override
+  String get userNotesEmpty => 'No user notes yet';
+
+  @override
+  String get userNotesEmptyDescription =>
+      'Add context for the rest of the staff team above.';
+
+  @override
+  String get userNotesLoadError => 'Could not load notes';
+
+  @override
+  String get userNotesWriteError =>
+      'Could not save this change. Your note has been kept.';
+
+  @override
+  String get userNotesUncertain =>
+      'The note may have been saved. Refresh and check the list before deciding whether to try again.';
+
+  @override
+  String get userNotesRefresh => 'Refresh notes';
+
+  @override
+  String get userNotesBlank => 'Enter a note before saving.';
+
+  @override
+  String get userNotesTooLong => 'The note exceeds the site’s maximum length.';
+
+  @override
+  String get userNotesUnknownAuthor => 'Deleted user';
+
+  @override
+  String get userNotesUnformatted => 'Shown as unformatted text';
+
+  @override
+  String get userNotesOnWeb => 'View notes on the website';
+
+  @override
+  String get userNotesRetry => 'Retry';
+
+  @override
+  String get userNotesCancel => 'Cancel';
+
+  @override
+  String get userNotesLoading => 'Loading user notes';
 }

@@ -28,6 +28,7 @@ import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_module.dart';
 import 'package:discourse_native/src/plugins/solved/solved_module.dart';
 import 'package:discourse_native/src/plugins/topic_voting/topic_voting_module.dart';
+import 'package:discourse_native/src/plugins/user_notes/user_notes_module.dart';
 
 ChatApi _chatApi(PluginApiTransport transport) => transport as ChatApi;
 
@@ -63,6 +64,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   cakedayModule,
   gamificationModule,
   const ChatModule(apiFactory: _chatApi),
+  userNotesModule,
 ]);
 
 InstalledPlugins? _installedPlugins;

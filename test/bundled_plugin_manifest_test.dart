@@ -46,6 +46,7 @@ void main() {
       'discourse-post-voting',
       'chat',
       'voice',
+      'discourse-user-notes',
     ]);
 
     final localDates = installed.descriptors.singleWhere(
