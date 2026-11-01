@@ -10,6 +10,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
+import '../data/post_welcome_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
 
@@ -4822,7 +4823,7 @@ class _PostTileState extends State<_PostTile> {
   }
 }
 
-final _welcomeSessions = Expando<Set<(String, int?, int)>>();
+final _postWelcomes = PostWelcomeStore();
 
 class _PostNoticeBanner extends StatelessWidget {
   const _PostNoticeBanner({
@@ -4854,28 +4855,33 @@ class _PostNoticeBanner extends StatelessWidget {
               ),
       _ => notice.raw ?? context.l10n.staffNotice,
     };
-    final seen = _welcomeSessions[controller] ??= {};
-    final welcomeId = (
-      siteUrl,
-      controller.currentUserFor(siteUrl)?.id,
-      post.id,
-    );
     if (notice.type == 'new_user' || notice.type == 'returning_user') {
+      final viewerId = controller.currentUserFor(siteUrl)?.id;
+      Widget mark({bool celebrate = false}) => DConfetti(
+        enabled: celebrate && !post.hidden && !post.isDeleted,
+        onSeen: () =>
+            unawaited(_postWelcomes.markSeen(siteUrl, viewerId, post.id)),
+        child: SvgPicture.asset(
+          'packages/discourse_native/src/ui/assets/post_notice/'
+          '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
+        ),
+      );
       return DAlert.postNotice(
         key: ValueKey('post-notice-${post.id}'),
         message: Text(label),
-        icon: DConfetti(
-          enabled:
-              notice.type == 'new_user' &&
-              !post.hidden &&
-              !post.isDeleted &&
-              !seen.contains(welcomeId),
-          onSeen: () => seen.add(welcomeId),
-          child: SvgPicture.asset(
-            'packages/discourse_native/src/ui/assets/post_notice/'
-            '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
-          ),
-        ),
+        icon: notice.type == 'new_user'
+            ? ListenableBuilder(
+                listenable: _postWelcomes,
+                builder: (context, _) => FutureBuilder<bool>(
+                  future: _postWelcomes.hasSeen(siteUrl, viewerId, post.id),
+                  builder: (context, snapshot) => mark(
+                    celebrate:
+                        snapshot.connectionState == ConnectionState.done &&
+                        snapshot.data == false,
+                  ),
+                ),
+              )
+            : mark(),
       );
     }
     return DAlert(
