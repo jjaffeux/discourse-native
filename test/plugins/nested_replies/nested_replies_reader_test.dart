@@ -500,7 +500,81 @@ void main() {
     },
   );
 
-  testWidgets('paging response does not rewind a continuing downward drag', (
+  for (final child in [false, true]) {
+    for (final terminal in [false, true]) {
+      testWidgets(
+        '${terminal ? "terminal " : ""}${child ? "child" : "root"} paging response does not rewind a continuing downward drag',
+        (tester) async {
+          _size(tester, true);
+          final pending = Completer<Object?>();
+          final transport = RecordingPluginTransport(
+            responses: {
+              '$_rootPath&track_visit=true': {
+                ..._roots(),
+                'roots': [
+                  for (var number = 2; number < 42; number++)
+                    _treePost(number, count: child && number == 41 ? 20 : 0),
+                ],
+                'has_more_roots': !child,
+              },
+            },
+            responders: {
+              (child
+                  ? 'GET /n/conversation/7/children/41.json?sort=top&page=0&depth=1'
+                  : 'GET /n/conversation/7.json?sort=top&page=1'): (_) =>
+                  pending.future,
+            },
+          );
+          await _mount(tester, transport);
+          await _frames(tester);
+          final scrollView = find.byType(CustomScrollView).first;
+          final scroll = tester
+              .widget<CustomScrollView>(scrollView)
+              .controller!;
+          scroll.jumpTo(scroll.position.maxScrollExtent - 300);
+          await _frames(tester);
+          expect(transport.requests, hasLength(2));
+          final gesture = await tester.startGesture(
+            tester.getCenter(scrollView),
+          );
+          await gesture.moveBy(const Offset(0, -40));
+          await tester.pump(const Duration(milliseconds: 16));
+          await gesture.moveBy(const Offset(0, -40));
+          await tester.pump(const Duration(milliseconds: 16));
+          final start = scroll.offset;
+          pending.complete({
+            (child ? 'children' : 'roots'): [
+              if (!terminal)
+                for (var number = 42; number < 62; number++)
+                  _treePost(number, parent: child ? 41 : null),
+            ],
+            'page': child ? 0 : 1,
+            (child ? 'has_more' : 'has_more_roots'): false,
+          });
+          await tester.pump(const Duration(milliseconds: 16));
+          final response = scroll.offset;
+          await gesture.moveBy(const Offset(0, -60));
+          final beforeFrame = scroll.offset;
+          await tester.pump(const Duration(milliseconds: 16));
+          final afterFrame = scroll.offset;
+          expect(beforeFrame, greaterThan(response));
+          expect(
+            afterFrame,
+            greaterThanOrEqualTo(beforeFrame - 1),
+            reason:
+                'Downward drag offsets: before response $start, after response '
+                '$response, after continuing drag $beforeFrame, next frame $afterFrame',
+          );
+          await gesture.up();
+          await _frames(tester);
+          await tester.pumpWidget(const SizedBox.shrink());
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      );
+    }
+  }
+
+  testWidgets('paging response does not rewind a downward fling', (
     tester,
   ) async {
     _size(tester, true);
@@ -526,31 +600,27 @@ void main() {
     scroll.jumpTo(scroll.position.maxScrollExtent - 300);
     await _frames(tester);
     expect(transport.requests, hasLength(2));
-    final gesture = await tester.startGesture(tester.getCenter(scrollView));
-    await gesture.moveBy(const Offset(0, -40));
+    await tester.fling(scrollView, const Offset(0, -100), 1000);
     await tester.pump(const Duration(milliseconds: 16));
-    await gesture.moveBy(const Offset(0, -40));
-    await tester.pump(const Duration(milliseconds: 16));
-    final start = scroll.offset;
+    final samples = <double>[scroll.offset];
+    void record() => samples.add(scroll.offset);
+    scroll.addListener(record);
     pending.complete({
       'roots': [for (var number = 42; number < 62; number++) _treePost(number)],
       'page': 1,
       'has_more_roots': false,
     });
     await tester.pump(const Duration(milliseconds: 16));
-    final response = scroll.offset;
-    await gesture.moveBy(const Offset(0, -60));
-    final beforeFrame = scroll.offset;
     await tester.pump(const Duration(milliseconds: 16));
-    final afterFrame = scroll.offset;
-    expect(
-      afterFrame,
-      greaterThanOrEqualTo(beforeFrame - 1),
-      reason:
-          'Downward drag offsets: before response $start, after response '
-          '$response, after continuing drag $beforeFrame, next frame $afterFrame',
-    );
-    await gesture.up();
+    scroll.removeListener(record);
+    expect(samples.length, greaterThan(1));
+    for (var index = 1; index < samples.length; index++) {
+      expect(
+        samples[index],
+        greaterThanOrEqualTo(samples[index - 1] - 1),
+        reason: 'Downward fling offsets: $samples',
+      );
+    }
     await _frames(tester);
     await tester.pumpWidget(const SizedBox.shrink());
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
@@ -611,6 +681,203 @@ void main() {
       expect(transport.requests, hasLength(2));
       await tester.pumpWidget(const SizedBox.shrink());
     },
+  );
+
+  testWidgets(
+    'late child insertion preserves anchor and continued downward fling',
+    (tester) async {
+      _size(tester, true);
+      final pending = Completer<Object?>();
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(2, count: 21, children: [_treePost(3, parent: 2)]),
+              for (var number = 20; number < 65; number++) _treePost(number),
+            ],
+          },
+        },
+        responders: {
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+              (_) => pending.future,
+        },
+      );
+      await _mount(tester, transport);
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+          .controller!;
+      scroll.jumpTo(1500);
+      await _frames(tester);
+      await tester.fling(
+        find.byType(CustomScrollView).first,
+        const Offset(0, -100),
+        1000,
+      );
+      await tester.pump(const Duration(milliseconds: 16));
+      final candidates =
+          <Finder>[
+                for (var number = 20; number < 45; number++)
+                  find.byKey(ValueKey(100 + number)),
+              ]
+              .where(
+                (finder) =>
+                    finder.evaluate().isNotEmpty &&
+                    tester.getTopLeft(finder).dy >= 0 &&
+                    tester.getTopLeft(finder).dy < 650,
+              )
+              .toList();
+      expect(candidates, isNotEmpty);
+      final anchor = candidates.last;
+      final before = tester.getTopLeft(anchor).dy;
+      expect(scroll.position.extentAfter, greaterThan(200));
+      final responseStarted = tester.binding.clock.now();
+      pending.complete({
+        'children': [
+          for (var number = 100; number < 120; number++)
+            _treePost(number, parent: 2),
+        ],
+        'page': 0,
+        'has_more': false,
+      });
+      final offsetBefore = scroll.offset;
+      final offsets = <double>[offsetBefore];
+      void record() => offsets.add(scroll.offset);
+      scroll.addListener(record);
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(
+        anchor,
+        findsOneWidget,
+        reason:
+            'The visible root must survive insertion above it during a fling. '
+            'Scroll offsets: $offsets',
+      );
+      final after = tester.getTopLeft(anchor).dy;
+      final responseElapsed = tester.binding.clock.now().difference(
+        responseStarted,
+      );
+      final maximumTravel =
+          1000 *
+          responseElapsed.inMicroseconds /
+          Duration.microsecondsPerSecond;
+      final afterOffset = scroll.offset;
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      scroll.removeListener(record);
+      final continued = tester.getTopLeft(anchor).dy;
+
+      expect(
+        after,
+        inInclusiveRange(before - maximumTravel - 2, before + 1),
+        reason:
+            'The anchor may follow the 1000px/s fling for $responseElapsed. '
+            'Before $before, after $after, scroll offsets: $offsets',
+      );
+      expect(continued, lessThan(after));
+      expect(scroll.offset, greaterThan(afterOffset));
+      for (var index = 1; index < offsets.length; index++) {
+        expect(offsets[index], greaterThanOrEqualTo(offsets[index - 1] - 1));
+      }
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    }),
+  );
+
+  testWidgets(
+    'late child insertion preserves an already held downward drag',
+    (tester) async {
+      _size(tester, true);
+      final pending = Completer<Object?>();
+      final transport = RecordingPluginTransport(
+        responses: {
+          '$_rootPath&track_visit=true': {
+            ..._roots(),
+            'roots': [
+              _treePost(2, count: 21, children: [_treePost(3, parent: 2)]),
+              for (var number = 20; number < 65; number++) _treePost(number),
+            ],
+          },
+        },
+        responders: {
+          'GET /n/conversation/7/children/2.json?sort=top&page=0&depth=1':
+              (_) => pending.future,
+        },
+      );
+      await _mount(tester, transport);
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      final scroll = tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView).first)
+          .controller!;
+      scroll.jumpTo(1500);
+      await _frames(tester);
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(CustomScrollView).first),
+      );
+      await gesture.moveBy(const Offset(0, -40));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.moveBy(const Offset(0, -40));
+      await tester.pump(const Duration(milliseconds: 16));
+      final beforeInsertion = scroll.offset;
+      expect(scroll.position.extentAfter, greaterThan(200));
+      final candidates =
+          <Finder>[
+                for (var number = 20; number < 45; number++)
+                  find.byKey(ValueKey(100 + number)),
+              ]
+              .where(
+                (finder) =>
+                    finder.evaluate().isNotEmpty &&
+                    tester.getTopLeft(finder).dy >= 0 &&
+                    tester.getTopLeft(finder).dy < 650,
+              )
+              .toList();
+      expect(candidates, isNotEmpty);
+      final anchor = candidates.first;
+      final before = tester.getTopLeft(anchor).dy;
+      pending.complete({
+        'children': [
+          for (var number = 100; number < 120; number++)
+            _treePost(number, parent: 2),
+        ],
+        'page': 0,
+        'has_more': false,
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getTopLeft(anchor).dy, closeTo(before, 1));
+      final corrected = scroll.offset;
+      await gesture.moveBy(const Offset(0, -60));
+      await tester.pump(const Duration(milliseconds: 16));
+      final continued = scroll.offset;
+      await gesture.up();
+      expect(
+        continued - corrected,
+        closeTo(60, 1),
+        reason:
+            'Scroll offsets: before insertion $beforeInsertion, after '
+            'compensation $corrected, after continuing drag $continued',
+      );
+      await _frames(tester);
+      expect(transport.requests, hasLength(2));
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+    variant: TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+      TargetPlatform.macOS,
+    }),
   );
 
   testWidgets(
