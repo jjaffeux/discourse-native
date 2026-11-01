@@ -267,8 +267,9 @@ class ComposerDocumentBodyController extends ComposerController {
 
   @override
   void addImages(Iterable<ComposerUploadFile> files, int offset) {
-    if (_prepareUpload())
+    if (_prepareUpload()) {
       parent.addImages(files, _localOffsetToParentOffset(offset));
+    }
   }
 
   @override

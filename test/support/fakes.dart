@@ -2766,7 +2766,7 @@ class FakeDiscourseApi
       'postId': postId,
       'raw': raw,
       'originalText': originalText,
-      if (editReason != null) 'editReason': editReason,
+      'editReason': ?editReason,
     });
     await updatePostGate?.future;
 
