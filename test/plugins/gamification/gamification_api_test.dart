@@ -79,7 +79,7 @@ void main() {
         const GamificationQuery(),
         page: 1,
       );
-      expect(f.transport.reads.last.path, '/leaderboard.json?page=1');
+      expect(f.transport.reads.last.path, '/leaderboard/?format=json&page=1');
       expect(GamificationPeriod.decode('all'), GamificationPeriod.allTime);
     },
   );

@@ -175,10 +175,10 @@ final class GamificationFixture {
       '',
       ...GamificationPeriod.values.map((p) => '&period=${p.wire}'),
     ]) {
-      transport.responders['GET /leaderboard.json?page=0$suffix'] = (_) =>
-          publicResponse;
-      transport.responders['GET /leaderboard.json?page=1$suffix'] = (_) =>
-          gameResponse(users: []);
+      transport.responders['GET /leaderboard/?format=json&page=0$suffix'] =
+          (_) => publicResponse;
+      transport.responders['GET /leaderboard/?format=json&page=1$suffix'] =
+          (_) => gameResponse(users: []);
       transport.responders['GET /leaderboard/1.json?page=0$suffix'] = (_) =>
           publicResponse;
     }

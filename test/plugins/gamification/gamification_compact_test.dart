@@ -17,7 +17,7 @@ void main() {
       final host = GamificationTestNavigationHost();
       f
               .transport
-              .responders['GET /leaderboard.json?page=0&period=weekly&user_limit=10'] =
+              .responders['GET /leaderboard/?format=json&page=0&period=weekly&user_limit=10'] =
           (_) => f.publicResponse;
       await tester.pumpWidget(
         gameApp(
@@ -38,7 +38,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(
         f.transport.reads.single.path,
-        '/leaderboard.json?page=0&period=weekly&user_limit=10',
+        '/leaderboard/?format=json&page=0&period=weekly&user_limit=10',
       );
       expect(find.text('Your position'), findsNothing);
       expect(find.text('Load more'), findsNothing);

@@ -13,7 +13,7 @@ void main() {
       final f = GamificationFixture();
       addTearDown(f.dispose);
       final old = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
           old.future;
       final a = f.controller.acquire(gameSite, const GamificationQuery());
       final b = f.controller.acquire(
@@ -45,7 +45,7 @@ void main() {
       addTearDown(h.release);
       await h.refresh();
       final pending = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=1'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=1'] = (_) =>
           pending.future;
       final first = h.loadNextPage();
       await h.loadNextPage();
@@ -72,7 +72,7 @@ void main() {
       addTearDown(h.release);
       await h.refresh();
       final old = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=1'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=1'] = (_) =>
           old.future;
       final append = h.loadNextPage();
       await gameFlush();
@@ -84,7 +84,7 @@ void main() {
         2,
         3,
       ]);
-      f.transport.responders['GET /leaderboard.json?page=1'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=1'] = (_) =>
           gameResponse(users: [gameUser()]);
       final before = f.transport.reads.length;
       await h.loadNextPage();
@@ -98,7 +98,7 @@ void main() {
       final f = GamificationFixture();
       addTearDown(f.dispose);
       final old = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
           old.future;
       final h = f.controller.acquire(gameSite, const GamificationQuery());
       addTearDown(h.release);
@@ -106,14 +106,14 @@ void main() {
       f.requests.forget(gameSite);
       f.requests.apiKeys[gameSite] = 'account-b';
       f.user = const DiscourseUser(username: 'b', id: 90);
-      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
           gameResponse(users: [gameUser(id: 90)]);
       f.controller.pluginCurrentUserRefreshed(gameSite);
       await gameFlush();
       old.complete(gameResponse(users: [gameUser(id: 88)]));
       await gameFlush();
       expect((h.state as GamificationReady).snapshot.users.single.id, 90);
-      f.transport.failures['GET /leaderboard.json?page=0'] =
+      f.transport.failures['GET /leaderboard/?format=json&page=0'] =
           const SiteLookupException(
             SiteLookupFailure.unreachable,
             '',
@@ -131,7 +131,7 @@ void main() {
       final h = f.controller.acquire(gameSite, const GamificationQuery());
       addTearDown(h.release);
       await h.refresh();
-      f.transport.failures['GET /leaderboard.json?page=0'] = Exception(
+      f.transport.failures['GET /leaderboard/?format=json&page=0'] = Exception(
         'offline',
       );
       await h.refresh();

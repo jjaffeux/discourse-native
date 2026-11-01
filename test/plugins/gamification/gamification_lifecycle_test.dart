@@ -16,7 +16,7 @@ void main() {
       await a.refresh();
       a.release();
       f.requests.forget(gameSite);
-      f.transport.failures['GET /leaderboard.json?page=0'] = Exception(
+      f.transport.failures['GET /leaderboard/?format=json&page=0'] = Exception(
         'offline under account B',
       );
       final b = f.controller.acquire(gameSite, const GamificationQuery());
@@ -28,7 +28,7 @@ void main() {
       expect(b.state, isA<GamificationReady>());
       f.requests.forget(gameSite);
       expect(b.state, isA<GamificationUnavailable>());
-      f.transport.failures['GET /leaderboard.json?page=0'] = Exception(
+      f.transport.failures['GET /leaderboard/?format=json&page=0'] = Exception(
         'offline under account C',
       );
       await b.refresh();
@@ -177,7 +177,7 @@ void main() {
       first.release();
       now = now.add(const Duration(seconds: 61));
       final readback = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
           readback.future;
       final expired = f.controller.acquire(gameSite, const GamificationQuery());
       expect(expired.state, isA<GamificationReady>());
@@ -222,7 +222,7 @@ void main() {
       seed.release();
       final cached = f.controller.acquire(gameSite, const GamificationQuery());
       expect(cached.state, isA<GamificationReady>());
-      f.transport.failures['GET /leaderboard.json?page=0'] =
+      f.transport.failures['GET /leaderboard/?format=json&page=0'] =
           const SiteLookupException(
             SiteLookupFailure.unreachable,
             '',
@@ -264,7 +264,7 @@ void main() {
       await weekly.refresh();
       f
               .transport
-              .responders['GET /leaderboard.json?page=0&period=weekly&user_limit=10'] =
+              .responders['GET /leaderboard/?format=json&page=0&period=weekly&user_limit=10'] =
           (_) => gameResponse();
       final preview = f.controller.acquire(
         gameSite,
@@ -309,7 +309,7 @@ void main() {
       final f = GamificationFixture();
       addTearDown(f.dispose);
       final pending = Completer<Map<String, dynamic>>();
-      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+      f.transport.responders['GET /leaderboard/?format=json&page=0'] = (_) =>
           pending.future;
       final late = f.controller.acquire(gameSite, const GamificationQuery());
       addTearDown(late.release);

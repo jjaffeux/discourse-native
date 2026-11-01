@@ -52,10 +52,9 @@ final class GamificationApi {
       throw ArgumentError('Invalid leaderboard page');
     }
     final target = query.target.id;
-    final path = target == null
-        ? '/leaderboard.json'
-        : '/leaderboard/$target.json';
+    final path = target == null ? '/leaderboard/' : '/leaderboard/$target.json';
     final params = <String, String>{
+      if (target == null) 'format': 'json',
       'page': '$page',
       if (query.period != null) 'period': query.period!.wire,
       if (previewUserLimit != null) 'user_limit': '$previewUserLimit',

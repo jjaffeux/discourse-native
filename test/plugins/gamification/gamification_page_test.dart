@@ -63,18 +63,18 @@ void main() {
     await gameTap(tester, find.text('Last week'));
     expect(
       f.transport.reads.last.path,
-      '/leaderboard.json?page=0&period=weekly',
+      '/leaderboard/?format=json&page=0&period=weekly',
     );
     await gameTap(tester, find.text('Load more'));
     expect(
       f.transport.reads.last.path,
-      '/leaderboard.json?page=1&period=weekly',
+      '/leaderboard/?format=json&page=1&period=weekly',
     );
     expect(find.text('Load more'), findsNothing);
     await gameTap(tester, find.text('Refresh'));
     expect(
       f.transport.reads.last.path,
-      '/leaderboard.json?page=0&period=weekly',
+      '/leaderboard/?format=json&page=0&period=weekly',
     );
     await tester.pumpWidget(const SizedBox.shrink());
   });
