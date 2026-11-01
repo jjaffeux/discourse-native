@@ -15634,4 +15634,187 @@ class AppLocalizationsEn extends AppLocalizations {
   String policyVersionGroups(String version, String groups) {
     return 'Version $version · $groups';
   }
+
+  @override
+  String get postVotingTitle => 'Post voting';
+
+  @override
+  String get postVotingVotes => 'Votes';
+
+  @override
+  String get postVotingUpvote => 'Upvote';
+
+  @override
+  String get postVotingRemoveUpvote => 'Remove upvote';
+
+  @override
+  String get postVotingDownvote => 'Downvote';
+
+  @override
+  String get postVotingRemoveDownvote => 'Remove downvote';
+
+  @override
+  String get postVotingShowVoters => 'Show who voted';
+
+  @override
+  String get postVotingUpvotes => 'Upvotes';
+
+  @override
+  String get postVotingDownvotes => 'Downvotes';
+
+  @override
+  String get postVotingAddComment => 'Add a comment';
+
+  @override
+  String get postVotingEditComment => 'Edit comment';
+
+  @override
+  String get postVotingDeleteComment => 'Delete comment';
+
+  @override
+  String get postVotingFlagComment => 'Flag comment';
+
+  @override
+  String get postVotingCommentLabel => 'Comment';
+
+  @override
+  String get postVotingConfirmDeleteComment => 'Delete this comment?';
+
+  @override
+  String get postVotingCommentUnavailable =>
+      'This comment is no longer available.';
+
+  @override
+  String get postVotingCommentLimit =>
+      'This post has reached its comment limit.';
+
+  @override
+  String get postVotingCreateTopic => 'Create post voting topic';
+
+  @override
+  String get postVotingCreationToggle => 'Post voting topic';
+
+  @override
+  String get postVotingCategoryRequired =>
+      'This category requires Post Voting topics.';
+
+  @override
+  String get postVotingCategorySettings => 'Post Voting category settings';
+
+  @override
+  String get postVotingCategoryDefault => 'New topics default to Post Voting';
+
+  @override
+  String get postVotingCategoryOnly =>
+      'New topics can only be Post Voting topics';
+
+  @override
+  String get postVotingUncertain =>
+      'The site may have received that change. Check its current state before trying again.';
+
+  @override
+  String get postVotingRefreshStatus => 'Check status';
+
+  @override
+  String get postVotingRefreshAnswers => 'Refresh answers';
+
+  @override
+  String get postVotingClosed =>
+      'Voting and comments are unavailable while this topic is closed or archived.';
+
+  @override
+  String get postVotingOwnVote => 'You cannot vote on your own content.';
+
+  @override
+  String get postVotingCommentTooShort => 'The comment is too short.';
+
+  @override
+  String get postVotingCommentTooLong => 'The comment is too long.';
+
+  @override
+  String get postVotingSignInToVote => 'Sign in to vote';
+
+  @override
+  String get postVotingNoVoters => 'No votes yet.';
+
+  @override
+  String get postVotingDeletedUser => '(user deleted)';
+
+  @override
+  String get postVotingNoMoreComments => 'All comments are shown.';
+
+  @override
+  String get postVotingVoteFailed => 'Could not update your vote.';
+
+  @override
+  String get postVotingCommentFailed => 'Could not update this comment.';
+
+  @override
+  String postVotingAnswerCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Answers',
+      one: '1 Answer',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postVotingMoreComments(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show $count more comments',
+      one: 'Show 1 more comment',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postVotingMoreVoters(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'and $count more voters',
+      one: 'and 1 more voter',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postVotingCharactersLeft(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count characters left',
+      one: '1 character left',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String postVotingReceivedScore(int count) {
+    return 'Post vote score: $count';
+  }
+
+  @override
+  String postVotingCommentNotification(String actor, String topic) {
+    return '$actor commented in $topic';
+  }
+
+  @override
+  String get postVotingStaffWarning => 'Staff warning';
+
+  @override
+  String get postVotingTakeAction => 'Take action now';
+
+  @override
+  String get postVotingQueueForReview => 'Queue for review';
+
+  @override
+  String get postVotingFlagMessage => 'Message';
+
+  @override
+  String get postVotingLoadEarlier => 'Load earlier answers';
 }

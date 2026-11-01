@@ -24824,6 +24824,288 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Version {version} · {groups}'**
   String policyVersionGroups(String version, String groups);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Post voting'**
+  String get postVotingTitle;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Votes'**
+  String get postVotingVotes;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Upvote'**
+  String get postVotingUpvote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove upvote'**
+  String get postVotingRemoveUpvote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Downvote'**
+  String get postVotingDownvote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove downvote'**
+  String get postVotingRemoveDownvote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Show who voted'**
+  String get postVotingShowVoters;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Upvotes'**
+  String get postVotingUpvotes;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Downvotes'**
+  String get postVotingDownvotes;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Add a comment'**
+  String get postVotingAddComment;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit comment'**
+  String get postVotingEditComment;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete comment'**
+  String get postVotingDeleteComment;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Flag comment'**
+  String get postVotingFlagComment;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Comment'**
+  String get postVotingCommentLabel;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete this comment?'**
+  String get postVotingConfirmDeleteComment;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'This comment is no longer available.'**
+  String get postVotingCommentUnavailable;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'This post has reached its comment limit.'**
+  String get postVotingCommentLimit;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Create post voting topic'**
+  String get postVotingCreateTopic;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Post voting topic'**
+  String get postVotingCreationToggle;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'This category requires Post Voting topics.'**
+  String get postVotingCategoryRequired;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Post Voting category settings'**
+  String get postVotingCategorySettings;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'New topics default to Post Voting'**
+  String get postVotingCategoryDefault;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'New topics can only be Post Voting topics'**
+  String get postVotingCategoryOnly;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'The site may have received that change. Check its current state before trying again.'**
+  String get postVotingUncertain;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Check status'**
+  String get postVotingRefreshStatus;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Refresh answers'**
+  String get postVotingRefreshAnswers;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Voting and comments are unavailable while this topic is closed or archived.'**
+  String get postVotingClosed;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'You cannot vote on your own content.'**
+  String get postVotingOwnVote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'The comment is too short.'**
+  String get postVotingCommentTooShort;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'The comment is too long.'**
+  String get postVotingCommentTooLong;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to vote'**
+  String get postVotingSignInToVote;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'No votes yet.'**
+  String get postVotingNoVoters;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'(user deleted)'**
+  String get postVotingDeletedUser;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'All comments are shown.'**
+  String get postVotingNoMoreComments;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update your vote.'**
+  String get postVotingVoteFailed;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update this comment.'**
+  String get postVotingCommentFailed;
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 Answer} other{{count} Answers}}'**
+  String postVotingAnswerCount(int count);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Show 1 more comment} other{Show {count} more comments}}'**
+  String postVotingMoreComments(int count);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{and 1 more voter} other{and {count} more voters}}'**
+  String postVotingMoreVoters(int count);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 character left} other{{count} characters left}}'**
+  String postVotingCharactersLeft(int count);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'Post vote score: {count}'**
+  String postVotingReceivedScore(int count);
+
+  /// Post Voting plugin interface text.
+  ///
+  /// In en, this message translates to:
+  /// **'{actor} commented in {topic}'**
+  String postVotingCommentNotification(String actor, String topic);
+
+  /// Post Voting comment flag option.
+  ///
+  /// In en, this message translates to:
+  /// **'Staff warning'**
+  String get postVotingStaffWarning;
+
+  /// Post Voting comment flag option.
+  ///
+  /// In en, this message translates to:
+  /// **'Take action now'**
+  String get postVotingTakeAction;
+
+  /// Post Voting comment flag option.
+  ///
+  /// In en, this message translates to:
+  /// **'Queue for review'**
+  String get postVotingQueueForReview;
+
+  /// Post Voting comment flag option.
+  ///
+  /// In en, this message translates to:
+  /// **'Message'**
+  String get postVotingFlagMessage;
+
+  /// Load earlier server-ordered answers around a deep-linked post.
+  ///
+  /// In en, this message translates to:
+  /// **'Load earlier answers'**
+  String get postVotingLoadEarlier;
 }
 
 class _AppLocalizationsDelegate

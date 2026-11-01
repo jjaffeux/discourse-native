@@ -171,7 +171,10 @@ final class PostVotingUser {
 }
 
 final class PostVotingTopicData
-    implements TopicRecordValue, TopicReadingPolicyRecord {
+    implements
+        TopicRecordValue,
+        TopicReadingPolicyRecord,
+        TopicReplyPolicyRecord {
   const PostVotingTopicData({
     this.enabled,
     this.answerCount,
@@ -253,7 +256,11 @@ final class PostVotingTopicData
   PostVotingTopicData mergeTopicRecord(Object? held) =>
       held is PostVotingTopicData ? held.merge(this) : this;
   @override
-  TopicReadingPolicy? get topicReadingPolicy => null;
+  TopicReadingPolicy? get topicReadingPolicy => enabled == true
+      ? NonchronologicalTopicReadingPolicy(serverReadState: serverReadState)
+      : null;
+  @override
+  bool get repliesToTopic => enabled == true;
   @override
   PostVotingTopicData markTopicRead() => PostVotingTopicData(
     enabled: enabled,

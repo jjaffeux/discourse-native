@@ -18,6 +18,7 @@ import 'local_dates/local_dates_module.dart';
 import 'nested_replies/nested_replies_module.dart';
 import 'policy/policy_module.dart';
 import 'poll/poll_module.dart';
+import 'post_voting/post_voting_module.dart';
 import 'prometheus_alert_receiver/prometheus_alert_receiver_module.dart';
 import 'reactions/reactions_module.dart';
 import 'solved/solved_module.dart';
@@ -47,6 +48,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   cakedayModule,
   gamificationModule,
   nestedRepliesModule,
+  postVotingModule,
   chatModule,
   voiceModule,
 ]);
