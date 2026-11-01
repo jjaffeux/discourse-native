@@ -1677,7 +1677,12 @@ class _DSheetDragScopeState extends State<DSheetDragScope> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (mounted) {
-        if (_swipe == null) _pullProgress.value = 0;
+        final swipe = _swipe;
+        if (swipe == null) {
+          _pullProgress.value = 0;
+        } else {
+          swipe._syncBackdrop();
+        }
         setState(() {});
       }
     });
