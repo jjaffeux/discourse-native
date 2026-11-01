@@ -243,7 +243,8 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
       configuration: config,
       context: [for (final item in occurrences) item.expression],
       contextIndex: occurrences.indexOf(occurrence),
-      onEdit: () => edit(context.pillKey.currentContext!, readEditor()),
+      onEdit: () =>
+          edit(context.pillKey.currentContext!, context.editor ?? readEditor()),
     );
     if (occurrence.expression.display) {
       final blockChild = child;

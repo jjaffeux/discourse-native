@@ -96,6 +96,8 @@ void main() {
     r'Before $x$ after',
     r'Before \(x\) after',
     r'Before %x% after',
+    r'- $x$',
+    '[details="Math"]\n\$x\$\n[/details]',
     'Before\n\n\$\$\nx\n\$\$\n\nAfter',
   ]) {
     testWidgets(
@@ -113,9 +115,35 @@ void main() {
         await tester.tap(find.widgetWithText(DButton, 'Apply'));
         await tester.pumpAndSettle();
         expect(composer.text.text, source.replaceFirst('x', 'y+1'));
+        expect(composer.history.undo(), isTrue);
+        await tester.pumpAndSettle();
+        expect(composer.text.text, source);
         await finish(tester);
       },
     );
+  }
+  for (final source in [r'- $x$', '[details="Math"]\n\$x\$\n[/details]']) {
+    testWidgets('retired nested editor cannot apply stale math: $source', (
+      tester,
+    ) async {
+      final composer = await pump(tester, source);
+      await tester.tap(find.byTooltip('Edit math'));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(DTextarea),
+          matching: find.byType(EditableText),
+        ),
+        'y',
+      );
+      composer.text.text = 'Replacement draft';
+      await tester.pump();
+      await tester.tap(find.widgetWithText(DButton, 'Apply'));
+      await tester.pumpAndSettle();
+      expect(composer.text.text, 'Replacement draft');
+      expect(tester.takeException(), isNull);
+      await finish(tester);
+    });
   }
   testWidgets('Cancel and stale Apply do not change source', (tester) async {
     final composer = await pump(tester, r'$x$');

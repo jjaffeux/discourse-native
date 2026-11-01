@@ -93,6 +93,7 @@ final class ComposerSyntaxRenderContext {
     required this.hovered,
     required this.followedByLineBreak,
     this.scrollController,
+    this.editor,
     this.siteUrl,
     this.resolveUploadUrl,
   });
@@ -103,6 +104,9 @@ final class ComposerSyntaxRenderContext {
   final bool highlighted;
   final bool hovered;
   final bool followedByLineBreak;
+
+  /// The editor owning these source offsets, including a nested body editor.
+  final ComposerEditorHost? editor;
 
   /// Borrowed document viewport for embedded editor coordinate correction.
   final ScrollController? scrollController;

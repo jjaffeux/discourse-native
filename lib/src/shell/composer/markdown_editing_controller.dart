@@ -78,6 +78,7 @@ class MarkdownEditingController extends TextEditingController {
   Object? _quoteContentsResolverContext;
 
   final List<ComposerSyntaxPolicy> syntaxPolicies;
+  ComposerEditorHost? syntaxEditor;
   final ComposerUploadUrlResolver? resolveUploadUrls;
   bool enableMarkdownLinkify;
   List<String> _markdownLinkifyTlds;
@@ -2129,6 +2130,7 @@ class MarkdownEditingController extends TextEditingController {
           block.end,
           () => block.projection.buildCollapsedSpans(
             ComposerSyntaxRenderContext(
+              editor: syntaxEditor,
               baseStyle: base,
               siteUrl: imageSiteUrl,
               resolveUploadUrl: (url) {

@@ -254,10 +254,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
     final generation = ++_generation;
     if (widget.expression.source.trim().isEmpty ||
         widget.expression.source.length > 16384 ||
-        identity.length > 131072 ||
-        bounded.expressions.any(
-          (expression) => expression.source.length > 16384,
-        )) {
+        identity.length > 131072) {
       return;
     }
     final view = _view = _MathView(
@@ -668,12 +665,8 @@ final class _MathView {
     });
     if (_active.length < 16) {
       _admit();
-    } else if (_waiting.length < 64) {
-      _waiting.add(this);
     } else {
-      scheduleMicrotask(
-        () => onMessage({'type': 'error', 'generation': request['generation']}),
-      );
+      _waiting.add(this);
     }
   }
 
@@ -808,15 +801,24 @@ class _RenderMathBaseline extends RenderProxyBox {
   List<DMathExpression> context,
   int? index,
 ) {
-  if (index == null || index < 0 || index >= context.length) {
-    return (expressions: [...context, selected], index: context.length);
-  }
+  final validIndex = index != null && index >= 0 && index < context.length;
+  final selectedIndex = validIndex ? index : context.length;
   return (
     expressions: [
       for (var i = 0; i < context.length; i++)
-        i == index ? selected : context[i],
+        if (i == selectedIndex)
+          selected
+        else if (context[i].source.length > 16384)
+          DMathExpression(
+            '',
+            input: context[i].input,
+            display: context[i].display,
+          )
+        else
+          context[i],
+      if (!validIndex) selected,
     ],
-    index: index,
+    index: selectedIndex,
   );
 }
 

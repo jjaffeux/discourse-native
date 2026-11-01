@@ -214,6 +214,7 @@ class ComposerController extends ChangeNotifier implements ComposerEditorHost {
        _originalTags = List.unmodifiable(_target.initialTags),
        _whisper = _target.replyingToWhisper,
        _minimumRequiredTags = minimumRequiredTags {
+    text.syntaxEditor = this;
     text.syntaxPolicies.addAll(coreComposerSyntaxPolicies(this));
     history =
         sharedHistory ??

@@ -17,9 +17,9 @@ Native pencil actions open a source dialog. Insert defaults to display on an
 otherwise whitespace-only line and supports Shift+M. Apply rechecks the complete
 source and editability, preserves input language and delimiter notation, and
 uses the host transaction/undo history. Cancel never changes the draft.
-Quoted/list block containers and links remain source in the rich editor because
-those containers already own the source range. Cooking and reading those forms
-still render math. The host does not provide atomic-node drag/reorder parity.
+Nested list/details body editors render math and own their local edit offsets.
+Quoted display blocks and links remain source where the enclosing projection
+owns the source range; cooking and reading those forms still render math. The host does not provide atomic-node drag/reorder parity.
 
 `DMath` owns exact locally bundled MathJax 4.1.0 and KaTeX 0.16.27. HTML/SVG,
 ASCII input, mhchem, copy-tex, safe processing, enriched DOM, and ordered
@@ -40,10 +40,11 @@ not evidence of screen-reader parity.
 
 Rendering is bounded to 16,384 units per source expression,
 131,072 request units, two million generated HTML units, 16,384 by 4,096 output
-points, 16 concurrent engine startups, 64 queued startups, and a 20 second admission/render
+points, 16 concurrent engine startups and a 20 second admission/render
 timeout. Completed views release startup admission while retaining their interactive
 document. Offscreen views retire as the viewport moves. Document context is
-kept in full; a request that exceeds the byte bound retains source rather than
+kept in order; oversized sibling expressions retain their positions as empty
+context, matching error isolation while their own views retain source. A request that exceeds the byte bound retains source rather than
 silently dropping macro definitions or references. Oversized, unsupported,
 saturated, or rejected expressions retain source. Retired setup finishes before channels, script execution, and documents
 are cleared. Settings/source changes replace the isolated view and generation.

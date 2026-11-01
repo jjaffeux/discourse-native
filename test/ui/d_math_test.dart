@@ -210,10 +210,10 @@ void main() {
           home: Scaffold(
             body: Wrap(
               children: [
-                for (var i = 0; i < 24; i++)
+                for (var i = 0; i < 84; i++)
                   SizedBox(
-                    width: 100,
-                    height: 70,
+                    width: 50,
+                    height: 30,
                     child: DMath(
                       expression: DMathExpression('x=$i'),
                       configuration: const DMathJax(),
@@ -228,7 +228,7 @@ void main() {
       await tester.pump();
       expect(platform.controllers, hasLength(16));
       final completed = <FakeMediaWebViewController>{};
-      for (var batch = 0; batch < 3; batch++) {
+      for (var batch = 0; batch < 7; batch++) {
         for (final controller in platform.controllers.toList()) {
           if (!completed.add(controller)) continue;
           send({
@@ -242,8 +242,8 @@ void main() {
         await tester.pump();
         await tester.pump();
       }
-      expect(platform.controllers, hasLength(24));
-      for (var i = 0; i < 24; i++) {
+      expect(platform.controllers, hasLength(84));
+      for (var i = 0; i < 84; i++) {
         expect(find.text('x=$i'), findsNothing);
       }
       expect(

@@ -25,6 +25,7 @@ const cases=[
   {name:'Native menu changes speech language',config:{engine:'mathjax',output:'html',accessibility:true,menu:true},source:'x^2',selector:'[data-semantic-type]',action:['Speech','Language','French'],a11ySetting:'locale',expected:'fr'},
   {name:'Native menu enables enrichment',config:{engine:'mathjax',output:'html',accessibility:false,menu:true},source:'x^2',selector:'[data-semantic-type]',action:['Options','Semantic Enrichment'],setting:'enrich',expected:true},
   ...['mathjax','katex'].map(engine=>({name:`${engine} retains 128th preceding definition`,config:{engine,output:'html',accessibility:false},source:'\\shared',context:[...Array.from({length:128},(_,i)=>({source:`\\${engine==='katex'?'gdef':'def'}\\shared{${i+1}}`,input:'tex',display:false})),{source:'\\shared',input:'tex',display:false}],contextIndex:128,selector:engine==='katex'?'.katex':'mjx-container',mathmlIncludes:'128'})),
+  ...['mathjax','katex'].map(engine=>({name:`${engine} isolates oversized preceding source`,config:{engine,output:'html',accessibility:false},source:'x+1',context:[{source:'z'.repeat(17000),input:'tex',display:false},{source:'x+1',input:'tex',display:false}],contextIndex:1,selector:engine==='katex'?'.katex':'mjx-container',mathmlIncludes:'1'})),
   {name:'KaTeX invalid retains source',config:{engine:'katex'},source:'\\notARealCommand',error:true},
 ];
 let html=await readFile(resolve(output,'index.html'),'utf8');

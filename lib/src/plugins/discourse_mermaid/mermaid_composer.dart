@@ -181,7 +181,7 @@ class _MermaidProjection
                 child: MediaQuery.withNoTextScaling(
                   child: MermaidComposerEditor(
                     key: context.pillKey,
-                    editor: readEditor(),
+                    editor: context.editor ?? readEditor(),
                     scrollController: context.scrollController,
                     block: block,
                   ),
