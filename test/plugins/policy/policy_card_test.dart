@@ -82,6 +82,9 @@ Future<void> mount(
     RepaintBoundary(
       key: _captureKey,
       child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        builder: (context, child) =>
+            ColoredBox(color: theme.scaffoldBackgroundColor, child: child!),
         theme: theme,
         home: DTouchTargets(
           child: Align(
