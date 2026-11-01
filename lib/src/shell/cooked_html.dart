@@ -50,6 +50,7 @@ class CookedHtml extends StatelessWidget {
     this.renderMode = RenderMode.column,
     this.compactParagraphs = false,
     this.contentSized = false,
+    this.transient = false,
     this.revisionDiff = false,
     this.checklistDocument,
     this.mentionedUserStatuses = const {},
@@ -71,6 +72,7 @@ class CookedHtml extends StatelessWidget {
       renderMode = RenderMode.column,
       compactParagraphs = false,
       contentSized = false,
+      transient = inherited.transient,
       revisionDiff = inherited.revisionDiff,
       checklistDocument = inherited.document.checklist,
       mentionedUserStatuses = inherited.body.mentionedUserStatuses,
@@ -108,6 +110,10 @@ class CookedHtml extends StatelessWidget {
 
   /// Lets ordinary text blocks fit their content inside conversation bubbles.
   final bool contentSized;
+
+  /// Keeps parsed code out of shared caches and optional renderer lifetimes.
+  /// Nested content inherits the same retention policy.
+  final bool transient;
 
   final bool revisionDiff;
 
@@ -184,7 +190,7 @@ class CookedHtml extends StatelessWidget {
           quoteWidgetBuilder(element, siteUrl: siteUrl) ??
           cookedDetailsWidgetBuilder(element, content: content) ??
           cookedTableWidgetBuilder(element, content: content) ??
-          codeBlockWidgetBuilder(element) ??
+          codeBlockWidgetBuilder(element, transient: render.transient) ??
           inlineCodeWidgetBuilder(element, textStyle);
       if (widget != null &&
           element.localName == 'aside' &&
@@ -329,7 +335,7 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
   CookedHtml get options => widget.options;
   late CookedRenderContext _render;
   CookedDocument? _document;
-  (String, String?, bool, PostChecklistDocument?)? _documentKey;
+  (String, String?, bool, PostChecklistDocument?, bool)? _documentKey;
   late final _searchHtml = SearchHtmlPreparation(
     onChanged: () => setState(() {}),
   );
@@ -376,10 +382,17 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
       :renderMode,
       :compactParagraphs,
       :contentSized,
+      transient: requestedTransient,
       :revisionDiff,
       :checklistDocument,
       :mentionedUserStatuses,
     ) = options;
+    final transient =
+        requestedTransient ||
+        (context
+                .dependOnInheritedWidgetOfExactType<_TransientCookedScope>()
+                ?.transient ??
+            false);
     final theme = Theme.of(context);
     final style = theme.textTheme.bodyLarge?.merge(textStyle) ?? textStyle;
     final surface = theme.colorScheme.surface;
@@ -412,11 +425,12 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
     // Quotes, oneboxes, and tests can render outside ShellScope.
     final resolvedSiteUrl =
         siteUrl ?? ShellScope.maybeRead(context)?.currentInstance?.url;
-    final resolvedRegistry =
-        registry ??
-        PluginRegistryScope.maybeOf(context) ??
-        PluginScope.maybeOf(context)?.registry ??
-        PluginRegistry.empty;
+    final resolvedRegistry = transient
+        ? PluginRegistry.empty
+        : registry ??
+              PluginRegistryScope.maybeOf(context) ??
+              PluginScope.maybeOf(context)?.registry ??
+              PluginRegistry.empty;
     // Scope the index to this renderer, with weak keys so reparsed documents
     // can be collected even while its style callback is still alive.
     final paragraphMargins = compactParagraphs
@@ -427,13 +441,19 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
     if (options._inheritedContext case final inherited?) {
       document = inherited.document;
     } else {
-      final key = (html, post?.cooked, revisionDiff, checklistDocument);
+      final key = (
+        html,
+        transient ? null : post?.cooked,
+        revisionDiff,
+        transient ? null : checklistDocument,
+        transient,
+      );
       if (key != _documentKey) {
         _document = CookedDocument(
           html,
           savedHtml: key.$2,
           revisionDiff: revisionDiff,
-          checklist: checklistDocument,
+          checklist: transient ? null : checklistDocument,
         );
         _documentKey = key;
       }
@@ -459,6 +479,7 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
           linkStyle: linkStyle,
           revisionDiff: revisionDiff,
           canToggle: canToggle,
+          transient: transient,
           actions: this,
           mentionedUserStatuses: mentionedUserStatuses,
         );
@@ -500,63 +521,78 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
       );
     }
 
-    return PluginRegistryScope(
-      registry: resolvedRegistry,
-      child: HtmlWidget(
-        highlightedHtml,
-        buildAsync: buildAsync,
-        baseUrl: resolvedSiteUrl == null ? null : Uri.tryParse(resolvedSiteUrl),
-        textStyle: style,
-        // Progressive mounting preserves the column renderer's CSS normalization.
-        renderMode: renderMode is ProgressiveHtmlMode
-            ? RenderMode.column
-            : renderMode,
-        factoryBuilder: () => SiteImageWidgetFactory(
-          configuration: () => (
-            columnBodyMode: options.renderMode is ProgressiveHtmlMode
-                ? options.renderMode
-                : null,
-            siteUrl: _render.siteUrl,
-            registry: _render.registry,
-            onMiddleClickUrl: (url) =>
-                _render.actions.openUrl(url, newTab: true),
+    return _TransientCookedScope(
+      transient: transient,
+      child: PluginRegistryScope(
+        registry: resolvedRegistry,
+        child: HtmlWidget(
+          highlightedHtml,
+          buildAsync: buildAsync,
+          baseUrl: resolvedSiteUrl == null
+              ? null
+              : Uri.tryParse(resolvedSiteUrl),
+          textStyle: style,
+          // Progressive mounting preserves the column renderer's CSS normalization.
+          renderMode: renderMode is ProgressiveHtmlMode
+              ? RenderMode.column
+              : renderMode,
+          factoryBuilder: () => SiteImageWidgetFactory(
+            configuration: () => (
+              columnBodyMode: options.renderMode is ProgressiveHtmlMode
+                  ? options.renderMode
+                  : null,
+              siteUrl: _render.siteUrl,
+              registry: _render.registry,
+              onMiddleClickUrl: (url) =>
+                  _render.actions.openUrl(url, newTab: true),
+            ),
           ),
+          customWidgetBuilder: CookedHtml._customWidget(
+            context,
+            style,
+            render,
+            content,
+          ),
+          customStylesBuilder: (element) {
+            if (element.classes.contains('native-search-hit')) {
+              return {
+                'color': _cssColor(searchColor),
+                'background-color': _cssColor(
+                  searchColor.withValues(alpha: .13),
+                ),
+              };
+            }
+            final styles = CookedHtml._customStyles(
+              element,
+              paragraphMargins,
+              horizontalRuleColor,
+              insertedBackground,
+              deletedBackground,
+              linkCountBackground,
+              linkCountForeground,
+              linkStyle,
+            );
+            if (contentSized && element.localName == 'p') {
+              return {'width': 'auto', ...?styles};
+            }
+            // Preserve the absence of overrides for unstyled elements, including
+            // nested quote/onebox paragraphs.
+            return styles;
+          },
+          rebuildTriggers: [inputs],
+          onTapUrl: (url) => render.actions.openUrl(url),
         ),
-        customWidgetBuilder: CookedHtml._customWidget(
-          context,
-          style,
-          render,
-          content,
-        ),
-        customStylesBuilder: (element) {
-          if (element.classes.contains('native-search-hit')) {
-            return {
-              'color': _cssColor(searchColor),
-              'background-color': _cssColor(searchColor.withValues(alpha: .13)),
-            };
-          }
-          final styles = CookedHtml._customStyles(
-            element,
-            paragraphMargins,
-            horizontalRuleColor,
-            insertedBackground,
-            deletedBackground,
-            linkCountBackground,
-            linkCountForeground,
-            linkStyle,
-          );
-          if (contentSized && element.localName == 'p') {
-            return {'width': 'auto', ...?styles};
-          }
-          // Preserve the absence of overrides for unstyled elements, including
-          // nested quote/onebox paragraphs.
-          return styles;
-        },
-        rebuildTriggers: [inputs],
-        onTapUrl: (url) => render.actions.openUrl(url),
       ),
     );
   }
+}
+
+class _TransientCookedScope extends InheritedWidget {
+  const _TransientCookedScope({required this.transient, required super.child});
+  final bool transient;
+  @override
+  bool updateShouldNotify(_TransientCookedScope oldWidget) =>
+      transient != oldWidget.transient;
 }
 
 class _CompactParagraphMargins {

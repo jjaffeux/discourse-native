@@ -25,13 +25,15 @@ Future<void> showUserNotes({
   );
   try {
     if (context.isTouch) {
-      await showShellSheet<void>(
+      await showDSheet<void>(
         context: context,
-        title: context.l10n.userNotesTitle,
-        fillAvailableHeight: true,
-        builder: (context) => UserNotesPanel(
-          session: reader,
-          onClose: () => DDialogClose.close<void>(context),
+        side: DSheetSide.bottom,
+        variant: DSheetVariant.adaptiveMenu,
+        sizeToContent: false,
+        initiallyExpanded: true,
+        builder: (context, dialog) => DSheetContent(
+          scrollWholeSheet: true,
+          children: [UserNotesPanel(session: reader, onClose: dialog.close)],
         ),
       );
     } else {
@@ -391,7 +393,12 @@ class _UserNoteViewState extends State<UserNoteView> {
             children: [
               Row(
                 children: [
-                  Expanded(child: identity),
+                  Expanded(
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: identity,
+                    ),
+                  ),
                   DTooltip(
                     message: DateFormat.yMMMMd().add_jm().format(
                       note.createdAt.toLocal(),
@@ -428,6 +435,7 @@ class _UserNoteViewState extends State<UserNoteView> {
                   html: html,
                   siteUrl: widget.session.siteUrl,
                   contentSized: true,
+                  transient: true,
                 )
               else
                 const DSkeleton(height: 48),

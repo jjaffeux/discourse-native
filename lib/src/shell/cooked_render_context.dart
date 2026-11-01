@@ -26,6 +26,7 @@ final class CookedRenderContext {
     required this.linkStyle,
     required this.revisionDiff,
     required this.canToggle,
+    this.transient = false,
     required this.actions,
     required Map<String, UserStatusReference> mentionedUserStatuses,
   }) : body = CookedBodyDependencies(
@@ -36,6 +37,7 @@ final class CookedRenderContext {
          linkStyle: linkStyle,
          revisionDiff: revisionDiff,
          canToggle: canToggle,
+         transient: transient,
          checklist: document.checklist,
          mentionedUserStatuses: mentionedUserStatuses,
        );
@@ -48,6 +50,7 @@ final class CookedRenderContext {
   final TextStyle? linkStyle;
   final bool revisionDiff;
   final bool canToggle;
+  final bool transient;
   final CookedActions actions;
   final CookedBodyDependencies body;
 }
@@ -64,6 +67,7 @@ final class CookedBodyDependencies {
     required TextStyle? linkStyle,
     required bool revisionDiff,
     required bool canToggle,
+    bool transient = false,
     required PostChecklistDocument? checklist,
     required Map<String, UserStatusReference> mentionedUserStatuses,
   }) : _facts = (
@@ -76,6 +80,7 @@ final class CookedBodyDependencies {
          post?.isLocalized,
          post?.isDeleted,
          canToggle,
+         transient,
          linkStyle,
          revisionDiff,
        ),
@@ -104,6 +109,7 @@ final class CookedBodyDependencies {
     bool?,
     bool?,
     bool?,
+    bool,
     bool,
     TextStyle?,
     bool,

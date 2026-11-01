@@ -18,6 +18,7 @@ class CodeBlockData {
     required this.lines,
     this.language,
     this.highlightDeferred = false,
+    this.transient = false,
   });
 
   static final RegExp _clipboardWhitespace = RegExp(
@@ -30,18 +31,20 @@ class CodeBlockData {
 
   final bool highlightDeferred;
 
+  final bool transient;
+
   String get text => lines.map((line) => line.text).join('\n');
 
   String get clipboardText => text.replaceAll(_clipboardWhitespace, ' ');
 
-  static CodeBlockData from(dom.Element pre) {
+  static CodeBlockData from(dom.Element pre, {bool transient = false}) {
     final code = descendantWhere(pre, (e) => e.localName == 'code');
     final language = _language(code ?? pre);
 
     final ol = descendantWhere(pre, (e) => e.localName == 'ol');
     final lines = ol != null ? _numbered(ol) : _plain((code ?? pre).text);
 
-    return _highlightedWithinBudget(lines, language);
+    return _highlightedWithinBudget(lines, language, transient: transient);
   }
 
   /// A block that has no cooked markup yet, such as an optimistic preview.
@@ -53,23 +56,34 @@ class CodeBlockData {
 
   static CodeBlockData _highlightedWithinBudget(
     List<CodeLine> lines,
-    String? language,
-  ) {
+    String? language, {
+    bool transient = false,
+  }) {
     final source = lines.map((line) => line.text).join('\n');
-    final deferHighlight = highlightShouldRunInBackground(source, language);
+    final deferHighlight = transient
+        ? language != null && source.length <= maxHighlightedChars
+        : highlightShouldRunInBackground(source, language);
     return CodeBlockData(
-      lines: deferHighlight ? lines : _highlighted(lines, language),
+      lines: transient || deferHighlight
+          ? lines
+          : _highlighted(lines, language),
       language: language,
       highlightDeferred: deferHighlight,
+      transient: transient,
     );
   }
 
   CodeBlockData _withTokens(List<List<CodeToken>> tokenized) {
     if (tokenized.length != lines.length) {
-      return CodeBlockData(lines: lines, language: language);
+      return CodeBlockData(
+        lines: lines,
+        language: language,
+        transient: transient,
+      );
     }
     return CodeBlockData(
       language: language,
+      transient: transient,
       lines: [
         for (final (index, line) in lines.indexed)
           CodeLine(
@@ -261,9 +275,12 @@ String codeLanguageLabel(String? language) {
           .join(' ');
 }
 
-Widget? codeBlockWidgetBuilder(dom.Element element) {
+Widget? codeBlockWidgetBuilder(dom.Element element, {bool transient = false}) {
   if (element.localName != 'pre') return null;
-  return CodeBlock(data: CodeBlockData.from(element));
+  return CodeBlock(
+    data: CodeBlockData.from(element, transient: transient),
+    showFullscreen: !transient,
+  );
 }
 
 class CodeBlock extends StatefulWidget {
@@ -313,10 +330,11 @@ class _CodeBlockState extends State<CodeBlock> {
   ) async {
     try {
       final source = data.text;
-      final highlighted = await highlightLinesInBackground(
-        source,
-        data.language,
-      );
+      final highlighted = data.transient
+          ? (await highlightLinesBatchInBackground([
+              (source: source, language: data.language),
+            ])).single
+          : await highlightLinesInBackground(source, data.language);
       if (!mounted || generation != _highlightGeneration) return;
       setState(() => _data = data._withTokens(highlighted));
     } catch (_) {
