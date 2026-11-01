@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
@@ -8,6 +10,8 @@ import '../foundation/code_syntax.dart';
 import '../foundation/code_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
+import 'd_scroll_area.dart';
+import 'd_scroll_behavior.dart';
 
 /// Native code controller. The creator owns and disposes it.
 ///
@@ -90,10 +94,13 @@ class DCodeEditor extends StatefulWidget {
 
 class _DCodeEditorState extends State<DCodeEditor> {
   late String _text;
+  late int _gutterDigits;
+  ScrollController? _verticalScroll;
   @override
   void initState() {
     super.initState();
     _text = widget.controller.text;
+    _gutterDigits = widget.controller.code.lines.length.toString().length;
     widget.controller.addListener(_changed);
     _readOnly();
   }
@@ -106,7 +113,17 @@ class _DCodeEditorState extends State<DCodeEditor> {
     final text = widget.controller.text;
     if (text == _text) return;
     _text = text;
+    final digits = widget.controller.code.lines.length.toString().length;
+    if (digits != _gutterDigits) setState(() => _gutterDigits = digits);
     widget.onChanged?.call(text);
+  }
+
+  void _captureVerticalScroll(ScrollController controller) {
+    if (identical(_verticalScroll, controller)) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || identical(_verticalScroll, controller)) return;
+      setState(() => _verticalScroll = controller);
+    });
   }
 
   @override
@@ -115,6 +132,7 @@ class _DCodeEditorState extends State<DCodeEditor> {
     if (oldWidget.controller != widget.controller) {
       oldWidget.controller.removeListener(_changed);
       _text = widget.controller.text;
+      _gutterDigits = widget.controller.code.lines.length.toString().length;
       widget.controller.addListener(_changed);
     }
     _readOnly();
@@ -139,38 +157,99 @@ class _DCodeEditorState extends State<DCodeEditor> {
       height: 1.8,
       color: tokens.foreground,
     );
+    final numberPainter = TextPainter(
+      text: TextSpan(text: '9' * _gutterDigits, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    // Upstream subtracts 16px for each disabled error and folding column.
+    final gutterWidth =
+        math.max(44.0, numberPainter.width.ceilToDouble() + 12) + 32;
+    numberPainter.dispose();
     return Semantics(
       container: true,
       label: widget.semanticLabel,
       child: Directionality(
         textDirection: TextDirection.ltr,
-        child: editor.CodeTheme(
-          data: editor.CodeThemeData(styles: syntax),
-          child: editor.CodeField(
-            controller: widget.controller,
-            focusNode: widget.focusNode,
-            readOnly: widget.controller.readOnly,
-            expands: true,
-            wrap: false,
-            background:
-                widget.backgroundColor ??
-                codeEditorColors(theme).blockBackground,
-            padding: const EdgeInsets.symmetric(vertical: DSpacing.md),
-            textStyle: style,
-            cursorColor: tokens.foreground,
-            gutterStyle: editor.GutterStyle(
-              width: 44,
-              margin: 12,
-              showErrors: false,
-              showFoldingHandles: false,
-              textStyle: style.copyWith(color: tokens.mutedForeground),
+        child: DScrollBar(
+          controller: _verticalScroll,
+          showScrollbar: _verticalScroll != null,
+          backgroundColor:
+              widget.backgroundColor ?? codeEditorColors(theme).blockBackground,
+          notificationDepth: 1,
+          child: ScrollConfiguration(
+            behavior: _CodeEditorScrollBehavior(
+              delegate: ScrollConfiguration.of(context),
+              editingController: widget.controller,
+              onVerticalScroll: _captureVerticalScroll,
             ),
-            textSelectionTheme: TextSelectionThemeData(
-              selectionColor: theme.colorScheme.primary.withValues(alpha: .28),
+            child: editor.CodeTheme(
+              data: editor.CodeThemeData(styles: syntax),
+              child: editor.CodeField(
+                controller: widget.controller,
+                focusNode: widget.focusNode,
+                readOnly: widget.controller.readOnly,
+                expands: true,
+                wrap: false,
+                background:
+                    widget.backgroundColor ??
+                    codeEditorColors(theme).blockBackground,
+                padding: const EdgeInsets.symmetric(vertical: DSpacing.md),
+                textStyle: style,
+                cursorColor: tokens.foreground,
+                gutterStyle: editor.GutterStyle(
+                  width: gutterWidth,
+                  margin: 12,
+                  showErrors: false,
+                  showFoldingHandles: false,
+                  textStyle: style.copyWith(color: tokens.mutedForeground),
+                ),
+                textSelectionTheme: TextSelectionThemeData(
+                  selectionColor: theme.colorScheme.primary.withValues(
+                    alpha: .28,
+                  ),
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+}
+
+class _CodeEditorScrollBehavior extends DScrollBehavior {
+  const _CodeEditorScrollBehavior({
+    required super.delegate,
+    required this.editingController,
+    required this.onVerticalScroll,
+  });
+
+  final DCodeEditingController editingController;
+  final ValueChanged<ScrollController> onVerticalScroll;
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    if (axisDirectionToAxis(details.direction) == Axis.horizontal) {
+      return DScrollBar(
+        controller: details.controller,
+        axis: Axis.horizontal,
+        thumbVisibility: false,
+        child: child,
+      );
+    }
+    final controller = details.controller;
+    if (controller != null &&
+        identical(
+          context.findAncestorWidgetOfExactType<EditableText>()?.controller,
+          editingController,
+        )) {
+      onVerticalScroll(controller);
+    }
+    return child;
   }
 }

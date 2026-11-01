@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -71,7 +72,9 @@ void main() {
     await tester.pumpAndSettle();
     final bar = find.descendant(
       of: find.byType(DCodeEditor),
-      matching: find.byType(DScrollBar),
+      matching: find.byWidgetPredicate(
+        (w) => w is DScrollBar && w.axis == Axis.vertical,
+      ),
     );
     expect(bar, findsOneWidget);
     final bounds = tester.getRect(find.byType(DCodeEditor));
@@ -81,17 +84,25 @@ void main() {
     final horizontal = find.byWidgetPredicate(
       (w) => w is SingleChildScrollView && w.scrollDirection == Axis.horizontal,
     );
-    await tester.drag(horizontal, const Offset(-100, 0));
+    await tester.sendEventToBinding(
+      PointerScrollEvent(
+        position: tester.getCenter(horizontal),
+        scrollDelta: const Offset(100, 0),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(
       tester.widget<SingleChildScrollView>(horizontal).controller!.offset,
       greaterThan(0),
     );
     final before = scroll.offset;
-    await tester.dragFrom(
-      Offset(bounds.right - 4, bounds.top + 35),
-      const Offset(0, 120),
-    );
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    final thumb = Offset(bounds.right - 4, bounds.top + 35);
+    await mouse.addPointer(location: thumb);
+    await mouse.down(thumb);
+    await mouse.moveBy(const Offset(0, 120));
+    await mouse.up();
+    await mouse.removePointer();
     await tester.pumpAndSettle();
     expect(scroll.offset, greaterThan(before));
     expect(tester.getRect(bar).right, bounds.right);
