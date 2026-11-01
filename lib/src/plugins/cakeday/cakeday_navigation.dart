@@ -1,0 +1,67 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
+import 'cakeday_controller.dart';
+import 'cakeday_data.dart';
+
+const cakedayNavigationKey = PluginServiceKey<CakedayNavigation>(
+  owner: cakedayPluginId,
+  name: 'navigation',
+);
+
+final class CakedayNavigation implements PluginLinkHandler {
+  const CakedayNavigation(this.host, this.controller);
+  final PluginRouteNavigationHost host;
+  final CakedayController controller;
+  void open(CakedayQuery query, {bool replace = false}) {
+    final site = host.currentSite;
+    if (site == null || !controller.enabled(site.url, query.kind)) return;
+    final route = ContentRoute(
+      destination: ExtensionDestination(query.id),
+      title: query.kind == CakedayKind.birthdays
+          ? appL10n.cakedayBirthdays
+          : appL10n.cakedayAnniversaries,
+      icon: DIcons.cakeCandles,
+    );
+    if (replace) {
+      host.replaceCurrentContent(route);
+    } else {
+      host.pushContent(route);
+    }
+  }
+
+  @override
+  Future<bool> openPluginUrl(
+    String url, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) async {
+    final target = Uri.tryParse(url);
+    if (target == null) return false;
+    final owner = mostSpecificServingForum(
+      host.sites,
+      target,
+      siteUrl: (site) => site.url,
+    );
+    if (owner == null) return false;
+    final path = owner.forum.pathWithin(target);
+    if (path == null) return false;
+    final clean = path.replaceAll(RegExp(r'^/|/$'), '');
+    var query = CakedayQuery.parse(
+      clean,
+      today: controller.viewerToday(owner.forum.url),
+    );
+    if (query?.period == CakedayPeriod.month &&
+        target.queryParameters.containsKey('month')) {
+      final month = int.tryParse(target.queryParameters['month']!);
+      if (month == null || month < 1 || month > 12) return false;
+      query = CakedayQuery(query!.kind, CakedayPeriod.month, month: month);
+    }
+    if (query == null || !controller.enabled(owner.forum.url, query.kind)) {
+      return false;
+    }
+    host.selectInstance(owner.index);
+    open(query);
+    onNavigated?.call();
+    return true;
+  }
+}

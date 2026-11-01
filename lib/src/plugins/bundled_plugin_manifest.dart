@@ -1,6 +1,7 @@
 import '../plugin_api/plugin_manifest.dart';
 import 'assign/assign_module.dart';
 import 'boards/boards_module.dart';
+import 'cakeday/cakeday_module.dart';
 import 'chat/chat_module.dart';
 import 'cooking/cooking_module.dart';
 import 'data_explorer/data_explorer_module.dart';
@@ -41,6 +42,7 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   dataExplorerModule,
   assignModule,
   boardsModule,
+  cakedayModule,
   gamificationModule,
   nestedRepliesModule,
   chatModule,

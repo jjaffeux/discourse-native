@@ -24314,6 +24314,156 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not complete the request. Refresh to try again.'**
   String get gamificationRequestFailed;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Birthdays'**
+  String get cakedayBirthdays;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Anniversaries'**
+  String get cakedayAnniversaries;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Birthday'**
+  String get cakedayBirthday;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Upcoming'**
+  String get cakedayUpcoming;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Date of birth'**
+  String get cakedayDateOfBirth;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'The birthday directory displays your month and day. Clear your birthday to remove it.'**
+  String get cakedayBirthdayHelp;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Clear birthday'**
+  String get cakedayClearBirthday;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a valid month and day.'**
+  String get cakedayInvalidBirthday;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Your birthday could not be loaded. Refresh preferences before editing it.'**
+  String get cakedayBirthdayUnavailable;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Celebrations could not be loaded. Try again.'**
+  String get cakedayDirectoryError;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Celebrations are unavailable for this account or forum.'**
+  String get cakedayUnavailable;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No birthdays today.'**
+  String get cakedayBirthdaysTodayEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No birthdays tomorrow.'**
+  String get cakedayBirthdaysTomorrowEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No birthdays in this date range.'**
+  String get cakedayBirthdaysUpcomingEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No birthdays this month.'**
+  String get cakedayBirthdaysMonthEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No anniversaries today.'**
+  String get cakedayAnniversariesTodayEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No anniversaries tomorrow.'**
+  String get cakedayAnniversariesTomorrowEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No anniversaries in this date range.'**
+  String get cakedayAnniversariesUpcomingEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'No anniversaries this month.'**
+  String get cakedayAnniversariesMonthEmpty;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Today is your birthday!'**
+  String get cakedayOwnBirthday;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Today is my birthday!'**
+  String get cakedayOtherBirthday;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Today is the anniversary of the day you joined our community!'**
+  String get cakedayOwnAnniversary;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Today is the anniversary of the day I joined this community!'**
+  String get cakedayOtherAnniversary;
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'{start} to {end}'**
+  String cakedayRange(String start, String end);
+
+  /// Cakeday plugin member celebrations.
+  ///
+  /// In en, this message translates to:
+  /// **'Load more members'**
+  String get cakedayLoadMore;
 }
 
 class _AppLocalizationsDelegate

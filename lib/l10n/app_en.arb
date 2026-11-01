@@ -20037,5 +20037,113 @@
   "gamificationRequestFailed": "Could not complete the request. Refresh to try again.",
   "@gamificationRequestFailed": {
     "description": "Generic plugin request failure without developer diagnostics"
+  },
+  "cakedayBirthdays": "Birthdays",
+  "@cakedayBirthdays": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayAnniversaries": "Anniversaries",
+  "@cakedayAnniversaries": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthday": "Birthday",
+  "@cakedayBirthday": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayUpcoming": "Upcoming",
+  "@cakedayUpcoming": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayDateOfBirth": "Date of birth",
+  "@cakedayDateOfBirth": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdayHelp": "The birthday directory displays your month and day. Clear your birthday to remove it.",
+  "@cakedayBirthdayHelp": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayClearBirthday": "Clear birthday",
+  "@cakedayClearBirthday": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayInvalidBirthday": "Choose a valid month and day.",
+  "@cakedayInvalidBirthday": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdayUnavailable": "Your birthday could not be loaded. Refresh preferences before editing it.",
+  "@cakedayBirthdayUnavailable": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayDirectoryError": "Celebrations could not be loaded. Try again.",
+  "@cakedayDirectoryError": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayUnavailable": "Celebrations are unavailable for this account or forum.",
+  "@cakedayUnavailable": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdaysTodayEmpty": "No birthdays today.",
+  "@cakedayBirthdaysTodayEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdaysTomorrowEmpty": "No birthdays tomorrow.",
+  "@cakedayBirthdaysTomorrowEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdaysUpcomingEmpty": "No birthdays in this date range.",
+  "@cakedayBirthdaysUpcomingEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayBirthdaysMonthEmpty": "No birthdays this month.",
+  "@cakedayBirthdaysMonthEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayAnniversariesTodayEmpty": "No anniversaries today.",
+  "@cakedayAnniversariesTodayEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayAnniversariesTomorrowEmpty": "No anniversaries tomorrow.",
+  "@cakedayAnniversariesTomorrowEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayAnniversariesUpcomingEmpty": "No anniversaries in this date range.",
+  "@cakedayAnniversariesUpcomingEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayAnniversariesMonthEmpty": "No anniversaries this month.",
+  "@cakedayAnniversariesMonthEmpty": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayOwnBirthday": "Today is your birthday!",
+  "@cakedayOwnBirthday": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayOtherBirthday": "Today is my birthday!",
+  "@cakedayOtherBirthday": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayOwnAnniversary": "Today is the anniversary of the day you joined our community!",
+  "@cakedayOwnAnniversary": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayOtherAnniversary": "Today is the anniversary of the day I joined this community!",
+  "@cakedayOtherAnniversary": {
+    "description": "Cakeday plugin member celebrations."
+  },
+  "cakedayRange": "{start} to {end}",
+  "@cakedayRange": {
+    "description": "Cakeday plugin member celebrations.",
+    "placeholders": {
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "cakedayLoadMore": "Load more members",
+  "@cakedayLoadMore": {
+    "description": "Cakeday plugin member celebrations."
   }
 }

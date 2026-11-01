@@ -15347,4 +15347,89 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get gamificationRequestFailed =>
       'Could not complete the request. Refresh to try again.';
+
+  @override
+  String get cakedayBirthdays => 'Birthdays';
+
+  @override
+  String get cakedayAnniversaries => 'Anniversaries';
+
+  @override
+  String get cakedayBirthday => 'Birthday';
+
+  @override
+  String get cakedayUpcoming => 'Upcoming';
+
+  @override
+  String get cakedayDateOfBirth => 'Date of birth';
+
+  @override
+  String get cakedayBirthdayHelp =>
+      'The birthday directory displays your month and day. Clear your birthday to remove it.';
+
+  @override
+  String get cakedayClearBirthday => 'Clear birthday';
+
+  @override
+  String get cakedayInvalidBirthday => 'Choose a valid month and day.';
+
+  @override
+  String get cakedayBirthdayUnavailable =>
+      'Your birthday could not be loaded. Refresh preferences before editing it.';
+
+  @override
+  String get cakedayDirectoryError =>
+      'Celebrations could not be loaded. Try again.';
+
+  @override
+  String get cakedayUnavailable =>
+      'Celebrations are unavailable for this account or forum.';
+
+  @override
+  String get cakedayBirthdaysTodayEmpty => 'No birthdays today.';
+
+  @override
+  String get cakedayBirthdaysTomorrowEmpty => 'No birthdays tomorrow.';
+
+  @override
+  String get cakedayBirthdaysUpcomingEmpty =>
+      'No birthdays in this date range.';
+
+  @override
+  String get cakedayBirthdaysMonthEmpty => 'No birthdays this month.';
+
+  @override
+  String get cakedayAnniversariesTodayEmpty => 'No anniversaries today.';
+
+  @override
+  String get cakedayAnniversariesTomorrowEmpty => 'No anniversaries tomorrow.';
+
+  @override
+  String get cakedayAnniversariesUpcomingEmpty =>
+      'No anniversaries in this date range.';
+
+  @override
+  String get cakedayAnniversariesMonthEmpty => 'No anniversaries this month.';
+
+  @override
+  String get cakedayOwnBirthday => 'Today is your birthday!';
+
+  @override
+  String get cakedayOtherBirthday => 'Today is my birthday!';
+
+  @override
+  String get cakedayOwnAnniversary =>
+      'Today is the anniversary of the day you joined our community!';
+
+  @override
+  String get cakedayOtherAnniversary =>
+      'Today is the anniversary of the day I joined this community!';
+
+  @override
+  String cakedayRange(String start, String end) {
+    return '$start to $end';
+  }
+
+  @override
+  String get cakedayLoadMore => 'Load more members';
 }
