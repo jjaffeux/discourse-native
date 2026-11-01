@@ -70,7 +70,6 @@ mixin _DSheetKeyboardCoverRefresh<T extends StatefulWidget> on State<T> {
       _wasKeyboardCovered = true;
     } else if (_wasKeyboardCovered) {
       _wasKeyboardCovered = false;
-      // Child routes can change the keyboard while this sheet is covered.
       unawaited(_DSheetKeyboardTransitions.refresh());
     }
   }

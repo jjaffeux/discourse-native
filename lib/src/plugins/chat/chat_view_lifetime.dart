@@ -60,7 +60,6 @@ class ChatViewLifetime {
       return;
     }
     _viewStartScheduled = true;
-    // Advancing the channel record can notify a sibling header still building.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _viewStartScheduled = false;
       if (!_active || _viewToken != null) return;
