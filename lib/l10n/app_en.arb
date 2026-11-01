@@ -19549,5 +19549,13 @@
   },
   "@mathBraille": {
     "description": "Native math menu action."
+  },
+  "mathOpacity": "Opacity",
+  "mathScale": "Scale math",
+  "@mathOpacity": {
+    "description": "Native math menu setting."
+  },
+  "@mathScale": {
+    "description": "Native math menu setting."
   }
 }

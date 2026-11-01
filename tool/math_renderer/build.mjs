@@ -21,6 +21,10 @@ const mapsDirectory = resolve(output, 'mathjax/sre/mathmaps');
 const maps = Object.fromEntries(await Promise.all((await readdir(mapsDirectory)).filter(name => name.endsWith('.json')).map(async name => [name.slice(0,-5), JSON.parse(await readFile(resolve(mapsDirectory,name),'utf8'))])));
 await writeFile(resolve(output,'speech-maps.js'), 'window.mathSpeechMaps='+JSON.stringify(maps)+';\n');
 await writeFile(resolve(output,'speech-worker-source.js'), 'window.mathSpeechWorkerSource='+JSON.stringify(await readFile(resolve(output,'mathjax/sre/speech-worker.js'),'utf8'))+';\n');
+const fontPackage = JSON.parse(await readFile(resolve(root,'node_modules/@mathjax/mathjax-newcm-font/package.json'),'utf8'));
+await writeFile(resolve(output,'NOTICE.txt'), 'MathJax 4.1.0 and '+fontPackage.name+' '+fontPackage.version+'\n'+
+  'MathJax Consortium. Distributed under Apache-2.0 as declared by the pinned packages.\n'+
+  await readFile(resolve(output,'mathjax/LICENSE'),'utf8')+'\nKaTeX 0.16.27\n'+await readFile(resolve(output,'katex/LICENSE'),'utf8'));
 const files = [];
 async function visit(dir) {
   for (const item of await readdir(dir, {withFileTypes: true})) {

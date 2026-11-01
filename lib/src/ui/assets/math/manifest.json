@@ -4,7 +4,8 @@
     "katex": "0.16.27"
   },
   "files": {
-    "index.html": "260d2b1bbbda2de38a2e16ffffb1f6499d26d851a6a3b78a57922cc13988bb04",
+    "NOTICE.txt": "7187219a583969e52ba6c4582f9af846912991b702409a5331daf7c6988ceea0",
+    "index.html": "376b13455f50629930072887e5aec179294ec773c1101fefe073f6c68d14e6e4",
     "katex/LICENSE": "766ccc1f306c885aa45542a9846bbd0a505b27a0374f146778171c2254ce18e3",
     "katex/dist/README.md": "5e48e09dcbafbf8593e13ccd5f89ae58760a24ec19fa44a9367caf78b9490cd5",
     "katex/dist/contrib/auto-render.js": "1f5492e68752a1b1fbcd500840ca1d0191c26131fdc36381b493a02c6b8d4bcf",
@@ -169,6 +170,7 @@
     "mathjax/ui/lazy.js": "0e29a52c0a41b3af58845ec0112299ec50df4b16a946f8bbd67edba1b0096689",
     "mathjax/ui/menu.js": "89acf19e02fc57f1fe8d86c3d68e0bdbc0ef33c516b41f1887c3ce140026f0fa",
     "mathjax/ui/safe.js": "46674b4bd6cd38b2ed70916d5daa3c4417dc5a1efed006fff59c9c9056dd568a",
+    "menu.js": "6b507a29735a0e3ff1de5248d94e27c6c9e40b56f8edf9d929f60e167a269704",
     "newcm/chtml.js": "8c8af66b784c3c1c406a3339aa38e13ebc9ae6aab5dc6b235651fcac5af513a1",
     "newcm/chtml/dynamic/PUA.js": "c7d94d0b5eab7f79db19fbf92277454c7e1b0abbdcebde853c2c997ad71bc775",
     "newcm/chtml/dynamic/accents-b-i.js": "cda272c18d7806464c9a508c10d869960fab3b132d1221d00b74c7433c5fae2d",
@@ -357,7 +359,7 @@
     "newcm/svg/dynamic/symbols.js": "5021d75911173a5bf60b5709598ab89206baca5e1e7d608b7f5325070dfefc1e",
     "newcm/svg/dynamic/variants.js": "6947cf8203f41afea9bf9ceff25189dd0575b34c94110636763570842a713a9c",
     "render.css": "439e29849ad0ae4af5598ccd8000dd1f49e8c51abe85dcfed44d11cf77147917",
-    "render.js": "c9bdde5fc77d9a887f95b2eb3627bc1ef159398277bb30ebb02b9fc4a4d0e434",
+    "render.js": "26fdb431ce6b614b1a0603faab6493b303d83321957de38ca8340e5b6b67ed43",
     "speech-maps.js": "234dd9f9b2c71788af4508e08fa8d1c02e1dbad5f31ba2afa51cf3535979ea46",
     "speech-worker-source.js": "cabc2f83fb19dd84ddbd97476735bd3e77390960ab6a5bd48163442d6ec4733c"
   }

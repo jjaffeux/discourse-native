@@ -14,6 +14,7 @@ const _pluginIdsByDirectory = <String, String>{
   'discourse_github': 'discourse-github',
   'discourse_lazy_videos': 'discourse-lazy-videos',
   'discourse_mermaid': 'discourse-mermaid',
+  'discourse_math': 'discourse-math',
   'discourse_placeholder': 'discourse-placeholder',
   'gifs': 'gifs',
   'local_dates': 'discourse-local-dates',
@@ -29,6 +30,7 @@ const _pluginIdsByDirectory = <String, String>{
 const _approvedCrossFeatureContracts = <String, String>{
   'voice->chat': 'lib/src/plugins/chat/chat_contract.dart',
   'chat->gifs': 'lib/src/plugins/gifs/gifs_contract.dart',
+  'discourse_math->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
   'local_dates->chat': 'lib/src/plugins/chat/chat_preview_contract.dart',
   'discourse_ai->chat': 'lib/discourse_chat.dart',
   'discourse_github->local_dates':
@@ -86,6 +88,7 @@ const _featureModuleEntrypoints = <String>{
   'discourse_github/discourse_github_module.dart',
   'discourse_lazy_videos/discourse_lazy_videos_module.dart',
   'discourse_mermaid/discourse_mermaid_module.dart',
+  'discourse_math/discourse_math_module.dart',
   'discourse_placeholder/discourse_placeholder_module.dart',
   'gifs/gifs_module.dart',
   'local_dates/local_dates_module.dart',

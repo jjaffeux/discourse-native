@@ -175,28 +175,39 @@ class _CookedMath extends StatelessWidget {
           ? null
           : _mathDocuments[root] ??= _MathDocument(root);
       final index = document?.elements.indexOf(element!);
-      return DMath(
+      return KeyedSubtree(
         key: document?.keys[element],
-        expression: expression,
-        configuration: configuration,
-        context: document?.expressions ?? const [],
-        contextIndex: index,
-        onLink: (url) {
-          if (url.startsWith('#')) {
-            final target = document
-                ?.labels[Uri.decodeComponent(url.substring(1))]
-                ?.currentContext;
-            if (target != null) unawaited(Scrollable.ensureVisible(target));
-          } else {
-            final parsed = Uri.tryParse(url);
-            if (parsed != null &&
-                (!parsed.hasScheme ||
-                    ['http', 'https', 'mailto'].contains(parsed.scheme)) &&
-                !url.startsWith('//')) {
-              unawaited(openLink(context, url, siteUrl: siteUrl));
+        child: DMath(
+          key: ObjectKey(service),
+          expression: expression,
+          configuration: configuration,
+          context: document?.expressions ?? const [],
+          contextIndex: index,
+          onLink: (url) {
+            if (url.startsWith('#')) {
+              String fragment;
+              try {
+                fragment = Uri.decodeComponent(url.substring(1));
+              } on FormatException {
+                return;
+              }
+              final target = document
+                  ?.labels[fragment.startsWith('mjx-eqn:')
+                      ? fragment.substring(8)
+                      : fragment]
+                  ?.currentContext;
+              if (target != null) unawaited(Scrollable.ensureVisible(target));
+            } else {
+              final parsed = Uri.tryParse(url);
+              if (parsed != null &&
+                  (!parsed.hasScheme ||
+                      ['http', 'https', 'mailto'].contains(parsed.scheme)) &&
+                  !url.startsWith('//')) {
+                unawaited(openLink(context, url, siteUrl: siteUrl));
+              }
             }
-          }
-        },
+          },
+        ),
       );
     }
 

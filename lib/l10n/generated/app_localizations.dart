@@ -23606,6 +23606,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Braille code'**
   String get mathBraille;
+
+  /// Native math menu setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Opacity'**
+  String get mathOpacity;
+
+  /// Native math menu setting.
+  ///
+  /// In en, this message translates to:
+  /// **'Scale math'**
+  String get mathScale;
 }
 
 class _AppLocalizationsDelegate

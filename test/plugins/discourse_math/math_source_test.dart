@@ -27,7 +27,14 @@ void main() {
     );
   });
   test('inline boundaries match upstream and protect Markdown', () {
-    for (final raw in [r'$x$', r'。$x$،', r'\(x\)', r'%sqrt(x)%']) {
+    for (final raw in [
+      r'$x$',
+      r'。$x$،',
+      r'\(x\)',
+      r'%sqrt(x)%',
+      r'$a<b>c$',
+      r'$\text{`x`}$',
+    ]) {
       expect(scanMath(raw, settings), hasLength(1), reason: raw);
     }
     for (final raw in [
@@ -38,6 +45,9 @@ void main() {
       r'$x$😀',
       r'∑$x$',
       r'`$x$`',
+      r'    $x$',
+      r'    $$x$$',
+      '<div>\n\$x\$\n</div>',
       r'\$x$',
       r'[a](https://x/$y$)',
       r'<span title="$x$">text</span>',
@@ -79,7 +89,7 @@ void main() {
     'settings default, malformed, unknown, and persisted values are safe',
     () {
       expect(MathSettings.fromWire({}), const MathSettings());
-      for (final value in [42, false, [], {}]) {
+      for (final value in [42, false, <Object?>[], <String, Object?>{}]) {
         expect(
           MathSettings.fromWire({
             'discourse_math_enabled': true,

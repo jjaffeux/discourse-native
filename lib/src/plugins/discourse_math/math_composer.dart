@@ -22,7 +22,9 @@ Future<void> insertMath(BuildContext context, ComposerEditorHost editor) async {
   final before = editor.value;
   final selection = before.selection;
   if (!selection.isValid) return;
-  final lineStart = before.text.lastIndexOf('\n', selection.start - 1) + 1;
+  final lineStart = selection.start == 0
+      ? 0
+      : before.text.lastIndexOf('\n', selection.start - 1) + 1;
   final block = before.text
       .substring(lineStart, selection.start)
       .trim()
@@ -35,7 +37,7 @@ Future<void> insertMath(BuildContext context, ComposerEditorHost editor) async {
   if (result == null || !_editable(editor)) return;
   final source = result.display
       ? '\$\$\n${result.source}\n\$\$'
-      : '\$${result.source}\$';
+      : '\$${escapeMathDelimiter(result.source, r'$')}\$';
   if (editor.value.text != before.text) return;
   if (result.display) {
     editor.commitText(expectedText: before.text, value: before);
@@ -80,69 +82,94 @@ Future<DMathExpression?> _mathDialog(
   required String source,
   required bool display,
   bool editing = false,
-}) async {
-  final controller = TextEditingController(text: source);
-  try {
-    return await showDDialog<DMathExpression>(
-      context: context,
-      builder: (context, dialog) => StatefulBuilder(
-        builder: (context, setState) => DDialogContent(
-          maxWidth: 560,
-          children: [
-            DDialogTitle(
-              child: Text(
-                editing ? context.l10n.editMath : context.l10n.insertMath,
-              ),
-            ),
-            DTextarea(
-              controller: controller,
-              labelText: context.l10n.mathSource,
-              hintText: r'E=mc^2',
-              autofocus: true,
-              autocorrect: false,
-              enableSuggestions: false,
-              minLines: 3,
-              maxLines: 10,
-              maxLength: 16384,
-              onChanged: (_) => setState(() {}),
-            ),
-            if (!editing)
-              DToggle(
-                pressed: display,
-                onPressedChanged: (value) => setState(() => display = value),
-                child: Text(context.l10n.mathDisplay),
-              ),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                DButton(
-                  label: Text(context.l10n.cancel),
-                  variant: DButtonVariant.outline,
-                  onPressed: () => dialog.close(),
-                ),
-                const SizedBox(width: DSpacing.sm),
-                DButton(
-                  label: Text(
-                    editing ? context.l10n.mathApply : context.l10n.insert,
-                  ),
-                  onPressed: controller.text.trim().isEmpty
-                      ? null
-                      : () => dialog.close(
-                          DMathExpression(
-                            controller.text.trim(),
-                            display: display,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ],
+}) => showDDialog<DMathExpression>(
+  context: context,
+  builder: (context, dialog) => _MathSourceDialog(
+    source: source,
+    display: display,
+    editing: editing,
+    dialog: dialog,
+  ),
+);
+
+class _MathSourceDialog extends StatefulWidget {
+  const _MathSourceDialog({
+    required this.source,
+    required this.display,
+    required this.editing,
+    required this.dialog,
+  });
+  final String source;
+  final bool display, editing;
+  final DDialogController<DMathExpression> dialog;
+  @override
+  State<_MathSourceDialog> createState() => _MathSourceDialogState();
+}
+
+class _MathSourceDialogState extends State<_MathSourceDialog> {
+  late final controller = TextEditingController(text: widget.source);
+  late bool display = widget.display;
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => DDialogContent(
+    maxWidth: 560,
+    children: [
+      DDialogTitle(
+        child: Text(
+          widget.editing ? context.l10n.editMath : context.l10n.insertMath,
         ),
       ),
-    );
-  } finally {
-    controller.dispose();
-  }
+      DTextarea(
+        controller: controller,
+        labelText: context.l10n.mathSource,
+        hintText: r'E=mc^2',
+        autofocus: true,
+        autocorrect: false,
+        enableSuggestions: false,
+        minLines: 3,
+        maxLines: 10,
+        maxLength: 16384,
+        onChanged: (_) => setState(() {}),
+      ),
+      if (!widget.editing)
+        DToggle(
+          pressed: display,
+          onPressedChanged: (value) => setState(() => display = value),
+          child: Text(context.l10n.mathDisplay),
+        ),
+      Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          DButton(
+            label: Text(context.l10n.cancel),
+            variant: DButtonVariant.outline,
+            onPressed: () => widget.dialog.close(),
+          ),
+          const SizedBox(width: DSpacing.sm),
+          DButton(
+            label: Text(
+              widget.editing ? context.l10n.mathApply : context.l10n.insert,
+            ),
+            onPressed:
+                controller.text.trim().isEmpty ||
+                    (!display && controller.text.contains('\n'))
+                ? null
+                : () => widget.dialog.close(
+                    DMathExpression(
+                      widget.editing ? controller.text : controller.text.trim(),
+                      display: display,
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 final class MathComposerPolicy implements ComposerSyntaxPolicy {

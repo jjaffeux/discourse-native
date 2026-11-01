@@ -28,6 +28,7 @@ void main() {
       'discourse-github',
       'discourse-lazy-videos',
       'discourse-mermaid',
+      'discourse-math',
       'discourse-placeholder',
       'discourse-reactions',
       'poll',

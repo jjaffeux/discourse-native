@@ -167,4 +167,82 @@ void main() {
       await tester.pump();
     },
   );
+  testWidgets('scrolling retires offscreen views and admits later equations', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            height: 300,
+            width: 300,
+            child: ListView(
+              controller: scroll,
+              children: [
+                for (var i = 0; i < 24; i++)
+                  SizedBox(
+                    height: 100,
+                    child: DMath(
+                      expression: DMathExpression('x=$i'),
+                      configuration: const DMathJax(),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    final initial = platform.controllers.toList();
+    expect(initial.length, lessThanOrEqualTo(5));
+    scroll.jumpTo(scroll.position.maxScrollExtent);
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+    expect(platform.controllers.length, greaterThan(initial.length));
+    expect(initial.every((view) => view.channels.isEmpty), isTrue);
+    expect(
+      platform.controllers.where((view) => view.channels.isNotEmpty).length,
+      lessThanOrEqualTo(5),
+    );
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+    scroll.dispose();
+  });
+  testWidgets('ordinary long documents retain the selected equation', (
+    tester,
+  ) async {
+    final expressions = [for (var i = 0; i < 200; i++) DMathExpression('x=$i')];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DMath(
+            expression: expressions[150],
+            context: expressions,
+            contextIndex: 150,
+            configuration: const DMathJax(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(platform.controllers.single.scripts.single, contains('x=150'));
+    send({
+      'type': 'result',
+      'generation': 1,
+      'width': 50,
+      'height': 30,
+      'baseline': 22,
+    });
+    await tester.pump();
+    expect(find.text('x=150'), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
 }

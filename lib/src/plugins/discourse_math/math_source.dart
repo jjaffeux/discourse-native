@@ -29,7 +29,10 @@ final class MathOccurrence {
   final String original, open, close, prefix;
   final DMathExpression expression;
   String replace(String body) {
-    if (!expression.display) return '$open$body$close';
+    if (body == expression.source) return original;
+    if (!expression.display) {
+      return '$open${escapeMathDelimiter(body, open)}$close';
+    }
     if (!original.contains('\n')) return '$open$body$close';
     final newline = original.contains('\r\n') ? '\r\n' : '\n';
     return '$open$newline${body.split('\n').map((line) => '$prefix$line').join(newline)}$newline$prefix$close';
@@ -62,6 +65,21 @@ List<MathOccurrence> scanMath(String source, MathSettings settings) {
   final code = markdownCodeRanges(source);
   final protected = <({int start, int end})>[
     for (final match in RegExp(
+      r'^(?: {4}|\t).*$',
+      multiLine: true,
+    ).allMatches(source))
+      (start: match.start, end: match.end),
+    for (final match in RegExp(
+      r'<([A-Za-z][A-Za-z0-9-]*)(?:\s[^>]*|)>[\s\S]*?</\1\s*>',
+      caseSensitive: false,
+    ).allMatches(source))
+      (start: match.start, end: match.end),
+    for (final match in RegExp(
+      r'^ {0,3}<[A-Za-z][^>]*>[^\n]*(?:\n(?![ \t]*\r?\n)[^\n]*)*',
+      multiLine: true,
+    ).allMatches(source))
+      (start: match.start, end: match.end),
+    for (final match in RegExp(
       r'<!--[\s\S]*?(?:-->|$)|<[^>]*>|!?\[[^\]\n]*\]\([^\n]*?\)',
     ).allMatches(source))
       (start: match.start, end: match.end),
@@ -85,9 +103,10 @@ List<MathOccurrence> scanMath(String source, MathSettings settings) {
         : settings.latexDelimiters && trimmed.startsWith(r'\[')
         ? r'\['
         : null;
-    if (open == null || blocked(line.start, line.end)) continue;
+    if (open == null) continue;
     final close = open == r'$$' ? r'$$' : r'\]';
     final start = line.start + raw.indexOf(open);
+    if (blocked(start, start + 1)) continue;
     if (trimmed.length > open.length + close.length &&
         trimmed.endsWith(close)) {
       final body = trimmed
@@ -162,7 +181,7 @@ List<MathOccurrence> scanMath(String source, MathSettings settings) {
     while (end >= 0 && _escaped(source, end)) {
       end = source.indexOf(close, end + close.length);
     }
-    if (end < 0 || blocked(i, end + close.length)) continue;
+    if (end < 0) continue;
     if (open.length == 1 && !_boundary(source, end + 1, delimiter)) continue;
     final body = source.substring(i + open.length, end);
     if (body.contains('\n') || (open.length == 2 && body.isEmpty)) continue;
@@ -181,4 +200,14 @@ List<MathOccurrence> scanMath(String source, MathSettings settings) {
   }
   result.sort((a, b) => a.start.compareTo(b.start));
   return result;
+}
+
+String escapeMathDelimiter(String source, String delimiter) {
+  if (delimiter.length != 1) return source;
+  final result = StringBuffer();
+  for (var i = 0; i < source.length; i++) {
+    if (source[i] == delimiter && !_escaped(source, i)) result.write(r'\');
+    result.write(source[i]);
+  }
+  return result.toString();
 }

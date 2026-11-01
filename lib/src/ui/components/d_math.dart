@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart'
+    show LicenseRegistry, LicenseEntryWithLineBreaks;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -13,7 +15,9 @@ import 'd_button.dart';
 import 'd_context_menu.dart';
 import 'd_dialog.dart';
 import 'd_scroll_area.dart';
+import 'd_slider.dart';
 
+bool _licenseRegistered = false;
 const _document = 'packages/discourse_native/src/ui/assets/math/index.html';
 
 enum DMathInput { tex, ascii }
@@ -39,6 +43,8 @@ final class DMathJax extends DMathConfiguration {
     'engine': 'mathjax',
     'output': output.name,
     'accessibility': accessibility,
+    'menu': menu,
+    'zoom': zoom,
   };
   @override
   bool operator ==(Object other) =>
@@ -102,7 +108,74 @@ class DMath extends StatefulWidget {
   State<DMath> createState() => _DMathState();
 }
 
-class _DMathState extends State<DMath> {
+class _DMathState extends State<DMath> with WidgetsBindingObserver {
+  ScrollPosition? _scrollPosition;
+  bool _visible = false;
+  bool _visibilityScheduled = false;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void _scheduleVisibility() {
+    if (_visibilityScheduled) return;
+    _visibilityScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _visibilityScheduled = false;
+      if (!mounted) return;
+      final render = context.findRenderObject();
+      if (render is! RenderBox || !render.hasSize || !render.attached) return;
+      var viewport = Offset.zero & MediaQuery.sizeOf(context);
+      RenderObject child = render;
+      bool paints = TickerMode.valuesOf(context).enabled;
+      while (child.parent != null) {
+        final parent = child.parent!;
+        if (!parent.paintsChild(child)) paints = false;
+        if (parent is RenderAbstractViewport && parent is RenderBox) {
+          viewport = viewport.intersect(
+            MatrixUtils.transformRect(
+              parent.getTransformTo(null),
+              parent.paintBounds,
+            ),
+          );
+        }
+        child = parent;
+      }
+      final bounds = MatrixUtils.transformRect(
+        render.getTransformTo(null),
+        render.paintBounds,
+      );
+      final visible = paints && viewport.overlaps(bounds);
+      if (visible == _visible) return;
+      setState(() {
+        _visible = visible;
+        _requestIdentity = null;
+        if (visible) {
+          _update();
+        } else {
+          ++_generation;
+          _view?.retire();
+          _view = null;
+          _rendered = false;
+        }
+      });
+    });
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _requestIdentity = null;
+      _update();
+    } else {
+      ++_generation;
+      _view?.retire();
+      _view = null;
+      _rendered = false;
+    }
+  }
+
   _MathView? _view;
   String? _requestIdentity;
   final _menu = DContextMenuTriggerController();
@@ -110,6 +183,7 @@ class _DMathState extends State<DMath> {
   double _width = 80, _height = 28, _baseline = 22;
   bool _rendered = false;
   Map<String, String> _formats = const {};
+  List<_MathMenuEntry> _engineMenu = const [];
   DMathJax? _configurationOverride;
   DMathConfiguration get _configuration =>
       _configurationOverride ?? widget.configuration;
@@ -117,6 +191,24 @@ class _DMathState extends State<DMath> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    if (!_licenseRegistered) {
+      _licenseRegistered = true;
+      LicenseRegistry.addLicense(() async* {
+        yield LicenseEntryWithLineBreaks(
+          ['MathJax', 'MathJax NewCM', 'KaTeX'],
+          await rootBundle.loadString(
+            'packages/discourse_native/src/ui/assets/math/NOTICE.txt',
+          ),
+        );
+      });
+    }
+    final position = Scrollable.maybeOf(context)?.position;
+    if (position != _scrollPosition) {
+      _scrollPosition?.removeListener(_scheduleVisibility);
+      _scrollPosition = position;
+      position?.addListener(_scheduleVisibility);
+    }
+    _scheduleVisibility();
     _update();
   }
 
@@ -130,14 +222,21 @@ class _DMathState extends State<DMath> {
   }
 
   void _update() {
+    _scheduleVisibility();
+    if (!_visible || !TickerMode.valuesOf(context).enabled) return;
+    final bounded = _boundedMathContext(
+      widget.expression,
+      widget.context,
+      widget.contextIndex,
+    );
     final style = DefaultTextStyle.of(context).style;
     final color = style.color ?? Theme.of(context).colorScheme.onSurface;
     final request = <String, Object?>{
       'v': 1,
       ...widget.expression.toMessage(),
       'config': _configuration.toMessage(),
-      'context': widget.context.map((e) => e.toMessage()).toList(),
-      'contextIndex': widget.contextIndex,
+      'context': bounded.expressions.map((e) => e.toMessage()).toList(),
+      'contextIndex': bounded.index,
       'color':
           '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
       'fontSize':
@@ -151,10 +250,11 @@ class _DMathState extends State<DMath> {
     _view = null;
     _rendered = false;
     _formats = const {};
+    _engineMenu = const [];
     final generation = ++_generation;
     if (widget.expression.source.length > 16384 ||
         identity.length > 131072 ||
-        widget.context.length > 128) {
+        bounded.expressions.length > 128) {
       return;
     }
     final view = _view = _MathView(
@@ -191,6 +291,7 @@ class _DMathState extends State<DMath> {
         }
         _view?.finish();
         final formats = data['formats'];
+        _engineMenu = _MathMenuEntry.parse(data['menu']);
         _formats = formats is Map<String, dynamic>
             ? {
                 for (final entry in formats.entries)
@@ -228,14 +329,32 @@ class _DMathState extends State<DMath> {
             _menu.openAt(Offset(x.toDouble(), y.toDouble()));
           }
         }
-      case 'activate':
-        if (widget.configuration case DMathJax(zoom: true)) {
-          unawaited(_expand());
+      case 'menuText':
+        if (data['text'] case final String value when value.length <= 65536) {
+          if (data['copy'] == true) {
+            unawaited(Clipboard.setData(ClipboardData(text: value)));
+          } else {
+            unawaited(
+              _showFormat(
+                data['label'] is String ? data['label'] as String : 'mathml',
+                value,
+              ),
+            );
+          }
         }
+      case 'zoom':
+        final scale = data['scale'];
+        if (scale is num && scale.isFinite && scale >= 1 && scale <= 5) {
+          unawaited(_expand(scale: scale.toDouble()));
+        }
+      case 'scale':
+        unawaited(_showScale());
+      case 'activate':
+        break;
     }
   }
 
-  Future<void> _expand() async {
+  Future<void> _expand({double scale = 1.75}) async {
     await showDDialog<void>(
       context: context,
       builder: (context, controller) => DDialogContent(
@@ -281,7 +400,8 @@ class _DMathState extends State<DMath> {
     'mathml' => context.l10n.mathMathml,
     'svg' => context.l10n.mathSvg,
     'speech' => context.l10n.mathSpeech,
-    _ => context.l10n.mathBraille,
+    'braille' => context.l10n.mathBraille,
+    _ => format,
   };
   Future<void> _showFormat(String format, String value) async {
     await showDDialog<void>(
@@ -303,10 +423,86 @@ class _DMathState extends State<DMath> {
     );
   }
 
+  Future<void> _menuAction(_MathMenuEntry entry, [double? value]) async {
+    await _runMenuScript(
+      'window.mathMenuAction(${jsonEncode({'v': 1, 'generation': _generation, 'id': entry.id, 'value': ?value})});',
+    );
+  }
+
+  Future<void> _runMenuScript(String script) async {
+    final view = _view;
+    if (!mounted || view == null) return;
+    try {
+      await view.controller?.runJavaScript(script);
+    } on PlatformException {
+      // The native surface may retire while a menu action is in flight.
+    }
+  }
+
+  Widget _menuEntry(_MathMenuEntry entry) => switch (entry.type) {
+    'rule' => const DContextMenuSeparator(),
+    'label' => DContextMenuLabel(child: Text(entry.label)),
+    'submenu' => DContextMenuSub(
+      trigger: Text(entry.label),
+      enabled: !entry.disabled,
+      children: entry.children.map(_menuEntry).toList(),
+    ),
+    'checkbox' || 'radio' || 'radioCompare' => DContextMenuCheckboxItem(
+      checked: entry.checked,
+      enabled: !entry.disabled,
+      onChanged: (_) => _menuAction(entry),
+      child: Text(entry.label),
+    ),
+    'slider' => DSlider(
+      value: entry.value,
+      min: 0,
+      max: 100,
+      onChanged: entry.disabled ? null : (value) => _menuAction(entry, value),
+      semanticLabel: entry.label.isEmpty
+          ? context.l10n.mathOpacity
+          : entry.label,
+    ),
+    _ => DContextMenuItem(
+      onPressed: entry.disabled ? null : () => _menuAction(entry),
+      child: Text(entry.label),
+    ),
+  };
+  Future<void> _showScale() async {
+    var scale = 100.0;
+    await showDDialog<void>(
+      context: context,
+      builder: (context, dialog) => StatefulBuilder(
+        builder: (context, setState) => DDialogContent(
+          children: [
+            DDialogTitle(child: Text(context.l10n.mathScale)),
+            DSlider(
+              value: scale,
+              min: 50,
+              max: 400,
+              onChanged: (value) {
+                setState(() => scale = value);
+                unawaited(
+                  _runMenuScript(
+                    'window.mathMenuScale(${jsonEncode({'generation': _generation, 'value': value / 100})});',
+                  ),
+                );
+              },
+            ),
+            DButton(
+              label: Text(context.l10n.close),
+              onPressed: () => dialog.close(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     Widget content = Stack(
       children: [
+        SizedBox(width: _width, height: _height),
         if (!_rendered) Text(widget.expression.source),
         if (_view?.controller case final controller?)
           SizedBox(
@@ -336,56 +532,60 @@ class _DMathState extends State<DMath> {
       content = DContextMenu(
         content: DContextMenuContent(
           children: [
-            DContextMenuItem(
-              onPressed: () => Clipboard.setData(
-                ClipboardData(text: widget.expression.source),
-              ),
-              child: Text(context.l10n.copySource),
-            ),
-            DContextMenuItem(
-              onPressed: _expand,
-              child: Text(context.l10n.expand),
-            ),
-            for (final format in _formats.entries)
+            if (_engineMenu.isNotEmpty)
+              ..._engineMenu.map(_menuEntry)
+            else ...[
               DContextMenuItem(
-                onPressed: () => _showFormat(format.key, format.value),
-                child: Text(_formatLabel(context, format.key)),
+                onPressed: () => Clipboard.setData(
+                  ClipboardData(text: widget.expression.source),
+                ),
+                child: Text(context.l10n.copySource),
               ),
-            if (_configuration case final DMathJax configuration) ...[
-              const DContextMenuSeparator(),
               DContextMenuItem(
-                onPressed: () => _setConfiguration(
-                  DMathJax(
-                    output: configuration.output == DMathJaxOutput.html
-                        ? DMathJaxOutput.svg
-                        : DMathJaxOutput.html,
-                    menu: configuration.menu,
-                    zoom: configuration.zoom,
-                    accessibility: configuration.accessibility,
+                onPressed: _expand,
+                child: Text(context.l10n.expand),
+              ),
+              for (final format in _formats.entries)
+                DContextMenuItem(
+                  onPressed: () => _showFormat(format.key, format.value),
+                  child: Text(_formatLabel(context, format.key)),
+                ),
+              if (_configuration case final DMathJax configuration) ...[
+                const DContextMenuSeparator(),
+                DContextMenuItem(
+                  onPressed: () => _setConfiguration(
+                    DMathJax(
+                      output: configuration.output == DMathJaxOutput.html
+                          ? DMathJaxOutput.svg
+                          : DMathJaxOutput.html,
+                      menu: configuration.menu,
+                      zoom: configuration.zoom,
+                      accessibility: configuration.accessibility,
+                    ),
+                  ),
+                  child: Text(
+                    configuration.output == DMathJaxOutput.html
+                        ? context.l10n.mathUseSvg
+                        : context.l10n.mathUseHtml,
                   ),
                 ),
-                child: Text(
-                  configuration.output == DMathJaxOutput.html
-                      ? context.l10n.mathUseSvg
-                      : context.l10n.mathUseHtml,
-                ),
-              ),
-              DContextMenuCheckboxItem(
-                checked: configuration.accessibility,
-                onChanged: (value) => _setConfiguration(
-                  DMathJax(
-                    output: configuration.output,
-                    menu: configuration.menu,
-                    zoom: configuration.zoom,
-                    accessibility: value,
+                DContextMenuCheckboxItem(
+                  checked: configuration.accessibility,
+                  onChanged: (value) => _setConfiguration(
+                    DMathJax(
+                      output: configuration.output,
+                      menu: configuration.menu,
+                      zoom: configuration.zoom,
+                      accessibility: value,
+                    ),
                   ),
+                  child: Text(context.l10n.mathAccessibility),
                 ),
-                child: Text(context.l10n.mathAccessibility),
-              ),
-              DContextMenuItem(
-                onPressed: () => _setConfiguration(null),
-                child: Text(context.l10n.mathReset),
-              ),
+                DContextMenuItem(
+                  onPressed: () => _setConfiguration(null),
+                  child: Text(context.l10n.mathReset),
+                ),
+              ],
             ],
           ],
         ),
@@ -426,6 +626,8 @@ class _DMathState extends State<DMath> {
   @override
   void dispose() {
     ++_generation;
+    _scrollPosition?.removeListener(_scheduleVisibility);
+    WidgetsBinding.instance.removeObserver(this);
     _view?.retire();
     super.dispose();
   }
@@ -457,7 +659,7 @@ final class _MathView {
       if (!active) return;
       onMessage({'type': 'error', 'generation': request['generation']});
     });
-    if (_active.length < 8) {
+    if (_active.length < 16) {
       _admit();
     } else if (_waiting.length < 64) {
       _waiting.add(this);
@@ -540,7 +742,7 @@ final class _MathView {
     unawaited(
       _release().whenComplete(() {
         if (_admitted) _active.remove(this);
-        while (_active.length < 8 && _waiting.isNotEmpty) {
+        while (_active.length < 16 && _waiting.isNotEmpty) {
           _waiting.removeAt(0)._admit();
         }
       }),
@@ -586,4 +788,81 @@ class _RenderMathBaseline extends RenderProxyBox {
   @override
   double computeDistanceToActualBaseline(TextBaseline baseline) =>
       _baseline.clamp(0, size.height);
+}
+
+({List<DMathExpression> expressions, int? index}) _boundedMathContext(
+  DMathExpression selected,
+  List<DMathExpression> context,
+  int? index,
+) {
+  final candidates = index == null ? [...context, selected] : context;
+  final selectedIndex = index ?? context.length;
+  final selectedExpression =
+      selectedIndex >= 0 && selectedIndex < candidates.length
+      ? candidates[selectedIndex]
+      : selected;
+  final chosen = <DMathExpression>[];
+  int? resultIndex;
+  var length = jsonEncode(selectedExpression.toMessage()).length;
+  final hasDependencies = RegExp(
+    r'\\(?:gdef|def|newcommand|renewcommand|DeclareMathOperator|label|tag)\b',
+  );
+  for (var i = 0; i < candidates.length; i++) {
+    final expression = candidates[i];
+    final current = i == selectedIndex;
+    if (!current &&
+        (expression.source.length > 16384 ||
+            (candidates.length > 128 &&
+                !hasDependencies.hasMatch(expression.source)) ||
+            chosen.length >= 127 ||
+            length + jsonEncode(expression.toMessage()).length > 100000)) {
+      continue;
+    }
+    if (current) resultIndex = chosen.length;
+    chosen.add(expression);
+    if (!current) length += jsonEncode(expression.toMessage()).length;
+  }
+  if (resultIndex == null) {
+    resultIndex = chosen.length;
+    chosen.add(selectedExpression);
+  }
+  return (expressions: chosen, index: resultIndex);
+}
+
+final class _MathMenuEntry {
+  const _MathMenuEntry(
+    this.id,
+    this.type,
+    this.label,
+    this.disabled,
+    this.checked,
+    this.value,
+    this.children,
+  );
+  final String id, type, label;
+  final bool disabled, checked;
+  final double value;
+  final List<_MathMenuEntry> children;
+  static List<_MathMenuEntry> parse(Object? data, [int depth = 0]) {
+    if (data is! List || depth > 8 || data.length > 200) return const [];
+    return [
+      for (final item in data)
+        if (item is Map<String, dynamic> &&
+            item['id'] is String &&
+            item['type'] is String &&
+            item['label'] is String &&
+            (item['label'] as String).length <= 160)
+          _MathMenuEntry(
+            item['id'] as String,
+            item['type'] as String,
+            item['label'] as String,
+            item['disabled'] == true,
+            item['checked'] == true,
+            item['value'] is num && (item['value'] as num).isFinite
+                ? (item['value'] as num).toDouble().clamp(0, 100)
+                : 0,
+            parse(item['children'], depth + 1),
+          ),
+    ];
+  }
 }

@@ -1,1 +1,12 @@
-{"private":true,"type":"module","scripts":{"build":"node build.mjs"},"dependencies":{"mathjax":"4.1.0","katex":"0.16.27"}}
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "verify": "node verify.mjs"
+  },
+  "dependencies": {
+    "mathjax": "4.1.0",
+    "katex": "0.16.27"
+  }
+}

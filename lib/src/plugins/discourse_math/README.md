@@ -27,26 +27,29 @@ same-document expression context remain in a live WebView. The plugin maps
 labels to keys belonging to the parsed document and routes other allowed links
 through the SDK. Neither plugin nor component maintains an equation cache.
 
-The Native MathJax menu offers source copy, expansion, available MathML/SVG/
-speech/braille exports, output renderer selection, accessibility, and reset.
-The browser menu is suppressed. The upstream menu's remaining language,
-explorer colour, overflow, keyboard modifier, annotation, scale-all, about/help,
-and speech-rule preference submenus are not exposed. This is a Native action
-mapping, not complete menu parity. The site zoom setting opens a Native dialog
-at 175 percent. Browser engine selection does not extend into Flutter prose;
-copy-tex applies within the equation WebView and Copy source remains explicit.
-Device VoiceOver/TalkBack and cross-platform platform-view behavior need device
-verification; an enriched DOM is not evidence of screen-reader parity.
+The Native MathJax menu is generated from the actual engine menu's finite item
+metadata. Native submenus, checkboxes and sliders change the engine's own
+renderer, speech, language, braille, explorer, zoom and semantic-export
+preferences. Show, Copy, Zoom, Scale, About and Help use Native surfaces.
+Upstream-disabled entries remain disabled. These preferences are local to the
+expression view and never use browser localStorage. Native horizontal scrolling
+retains access to wide expressions. Browser selection does not extend into
+Flutter prose; copy-tex applies inside the equation view and Copy source remains
+explicit. Device VoiceOver/TalkBack need device verification; enriched DOM is
+not evidence of screen-reader parity.
 
 Rendering is bounded to 16,384 source units, 128 contextual expressions,
 131,072 request units, two million generated HTML units, 16,384 by 4,096 output
-points, eight live views, 64 queued requests, and a 20 second admission/render
-timeout. Oversized, unsupported, saturated, or rejected expressions retain
-source. Retired setup finishes before channels, script execution, and documents
+points, 16 visible live views, 64 queued requests, and a 20 second admission/render
+timeout. Offscreen views retire and visible expressions are admitted as the
+viewport moves. Large documents retain the selected expression and prioritize
+macro/label dependencies within the bounded context. Oversized, unsupported,
+saturated, or rejected expressions retain source. Retired setup finishes before channels, script execution, and documents
 are cleared. Settings/source changes replace the isolated view and generation.
 
 Rebuild assets with `npm ci && npm run build` in `tool/math_renderer`. The lock
-pins every dependency; build copies the complete browser module/font closure,
+pins every dependency; `npm run verify` checks the complete asset file set and
+hashes. Build copies the complete browser module/font closure,
 generates offline speech-map resources, asset entries, and hashes. The exact
 speech worker uses bundled map data instead of `file:` fetch, which WKWebView
 does not support. No math expression can initiate network requests or navigate

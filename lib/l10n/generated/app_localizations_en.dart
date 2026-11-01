@@ -14949,4 +14949,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get mathBraille => 'Braille code';
+
+  @override
+  String get mathOpacity => 'Opacity';
+
+  @override
+  String get mathScale => 'Scale math';
 }

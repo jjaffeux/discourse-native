@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/discourse_events/discourse_events_m
 import 'package:discourse_native/src/plugins/discourse_github/discourse_github_module.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_module.dart';
 import 'package:discourse_native/src/plugins/discourse_mermaid/discourse_mermaid_module.dart';
+import 'package:discourse_native/src/plugins/discourse_math/discourse_math_module.dart';
 import 'package:discourse_native/src/plugins/discourse_placeholder/discourse_placeholder_module.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_module.dart';
@@ -44,6 +45,7 @@ final PluginManifest _testBundledPluginManifest = PluginManifest([
   discourseGithubModule,
   discourseLazyVideosModule,
   discourseMermaidModule,
+  discourseMathModule,
   discoursePlaceholderModule,
   const ReactionsModule(apiFactory: _reactionsApis),
   const PollModule(apiFactory: _pollsApi),

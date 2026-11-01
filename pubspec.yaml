@@ -178,6 +178,7 @@ flutter:
     - packages/discourse_native/src/shell/shaders/forum_texture.frag
   assets:
     # BEGIN math assets
+    - packages/discourse_native/src/ui/assets/math/NOTICE.txt
     - packages/discourse_native/src/ui/assets/math/index.html
     - packages/discourse_native/src/ui/assets/math/katex/LICENSE
     - packages/discourse_native/src/ui/assets/math/katex/dist/README.md
@@ -343,6 +344,7 @@ flutter:
     - packages/discourse_native/src/ui/assets/math/mathjax/ui/lazy.js
     - packages/discourse_native/src/ui/assets/math/mathjax/ui/menu.js
     - packages/discourse_native/src/ui/assets/math/mathjax/ui/safe.js
+    - packages/discourse_native/src/ui/assets/math/menu.js
     - packages/discourse_native/src/ui/assets/math/newcm/chtml.js
     - packages/discourse_native/src/ui/assets/math/newcm/chtml/dynamic/PUA.js
     - packages/discourse_native/src/ui/assets/math/newcm/chtml/dynamic/accents-b-i.js
