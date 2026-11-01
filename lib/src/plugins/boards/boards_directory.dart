@@ -38,7 +38,7 @@ enum _BoardStatus { all, active, archived }
 
 class _BoardsDirectoryState extends State<BoardsDirectory> {
   String _query = '';
-  _BoardStatus _status = _BoardStatus.all;
+  _BoardStatus _status = _BoardStatus.active;
 
   String _statusLabel(_BoardStatus status) => switch (status) {
     _BoardStatus.all => context.l10n.boardsAll,

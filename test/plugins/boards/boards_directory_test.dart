@@ -227,6 +227,10 @@ void boardsDirectoryWidgetTests({
       await prepareNativeUiEvidence(tester);
       await tester.pumpWidget(page(fixture));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All boards').last);
+      await tester.pumpAndSettle();
       expect(find.byType(DPlaceCard), findsNWidgets(4));
       expect(find.text('Created by lee'), findsOneWidget);
       expect(find.text('3 columns'), findsOneWidget);
@@ -267,7 +271,7 @@ void boardsDirectoryWidgetTests({
   );
 
   testWidgets(
-    'directory search and status filter compose without network reads',
+    'directory defaults to active boards and composes search with status without reads',
     (tester) async {
       resize(tester, const Size(900, 800));
       final fixture = BoardsFixture();
@@ -278,6 +282,14 @@ void boardsDirectoryWidgetTests({
         directoryBoard(3, 'Marketing'),
       ]);
       await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      expect(find.text('Team roadmap'), findsOneWidget);
+      expect(find.text('Marketing'), findsOneWidget);
+      expect(find.text('Team archive'), findsNothing);
+      expect(find.text('Active boards'), findsOneWidget);
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All boards').last);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(DInput), ' NATIVE team ');
       await tester.pumpAndSettle();
@@ -328,6 +340,11 @@ void boardsDirectoryWidgetTests({
       expect(find.text('Roadmap'), findsNothing);
       await tester.enterText(find.byType(DInput), '');
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('All boards').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Old roadmap'), findsOneWidget);
       await tester.tap(find.text('All boards'));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Active boards').last);
