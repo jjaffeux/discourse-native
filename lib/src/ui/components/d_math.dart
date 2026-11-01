@@ -650,6 +650,7 @@ final class _MathView {
   final void Function(Map<String, dynamic>) onMessage;
   final VoidCallback onChanged;
   WebViewController? controller;
+  Uri? _initialDocument;
   Future<void>? _setup;
   Timer? _timeout;
   bool _retired = false;
@@ -715,14 +716,7 @@ final class _MathView {
       );
       if (!active) return;
       await view.setNavigationDelegate(
-        NavigationDelegate(
-          onNavigationRequest: (request) =>
-              active &&
-                  request.url.startsWith('file:') &&
-                  request.url.endsWith('/index.html')
-              ? NavigationDecision.navigate
-              : NavigationDecision.prevent,
-        ),
+        NavigationDelegate(onNavigationRequest: _navigationDecision),
       );
       if (!active) return;
       await view.loadFlutterAsset(_document);
@@ -731,6 +725,40 @@ final class _MathView {
         onMessage({'type': 'error', 'generation': request['generation']});
       }
     }
+  }
+
+  NavigationDecision _navigationDecision(NavigationRequest request) {
+    if (!active ||
+        !request.isMainFrame ||
+        RegExp(r'%(?![0-9a-fA-F]{2})').hasMatch(request.url)) {
+      return NavigationDecision.prevent;
+    }
+    final uri = Uri.tryParse(request.url);
+    if (uri == null ||
+        uri.hasQuery ||
+        uri.hasFragment ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasPort) {
+      return NavigationDecision.prevent;
+    }
+    final localAsset =
+        uri.scheme == 'file' ||
+        (uri.scheme == 'https' &&
+            RegExp(
+              r'^flutter-assets-[0-9a-f]{32}\.webview\.invalid$',
+            ).hasMatch(uri.host));
+    if (!localAsset) return NavigationDecision.prevent;
+    try {
+      if (!Uri.decodeComponent(uri.path).endsWith('/$_document')) {
+        return NavigationDecision.prevent;
+      }
+    } on FormatException {
+      return NavigationDecision.prevent;
+    }
+    _initialDocument ??= uri;
+    return uri == _initialDocument
+        ? NavigationDecision.navigate
+        : NavigationDecision.prevent;
   }
 
   void finish() {

@@ -70,6 +70,61 @@ void main() {
     expect(platform.controllers, isEmpty);
     await tester.pumpWidget(const SizedBox());
   });
+  for (final initial in [
+    'file:///Applications/My%20App/flutter_assets/packages/discourse_native/src/ui/assets/math/index.html',
+    'file:///android_asset/flutter_assets/packages/discourse_native/src/ui/assets/math/index.html',
+    'https://flutter-assets-0123456789abcdef0123456789abcdef.webview.invalid/packages/discourse_native/src/ui/assets/math/index.html',
+  ]) {
+    testWidgets('only the initial bundled main-frame document can navigate: $initial', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host());
+      await tester.pump();
+      final delegate = platform.controllers.single.delegate!;
+      const path = 'packages/discourse_native/src/ui/assets/math/index.html';
+      for (final rejected in [
+        'file:///tmp/index.html',
+        'file:///tmp/$path/other',
+        'file:///tmp/%bad%/$path',
+        'https://example.test/$path',
+        'https://flutter-assets-0123456789abcdef0123456789abcde.webview.invalid/$path',
+        'https://flutter-assets-0123456789abcdef0123456789abcdef.webview.invalid.evil.test/$path',
+        'https://flutter-assets-0123456789abcdef0123456789abcdef.webview.invalid:8443/$path',
+        'https://user@flutter-assets-0123456789abcdef0123456789abcdef.webview.invalid/$path',
+        '$initial?query=1',
+        '$initial#fragment',
+      ]) {
+        expect(
+          await delegate.navigate(rejected),
+          NavigationDecision.prevent,
+          reason: rejected,
+        );
+      }
+      expect(
+        await delegate.navigate(initial, isMainFrame: false),
+        NavigationDecision.prevent,
+      );
+      expect(await delegate.navigate(initial), NavigationDecision.navigate);
+      expect(await delegate.navigate(initial), NavigationDecision.navigate);
+      expect(
+        await delegate.navigate('file:///unrelated/$path'),
+        NavigationDecision.prevent,
+      );
+      expect(
+        await delegate.navigate(
+          'https://flutter-assets-abcdef0123456789abcdef0123456789.webview.invalid/$path',
+        ),
+        NavigationDecision.prevent,
+      );
+      expect(
+        await delegate.navigate(initial, isMainFrame: false),
+        NavigationDecision.prevent,
+      );
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+      expect(await delegate.navigate(initial), NavigationDecision.prevent);
+    });
+  }
   testWidgets('source stays visible until current bounded result arrives', (
     tester,
   ) async {
