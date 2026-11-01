@@ -111,35 +111,53 @@ void main() {
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
-  testWidgets('dismissed topic hands off its list title without a blank frame', (
-    tester,
-  ) async {
-    final shell = await _openTopic(tester);
-    final title = find.descendant(
-      of: _header,
-      matching: find.text('Latest topics'),
-    );
-    final drag = await tester.startGesture(tester.getCenter(_handle));
-    await drag.moveBy(const Offset(0, 20));
-    await drag.moveBy(const Offset(0, 260));
-    await tester.pump(const Duration(milliseconds: 16));
-    expect(title, findsOneWidget);
-    await drag.up();
-    var returned = false;
-    for (var frame = 0; frame < 90; frame++) {
+  testWidgets(
+    'dismissed topic hands off its list title without a blank frame',
+    (tester) async {
+      final shell = await _openTopic(tester);
+      final title = find.descendant(
+        of: _header,
+        matching: find.text('Latest topics'),
+      );
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 260));
       await tester.pump(const Duration(milliseconds: 16));
-      expect(title, findsOneWidget, reason: 'Dismissal frame $frame');
-      if (shell.currentContent?.isTopicList == true) {
-        returned = true;
-        await tester.pump();
-        expect(title, findsOneWidget);
-        break;
+      expect(title, findsOneWidget);
+      final titleOrigin = tester.getTopLeft(title);
+      await drag.up();
+      var returned = false;
+      for (var frame = 0; frame < 90; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(title, findsOneWidget, reason: 'Dismissal frame $frame');
+        expect(
+          tester.getTopLeft(title),
+          titleOrigin,
+          reason: 'Dismissal frame $frame keeps the title in place',
+        );
+        for (final opacity in tester.widgetList<Opacity>(
+          find.ancestor(of: title, matching: find.byType(Opacity)),
+        )) {
+          expect(
+            opacity.opacity,
+            greaterThan(0),
+            reason: 'Dismissal frame $frame keeps the title painted',
+          );
+        }
+        if (shell.currentContent?.isTopicList == true) {
+          returned = true;
+          await tester.pump();
+          expect(title, findsOneWidget);
+          expect(tester.getTopLeft(title), titleOrigin);
+          break;
+        }
       }
-    }
-    expect(returned, isTrue);
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  }, variant: _platforms);
+      expect(returned, isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   for (final delayed in [false, true]) {
     testWidgets(

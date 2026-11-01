@@ -322,4 +322,96 @@ void main() {
     expect(previousTitle(), 'Latest topics');
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'returning headers preserve their presentation until registered',
+    (tester) async {
+      var previousReturns = 0;
+      var currentReturns = 0;
+      DPageHeader? painted;
+      final previous = DPageHeader(scrollToTop: () async => previousReturns++)
+        ..update(
+          titleText: 'Latest topics',
+          retraction: .6,
+          barOpacity: .8,
+          layout: DPageHeaderLayout.compact,
+          leading: const Text('Marker'),
+        );
+      final topic = DPageHeader(scrollToTop: () async {})
+        ..update(
+          titleText: 'Discussion',
+          retraction: 1,
+          layout: DPageHeaderLayout.standard,
+        );
+      final current = DPageHeader(scrollToTop: () async => currentReturns++)
+        ..update(
+          titleText: 'Updated latest topics',
+          retraction: 0,
+          barOpacity: 1,
+          layout: DPageHeaderLayout.standard,
+        );
+      addTearDown(topic.dispose);
+      addTearDown(current.dispose);
+
+      Future<void> show(String identity, DPageHeader? header) =>
+          tester.pumpWidget(
+            MaterialApp(
+              home: DPageHeaderHost(
+                identity: identity,
+                builder: (_, active, child) =>
+                    ValueListenableBuilder<DPageHeader?>(
+                      valueListenable: active,
+                      child: child,
+                      builder: (_, header, child) {
+                        painted = header;
+                        return Column(
+                          children: [
+                            Text(header?.titleText ?? 'No title'),
+                            Expanded(child: child!),
+                          ],
+                        );
+                      },
+                    ),
+                child: header == null
+                    ? const SizedBox.expand()
+                    : DPageHeaderScope(
+                        key: ValueKey(identity),
+                        header: header,
+                        child: const SizedBox.expand(),
+                      ),
+              ),
+            ),
+          );
+
+      await show('list', previous);
+      await tester.pumpAndSettle();
+      await show('topic', topic);
+      expect(find.text('No title'), findsOneWidget);
+      await tester.pumpAndSettle();
+      previous.dispose();
+      await show('list', current);
+      expect(find.text('Latest topics'), findsOneWidget);
+      expect(painted?.barOpacity, .8);
+      expect(painted?.value, .6);
+      expect(painted?.layout, DPageHeaderLayout.compact);
+      expect((painted?.leading as Text).data, 'Marker');
+      await painted!.scrollToTop();
+      expect(previousReturns, 0);
+      expect(currentReturns, 1);
+      await tester.pump();
+      expect(find.text('Updated latest topics'), findsOneWidget);
+      expect(painted, same(current));
+      await painted!.scrollToTop();
+      expect(currentReturns, 2);
+
+      await show('unknown', null);
+      expect(find.text('No title'), findsOneWidget);
+      await tester.pumpAndSettle();
+      await show('list', null);
+      expect(find.text('Updated latest topics'), findsOneWidget);
+      await tester.pump();
+      expect(find.text('No title'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

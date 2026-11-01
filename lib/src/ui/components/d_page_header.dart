@@ -197,11 +197,41 @@ class DPageHeaderHost extends StatefulWidget {
 
 class _DPageHeaderHostState extends State<DPageHeaderHost> {
   final _active = ValueNotifier<DPageHeader?>(null);
-  final _titles = <Object, ({String title, Widget? leading})>{};
-  ({String title, Widget? leading})? get _previousTitle =>
-      _titles[widget.previousIdentity];
+  final _presentations =
+      <
+        Object,
+        ({
+          String title,
+          Widget? leading,
+          double retraction,
+          double barOpacity,
+          DPageHeaderLayout layout,
+        })
+      >{};
+  late final _transitionHeader = DPageHeader(
+    scrollToTop: () async => _foregroundHeader?.scrollToTop(),
+  );
+  ({String title, Widget? leading})? get _previousTitle {
+    final previous = _presentations[widget.previousIdentity];
+    return previous == null
+        ? null
+        : (title: previous.title, leading: previous.leading);
+  }
+
   final _headers = <Object, ({DPageHeader header, int depth})>{};
   bool _scheduled = false;
+
+  DPageHeader? get _foregroundHeader {
+    DPageHeader? header;
+    var depth = -1;
+    for (final entry in _headers.values) {
+      if (entry.depth >= depth) {
+        header = entry.header;
+        depth = entry.depth;
+      }
+    }
+    return header;
+  }
 
   void register(Object owner, DPageHeader header, int depth) {
     _headers[owner] = (header: header, depth: depth);
@@ -218,15 +248,7 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _scheduled = false;
       if (!mounted) return;
-      DPageHeader? header;
-      var depth = -1;
-      for (final entry in _headers.values) {
-        if (entry.depth >= depth) {
-          header = entry.header;
-          depth = entry.depth;
-        }
-      }
-      _active.value = header;
+      _active.value = _foregroundHeader;
     });
   }
 
@@ -236,22 +258,39 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
     if (oldWidget.identity != widget.identity) {
       final previous = _active.value;
       if (previous?.titleText case final title?) {
-        _titles[oldWidget.identity] = (
+        _presentations[oldWidget.identity] = (
           title: title,
           leading: previous?.leading,
+          retraction: previous!.value,
+          barOpacity: previous.barOpacity,
+          layout: previous.layout,
         );
-        while (_titles.length > 8) {
-          _titles.remove(_titles.keys.first);
+        while (_presentations.length > 8) {
+          _presentations.remove(_presentations.keys.first);
         }
       }
       _headers.clear();
-      _active.value = null;
+      final presentation = _presentations[widget.identity];
+      if (presentation == null) {
+        _active.value = null;
+      } else {
+        _transitionHeader.update(
+          titleText: presentation.title,
+          leading: presentation.leading,
+          retraction: presentation.retraction,
+          barOpacity: presentation.barOpacity,
+          layout: presentation.layout,
+        );
+        _active.value = _transitionHeader;
+      }
+      _publish();
     }
   }
 
   @override
   void dispose() {
     _active.dispose();
+    _transitionHeader.dispose();
     super.dispose();
   }
 
