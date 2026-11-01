@@ -353,7 +353,9 @@ class ComposerController extends ChangeNotifier
 
   @override
   PluginComposerContext get metadataContext {
-    final state = pluginStateReader?.call() ?? const ComposerPluginState();
+    final state = isCurrent
+        ? pluginStateReader?.call() ?? const ComposerPluginState()
+        : const ComposerPluginState();
     return PluginComposerContext(
       siteUrl: siteUrl,
       createsTopic: isNewTopic,
@@ -368,6 +370,7 @@ class ComposerController extends ChangeNotifier
   }
 
   void _refreshMetadata() {
+    if (!isCurrent) return;
     final context = metadataContext;
     for (final binding in metadataBindings) {
       final key = binding.codec.key;
@@ -394,6 +397,7 @@ class ComposerController extends ChangeNotifier
 
   @override
   T? metadata<T extends Object>(PluginDataKey<T> key) {
+    if (!isCurrent) return null;
     _refreshMetadata();
     if (!metadataBindings.any((binding) => binding.codec.key == key)) {
       return null;

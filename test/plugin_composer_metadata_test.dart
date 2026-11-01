@@ -91,6 +91,52 @@ void main() {
     },
   );
 
+  for (final disposed in [false, true]) {
+    testWidgets(
+      '${disposed ? 'disposed' : 'retired'} editor cannot read metadata or current-account context',
+      (tester) async {
+        var current = true;
+        var reads = 0;
+        final composer = ComposerController(
+          const NewTopicComposerTarget(siteUrl: _site, topicTitle: ''),
+          isCurrentComposer: () => current,
+          metadataBindings: registry.composerMetadataBindings,
+          pluginStateReader: () {
+            reads++;
+            return ComposerPluginState(
+              currentUser: PluginData.none.withValue(_mode, true),
+            );
+          },
+        );
+        if (!disposed) addTearDown(composer.dispose);
+        final ComposerEditorHost host = composer;
+        late BuildContext owned;
+        await tester.pumpWidget(
+          Builder(
+            builder: (context) {
+              owned = PluginUiScope.contextFor(
+                context,
+                const PluginId('authoring-fixture'),
+              );
+              return const SizedBox.shrink();
+            },
+          ),
+        );
+        expect(host.updateMetadata(owned, _mode, true), isTrue);
+        expect(host.metadataContext.currentUserData.get(_mode), isTrue);
+        if (disposed) {
+          composer.dispose();
+        } else {
+          current = false;
+        }
+        final before = reads;
+        expect(host.metadata(owned, _mode), isNull);
+        expect(host.metadataContext.currentUserData.get(_mode), isNull);
+        expect(reads, before);
+      },
+    );
+  }
+
   test(
     'draft encode and restore retain typed metadata and unknown namespaces',
     () {
