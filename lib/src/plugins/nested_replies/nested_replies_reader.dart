@@ -12,6 +12,7 @@ import 'nested_replies_controller.dart';
 import 'nested_replies_data.dart';
 
 part 'nested_replies_reader_memory.dart';
+part 'nested_replies_reader_scroll.dart';
 part 'nested_replies_reader_loader.dart';
 part 'nested_replies_reader_view.dart';
 
@@ -34,7 +35,7 @@ class NestedRepliesReader extends StatefulWidget {
 
 class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   late final NestedRepliesController _controller;
-  late final ScrollController _scroll;
+  late final _NestedRepliesScrollController _scroll;
   final GlobalKey _viewport = GlobalKey();
   final Map<int, GlobalKey> _postKeys = {};
   final Map<(int, int), GlobalKey> _boundaryKeys = {};
@@ -51,6 +52,8 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   _RememberedReader? _restore;
   bool _restoring = true;
   bool _restoringPagingAnchor = false;
+  bool _applyingAnchorCorrection = false;
+  double _restoreMotionDelta = 0;
   double? _pagingAnchorCacheExtent;
   int _pagingAnchorSettleFrames = 0;
   bool _scheduled = false;
@@ -105,8 +108,9 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       collapse: query['collapse_replies'],
     );
     _restore = widget.memory?._take(_memoryKey);
-    _scroll = ScrollController(initialScrollOffset: _restore?.offset ?? 0)
-      ..addListener(_onScroll);
+    _scroll = _NestedRepliesScrollController(
+      initialScrollOffset: _restore?.offset ?? 0,
+    )..addListener(_onScroll);
     _controller = NestedRepliesController(
       loader: NestedRepliesReaderLoader(reader: reader, api: widget.api),
       settings: widget.settings,
@@ -343,6 +347,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     final saved = _captureAnchor();
     if (saved == null) return;
     _restore = saved;
+    _restoreMotionDelta = 0;
     _restoring = true;
   }
 
@@ -399,10 +404,19 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
         final top =
             box.localToGlobal(Offset.zero).dy -
             viewport.localToGlobal(Offset.zero).dy;
-        final destination = (_scroll.offset + top - (saved.anchorOffset ?? 0))
-            .clamp(0.0, _scroll.position.maxScrollExtent);
+        final destination =
+            (_scroll.offset +
+                    top -
+                    (saved.anchorOffset ?? 0) +
+                    _restoreMotionDelta)
+                .clamp(0.0, _scroll.position.maxScrollExtent);
         if ((destination - _scroll.offset).abs() > 1) {
-          _scroll.jumpTo(destination);
+          _applyingAnchorCorrection = true;
+          try {
+            _scroll.correctAnchor(destination);
+          } finally {
+            _applyingAnchorCorrection = false;
+          }
         }
         if (_restoringPagingAnchor && _pagingAnchorSettleFrames > 0) {
           _pagingAnchorSettleFrames--;
@@ -438,6 +452,7 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
   void _finishAnchorRestore() {
     _restoring = false;
     _restore = null;
+    _restoreMotionDelta = 0;
     _restoringPagingAnchor = false;
     if (_pagingAnchorCacheExtent != null) {
       setState(() => _pagingAnchorCacheExtent = null);
@@ -766,10 +781,17 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
             _scheduleObservation();
             return false;
           },
-          child: NotificationListener<UserScrollNotification>(
+          child: NotificationListener<ScrollNotification>(
             onNotification: (notification) {
-              if (notification.direction != ScrollDirection.idle) {
-                _finishAnchorRestore();
+              if (notification.depth == 0 &&
+                  notification is ScrollUpdateNotification &&
+                  _restoring &&
+                  !_applyingAnchorCorrection) {
+                if (_scroll.position.hasUserMotion) {
+                  _restoreMotionDelta += notification.scrollDelta ?? 0;
+                } else {
+                  _finishAnchorRestore();
+                }
               }
               return false;
             },
