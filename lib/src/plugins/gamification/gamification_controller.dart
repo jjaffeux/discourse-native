@@ -54,6 +54,7 @@ final class GamificationSnapshot {
     required this.page,
     required this.fetchedAt,
     required this.lease,
+    required this.permissionRevision,
   }) : users = List.unmodifiable(users);
   final GamificationQuery query;
   final GamificationLeaderboard board;
@@ -62,6 +63,7 @@ final class GamificationSnapshot {
   final int page;
   final DateTime fetchedAt;
   final PluginSiteLease lease;
+  final int permissionRevision;
 }
 
 final class GamificationReady extends GamificationViewState {
@@ -97,6 +99,42 @@ final class GamificationController extends FrameSafeNotifier
   final _admins = <GamificationAdminHandle>{};
   final _revisions = <String, int>{};
   final _enabledOverrides = <String, bool>{};
+  int _permissionRevision = 0;
+  final _deniedBoards = <(String, int), int>{};
+  final _deniedSites = <String, int>{};
+  bool _permits(String site, int board, int revision) =>
+      (_deniedSites[site] ?? 0) <= revision &&
+      (_deniedBoards[(site, board)] ?? 0) <= revision;
+  bool _usableSnapshot(String site, GamificationSnapshot snapshot) =>
+      !isDisposed &&
+      snapshot.lease.isCurrent &&
+      _permits(site, snapshot.board.id, snapshot.permissionRevision);
+  void _deny(String site, GamificationQuery query) {
+    final board = query.target.id;
+    final revision = ++_permissionRevision;
+    if (board == null) {
+      _deniedSites[site] = revision;
+    } else {
+      _deniedBoards[(site, board)] = revision;
+    }
+    _cache.removeWhere(
+      (key, snapshot) =>
+          key.$1 == site && (board == null || snapshot.board.id == board),
+    );
+    for (final h
+        in _handles
+            .where(
+              (h) =>
+                  h.site == site &&
+                  (board == null ||
+                      h.query.target.id == board ||
+                      h._heldBoardId == board),
+            )
+            .toList()) {
+      h._restrict();
+    }
+  }
+
   final _settings = <String, (Listenable, VoidCallback)>{};
   final _channels = <String, PluginLiveChannelHandle>{};
   final _cache = <(String, int, GamificationQuery), GamificationSnapshot>{};
@@ -154,7 +192,7 @@ final class GamificationController extends FrameSafeNotifier
     final cached = previewUserLimit == null
         ? _cache[(site, revision(site), query)]
         : null;
-    if (enabled(site) && cached != null && cached.lease.isCurrent) {
+    if (enabled(site) && cached != null && _usableSnapshot(site, cached)) {
       handle.state = GamificationReady(cached);
       if (now().difference(cached.fetchedAt) >= const Duration(seconds: 60)) {
         unawaited(handle.refresh());
@@ -180,7 +218,7 @@ final class GamificationController extends FrameSafeNotifier
     final state = handle.state;
     if (state is! GamificationReady ||
         state.error != null ||
-        !state.snapshot.lease.isCurrent) {
+        !_usableSnapshot(handle.site, state.snapshot)) {
       return;
     }
     final key = (handle.site, revision(handle.site), handle.query);
@@ -291,6 +329,8 @@ final class GamificationController extends FrameSafeNotifier
     final held = _settings.remove(site);
     if (held != null) held.$1.removeListener(held.$2);
     _channels.remove(site);
+    _deniedSites.remove(site);
+    _deniedBoards.removeWhere((key, _) => key.$1 == site);
     notifySafely();
   }
 
@@ -331,6 +371,8 @@ final class GamificationController extends FrameSafeNotifier
     _settings.clear();
     _cache.clear();
     _channels.clear();
+    _deniedBoards.clear();
+    _deniedSites.clear();
     super.dispose();
   }
 }
@@ -347,11 +389,22 @@ final class GamificationHandle extends FrameSafeNotifier {
   GamificationQuery query;
   final int? previewUserLimit;
   GamificationViewState _state = const GamificationLoading();
-  GamificationViewState get state =>
-      _state is GamificationReady &&
-          !(_state as GamificationReady).snapshot.lease.isCurrent
-      ? const GamificationUnavailable()
-      : _state;
+  int? get _heldBoardId => _state is GamificationReady
+      ? (_state as GamificationReady).snapshot.board.id
+      : null;
+  GamificationViewState get state {
+    final held = _state;
+    if (held is GamificationReady) {
+      if (owner.isDisposed || !held.snapshot.lease.isCurrent) {
+        return const GamificationUnavailable();
+      }
+      if (!owner._usableSnapshot(site, held.snapshot)) {
+        return const GamificationRestricted();
+      }
+    }
+    return held;
+  }
+
   set state(GamificationViewState value) {
     _state = value;
   }
@@ -375,6 +428,14 @@ final class GamificationHandle extends FrameSafeNotifier {
     _publish(const GamificationUnavailable());
   }
 
+  void _restrict() {
+    _generation++;
+    _read = null;
+    _timer?.cancel();
+    _timer = null;
+    _publish(const GamificationRestricted());
+  }
+
   Future<void> selectPeriod(GamificationPeriod period) {
     query = query.withPeriod(period);
     _generation++;
@@ -395,7 +456,7 @@ final class GamificationHandle extends FrameSafeNotifier {
     _timer = null;
     final generation = ++_generation;
     final lease = owner.requests.capture(site), revision = owner.revision(site);
-    final selected = query;
+    final selected = query, permissionRevision = owner._permissionRevision;
     final held = state is GamificationReady
         ? (state as GamificationReady).snapshot
         : null;
@@ -421,6 +482,15 @@ final class GamificationHandle extends FrameSafeNotifier {
           ),
         );
         if (!current()) return;
+        final resolved = switch (result) {
+          LeaderboardReady(:final board) => board,
+          LeaderboardPreparing(:final board) => board,
+        };
+        if (resolved != null &&
+            !owner._permits(site, resolved.id, permissionRevision)) {
+          _publish(const GamificationRestricted());
+          return;
+        }
         switch (result) {
           case LeaderboardPreparing(:final reason):
             _publish(GamificationPreparing(reason));
@@ -440,6 +510,7 @@ final class GamificationHandle extends FrameSafeNotifier {
               page: 0,
               fetchedAt: owner.now(),
               lease: lease,
+              permissionRevision: permissionRevision,
             );
             _publish(
               GamificationReady(
@@ -453,7 +524,7 @@ final class GamificationHandle extends FrameSafeNotifier {
       } catch (error) {
         if (!current()) return;
         if (_denied(error)) {
-          _publish(const GamificationRestricted());
+          owner._deny(site, selected);
         } else if (error is GamificationUnsupportedResponse ||
             error is FormatException ||
             error is TypeError) {
@@ -484,7 +555,8 @@ final class GamificationHandle extends FrameSafeNotifier {
     }
     final generation = _generation,
         lease = owner.requests.capture(site),
-        revision = owner.revision(site);
+        revision = owner.revision(site),
+        permissionRevision = owner._permissionRevision;
     bool current() =>
         !_released &&
         generation == _generation &&
@@ -509,6 +581,10 @@ final class GamificationHandle extends FrameSafeNotifier {
         await refresh();
         return;
       }
+      if (!owner._permits(site, result.board.id, permissionRevision)) {
+        _publish(const GamificationRestricted());
+        return;
+      }
       final ids = held.snapshot.users.map((u) => u.id).toSet();
       if (result.users.any((u) => !ids.add(u.id))) {
         await refresh();
@@ -524,6 +600,7 @@ final class GamificationHandle extends FrameSafeNotifier {
             page: held.snapshot.page + 1,
             fetchedAt: owner.now(),
             lease: lease,
+            permissionRevision: permissionRevision,
           ),
           append: result.users.isEmpty
               ? GamificationAppend.exhausted
@@ -532,15 +609,17 @@ final class GamificationHandle extends FrameSafeNotifier {
       );
     } catch (error) {
       if (!current()) return;
-      _publish(
-        _denied(error)
-            ? const GamificationRestricted()
-            : GamificationReady(
-                held.snapshot,
-                append: GamificationAppend.failed,
-                error: error,
-              ),
-      );
+      if (_denied(error)) {
+        owner._deny(site, query);
+      } else {
+        _publish(
+          GamificationReady(
+            held.snapshot,
+            append: GamificationAppend.failed,
+            error: error,
+          ),
+        );
+      }
     }
   }
 
@@ -653,6 +732,7 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
   Object? error;
   bool loading = true, eventsLoading = false, _released = false;
   int _generation = 0, _readGeneration = 0, _eventGeneration = 0;
+  bool _refreshAfterMutation = false, _eventsAfterMutation = false;
   int? createdBoardId;
   GamificationBoardDraft? pendingCreatedDraft;
   PluginLiveChannelSubscription? _subscription;
@@ -673,6 +753,8 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
     _accountLease = owner.requests.capture(site);
     _readGeneration++;
     _eventGeneration++;
+    _refreshAfterMutation = false;
+    _eventsAfterMutation = false;
     index = null;
     settings = null;
     events = null;
@@ -731,6 +813,10 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
       _invalidate();
       loading = false;
       _changed();
+      return;
+    }
+    if (busy) {
+      _refreshAfterMutation = true;
       return;
     }
     final generation = ++_readGeneration,
@@ -796,6 +882,10 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
       );
     }
     if (!mayMutate) return mutation;
+    _readGeneration++;
+    _eventGeneration++;
+    loading = false;
+    eventsLoading = false;
     final generation = _generation,
         lease = owner.requests.capture(site),
         revision = owner.revision(site);
@@ -839,6 +929,12 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
       }
     }
     _changed();
+    final refreshDeferred = _refreshAfterMutation,
+        eventsDeferred = _eventsAfterMutation;
+    _refreshAfterMutation = false;
+    _eventsAfterMutation = false;
+    if (refreshDeferred) unawaited(refresh());
+    if (eventsDeferred) unawaited(queryEvents(eventQuery));
     return mutation;
   }
 
@@ -880,13 +976,15 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
   }
 
   Future<GamificationAdminBoard?> readBoard(int id) async {
-    if (!canManage || !owner.enabled(site)) return null;
+    if (!canManage || !owner.enabled(site) || busy) return null;
     final generation = _generation,
+        readGeneration = _readGeneration,
         lease = owner.requests.capture(site),
         revision = owner.revision(site);
     bool current() =>
         !_released &&
         generation == _generation &&
+        readGeneration == _readGeneration &&
         owner.current(site, lease, revision, admin: true);
     try {
       final auth = await owner.requests.credentialsFor(site);
@@ -944,6 +1042,14 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
       }, requiresEnabled: false);
   Future<void> queryEvents(ScoreEventQuery query) async {
     if (!canManage || !owner.enabled(site)) return;
+    if (busy) {
+      eventQuery = query;
+      events = null;
+      eventsLoading = true;
+      _eventsAfterMutation = true;
+      _changed();
+      return;
+    }
     final generation = ++_eventGeneration,
         revision = owner.revision(site),
         lease = owner.requests.capture(site);

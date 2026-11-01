@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_controller.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
@@ -209,6 +210,195 @@ void main() {
       addTearDown(evicted.release);
       expect(evicted.state, isA<GamificationLoading>());
       await evicted.refresh();
+    },
+  );
+  test(
+    'confirmed denial evicts released snapshots before reacquisition',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final seed = f.controller.acquire(gameSite, const GamificationQuery());
+      await seed.refresh();
+      seed.release();
+      final cached = f.controller.acquire(gameSite, const GamificationQuery());
+      expect(cached.state, isA<GamificationReady>());
+      f.transport.failures['GET /leaderboard.json?page=0'] =
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            '',
+            statusCode: 403,
+          );
+      await cached.refresh();
+      expect(cached.state, isA<GamificationRestricted>());
+      cached.release();
+      final again = f.controller.acquire(gameSite, const GamificationQuery());
+      addTearDown(again.release);
+      expect(again.state, isNot(isA<GamificationReady>()));
+      await again.refresh();
+    },
+  );
+  test(
+    'a denied explicit board clears its default alias without clearing other boards',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final alias = f.controller.acquire(gameSite, const GamificationQuery());
+      addTearDown(alias.release);
+      await alias.refresh();
+      f.transport.responders['GET /leaderboard/2.json?page=0'] = (_) =>
+          gameResponse(board: gameBoard(id: 2));
+      final other = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(target: LeaderboardById(2)),
+      );
+      addTearDown(other.release);
+      await other.refresh();
+      final weekly = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(
+          target: LeaderboardById(1),
+          period: GamificationPeriod.weekly,
+        ),
+      );
+      addTearDown(weekly.release);
+      await weekly.refresh();
+      f
+              .transport
+              .responders['GET /leaderboard.json?page=0&period=weekly&user_limit=10'] =
+          (_) => gameResponse();
+      final preview = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(period: GamificationPeriod.weekly),
+        previewUserLimit: 10,
+      );
+      addTearDown(preview.release);
+      await preview.refresh();
+      final otherRead = Completer<Map<String, dynamic>>();
+      f.transport.responders['GET /leaderboard/3.json?page=0'] = (_) =>
+          otherRead.future;
+      final pendingOther = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(target: LeaderboardById(3)),
+      );
+      addTearDown(pendingOther.release);
+      await gameFlush();
+      f.transport.failures['GET /leaderboard/1.json?page=0'] =
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            '',
+            statusCode: 404,
+          );
+      final denied = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(target: LeaderboardById(1)),
+      );
+      addTearDown(denied.release);
+      await denied.refresh();
+      otherRead.complete(gameResponse(board: gameBoard(id: 3)));
+      await gameFlush();
+      expect(alias.state, isA<GamificationRestricted>());
+      expect(weekly.state, isA<GamificationRestricted>());
+      expect(preview.state, isA<GamificationRestricted>());
+      expect(other.state, isA<GamificationReady>());
+      expect(pendingOther.state, isA<GamificationReady>());
+    },
+  );
+  test(
+    'an older default read cannot publish a board denied by a later direct read',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final pending = Completer<Map<String, dynamic>>();
+      f.transport.responders['GET /leaderboard.json?page=0'] = (_) =>
+          pending.future;
+      final late = f.controller.acquire(gameSite, const GamificationQuery());
+      addTearDown(late.release);
+      await gameFlush();
+      f.transport.failures['GET /leaderboard/1.json?page=0'] =
+          const SiteLookupException(
+            SiteLookupFailure.unreachable,
+            '',
+            statusCode: 403,
+          );
+      final denied = f.controller.acquire(
+        gameSite,
+        const GamificationQuery(target: LeaderboardById(1)),
+      );
+      addTearDown(denied.release);
+      await denied.refresh();
+      pending.complete(gameResponse());
+      await gameFlush();
+      expect(late.state, isA<GamificationRestricted>());
+    },
+  );
+  test(
+    'an index read begun before a write cannot replace its confirmed result',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final h = f.controller.acquireAdmin(gameSite);
+      addTearDown(h.release);
+      await h.refresh();
+      final oldIndex = {
+        ...f.adminIndex,
+        'gamification_leaderboards': [
+          Map<String, dynamic>.from(f.boards.single),
+        ],
+      };
+      final delayed = Completer<Map<String, dynamic>>();
+      var reads = 0;
+      f
+              .transport
+              .responders['GET /admin/plugins/discourse-gamification/leaderboards.json'] =
+          (_) => ++reads == 1 ? delayed.future : f.adminIndex;
+      final refresh = h.refresh();
+      await gameFlush();
+      await h.saveBoard(
+        1,
+        GamificationBoardDraft(name: 'Confirmed new configuration'),
+      );
+      expect(h.index!.boards.single.board.name, 'Confirmed new configuration');
+      delayed.complete(oldIndex);
+      await refresh;
+      expect(h.index!.boards.single.board.name, 'Confirmed new configuration');
+    },
+  );
+  test(
+    'a global settings read begun before a write cannot replace confirmed weights',
+    () async {
+      final f = GamificationFixture();
+      addTearDown(f.dispose);
+      final h = f.controller.acquireAdmin(gameSite);
+      addTearDown(h.release);
+      await h.refresh();
+      Map<String, dynamic> globals() => {
+        'site_settings': [
+          for (final e in f.global.entries)
+            {'setting': e.key, 'value': e.value, 'type': 'string'},
+        ],
+      };
+      final oldSettings = globals(),
+          delayed = Completer<Map<String, dynamic>>();
+      var reads = 0;
+      f
+              .transport
+              .responders['GET /admin/site_settings.json?plugin=discourse-gamification'] =
+          (_) => ++reads == 1 ? delayed.future : globals();
+      final refresh = h.refresh();
+      await gameFlush();
+      final settings = h.settings!;
+      await h.saveSettings(
+        GamificationGlobalSettings(
+          enabled: true,
+          categoryIds: {},
+          weights: {...settings.weights, GamificationRule.likeGiven: 9},
+          ranking: settings.ranking,
+        ),
+      );
+      expect(h.settings!.weights[GamificationRule.likeGiven], 9);
+      delayed.complete(oldSettings);
+      await refresh;
+      expect(h.settings!.weights[GamificationRule.likeGiven], 9);
     },
   );
 }
