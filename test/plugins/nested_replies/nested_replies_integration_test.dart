@@ -68,6 +68,7 @@ void main() {
         configGate: gate,
         beforeSettle: (shell, api, row) async {
           await _frames(tester);
+          expect(shell.mobileNavigationEnabled, isTrue);
           expect(shell.freshCurrentUserFor(_site)?.staff, isTrue);
           expect(find.text(appL10n.nestedRepliesBulkSelect), findsNothing);
           api.siteConfigs[_site] = SiteConfig(

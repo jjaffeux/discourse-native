@@ -184,9 +184,15 @@ final class NestedRepliesPlugin
   ) => route.isMessages || route.isTopic
       ? const []
       : [
-          NestedRepliesBulkActions(
-            controller: _service(context).bulk,
-            siteUrl: siteUrl,
+          PluginServiceSelector<NestedRepliesServices, bool>(
+            service: nestedRepliesServiceKey,
+            select: (service) => service.bulk.available(siteUrl),
+            builder: (context, available, _) => available
+                ? NestedRepliesBulkActions(
+                    controller: _service(context).bulk,
+                    siteUrl: siteUrl,
+                  )
+                : const SizedBox.shrink(),
           ),
         ];
 
