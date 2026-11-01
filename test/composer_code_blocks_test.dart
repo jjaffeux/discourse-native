@@ -438,6 +438,36 @@ void main() {
     expect(formatter.formatEditUpdate(old, history), history);
   });
 
+  testWidgets('double Enter exits code into prose', (tester) async {
+    final composer = await _pump(tester, '```text\nhello\n```');
+    await tester.tap(_codeInput);
+    await tester.enterText(_codeInput, 'hello');
+    await tester.pump();
+    final input = tester.widget<EditableText>(_codeInput);
+    for (final body in ['hello\n', 'hello\n\n']) {
+      tester.testTextInput.updateEditingValue(
+        TextEditingValue(
+          text: body,
+          selection: TextSelection.collapsed(offset: body.length),
+        ),
+      );
+      await tester.pump();
+    }
+    expect(input.focusNode.hasFocus, isFalse);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(composer.raw, '```text\nhello\n```\n');
+    expect(composer.text.selection.extentOffset, composer.raw.length);
+    tester.testTextInput.updateEditingValue(
+      composer.value.copyWith(
+        text: '${composer.raw}After',
+        selection: TextSelection.collapsed(offset: composer.raw.length + 5),
+      ),
+    );
+    await tester.pump();
+    expect(composer.raw, '```text\nhello\n```\nAfter');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'editing code updates the draft and preserves focus and selection',
     (tester) async {
