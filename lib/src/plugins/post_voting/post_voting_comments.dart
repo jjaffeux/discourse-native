@@ -211,8 +211,10 @@ class _PostVotingCommentsState extends State<PostVotingComments> {
               _reader!.topic?.canCreatePost == true);
   bool _canDelete(PostVotingComment comment) =>
       _reader?.currentUserId != null &&
-      (_reader!.currentUserStaff || comment.authorId == _reader!.currentUserId);
+      (_reader!.currentUserStaff ||
+          !_closed && comment.authorId == _reader!.currentUserId);
   bool _canFlag(PostVotingComment comment) =>
+      (!_closed || _reader?.currentUserStaff == true) &&
       comment.authorId != null &&
       comment.authorId != _reader?.currentUserId &&
       (comment.availableFlags.isNotEmpty ||

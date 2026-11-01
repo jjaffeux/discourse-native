@@ -262,4 +262,200 @@ void main() {
     await fixture.capture(tester, 'desktop-disabled');
     await tester.pumpWidget(const SizedBox());
   });
+  testWidgets(
+    'closed topics keep engagement disabled while staff can edit and delete comments',
+    (tester) async {
+      final original = {
+        ...fixture.comment(),
+        'user_id': 8,
+        'username': 'other',
+      };
+      final state = await fixture.pumpFixture(
+        tester,
+        desktop,
+        topicJson: {
+          ...fixture.topic(
+            posts: [
+              fixture.post(1),
+              {
+                ...fixture.post(3),
+                'comments': [original],
+              },
+              fixture.post(2),
+            ],
+          ),
+          'closed': true,
+        },
+      );
+      final section = find.byWidgetPredicate(
+        (w) => w is PostVotingComments && w.postId == 103,
+      );
+      expect(
+        find.descendant(of: section, matching: find.text('Add a comment')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<DToggle>(
+              find.byKey(const ValueKey('post-voting-comment-vote-51')),
+            )
+            .enabled,
+        isFalse,
+      );
+      await tester.ensureVisible(
+        find
+            .descendant(
+              of: section,
+              matching: find.byType(DDropdownMenuTrigger),
+            )
+            .last,
+      );
+      await tester.pump();
+      await tester.tap(
+        find
+            .descendant(
+              of: section,
+              matching: find.byType(DDropdownMenuTrigger),
+            )
+            .last,
+      );
+      await fixture.frames(tester);
+      expect(find.text('Flag comment'), findsOneWidget);
+      await tester.tap(find.text('Edit comment'));
+      await fixture.frames(tester);
+      final editor = find.byKey(
+        const ValueKey('post-voting-comment-editor-103'),
+      );
+      expect(tester.widget<DTextarea>(editor).enabled, isTrue);
+      await tester.enterText(
+        find.descendant(of: editor, matching: find.byType(EditableText)),
+        'Staff clarification',
+      );
+      final edited = {
+        ...original,
+        'raw': 'Staff clarification',
+        'cooked': '<p>Staff clarification</p>',
+      };
+      state.api.pluginResponses['PUT /post_voting/comments.json'] = edited;
+      state
+          .api
+          .pluginResponses['GET /post_voting/comments.json?post_id=103&last_comment_id=0'] = {
+        'comments': [edited],
+      };
+      final save = find.byKey(const ValueKey('post-voting-comment-submit-103'));
+      await tester.ensureVisible(save);
+      await tester.pump();
+      await tester.tap(save);
+      await fixture.frames(tester);
+      expect(state.api.pluginWrites.single.method, 'PUT');
+      expect(editor, findsNothing);
+      expect(renderedText('Staff clarification'), findsOneWidget);
+      await tester.tap(
+        find
+            .descendant(
+              of: section,
+              matching: find.byType(DDropdownMenuTrigger),
+            )
+            .last,
+      );
+      await fixture.frames(tester);
+      await tester.tap(find.text('Delete comment'));
+      await fixture.frames(tester);
+      state.api.pluginResponses['DELETE /post_voting/comments.json'] = {
+        'success': 'OK',
+      };
+      state
+          .api
+          .pluginResponses['GET /post_voting/comments.json?post_id=103&last_comment_id=0'] = {
+        'comments': <Object?>[],
+      };
+      await tester.tap(find.widgetWithText(DButton, 'Delete').last);
+      await fixture.frames(tester);
+      expect(state.api.pluginWrites.last.method, 'DELETE');
+      expect(
+        state.services.actions.record(fixture.site, 103)!.initialComments,
+        isEmpty,
+      );
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'ordinary members cannot author edit delete or vote on closed comments',
+    (tester) async {
+      final state = await fixture.pumpFixture(
+        tester,
+        desktop,
+        actor: const DiscourseUser(id: 9, username: 'reader'),
+        topicJson: {...fixture.topic(), 'closed': true},
+      );
+      final section = find.byWidgetPredicate(
+        (w) => w is PostVotingComments && w.postId == 103,
+      );
+      expect(
+        find.descendant(of: section, matching: find.text('Add a comment')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: section,
+          matching: find.byType(DDropdownMenuTrigger),
+        ),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<DToggle>(
+              find.byKey(const ValueKey('post-voting-comment-vote-51')),
+            )
+            .enabled,
+        isFalse,
+      );
+      expect(state.api.pluginWrites, isEmpty);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'retiring a pending vote releases its original current-account post lane',
+    (tester) async {
+      final state = await fixture.pumpFixture(tester, desktop);
+      final gate = Completer<void>();
+      (state.api as fixture.VotingTestApi).writeGate = gate.future;
+      final pending = state.services.actions.vote(
+        state.reader,
+        103,
+        PostVoteDirection.up,
+      );
+      await fixture.frames(tester);
+      expect(state.services.posts.writeInFlight(fixture.site, 103), isTrue);
+      state.services.actions.forget(fixture.site);
+      gate.complete();
+      await pending;
+      expect(state.services.posts.writeInFlight(fixture.site, 103), isFalse);
+      expect(state.services.posts.beginWrite(fixture.site, 103), isTrue);
+      state.services.posts.endWrite(fixture.site, 103);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
+  testWidgets(
+    'a retired reconciliation cannot release a replacement post writer',
+    (tester) async {
+      final state = await fixture.pumpFixture(tester, desktop);
+      final gate = Completer<void>();
+      state.api.pluginReadGates['/t/7.json?post_number=3'] = gate;
+      final pending = state.services.actions.vote(
+        state.reader,
+        103,
+        PostVoteDirection.up,
+      );
+      await fixture.frames(tester);
+      expect(state.services.posts.writeInFlight(fixture.site, 103), isFalse);
+      expect(state.services.posts.beginWrite(fixture.site, 103), isTrue);
+      state.services.actions.forget(fixture.site);
+      gate.complete();
+      await pending;
+      expect(state.services.posts.writeInFlight(fixture.site, 103), isTrue);
+      state.services.posts.endWrite(fixture.site, 103);
+      await tester.pumpWidget(const SizedBox());
+    },
+  );
 }

@@ -257,8 +257,8 @@ final class PostVotingActions extends FrameSafeNotifier {
     } finally {
       if (lease.isCurrent && identical(_runs[(target, false)], run)) {
         _runs.remove((target, false));
-        releaseLane();
       }
+      releaseLane();
     }
   }
 

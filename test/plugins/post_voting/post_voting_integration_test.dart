@@ -141,6 +141,7 @@ pumpFixture(
   WidgetTester tester,
   Size size, {
   Map<String, dynamic>? topicJson,
+  DiscourseUser actor = user,
 }) async {
   final wire = topicJson ?? topic();
   final configured = SiteConfig(
@@ -152,7 +153,7 @@ pumpFixture(
   final row = models.topicSummary(wire, site);
   final api = VotingTestApi(
     models: models,
-    user: user,
+    user: actor,
     siteConfigs: {site: configured},
     feeds: {
       '/latest.json': [row],
@@ -177,7 +178,7 @@ pumpFixture(
     tester,
     size,
     instances: [
-      instance('meta.discourse.org').copyWith(user: user, config: configured),
+      instance('meta.discourse.org').copyWith(user: actor, config: configured),
     ],
     api: api,
     authenticator: FakeAuthenticator()..keys[site] = 'key',
@@ -270,7 +271,12 @@ void main() {
           PostVoteDirection.up,
         );
         expect(fixture.services.actions.record(site, 103)!.score, 13);
-        await tester.tap(find.text('Activity').last);
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('post-voting-order')),
+            matching: find.text('Activity'),
+          ),
+        );
         await frames(tester);
         expect(
           fixture.api.pluginReadPaths,
@@ -289,6 +295,9 @@ void main() {
         expect(fixture.shell.visibleComposer!.target.replyToPostNumber, isNull);
         await tester.pumpWidget(const SizedBox());
       },
+      variant: TargetPlatformVariant.only(
+        entry.$1 == 'desktop' ? TargetPlatform.macOS : TargetPlatform.android,
+      ),
     );
   }
   testWidgets(
@@ -374,7 +383,12 @@ void main() {
       fixture.api.pluginResponses.remove(
         'GET /t/7.json?filter=activity&post_number=1',
       );
-      await tester.tap(find.text('Activity').last);
+      await tester.tap(
+        find.descendant(
+          of: find.byKey(const ValueKey('post-voting-order')),
+          matching: find.text('Activity'),
+        ),
+      );
       await frames(tester);
       expect(
         tester
