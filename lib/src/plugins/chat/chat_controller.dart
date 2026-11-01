@@ -171,6 +171,8 @@ class ChatStreamState {
     this.loading = false,
     this.loadingOlder = false,
     this.loadingNewer = false,
+    this.foregroundResyncs = 0,
+    this.revalidating = false,
     this.canLoadMorePast = false,
     this.canLoadMoreFuture = false,
     this.pendingNewMessages = 0,
@@ -195,6 +197,11 @@ class ChatStreamState {
   final bool loadingOlder;
 
   final bool loadingNewer;
+
+  /// Identifies foreground catchups even when request states share one frame.
+  final int foregroundResyncs;
+
+  final bool revalidating;
 
   final bool canLoadMorePast;
 
@@ -244,6 +251,8 @@ class ChatStreamState {
     bool? loading,
     bool? loadingOlder,
     bool? loadingNewer,
+    int? foregroundResyncs,
+    bool? revalidating,
     bool? canLoadMorePast,
     bool? canLoadMoreFuture,
     int? pendingNewMessages,
@@ -260,6 +269,8 @@ class ChatStreamState {
     loading: loading ?? this.loading,
     loadingOlder: loadingOlder ?? this.loadingOlder,
     loadingNewer: loadingNewer ?? this.loadingNewer,
+    foregroundResyncs: foregroundResyncs ?? this.foregroundResyncs,
+    revalidating: revalidating ?? this.revalidating,
     canLoadMorePast: canLoadMorePast ?? this.canLoadMorePast,
     canLoadMoreFuture: canLoadMoreFuture ?? this.canLoadMoreFuture,
     pendingNewMessages: pendingNewMessages ?? this.pendingNewMessages,
@@ -283,6 +294,8 @@ class ChatStreamState {
           other.loading == loading &&
           other.loadingOlder == loadingOlder &&
           other.loadingNewer == loadingNewer &&
+          other.foregroundResyncs == foregroundResyncs &&
+          other.revalidating == revalidating &&
           other.canLoadMorePast == canLoadMorePast &&
           other.canLoadMoreFuture == canLoadMoreFuture &&
           other.pendingNewMessages == pendingNewMessages &&
@@ -302,6 +315,8 @@ class ChatStreamState {
     loading,
     loadingOlder,
     loadingNewer,
+    foregroundResyncs,
+    revalidating,
     canLoadMorePast,
     canLoadMoreFuture,
     pendingNewMessages,
@@ -3243,7 +3258,15 @@ class ChatController extends FrameSafeNotifier {
       );
       return;
     }
-    _setStream(siteUrl, target, window.copyWith(canLoadMoreFuture: true));
+    _setStream(
+      siteUrl,
+      target,
+      window.copyWith(
+        canLoadMoreFuture: true,
+        foregroundResyncs: window.foregroundResyncs + 1,
+        revalidating: true,
+      ),
+    );
     unawaited(conversation!.loadNewer());
   }
 

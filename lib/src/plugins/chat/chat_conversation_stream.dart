@@ -740,6 +740,8 @@ final class _ChatConversationStream {
               retired,
             ),
             canLoadMoreFuture: canLoadMoreFuture,
+            revalidating: current.revalidating && canLoadMoreFuture,
+            loadingNewer: false,
             pendingNewMessages: canLoadMoreFuture ? pendingIds.length : 0,
             fetchedOnce: true,
           ),

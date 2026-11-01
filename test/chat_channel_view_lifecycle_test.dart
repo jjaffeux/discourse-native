@@ -8,9 +8,8 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
-import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
@@ -3713,6 +3712,8 @@ void main() {
             expectHeld();
 
             newer.complete(_messagesPage(41, missed));
+            await tester.pump();
+            await tester.pump();
             for (var frame = 0; frame < 6; frame++) {
               await tester.pump(const Duration(milliseconds: 16));
               expectHeld();
@@ -3725,6 +3726,60 @@ void main() {
         );
       }
     }
+
+    testWidgets(
+      'repeated immediate foreground catchups keep the reader in place',
+      (tester) async {
+        var now = DateTime.utc(2026, 11, 1, 12);
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [
+              (
+                messages: present,
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            ],
+          },
+          newerPages: [_messagesPage(41, 1), _messagesPage(42, 1)],
+        );
+        final controller = await _controller(
+          api,
+          sites: const [firstSite],
+          clock: () => now,
+        );
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 40));
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        await tester.pumpWidget(_TestView(controller: controller));
+        await tester.pumpAndSettle();
+        final seen = _visibleMessageTops(tester);
+
+        for (var resync = 1; resync <= 2; resync++) {
+          controller.setForeground(false);
+          now = now.add(ChatController.resumeResyncThreshold);
+          controller.setForeground(true);
+          await tester.pump();
+          await tester.pump();
+          await tester.pump();
+          await tester.pumpAndSettle();
+
+          expect(api.newerSites, hasLength(resync));
+          expect(controller.chat.stream(firstSite, 9).newestId, 40 + resync);
+          final visible = _visibleMessageTops(tester);
+          for (final entry in seen.entries) {
+            expect(
+              visible[entry.key],
+              moreOrLessEquals(entry.value),
+              reason: 'message ${entry.key} moved on foreground $resync',
+            );
+          }
+        }
+      },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
+    );
 
     for (final distance in [160.0, 320.0, 800.0]) {
       testWidgets(
@@ -4280,6 +4335,7 @@ final class _ChatApi extends FakeDiscourseApi {
     this.failedOpen,
     this.gatedOlder,
     this.gatedNewer,
+    this.newerPages = const [],
   });
 
   final Map<String, List<ChatMessagePage>> openPages;
@@ -4289,6 +4345,7 @@ final class _ChatApi extends FakeDiscourseApi {
   final _FailedOpen? failedOpen;
   final Completer<ChatMessagePage>? gatedOlder;
   final Completer<ChatMessagePage>? gatedNewer;
+  final List<ChatMessagePage> newerPages;
   final Map<String, int> _openCounts = {};
   final List<String> olderSites = [];
   final List<String> newerSites = [];
@@ -4317,6 +4374,11 @@ final class _ChatApi extends FakeDiscourseApi {
       newerSites.add(siteUrl);
       if (failNewer) throw StateError('newer page refused');
       if (gatedNewer case final gate?) return gate.future;
+      if (newerPages.isNotEmpty) {
+        return SynchronousFuture(
+          newerPages[(newerSites.length - 1).clamp(0, newerPages.length - 1)],
+        );
+      }
       return SynchronousFuture(_messagesPage(after + 1, 1));
     }
 
