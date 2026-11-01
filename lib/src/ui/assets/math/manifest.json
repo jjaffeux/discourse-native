@@ -359,7 +359,7 @@
     "newcm/svg/dynamic/symbols.js": "5021d75911173a5bf60b5709598ab89206baca5e1e7d608b7f5325070dfefc1e",
     "newcm/svg/dynamic/variants.js": "6947cf8203f41afea9bf9ceff25189dd0575b34c94110636763570842a713a9c",
     "render.css": "439e29849ad0ae4af5598ccd8000dd1f49e8c51abe85dcfed44d11cf77147917",
-    "render.js": "1826f43752d851312d87a2f241ef82d779dce2ab283393e7441a55e56b370cdf",
+    "render.js": "cce9b5136e4629d49258bef4d02db6e44badd88e1af790032c37ff8b48197437",
     "speech-maps.js": "234dd9f9b2c71788af4508e08fa8d1c02e1dbad5f31ba2afa51cf3535979ea46",
     "speech-worker-source.js": "cabc2f83fb19dd84ddbd97476735bd3e77390960ab6a5bd48163442d6ec4733c"
   }

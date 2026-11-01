@@ -6,6 +6,13 @@ const output=resolve(process.argv[2] || '/tmp/native-math-check');
 await mkdir(output,{recursive:true});
 await cp(resolve(root,'../../lib/src/ui/assets/math'),output,{recursive:true});
 const cases=[
+  ...[
+    {engine:'mathjax',output:'html',menu:true,accessibility:false},
+    {engine:'mathjax',output:'svg',menu:true,accessibility:false},
+    {engine:'katex'},
+  ].map(config=>({name:`${config.engine} ${config.output || ''} dark inline at provisional viewport`,config,
+    source:'2x + 3 = 12',display:false,fontSize:14,color:'#dddddd',background:'#20242a',
+    viewportWidth:1,singleLine:true,selector:config.engine==='katex'?'.katex':'mjx-container'})),
   {name:'MathJax HTML fraction',config:{engine:'mathjax',output:'html',accessibility:false},source:'\\frac{a}{b}',selector:'mjx-mfrac'},
   {name:'MathJax SVG fraction',config:{engine:'mathjax',output:'svg',accessibility:false},source:'\\frac{a}{b}',selector:'svg'},
   {name:'MathJax ASCII',config:{engine:'mathjax',output:'html',accessibility:false},input:'ascii',source:'sqrt(x^2+1)',selector:'mjx-msqrt'},
@@ -33,13 +40,14 @@ html=html.replace('<script src="render.js"','<script src="fixture-client.js"></s
 await writeFile(resolve(output,'index.html'),html);
 await writeFile(resolve(output,'fixture-client.js'),`const cases=${JSON.stringify(cases)}; const test=cases[Number(location.search.slice(1))];
 let actionDone=false;window.NativeMath={postMessage:message=>{const data=JSON.parse(message);if(data.type==='ready') {
-window.renderMath({v:1,generation:1,context:[],input:'tex',display:true,color:'#000000',fontSize:18,...test});
+window.renderMath({v:1,generation:1,context:[],input:'tex',display:true,color:'#000000',background:'#ffffff',fontSize:18,...test});
 } else if(data.type==='result'||data.type==='error') {
 if(test.action && data.type==='result' && !actionDone){actionDone=true;let entries=data.menu;let chosen;for(const label of test.action){chosen=entries?.find(item=>item.label===label);entries=chosen?.children;}if(!chosen){parent.postMessage({name:test.name,pass:false,error:'missing-menu-item',menu:data.menu},'*');return;}window.mathMenuAction({v:1,generation:1,id:chosen.id});return;}
+const canvasPass=!test.singleLine || (data.width>60 && data.height<30 && getComputedStyle(document.body).backgroundColor==='rgb(32, 36, 42)' && getComputedStyle(document.getElementById('math')).color==='rgb(221, 221, 221)' && (test.config.engine!=='mathjax' || MathJax.startup.document.menu.settings.breakInline===false));
 const settingsPass=!test.action || (test.a11ySetting ? MathJax.startup.document.menu.getA11y(test.a11ySetting) : MathJax.startup.document.menu.settings[test.setting])===test.expected;
 
-parent.postMessage({name:test.name,pass:test.error?data.type==='error':data.type==='result'&&settingsPass&&(!test.mathmlIncludes||data.formats?.mathml?.includes(test.mathmlIncludes))&&data.baseline>=0&&data.baseline<=data.height&&data.width<800&&!!document.querySelector(test.selector)&&(!test.reject||!document.querySelector(test.reject)),data,html:document.getElementById('math').innerHTML.slice(0,1000)},'*');
+parent.postMessage({name:test.name,pass:test.error?data.type==='error':data.type==='result'&&canvasPass&&settingsPass&&(!test.mathmlIncludes||data.formats?.mathml?.includes(test.mathmlIncludes))&&data.baseline>=0&&data.baseline<=data.height&&data.width<800&&!!document.querySelector(test.selector)&&(!test.reject||!document.querySelector(test.reject)),data,html:document.getElementById('math').innerHTML.slice(0,1000)},'*');
 }}};`);
 await writeFile(resolve(output,'fixture.html'),'<html><body><iframe style="width:800px;height:600px"></iframe><script src="fixture.js"></script></body></html>');
-await writeFile(resolve(output,'fixture.js'),`window.results=[];let index=0;const frame=document.querySelector('iframe');let timer;function next(){if(index===${cases.length}){window.done=true;return;}frame.src='index.html?'+index;timer=setTimeout(()=>{results.push({name:${JSON.stringify(cases.map(c=>c.name))}[index],pass:false,error:'timeout'});index++;next();},10000);}window.addEventListener('message',e=>{if(e.source!==frame.contentWindow)return;clearTimeout(timer);results.push(e.data);index++;next();});next();`);
+await writeFile(resolve(output,'fixture.js'),`window.results=[];let index=0;const frame=document.querySelector('iframe');let timer;function next(){if(index===${cases.length}){window.done=true;return;}frame.style.width=(${JSON.stringify(cases.map(test=>test.viewportWidth || 800))}[index])+'px';frame.src='index.html?'+index;timer=setTimeout(()=>{results.push({name:${JSON.stringify(cases.map(c=>c.name))}[index],pass:false,error:'timeout'});index++;next();},10000);}window.addEventListener('message',e=>{if(e.source!==frame.contentWindow)return;clearTimeout(timer);results.push(e.data);index++;next();});next();`);
 console.log(resolve(output,'fixture.html'));

@@ -12,6 +12,7 @@ import 'package:webview_all/webview_all.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import 'd_button.dart';
+import 'd_card.dart';
 import 'd_context_menu.dart';
 import 'd_dialog.dart';
 import 'd_scroll_area.dart';
@@ -165,15 +166,21 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _requestIdentity = null;
-      _update();
-    } else {
-      ++_generation;
-      _view?.retire();
-      _view = null;
-      _rendered = false;
+    if (state == AppLifecycleState.inactive ||
+        (state == AppLifecycleState.resumed && _view != null)) {
+      return;
     }
+    setState(() {
+      if (state == AppLifecycleState.resumed) {
+        _requestIdentity = null;
+        _update();
+      } else {
+        ++_generation;
+        _view?.retire();
+        _view = null;
+        _rendered = false;
+      }
+    });
   }
 
   _MathView? _view;
@@ -231,6 +238,14 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
     );
     final style = DefaultTextStyle.of(context).style;
     final color = style.color ?? Theme.of(context).colorScheme.onSurface;
+    var background = Colors.transparent;
+    context.visitAncestorElements((element) {
+      if (element.widget case Material(color: final color?)) {
+        background = Color.alphaBlend(background, color);
+      }
+      return background.a < 1;
+    });
+    background = Color.alphaBlend(background, DCard.surfaceColorOf(context));
     final request = <String, Object?>{
       'v': 1,
       ...widget.expression.toMessage(),
@@ -239,6 +254,8 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
       'contextIndex': bounded.index,
       'color':
           '#${color.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
+      'background':
+          '#${background.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
       'fontSize':
           widget.fontSize ??
           MediaQuery.textScalerOf(context).scale(style.fontSize ?? 16),
@@ -258,6 +275,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
       return;
     }
     final view = _view = _MathView(
+      background: background,
       request: {...request, 'generation': generation},
       current: () => mounted && generation == _generation,
       onMessage: _message,
@@ -640,11 +658,13 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
 /// Teardown waits for setup so a late channel/load cannot resurrect a retired view.
 final class _MathView {
   _MathView({
+    required this.background,
     required this.request,
     required this.current,
     required this.onMessage,
     required this.onChanged,
   });
+  final Color background;
   final Map<String, Object?> request;
   final bool Function() current;
   final void Function(Map<String, dynamic>) onMessage;
@@ -684,7 +704,7 @@ final class _MathView {
       onChanged();
       await view.setJavaScriptMode(JavaScriptMode.unrestricted);
       if (!active) return;
-      await view.setBackgroundColor(Colors.transparent);
+      await view.setBackgroundColor(background);
       if (!active) return;
       await view.addJavaScriptChannel(
         'NativeMath',

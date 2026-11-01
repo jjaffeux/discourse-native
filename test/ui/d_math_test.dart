@@ -189,23 +189,37 @@ void main() {
     await tester.pump();
   });
 
-  testWidgets('expanded math canvas uses the dialog surface', (tester) async {
-    await tester.pumpWidget(host());
+  testWidgets('math canvas uses the dialog surface', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: const Scaffold(
+          body: Center(
+            child: DDialogContent(
+              showCloseButton: false,
+              children: [
+                DMath(
+                  expression: DMathExpression('x'),
+                  configuration: DMathJax(),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
     await tester.pump();
-    send({'type': 'zoom', 'generation': 1, 'scale': 2});
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 350));
     send({'type': 'ready'});
     await tester.pump();
     final tokens = DTokens.of(tester.element(find.byType(DDialogContent)));
     final color = tokens.surface.toARGB32().toRadixString(16).substring(2);
-    expect(request(platform.controllers.last)['background'], '#$color');
+    expect(request(platform.controllers.single)['background'], '#$color');
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   });
 
   testWidgets(
-    'inactive app restores source and removes its retired math view',
+    'visible inactive math stays rendered and hidden math restores source',
     (tester) async {
       await tester.pumpWidget(host(source: '2x + 3 = 12'));
       await tester.pump();
@@ -221,6 +235,14 @@ void main() {
       expect(find.text('2x + 3 = 12'), findsNothing);
       expect(find.byType(WebViewWidget), findsOneWidget);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      expect(first.channels, isNotEmpty);
+      expect(find.byType(WebViewWidget), findsOneWidget);
+      expect(find.text('2x + 3 = 12'), findsNothing);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(platform.controllers, hasLength(1));
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
       await tester.pump();
       expect(first.channels, isEmpty);
       expect(find.byType(WebViewWidget), findsNothing);
