@@ -2108,16 +2108,17 @@ final class PluginRegistry
   List<Widget> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
-    Post post,
-  ) => [
+    Post post, {
+    PostAuthorDecorationPlacement placement =
+        PostAuthorDecorationPlacement.afterName,
+  }) => [
     for (final plugin in plugins.whereType<PostAuthorDecorationPlugin>())
       ..._ownedAll(
         plugin,
-        plugin.postAuthorDecorations(
-          _uiContext(context, plugin),
-          siteUrl,
-          post,
-        ),
+        plugin
+            .postAuthorDecorations(_uiContext(context, plugin), siteUrl, post)
+            .where((decoration) => decoration.placement == placement)
+            .map((decoration) => decoration.child),
       ),
   ];
 

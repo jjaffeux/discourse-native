@@ -512,4 +512,10 @@ final class _MutableLease implements PluginSiteLease {
     mutation();
     return true;
   }
+
+  @override
+  void Function() onRetire(void Function() observer) {
+    if (!isCurrent) observer();
+    return () {};
+  }
 }

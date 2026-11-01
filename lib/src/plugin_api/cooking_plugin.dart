@@ -74,6 +74,7 @@ final class PluginCookingHost {
   const PluginCookingHost({
     required this.request,
     required this.cook,
+    required this.cookTransient,
     this.isCurrent = _alwaysCurrent,
     this.watch = _noWatch,
   });
@@ -86,6 +87,13 @@ final class PluginCookingHost {
   })
   request;
   final Future<CookingResult> Function(CookingRequest request) cook;
+  /// Bypasses shared caches and request coalescing. Aborted or stale work
+  /// returns no source-derived HTML; runtime admission stays bounded.
+  final Future<CookingResult> Function(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  })
+  cookTransient;
 
   /// Checks the original request without rebuilding its frozen snapshot.
   final bool Function(CookingRequest request) isCurrent;

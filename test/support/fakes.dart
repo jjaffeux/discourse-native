@@ -4399,6 +4399,10 @@ final class _FakePluginSiteLease implements PluginSiteLease {
 
   @override
   bool commit(void Function() mutation) => lease.commit(mutation);
+
+  @override
+  void Function() onRetire(void Function() observer) =>
+      lease.onRetire(observer);
 }
 
 class FakeAuthenticator implements Authenticator {

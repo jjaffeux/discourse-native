@@ -8,6 +8,10 @@ import 'service.dart';
 abstract interface class CookingServicePort {
   Future<bool> start();
   Future<CookingResult> cook(CookingRequest request);
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  });
   void invalidate();
   Future<void> dispose();
 }
@@ -49,6 +53,7 @@ final class CookingHostService implements CookingServicePort {
   final _cache = <String, _CachedResult>{};
   final _inflight = <String, _HostPending>{};
   final _jobs = <Future<void>>{};
+  final _transient = <_HostPending>{};
   CookingRuntimePort? _runtime;
   Future<bool>? _starting;
   Future<void>? _disposing;
@@ -154,12 +159,51 @@ final class CookingHostService implements CookingServicePort {
     return pending.result.future;
   }
 
-  Future<void> _cook(String key, _HostPending pending) async {
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) {
+    if (request.raw.length > 65536) {
+      return Future.value(
+        CookingResult(html: '', failure: CookingFailure.inputLimit),
+      );
+    }
+    if (_disposed || _jobs.length >= maxPending) {
+      return Future.value(
+        _privateFallback(
+          request,
+          _disposed ? CookingFailure.disposed : CookingFailure.busy,
+        ),
+      );
+    }
+    final pending = _HostPending(request, _epoch, transient: true);
+    _transient.add(pending);
+    void abort() {
+      if (!pending.result.isCompleted) {
+        pending.result.complete(
+          _privateFallback(request, CookingFailure.stale),
+        );
+      }
+    }
+
+    unawaited(
+      abortTrigger.then((_) => abort(), onError: (Object _) => abort()),
+    );
+    final job = _cook(null, pending);
+    _jobs.add(job);
+    unawaited(job.whenComplete(() => _jobs.remove(job)));
+    return pending.result.future;
+  }
+
+  Future<void> _cook(String? key, _HostPending pending) async {
     CookingResult result;
     try {
       if (!await start()) {
-        result = _fallback(pending.request, CookingFailure.unavailable);
-      } else if (_disposed || pending.epoch != _epoch) {
+        result = pending.fallback(CookingFailure.unavailable);
+      } else if (_disposed ||
+          pending.epoch != _epoch ||
+          pending.result.isCompleted) {
         return;
       } else {
         final runtime = _runtime!;
@@ -176,14 +220,21 @@ final class CookingHostService implements CookingServicePort {
     } catch (_) {
       _runtimeFailed = true;
       _recordFailure();
-      result = _fallback(pending.request, CookingFailure.unavailable);
+      result = pending.fallback(CookingFailure.unavailable);
     } finally {
-      if (identical(_inflight[key], pending)) _inflight.remove(key);
+      if (pending.transient) {
+        _transient.remove(pending);
+      } else if (identical(_inflight[key], pending)) {
+        _inflight.remove(key);
+      }
     }
     if (_disposed || pending.epoch != _epoch || pending.result.isCompleted) {
       return;
     }
-    if (!result.isFallback) _remember(key, result);
+    if (pending.transient && result.isFallback) {
+      result = pending.fallback(result.failure!);
+    }
+    if (key != null && !result.isFallback) _remember(key, result);
     pending.result.complete(result);
   }
 
@@ -206,14 +257,13 @@ final class CookingHostService implements CookingServicePort {
     _epoch++;
     _cache.clear();
     _cacheBytes = 0;
-    for (final pending in _inflight.values) {
+    for (final pending in [..._inflight.values, ..._transient]) {
       if (!pending.result.isCompleted) {
-        pending.result.complete(
-          _fallback(pending.request, CookingFailure.stale),
-        );
+        pending.result.complete(pending.fallback(CookingFailure.stale));
       }
     }
     _inflight.clear();
+    _transient.clear();
   }
 
   @override
@@ -221,11 +271,9 @@ final class CookingHostService implements CookingServicePort {
 
   Future<void> _dispose() async {
     _disposed = true;
-    for (final pending in _inflight.values) {
+    for (final pending in [..._inflight.values, ..._transient]) {
       if (!pending.result.isCompleted) {
-        pending.result.complete(
-          _fallback(pending.request, CookingFailure.disposed),
-        );
+        pending.result.complete(pending.fallback(CookingFailure.disposed));
       }
     }
     invalidate();
@@ -239,8 +287,17 @@ final class CookingHostService implements CookingServicePort {
 CookingResult _fallback(CookingRequest request, CookingFailure failure) =>
     readableFallback(request.raw, failure).forRequest(request);
 
+CookingResult _privateFallback(
+  CookingRequest request,
+  CookingFailure failure,
+) => CookingResult(html: '', failure: failure).forRequest(request);
+
 final class _HostPending {
-  _HostPending(this.request, this.epoch);
+  _HostPending(this.request, this.epoch, {this.transient = false});
+  final bool transient;
+  CookingResult fallback(CookingFailure failure) => transient
+      ? _privateFallback(request, failure)
+      : _fallback(request, failure);
   final CookingRequest request;
   final int epoch;
   final result = Completer<CookingResult>();

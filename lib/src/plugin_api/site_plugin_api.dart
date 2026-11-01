@@ -137,10 +137,22 @@ abstract interface class UserCardRecordPlugin<T extends Object>
   T? readUserCard(Map<String, dynamic> json, String siteUrl);
 }
 
-/// Adds widgets immediately after the rendered post-author name, before status
-/// and role markers, in ordinary and plugin-provided topic presentations.
+enum PostAuthorDecorationPlacement { beforeName, afterName, afterAvatar }
+
+@immutable
+final class PostAuthorDecoration {
+  const PostAuthorDecoration({
+    required this.child,
+    this.placement = PostAuthorDecorationPlacement.afterName,
+  });
+  final Widget child;
+  final PostAuthorDecorationPlacement placement;
+}
+
+/// Adds owned widgets at structural identity positions in ordinary and plugin
+/// topic readers. After-name contributions precede status and role markers.
 abstract interface class PostAuthorDecorationPlugin {
-  List<Widget> postAuthorDecorations(
+  List<PostAuthorDecoration> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
     Post post,

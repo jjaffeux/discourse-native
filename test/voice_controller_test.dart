@@ -549,6 +549,12 @@ final class _CurrentSiteLease implements PluginSiteLease {
     mutation();
     return true;
   }
+
+  @override
+  void Function() onRetire(void Function() observer) {
+    if (!isCurrent) observer();
+    return () {};
+  }
 }
 
 final class FakeVoiceSystemCall implements VoiceSystemCall {

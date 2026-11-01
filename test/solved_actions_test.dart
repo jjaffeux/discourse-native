@@ -273,7 +273,20 @@ class Fixture {
 }
 
 class _Lease implements PluginSiteLease {
-  bool current = true;
+  bool _current = true;
+  final _retirementObservers = <void Function()>{};
+  bool get current => _current;
+  set current(bool value) {
+    _current = value;
+    if (!value) {
+      final observers = _retirementObservers.toList();
+      _retirementObservers.clear();
+      for (final observer in observers) {
+        observer();
+      }
+    }
+  }
+
   @override
   bool get isCurrent => current;
   @override
@@ -281,6 +294,16 @@ class _Lease implements PluginSiteLease {
     if (!current) return false;
     callback();
     return true;
+  }
+
+  @override
+  void Function() onRetire(void Function() observer) {
+    if (!isCurrent) {
+      observer();
+      return () {};
+    }
+    _retirementObservers.add(observer);
+    return () => _retirementObservers.remove(observer);
   }
 }
 

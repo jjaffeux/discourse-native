@@ -117,16 +117,19 @@ final class CakedayPlugin
   }
 
   @override
-  List<Widget> postAuthorDecorations(
+  List<PostAuthorDecoration> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
     Post post,
-  ) => _decorations(
-    context,
-    siteUrl,
-    post.plugins.get(cakedayDatesKey),
-    post.userId,
-  );
+  ) => [
+    for (final child in _decorations(
+      context,
+      siteUrl,
+      post.plugins.get(cakedayDatesKey),
+      post.userId,
+    ))
+      PostAuthorDecoration(child: child),
+  ];
   @override
   List<Widget> userCardIdentityDecorations(
     BuildContext context,

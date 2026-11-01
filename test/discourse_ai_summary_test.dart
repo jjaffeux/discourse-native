@@ -92,6 +92,9 @@ void main() {
       requests: FakePluginRequestHost(),
       trackerFor: (_) => null,
       cooking: PluginCookingHost(
+        cookTransient: (_, {required abortTrigger}) => throw UnimplementedError(
+          'Transient cooking is not used by this fixture',
+        ),
         request:
             ({
               required siteUrl,
@@ -1277,6 +1280,10 @@ final class _SummaryFixture {
         PluginHostPort<Object>(
           corePluginCookingPort,
           PluginCookingHost(
+            cookTransient: (_, {required abortTrigger}) =>
+                throw UnimplementedError(
+                  'Transient cooking is not used by this fixture',
+                ),
             request:
                 ({
                   required siteUrl,

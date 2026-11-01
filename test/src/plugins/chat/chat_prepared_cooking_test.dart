@@ -89,6 +89,10 @@ void main() {
     ) async {
       final prepared = ChatPreparedCooking(
         host: PluginCookingHost(
+          cookTransient: (_, {required abortTrigger}) =>
+              throw UnimplementedError(
+                'Transient cooking is not used by this fixture',
+              ),
           request:
               ({
                 required String siteUrl,
@@ -557,6 +561,9 @@ final class _Harness {
     String? failure,
   }) {
     final host = PluginCookingHost(
+      cookTransient: (_, {required abortTrigger}) => throw UnimplementedError(
+        'Transient cooking is not used by this fixture',
+      ),
       request:
           ({
             required String siteUrl,

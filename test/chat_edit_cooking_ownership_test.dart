@@ -108,6 +108,9 @@ Future<void> _flush() => Future<void>.delayed(Duration.zero);
 final class _Rig {
   _Rig() {
     final host = PluginCookingHost(
+      cookTransient: (_, {required abortTrigger}) => throw UnimplementedError(
+        'Transient cooking is not used by this fixture',
+      ),
       request:
           ({
             required siteUrl,

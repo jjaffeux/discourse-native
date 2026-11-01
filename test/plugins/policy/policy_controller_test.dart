@@ -412,6 +412,12 @@ final class _Lease implements PluginSiteLease {
     action();
     return true;
   }
+
+  @override
+  void Function() onRetire(void Function() observer) {
+    if (!isCurrent) observer();
+    return () {};
+  }
 }
 
 final class _Requests implements PluginRequestHost {

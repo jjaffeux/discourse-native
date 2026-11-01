@@ -57,6 +57,28 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  test(
+    'real shell lease forwards synchronous retirement and unsubscribe',
+    () async {
+      final plugin = _IdentityPlugin();
+      final shell = await _controller(plugin);
+      addTearDown(shell.dispose);
+      final lease = plugin.requests!.capture(_site);
+      var notifications = 0;
+      lease.onRetire(() {
+        expect(lease.isCurrent, isFalse);
+        notifications++;
+      });
+      final detach = lease.onRetire(() => fail('detached observer called'));
+      detach();
+      shell.lifecycle.invalidate(_site);
+      expect(notifications, 1);
+      lease.onRetire(() => notifications++);
+      expect(notifications, 2);
+      expect(lease.commit(() => fail('retired commit')), isFalse);
+    },
+  );
+
   for (final mobile in [false, true]) {
     testWidgets('card identity scopes builders and widgets, mobile=$mobile', (
       tester,
@@ -82,6 +104,54 @@ void main() {
       expect(decoration.center.dy, closeTo(name.center.dy, 1));
       expect(tester.takeException(), isNull);
     });
+  }
+
+  for (final pluginReader in [false, true]) {
+    for (final mobile in [false, true]) {
+      testWidgets(
+        'structural decoration slots reach reader=$pluginReader mobile=$mobile',
+        (tester) async {
+          final plugin = _IdentityPlugin(allPlacements: true);
+          final shell = await _controller(plugin);
+          addTearDown(shell.dispose);
+          final child = pluginReader
+              ? PluginTopicPost(
+                  reader: _Reader(),
+                  postId: 1,
+                  layout: TopicPostLayout.compact,
+                  authorBadges: const [DBadge.inline(child: Text('caller'))],
+                )
+              : const TopicPostPresentation(
+                  siteUrl: _site,
+                  topicId: 7,
+                  postId: 1,
+                  authorBadges: [DBadge.inline(child: Text('caller'))],
+                );
+          await tester.pumpWidget(_host(shell, child, mobile: mobile));
+          await tester.pumpAndSettle();
+          final name = tester.getRect(find.text('author'));
+          expect(
+            tester.getRect(find.text('before-owned')).right,
+            lessThan(name.left),
+          );
+          expect(
+            tester.getRect(find.text('post-owned')).left,
+            greaterThan(name.right),
+          );
+          expect(find.text('caller'), findsOneWidget);
+          expect(find.byTooltip('avatar-owned'), findsOneWidget);
+          expect(
+            tester.getRect(find.byTooltip('avatar-owned')).top,
+            greaterThanOrEqualTo(
+              tester.getRect(find.byType(DAvatar).first).bottom,
+            ),
+          );
+          await tester.tap(find.byTooltip('avatar-owned'));
+          expect(plugin.activations, 1);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 
   for (final pluginReader in [false, true]) {
@@ -122,17 +192,20 @@ void main() {
   }
 }
 
-Widget _host(ShellController shell, Widget child) => ShellScope(
-  controller: shell,
-  child: PluginScope(
-    session: shell.pluginSession,
-    registry: shell.plugins.registry,
-    child: MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(body: SingleChildScrollView(child: child)),
-    ),
-  ),
-);
+Widget _host(ShellController shell, Widget child, {bool mobile = false}) =>
+    ShellScope(
+      controller: shell,
+      child: PluginScope(
+        session: shell.pluginSession,
+        registry: shell.plugins.registry,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(
+            platform: mobile ? TargetPlatform.iOS : TargetPlatform.macOS,
+          ),
+          home: Scaffold(body: SingleChildScrollView(child: child)),
+        ),
+      ),
+    );
 
 Future<ShellController> _controller(_IdentityPlugin plugin) async {
   final installed = PluginInstaller.install(
@@ -166,12 +239,13 @@ final class _IdentityModule implements PluginModule {
   @override
   void register(PluginRegistrar registrar) {
     registrar.addCapability(plugin);
-    registrar.addSession(
-      (_, _) => PluginSessionContribution(
+    registrar.addSession((bindings, _) {
+      plugin.requests = bindings.require(corePluginRequestPort);
+      return PluginSessionContribution(
         lifecycle: _Lifecycle(),
         services: const [PluginService<Object>(_service, 'owned')],
-      ),
-    );
+      );
+    }, requires: const [corePluginRequestPort]);
   }
 }
 
@@ -182,6 +256,9 @@ final class _IdentityPlugin
         SitePlugin,
         PostAuthorDecorationPlugin,
         UserCardIdentityDecorationPlugin {
+  _IdentityPlugin({this.allPlacements = false});
+  final bool allPlacements;
+  PluginRequestHost? requests;
   int activations = 0;
   (String, Post)? postInput;
   (String, UserCard)? cardInput;
@@ -207,14 +284,40 @@ final class _IdentityPlugin
     },
   );
   @override
-  List<Widget> postAuthorDecorations(
+  List<PostAuthorDecoration> postAuthorDecorations(
     BuildContext context,
     String siteUrl,
     Post post,
   ) {
     checkOwner(context);
     postInput = (siteUrl, post);
-    return [decoration('post', context)];
+    return [
+      PostAuthorDecoration(child: decoration('post', context)),
+      if (allPlacements) ...[
+        PostAuthorDecoration(
+          placement: PostAuthorDecorationPlacement.beforeName,
+          child: decoration('before', context),
+        ),
+        PostAuthorDecoration(
+          placement: PostAuthorDecorationPlacement.afterAvatar,
+          child: Builder(
+            builder: (inner) {
+              checkOwner(inner);
+              return DButton.iconOnly(
+                tooltip: 'avatar-owned',
+                density: DButtonDensity.inlineMetadata,
+                variant: DButtonVariant.inline,
+                icon: const DIcon(DIcons.penToSquare),
+                onPressed: () {
+                  checkOwner(context);
+                  activations++;
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    ];
   }
 
   @override

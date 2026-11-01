@@ -4188,6 +4188,18 @@ class _StoredPostState extends State<_StoredPost> {
                       ...widget.authorBadges,
                       ...registry.postAuthorDecorations(context, siteUrl, post),
                     ],
+                    beforeAuthorName: registry.postAuthorDecorations(
+                      context,
+                      siteUrl,
+                      post,
+                      placement: PostAuthorDecorationPlacement.beforeName,
+                    ),
+                    afterAvatar: registry.postAuthorDecorations(
+                      context,
+                      siteUrl,
+                      post,
+                      placement: PostAuthorDecorationPlacement.afterAvatar,
+                    ),
                     leading: widget.leading,
                     bodyLeading: widget.bodyLeading,
                     footerLeading: widget.footerLeading,
@@ -4250,6 +4262,8 @@ class _PostTile extends StatefulWidget {
     this.contentExpanded = true,
     this.enableDoubleTapReaction = true,
     this.authorBadges = const [],
+    this.beforeAuthorName = const [],
+    this.afterAvatar = const [],
     this.leading,
     this.bodyLeading,
     this.footerLeading,
@@ -4264,6 +4278,7 @@ class _PostTile extends StatefulWidget {
   final bool contentExpanded;
   final bool enableDoubleTapReaction;
   final List<Widget> authorBadges;
+  final List<Widget> beforeAuthorName, afterAvatar;
   final Widget? leading;
   final Widget? bodyLeading;
   final Widget? footerLeading;
@@ -4373,6 +4388,18 @@ class _PostTileState extends State<_PostTile> {
       ),
     );
 
+    final avatarWithDecorations = widget.afterAvatar.isEmpty
+        ? widget.leading ?? avatar
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              widget.leading ?? avatar,
+              for (final decoration in widget.afterAvatar) ...[
+                const SizedBox(height: 4),
+                decoration,
+              ],
+            ],
+          );
     final header = Row(
       children: [
         if (widget.layout == TopicPostLayout.standard && !context.isTouch) ...[
@@ -4384,8 +4411,8 @@ class _PostTileState extends State<_PostTile> {
         if (widget.layout != TopicPostLayout.standard) ...[
           SizedBox(
             width: avatarWidth,
-            height: 32,
-            child: Center(child: widget.leading ?? avatar),
+            height: widget.afterAvatar.isEmpty ? 32 : null,
+            child: Center(child: avatarWithDecorations),
           ),
           const SizedBox(width: 8),
         ],
@@ -4407,12 +4434,16 @@ class _PostTileState extends State<_PostTile> {
           const SizedBox(width: 4),
         ],
         if (widget.layout == TopicPostLayout.standard && context.isTouch) ...[
-          widget.leading ?? avatar,
+          avatarWithDecorations,
           const SizedBox(width: 10),
         ],
         Expanded(
           child: Row(
             children: [
+              for (final decoration in widget.beforeAuthorName) ...[
+                decoration,
+                const SizedBox(width: 6),
+              ],
               Flexible(
                 child: UserCardTarget(
                   username: post.username,
@@ -4677,7 +4708,7 @@ class _PostTileState extends State<_PostTile> {
                   child: DSticky(
                     key: ValueKey('topic-sticky-avatar-${post.id}'),
                     topOffset: 14,
-                    child: widget.leading ?? avatar,
+                    child: avatarWithDecorations,
                   ),
                 ),
               ],

@@ -660,6 +660,7 @@ class ShellController extends FrameSafeNotifier
         PluginCookingHost(
           request: cookingRequest,
           cook: cooking.cook,
+          cookTransient: cooking.cookTransient,
           isCurrent: cookingRequestIsCurrent,
           watch: watchCooking,
         ),
@@ -9735,6 +9736,10 @@ final class _ShellPluginSiteLease implements PluginSiteLease {
 
   @override
   bool commit(VoidCallback mutation) => value.commit(mutation);
+
+  @override
+  void Function() onRetire(void Function() observer) =>
+      value.onRetire(observer);
 }
 
 final class _ShellPluginRequestHost implements PluginRequestHost {

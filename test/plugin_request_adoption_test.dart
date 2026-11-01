@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_test.dart'
+    show PluginTestRequestHost;
 import 'package:discourse_native/src/data/account_request_session.dart';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -22,6 +24,33 @@ const _site = 'https://meta.example';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
+
+  test(
+    'public request lease observes retirement once, supports unsubscribe and immediate late registration',
+    () {
+      final host = PluginTestRequestHost();
+      final lease = host.capture(_site);
+      final other = host.capture('https://other.example');
+      var calls = 0;
+      lease.onRetire(() {
+        expect(lease.isCurrent, isFalse);
+        calls++;
+      });
+      final unsubscribe = lease.onRetire(
+        () => fail('unsubscribed listener ran'),
+      );
+      unsubscribe();
+      other.onRetire(() => fail('another site retired'));
+      host.forget(_site);
+      expect(calls, 1);
+      host.forget(_site);
+      expect(calls, 1);
+      lease.onRetire(() => calls++);
+      expect(calls, 2);
+      expect(lease.commit(() => fail('stale lease committed')), isFalse);
+      expect(host.capture(_site).isCurrent, isTrue);
+    },
+  );
 
   test(
     'GIF helper preserves the request capability through a queued read',
@@ -259,6 +288,10 @@ final class _Lease implements PluginSiteLease {
   bool get isCurrent => lease.isCurrent;
   @override
   bool commit(void Function() mutation) => lease.commit(mutation);
+
+  @override
+  void Function() onRetire(void Function() observer) =>
+      lease.onRetire(observer);
 }
 
 final class _Api extends FakeDiscourseApi {

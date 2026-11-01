@@ -68,6 +68,104 @@ Future<void> flush() => Future<void>.delayed(Duration.zero);
 
 void main() {
   test(
+    'transient work bypasses cached results and never populates the cache',
+    () async {
+      final runtime = FakeRuntime();
+      final host = CookingHostService(runtimeFactory: () => runtime);
+      addTearDown(host.dispose);
+      final ordinary = host.cook(request());
+      await flush();
+      runtime.finish('public cached');
+      await ordinary;
+      final abort = Completer<void>();
+      final first = host.cookTransient(request(), abortTrigger: abort.future);
+      final second = host.cookTransient(request(), abortTrigger: abort.future);
+      await flush();
+      expect(runtime.calls, 3);
+      runtime.finish('private one');
+      runtime.finish('private two');
+      expect((await first).html, 'private one');
+      expect((await second).html, 'private two');
+      expect(host.cachedResultCount, 1);
+      expect((await host.cook(request())).html, 'public cached');
+      abort.complete();
+    },
+  );
+
+  test(
+    'transient abort revokes delivery without releasing occupied runtime capacity',
+    () async {
+      final runtime = FakeRuntime();
+      final host = CookingHostService(
+        runtimeFactory: () => runtime,
+        maxPending: 1,
+      );
+      addTearDown(host.dispose);
+      final abort = Completer<void>();
+      final result = host.cookTransient(
+        request(raw: 'private source'),
+        abortTrigger: abort.future,
+      );
+      await flush();
+      abort.complete();
+      final revoked = await result;
+      expect(revoked.failure, CookingFailure.stale);
+      expect(revoked.html, isEmpty);
+      expect(host.pendingCount, 1);
+      expect(
+        (await host.cook(request(raw: 'another'))).failure,
+        CookingFailure.busy,
+      );
+      runtime.finish('private rendered html');
+      await flush();
+      expect(host.cachedResultCount, 0);
+      expect(host.pendingCount, 0);
+      final ordinary = host.cook(request(raw: 'private source'));
+      await flush();
+      expect(runtime.calls, 2);
+      runtime.finish('fresh render');
+      expect((await ordinary).html, 'fresh render');
+    },
+  );
+
+  test(
+    'invalidation, disposal and runtime failure return no private fallback',
+    () async {
+      for (final mode in ['invalidate', 'dispose', 'failure']) {
+        final runtime = FakeRuntime();
+        final host = CookingHostService(runtimeFactory: () => runtime);
+        final abort = Completer<void>();
+        final result = host.cookTransient(
+          request(raw: 'sensitive'),
+          abortTrigger: abort.future,
+        );
+        await flush();
+        if (mode == 'invalidate') host.invalidate();
+        if (mode == 'dispose') {
+          await host.dispose();
+        } else {
+          if (mode == 'failure') {
+            runtime.pending
+                .removeAt(0)
+                .complete(
+                  CookingResult(
+                    html: '<pre>sensitive</pre>',
+                    failure: CookingFailure.timeout,
+                  ),
+                );
+          } else {
+            runtime.finish('<p>sensitive</p>');
+          }
+        }
+        expect((await result).html, isEmpty);
+        expect(host.cachedResultCount, 0);
+        abort.complete();
+        await host.dispose();
+      }
+    },
+  );
+
+  test(
     'oversized source is rejected before identity or runtime work',
     () async {
       var factories = 0;

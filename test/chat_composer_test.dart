@@ -4522,4 +4522,9 @@ final class _RecordingCookingService implements CookingServicePort {
 
   @override
   Future<void> dispose() async {}
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) => cook(request);
 }

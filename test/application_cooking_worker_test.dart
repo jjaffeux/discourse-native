@@ -151,4 +151,10 @@ final class _LifecycleService implements CookingServicePort {
   Future<void> dispose() async {
     disposals++;
   }
+
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) => cook(request);
 }

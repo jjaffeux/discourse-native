@@ -1,4 +1,5 @@
 import '../data/discourse_api_contracts.dart';
+import '../data/site_lifecycle.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/live_channels.dart';
 
@@ -10,18 +11,15 @@ final class PluginTestRequestHost implements PluginRequestHost {
 
   final Map<String, String> apiKeys;
   final String clientId;
-  final Map<String, int> _generations = {};
+  final _lifecycle = SiteLifecycle();
 
   void forget(String siteUrl) {
-    _generations[siteUrl] = (_generations[siteUrl] ?? 0) + 1;
+    _lifecycle.invalidate(siteUrl);
   }
 
   @override
   PluginSiteLease capture(String siteUrl) {
-    final generation = _generations[siteUrl] ?? 0;
-    return _PluginTestSiteLease(
-      () => (_generations[siteUrl] ?? 0) == generation,
-    );
+    return _PluginTestSiteLease(_lifecycle.capture(siteUrl));
   }
 
   @override
@@ -43,19 +41,19 @@ final class PluginTestRequestHost implements PluginRequestHost {
 }
 
 final class _PluginTestSiteLease implements PluginSiteLease {
-  const _PluginTestSiteLease(this._isCurrent);
+  const _PluginTestSiteLease(this._lease);
 
-  final bool Function() _isCurrent;
-
-  @override
-  bool get isCurrent => _isCurrent();
+  final SiteLease _lease;
 
   @override
-  bool commit(void Function() mutation) {
-    if (!isCurrent) return false;
-    mutation();
-    return true;
-  }
+  bool get isCurrent => _lease.isCurrent;
+
+  @override
+  bool commit(void Function() mutation) => _lease.commit(mutation);
+
+  @override
+  void Function() onRetire(void Function() observer) =>
+      _lease.onRetire(observer);
 }
 
 class RecordingPluginLiveChannels implements PluginLiveChannelHandle {

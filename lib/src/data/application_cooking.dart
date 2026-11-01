@@ -302,6 +302,29 @@ final class ApplicationCooking {
     return service.cook(request);
   }
 
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) async {
+    if (request.raw.length > 65536 || _inputLimited[request] == true) {
+      return CookingResult(html: '', failure: CookingFailure.inputLimit);
+    }
+    bool current() =>
+        isCurrent(request) &&
+        jsonEncode(request.effectiveConfiguration.toJson()) ==
+            jsonEncode(configuration.toJson());
+    if (!current()) {
+      return CookingResult(html: '', failure: CookingFailure.stale);
+    }
+    final result = await service.cookTransient(
+      request,
+      abortTrigger: abortTrigger,
+    );
+    return current()
+        ? result
+        : CookingResult(html: '', failure: CookingFailure.stale);
+  }
+
   void forget(String siteUrl) {
     _generations.update(siteUrl, (value) => value + 1, ifAbsent: () => 1);
     _uploads.remove(siteUrl);

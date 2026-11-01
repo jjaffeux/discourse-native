@@ -121,6 +121,11 @@ final class _Cooking implements CookingServicePort {
   void invalidate() => service.invalidate();
   @override
   Future<void> dispose() => service.dispose();
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) => cook(request);
 }
 
 void main() {

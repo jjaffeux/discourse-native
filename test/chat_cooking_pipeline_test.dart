@@ -297,6 +297,11 @@ final class _MeasuredCookingService implements CookingServicePort {
 
   @override
   Future<void> dispose() => inner.dispose();
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) => cook(request);
 }
 
 final class _Rig {

@@ -783,6 +783,12 @@ final class _Lease implements PluginSiteLease {
     mutation();
     return true;
   }
+
+  @override
+  void Function() onRetire(void Function() observer) {
+    if (!isCurrent) observer();
+    return () {};
+  }
 }
 
 final class _LiveChannels implements PluginLiveChannelHandle {

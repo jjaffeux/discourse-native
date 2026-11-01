@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:discourse_cooking/discourse_cooking.dart';
@@ -10,6 +11,43 @@ import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'transient application output is discarded across account/context retirement',
+    () async {
+      for (final change in ['account', 'context']) {
+        final installed = PluginInstaller.install(
+          const PluginManifest([cookingModule]),
+        );
+        final service = _Service()..transientGate = Completer<CookingResult>();
+        final app = ApplicationCooking(plugins: installed, service: service);
+        addTearDown(app.dispose);
+        addTearDown(installed.close);
+        final request = app.request(
+          siteUrl: 'https://private.example',
+          accountId: '1',
+          raw: '**private**',
+          config: const SiteConfig(),
+        );
+        final abort = Completer<void>();
+        final pending = app.cookTransient(request, abortTrigger: abort.future);
+        if (change == 'account') {
+          app.forget('https://private.example');
+        } else {
+          app.contextChanged('https://private.example');
+        }
+        service.transientGate!.complete(CookingResult(html: '<p>private</p>'));
+        final result = await pending;
+        expect(result.failure, CookingFailure.stale);
+        expect(result.html, isEmpty);
+        expect(
+          (await app.cookTransient(request, abortTrigger: abort.future)).html,
+          isEmpty,
+        );
+        abort.complete();
+      }
+    },
+  );
+
   test('checklist settings survive storage and reach the bundled parser', () {
     final installed = PluginInstaller.install(
       const PluginManifest([cookingModule]),
@@ -505,6 +543,7 @@ String _entryWithBytes(String key, int bytes) {
 }
 
 final class _Service implements CookingServicePort {
+  Completer<CookingResult>? transientGate;
   int starts = 0, disposals = 0;
   @override
   Future<bool> start() async {
@@ -521,6 +560,12 @@ final class _Service implements CookingServicePort {
   Future<void> dispose() async {
     disposals++;
   }
+
+  @override
+  Future<CookingResult> cookTransient(
+    CookingRequest request, {
+    required Future<void> abortTrigger,
+  }) => transientGate?.future ?? cook(request);
 }
 
 final class _Module implements PluginModule {
