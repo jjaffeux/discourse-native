@@ -6,6 +6,10 @@ import 'package:discourse_native/src/plugins/cakeday/cakeday_directory.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
+
+import '../../support/media_pipeline.dart';
 import 'cakeday_fixture.dart';
 
 Widget frame(Widget child) => MaterialApp(
@@ -344,4 +348,104 @@ void main() {
       await tester.pumpWidget(const SizedBox.shrink());
     },
   );
+  testWidgets(
+    'configured custom and multiple emoji use the host resolver in declared order',
+    (tester) async {
+      installTestMediaPipeline(
+        client: MockClient(
+          (_) async => http.Response(
+            '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18"><rect width="18" height="18" fill="red"/></svg>',
+            200,
+            headers: {'content-type': 'image/svg+xml'},
+          ),
+        ),
+      );
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      f.config.value = SiteConfig(
+        emojiEnabled: true,
+        plugins: PluginData.none.withValue(
+          cakedaySettingsKey,
+          const CakedaySettings(
+            enabled: true,
+            birthdays: true,
+            birthdayEmoji: ['custom_party', 'birthday'],
+            anniversaryEmoji: ['cake'],
+          ),
+        ),
+      );
+      final dates = CakedayDates.read({
+        'birthdate': '1992-11-01',
+        'cakedate': '2020-11-01',
+      })!;
+      await tester.pumpWidget(
+        frame(
+          CakedayDecoration(
+            controller: f.controller,
+            site: cakedaySite,
+            dates: dates,
+            userId: 2,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widgetList<EmojiImage>(find.byType(EmojiImage))
+            .map((widget) => widget.url),
+        [
+          '$cakedaySite/emoji/custom_party.png',
+          '$cakedaySite/emoji/birthday.png',
+          '$cakedaySite/emoji/cake.png',
+        ],
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is DTooltip && widget.message == 'Today is my birthday!',
+        ),
+        findsOneWidget,
+      );
+      f.controller.setForeground(false);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+  testWidgets('phone directory reflows in RTL at double text scale', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(390, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final f = CakedayFixture();
+    addTearDown(f.dispose);
+    f.transport.responders['GET /cakeday/birthdays.json?page=0&filter=today'] =
+        (_) => page([celebration(1)]);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: MediaQuery(
+            data: const MediaQueryData(
+              size: Size(390, 900),
+              textScaler: TextScaler.linear(2),
+            ),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: CakedayDirectory(
+                site: cakedaySite,
+                query: birthdayQuery,
+                controller: f.controller,
+                navigation: f.navigation,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('member1'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    f.controller.setForeground(false);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
