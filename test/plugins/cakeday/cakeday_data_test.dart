@@ -64,6 +64,10 @@ void main() {
       const codec = CakedayPreferenceCodec();
       final known = codec.decode({'birthdate': '1992-02-29'}, null);
       expect(known.payload, {'date_of_birth': '1904-2-29'});
+      expect(
+        codec.decode(Map<String, dynamic>.from(known.payload), null),
+        known,
+      );
       expect(codec.decode({}, null).available, isFalse);
       expect(codec.decode({}, null).payload, isEmpty);
       expect(codec.decode({}, known), same(known));

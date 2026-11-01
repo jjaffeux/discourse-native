@@ -61,7 +61,9 @@ final class CakedayDate {
   final int year, month, day;
   static CakedayDate? parse(Object? value, {bool timestamp = false}) {
     if (value is! String) return null;
-    final match = RegExp(r'^(\d{4})-(\d{2})-(\d{2})(.*)$').firstMatch(value);
+    final match = RegExp(
+      r'^(\d{4})-(\d{1,2})-(\d{1,2})(.*)$',
+    ).firstMatch(value);
     if (match == null || (!timestamp && match[4]!.isNotEmpty)) return null;
     if (match[4]!.isNotEmpty &&
         (!match[4]!.startsWith('T') || DateTime.tryParse(value) == null)) {
