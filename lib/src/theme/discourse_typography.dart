@@ -77,7 +77,7 @@ abstract final class DiscourseTypography {
 
   static const double codeLineHeight = lineHeightSmall;
   static const double lineHeightMedium = lineHeightHeading;
-  static const double lineHeightCooked = lineHeightBody;
+  static const double lineHeightCooked = 1.5;
 
   /// Keeps Material defaults, native controls, and custom widgets on the same
   /// roles while retaining the platform font family and palette foregrounds.

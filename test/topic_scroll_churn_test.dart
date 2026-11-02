@@ -7,6 +7,7 @@ import 'package:discourse_native/src/shell/topic_post_sliver.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -15,6 +16,45 @@ import 'support/topic_post_list.dart';
 import 'support/topic_scroll_fixture.dart';
 
 void main() {
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('topic post leading matches core at text scale $scale', (
+      tester,
+    ) async {
+      tester.platformDispatcher.textScaleFactorTestValue = scale;
+      addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+      final controller = await mixedTopicScrollController();
+      addTearDown(controller.dispose);
+      controller.store.update<Post>(
+        controller.currentInstance!.url,
+        1,
+        (post) => Post(
+          id: post.id,
+          postNumber: post.postNumber,
+          username: post.username,
+          cooked: '<p>First line<br>Second line</p>',
+        ),
+      );
+      await tester.pumpWidget(TopicScrollFixture(controller: controller));
+      await tester.pumpAndSettle();
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.text('First line\nSecond line', findRichText: true),
+      );
+      expect(paragraph.text.style?.height, 1.5);
+      final first = paragraph
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 1),
+          )
+          .single;
+      final second = paragraph
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 11, extentOffset: 12),
+          )
+          .single;
+      expect(second.top - first.top, closeTo(14 * 1.5 * scale, 0.5));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   testWidgets(
     'reader width changes reflow replies without rebuilding its header',
     (tester) async {
