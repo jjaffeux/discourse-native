@@ -217,7 +217,7 @@ void main() {
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(find.byType(DDialogContent), findsNothing);
         expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
-        expect(find.byTooltip('Close'), findsNothing);
+        expect(find.byTooltip('Close'), findsOneWidget);
         expect(tester.getRect(find.byType(DSheetContent)).bottom, 600);
       },
       variant: TargetPlatformVariant.only(platform),

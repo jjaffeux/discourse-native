@@ -154,6 +154,10 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
         children: [
           DSheetDragRegion(
             child: DSheetHeader(
+              trailing: DSheetClose<void>(
+                builder: (context, close) =>
+                    DSheetHeaderAction.close(onPressed: close),
+              ),
               children: [
                 DSheetTitle(child: Text(title)),
                 DSheetDescription(child: Text(description)),

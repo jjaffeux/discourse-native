@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../theme/d_icons.dart';
 import '../styleguide_example.dart';
 
 final sheetExamples = ComponentExamples(
@@ -62,6 +63,45 @@ final sheetExamples = ComponentExamples(
       'the available viewport, without a lower detent for that opening. '
       'Other snap-point compositions use Drawer.',
   examples: [
+    StyleguideExample(
+      title: 'Corner actions',
+      description:
+          'The handle stays at the top edge. Header actions share the built-in '
+          'close button style and keep their corner positions as titles wrap.',
+      code:
+          'DSheetHeader(leading: DSheetHeaderAction(icon: backIcon, '
+          'tooltip: backLabel, onPressed: goBack), trailing: '
+          'DSheetHeaderAction.close(onPressed: close), children: [title])',
+      builder: (_) => DSheet<void>(
+        trigger: DSheetTrigger(
+          builder: (context, open) => _trigger('Open sheet actions', open),
+        ),
+        content: DSheetContent(
+          side: DSheetSide.bottom,
+          variant: DSheetVariant.menu,
+          showCloseButton: false,
+          children: [
+            DSheetClose<void>(
+              builder: (context, close) => DSheetHeader(
+                leading: DSheetHeaderAction(
+                  icon: const DIcon(DIcons.arrowLeft),
+                  tooltip: 'Back',
+                  onPressed: close,
+                ),
+                trailing: DSheetHeaderAction.close(onPressed: close),
+                children: const [DSheetTitle(child: Text('Sheet actions'))],
+              ),
+            ),
+            const DSheetBody(
+              child: Padding(
+                padding: EdgeInsets.only(bottom: DSpacing.lg),
+                child: Text('The same header is used by forms and pickers.'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Retained reading page',
       description:

@@ -133,7 +133,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
           topBottomMaxHeightFactor: .9,
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 2, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 24, 16, 16),
               child: _TopicProgressEditor(
                 key: ValueKey(_session),
                 controller: widget.controller,

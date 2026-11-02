@@ -58,20 +58,12 @@ Future<String?> showEmojiPicker({
           scrollWholeSheet: false,
           showCloseButton: false,
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: Row(
-                children: [
-                  Expanded(child: DSheetTitle(child: Text(appL10n.emoji))),
-                  DButton.iconOnly(
-                    key: const ValueKey('emoji-picker-close'),
-                    icon: const DIcon(DIcons.xmark),
-                    tooltip: appL10n.close,
-                    variant: DButtonVariant.quiet,
-                    onPressed: sheet.close,
-                  ),
-                ],
+            DSheetHeader(
+              trailing: DSheetHeaderAction.close(
+                buttonKey: const ValueKey('emoji-picker-close'),
+                onPressed: sheet.close,
               ),
+              children: [DSheetTitle(child: Text(appL10n.emoji))],
             ),
             Expanded(
               child: _EmojiPickerFocusOwner(

@@ -2566,7 +2566,7 @@ class DSheetContent extends StatelessWidget {
       child: DTouchTarget(
         child: DSheetDragRegion(
           child: Padding(
-            padding: EdgeInsets.only(top: page ? 7 : 8, bottom: page ? 9 : 10),
+            padding: const EdgeInsets.only(top: 8, bottom: 10),
             child: ExcludeSemantics(
               child: DecoratedBox(
                 key: const ValueKey('sheet-drag-handle'),
@@ -2607,7 +2607,7 @@ class DSheetContent extends StatelessWidget {
         ),
       );
     }
-    final parts = <Widget>[if (menu && !overArtwork) handle];
+    final parts = <Widget>[];
     for (var index = 0; index < children.length; index++) {
       final original = children[index];
       final child = !scaleContents || original is Spacer
@@ -2717,6 +2717,7 @@ class DSheetContent extends StatelessWidget {
             color: tokens.foreground,
           ),
           child: SafeArea(
+            top: resolved != DSheetSide.bottom,
             bottom: !extendBehindKeyboard,
             minimum: EdgeInsets.only(
               bottom: extendBehindKeyboard
@@ -2778,20 +2779,16 @@ class DSheetContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: parts,
                   ),
-                if (menu && overArtwork)
+                if (resolved == DSheetSide.bottom)
                   Positioned(top: 0, left: 0, right: 0, child: handle),
                 if (showCloseButton)
                   Positioned(
                     top: DSpacing.md,
                     right: DSpacing.md,
                     child: (DSheetClose<void>(
-                      builder: (context, close) => DButton.iconOnly(
+                      builder: (context, close) => DSheetHeaderAction.close(
                         onPressed: close,
-                        size: DButtonSize.small,
-                        variant: DButtonVariant.quiet,
-                        icon: const _DSheetCloseIcon(),
                         tooltip: closeSemanticLabel,
-                        semanticLabel: closeSemanticLabel,
                       ),
                     )),
                   ),
@@ -2816,28 +2813,154 @@ class DSheetContent extends StatelessWidget {
       explicitChildNodes: true,
       scopesRoute: true,
       label: semanticLabel,
-      child: surface,
+      child: _DSheetHeaderScope(
+        showCloseButton: showCloseButton,
+        child: surface,
+      ),
     );
   }
 }
 
 class DSheetHeader extends StatelessWidget {
-  const DSheetHeader({super.key, required this.children});
+  const DSheetHeader({
+    super.key,
+    required this.children,
+    this.leading,
+    this.trailing,
+  });
 
   final List<Widget> children;
+  final Widget? leading;
+  final Widget? trailing;
+
+  /// The height of a pinned header containing one row of corner actions.
+  static double actionRowHeightOf(BuildContext context) =>
+      2 * DSpacing.md +
+      DControlStyle.scaledHeight(
+        DControlSize.small,
+        MediaQuery.textScalerOf(context),
+        context: context,
+      );
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(DSpacing.lg),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (var index = 0; index < children.length; index++) ...[
-          if (index > 0) const SizedBox(height: 2),
-          children[index],
-        ],
-      ],
+  Widget build(BuildContext context) =>
+      DMenuContentScale.unscaled(child: Builder(builder: _build));
+
+  Widget _build(BuildContext context) {
+    final reserveClose =
+        trailing == null &&
+        (_DSheetHeaderScope.maybeOf(context)?.showCloseButton ?? false);
+    final hasActions = leading != null || trailing != null || reserveClose;
+    final actionExtent = actionRowHeightOf(context) - 2 * DSpacing.md;
+    return Padding(
+      padding: const EdgeInsets.all(DSpacing.md),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(minHeight: hasActions ? actionExtent : 0),
+        child: Row(
+          textDirection: TextDirection.ltr,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (leading != null) ...[
+              leading!,
+              const SizedBox(width: DSpacing.md),
+            ],
+            Expanded(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: hasActions ? actionExtent : 0,
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    for (var index = 0; index < children.length; index++) ...[
+                      if (index > 0) const SizedBox(height: 2),
+                      children[index],
+                    ],
+                  ],
+                ),
+              ),
+            ),
+            if (trailing != null) ...[
+              const SizedBox(width: DSpacing.md),
+              trailing!,
+            ] else if (reserveClose)
+              SizedBox(width: actionExtent + DSpacing.md),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DSheetHeaderScope extends InheritedWidget {
+  const _DSheetHeaderScope({
+    required this.showCloseButton,
+    required super.child,
+  });
+
+  final bool showCloseButton;
+
+  static _DSheetHeaderScope? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DSheetHeaderScope>();
+
+  @override
+  bool updateShouldNotify(_DSheetHeaderScope oldWidget) =>
+      showCloseButton != oldWidget.showCloseButton;
+}
+
+/// A circular corner action shared by sheet headers and the built-in close.
+class DSheetHeaderAction extends StatelessWidget {
+  const DSheetHeaderAction({
+    super.key,
+    this.buttonKey,
+    required this.icon,
+    required this.tooltip,
+    required this.onPressed,
+    this.semanticLabel,
+    this.focusNode,
+    this.hasPopup = false,
+    this.expanded = false,
+    this.loading = false,
+  });
+
+  const DSheetHeaderAction.close({
+    super.key,
+    this.buttonKey,
+    required this.onPressed,
+    this.tooltip,
+    this.semanticLabel,
+    this.focusNode,
+    this.hasPopup = false,
+    this.expanded = false,
+    this.loading = false,
+  }) : icon = const _DSheetCloseIcon();
+
+  final Widget icon;
+  final Key? buttonKey;
+  final String? tooltip;
+  final VoidCallback? onPressed;
+  final String? semanticLabel;
+  final FocusNode? focusNode;
+  final bool hasPopup;
+  final bool expanded;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) => DMenuContentScale.unscaled(
+    child: DButton.iconOnly(
+      key: buttonKey,
+      icon: icon,
+      tooltip: tooltip ?? context.l10n.close,
+      onPressed: onPressed,
+      semanticLabel: semanticLabel,
+      focusNode: focusNode,
+      hasPopup: hasPopup,
+      expanded: expanded,
+      loading: loading,
+      size: DButtonSize.small,
+      variant: DButtonVariant.quiet,
     ),
   );
 }

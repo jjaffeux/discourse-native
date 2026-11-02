@@ -225,7 +225,7 @@ class UserCardHeader extends StatelessWidget {
           ]
         : null;
     return Padding(
-      padding: EdgeInsets.fromLTRB(16, banner ? 26 : 4, 16, 0),
+      padding: const EdgeInsets.fromLTRB(16, 56, 16, 0),
       child: Stack(
         clipBehavior: Clip.none,
         children: [

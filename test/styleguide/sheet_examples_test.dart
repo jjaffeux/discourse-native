@@ -4,6 +4,48 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'corner actions keep physical edge positions with large RTL text',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final example = sheetExamples.examples.singleWhere(
+        (example) => example.title == 'Corner actions',
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: const TextScaler.linear(2)),
+            child: Directionality(
+              textDirection: TextDirection.rtl,
+              child: child!,
+            ),
+          ),
+          home: Scaffold(body: Builder(builder: example.builder)),
+        ),
+      );
+      await tester.tap(find.text('Open sheet actions'));
+      await tester.pumpAndSettle();
+      final sheet = tester.getRect(find.byType(DSheetContent));
+      final back = tester.getRect(find.byTooltip('Back'));
+      final close = tester.getRect(find.byTooltip('Close'));
+      expect(back.top - sheet.top, closeTo(12, .01));
+      expect(back.left - sheet.left, closeTo(12, .01));
+      expect(close.top - sheet.top, closeTo(12, .01));
+      expect(sheet.right - close.right, closeTo(12, .01));
+      expect(back.size.width, closeTo(close.size.width, .01));
+      await tester.tap(find.byTooltip('Back'));
+      await tester.pumpAndSettle();
+      expect(find.byType(DSheetContent), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   testWidgets('Side example preserves the reference capped scroll layout', (
     tester,
   ) async {

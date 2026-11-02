@@ -952,17 +952,16 @@ class _DPopoverState extends State<DPopover>
             fillAvailableHeight: widget.fullScreenOnMobile,
             scrollWholeSheet: false,
             children: [
-              if (!adaptiveMenu)
-                DSheetHeader(
-                  children: [
-                    if (widget.mobileSheetShowTitle)
-                      DSheetTitle(
-                        child: Text(
-                          widget.content.semanticLabel ?? context.l10n.options,
-                        ),
+              DSheetHeader(
+                children: [
+                  if (!adaptiveMenu && widget.mobileSheetShowTitle)
+                    DSheetTitle(
+                      child: Text(
+                        widget.content.semanticLabel ?? context.l10n.options,
                       ),
-                  ],
-                ),
+                    ),
+                ],
+              ),
               Flexible(
                 child: DJoinedControlScope.boundary(
                   child: _PopoverScope(

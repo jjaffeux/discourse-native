@@ -15,27 +15,16 @@ class ComposerSheetHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DSheetDragRegion(
     child: DSheetHeader(
+      trailing: DSheetClose<void>(
+        builder: (context, close) => DSheetHeaderAction.close(
+          buttonKey: closeButtonKey,
+          onPressed: close,
+          tooltip: context.l10n.close,
+        ),
+      ),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: DSheetTitle(
-                child: DText(title, variant: DTextVariant.h4, headingLevel: 1),
-              ),
-            ),
-            const SizedBox(width: DSpacing.md),
-            DSheetClose<void>(
-              builder: (context, close) => DButton.iconOnly(
-                key: closeButtonKey,
-                onPressed: close,
-                size: DButtonSize.small,
-                shape: DButtonShape.pill,
-                variant: DButtonVariant.quiet,
-                icon: const Icon(Icons.close),
-                tooltip: context.l10n.close,
-              ),
-            ),
-          ],
+        DSheetTitle(
+          child: DText(title, variant: DTextVariant.h4, headingLevel: 1),
         ),
       ],
     ),

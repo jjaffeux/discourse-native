@@ -6,36 +6,82 @@ import 'app_text_scaler.dart';
 /// Phone menus lay out their pointer-sized contents before enlarging the
 /// whole composition. Reading-text uplift must not enlarge the words twice.
 class DMenuContentScale extends StatelessWidget {
-  const DMenuContentScale({required this.child, super.key});
+  const DMenuContentScale({required this.child, super.key}) : _unscaled = false;
+
+  /// Keeps sheet chrome at the same size inside and outside a scaled menu.
+  const DMenuContentScale.unscaled({required this.child, super.key})
+    : _unscaled = true;
 
   final Widget child;
+  final bool _unscaled;
   static const factor = 17 / 13;
 
   static bool isActiveOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_MenuContentScope>() != null;
+      context.dependOnInheritedWidgetOfExactType<_MenuContentScope>()?.active ??
+      false;
 
   @override
-  Widget build(BuildContext context) => _MenuContentScope(
-    child: DReferenceTextScale(child: _MenuScale(child: child)),
-  );
+  Widget build(BuildContext context) {
+    if (_unscaled) {
+      if (!isActiveOf(context)) return child;
+      return _MenuContentScope(
+        active: false,
+        child: MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler:
+                DReferenceTextScale.readingScalerOf(context) ??
+                MediaQuery.textScalerOf(context),
+          ),
+          child: _MenuScale(factor: 1 / factor, child: child),
+        ),
+      );
+    }
+    return _MenuContentScope(
+      active: true,
+      child: DReferenceTextScale(
+        child: _MenuScale(factor: factor, child: child),
+      ),
+    );
+  }
 }
 
 class _MenuContentScope extends InheritedWidget {
-  const _MenuContentScope({required super.child});
+  const _MenuContentScope({required this.active, required super.child});
+
+  final bool active;
 
   @override
-  bool updateShouldNotify(_MenuContentScope oldWidget) => false;
+  bool updateShouldNotify(_MenuContentScope oldWidget) =>
+      active != oldWidget.active;
 }
 
 class _MenuScale extends SingleChildRenderObjectWidget {
-  const _MenuScale({required super.child});
+  const _MenuScale({required this.factor, required super.child});
+
+  final double factor;
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderMenuScale();
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderMenuScale(factor);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderMenuScale renderObject,
+  ) => renderObject.factor = factor;
 }
 
 class _RenderMenuScale extends RenderProxyBox {
-  static const factor = DMenuContentScale.factor;
+  _RenderMenuScale(this._factor);
+
+  double _factor;
+  double get factor => _factor;
+  set factor(double value) {
+    if (_factor == value) return;
+    _factor = value;
+    markNeedsLayout();
+  }
+
   Matrix4 get _transform => Matrix4.diagonal3Values(factor, factor, 1);
 
   BoxConstraints _unscaled(BoxConstraints constraints) => BoxConstraints(

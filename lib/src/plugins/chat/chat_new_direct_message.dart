@@ -49,7 +49,10 @@ Future<void> showChatNewDirectMessageDialog({
         semanticLabel: appL10n.startChatting,
         scrollWholeSheet: false,
         showCloseButton: false,
-        children: [Expanded(child: content(sheet, sheet: true))],
+        children: [
+          const DSheetHeader(children: []),
+          Expanded(child: content(sheet, sheet: true)),
+        ],
       ),
     );
   }

@@ -141,6 +141,22 @@ void main() {
           await tester.pumpAndSettle();
           await _toolbarPixels(tester, name: 'expanded-error-$scale');
 
+          final headerBounds = tester.getRect(
+            find.byKey(const ValueKey('composer-header')),
+          );
+          final closeBounds = tester.getRect(
+            find.byKey(const ValueKey('composer-close')),
+          );
+          final submitBounds = tester.getRect(
+            find.byKey(const ValueKey('composer-submit')),
+          );
+          expect(closeBounds.top - headerBounds.top, closeTo(12, .01));
+          expect(closeBounds.left - headerBounds.left, closeTo(12, .01));
+          expect(headerBounds.right - submitBounds.right, closeTo(12, .01));
+          expect(submitBounds.top, closeTo(closeBounds.top, .01));
+          expect(closeBounds.width, closeTo(closeBounds.height, .01));
+          expect(submitBounds.width, closeTo(closeBounds.width, .01));
+
           expect(find.text("Couldn't complete this action"), findsOneWidget);
           expect(find.text(message), findsOneWidget);
           final alert = find.byKey(const ValueKey('composer-error-viewport'));

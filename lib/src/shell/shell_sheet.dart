@@ -177,41 +177,34 @@ class _SheetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: grabbed && !nested
-              ? const EdgeInsets.fromLTRB(20, 2, 20, 12)
-              : EdgeInsets.fromLTRB(nested ? 4 : 20, 8, 8, 8),
-          child: Row(
-            children: [
-              if (nested)
-                DButton.iconOnly(
+        DSheetHeader(
+          leading: nested
+              ? DSheetHeaderAction(
                   onPressed: () => DDialogClose.close<void>(context),
-                  variant: DButtonVariant.quiet,
                   tooltip: context.l10n.back,
                   icon: const DIcon(DIcons.arrowLeft),
-                ),
-              Expanded(
-                child: DText(
-                  title,
-                  variant: DTextVariant.h4,
-                  headingLevel: 1,
-                  style: grabbed
-                      ? TextStyle(
-                          fontSize: DiscourseTypography.sheetTitle,
-                          color: DTokens.of(context).foreground,
-                        )
-                      : null,
-                ),
-              ),
-              if (!nested && !grabbed)
-                DButton.iconOnly(
+                )
+              : null,
+          trailing: nested
+              ? null
+              : DSheetHeaderAction.close(
                   onPressed: () => DDialogClose.close<void>(context),
-                  variant: DButtonVariant.quiet,
-                  tooltip: context.l10n.close,
-                  icon: const DIcon(DIcons.xmark),
                 ),
-            ],
-          ),
+          children: [
+            DSheetTitle(
+              child: DText(
+                title,
+                variant: DTextVariant.h4,
+                headingLevel: 1,
+                style: grabbed
+                    ? TextStyle(
+                        fontSize: DiscourseTypography.sheetTitle,
+                        color: DTokens.of(context).foreground,
+                      )
+                    : null,
+              ),
+            ),
+          ],
         ),
         if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(

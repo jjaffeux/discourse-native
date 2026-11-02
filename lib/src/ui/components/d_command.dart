@@ -1821,7 +1821,10 @@ class _DCommandDialogState<T> extends State<DCommandDialog<T>> {
           showCloseButton: false,
           semanticLabel: semanticLabel,
           scrollWholeSheet: false,
-          children: [Flexible(child: command)],
+          children: [
+            const DSheetHeader(children: []),
+            Flexible(child: command),
+          ],
         ),
       );
     }

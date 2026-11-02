@@ -240,77 +240,67 @@ class ComposerHeader extends StatelessWidget {
 
     if (mobileSubmit != null && !minimized) {
       final empty = composer.draft.isEmpty;
-      return Padding(
+      return DSheetHeader(
         key: const ValueKey('composer-header'),
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-        child: Row(
-          spacing: DSpacing.controlGap,
-          children: [
-            DDropdownMenu(
-              open: closeMenuOpen,
-              onOpenChange: (open, _) => onCloseMenuOpenChanged?.call(open),
-              content: DDropdownMenuContent(
-                semanticLabel: context.l10n.composerActions,
-                children: [
-                  DDropdownMenuItem(
-                    key: const ValueKey('composer-save-draft'),
-                    onPressed: composer.canSaveDraft
-                        ? onSaveDraft ?? onClose
-                        : null,
-                    child: Text(
-                      composer.savedDraft == null
-                          ? context.l10n.saveDraft
-                          : composer.hasSavedDraftChanges
-                          ? context.l10n.saveChanges
-                          : context.l10n.keepComposerDraft,
-                    ),
-                  ),
-                  DDropdownMenuItem(
-                    key: const ValueKey('composer-cancel'),
-                    variant: DDropdownMenuItemVariant.destructive,
-                    onPressed: onDiscard,
-                    child: Text(context.l10n.discard),
-                  ),
-                ],
-              ),
-              child: DDropdownMenuTrigger(
-                builder: (context, trigger) => DButton.iconOnly(
-                  key: const ValueKey('composer-close'),
-                  onPressed: empty ? onClose : trigger.toggle,
-                  icon: const DIcon(DIcons.xmark),
-                  tooltip: empty
-                      ? context.l10n.closeComposer
-                      : context.l10n.composerActions,
-                  semanticLabel: empty
-                      ? context.l10n.closeComposer
-                      : context.l10n.composerActions,
-                  variant: DButtonVariant.outline,
-                  size: DButtonSize.large,
-                  shape: DButtonShape.pill,
-                  focusNode: trigger.focusNode,
-                  hasPopup: !empty,
-                  expanded: !empty && trigger.open,
+        leading: DDropdownMenu(
+          open: closeMenuOpen,
+          onOpenChange: (open, _) => onCloseMenuOpenChanged?.call(open),
+          content: DDropdownMenuContent(
+            semanticLabel: context.l10n.composerActions,
+            children: [
+              DDropdownMenuItem(
+                key: const ValueKey('composer-save-draft'),
+                onPressed: composer.canSaveDraft
+                    ? onSaveDraft ?? onClose
+                    : null,
+                child: Text(
+                  composer.savedDraft == null
+                      ? context.l10n.saveDraft
+                      : composer.hasSavedDraftChanges
+                      ? context.l10n.saveChanges
+                      : context.l10n.keepComposerDraft,
                 ),
               ),
-            ),
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                reverse: true,
-                child: Row(
-                  spacing: DSpacing.controlGap,
-                  children: [
-                    if (canToggleWhisper) heading,
-                    ...pluginControls,
-                    if (composer.canSaveDraft && !target.isEdit)
-                      _DraftSaveFailure(composer: composer),
-                  ],
-                ),
+              DDropdownMenuItem(
+                key: const ValueKey('composer-cancel'),
+                variant: DDropdownMenuItemVariant.destructive,
+                onPressed: onDiscard,
+                child: Text(context.l10n.discard),
               ),
+            ],
+          ),
+          child: DDropdownMenuTrigger(
+            builder: (context, trigger) => DSheetHeaderAction.close(
+              buttonKey: const ValueKey('composer-close'),
+              onPressed: empty ? onClose : trigger.toggle,
+              tooltip: empty
+                  ? context.l10n.closeComposer
+                  : context.l10n.composerActions,
+              semanticLabel: empty
+                  ? context.l10n.closeComposer
+                  : context.l10n.composerActions,
+              focusNode: trigger.focusNode,
+              hasPopup: !empty,
+              expanded: !empty && trigger.open,
             ),
-            mobileSubmit!,
-          ],
+          ),
         ),
+        trailing: mobileSubmit,
+        children: [
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            reverse: true,
+            child: Row(
+              spacing: DSpacing.controlGap,
+              children: [
+                if (canToggleWhisper) heading,
+                ...pluginControls,
+                if (composer.canSaveDraft && !target.isEdit)
+                  _DraftSaveFailure(composer: composer),
+              ],
+            ),
+          ),
+        ],
       );
     }
 
