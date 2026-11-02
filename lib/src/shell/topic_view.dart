@@ -1453,14 +1453,23 @@ class _TopicViewState extends State<TopicView>
                   if (skeleton)
                     Positioned.fill(
                       key: const ValueKey('topic-loading-skeleton-slot'),
-                      child: header.inset(
-                        Padding(
-                          padding: lanePadding,
-                          child: const TopicLoadingSkeleton(
-                            key: ValueKey('topic-loading-skeleton'),
-                          ),
-                        ),
-                        fullExtent: true,
+                      child: Builder(
+                        builder: (context) {
+                          final placeholders = Padding(
+                            padding: lanePadding,
+                            child: const TopicLoadingSkeleton(
+                              key: ValueKey('topic-loading-skeleton'),
+                            ),
+                          );
+                          if (DSheetPageBand.maybeOf(context)?.readerStart ==
+                              DSheetReaderStart.scrolled) {
+                            return DSheetPageBand.followEdge(
+                              context,
+                              child: placeholders,
+                            );
+                          }
+                          return header.inset(placeholders, fullExtent: true);
+                        },
                       ),
                     ),
                   ...overlays,
