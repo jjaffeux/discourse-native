@@ -13,10 +13,9 @@ Unicode punctuation, currency, and incomplete multiline blocks, follows that
 parser. `vendor.mjs` includes Math in future complete snapshot upgrades.
 
 The ordinary composer presents display equations as flat code-style Math
-blocks. Each block has a math icon, an equation preview, and spaced ghost
-Edit and Copy source buttons. Single-dollar and other inline delimiters stay
-compact even on their own line. Source delimiters determine inline/display
-mathematical mode. Block selection and keyboard deletion use the host's atomic
+blocks. Each block has an equation preview and a ghost Edit button. Copy source is available when reading rendered posts. Single-dollar
+and other inline delimiters stay compact even on their own line. Source
+delimiters determine inline/display mathematical mode. Block selection and keyboard deletion use the host's atomic
 component behavior; deleting a block removes its duplicated paragraph separator
 while preserving extra author spacing. Native pencil actions open a source
 dialog. Insert always creates a display math block and supports Shift+M.

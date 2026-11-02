@@ -2,7 +2,6 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 class MathComposerCard extends StatelessWidget {
   const MathComposerCard({
@@ -29,36 +28,15 @@ class MathComposerCard extends StatelessWidget {
     backgroundColor: Theme.of(context).code.blockBackground,
     children: [
       DCardContent(
-        child: Row(
-          children: [
-            const Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: DIcon(DIcons.squareRootVariable),
-              ),
-            ),
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              spacing: DSpacing.sm,
-              children: [
-                DButton.iconOnly(
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  icon: const DIcon(DIcons.pencil),
-                  tooltip: context.l10n.editMath,
-                  onPressed: onEdit,
-                ),
-                DButton.iconOnly(
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  icon: const DIcon(DIcons.copy),
-                  tooltip: context.l10n.copySource,
-                  onPressed: () =>
-                      Clipboard.setData(ClipboardData(text: expression.source)),
-                ),
-              ],
-            ),
-          ],
+        child: Align(
+          alignment: Alignment.centerRight,
+          child: DButton.iconOnly(
+            variant: DButtonVariant.ghost,
+            size: DButtonSize.small,
+            icon: const DIcon(DIcons.pencil),
+            tooltip: context.l10n.editMath,
+            onPressed: onEdit,
+          ),
         ),
       ),
       DCardContent(

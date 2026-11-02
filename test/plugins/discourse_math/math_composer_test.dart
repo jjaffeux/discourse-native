@@ -227,7 +227,7 @@ void main() {
       }
     },
   );
-  testWidgets('read-only card keeps direct Copy source and disables edit', (
+  testWidgets('read-only composer card has no Copy source and disables edit', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -257,47 +257,32 @@ void main() {
           .onPressed,
       isNull,
     );
-    expect(
-      tester
-          .widget<DButton>(
-            find.byWidgetPredicate(
-              (widget) => widget is DButton && widget.tooltip == 'Copy source',
-            ),
-          )
-          .onPressed,
-      isNotNull,
-    );
+    expect(find.byTooltip('Copy source'), findsNothing);
     expect(find.byTooltip('More options'), findsNothing);
     await finish(tester);
   });
-  testWidgets(
-    'standalone card has its own source actions while prose stays inline',
-    (tester) async {
-      final composer = await pump(tester, r'$$x$$');
-      expect(find.byType(MathComposerCard), findsOneWidget);
-      expect(find.text('Math expression'), findsNothing);
-      expect(
-        tester.widget<DMath>(find.byType(DMath)).expression.display,
-        isTrue,
-      );
-      expect(tester.widget<DMath>(find.byType(DMath)).onEdit, isNull);
-      expect(find.byTooltip('Edit math'), findsOneWidget);
-      expect(find.byTooltip('Copy source'), findsOneWidget);
-      expect(find.byTooltip('More options'), findsNothing);
-      expect(
-        find.descendant(
-          of: find.byType(MathComposerCard),
-          matching: find.byType(DButton),
-        ),
-        findsNWidgets(2),
-      );
-      composer.text.value = const TextEditingValue(text: r'Before $x$ after');
-      await tester.pumpAndSettle();
-      expect(find.byType(MathComposerCard), findsNothing);
-      expect(find.byTooltip('Edit math'), findsOneWidget);
-      await finish(tester);
-    },
-  );
+  testWidgets('composer card and inline math expose only edit', (tester) async {
+    final composer = await pump(tester, r'$$x$$');
+    expect(find.byType(MathComposerCard), findsOneWidget);
+    expect(find.text('Math expression'), findsNothing);
+    expect(tester.widget<DMath>(find.byType(DMath)).expression.display, isTrue);
+    expect(tester.widget<DMath>(find.byType(DMath)).onEdit, isNull);
+    expect(find.byTooltip('Edit math'), findsOneWidget);
+    expect(find.byTooltip('Copy source'), findsNothing);
+    expect(find.byTooltip('More options'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(MathComposerCard),
+        matching: find.byType(DButton),
+      ),
+      findsOneWidget,
+    );
+    composer.text.value = const TextEditingValue(text: r'Before $x$ after');
+    await tester.pumpAndSettle();
+    expect(find.byType(MathComposerCard), findsNothing);
+    expect(find.byTooltip('Edit math'), findsOneWidget);
+    await finish(tester);
+  });
   testWidgets('display math uses one flat native code surface', (tester) async {
     await pump(tester, r'$$x$$');
     final cards = find.descendant(
@@ -310,45 +295,13 @@ void main() {
     expect(card.backgroundColor, AppTheme.light.code.blockBackground);
     await finish(tester);
   });
-  testWidgets('card actions share ghost style and visible spacing', (
-    tester,
-  ) async {
+  testWidgets('composer card keeps its ghost edit action', (tester) async {
     await pump(tester, r'$$x$$');
     final edit = find.byWidgetPredicate(
       (w) => w is DButton && w.tooltip == 'Edit math',
     );
-    final copy = find.byWidgetPredicate(
-      (w) => w is DButton && w.tooltip == 'Copy source',
-    );
     expect(tester.widget<DButton>(edit).variant, DButtonVariant.ghost);
-    expect(tester.widget<DButton>(copy).variant, DButtonVariant.ghost);
-    expect(tester.getRect(copy).left - tester.getRect(edit).right, DSpacing.sm);
-    await finish(tester);
-  });
-  testWidgets('card Copy source copies the equation without its delimiters', (
-    tester,
-  ) async {
-    String? copied;
-    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      SystemChannels.platform,
-      (call) async {
-        if (call.method == 'Clipboard.setData') {
-          copied = (call.arguments as Map)['text'] as String;
-        }
-        return null;
-      },
-    );
-    addTearDown(
-      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        SystemChannels.platform,
-        null,
-      ),
-    );
-    final composer = await pump(tester, r'$$\frac{a}{b}$$');
-    await tester.tap(find.byTooltip('Copy source'));
-    await tester.pumpAndSettle();
-    expect(copied, r'\frac{a}{b}');
-    expect(composer.text.text, r'$$\frac{a}{b}$$');
+    expect(find.byTooltip('Copy source'), findsNothing);
     await finish(tester);
   });
   for (final source in [
@@ -524,7 +477,7 @@ void main() {
         );
         expect(find.text('Math expression'), findsNothing);
         expect(find.byTooltip('Edit math'), findsOneWidget);
-        expect(find.byTooltip('Copy source'), findsOneWidget);
+        expect(find.byTooltip('Copy source'), findsNothing);
         expect(tester.takeException(), isNull);
         await finish(tester);
       },
