@@ -4862,8 +4862,12 @@ class _PostNoticeBanner extends StatelessWidget {
         message: Text(label),
         icon: DConfetti(
           enabled: notice.type == 'new_user' && !post.hidden && !post.isDeleted,
-          claimCelebration: () =>
-              _postWelcomes.claim(siteUrl, viewerId, post.id),
+          claimCelebration: () => _postWelcomes.claim(
+            siteUrl,
+            viewerId,
+            post.id,
+            createdAt: post.createdAt,
+          ),
           child: SvgPicture.asset(
             'packages/discourse_native/src/ui/assets/post_notice/'
             '${notice.type == 'new_user' ? 'celebration' : 'wave'}.svg',
