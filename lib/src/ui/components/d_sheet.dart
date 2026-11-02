@@ -172,14 +172,18 @@ class DSheetViewport extends StatefulWidget {
     required Widget child,
   }) => ClipPath(
     clipBehavior: enabled ? Clip.antiAlias : Clip.none,
-    clipper: _DSheetRiseClipper(
-      context
-              .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
-              ?.owner
-              ._pageEdge ??
-          const AlwaysStoppedAnimation<double>(0),
-      pageBorderRadius(context),
-    ),
+    // Clip.none only disables painting the clip; a custom clipper still
+    // restricts hit testing. An inactive sheet must leave the page tappable.
+    clipper: enabled
+        ? _DSheetRiseClipper(
+            context
+                    .dependOnInheritedWidgetOfExactType<_DSheetDragHost>()
+                    ?.owner
+                    ._pageEdge ??
+                const AlwaysStoppedAnimation<double>(0),
+            pageBorderRadius(context),
+          )
+        : null,
     child: child,
   );
 
