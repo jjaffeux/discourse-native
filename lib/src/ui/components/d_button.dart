@@ -1170,7 +1170,6 @@ class DButton extends StatelessWidget {
               states.contains(WidgetState.hovered) ||
               states.contains(WidgetState.pressed),
           expanded: expanded,
-          transform: Matrix4.identity(),
           decoration: DButtonDecoration(
             color: state.backgroundColor,
             borderColor: resolvedBorderColor,
@@ -1597,7 +1596,6 @@ class _DButtonSurface extends StatefulWidget {
     required this.duration,
     required this.hovered,
     required this.expanded,
-    required this.transform,
     required this.decoration,
     required this.child,
   });
@@ -1605,7 +1603,6 @@ class _DButtonSurface extends StatefulWidget {
   final Duration duration;
   final bool hovered;
   final bool expanded;
-  final Matrix4 transform;
   final DButtonDecoration decoration;
   final Widget? child;
 
@@ -1628,7 +1625,6 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   Widget build(BuildContext context) => AnimatedContainer(
     duration: _skipTransition ? Duration.zero : widget.duration,
     curve: Curves.ease,
-    transform: widget.transform,
     decoration: widget.decoration,
     child: widget.child,
   );
