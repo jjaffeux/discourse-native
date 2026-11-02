@@ -1,6 +1,6 @@
 # Desktop topic-row composition
 
-This follow-up removes redundant composition in the existing Native components used by topic rows. The investigation starts at `87430a57a`; it does not modify the page-restoration scheduler or button-surface transform plumbing.
+Native topic rows retain **186 fewer mounted elements (1.6%)** after removing redundant composition. Five alternating runs per version do not establish a frame-time speedup. The investigation starts at `87430a57a`; it does not modify the page-restoration scheduler or button-surface transform plumbing.
 
 ## Decision and diagnostic
 
@@ -123,3 +123,9 @@ The added tooltip contract retains an input's local draft, focus node, active fo
 An exploratory version that toggles `focusable` instead of `disabled` fails on both versions with the same assertion: expected `Unsent draft`, actual empty text. Flutter Focus conditionally inserts its own semantics wrapper when `includeSemantics` changes. All three changed production files were restored to the actual base for that check. This existing focusability-transition issue is outside the composition change; the retained test covers tooltip availability instead. Original investigation logs remain under `/private/tmp/row-composition-focus-{baseline,candidate}.log`.
 
 Targeted Dart analysis, Python compilation, and `git diff --check` pass. No full test suite is run.
+
+## Integration into main
+
+The branch is rebased onto `e1f453723`, including sibling commit `330d64fae` that removes the unused button-surface transform. There are no source conflicts. The final combined run passes **232 tests** in the nine explicit files above, including the new tooltip availability contract. Targeted analysis of the three Native files, native harness, and tooltip test has no issues. Python compilation and diff checks pass.
+
+A newly compiled native bundle also completes all three scrolling phases with widget tracing and no Flutter failures. It reaches topics 96, 671, and 82 and retains 3,000 feed row identities. Its [integrated census](data/topic-row-composition/integrated-widget-census.json) records the source/main revisions and framework hash. This final diagnostic is a correctness check, not an additional timing comparison. The five-pair table remains the isolated comparison against `87430a57a`.
