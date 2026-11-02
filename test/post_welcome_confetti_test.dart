@@ -35,6 +35,16 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('old first-post notices stay visible without confetti', (
+    tester,
+  ) async {
+    final controller = await _controller(createdAt: DateTime.utc(2020, 1, 1));
+    addTearDown(controller.dispose);
+    expect(await _openReader(tester, controller), isFalse);
+    expect(find.textContaining('This is the first time'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('welcome does not replay when the topic reader is reopened', (
     tester,
   ) async {
@@ -170,6 +180,7 @@ Future<ShellController> _controller({
   int postId = 1,
   int userId = 9,
   String noticeType = 'new_user',
+  DateTime? createdAt,
 }) async {
   final user = DiscourseUser(id: userId, username: 'reader');
   final controller = ShellController(
@@ -185,6 +196,7 @@ Future<ShellController> _controller({
               id: postId,
               postNumber: 1,
               username: 'new_member',
+              createdAt: createdAt ?? DateTime.now(),
               cooked: '<p>Hello everyone.</p>',
               notice: PostNotice(type: noticeType),
             ),
