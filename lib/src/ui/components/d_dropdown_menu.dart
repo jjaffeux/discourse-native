@@ -82,6 +82,7 @@ class DDropdownMenu extends StatelessWidget {
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
+    this.mobileSheetShowTitle = true,
     this.mobileSheetSizeToContent = true,
     this.mobileSheetInitiallyExpanded = false,
   });
@@ -101,6 +102,9 @@ class DDropdownMenu extends StatelessWidget {
   /// The existing Native sheet style used when [sheetOnMobile] is enabled.
   final DSheetVariant mobileSheetVariant;
 
+  /// Shows the mobile sheet's title without changing its semantic label.
+  final bool mobileSheetShowTitle;
+
   /// Whether an adaptive mobile sheet follows its content's height.
   ///
   /// When `false`, reserves the Native 55% opening height across content changes.
@@ -117,6 +121,7 @@ class DDropdownMenu extends StatelessWidget {
     return DPopover(
       sheetOnMobile: sheetOnMobile,
       mobileSheetVariant: mobileSheetVariant,
+      mobileSheetShowTitle: mobileSheetShowTitle,
       mobileSheetSizeToContent: mobileSheetSizeToContent,
       mobileSheetInitiallyExpanded: mobileSheetInitiallyExpanded,
       open: open,

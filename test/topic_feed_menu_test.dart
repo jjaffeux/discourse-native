@@ -137,10 +137,7 @@ void main() {
           await tester.tap(trigger);
           await tester.pumpAndSettle();
 
-          expect(
-            find.text('Choose topic feed'),
-            mobile ? findsOneWidget : findsNothing,
-          );
+          expect(find.text('Choose topic feed'), findsNothing);
           expect(
             find.byTooltip('Close'),
             mobile ? findsOneWidget : findsNothing,
@@ -154,7 +151,19 @@ void main() {
               tester.widget<DSheetContent>(sheet).variant,
               DSheetVariant.menu,
             );
-            expect(find.byType(DSheetHeader), findsOneWidget);
+            expect(find.byType(DSheetTitle), findsNothing);
+            expect(
+              tester.getRect(find.byTooltip('Close')).bottom,
+              lessThanOrEqualTo(
+                tester
+                    .getRect(find.byKey(const ValueKey('topic-list-latest')))
+                    .top,
+              ),
+            );
+            expect(
+              tester.widget<DSheetContent>(sheet).semanticLabel,
+              'Choose topic feed',
+            );
             expect(
               find.byKey(const ValueKey('sheet-drag-handle')),
               findsOneWidget,

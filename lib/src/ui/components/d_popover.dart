@@ -281,6 +281,7 @@ class DPopover extends StatefulWidget {
     this.restoreFocus = true,
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
+    this.mobileSheetShowTitle = true,
     this.mobileSheetSizeToContent = true,
     this.mobileSheetInitiallyExpanded = false,
     this.mobileSheetContentLoading = false,
@@ -313,6 +314,9 @@ class DPopover extends StatefulWidget {
 
   /// The shared sheet presentation used by [sheetOnMobile].
   final DSheetVariant mobileSheetVariant;
+
+  /// Shows the mobile sheet's title without changing its semantic label.
+  final bool mobileSheetShowTitle;
 
   /// Whether an adaptive mobile sheet follows its content's height.
   ///
@@ -951,11 +955,12 @@ class _DPopoverState extends State<DPopover>
               if (!adaptiveMenu)
                 DSheetHeader(
                   children: [
-                    DSheetTitle(
-                      child: Text(
-                        widget.content.semanticLabel ?? context.l10n.options,
+                    if (widget.mobileSheetShowTitle)
+                      DSheetTitle(
+                        child: Text(
+                          widget.content.semanticLabel ?? context.l10n.options,
+                        ),
                       ),
-                    ),
                   ],
                 ),
               Flexible(

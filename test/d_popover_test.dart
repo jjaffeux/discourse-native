@@ -174,6 +174,7 @@ void main() {
       await tester.tap(find.text('Open menu'));
       await tester.pumpAndSettle();
       expect(find.text('Menu'), findsOneWidget);
+      expect(find.text('Options'), findsOneWidget);
       expect(
         trigger,
         const AppTextScaler(platformScaler: platform, appScale: 1.25),

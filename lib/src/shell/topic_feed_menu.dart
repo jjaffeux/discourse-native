@@ -226,6 +226,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     key: _menuKeys.putIfAbsent(id, GlobalKey.new),
     sheetOnMobile: true,
     mobileSheetVariant: DSheetVariant.menu,
+    mobileSheetShowTitle: false,
     content: DDropdownMenuContent(
       width: 304,
       semanticLabel: context.l10n.chooseTopicFeed,
