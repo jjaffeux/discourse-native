@@ -230,7 +230,13 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                       ),
                       const SizedBox(height: 7),
                     ],
-                    _TopicCardFooter(row: row, allowSort: !compact),
+                    _TopicCardFooter(
+                      row: row,
+                      allowSort: !compact,
+                      measurements: context
+                          .findAncestorStateOfType<_TopicListViewState>()
+                          ?._textMeasurements,
+                    ),
                     if (compactMetadata.isNotEmpty) ...[
                       const SizedBox(height: 5),
                       Wrap(

@@ -12,7 +12,7 @@ typedef _MeasurementConfiguration = ({
   double? ambientWordSpacing,
 });
 
-/// Retains widths for one topic row and one typography configuration.
+/// Retains bounded text widths for one typography configuration.
 final class TopicTextMeasurements {
   static const maximumEntries = 128;
 

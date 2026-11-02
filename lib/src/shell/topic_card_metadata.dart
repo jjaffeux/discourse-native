@@ -70,16 +70,23 @@ String? _topicSortOrder(
 }
 
 class _TopicCardFooter extends StatefulWidget {
-  const _TopicCardFooter({required this.row, required this.allowSort});
+  const _TopicCardFooter({
+    required this.row,
+    required this.allowSort,
+    this.measurements,
+  });
   final _TopicRowBody row;
   final bool allowSort;
+  final TopicTextMeasurements? measurements;
 
   @override
   State<_TopicCardFooter> createState() => _TopicCardFooterState();
 }
 
 class _TopicCardFooterState extends State<_TopicCardFooter> {
-  final _measurements = TopicTextMeasurements();
+  final _localMeasurements = TopicTextMeasurements();
+  TopicTextMeasurements get _measurements =>
+      widget.measurements ?? _localMeasurements;
   SiteLease? _lease;
   VoidCallback? _removeRetirementListener;
   _TopicRowBody get row => widget.row;
@@ -101,7 +108,7 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.row.topic.id != row.topic.id ||
         oldWidget.row.siteUrl != row.siteUrl) {
-      _measurements.clear();
+      _localMeasurements.clear();
     }
   }
 
@@ -109,7 +116,7 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
     final lease = ShellScope.maybeRead(context)?.lifecycle.capture(row.siteUrl);
     if (!identical(lease?.session, _lease?.session)) {
       _removeRetirementListener?.call();
-      _measurements.clear();
+      _localMeasurements.clear();
       _lease = lease;
       _removeRetirementListener = lease?.onRetire(_measurements.clear);
     }
@@ -150,7 +157,7 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
   void dispose() {
     PaintingBinding.instance.systemFonts.removeListener(_fontsChanged);
     _removeRetirementListener?.call();
-    _measurements.clear();
+    _localMeasurements.clear();
     super.dispose();
   }
 

@@ -1,0 +1,307 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="264" font-family="Menlo, monospace" font-size="11">
+<text x="8" y="20" font-size="14">baseline-cpu: fastDown — selected Dart callers (native cost included; recursion collapsed)</text>
+<g><title>all (3665 samples, 100.00%)</title><rect x="0.00" y="248" width="1600.00" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+<text x="3.00" y="260">all</text>
+</g>
+<g><title>ExtentManager.performLayout (11 samples, 0.30%)</title><rect x="1.31" y="232" width="4.80" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList._performLayoutInner (11 samples, 0.30%)</title><rect x="1.31" y="216" width="4.80" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (7 samples, 0.19%)</title><rect x="1.31" y="200" width="3.06" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+</g>
+<g><title>TopicCardTaxonomyLayout.calculate (3 samples, 0.08%)</title><rect x="2.18" y="184" width="1.31" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (3 samples, 0.08%)</title><rect x="2.18" y="168" width="1.31" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (3 samples, 0.08%)</title><rect x="2.18" y="152" width="1.31" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (3 samples, 0.08%)</title><rect x="2.18" y="136" width="1.31" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState.initState (15 samples, 0.41%)</title><rect x="6.55" y="232" width="6.55" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState._constructTweens (9 samples, 0.25%)</title><rect x="6.55" y="216" width="3.93" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState.controller (6 samples, 0.16%)</title><rect x="10.48" y="216" width="2.62" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>RenderParagraph._computeIntrinsicHeight (51 samples, 1.39%)</title><rect x="13.53" y="232" width="22.26" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (51 samples, 1.39%)</title><rect x="13.53" y="216" width="22.26" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (45 samples, 1.23%)</title><rect x="13.53" y="200" width="19.65" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.computeMaxIntrinsicWidth (3 samples, 0.08%)</title><rect x="35.80" y="232" width="1.31" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (3 samples, 0.08%)</title><rect x="35.80" y="216" width="1.31" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.describeSemanticsConfiguration (7 samples, 0.19%)</title><rect x="37.11" y="232" width="3.06" height="15" fill="hsl(280,70%,71%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.performLayout (7 samples, 0.19%)</title><rect x="41.04" y="232" width="3.06" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>RenderParagraph._layoutTextWithConstraints (7 samples, 0.19%)</title><rect x="41.04" y="216" width="3.06" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (7 samples, 0.19%)</title><rect x="41.04" y="200" width="3.06" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (7 samples, 0.19%)</title><rect x="41.04" y="184" width="3.06" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList._performLayoutInner (14 samples, 0.38%)</title><rect x="44.09" y="232" width="6.11" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (11 samples, 0.30%)</title><rect x="44.97" y="216" width="4.80" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+</g>
+<g><title>EventTopicTitle._schedule (4 samples, 0.11%)</title><rect x="44.97" y="200" width="1.75" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList.childScrollOffset (8 samples, 0.22%)</title><rect x="50.20" y="232" width="3.49" height="15" fill="hsl(280,70%,71%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList.layout (721 samples, 19.67%)</title><rect x="53.70" y="232" width="314.76" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+<text x="56.70" y="244">RenderSuperSliverList.layout</text>
+</g>
+<g><title>RenderSuperSliverList.performLayout (721 samples, 19.67%)</title><rect x="53.70" y="216" width="314.76" height="15" fill="hsl(280,70%,63%)" rx="2"/>
+<text x="56.70" y="228">RenderSuperSliverList.performLayout</text>
+</g>
+<g><title>ExtentManager.performLayout (721 samples, 19.67%)</title><rect x="53.70" y="200" width="314.76" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+<text x="56.70" y="212">ExtentManager.performLayout</text>
+</g>
+<g><title>RenderSuperSliverList._performLayoutInner (720 samples, 19.65%)</title><rect x="53.70" y="184" width="314.32" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+<text x="56.70" y="196">RenderSuperSliverList._performLayoutInner</text>
+</g>
+<g><title>RenderSuperSliverList.childScrollOffset (4 samples, 0.11%)</title><rect x="55.01" y="168" width="1.75" height="15" fill="hsl(280,70%,71%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList.layoutChild (142 samples, 3.87%)</title><rect x="56.75" y="168" width="61.99" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+<text x="59.75" y="180">RenderS..</text>
+</g>
+<g><title>_ItemLayout.performLayout (136 samples, 3.71%)</title><rect x="58.50" y="152" width="59.37" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+<text x="61.50" y="164">_ItemL..</text>
+</g>
+<g><title>EventTopicTitle._schedule (9 samples, 0.25%)</title><rect x="58.94" y="136" width="3.93" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.performLayout (20 samples, 0.55%)</title><rect x="62.86" y="136" width="8.73" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>RenderParagraph._layoutTextWithConstraints (20 samples, 0.55%)</title><rect x="62.86" y="120" width="8.73" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (20 samples, 0.55%)</title><rect x="62.86" y="104" width="8.73" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (7 samples, 0.19%)</title><rect x="62.86" y="88" width="3.06" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>TopicCardTaxonomyLayout.calculate (19 samples, 0.52%)</title><rect x="71.60" y="136" width="8.29" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (17 samples, 0.46%)</title><rect x="71.60" y="120" width="7.42" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (16 samples, 0.44%)</title><rect x="72.03" y="104" width="6.98" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (13 samples, 0.35%)</title><rect x="72.03" y="88" width="5.68" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (5 samples, 0.14%)</title><rect x="79.89" y="136" width="2.18" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (4 samples, 0.11%)</title><rect x="80.33" y="120" width="1.75" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._categoryPath (3 samples, 0.08%)</title><rect x="82.51" y="136" width="1.31" height="15" fill="hsl(280,70%,63%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._category (3 samples, 0.08%)</title><rect x="82.51" y="120" width="1.31" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._count (7 samples, 0.19%)</title><rect x="83.82" y="136" width="3.06" height="15" fill="hsl(280,70%,64%)" rx="2"/>
+</g>
+<g><title>_topicCountsWidth (9 samples, 0.25%)</title><rect x="87.75" y="136" width="3.93" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (8 samples, 0.22%)</title><rect x="87.75" y="120" width="3.49" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (3 samples, 0.08%)</title><rect x="88.62" y="104" width="1.31" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (3 samples, 0.08%)</title><rect x="88.62" y="88" width="1.31" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>_topicMinimumTaxonomyWidth (10 samples, 0.27%)</title><rect x="91.68" y="136" width="4.37" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (10 samples, 0.27%)</title><rect x="91.68" y="120" width="4.37" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (10 samples, 0.27%)</title><rect x="91.68" y="104" width="4.37" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (9 samples, 0.25%)</title><rect x="91.68" y="88" width="3.93" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ShellController.destinationBookmarkRouteForUrl (14 samples, 0.38%)</title><rect x="118.74" y="168" width="6.11" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ShellController._routeForLink (14 samples, 0.38%)</title><rect x="118.74" y="152" width="6.11" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>ShellController.destinationBookmarkSiteForUrl (4 samples, 0.11%)</title><rect x="124.86" y="168" width="1.75" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>_ConversationTopicCardState.build (11 samples, 0.30%)</title><rect x="128.79" y="168" width="4.80" height="15" fill="hsl(280,70%,56%)" rx="2"/>
+</g>
+<g><title>_ConversationTopicCardState._buildCard (11 samples, 0.30%)</title><rect x="128.79" y="152" width="4.80" height="15" fill="hsl(280,70%,64%)" rx="2"/>
+</g>
+<g><title>PluginRegistry.compactTopicListMetadata (4 samples, 0.11%)</title><rect x="128.79" y="136" width="1.75" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>_ConversationTopicCardState.deactivate (6 samples, 0.16%)</title><rect x="133.59" y="168" width="2.62" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+</g>
+<g><title>_TopicListPrefetch.unregister (6 samples, 0.16%)</title><rect x="133.59" y="152" width="2.62" height="15" fill="hsl(280,70%,71%)" rx="2"/>
+</g>
+<g><title>_TopicListPrefetch._rowKey (4 samples, 0.11%)</title><rect x="133.59" y="136" width="1.75" height="15" fill="hsl(280,70%,65%)" rx="2"/>
+</g>
+<g><title>Topic.lastUnreadPostNumber (4 samples, 0.11%)</title><rect x="133.59" y="120" width="1.75" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>Topic.readingPolicy (4 samples, 0.11%)</title><rect x="133.59" y="104" width="1.75" height="15" fill="hsl(280,70%,65%)" rx="2"/>
+</g>
+<g><title>_ConversationTopicCardState.didChangeDependencies (7 samples, 0.19%)</title><rect x="136.21" y="168" width="3.06" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (360 samples, 9.82%)</title><rect x="139.26" y="168" width="157.16" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+<text x="142.26" y="180">_ItemLayout.performLa..</text>
+</g>
+<g><title>EventTopicTitle._schedule (23 samples, 0.63%)</title><rect x="140.14" y="152" width="10.04" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.performLayout (75 samples, 2.05%)</title><rect x="150.18" y="152" width="32.74" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>RenderParagraph._layoutTextWithConstraints (71 samples, 1.94%)</title><rect x="150.61" y="136" width="31.00" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (71 samples, 1.94%)</title><rect x="150.61" y="120" width="31.00" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (24 samples, 0.65%)</title><rect x="150.61" y="104" width="10.48" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>TopicCardTaxonomyLayout.calculate (41 samples, 1.12%)</title><rect x="182.92" y="152" width="17.90" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (34 samples, 0.93%)</title><rect x="182.92" y="136" width="14.84" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (32 samples, 0.87%)</title><rect x="182.92" y="120" width="13.97" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (24 samples, 0.65%)</title><rect x="182.92" y="104" width="10.48" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (15 samples, 0.41%)</title><rect x="200.82" y="152" width="6.55" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (12 samples, 0.33%)</title><rect x="202.13" y="136" width="5.24" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (11 samples, 0.30%)</title><rect x="202.13" y="120" width="4.80" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>_TopicCardSortValue.build (6 samples, 0.16%)</title><rect x="207.37" y="152" width="2.62" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._categoryPath (7 samples, 0.19%)</title><rect x="209.99" y="152" width="3.06" height="15" fill="hsl(280,70%,63%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._category (6 samples, 0.16%)</title><rect x="209.99" y="136" width="2.62" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._count (15 samples, 0.41%)</title><rect x="213.04" y="152" width="6.55" height="15" fill="hsl(280,70%,64%)" rx="2"/>
+</g>
+<g><title>_TopicCardTaxonomyState._tag (6 samples, 0.16%)</title><rect x="219.59" y="152" width="2.62" height="15" fill="hsl(280,70%,56%)" rx="2"/>
+</g>
+<g><title>_TopicListTitle.build (3 samples, 0.08%)</title><rect x="222.21" y="152" width="1.31" height="15" fill="hsl(280,70%,61%)" rx="2"/>
+</g>
+<g><title>_topicCountsWidth (22 samples, 0.60%)</title><rect x="223.52" y="152" width="9.60" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (20 samples, 0.55%)</title><rect x="223.52" y="136" width="8.73" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (18 samples, 0.49%)</title><rect x="224.39" y="120" width="7.86" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (17 samples, 0.46%)</title><rect x="224.39" y="104" width="7.42" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>_topicMinimumTaxonomyWidth (20 samples, 0.55%)</title><rect x="233.12" y="152" width="8.73" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (20 samples, 0.55%)</title><rect x="233.12" y="136" width="8.73" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (20 samples, 0.55%)</title><rect x="233.12" y="120" width="8.73" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (12 samples, 0.33%)</title><rect x="233.12" y="104" width="5.24" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>_topicSortOrder (3 samples, 0.08%)</title><rect x="241.86" y="152" width="1.31" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList.performLayout (22 samples, 0.60%)</title><rect x="368.46" y="232" width="9.60" height="15" fill="hsl(280,70%,63%)" rx="2"/>
+</g>
+<g><title>ExtentManager.performLayout (22 samples, 0.60%)</title><rect x="368.46" y="216" width="9.60" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList._performLayoutInner (22 samples, 0.60%)</title><rect x="368.46" y="200" width="9.60" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>RenderSuperSliverList.layoutChild (4 samples, 0.11%)</title><rect x="368.46" y="184" width="1.75" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (4 samples, 0.11%)</title><rect x="368.46" y="168" width="1.75" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (17 samples, 0.46%)</title><rect x="370.20" y="184" width="7.42" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+</g>
+<g><title>TopicCardTaxonomyLayout.calculate (5 samples, 0.14%)</title><rect x="371.51" y="168" width="2.18" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>TopicTextMeasurements.measure (5 samples, 0.14%)</title><rect x="371.51" y="152" width="2.18" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>TextPainter.layout (5 samples, 0.14%)</title><rect x="371.51" y="136" width="2.18" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter._createParagraph (5 samples, 0.14%)</title><rect x="371.51" y="120" width="2.18" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ShellController.destinationBookmarkRouteForUrl (8 samples, 0.22%)</title><rect x="378.94" y="232" width="3.49" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ShellController._routeForLink (8 samples, 0.22%)</title><rect x="378.94" y="216" width="3.49" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>ShellController.saveFeedScrollRow (6 samples, 0.16%)</title><rect x="382.86" y="232" width="2.62" height="15" fill="hsl(280,70%,65%)" rx="2"/>
+</g>
+<g><title>TopicFeedController._performRanges (3 samples, 0.08%)</title><rect x="385.92" y="232" width="1.31" height="15" fill="hsl(280,70%,73%)" rx="2"/>
+</g>
+<g><title>_InactiveElements._unmount (463 samples, 12.63%)</title><rect x="388.54" y="232" width="202.13" height="15" fill="hsl(280,70%,59%)" rx="2"/>
+<text x="391.54" y="244">_InactiveElements._unmount</text>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState.dispose (187 samples, 5.10%)</title><rect x="388.98" y="216" width="81.64" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+<text x="391.98" y="228">Implicitly..</text>
+</g>
+<g><title>ChangeNotifier.removeListener (162 samples, 4.42%)</title><rect x="388.98" y="200" width="70.72" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+<text x="391.98" y="212">ChangeNo..</text>
+</g>
+<g><title>ChangeNotifier._removeAt (84 samples, 2.29%)</title><rect x="388.98" y="184" width="36.67" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.dispose (44 samples, 1.20%)</title><rect x="470.61" y="216" width="19.21" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+</g>
+<g><title>TextPainter.dispose (43 samples, 1.17%)</title><rect x="470.61" y="200" width="18.77" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>_InactiveElements._unmountAll (55 samples, 1.50%)</title><rect x="590.67" y="232" width="24.01" height="15" fill="hsl(280,70%,72%)" rx="2"/>
+</g>
+<g><title>_InactiveElements._unmount (53 samples, 1.45%)</title><rect x="590.67" y="216" width="23.14" height="15" fill="hsl(280,70%,59%)" rx="2"/>
+</g>
+<g><title>ChangeNotifier.removeListener (8 samples, 0.22%)</title><rect x="590.67" y="200" width="3.49" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.paint (154 samples, 4.20%)</title><rect x="615.12" y="232" width="67.23" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+<text x="618.12" y="244">_ItemLay..</text>
+</g>
+<g><title>RenderParagraph.paint (40 samples, 1.09%)</title><rect x="615.12" y="216" width="17.46" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+</g>
+<g><title>RenderParagraph._layoutTextWithConstraints (3 samples, 0.08%)</title><rect x="615.12" y="200" width="1.31" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>TextPainter.paint (35 samples, 0.95%)</title><rect x="616.43" y="200" width="15.28" height="15" fill="hsl(280,70%,64%)" rx="2"/>
+</g>
+<g><title>_ItemLayout.performLayout (534 samples, 14.57%)</title><rect x="682.35" y="232" width="233.12" height="15" fill="hsl(280,70%,57%)" rx="2"/>
+<text x="685.35" y="244">_ItemLayout.performLayout</text>
+</g>
+<g><title>EventTopicTitle._schedule (5 samples, 0.14%)</title><rect x="682.35" y="216" width="2.18" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState.initState (13 samples, 0.35%)</title><rect x="685.40" y="216" width="5.68" height="15" fill="hsl(280,70%,62%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState._constructTweens (7 samples, 0.19%)</title><rect x="685.40" y="200" width="3.06" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+</g>
+<g><title>ImplicitlyAnimatedWidgetState.controller (4 samples, 0.11%)</title><rect x="688.46" y="200" width="1.75" height="15" fill="hsl(280,70%,70%)" rx="2"/>
+</g>
+<g><title>RenderParagraph.performLayout (164 samples, 4.47%)</title><rect x="691.08" y="216" width="71.60" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+<text x="694.08" y="228">RenderPa..</text>
+</g>
+<g><title>RenderParagraph._layoutTextWithConstraints (158 samples, 4.31%)</title><rect x="691.08" y="200" width="68.98" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+<text x="694.08" y="212">RenderPa..</text>
+</g>
+<g><title>TextPainter.layout (158 samples, 4.31%)</title><rect x="691.08" y="184" width="68.98" height="15" fill="hsl(280,70%,60%)" rx="2"/>
+<text x="694.08" y="196">TextPain..</text>
+</g>
+<g><title>TextPainter._createParagraph (136 samples, 3.71%)</title><rect x="691.08" y="168" width="59.37" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+<text x="694.08" y="180">TextPa..</text>
+</g>
+<g><title>TextPainter.inlinePlaceholderBoxes (3 samples, 0.08%)</title><rect x="760.05" y="200" width="1.31" height="15" fill="hsl(280,70%,74%)" rx="2"/>
+</g>
+<g><title>ShellController.destinationBookmarkRouteForUrl (35 samples, 0.95%)</title><rect x="762.67" y="216" width="15.28" height="15" fill="hsl(280,70%,69%)" rx="2"/>
+</g>
+<g><title>ShellController._routeForLink (33 samples, 0.90%)</title><rect x="762.67" y="200" width="14.41" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>ShellController.destinationBookmarkSiteForUrl (4 samples, 0.11%)</title><rect x="777.95" y="216" width="1.75" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>_TopicCardSortValue.build (11 samples, 0.30%)</title><rect x="780.14" y="216" width="4.80" height="15" fill="hsl(280,70%,66%)" rx="2"/>
+</g>
+<g><title>_TopicCardFooterState._build (8 samples, 0.22%)</title><rect x="915.91" y="232" width="3.49" height="15" fill="hsl(280,70%,63%)" rx="2"/>
+</g>
+<g><title>_TopicCardFooterState._resolveMeasure (4 samples, 0.11%)</title><rect x="915.91" y="216" width="1.75" height="15" fill="hsl(280,70%,55%)" rx="2"/>
+</g>
+<g><title>_TopicListScrollApi.topicList (3 samples, 0.08%)</title><rect x="919.40" y="232" width="1.31" height="15" fill="hsl(280,70%,65%)" rx="2"/>
+</g>
+<g><title>_TopicListViewState._ensureRange (3 samples, 0.08%)</title><rect x="920.71" y="232" width="1.31" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+</g>
+<g><title>_TopicListViewState._publishViewport (17 samples, 0.46%)</title><rect x="922.46" y="232" width="7.42" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>TopicFeedController.updateViewport (13 samples, 0.35%)</title><rect x="922.46" y="216" width="5.68" height="15" fill="hsl(280,70%,56%)" rx="2"/>
+</g>
+<g><title>_TopicListViewState._isCurrent (4 samples, 0.11%)</title><rect x="928.13" y="216" width="1.75" height="15" fill="hsl(280,70%,58%)" rx="2"/>
+</g>
+<g><title>other UI/runtime work (1535 samples, 41.88%)</title><rect x="929.88" y="232" width="670.12" height="15" fill="hsl(280,70%,67%)" rx="2"/>
+<text x="932.88" y="244">other UI/runtime work</text>
+</g>
+</svg>

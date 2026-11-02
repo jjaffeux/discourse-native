@@ -75,6 +75,7 @@ class TopicListView extends StatefulWidget {
 }
 
 class _TopicListViewState extends State<TopicListView> {
+  final _textMeasurements = TopicTextMeasurements();
   _TopicListExtents? _savedExtents;
   double? _extentWidth;
   PageStorageBucket? _pageStorage;
@@ -109,6 +110,12 @@ class _TopicListViewState extends State<TopicListView> {
   ShellController? _controller;
   ShellTabContext? _tab;
   StreamSubscription<int>? _topicListRevealSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    PaintingBinding.instance.systemFonts.addListener(_textMeasurements.clear);
+  }
 
   @override
   void didUpdateWidget(TopicListView oldWidget) {
@@ -328,6 +335,7 @@ class _TopicListViewState extends State<TopicListView> {
   void _syncControllers(_TopicListIdentity feedIdentity) {
     if (_feedIdentity == feedIdentity) return;
 
+    _textMeasurements.clear();
     _prefetch.reset();
     _disposeControllers();
     _releaseFeed?.call();
@@ -525,6 +533,10 @@ class _TopicListViewState extends State<TopicListView> {
 
   @override
   void dispose() {
+    PaintingBinding.instance.systemFonts.removeListener(
+      _textMeasurements.clear,
+    );
+    _textMeasurements.clear();
     _tickerMode?.removeListener(_tickerModeChanged);
     unawaited(_topicListRevealSubscription?.cancel());
     // Rows are handed to the shell as they change, but the latest may still
