@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import 'post_voting_category_settings.dart';
 import 'post_voting_comments.dart';
 import 'post_voting_data.dart';
 import 'post_voting_reader.dart';
@@ -110,26 +109,6 @@ final class PostVotingPlugin
       return const [];
     }
     return [
-      TopicMenuAction(
-        key: const ValueKey('post-voting-category-settings'),
-        label: context.l10n.postVotingCategorySettings,
-        icon: DIcons.gear,
-        onSelected: (context) async {
-          final reader = service.readers.forVisibleTopic(siteUrl, topic.id);
-          if (reader == null) return;
-          try {
-            await showPostVotingCategorySettings(
-              context,
-              reader: reader,
-              api: service.api,
-              requests: service.requests,
-              available: () => service.settingsFor(siteUrl).enabled == true,
-            );
-          } finally {
-            reader.close();
-          }
-        },
-      ),
       if (service.siteState.currentUserFor(siteUrl)?.admin == true)
         TopicMenuAction(
           label: context.l10n.postVotingSiteSettings,
