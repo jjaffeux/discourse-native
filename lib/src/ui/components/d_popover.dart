@@ -282,6 +282,7 @@ class DPopover extends StatefulWidget {
     this.sheetOnMobile = false,
     this.mobileSheetVariant = DSheetVariant.standard,
     this.mobileSheetShowTitle = true,
+    this.mobileSheetShowCloseButton = true,
     this.mobileSheetSizeToContent = true,
     this.mobileSheetInitiallyExpanded = false,
     this.mobileSheetContentLoading = false,
@@ -317,6 +318,9 @@ class DPopover extends StatefulWidget {
 
   /// Shows the mobile sheet's title without changing its semantic label.
   final bool mobileSheetShowTitle;
+
+  /// Shows the close button on non-adaptive mobile sheets.
+  final bool mobileSheetShowCloseButton;
 
   /// Whether an adaptive mobile sheet follows its content's height.
   ///
@@ -938,7 +942,7 @@ class _DPopoverState extends State<DPopover>
             variant: widget.fullScreenOnMobile
                 ? DSheetVariant.standard
                 : widget.mobileSheetVariant,
-            showCloseButton: !adaptiveMenu,
+            showCloseButton: !adaptiveMenu && widget.mobileSheetShowCloseButton,
             sizeToContent: widget.mobileSheetSizeToContent,
             initiallyExpanded: widget.mobileSheetInitiallyExpanded,
             contentLoading: widget.mobileSheetContentLoading,

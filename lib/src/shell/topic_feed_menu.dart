@@ -227,6 +227,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     sheetOnMobile: true,
     mobileSheetVariant: DSheetVariant.menu,
     mobileSheetShowTitle: false,
+    mobileSheetShowCloseButton: false,
     content: DDropdownMenuContent(
       width: 304,
       semanticLabel: context.l10n.chooseTopicFeed,

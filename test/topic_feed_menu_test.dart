@@ -138,10 +138,7 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(find.text('Choose topic feed'), findsNothing);
-          expect(
-            find.byTooltip('Close'),
-            mobile ? findsOneWidget : findsNothing,
-          );
+          expect(find.byTooltip('Close'), findsNothing);
           expect(menu, findsOneWidget);
           if (mobile) {
             final sheet = find.byType(DSheetContent);
@@ -153,7 +150,13 @@ void main() {
             );
             expect(find.byType(DSheetTitle), findsNothing);
             expect(
-              tester.getRect(find.byTooltip('Close')).bottom,
+              tester.widget<DSheetContent>(sheet).showCloseButton,
+              isFalse,
+            );
+            expect(
+              tester
+                  .getRect(find.byKey(const ValueKey('sheet-drag-handle')))
+                  .bottom,
               lessThanOrEqualTo(
                 tester
                     .getRect(find.byKey(const ValueKey('topic-list-latest')))
