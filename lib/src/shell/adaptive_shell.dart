@@ -1214,6 +1214,16 @@ class _PageComposerDock extends StatelessWidget {
 class _ShellLoadProgress extends StatelessWidget {
   const _ShellLoadProgress();
 
+  static final _logo = rootBundle
+      .loadString('assets/logo_mark.svg')
+      .then(
+        (svg) => DIconData(
+          'discourse-logo',
+          svg.replaceFirst('fill="#FFFFFF"', 'fill="currentColor"'),
+          preserveColors: true,
+        ),
+      );
+
   @override
   Widget build(BuildContext context) => ColoredBox(
     color: ForumWindowBackground.surfaceColor(
@@ -1221,13 +1231,31 @@ class _ShellLoadProgress extends StatelessWidget {
       Theme.of(context).shell.content,
     ),
     child: SafeArea(
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: UserMenuLoading(
-          semanticsLabel: context.l10n.loading,
-          surface: SkeletonSurface.page,
-        ),
-      ),
+      child: context.isTouch
+          ? SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: UserMenuLoading(
+                semanticsLabel: context.l10n.loading,
+                surface: SkeletonSurface.page,
+              ),
+            )
+          : Center(
+              child: Semantics(
+                label: context.l10n.loading,
+                liveRegion: true,
+                child: FutureBuilder<DIconData>(
+                  future: _logo,
+                  builder: (context, snapshot) => snapshot.hasData
+                      ? DIcon(
+                          snapshot.data!,
+                          size: 96,
+                          color: DTokens.of(context).foreground,
+                          semanticLabel: context.l10n.discourse,
+                        )
+                      : const SizedBox.square(dimension: 96),
+                ),
+              ),
+            ),
     ),
   );
 }

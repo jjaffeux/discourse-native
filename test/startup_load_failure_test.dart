@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
@@ -210,11 +211,16 @@ void main() {
   });
 
   for (final layout in [
-    (name: 'compact', size: const Size(390, 844)),
-    (name: 'wide', size: const Size(1000, 800)),
+    (name: 'compact', size: const Size(390, 844), platform: TargetPlatform.iOS),
+    (name: 'wide', size: const Size(1000, 800), platform: TargetPlatform.iOS),
+    (
+      name: 'desktop',
+      size: const Size(1440, 900),
+      platform: TargetPlatform.macOS,
+    ),
   ]) {
     testWidgets(
-      '${layout.name} mobile shell and rail recover through retry controls',
+      '${layout.name} startup and rail recover through retry controls',
       (tester) async {
         tester.view.physicalSize = layout.size;
         tester.view.devicePixelRatio = 1;
@@ -226,6 +232,7 @@ void main() {
 
         await tester.pumpWidget(
           DiscourseApp(
+            notificationOpenUrls: const Stream.empty(),
             store: store,
             api: FakeDiscourseApi(),
             authenticator: FakeAuthenticator(),
@@ -238,8 +245,18 @@ void main() {
           ),
         );
         expect(store.loadCount, 1);
-        expect(find.byType(DSkeletonRegion), findsOneWidget);
-        expect(find.byType(DSkeleton), findsWidgets);
+        if (layout.platform == TargetPlatform.macOS) {
+          expect(find.byType(DSkeletonRegion), findsNothing);
+          expect(find.byType(DSkeleton), findsNothing);
+          await tester.runAsync(
+            () => rootBundle.loadString('assets/logo_mark.svg'),
+          );
+          await tester.pumpAndSettle();
+          expect(find.bySemanticsLabel('Discourse'), findsOneWidget);
+        } else {
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+          expect(find.byType(DSkeleton), findsWidgets);
+        }
         expect(find.byType(DSpinner), findsNothing);
 
         first.completeError(StateError('preferences unavailable'));
@@ -272,7 +289,13 @@ void main() {
             .widget<ShellScope>(find.byType(ShellScope))
             .notifier!;
         expect(shell.loadStatus, InstanceLoadStatus.loading);
-        expect(find.byType(DSkeletonRegion), findsOneWidget);
+        if (layout.platform == TargetPlatform.macOS) {
+          await tester.pumpAndSettle();
+          expect(find.bySemanticsLabel('Discourse'), findsOneWidget);
+          expect(find.byType(DSkeletonRegion), findsNothing);
+        } else {
+          expect(find.byType(DSkeletonRegion), findsOneWidget);
+        }
         expect(
           find.byKey(const ValueKey('instance-load-retry-rail')),
           findsNothing,
@@ -284,12 +307,15 @@ void main() {
         expect(shell.loadStatus, InstanceLoadStatus.ready);
         expect(find.byType(DSkeletonRegion), findsNothing);
         expect(find.text("Couldn't load your sites"), findsNothing);
-        expect(
-          find.byKey(const ValueKey('mobile-content-panel')),
-          findsOneWidget,
-        );
-        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
-        await tester.pumpAndSettle();
+        expect(find.bySemanticsLabel('Discourse'), findsNothing);
+        if (layout.platform == TargetPlatform.iOS) {
+          expect(
+            find.byKey(const ValueKey('mobile-content-panel')),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+          await tester.pumpAndSettle();
+        }
 
         final savedSite = find.byKey(
           const ValueKey('instance-rail-tooltip-https://saved.example'),
@@ -301,6 +327,7 @@ void main() {
         );
         expect(store.saved, isEmpty);
       },
+      variant: TargetPlatformVariant.only(layout.platform),
     );
   }
 }
