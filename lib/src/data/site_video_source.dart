@@ -94,7 +94,7 @@ final class SiteVideoSourceResolver {
     for (var redirects = 0; ; redirects++) {
       _requireCurrent(lease);
       final onForum = account.isForumHop(current);
-      final response = await _sendHead(
+      final response = await _sendProbe(
         current,
         account.headersFor(current),
         elapsed,
@@ -134,7 +134,7 @@ final class SiteVideoSourceResolver {
     _client.close();
   }
 
-  Future<http.StreamedResponse> _sendHead(
+  Future<http.StreamedResponse> _sendProbe(
     Uri url,
     Map<String, String> headers,
     Stopwatch elapsed,
@@ -143,11 +143,12 @@ final class SiteVideoSourceResolver {
     if (_closed) throw StateError('Video source resolver is closed.');
     final abort = Completer<void>();
     _abortTriggers.add(abort);
+    // Discourse user API read scopes authorize GET rather than HEAD.
     final request = http.AbortableRequest(
-      'HEAD',
+      'GET',
       url,
       abortTrigger: abort.future,
-    )..headers.addAll(headers);
+    )..headers.addAll({...headers, 'Range': 'bytes=0-0'});
     final pending = Future<http.StreamedResponse>.sync(
       () => _client.send(request),
     );
@@ -163,8 +164,8 @@ final class SiteVideoSourceResolver {
             .ignore();
         rethrow;
       }
-      // Only status and redirect headers are needed. Do not wait for or buffer
-      // a broken server's HEAD body, and release the connection promptly.
+      // Only status and redirect headers are needed, even if the server
+      // ignores the byte range. Release the body without buffering it.
       await _guard(
         response.stream.listen(null).cancel(),
         elapsed,

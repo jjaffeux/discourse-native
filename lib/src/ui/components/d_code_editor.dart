@@ -229,6 +229,13 @@ class _CodeEditorScrollBehavior extends DScrollBehavior {
   final ValueChanged<ScrollController> onVerticalScroll;
 
   @override
+  Widget buildOverscrollIndicator(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
+
+  @override
   Widget buildScrollbar(
     BuildContext context,
     Widget child,

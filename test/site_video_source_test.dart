@@ -90,7 +90,7 @@ void main() {
   });
 
   test(
-    'credentials stay on the forum while signed redirects are resolved',
+    'protected audio resolves with user API read access and keeps credentials on the forum',
     () async {
       final requests = <http.Request>[];
       final resolver = SiteVideoSourceResolver(
@@ -102,10 +102,11 @@ void main() {
         client: MockClient((request) async {
           requests.add(request);
           if (request.url.host == 'meta.discourse.org') {
+            if (request.method != 'GET') return http.Response('', 403);
             return http.Response(
               '',
               302,
-              headers: {'location': 'https://cdn.example.com/signed/demo.mp4'},
+              headers: {'location': 'https://cdn.example.com/signed/demo.mp3'},
             );
           }
           return http.Response('', 200);
@@ -115,16 +116,21 @@ void main() {
 
       final source = await resolver.resolve(
         siteUrl: siteUrl,
-        url: Uri.parse('$siteUrl/secure-uploads/original/demo.mp4'),
+        url: Uri.parse('$siteUrl/secure-uploads/original/demo.mp3'),
       );
 
-      expect(source.url, Uri.parse('https://cdn.example.com/signed/demo.mp4'));
+      expect(source.url, Uri.parse('https://cdn.example.com/signed/demo.mp3'));
       expect(requests, hasLength(2));
-      expect(requests.first.method, 'HEAD');
+      expect(requests.first.method, 'GET');
+      expect(requests.map((request) => request.headers['Range']), [
+        'bytes=0-0',
+        'bytes=0-0',
+      ]);
       expect(requests.first.followRedirects, isFalse);
       expect(requests.first.headers['User-Api-Key'], 'secret');
       expect(requests.first.headers['User-Api-Client-Id'], 'client');
       expect(requests.last.headers, isNot(contains('User-Api-Key')));
+      expect(requests.last.headers, isNot(contains('User-Api-Client-Id')));
     },
   );
 
@@ -170,7 +176,7 @@ void main() {
           reason: legacy,
         );
         expect(requests, hasLength(2), reason: legacy);
-        expect(requests.first.method, 'HEAD', reason: legacy);
+        expect(requests.first.method, 'GET', reason: legacy);
         expect(requests.first.url, Uri.parse(legacy), reason: legacy);
         expect(
           requests.first.headers['User-Api-Key'],
@@ -334,7 +340,7 @@ void main() {
     }
   }
 
-  test('an anonymous secure URL skips client ID and HEAD probing', () async {
+  test('an anonymous secure URL skips client ID and probing', () async {
     final credentials = _HeldCredentials('unused', anonymous: true);
     var requests = 0;
     final resolver = SiteVideoSourceResolver(

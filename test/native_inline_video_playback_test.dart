@@ -145,7 +145,7 @@ void main() {
           }),
         );
 
-        expect(probes.first.method, 'HEAD');
+        expect(probes.first.method, 'GET');
         expect(probes.first.headers['User-Api-Key'], 'forum-secret');
         if (redirected) {
           expect(probes.last.headers, isNot(contains('User-Api-Key')));
