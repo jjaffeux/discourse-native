@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart' show PluginManifest;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/models/forum_theme_preferences.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugins/post_voting/post_voting_module.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -110,6 +112,59 @@ void main() {
     }
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  testWidgets(
+    'topic sheet shows a skeleton while its reader type is unresolved',
+    (tester) async {
+      final gate = Completer<void>();
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topicGate: gate,
+        pluginManifest: const PluginManifest([postVotingModule]),
+        topic: topicPayload(
+          id: 7,
+          title: 'Shared topic card',
+          posts: const [
+            Post(
+              id: 71,
+              postNumber: 1,
+              username: 'reader',
+              cooked: '<p>The topic has arrived.</p>',
+            ),
+          ],
+        ),
+      );
+      expect(shell.plugins.registry.hasTopicReaders, isTrue);
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 250));
+
+      final inSheet = find.descendant(
+        of: _sheet,
+        matching: find.byType(DSkeletonRegion),
+      );
+      expect(inSheet, findsWidgets);
+      expect(
+        find.descendant(of: _sheet, matching: find.byType(DSpinner)),
+        findsNothing,
+      );
+      expect(
+        find.descendant(of: _sheet, matching: find.text('Shared topic card')),
+        findsWidgets,
+      );
+      final body = find.text('The topic has arrived.', findRichText: true);
+      expect(body, findsNothing);
+      await _capture(tester, 'loading-skeleton');
+
+      gate.complete();
+      await tester.pumpAndSettle();
+      expect(inSheet, findsNothing);
+      expect(body, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   testWidgets(
     'dismissed topic hands off its list title without a blank frame',

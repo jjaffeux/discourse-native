@@ -3,6 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
+import '../models/topic.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/topic_reader.dart';
 import 'shell_scope.dart';
@@ -102,7 +103,20 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
           ),
         );
       }
-      return const Center(child: DSpinner());
+      final preview = shell.store.read<Topic>(reader.siteUrl, reader.topicId);
+      return TopicInboxHeader(
+        loading: true,
+        title:
+            topic?.displayTitle ?? preview?.displayTitle ?? reader.route.title,
+        siteUrl: reader.siteUrl,
+        route: reader.route,
+        preview: preview,
+        registry: widget.registry,
+        canReturnToSidebar: true,
+        keepTopicListOpen: false,
+        bodyBuilder: (header) =>
+            header.inset(const TopicLoadingSkeleton(), fullExtent: true),
+      );
     }
     return widget.registry.buildTopicReader(
           context,

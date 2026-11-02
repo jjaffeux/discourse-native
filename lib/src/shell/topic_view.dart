@@ -1456,7 +1456,7 @@ class _TopicViewState extends State<TopicView>
                       child: header.inset(
                         Padding(
                           padding: lanePadding,
-                          child: const _TopicLoadingSkeleton(
+                          child: const TopicLoadingSkeleton(
                             key: ValueKey('topic-loading-skeleton'),
                           ),
                         ),
@@ -2724,8 +2724,8 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
   }
 }
 
-class _TopicLoadingSkeleton extends StatelessWidget {
-  const _TopicLoadingSkeleton({super.key});
+class TopicLoadingSkeleton extends StatelessWidget {
+  const TopicLoadingSkeleton({super.key});
 
   static const _patternHeight = 404.0;
 
