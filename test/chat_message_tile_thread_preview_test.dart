@@ -848,7 +848,7 @@ void main() {
         final cooked = tester.widget<CookedHtml>(find.byType(CookedHtml));
         expect(cooked.compactParagraphs, isTrue);
         expect(cooked.textStyle?.fontSize, 14);
-        expect(cooked.textStyle?.height, 1.625);
+        expect(cooked.textStyle?.height, 1.4);
         final authorStyle = DefaultTextStyle.of(
           tester.element(find.text('Root author')),
         ).style;

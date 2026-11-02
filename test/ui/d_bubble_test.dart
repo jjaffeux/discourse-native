@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,6 +55,38 @@ void main() {
       ),
     ),
   );
+
+  for (final scale in [1.0, 2.0]) {
+    testWidgets('ghost multiline leading matches core chat at scale $scale', (
+      tester,
+    ) async {
+      const text = 'First line\nSecond line\nThird line';
+      await tester.pumpWidget(
+        host(
+          const DBubble(
+            variant: DBubbleVariant.ghost,
+            children: [DBubbleContent(child: Text(text))],
+          ),
+          scale: scale,
+        ),
+      );
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.text(text), matching: find.byType(RichText)),
+      );
+      final first = paragraph
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 0, extentOffset: 1),
+          )
+          .single;
+      final second = paragraph
+          .getBoxesForSelection(
+            const TextSelection(baseOffset: 11, extentOffset: 12),
+          )
+          .single;
+      expect(second.top - first.top, closeTo(14 * 1.4 * scale, 0.5));
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   testWidgets('reply quotes share the rounded raised quote surface', (
     tester,

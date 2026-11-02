@@ -305,7 +305,7 @@ class _DBubbleContentState extends State<DBubbleContent> {
       fontSize: conversation
           ? DiscourseTypography.compact
           : DiscourseTypography.sm,
-      height: conversation ? 1.5 : 1.625,
+      height: ghost ? 1.4 : (conversation ? 1.5 : 1.625),
     );
 
     if (scope.variant == DBubbleVariant.status) {
