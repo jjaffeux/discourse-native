@@ -179,6 +179,24 @@ class ComposerPanel extends StatelessWidget {
         final target = composer.target;
         final error = composer.error;
         final notice = composer.notice;
+        final message =
+            error?.message ??
+            notice ??
+            composer.taxonomyValidationMessage ??
+            (composer.localDraftFailed
+                ? context.l10n.couldnTSaveThisDraftOnThisDevice
+                : composer.draftConflict
+                ? '${context.l10n.someoneElseChangedThatFirst} '
+                      '${context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly}'
+                : composer.draftStatus == DraftStatus.failing ||
+                      composer.draftsGaveUp
+                ? context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly
+                : null);
+        final isError =
+            error != null ||
+            composer.localDraftFailed ||
+            composer.taxonomyValidationMessage != null;
+        final announce = error != null || notice != null;
         void close() => unawaited(
           closeComposerFromPanel(
             context: context,
@@ -499,205 +517,214 @@ class ComposerPanel extends StatelessWidget {
               descendantsAreTraversable: !composer.discarding,
               child: AbsorbPointer(
                 absorbing: composer.discarding,
-                child: Column(
-                  children: [
-                    if (!mobile || minimized) header,
-                    if (!minimized)
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            final fields = <Widget>[
-                              if (target is ReplyComposerTarget &&
-                                  constraints.maxHeight >= 80)
-                                ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    maxHeight: math.min(
-                                      140,
-                                      math.max(48, constraints.maxHeight * 0.6),
-                                    ),
-                                  ),
-                                  child: ComposerReplyContext(
-                                    key: ValueKey((
-                                      target.siteUrl,
-                                      target.topicId,
-                                      target.replyToPostNumber,
-                                    )),
-                                    target: target,
-                                  ),
-                                ),
-                              if (!mobile && target.isPrivateMessage)
-                                ComposerRecipients(composer: composer),
-                              if ((!mobile && target.editsTopicMetadata) ||
-                                  target.isTaxonomyEdit)
-                                _TopicTaxonomy(composer: composer),
-                              if (target.createsTopic ||
-                                  target.editsTopicMetadata) ...[
-                                Padding(
-                                  padding: EdgeInsets.fromLTRB(
-                                    mobile
-                                        ? 16
-                                        : 4 +
-                                              ComposerBlockSurface.gutterWidth(
-                                                context,
-                                              ),
-                                    4,
-                                    16,
-                                    10,
-                                  ),
-                                  child: ComposerDraftPreview(
-                                    composer: composer,
-                                    title: true,
-                                    style: theme.textTheme.headlineSmall,
-                                    child: DInput(
-                                      key: const ValueKey(
-                                        'composer-topic-title',
-                                      ),
-                                      controller: composer.title,
-                                      focusNode: composer.titleFocus,
-                                      onSubmitted: (_) {
-                                        composer.text.selection =
-                                            const TextSelection.collapsed(
-                                              offset: 0,
-                                            );
-                                        composer.focus.requestFocus();
-                                      },
-                                      borderless: true,
-                                      size: DControlSize.large,
-                                      readOnly: !composer.isEditing,
-                                      semanticLabel: context.l10n.title,
-                                      style: theme.textTheme.headlineSmall,
-                                      hintText:
-                                          context.l10n.giveYourTopicATitle,
-                                      textInputAction: TextInputAction.next,
-                                    ),
-                                  ),
-                                ),
-                                if (!mobile)
-                                  const DSeparator(
-                                    indent: 16,
-                                    endIndent: 16,
-                                    space: 1,
-                                  ),
-                                const SizedBox(height: 12),
-                              ],
-                              if (target.mode == ComposerMode.postEdit)
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    8,
-                                  ),
-                                  child: DItem(
-                                    key: const ValueKey(
-                                      'composer-edit-context',
-                                    ),
-                                    variant: DItemVariant.muted,
-                                    size: DItemSize.xs,
-                                    children: [
-                                      DItemContent(
-                                        spacing: 3,
-                                        children: [
-                                          DItemDescription(
-                                            child: Text(context.l10n.topic),
-                                          ),
-                                          DItemTitle(
-                                            maxLines: 2,
-                                            child: TopicTitle(
-                                              target.topicTitle,
-                                              siteUrl: target.siteUrl,
-                                              maxLines: 2,
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                            ];
-                            final content = Column(
-                              children: [
-                                if (mobile)
-                                  ...fields
-                                else if (fields.isNotEmpty)
+                child: LayoutBuilder(
+                  builder: (context, panelConstraints) => Column(
+                    children: [
+                      if (!mobile || minimized) header,
+                      if (!minimized)
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, constraints) {
+                              final fields = <Widget>[
+                                if (target is ReplyComposerTarget &&
+                                    constraints.maxHeight >= 80)
                                   ConstrainedBox(
                                     constraints: BoxConstraints(
-                                      maxHeight:
-                                          constraints.maxHeight *
-                                          (target.isTaxonomyEdit ? 1 : .6),
+                                      maxHeight: math.min(
+                                        140,
+                                        math.max(
+                                          48,
+                                          constraints.maxHeight * 0.6,
+                                        ),
+                                      ),
                                     ),
-                                    child: DScrollArea(
-                                      thumbVisibility: false,
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: fields,
+                                    child: ComposerReplyContext(
+                                      key: ValueKey((
+                                        target.siteUrl,
+                                        target.topicId,
+                                        target.replyToPostNumber,
+                                      )),
+                                      target: target,
+                                    ),
+                                  ),
+                                if (!mobile && target.isPrivateMessage)
+                                  ComposerRecipients(composer: composer),
+                                if ((!mobile && target.editsTopicMetadata) ||
+                                    target.isTaxonomyEdit)
+                                  _TopicTaxonomy(composer: composer),
+                                if (target.createsTopic ||
+                                    target.editsTopicMetadata) ...[
+                                  Padding(
+                                    padding: EdgeInsets.fromLTRB(
+                                      mobile
+                                          ? 16
+                                          : 4 +
+                                                ComposerBlockSurface.gutterWidth(
+                                                  context,
+                                                ),
+                                      4,
+                                      16,
+                                      10,
+                                    ),
+                                    child: ComposerDraftPreview(
+                                      composer: composer,
+                                      title: true,
+                                      style: theme.textTheme.headlineSmall,
+                                      child: DInput(
+                                        key: const ValueKey(
+                                          'composer-topic-title',
+                                        ),
+                                        controller: composer.title,
+                                        focusNode: composer.titleFocus,
+                                        onSubmitted: (_) {
+                                          composer.text.selection =
+                                              const TextSelection.collapsed(
+                                                offset: 0,
+                                              );
+                                          composer.focus.requestFocus();
+                                        },
+                                        borderless: true,
+                                        size: DControlSize.large,
+                                        readOnly: !composer.isEditing,
+                                        semanticLabel: context.l10n.title,
+                                        style: theme.textTheme.headlineSmall,
+                                        hintText:
+                                            context.l10n.giveYourTopicATitle,
+                                        textInputAction: TextInputAction.next,
                                       ),
                                     ),
                                   ),
-                                if (!target.isTaxonomyEdit) ...[
-                                  editorBody,
-                                ] else if (!mobile)
-                                  const Spacer(),
-                              ],
-                            );
-                            if (mobile) {
-                              return _MobileComposerViewport(
-                                header: header,
-                                composer: composer,
-                                child: content,
+                                  if (!mobile)
+                                    const DSeparator(
+                                      indent: 16,
+                                      endIndent: 16,
+                                      space: 1,
+                                    ),
+                                  const SizedBox(height: 12),
+                                ],
+                                if (target.mode == ComposerMode.postEdit)
+                                  Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      16,
+                                      0,
+                                      16,
+                                      8,
+                                    ),
+                                    child: DItem(
+                                      key: const ValueKey(
+                                        'composer-edit-context',
+                                      ),
+                                      variant: DItemVariant.muted,
+                                      size: DItemSize.xs,
+                                      children: [
+                                        DItemContent(
+                                          spacing: 3,
+                                          children: [
+                                            DItemDescription(
+                                              child: Text(context.l10n.topic),
+                                            ),
+                                            DItemTitle(
+                                              maxLines: 2,
+                                              child: TopicTitle(
+                                                target.topicTitle,
+                                                siteUrl: target.siteUrl,
+                                                maxLines: 2,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ];
+                              final content = Column(
+                                children: [
+                                  if (mobile)
+                                    ...fields
+                                  else if (fields.isNotEmpty)
+                                    ConstrainedBox(
+                                      constraints: BoxConstraints(
+                                        maxHeight:
+                                            constraints.maxHeight *
+                                            (target.isTaxonomyEdit ? 1 : .6),
+                                      ),
+                                      child: DScrollArea(
+                                        thumbVisibility: false,
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: fields,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!target.isTaxonomyEdit) ...[
+                                    editorBody,
+                                  ] else if (!mobile)
+                                    const Spacer(),
+                                ],
                               );
-                            }
-                            // The editor owns its viewport. A larger minimum
-                            // height inside another scroller can hide its last
-                            // line even at the editor's maximum scroll offset.
-                            return content;
-                          },
+                              if (mobile) {
+                                return _MobileComposerViewport(
+                                  header: header,
+                                  composer: composer,
+                                  child: content,
+                                );
+                              }
+                              // The editor owns its viewport. A larger minimum
+                              // height inside another scroller can hide its last
+                              // line even at the editor's maximum scroll offset.
+                              return content;
+                            },
+                          ),
                         ),
-                      ),
-                    if (!minimized)
-                      _ComposerBottom(
-                        composer: composer,
-                        mobile: mobile,
-                        showTaxonomy:
-                            mobile &&
-                            !target.isTaxonomyEdit &&
-                            (target.isNewTopic || target.editsTopicMetadata),
-                        child: _Footer(
+                      if (!minimized && isError && message != null)
+                        Padding(
+                          padding: EdgeInsets.fromLTRB(
+                            mobile ? DSpacing.lg : 14,
+                            0,
+                            mobile ? DSpacing.lg : 14,
+                            DSpacing.md,
+                          ),
+                          child: _ComposerErrorAlert(
+                            key: ObjectKey(error ?? message),
+                            message: message,
+                            announce: announce,
+                            maxHeight:
+                                math.max(
+                                  0,
+                                  panelConstraints.maxHeight -
+                                      (mobile
+                                          ? MediaQuery.viewInsetsOf(
+                                              context,
+                                            ).bottom
+                                          : 0),
+                                ) *
+                                .4,
+                          ),
+                        ),
+                      if (!minimized)
+                        _ComposerBottom(
                           composer: composer,
-                          onCancel: discard,
-                          sideDocked: placement.isSide,
-                          pickFiles: pickFiles,
-                          pickImages: pickImages,
-                          message:
-                              error?.message ??
-                              notice ??
-                              composer.taxonomyValidationMessage ??
-                              (composer.localDraftFailed
-                                  ? context
-                                        .l10n
-                                        .couldnTSaveThisDraftOnThisDevice
-                                  : composer.draftConflict
-                                  ? '${context.l10n.someoneElseChangedThatFirst} '
-                                        '${context.l10n.notSavedOnTheSiteKeptOnThisDeviceOnly}'
-                                  : composer.draftStatus ==
-                                            DraftStatus.failing ||
-                                        composer.draftsGaveUp
-                                  ? context
-                                        .l10n
-                                        .notSavedOnTheSiteKeptOnThisDeviceOnly
-                                  : null),
-                          isError:
-                              error != null ||
-                              composer.localDraftFailed ||
-                              composer.taxonomyValidationMessage != null,
-                          announce: error != null || notice != null,
-                          busy: busy,
-                          label: submitLabel,
-                          onSubmit: onSubmit,
+                          mobile: mobile,
+                          showTaxonomy:
+                              mobile &&
+                              !target.isTaxonomyEdit &&
+                              (target.isNewTopic || target.editsTopicMetadata),
+                          child: _Footer(
+                            composer: composer,
+                            onCancel: discard,
+                            sideDocked: placement.isSide,
+                            pickFiles: pickFiles,
+                            pickImages: pickImages,
+                            message: isError ? null : message,
+                            announce: announce,
+                            busy: busy,
+                            label: submitLabel,
+                            onSubmit: onSubmit,
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -4822,7 +4849,6 @@ class _Footer extends StatelessWidget {
     required this.pickFiles,
     required this.pickImages,
     required this.message,
-    required this.isError,
     required this.announce,
     required this.busy,
     required this.label,
@@ -4835,7 +4861,6 @@ class _Footer extends StatelessWidget {
   final ComposerFilePicker pickFiles;
   final ComposerImagePicker? pickImages;
   final String? message;
-  final bool isError;
 
   /// Whether [message] reports the outcome of something just done — a submit,
   /// a pick, a discard — which lands away from focus and must be spoken. A
@@ -4889,9 +4914,7 @@ class _Footer extends StatelessWidget {
             child: Text(
               message!,
               style: theme.textTheme.labelSmall?.copyWith(
-                color: isError
-                    ? theme.colorScheme.error
-                    : theme.colorScheme.onSurfaceVariant,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           );
@@ -5102,6 +5125,88 @@ class _Footer extends StatelessWidget {
             child: controls,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _ComposerErrorAlert extends StatefulWidget {
+  const _ComposerErrorAlert({
+    super.key,
+    required this.message,
+    required this.announce,
+    required this.maxHeight,
+  });
+
+  final String message;
+  final bool announce;
+  final double maxHeight;
+
+  @override
+  State<_ComposerErrorAlert> createState() => _ComposerErrorAlertState();
+}
+
+class _ComposerErrorAlertState extends State<_ComposerErrorAlert> {
+  bool _expanded = true;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return DAlert(
+      variant: DAlertVariant.destructive,
+      backgroundColor: tokens.surface.withValues(alpha: 1),
+      descriptionColor: tokens.foreground,
+      liveRegion: widget.announce,
+      description: DAlertDescription(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxHeight: widget.maxHeight),
+          child: DScrollArea(
+            thumbVisibility: false,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              spacing: DSpacing.controlGap,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  spacing: DSpacing.controlGap,
+                  children: [
+                    const DIcon(DIcons.triangleExclamation),
+                    Expanded(
+                      child: DAlertTitle(
+                        child: Text(
+                          context.l10n.composerErrorTitle,
+                          style: TextStyle(color: tokens.destructive),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_expanded) Text(widget.message),
+                Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Semantics(
+                    expanded: _expanded,
+                    child: DButton(
+                      variant: DButtonVariant.link,
+                      size: DButtonSize.small,
+                      label: Text(
+                        _expanded
+                            ? context.l10n.showLess
+                            : context.l10n.details,
+                      ),
+                      icon: RotatedBox(
+                        quarterTurns: _expanded ? 2 : 0,
+                        child: const DIcon(DIcons.chevronDown),
+                      ),
+                      onPressed: () => setState(() => _expanded = !_expanded),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -15423,6 +15423,10 @@
   "@apiKeyRejectedExceptionStatusCode403": {
     "description": "English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact."
   },
+  "composerErrorTitle": "Couldn''t complete this action",
+  "@composerErrorTitle": {
+    "description": "Heading for the composer error alert. Details may concern posting, editing, validation, or draft saving."
+  },
   "thatWasnTAccepted": "That wasn''t accepted.",
   "@thatWasnTAccepted": {
     "description": "English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact."

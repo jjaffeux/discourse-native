@@ -11559,6 +11559,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'ApiKeyRejectedException(statusCode: 403)';
 
   @override
+  String get composerErrorTitle => 'Couldn\'t complete this action';
+
+  @override
   String get thatWasnTAccepted => 'That wasn\'t accepted.';
 
   @override

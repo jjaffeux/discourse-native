@@ -19770,6 +19770,12 @@ abstract class AppLocalizations {
   /// **'ApiKeyRejectedException(statusCode: 403)'**
   String get apiKeyRejectedExceptionStatusCode403;
 
+  /// Heading for the composer error alert. Details may concern posting, editing, validation, or draft saving.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t complete this action'**
+  String get composerErrorTitle;
+
   /// English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

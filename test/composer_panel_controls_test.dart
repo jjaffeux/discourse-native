@@ -47,6 +47,14 @@ void main() {
     LocalDateEnvironment.instance.ensureDatabase();
     LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
     await initializeDateFormatting('en');
+    if (Platform.environment['COMPOSER_TOOLBAR_CAPTURE_DIR'] != null) {
+      for (final (family, path) in [
+        ('Lato', 'assets/fonts/Lato-Regular.ttf'),
+        ('Open Sans', 'assets/fonts/OpenSans.ttf'),
+      ]) {
+        await (FontLoader(family)..addFont(rootBundle.load(path))).load();
+      }
+    }
   });
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -78,6 +86,12 @@ void main() {
             height: 800,
             textScaler: TextScaler.linear(scale),
             resizeToAvoidBottomInset: false,
+            theme: Platform.environment['COMPOSER_TOOLBAR_CAPTURE_DIR'] == null
+                ? null
+                : AppTheme.forBrightness(
+                    Brightness.dark,
+                    fontFamily: 'Open Sans',
+                  ),
           );
           composer.focus.requestFocus();
           composer.failed(
@@ -95,12 +109,77 @@ void main() {
             lessThan(tester.getRect(toolbar).top),
           );
           expect(tester.getRect(toolbar).bottom, lessThanOrEqualTo(470));
+          expect(
+            tester
+                .getRect(find.byKey(const ValueKey('composer-footer-blur')))
+                .top,
+            greaterThan(tester.getRect(alert).bottom),
+          );
           expect(composer.focus.hasFocus, isTrue);
           expect(composer.raw, 'My reply with #chitchat');
           expect(tester.takeException(), isNull);
         },
         variant: TargetPlatformVariant.only(TargetPlatform.iOS),
       );
+    }
+
+    for (final (name, target) in [
+      ('reply', _replyTarget),
+      ('topic', _newTopicTarget),
+      ('message', _privateMessageTarget),
+    ]) {
+      for (final scale in [1.0, 2.0]) {
+        testWidgets(
+          'small-phone $name keeps errors and toolbar reachable at scale $scale',
+          (tester) async {
+            final composer = ComposerController(target);
+            composer.text.text = 'A draft that must remain editable';
+            final shell = await _shell();
+            addTearDown(composer.dispose);
+            addTearDown(shell.dispose);
+            tester.view.viewInsets = FakeViewPadding(
+              bottom: 300 * tester.view.devicePixelRatio,
+            );
+            addTearDown(tester.view.resetViewInsets);
+            await _pumpPanel(
+              tester,
+              shell,
+              composer,
+              size: const Size(320, 640),
+              height: 640,
+              textScaler: TextScaler.linear(scale),
+              resizeToAvoidBottomInset: false,
+            );
+            final message = List.filled(
+              20,
+              'Please review this post.',
+            ).join('\n');
+            composer.failed(
+              WriteException(WriteFailure.validation, errors: [message]),
+            );
+            await tester.pumpAndSettle();
+            final alert = tester.getRect(find.byType(DAlert));
+            final toolbar = tester.getRect(
+              find.byKey(const ValueKey('composer-toolbar-scroll')),
+            );
+            expect(alert.top, greaterThanOrEqualTo(0));
+            expect(alert.bottom, lessThan(toolbar.top));
+            expect(toolbar.bottom, lessThanOrEqualTo(340));
+            final scrollable = find.descendant(
+              of: find.byType(DAlert),
+              matching: find.byType(Scrollable),
+            );
+            final position = tester.state<ScrollableState>(scrollable).position;
+            expect(position.maxScrollExtent, greaterThan(0));
+            position.jumpTo(position.maxScrollExtent);
+            await tester.pumpAndSettle();
+            expect(find.text('Show less').hitTestable(), findsOneWidget);
+            expect(composer.raw, 'A draft that must remain editable');
+            expect(tester.takeException(), isNull);
+          },
+          variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+        );
+      }
     }
 
     testWidgets(
