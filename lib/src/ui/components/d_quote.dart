@@ -20,6 +20,7 @@ class DQuote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
+    final nested = context.findAncestorWidgetOfExactType<DQuote>() != null;
     return DecoratedBox(
       decoration: BoxDecoration(
         color: tokens.raisedBackground,
@@ -28,9 +29,9 @@ class DQuote extends StatelessWidget {
       child: Stack(
         children: [
           PositionedDirectional(
-            start: 11,
-            top: 11,
-            bottom: 11,
+            start: nested ? 0 : 11,
+            top: nested ? 0 : 11,
+            bottom: nested ? 0 : 11,
             width: 3,
             child: IgnorePointer(
               child: DecoratedBox(
@@ -42,7 +43,9 @@ class DQuote extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsetsDirectional.fromSTEB(25, 11, 14, 12),
+            padding: nested
+                ? const EdgeInsetsDirectional.only(start: 12)
+                : const EdgeInsetsDirectional.fromSTEB(25, 11, 14, 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,

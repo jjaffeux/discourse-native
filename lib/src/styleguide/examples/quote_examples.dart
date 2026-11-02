@@ -27,6 +27,28 @@ final quoteExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Nested quote',
+      description: 'Nested quotes use a compact inset without card padding.',
+      states: const ['Nested', 'Multiline', 'RTL'],
+      code: 'DQuote(child: DQuote(child: Text("Nested content")))',
+      builder: (_) => const DQuote(
+        header: Text('Outer source'),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('The surrounding quote retains its reading space.'),
+            SizedBox(height: 12),
+            DQuote(
+              header: Text('Nested source'),
+              child: Text('The nested quote adds only a small indentation.'),
+            ),
+            SizedBox(height: 12),
+            Text('The outer quote continues here.'),
+          ],
+        ),
+      ),
+    ),
+    StyleguideExample(
       title: 'Unattributed quote',
       description: 'Quoted prose can omit an attribution header.',
       states: const ['No attribution'],

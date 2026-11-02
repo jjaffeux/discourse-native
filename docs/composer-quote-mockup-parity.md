@@ -10,7 +10,9 @@ a decorative quote-right mark; the body uses the mockup's 14px/1.6 reading
 style. Post quotes, chat reply references, and composer previews share this
 component. Source navigation and the composer's Native removal action retain
 their existing interactions. Plain editable Markdown quote projection remains
-unchanged.
+unchanged. Nested quotes use a compact 12px leading inset and no repeated
+card padding or outside margins; normal paragraph spacing separates them from
+the surrounding prose.
 
 The October 9 audit below records the previous implementation.
 

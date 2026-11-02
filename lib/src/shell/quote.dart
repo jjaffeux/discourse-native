@@ -145,9 +145,12 @@ class QuoteBlock extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasHeader = data.title != null || data.avatarUrl != null;
+    final nested = context.findAncestorWidgetOfExactType<DQuote>() != null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
+      padding: nested
+          ? EdgeInsets.zero
+          : const EdgeInsets.symmetric(vertical: 12),
       child: DQuote(
         header: hasHeader ? _Header(data: data, siteUrl: siteUrl) : null,
         child: CookedHtml(

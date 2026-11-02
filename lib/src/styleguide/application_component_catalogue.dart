@@ -41,7 +41,7 @@ const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
     id: 'quote',
     name: 'Quote',
-    sections: ['Attributed quote', 'Unattributed quote'],
+    sections: ['Attributed quote', 'Nested quote', 'Unattributed quote'],
   ),
   ComponentReference(
     id: 'position-control',
