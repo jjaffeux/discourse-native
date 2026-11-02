@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 import 'package:vm_service/vm_service.dart' as vm;
 import 'package:vm_service/vm_service_io.dart';
 
@@ -36,11 +37,13 @@ void main() {
       await loader.load();
     }
     const count = 3000;
+    final pageRequests = <String>[];
     final shell = await topicListScrollController(
       count: count,
       pageSize: 30,
       events: true,
       assignments: true,
+      onPageRequest: pageRequests.add,
     );
     for (var page = 1; page < count ~/ 30; page++) {
       await shell.loadMoreFeed('latest');
@@ -76,6 +79,11 @@ void main() {
     addTearDown(mouse.removePointer);
     await tester.pumpAndSettle();
 
+    final list = tester.widget<SuperListView>(find.byType(SuperListView));
+    void Function()? sampleVisible;
+    binding.addPersistentFrameCallback((_) => sampleVisible?.call());
+    addTearDown(() => sampleVisible = null);
+
     final profileCpu = Platform.environment['TOPIC_LIST_CPU'] == '1';
     final profileWidgets =
         Platform.environment['TOPIC_LIST_WIDGET_TRACE'] == '1';
@@ -92,10 +100,30 @@ void main() {
     final phases = <String, Object?>{};
     binding.reportData = {};
     Future<void> measure(String name, double delta) async {
+      pageRequests.clear();
       final before = position.pixels;
       final beforeTitle = tester
           .widget<TopicTitle>(find.byType(TopicTitle).first)
           .title;
+      var sampledFrames = 0;
+      var framesWithGaps = 0;
+      var maximumVisibleGaps = 0;
+      sampleVisible = () {
+        final visible = list.listController!.visibleRange;
+        if (visible == null) return;
+        sampledFrames++;
+        final feed = shell.currentFeed!;
+        var gaps = 0;
+        for (
+          var row = visible.$1 ~/ 2;
+          row <= visible.$2 ~/ 2 && row < feed.rowCount;
+          row++
+        ) {
+          if (feed.topicIdAt(row) == null) gaps++;
+        }
+        if (gaps > 0) framesWithGaps++;
+        if (gaps > maximumVisibleGaps) maximumVisibleGaps = gaps;
+      };
       final frames = <ui.FrameTiming>[];
       void collect(List<ui.FrameTiming> batch) => frames.addAll(batch);
       if (profileCpu) await service.clearCpuSamples(isolate);
@@ -130,6 +158,7 @@ void main() {
       }
       await binding.endOfFrame;
       final end = developer.Timeline.now;
+      sampleVisible = null;
       final after = position.pixels;
       final afterTitle = tester
           .widget<TopicTitle>(find.byType(TopicTitle).first)
@@ -150,6 +179,7 @@ void main() {
       expect(frames.length, greaterThan(100));
       expect(clock.elapsed, lessThan(const Duration(seconds: 7)));
       expect(tester.takeException(), isNull);
+      expect(shell.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
       final phase = <String, Object?>{
         'wallMs': (end - start) / 1000,
         'updates': updates,
@@ -159,6 +189,11 @@ void main() {
         'firstTitleBefore': beforeTitle,
         'firstTitleAfter': afterTitle,
         'mountedTitles': find.byType(TopicTitle).evaluate().length,
+        'pageRequests': List<String>.of(pageRequests),
+        'retainedTopics': shell.currentFeed!.topicIds.length,
+        'sampledFrames': sampledFrames,
+        'framesWithGaps': framesWithGaps,
+        'maximumVisibleGaps': maximumVisibleGaps,
         'build': _summary(frames.map((f) => f.buildDuration)),
         'raster': _summary(frames.map((f) => f.rasterDuration)),
         'total': _summary(frames.map((f) => f.totalSpan)),

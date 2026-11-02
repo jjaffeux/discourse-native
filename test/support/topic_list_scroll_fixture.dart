@@ -29,6 +29,7 @@ Future<ShellController> topicListScrollController({
   TopicListDisplayMode mode = TopicListDisplayMode.card,
   bool events = false,
   bool assignments = false,
+  void Function(String path)? onPageRequest,
 }) async {
   assert(count > 0);
   assert(pageSize == null || pageSize > 0);
@@ -97,6 +98,7 @@ Future<ShellController> topicListScrollController({
     api: _TopicListScrollApi(
       user: user,
       paginated: pageSize != null,
+      onPageRequest: onPageRequest,
       feeds: {
         for (var page = 0; page * size < count; page++)
           pagePath(page): topics.sublist(
@@ -191,9 +193,11 @@ class _TopicListScrollApi extends FakeDiscourseApi {
     required super.nextPages,
     required super.categoryList,
     required this.paginated,
+    this.onPageRequest,
   });
 
   final bool paginated;
+  final void Function(String path)? onPageRequest;
 
   @override
   Future<TopicList> topicList({
@@ -202,6 +206,7 @@ class _TopicListScrollApi extends FakeDiscourseApi {
     String? apiKey,
     String? clientId,
   }) async {
+    onPageRequest?.call(path);
     if (paginated) await Future<void>.delayed(const Duration(milliseconds: 50));
     return super.topicList(
       siteUrl: siteUrl,

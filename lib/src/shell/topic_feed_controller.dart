@@ -277,11 +277,69 @@ final class _FeedWindow {
   }
 }
 
+final class _ViewportRange {
+  _ViewportRange(this.visible, this.lookahead, this.cache);
+
+  final _RowRange visible;
+  final _RowRange? lookahead;
+  final _RowRange? cache;
+  bool visiblePending = true;
+  bool lookaheadPending = true;
+  bool cachePending = true;
+}
+
+typedef _RangeWork = ({
+  _RowRange range,
+  Object? owner,
+  _ViewportRange? viewport,
+});
+
 final class _RangeRequest {
   final completion = Completer<void>();
+  Completer<void> awaited = Completer<void>();
   final List<_RowRange> pending = [];
+  final Map<Object, _ViewportRange> viewports = {};
+
+  _RangeWork? take() {
+    // Awaited callers (including keyboard navigation) are never replaced by
+    // scrolling. Visible work for every panel precedes speculative lookahead.
+    if (pending.isNotEmpty) {
+      return (range: pending.removeAt(0), owner: null, viewport: null);
+    }
+    if (!awaited.isCompleted) awaited.complete();
+    for (final entry in viewports.entries) {
+      if (entry.value.visiblePending) {
+        entry.value.visiblePending = false;
+        return (
+          range: entry.value.visible,
+          owner: entry.key,
+          viewport: entry.value,
+        );
+      }
+    }
+    for (final entry in viewports.entries) {
+      final viewport = entry.value;
+      if (viewport.lookaheadPending && viewport.lookahead != null) {
+        viewport.lookaheadPending = false;
+        return (
+          range: viewport.lookahead!,
+          owner: entry.key,
+          viewport: viewport,
+        );
+      }
+    }
+    for (final entry in viewports.entries) {
+      final viewport = entry.value;
+      if (viewport.cachePending && viewport.cache != null) {
+        viewport.cachePending = false;
+        return (range: viewport.cache!, owner: entry.key, viewport: viewport);
+      }
+    }
+    return null;
+  }
 
   void add(int first, int last) {
+    if (awaited.isCompleted) awaited = Completer<void>();
     for (var i = 0; i < pending.length; i++) {
       final held = pending[i];
       if (first <= held.last + 1 && last >= held.first - 1) {
@@ -351,6 +409,9 @@ final class _FeedSession {
   void cancelRange() {
     final request = rangeRequest;
     rangeRequest = null;
+    if (request != null && !request.awaited.isCompleted) {
+      request.awaited.complete();
+    }
     if (request != null && !request.completion.isCompleted) {
       request.completion.complete();
     }
@@ -472,6 +533,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       } else {
         window.owners.remove(token);
         window.viewports.remove(token);
+        session.rangeRequest?.viewports.remove(token);
       }
       final before = window.rows.length;
       window.trim(maximumRetainedTopics);
@@ -506,6 +568,88 @@ final class TopicFeedController extends FrameSafeNotifier {
     if (feed != null && window.rows.length != before) {
       session.feed = window.publish(feed);
       notifySafely();
+    }
+  }
+
+  /// Restores a panel, with bounded lookahead during forward scrolling.
+  /// Unlike [ensureRange], a panel's obsolete work can be replaced or released.
+  void restoreViewport({
+    required DiscourseInstance instance,
+    required String destinationId,
+    required Object owner,
+    required int firstRow,
+    required int lastRow,
+    bool retry = false,
+    int? firstBuiltRow,
+    int? lastBuiltRow,
+  }) {
+    final session = _sessions[(instance.url, destinationId)];
+    if (isDisposed || session == null) return;
+    final window = session.window;
+    if (!window.owners.containsKey(owner)) return;
+    final previous = window.viewports[owner];
+    updateViewport(
+      instance.url,
+      destinationId,
+      owner: owner,
+      firstRow: firstRow,
+      lastRow: lastRow,
+    );
+    final feed = session.feed;
+    if (feed == null ||
+        feed.rowCount == 0 ||
+        feed.loading ||
+        window.rootPath == null ||
+        feed.error != null && !retry) {
+      return;
+    }
+    final first = firstRow.clamp(0, feed.rowCount - 1);
+    final last = lastRow.clamp(0, feed.rowCount - 1);
+    if (first > last) return;
+    final visible = (first: first, last: last);
+    final active = session.rangeRequest;
+    final held = active?.viewports[owner];
+    final _RowRange? cache = firstBuiltRow == null || lastBuiltRow == null
+        ? held?.visible == visible
+              ? held?.cache
+              : null
+        : (
+            first: firstBuiltRow.clamp(0, feed.rowCount - 1),
+            last: lastBuiltRow.clamp(0, feed.rowCount - 1),
+          );
+    // A publication during restoration must not enqueue the same work again.
+    if (!retry && held?.visible == visible && held?.cache == cache) return;
+    final distance = (last - first + 1)
+        .clamp(0, 30)
+        .clamp(0, maximumRetainedTopics ~/ 4);
+    final direction = previous == null ? 0 : first - previous.first;
+    final _RowRange? lookahead;
+    if (direction > 0 && last + 1 < feed.rowCount && distance > 0) {
+      lookahead = (
+        first: last + 1,
+        last: (last + distance).clamp(0, feed.rowCount - 1),
+      );
+    } else {
+      lookahead = null;
+    }
+    if (active == null &&
+        _rangeIsBacked(instance.url, window, first, last) &&
+        (lookahead == null ||
+            _rangeIsBacked(
+              instance.url,
+              window,
+              lookahead.first,
+              lookahead.last,
+            )) &&
+        (cache == null ||
+            _rangeIsBacked(instance.url, window, cache.first, cache.last))) {
+      return;
+    }
+    final request = active ?? _RangeRequest();
+    request.viewports[owner] = _ViewportRange(visible, lookahead, cache);
+    if (active == null) {
+      session.rangeRequest = request;
+      unawaited(_performRanges(session, instance, request));
     }
   }
 
@@ -1123,11 +1267,8 @@ final class TopicFeedController extends FrameSafeNotifier {
       if (row >= first && row <= last) window.touch(row);
     }
     if (session.rangeRequest case final request?) {
-      if (request.pending.length >= maximumCursorCheckpoints) {
-        request.pending.removeAt(0);
-      }
       request.add(first, last);
-      return request.completion.future;
+      return request.awaited.future;
     }
     if (_rangeIsBacked(instance.url, window, first, last)) {
       return Future.value();
@@ -1135,7 +1276,7 @@ final class TopicFeedController extends FrameSafeNotifier {
     final request = _RangeRequest()..add(first, last);
     session.rangeRequest = request;
     unawaited(_performRanges(session, instance, request));
-    return request.completion.future;
+    return request.awaited.future;
   }
 
   Future<Topic?> restoreTopic({
@@ -1248,8 +1389,16 @@ final class TopicFeedController extends FrameSafeNotifier {
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
-      while (request.pending.isNotEmpty) {
-        final range = request.pending.removeAt(0);
+      workLoop:
+      while (true) {
+        final work = request.take();
+        if (work == null) break;
+        final range = work.range;
+        bool wanted() =>
+            work.owner == null ||
+            identical(request.viewports[work.owner], work.viewport) &&
+                window.owners.containsKey(work.owner);
+        if (!wanted()) continue;
         if (_rangeIsBacked(instance.url, window, range.first, range.last)) {
           continue;
         }
@@ -1263,6 +1412,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         if (missingIds.isNotEmpty) {
           final topics = <Topic>[];
           for (final id in missingIds) {
+            if (!wanted()) continue workLoop;
             final topic = await auth.run(
               () => api.topicSummary(
                 siteUrl: instance.url,
@@ -1325,6 +1475,21 @@ final class TopicFeedController extends FrameSafeNotifier {
           final Set<String> visited = {};
           var pagesWithoutRows = 0;
           while (start <= range.last) {
+            // A fetched page still passes every validation and publication gate.
+            // Reconsider obsolete viewport work before issuing the next request.
+            if (!wanted() || request.pending.isNotEmpty && work.owner != null) {
+              if (wanted()) {
+                final viewport = work.viewport!;
+                if (range == viewport.lookahead) {
+                  viewport.lookaheadPending = true;
+                } else if (range == viewport.cache) {
+                  viewport.cachePending = true;
+                } else {
+                  viewport.visiblePending = true;
+                }
+              }
+              continue workLoop;
+            }
             if (path == null || !visited.add(path)) {
               throw StateError(
                 'The requested topic range is no longer available.',
@@ -1448,6 +1613,7 @@ final class TopicFeedController extends FrameSafeNotifier {
           }
         }
         if (!requestIsCurrent()) return;
+        if (!wanted()) continue;
         final last = (session.feed?.rowCount ?? 0) - 1;
         if (!_rangeIsBacked(
           instance.url,
@@ -1479,6 +1645,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         session.rangeRequest = null;
         if (!isDisposed && lease.isCurrent) notifySafely();
       }
+      if (!request.awaited.isCompleted) request.awaited.complete();
       if (!request.completion.isCompleted) request.completion.complete();
       _pruneDestinations();
     }

@@ -1,0 +1,81 @@
+{
+  "purpose": "Combined-main content and retention smoke check; not a performance comparison",
+  "mainBase": "a82c03d9a780d7acb1fc283e4836f30a73983647",
+  "appFrameworkSha256": "961135d4ffb40299cec4f3bc97b73444aed4006b6940f08f408db96e838ff5dd",
+  "profileMode": true,
+  "profileCpu": false,
+  "profileWidgets": false,
+  "physicalSize": [
+    2560.0,
+    1720.0
+  ],
+  "pixelRatio": 2.0,
+  "failures": 0,
+  "phases": {
+    "slowDown": {
+      "updates": 240,
+      "offsetBefore": 0.0,
+      "offsetAfter": 9600.0,
+      "firstTitleBefore": "Topic 1",
+      "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+      "retainedTopics": 300,
+      "pageRequests": [
+        "/latest.json?page=1",
+        "/latest.json?page=2",
+        "/latest.json?page=3"
+      ]
+    },
+    "fastDown": {
+      "updates": 240,
+      "offsetBefore": 9600.0,
+      "offsetAfter": 67200.0,
+      "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+      "firstTitleAfter": "Topic 671",
+      "retainedTopics": 300,
+      "pageRequests": [
+        "/latest.json?page=4",
+        "/latest.json?page=5",
+        "/latest.json?page=6",
+        "/latest.json?page=7",
+        "/latest.json?page=8",
+        "/latest.json?page=9",
+        "/latest.json?page=10",
+        "/latest.json?page=11",
+        "/latest.json?page=12",
+        "/latest.json?page=13",
+        "/latest.json?page=14",
+        "/latest.json?page=15",
+        "/latest.json?page=16",
+        "/latest.json?page=17",
+        "/latest.json?page=18",
+        "/latest.json?page=19",
+        "/latest.json?page=20",
+        "/latest.json?page=21",
+        "/latest.json?page=22"
+      ]
+    },
+    "fastUp": {
+      "updates": 240,
+      "offsetBefore": 67200.0,
+      "offsetAfter": 8168.0,
+      "firstTitleBefore": "Topic 671",
+      "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+      "retainedTopics": 300,
+      "pageRequests": [
+        "/latest.json?page=12",
+        "/latest.json?page=11",
+        "/latest.json?page=10",
+        "/latest.json?page=9",
+        "/latest.json?page=8",
+        "/latest.json?page=7",
+        "/latest.json?page=6",
+        "/latest.json?page=5",
+        "/latest.json?page=4",
+        "/latest.json?page=3",
+        "/latest.json?page=2"
+      ]
+    }
+  },
+  "focusedTestsPassed": 49,
+  "analysis": "No issues found"
+}

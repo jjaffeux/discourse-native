@@ -98,9 +98,9 @@ class _TopicListViewState extends State<TopicListView> {
   ValueListenable<TopicListCursor?>? get _cursor => _cursorOwner?.cursor;
   Object? _loadMoreToken;
   Object? _rangeToken;
-  Object? _incomingRevealToken;
   int? _rangeFirst;
   int? _rangeLast;
+  Object? _incomingRevealToken;
   final Object _viewportOwner = Object();
   VoidCallback? _releaseFeed;
   bool _restored = false;
@@ -356,9 +356,9 @@ class _TopicListViewState extends State<TopicListView> {
             as _TopicListExtents?;
     _loadMoreToken = null;
     _rangeToken = null;
-    _incomingRevealToken = null;
     _rangeFirst = null;
     _rangeLast = null;
+    _incomingRevealToken = null;
     _restored = false;
     _readingTopicId = null;
     _scroll = PaginationScrollController();
@@ -599,7 +599,11 @@ class _TopicListViewState extends State<TopicListView> {
     });
   }
 
-  void _publishViewport() {
+  void _publishViewport({
+    bool retry = false,
+    int? firstBuiltRow,
+    int? lastBuiltRow,
+  }) {
     final identity = _feedIdentity;
     final controller = _controller;
     final range = _list?.isAttached == true ? _list!.visibleRange : null;
@@ -612,61 +616,43 @@ class _TopicListViewState extends State<TopicListView> {
       return;
     }
     final feed = widget.feed;
-    controller.topicFeeds.updateViewport(
-      identity.$1!,
-      identity.$4,
+    controller.topicFeeds.restoreViewport(
+      instance: controller.currentInstance!,
+      destinationId: identity.$4,
+      retry: retry,
+      firstBuiltRow: firstBuiltRow == null
+          ? null
+          : feed.sourceRowFor(firstBuiltRow),
+      lastBuiltRow: lastBuiltRow == null
+          ? null
+          : feed.sourceRowFor(lastBuiltRow),
       owner: _viewportOwner,
       firstRow: feed.sourceRowFor(range.$1 ~/ 2),
       lastRow: feed.sourceRowFor((range.$2 ~/ 2).clamp(0, feed.rowCount - 1)),
     );
   }
 
-  void _scheduleRange(int first, int last, {bool retry = false}) {
+  void _scheduleRange(int index, {bool retry = false}) {
     if (widget.feed.loading || widget.feed.error != null && !retry) return;
-    _rangeFirst = _rangeFirst == null || first < _rangeFirst!
-        ? first
+    _rangeFirst = _rangeFirst == null || index < _rangeFirst!
+        ? index
         : _rangeFirst;
-    _rangeLast = _rangeLast == null || last > _rangeLast! ? last : _rangeLast;
+    _rangeLast = _rangeLast == null || index > _rangeLast! ? index : _rangeLast;
     if (_rangeToken != null) return;
     final token = Object();
     final identity = _feedIdentity!;
     _rangeToken = token;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!identical(_rangeToken, token)) return;
-      final first = _rangeFirst!;
-      final last = _rangeLast!;
       _rangeToken = null;
+      final first = _rangeFirst;
+      final last = _rangeLast;
       _rangeFirst = null;
       _rangeLast = null;
       final controller = _controller;
       if (controller == null || !_isCurrent(controller, identity)) return;
-      unawaited(_ensureRange(controller, identity, first, last));
+      _publishViewport(retry: retry, firstBuiltRow: first, lastBuiltRow: last);
     });
-  }
-
-  Future<void> _ensureRange(
-    ShellController controller,
-    _TopicListIdentity identity,
-    int first,
-    int last,
-  ) async {
-    final feed = _latestFeed();
-    await _ensureSourceRange(
-      controller,
-      identity,
-      feed.sourceRowFor(first),
-      feed.sourceRowFor(last),
-    );
-  }
-
-  Future<void> _ensureSourceRange(
-    ShellController controller,
-    _TopicListIdentity identity,
-    int first,
-    int last,
-  ) async {
-    if (!_isCurrent(controller, identity)) return;
-    await _tab!.ensureFeedRange(identity.$4, firstRow: first, lastRow: last);
   }
 
   bool _isCurrent(
@@ -692,15 +678,6 @@ class _TopicListViewState extends State<TopicListView> {
       destination,
       controller.lifecycle.capture(siteUrl ?? '').session,
     );
-  }
-
-  // A page can land in the controller a frame before this list rebuilds with
-  // it. Read the list's own tab, not whichever tab is active.
-  TopicFeed _latestFeed() {
-    final controller = _controller;
-    final identity = _feedIdentity;
-    if (controller == null || identity == null) return widget.feed;
-    return _tab!.currentFeed ?? widget.feed;
   }
 
   bool _moveSelection(int direction) => _cursorOwner!.move(
@@ -1023,18 +1000,14 @@ class _TopicListViewState extends State<TopicListView> {
                                   topicId,
                                 );
                         if (unbacked) {
-                          _scheduleRange(index, index);
+                          _scheduleRange(index);
                           return KeyedSubtree(
                             key: ValueKey(('topic-list-gap', index)),
                             child: feed.error != null
                                 ? _LoadMoreErrorRow(
                                     message: feed.error!,
                                     onRetry: () => feed.pageError
-                                        ? _scheduleRange(
-                                            index,
-                                            index,
-                                            retry: true,
-                                          )
+                                        ? _scheduleRange(index, retry: true)
                                         : unawaited(
                                             _tab!.loadFeed(destination),
                                           ),

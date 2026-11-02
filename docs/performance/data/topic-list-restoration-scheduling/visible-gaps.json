@@ -1,0 +1,80 @@
+{
+  "slowDown": {
+    "baseline": {
+      "frames": {
+        "median": 0,
+        "minimum": 0,
+        "maximum": 0
+      },
+      "percent": {
+        "median": 0.0,
+        "minimum": 0.0,
+        "maximum": 0.0
+      }
+    },
+    "candidate": {
+      "frames": {
+        "median": 0,
+        "minimum": 0,
+        "maximum": 0
+      },
+      "percent": {
+        "median": 0.0,
+        "minimum": 0.0,
+        "maximum": 0.0
+      }
+    }
+  },
+  "fastDown": {
+    "baseline": {
+      "frames": {
+        "median": 93,
+        "minimum": 91,
+        "maximum": 98
+      },
+      "percent": {
+        "median": 19.375,
+        "minimum": 18.958333333333332,
+        "maximum": 20.502092050209207
+      }
+    },
+    "candidate": {
+      "frames": {
+        "median": 11,
+        "minimum": 8,
+        "maximum": 21
+      },
+      "percent": {
+        "median": 2.2821576763485476,
+        "minimum": 1.6597510373443984,
+        "maximum": 4.365904365904366
+      }
+    }
+  },
+  "fastUp": {
+    "baseline": {
+      "frames": {
+        "median": 56,
+        "minimum": 55,
+        "maximum": 56
+      },
+      "percent": {
+        "median": 11.618257261410788,
+        "minimum": 11.434511434511435,
+        "maximum": 11.666666666666666
+      }
+    },
+    "candidate": {
+      "frames": {
+        "median": 56,
+        "minimum": 55,
+        "maximum": 56
+      },
+      "percent": {
+        "median": 11.642411642411643,
+        "minimum": 11.434511434511435,
+        "maximum": 11.666666666666666
+      }
+    }
+  }
+}

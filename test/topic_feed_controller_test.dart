@@ -714,6 +714,276 @@ void main() {
       await pumpEventQueue();
     }
 
+    void viewport(Object owner, int first, int last, {bool retry = false}) =>
+        controller.restoreViewport(
+          instance: site,
+          destinationId: 'filtered',
+          owner: owner,
+          firstRow: first,
+          lastRow: last,
+          retry: retry,
+        );
+
+    test('replaces obsolete viewport replay before the next page', () async {
+      await seed();
+      final owner = Object();
+      final release = controller.retainFeed(site.url, 'filtered', owner: owner);
+      addTearDown(release);
+      viewport(owner, 2, 3);
+      await pumpEventQueue();
+      expect(api.requests.last.path, rootPath);
+      viewport(owner, 10, 11);
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      expect(api.requests, hasLength(7));
+      final feed = controller.feedFor(site.url, 'filtered')!;
+      expect(feed.topicIdAt(10), 11);
+      expect(feed.topicIdAt(11), 12);
+      expect(feed.topicIds.length, lessThanOrEqualTo(4));
+      expect(feed.error, isNull);
+    });
+
+    test('keeps awaited ranges beyond the checkpoint queue limit', () async {
+      controller.dispose();
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+        maximumRetainedTopics: 8,
+        maximumCursorCheckpoints: 2,
+      );
+      await seed(pages: 8);
+      final first = restore(0, 0);
+      await pumpEventQueue();
+      final second = restore(6, 6);
+      final third = restore(2, 2);
+      final fourth = restore(4, 4);
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      expect(api.requests.last.path, '/cursor/1.json?token=opaque');
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      expect(controller.feedFor(site.url, 'filtered')!.topicIdAt(2), 3);
+      await answer([5, 6], next: '/cursor/3.json?token=opaque');
+      expect(controller.feedFor(site.url, 'filtered')!.topicIdAt(4), 5);
+      expect(api.requests.last.path, '/cursor/3.json?token=opaque');
+      await answer([7, 8], next: '/cursor/4.json?token=opaque');
+      await Future.wait([first, second, third, fourth]);
+      expect(controller.feedFor(site.url, 'filtered')!.topicIdAt(6), 7);
+      expect(controller.feedFor(site.url, 'filtered')!.error, isNull);
+    });
+
+    test(
+      'viewport replacement preserves queued keyboard restoration',
+      () async {
+        await seed();
+        final owner = Object();
+        addTearDown(controller.retainFeed(site.url, 'filtered', owner: owner));
+        viewport(owner, 4, 5);
+        await pumpEventQueue();
+        final keyboard = restore(2, 3);
+        viewport(owner, 10, 11);
+        await answer([1, 2], next: '/cursor/1.json?token=opaque');
+        expect(api.requests.last.path, '/cursor/1.json?token=opaque');
+        await answer([3, 4], next: '/cursor/2.json?token=opaque');
+        await keyboard;
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(feed.topicIdAt(2), 3);
+        expect(feed.topicIdAt(3), 4);
+        expect(feed.topicIdAt(10), 11);
+        expect(feed.topicIdAt(11), 12);
+        expect(feed.topicIds.length, lessThanOrEqualTo(4));
+        expect(api.requests, hasLength(8));
+      },
+    );
+
+    test('awaited restoration completes before unrelated lookahead', () async {
+      await seed();
+      final owner = Object();
+      addTearDown(controller.retainFeed(site.url, 'filtered', owner: owner));
+      viewport(owner, 4, 5);
+      await pumpEventQueue();
+      final keyboard = restore(2, 3);
+      viewport(owner, 8, 9);
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      await keyboard;
+      final feed = controller.feedFor(site.url, 'filtered')!;
+      expect(feed.topicIdAt(2), 3);
+      expect(feed.topicIdAt(3), 4);
+      expect(feed.topicIdAt(8), 9);
+      expect(feed.topicIdAt(9), 10);
+      expect(api.requests.last.path, '/cursor/2.json?token=opaque');
+      expect(api.requests.last.response.isCompleted, isFalse);
+      await answer([5, 6], next: '/cursor/3.json?token=opaque');
+      await answer([7, 8], next: '/cursor/4.json?token=opaque');
+      await answer([9, 10], next: '/cursor/5.json?token=opaque');
+      await answer([11, 12], next: '/cursor/6.json?token=opaque');
+      expect(controller.feedFor(site.url, 'filtered')!.error, isNull);
+    });
+
+    test(
+      'resumes current cache restoration after an awaited request',
+      () async {
+        await seed();
+        final owner = Object();
+        addTearDown(controller.retainFeed(site.url, 'filtered', owner: owner));
+        controller.restoreViewport(
+          instance: site,
+          destinationId: 'filtered',
+          owner: owner,
+          firstRow: 10,
+          lastRow: 11,
+          firstBuiltRow: 6,
+          lastBuiltRow: 7,
+        );
+        await pumpEventQueue();
+        final keyboard = restore(2, 3);
+        await answer([1, 2], next: '/cursor/1.json?token=opaque');
+        await answer([3, 4], next: '/cursor/2.json?token=opaque');
+        await keyboard;
+        expect(controller.feedFor(site.url, 'filtered')!.topicIdAt(2), 3);
+        expect(api.requests.last.path, '/cursor/2.json?token=opaque');
+        await answer([5, 6], next: '/cursor/3.json?token=opaque');
+        await answer([7, 8], next: '/cursor/4.json?token=opaque');
+        final feed = controller.feedFor(site.url, 'filtered')!;
+        expect(
+          [
+            for (final row in [6, 7, 10, 11]) feed.topicIdAt(row),
+          ],
+          [7, 8, 11, 12],
+        );
+        expect(feed.topicIds.length, lessThanOrEqualTo(4));
+        expect(feed.error, isNull);
+      },
+    );
+
+    test('bounds forward lookahead and stops it on reversal', () async {
+      controller.dispose();
+      controller = TopicFeedController(
+        api: api,
+        credentials: credentials,
+        lifecycle: SiteLifecycle(),
+        store: store,
+        maximumRetainedTopics: 4,
+      );
+      await seed();
+      final owner = Object();
+      addTearDown(controller.retainFeed(site.url, 'filtered', owner: owner));
+      viewport(owner, 2, 3);
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      viewport(owner, 4, 5);
+      await pumpEventQueue();
+      expect(api.requests.last.path, '/cursor/2.json?token=opaque');
+      await answer([5, 6], next: '/cursor/3.json?token=opaque');
+      expect(api.requests.last.path, '/cursor/3.json?token=opaque');
+      await answer([7, 8], next: '/cursor/4.json?token=opaque');
+      expect(api.requests, hasLength(9));
+      final feed = controller.feedFor(site.url, 'filtered')!;
+      expect(
+        [for (var row = 4; row < 8; row++) feed.topicIdAt(row)],
+        [5, 6, 7, 8],
+      );
+      viewport(owner, 2, 3);
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      expect(api.requests, hasLength(10));
+      expect(
+        controller.feedFor(site.url, 'filtered')!.topicIds.length,
+        lessThanOrEqualTo(4),
+      );
+      expect(controller.feedFor(site.url, 'filtered')!.error, isNull);
+    });
+
+    test('viewport errors wait for an explicit retry', () async {
+      await seed();
+      final owner = Object();
+      addTearDown(controller.retainFeed(site.url, 'filtered', owner: owner));
+      viewport(owner, 2, 3);
+      await pumpEventQueue();
+      api.requests.last.response.completeError(StateError('offline'));
+      await pumpEventQueue();
+      viewport(owner, 2, 3);
+      await pumpEventQueue();
+      expect(api.requests, hasLength(7));
+      expect(controller.feedFor(site.url, 'filtered')!.pageError, isTrue);
+      viewport(owner, 2, 3, retry: true);
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      expect(controller.feedFor(site.url, 'filtered')!.topicIdAt(2), 3);
+      expect(controller.feedFor(site.url, 'filtered')!.error, isNull);
+    });
+
+    test('restores both panels without replacing the other owner', () async {
+      await seed();
+      final first = Object();
+      final second = Object();
+      addTearDown(controller.retainFeed(site.url, 'filtered', owner: first));
+      addTearDown(controller.retainFeed(site.url, 'filtered', owner: second));
+      viewport(first, 2, 3);
+      await pumpEventQueue();
+      viewport(second, 6, 7);
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      await answer([3, 4], next: '/cursor/2.json?token=opaque');
+      await answer([5, 6], next: '/cursor/3.json?token=opaque');
+      await answer([7, 8], next: '/cursor/4.json?token=opaque');
+      final feed = controller.feedFor(site.url, 'filtered')!;
+      expect(
+        [
+          for (final row in [2, 3, 6, 7]) feed.topicIdAt(row),
+        ],
+        [3, 4, 7, 8],
+      );
+      expect(feed.topicIds.length, lessThanOrEqualTo(4));
+      expect(feed.error, isNull);
+      expect(api.requests, hasLength(10));
+    });
+
+    for (final refresh in [false, true]) {
+      test(
+        'cancels viewport replay across account/refresh (refresh=$refresh)',
+        () async {
+          await seed();
+          final owner = Object();
+          addTearDown(
+            controller.retainFeed(site.url, 'filtered', owner: owner),
+          );
+          viewport(owner, 2, 3);
+          await pumpEventQueue();
+          final old = api.requests.last;
+          if (!refresh) {
+            controller.forget(site.url);
+            store.forget(site.url);
+          }
+          final loading = controller.load(
+            instance: site,
+            destinationId: 'filtered',
+            path: '/replacement.json',
+            incoming: null,
+            force: refresh,
+          );
+          await answer([100]);
+          await loading;
+          old.response.complete(
+            _pages([1, 2], moreTopicsUrl: '/cursor/1.json?token=opaque'),
+          );
+          await pumpEventQueue();
+          expect(controller.feedFor(site.url, 'filtered')!.topicIds, [100]);
+          expect(api.requests.last.path, '/replacement.json');
+          expect(api.requests, hasLength(8));
+        },
+      );
+    }
+
+    test('releasing a panel stops its remaining speculative replay', () async {
+      await seed();
+      final owner = Object();
+      final release = controller.retainFeed(site.url, 'filtered', owner: owner);
+      viewport(owner, 4, 5);
+      await pumpEventQueue();
+      release();
+      await answer([1, 2], next: '/cursor/1.json?token=opaque');
+      expect(api.requests, hasLength(7));
+      expect(controller.feedFor(site.url, 'filtered')!.error, isNull);
+    });
+
     test('evicts older rows before a reordered restored page', () async {
       await seed();
       final restoring = restore(0, 1);

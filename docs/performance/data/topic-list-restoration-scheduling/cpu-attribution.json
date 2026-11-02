@@ -1,0 +1,54 @@
+{
+  "baseline": {
+    "fastDown": {
+      "samples": 2490,
+      "inclusivePercent": {
+        "Element.inflateWidget": 32.01,
+        "_InactiveElements._unmount": 8.51,
+        "RenderParagraph.": 13.13,
+        "TextPainter.": 12.77,
+        "TopicFeedController._performRanges": 0.04,
+        "TopicFeedController.restoreViewport": 0.0,
+        "_TopicListViewState._publishViewport": 0.24
+      }
+    },
+    "fastUp": {
+      "samples": 2538,
+      "inclusivePercent": {
+        "Element.inflateWidget": 32.55,
+        "_InactiveElements._unmount": 8.87,
+        "RenderParagraph.": 13.36,
+        "TextPainter.": 13.08,
+        "TopicFeedController._performRanges": 0.0,
+        "TopicFeedController.restoreViewport": 0.0,
+        "_TopicListViewState._publishViewport": 0.0
+      }
+    }
+  },
+  "candidate": {
+    "fastDown": {
+      "samples": 2527,
+      "inclusivePercent": {
+        "Element.inflateWidget": 31.78,
+        "_InactiveElements._unmount": 8.98,
+        "RenderParagraph.": 12.35,
+        "TextPainter.": 12.15,
+        "TopicFeedController._performRanges": 0.04,
+        "TopicFeedController.restoreViewport": 0.12,
+        "_TopicListViewState._publishViewport": 0.12
+      }
+    },
+    "fastUp": {
+      "samples": 2550,
+      "inclusivePercent": {
+        "Element.inflateWidget": 33.18,
+        "_InactiveElements._unmount": 9.14,
+        "RenderParagraph.": 13.02,
+        "TextPainter.": 12.98,
+        "TopicFeedController._performRanges": 0.04,
+        "TopicFeedController.restoreViewport": 0.24,
+        "_TopicListViewState._publishViewport": 0.24
+      }
+    }
+  }
+}
