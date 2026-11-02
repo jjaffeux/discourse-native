@@ -8,6 +8,7 @@ import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -76,6 +77,9 @@ void main() {
     await tester.pumpAndSettle();
 
     final profileCpu = Platform.environment['TOPIC_LIST_CPU'] == '1';
+    final profileWidgets =
+        Platform.environment['TOPIC_LIST_WIDGET_TRACE'] == '1';
+    expect(profileCpu && profileWidgets, isFalse);
     final uri = (await developer.Service.getInfo()).serverUri!;
     final service = await vmServiceConnectUri(
       'ws://localhost:${uri.port}${uri.path}ws',
@@ -84,6 +88,7 @@ void main() {
     await service.setFlag('profiler', '$profileCpu');
     if (profileCpu) await service.setFlag('profile_period', '250');
     final isolate = developer.Service.getIsolateId(Isolate.current)!;
+    if (profileWidgets) await service.setVMTimelineFlags(['Dart']);
     final phases = <String, Object?>{};
     binding.reportData = {};
     Future<void> measure(String name, double delta) async {
@@ -99,6 +104,19 @@ void main() {
       final clock = Stopwatch()..start();
       const updates = 240;
       for (var step = 0; step < updates; step++) {
+        // Trace a short steady-scroll window. Tracing every descendant for an
+        // entire phase would overwrite the VM's finite timeline buffer.
+        if (profileWidgets && step == 60) {
+          await service.clearVMTimeline();
+          debugProfileBuildsEnabled = true;
+          debugProfileLayoutsEnabled = true;
+        }
+        if (profileWidgets && step == 64) {
+          debugProfileBuildsEnabled = false;
+          debugProfileLayoutsEnabled = false;
+          binding.reportData!['widgetTrace.$name'] =
+              (await service.getVMTimeline()).json;
+        }
         final due = (step + 1) * 16667 - clock.elapsedMicroseconds;
         if (due > 0) await Future<void>.delayed(Duration(microseconds: due));
         await tester.sendEventToBinding(
@@ -155,6 +173,9 @@ void main() {
             f.totalSpan.inMicroseconds,
           ],
       ];
+      if (profileCpu || profileWidgets) {
+        phase['widgetCensus'] = _widgetCensus(tester);
+      }
       if (profileCpu) {
         final samples = await service.getCpuSamples(
           isolate,
@@ -162,7 +183,6 @@ void main() {
           end - start,
         );
         phase['cpuSamples'] = samples.sampleCount;
-        phase['widgetCensus'] = _widgetCensus(tester);
         binding.reportData!['cpuFolded.$name'] = _folded(samples);
       }
       debugPrint(
@@ -178,6 +198,7 @@ void main() {
     final summary = {
       'profileMode': kProfileMode,
       'profileCpu': profileCpu,
+      'profileWidgets': profileWidgets,
       'platform': defaultTargetPlatform.name,
       'physicalSize': [
         tester.view.physicalSize.width,

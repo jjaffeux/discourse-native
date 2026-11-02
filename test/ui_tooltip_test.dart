@@ -70,6 +70,30 @@ Finder _surface(Finder hint) =>
     find.ancestor(of: hint, matching: find.byType(SingleChildScrollView)).first;
 
 void main() {
+  testWidgets('disabling a tooltip retains its focused input draft', (
+    tester,
+  ) async {
+    Widget target(bool disabled) => DTooltip(
+      message: 'Information',
+      disabled: disabled,
+      child: SizedBox(width: 200, child: DInput()),
+    );
+    await _pump(tester, target(false));
+    await tester.enterText(find.byType(EditableText), 'Unsent draft');
+    final input = tester.widget<EditableText>(find.byType(EditableText));
+    final bounds = tester.getRect(find.byType(DInput));
+    expect(input.focusNode.hasFocus, isTrue);
+
+    for (final disabled in [true, false]) {
+      await _pump(tester, target(disabled));
+      final updated = tester.widget<EditableText>(find.byType(EditableText));
+      expect(updated.controller.text, 'Unsent draft');
+      expect(updated.focusNode, same(input.focusNode));
+      expect(updated.focusNode.hasFocus, isTrue);
+      expect(tester.getRect(find.byType(DInput)), bounds);
+    }
+  });
+
   testWidgets(
     'default source metrics, wrapped content and shortcut colors are live',
     (tester) async {

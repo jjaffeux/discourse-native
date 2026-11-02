@@ -1,0 +1,1391 @@
+{
+  "runsPerSide": 5,
+  "failures": 0,
+  "primaryPhase": "fastDown",
+  "verdict": "inconclusive",
+  "phaseVerdicts": {
+    "slowDown": "inconclusive",
+    "fastDown": "inconclusive",
+    "fastUp": "inconclusive"
+  },
+  "comparisonErrors": [],
+  "failedAttempts": [],
+  "appFrameworkSha256": {
+    "baseline": "de3c28abca80712857223d5914e7ff342a021a238d1b19d28540ee4e13febaa0",
+    "candidate": "b541f09120233d8e6b85e03d90d1e2eba7a59add95c27d2e68bcfd2faad2015d"
+  },
+  "summary": {
+    "baseline": {
+      "slowDown": {
+        "build": {
+          "medianP95Ms": 2.414,
+          "minP95Ms": 1.94,
+          "maxP95Ms": 3.235
+        },
+        "raster": {
+          "medianP95Ms": 1.263,
+          "minP95Ms": 1.017,
+          "maxP95Ms": 1.731
+        },
+        "total": {
+          "medianP95Ms": 3.589,
+          "minP95Ms": 2.998,
+          "maxP95Ms": 4.9
+        }
+      },
+      "fastDown": {
+        "build": {
+          "medianP95Ms": 6.485,
+          "minP95Ms": 6.19,
+          "maxP95Ms": 6.583
+        },
+        "raster": {
+          "medianP95Ms": 0.732,
+          "minP95Ms": 0.712,
+          "maxP95Ms": 0.758
+        },
+        "total": {
+          "medianP95Ms": 7.89,
+          "minP95Ms": 7.442,
+          "maxP95Ms": 8.26
+        }
+      },
+      "fastUp": {
+        "build": {
+          "medianP95Ms": 4.146,
+          "minP95Ms": 3.141,
+          "maxP95Ms": 5.244
+        },
+        "raster": {
+          "medianP95Ms": 0.707,
+          "minP95Ms": 0.686,
+          "maxP95Ms": 0.813
+        },
+        "total": {
+          "medianP95Ms": 6.163,
+          "minP95Ms": 4.545,
+          "maxP95Ms": 8.07
+        }
+      }
+    },
+    "candidate": {
+      "slowDown": {
+        "build": {
+          "medianP95Ms": 2.378,
+          "minP95Ms": 1.235,
+          "maxP95Ms": 2.888
+        },
+        "raster": {
+          "medianP95Ms": 1.189,
+          "minP95Ms": 0.65,
+          "maxP95Ms": 1.59
+        },
+        "total": {
+          "medianP95Ms": 3.512,
+          "minP95Ms": 1.916,
+          "maxP95Ms": 4.414
+        }
+      },
+      "fastDown": {
+        "build": {
+          "medianP95Ms": 5.761,
+          "minP95Ms": 5.057,
+          "maxP95Ms": 6.591
+        },
+        "raster": {
+          "medianP95Ms": 0.726,
+          "minP95Ms": 0.707,
+          "maxP95Ms": 0.747
+        },
+        "total": {
+          "medianP95Ms": 7.931,
+          "minP95Ms": 7.031,
+          "maxP95Ms": 8.543
+        }
+      },
+      "fastUp": {
+        "build": {
+          "medianP95Ms": 4.477,
+          "minP95Ms": 3.389,
+          "maxP95Ms": 4.805
+        },
+        "raster": {
+          "medianP95Ms": 0.703,
+          "minP95Ms": 0.669,
+          "maxP95Ms": 0.758
+        },
+        "total": {
+          "medianP95Ms": 6.635,
+          "minP95Ms": 5.746,
+          "maxP95Ms": 6.916
+        }
+      }
+    }
+  },
+  "runs": {
+    "baseline": [
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4004.915,
+            "updates": 240,
+            "frames": 478,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.7569686192468615,
+              "p50Ms": 0.34,
+              "p95Ms": 3.235,
+              "p99Ms": 3.722,
+              "maxMs": 6.167,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 1.095102510460251,
+              "p50Ms": 0.954,
+              "p95Ms": 1.731,
+              "p99Ms": 1.918,
+              "maxMs": 2.073,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.014186192468619,
+              "p50Ms": 1.64,
+              "p95Ms": 4.9,
+              "p99Ms": 5.707,
+              "maxMs": 10.631,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4011.785,
+            "updates": 240,
+            "frames": 482,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.6114481327800827,
+              "p50Ms": 0.899,
+              "p95Ms": 6.43,
+              "p99Ms": 12.242,
+              "maxMs": 13.798,
+              "over8ms": 18,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5543983402489624,
+              "p50Ms": 0.532,
+              "p95Ms": 0.714,
+              "p99Ms": 1.44,
+              "maxMs": 1.698,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.4314087136929454,
+              "p50Ms": 1.507,
+              "p95Ms": 7.442,
+              "p99Ms": 13.015,
+              "maxMs": 14.642,
+              "over8ms": 20,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4016.54,
+            "updates": 240,
+            "frames": 476,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.76234243697479,
+              "p50Ms": 0.925,
+              "p95Ms": 5.244,
+              "p99Ms": 12.318,
+              "maxMs": 13.731,
+              "over8ms": 10,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6356785714285704,
+              "p50Ms": 0.604,
+              "p95Ms": 0.813,
+              "p99Ms": 1.681,
+              "maxMs": 2.294,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.66799369747899,
+              "p50Ms": 1.78,
+              "p95Ms": 8.07,
+              "p99Ms": 13.298,
+              "maxMs": 19.356,
+              "over8ms": 19,
+              "over16ms": 1
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4007.399,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.5401273486430063,
+              "p50Ms": 0.213,
+              "p95Ms": 1.975,
+              "p99Ms": 3.144,
+              "maxMs": 5.79,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7810688935281839,
+              "p50Ms": 0.718,
+              "p95Ms": 1.146,
+              "p99Ms": 1.575,
+              "maxMs": 2.386,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.454052192066805,
+              "p50Ms": 1.146,
+              "p95Ms": 2.998,
+              "p99Ms": 4.456,
+              "maxMs": 7.103,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4014.146,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.676904166666666,
+              "p50Ms": 0.824,
+              "p95Ms": 6.515,
+              "p99Ms": 13.786,
+              "maxMs": 19.852,
+              "over8ms": 20,
+              "over16ms": 1
+            },
+            "raster": {
+              "meanMs": 0.5893125000000003,
+              "p50Ms": 0.557,
+              "p95Ms": 0.746,
+              "p99Ms": 1.625,
+              "maxMs": 2.006,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.6172729166666673,
+              "p50Ms": 1.538,
+              "p95Ms": 8.26,
+              "p99Ms": 15.162,
+              "maxMs": 20.854,
+              "over8ms": 23,
+              "over16ms": 2
+            }
+          },
+          "fastUp": {
+            "wallMs": 4015.415,
+            "updates": 240,
+            "frames": 481,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.5112037422037423,
+              "p50Ms": 0.774,
+              "p95Ms": 3.243,
+              "p99Ms": 11.111,
+              "maxMs": 13.428,
+              "over8ms": 9,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5744594594594595,
+              "p50Ms": 0.554,
+              "p95Ms": 0.686,
+              "p99Ms": 1.522,
+              "maxMs": 2.03,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.293417879417878,
+              "p50Ms": 1.468,
+              "p95Ms": 4.545,
+              "p99Ms": 11.84,
+              "maxMs": 14.223,
+              "over8ms": 12,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4007.18,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.5318121085594991,
+              "p50Ms": 0.228,
+              "p95Ms": 1.94,
+              "p99Ms": 2.572,
+              "maxMs": 4.098,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7479248434238,
+              "p50Ms": 0.71,
+              "p95Ms": 1.017,
+              "p99Ms": 2.028,
+              "maxMs": 2.297,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.4114822546972847,
+              "p50Ms": 1.104,
+              "p95Ms": 3.09,
+              "p99Ms": 3.84,
+              "maxMs": 6.242,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4007.156,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.6745083333333335,
+              "p50Ms": 0.945,
+              "p95Ms": 6.583,
+              "p99Ms": 11.976,
+              "maxMs": 15.874,
+              "over8ms": 18,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5968500000000004,
+              "p50Ms": 0.579,
+              "p95Ms": 0.732,
+              "p99Ms": 1.52,
+              "maxMs": 1.735,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.533981249999999,
+              "p50Ms": 1.581,
+              "p95Ms": 7.89,
+              "p99Ms": 12.857,
+              "maxMs": 16.62,
+              "over8ms": 20,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4011.351,
+            "updates": 240,
+            "frames": 477,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8175.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.7369664570230605,
+              "p50Ms": 0.92,
+              "p95Ms": 4.827,
+              "p99Ms": 12.434,
+              "maxMs": 16.666,
+              "over8ms": 10,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.631169811320754,
+              "p50Ms": 0.622,
+              "p95Ms": 0.768,
+              "p99Ms": 1.495,
+              "maxMs": 1.906,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.630672955974844,
+              "p50Ms": 1.715,
+              "p95Ms": 7.352,
+              "p99Ms": 13.216,
+              "maxMs": 17.388,
+              "over8ms": 19,
+              "over16ms": 1
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4007.258,
+            "updates": 240,
+            "frames": 478,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.7020564853556482,
+              "p50Ms": 0.264,
+              "p95Ms": 2.783,
+              "p99Ms": 3.864,
+              "maxMs": 6.14,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.9686297071129708,
+              "p50Ms": 0.887,
+              "p95Ms": 1.541,
+              "p99Ms": 1.748,
+              "maxMs": 1.983,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.8266715481171556,
+              "p50Ms": 1.374,
+              "p95Ms": 4.412,
+              "p99Ms": 6.065,
+              "maxMs": 9.663,
+              "over8ms": 1,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4006.736,
+            "updates": 240,
+            "frames": 481,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.5956860706860714,
+              "p50Ms": 0.912,
+              "p95Ms": 6.19,
+              "p99Ms": 12.072,
+              "maxMs": 12.602,
+              "over8ms": 17,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5628773388773394,
+              "p50Ms": 0.541,
+              "p95Ms": 0.712,
+              "p99Ms": 1.619,
+              "maxMs": 1.825,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.4295800415800417,
+              "p50Ms": 1.516,
+              "p95Ms": 7.574,
+              "p99Ms": 12.832,
+              "maxMs": 13.443,
+              "over8ms": 21,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4021.117,
+            "updates": 240,
+            "frames": 477,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.5868637316561844,
+              "p50Ms": 0.814,
+              "p95Ms": 4.146,
+              "p99Ms": 10.328,
+              "maxMs": 16.084,
+              "over8ms": 10,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5934088050314464,
+              "p50Ms": 0.578,
+              "p95Ms": 0.707,
+              "p99Ms": 1.507,
+              "maxMs": 1.665,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.409649895178196,
+              "p50Ms": 1.484,
+              "p95Ms": 6.163,
+              "p99Ms": 11.347,
+              "maxMs": 25.471,
+              "over8ms": 12,
+              "over16ms": 3
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4006.995,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.6157912317327766,
+              "p50Ms": 0.228,
+              "p95Ms": 2.414,
+              "p99Ms": 3.459,
+              "maxMs": 5.633,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.8489979123173264,
+              "p50Ms": 0.794,
+              "p95Ms": 1.263,
+              "p99Ms": 1.841,
+              "maxMs": 2.637,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.612835073068895,
+              "p50Ms": 1.215,
+              "p95Ms": 3.589,
+              "p99Ms": 5.09,
+              "maxMs": 7.851,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4012.217,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.644145833333334,
+              "p50Ms": 0.876,
+              "p95Ms": 6.485,
+              "p99Ms": 12.363,
+              "maxMs": 15.101,
+              "over8ms": 21,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5956791666666668,
+              "p50Ms": 0.579,
+              "p95Ms": 0.758,
+              "p99Ms": 1.452,
+              "maxMs": 1.909,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.5075,
+              "p50Ms": 1.548,
+              "p95Ms": 7.999,
+              "p99Ms": 13.348,
+              "maxMs": 15.877,
+              "over8ms": 23,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4006.427,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8093.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 81",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.479547916666666,
+              "p50Ms": 0.843,
+              "p95Ms": 3.141,
+              "p99Ms": 10.3,
+              "maxMs": 11.292,
+              "over8ms": 9,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5826812500000009,
+              "p50Ms": 0.579,
+              "p95Ms": 0.694,
+              "p99Ms": 0.763,
+              "maxMs": 1.405,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.2799374999999977,
+              "p50Ms": 1.477,
+              "p95Ms": 5.496,
+              "p99Ms": 11.128,
+              "maxMs": 16.186,
+              "over8ms": 10,
+              "over16ms": 0
+            }
+          }
+        }
+      }
+    ],
+    "candidate": [
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4002.807,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.5401816283924844,
+              "p50Ms": 0.226,
+              "p95Ms": 1.938,
+              "p99Ms": 2.588,
+              "maxMs": 6.202,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.7995824634655532,
+              "p50Ms": 0.743,
+              "p95Ms": 1.175,
+              "p99Ms": 1.46,
+              "maxMs": 1.917,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.4765344467640913,
+              "p50Ms": 1.16,
+              "p95Ms": 3.048,
+              "p99Ms": 4.179,
+              "maxMs": 7.649,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4006.062,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.6446437500000013,
+              "p50Ms": 0.933,
+              "p95Ms": 6.591,
+              "p99Ms": 11.605,
+              "maxMs": 13.523,
+              "over8ms": 19,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6067208333333333,
+              "p50Ms": 0.58,
+              "p95Ms": 0.747,
+              "p99Ms": 1.627,
+              "maxMs": 1.934,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.5291583333333323,
+              "p50Ms": 1.631,
+              "p95Ms": 8.371,
+              "p99Ms": 12.426,
+              "maxMs": 14.394,
+              "over8ms": 24,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4007.152,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.5549561586638831,
+              "p50Ms": 0.842,
+              "p95Ms": 3.632,
+              "p99Ms": 10.998,
+              "maxMs": 12.856,
+              "over8ms": 8,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.6072818371607517,
+              "p50Ms": 0.585,
+              "p95Ms": 0.758,
+              "p99Ms": 1.606,
+              "maxMs": 2.478,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.384342379958246,
+              "p50Ms": 1.635,
+              "p95Ms": 5.899,
+              "p99Ms": 11.904,
+              "maxMs": 16.862,
+              "over8ms": 13,
+              "over16ms": 1
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4007.545,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.6515260960334031,
+              "p50Ms": 0.25,
+              "p95Ms": 2.888,
+              "p99Ms": 3.964,
+              "maxMs": 5.711,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.931774530271398,
+              "p50Ms": 0.846,
+              "p95Ms": 1.59,
+              "p99Ms": 1.827,
+              "maxMs": 2.078,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.7285156576200422,
+              "p50Ms": 1.311,
+              "p95Ms": 4.414,
+              "p99Ms": 5.115,
+              "maxMs": 7.753,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4011.067,
+            "updates": 240,
+            "frames": 481,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.5847359667359664,
+              "p50Ms": 0.867,
+              "p95Ms": 5.057,
+              "p99Ms": 12.025,
+              "maxMs": 14.224,
+              "over8ms": 17,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5551975051975057,
+              "p50Ms": 0.535,
+              "p95Ms": 0.707,
+              "p99Ms": 1.451,
+              "maxMs": 1.826,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.4157796257796265,
+              "p50Ms": 1.473,
+              "p95Ms": 7.241,
+              "p99Ms": 12.846,
+              "maxMs": 15.038,
+              "over8ms": 22,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4016.685,
+            "updates": 240,
+            "frames": 476,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8093.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 81",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.5978823529411756,
+              "p50Ms": 0.834,
+              "p95Ms": 4.805,
+              "p99Ms": 13.008,
+              "maxMs": 18.556,
+              "over8ms": 10,
+              "over16ms": 1
+            },
+            "raster": {
+              "meanMs": 0.5591407563025212,
+              "p50Ms": 0.545,
+              "p95Ms": 0.669,
+              "p99Ms": 0.782,
+              "maxMs": 1.63,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.444394957983195,
+              "p50Ms": 1.573,
+              "p95Ms": 6.756,
+              "p99Ms": 14.756,
+              "maxMs": 24.661,
+              "over8ms": 13,
+              "over16ms": 2
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4006.511,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.6195135699373696,
+              "p50Ms": 0.242,
+              "p95Ms": 2.489,
+              "p99Ms": 3.503,
+              "maxMs": 4.036,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.876321503131524,
+              "p50Ms": 0.85,
+              "p95Ms": 1.189,
+              "p99Ms": 1.435,
+              "maxMs": 2.893,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6383089770354906,
+              "p50Ms": 1.25,
+              "p95Ms": 3.675,
+              "p99Ms": 4.768,
+              "maxMs": 5.421,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4006.966,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.6344488517745304,
+              "p50Ms": 0.857,
+              "p95Ms": 5.582,
+              "p99Ms": 11.746,
+              "maxMs": 13.806,
+              "over8ms": 14,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5917348643006269,
+              "p50Ms": 0.572,
+              "p95Ms": 0.741,
+              "p99Ms": 1.562,
+              "maxMs": 1.742,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.4824112734864303,
+              "p50Ms": 1.496,
+              "p95Ms": 7.931,
+              "p99Ms": 12.623,
+              "maxMs": 14.535,
+              "over8ms": 22,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4015.605,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.6206116910229644,
+              "p50Ms": 0.873,
+              "p95Ms": 4.477,
+              "p99Ms": 11.673,
+              "maxMs": 13.649,
+              "over8ms": 9,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5978851774530277,
+              "p50Ms": 0.573,
+              "p95Ms": 0.742,
+              "p99Ms": 1.584,
+              "maxMs": 1.71,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.429,
+              "p50Ms": 1.568,
+              "p95Ms": 6.916,
+              "p99Ms": 12.436,
+              "maxMs": 14.519,
+              "over8ms": 14,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4007.24,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.36831315240083523,
+              "p50Ms": 0.16,
+              "p95Ms": 1.235,
+              "p99Ms": 1.613,
+              "maxMs": 2.234,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5393736951983302,
+              "p50Ms": 0.537,
+              "p95Ms": 0.65,
+              "p99Ms": 0.706,
+              "maxMs": 0.753,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.0032985386221294,
+              "p50Ms": 0.819,
+              "p95Ms": 1.916,
+              "p99Ms": 2.274,
+              "maxMs": 2.986,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4008.432,
+            "updates": 240,
+            "frames": 480,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.5287520833333326,
+              "p50Ms": 0.825,
+              "p95Ms": 5.761,
+              "p99Ms": 10.0,
+              "maxMs": 15.443,
+              "over8ms": 16,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5740124999999999,
+              "p50Ms": 0.562,
+              "p95Ms": 0.726,
+              "p99Ms": 1.268,
+              "maxMs": 1.676,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.3210687500000002,
+              "p50Ms": 1.405,
+              "p95Ms": 7.031,
+              "p99Ms": 10.886,
+              "maxMs": 16.306,
+              "over8ms": 17,
+              "over16ms": 0
+            }
+          },
+          "fastUp": {
+            "wallMs": 4015.113,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8148.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.593538622129436,
+              "p50Ms": 0.868,
+              "p95Ms": 4.637,
+              "p99Ms": 12.504,
+              "maxMs": 13.799,
+              "over8ms": 8,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5887453027139874,
+              "p50Ms": 0.587,
+              "p95Ms": 0.703,
+              "p99Ms": 0.799,
+              "maxMs": 1.618,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.4195177453027146,
+              "p50Ms": 1.574,
+              "p95Ms": 6.635,
+              "p99Ms": 13.261,
+              "maxMs": 14.603,
+              "over8ms": 12,
+              "over16ms": 0
+            }
+          }
+        }
+      },
+      {
+        "profileMode": true,
+        "profileCpu": false,
+        "profileWidgets": false,
+        "platform": "macOS",
+        "physicalSize": [
+          2560.0,
+          1720.0
+        ],
+        "pixelRatio": 2.0,
+        "topics": 3000,
+        "failures": 0,
+        "phases": {
+          "slowDown": {
+            "wallMs": 4006.599,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 0.0,
+            "offsetAfter": 9600.0,
+            "firstTitleBefore": "Topic 1",
+            "firstTitleAfter": "Topic 96 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 0.6185845511482253,
+              "p50Ms": 0.222,
+              "p95Ms": 2.378,
+              "p99Ms": 3.38,
+              "maxMs": 6.359,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.8688204592901891,
+              "p50Ms": 0.832,
+              "p95Ms": 1.349,
+              "p99Ms": 1.696,
+              "maxMs": 4.688,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 1.6509540709812098,
+              "p50Ms": 1.251,
+              "p95Ms": 3.512,
+              "p99Ms": 5.317,
+              "maxMs": 7.931,
+              "over8ms": 0,
+              "over16ms": 0
+            }
+          },
+          "fastDown": {
+            "wallMs": 4004.498,
+            "updates": 240,
+            "frames": 478,
+            "offsetBefore": 9600.0,
+            "offsetAfter": 67200.0,
+            "firstTitleBefore": "Topic 96 with a longer title that can wrap onto a second line",
+            "firstTitleAfter": "Topic 671",
+            "mountedTitles": 9,
+            "build": {
+              "meanMs": 1.7175146443514644,
+              "p50Ms": 0.854,
+              "p95Ms": 6.283,
+              "p99Ms": 13.364,
+              "maxMs": 17.454,
+              "over8ms": 18,
+              "over16ms": 2
+            },
+            "raster": {
+              "meanMs": 0.5700209205020924,
+              "p50Ms": 0.552,
+              "p95Ms": 0.723,
+              "p99Ms": 1.534,
+              "maxMs": 2.387,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.6600836820083678,
+              "p50Ms": 1.548,
+              "p95Ms": 8.543,
+              "p99Ms": 14.263,
+              "maxMs": 18.456,
+              "over8ms": 24,
+              "over16ms": 2
+            }
+          },
+          "fastUp": {
+            "wallMs": 4007.238,
+            "updates": 240,
+            "frames": 479,
+            "offsetBefore": 67200.0,
+            "offsetAfter": 8168.0,
+            "firstTitleBefore": "Topic 671",
+            "firstTitleAfter": "Topic 82 with a longer title that can wrap onto a second line",
+            "mountedTitles": 10,
+            "build": {
+              "meanMs": 1.5089686847599169,
+              "p50Ms": 0.795,
+              "p95Ms": 3.389,
+              "p99Ms": 10.058,
+              "maxMs": 13.845,
+              "over8ms": 9,
+              "over16ms": 0
+            },
+            "raster": {
+              "meanMs": 0.5748058455114822,
+              "p50Ms": 0.572,
+              "p95Ms": 0.676,
+              "p99Ms": 0.75,
+              "maxMs": 1.48,
+              "over8ms": 0,
+              "over16ms": 0
+            },
+            "total": {
+              "meanMs": 2.299716075156576,
+              "p50Ms": 1.421,
+              "p95Ms": 5.746,
+              "p99Ms": 11.093,
+              "maxMs": 15.326,
+              "over8ms": 11,
+              "over16ms": 0
+            }
+          }
+        }
+      }
+    ]
+  }
+}

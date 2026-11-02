@@ -48,11 +48,12 @@ def write_profiles(response, output):
     (output / "cpu.txt").write_text("\n".join(lines))
 
 
-def capture(app, output, cpu=False):
+def capture(app, output, cpu=False, widget_trace=False):
     output.unlink(missing_ok=True)
     environment = os.environ.copy()
     environment.update(TOPIC_LIST_OUTPUT=str(output.resolve()),
                        TOPIC_LIST_CPU="1" if cpu else "0",
+                       TOPIC_LIST_WIDGET_TRACE="1" if widget_trace else "0",
                        FLUTTER_ENGINE_SWITCHES="1",
                        FLUTTER_ENGINE_SWITCH_1="enable-dart-profiling=false")
     process = subprocess.Popen(
@@ -102,6 +103,8 @@ def capture(app, output, cpu=False):
     report = data["summary"]
     if not report["profileMode"] or report["profileCpu"] != cpu:
         raise RuntimeError("Unexpected profiling configuration")
+    if report.get("profileWidgets", False) != widget_trace:
+        raise RuntimeError("Unexpected widget trace configuration")
     if report["topics"] != 3000 or report["failures"] or len(report["phases"]) != 3:
         raise RuntimeError("Incomplete or incorrect scroll workload")
     return report
@@ -112,10 +115,16 @@ def main():
     parser.add_argument("--baseline", required=True, type=Path)
     parser.add_argument("--candidate", type=Path)
     parser.add_argument("--cpu", action="store_true")
+    parser.add_argument("--widget-trace", action="store_true")
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--runs", type=int, default=5)
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
+    if args.widget_trace:
+        if args.cpu or args.candidate:
+            parser.error("Widget tracing is a separate diagnostic")
+        capture(args.baseline.resolve(), args.output / "widgets.json", widget_trace=True)
+        return
     if args.cpu:
         if args.candidate:
             parser.error("CPU sampling is a separate diagnostic, not a timing comparison")

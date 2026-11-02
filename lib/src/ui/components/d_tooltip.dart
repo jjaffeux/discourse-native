@@ -703,18 +703,36 @@ class DTooltipState extends State<DTooltip>
 
   @override
   Widget build(BuildContext context) {
-    Widget child = Focus(
-      focusNode: null,
-      includeSemantics: widget.focusable,
-      canRequestFocus: widget.focusable,
-      skipTraversal: !widget.focusable,
-      onFocusChange: (value) {
-        _focusChanged(value);
-        if (mounted) setState(() => _focusVisible = _focused);
-      },
-      child: widget.child,
+    final tokens = DTokens.of(context);
+    // Keep the decoration owner in place when focusability changes so the
+    // trigger's focus and state survive. Its ring paints outside the target.
+    final child = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: tokens.borderRadius,
+        border:
+            widget.focusable &&
+                _focusVisible &&
+                DFocusHighlight.visibleOf(context)
+            ? Border.all(
+                color: tokens.focusRing.withValues(alpha: .5),
+                width: 3,
+                strokeAlign: BorderSide.strokeAlignOutside,
+              )
+            : null,
+      ),
+      child: Focus(
+        focusNode: null,
+        includeSemantics: widget.focusable,
+        canRequestFocus: widget.focusable,
+        skipTraversal: !widget.focusable,
+        onFocusChange: (value) {
+          _focusChanged(value);
+          if (mounted) setState(() => _focusVisible = _focused);
+        },
+        child: widget.child,
+      ),
     );
-    child = OverlayPortal.overlayChildLayoutBuilder(
+    Widget result = OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
       overlayChildBuilder: (context, info) => _overlay(context, info),
       child: _TooltipMouseRegion(
@@ -724,25 +742,19 @@ class DTooltipState extends State<DTooltip>
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerDown: _pointerDown,
-          child: _TooltipFocusRing(
-            visible:
-                widget.focusable &&
-                _focusVisible &&
-                DFocusHighlight.visibleOf(context),
-            child: child,
-          ),
+          child: child,
         ),
       ),
     );
-    child = Semantics(
+    result = Semantics(
       // An excluded description must keep the portal's traversal anchor apart
       // from its trigger. Merging it can detach an overlay node during updates.
       container: widget.excludeFromSemantics,
       label: widget.labelTrigger ? widget.message : null,
       tooltip: _description,
-      child: child,
+      child: result,
     );
-    return widget.labelTrigger ? MergeSemantics(child: child) : child;
+    return widget.labelTrigger ? MergeSemantics(child: result) : result;
   }
 
   @override
@@ -761,33 +773,6 @@ class DTooltipState extends State<DTooltip>
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
     super.dispose();
-  }
-}
-
-// The focusable wrapper shows the library's focus-visible ring: 3px of the
-// ring color at half opacity, painted outside the wrapper so no child edge is
-// covered.
-class _TooltipFocusRing extends StatelessWidget {
-  const _TooltipFocusRing({required this.visible, required this.child});
-  final bool visible;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: tokens.borderRadius,
-        border: visible
-            ? Border.all(
-                color: tokens.focusRing.withValues(alpha: .5),
-                width: 3,
-                strokeAlign: BorderSide.strokeAlignOutside,
-              )
-            : null,
-      ),
-      child: child,
-    );
   }
 }
 

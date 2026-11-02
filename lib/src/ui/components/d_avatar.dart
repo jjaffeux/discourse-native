@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
@@ -157,11 +156,9 @@ class DAvatar extends StatelessWidget {
           height: _intrinsic
               ? null
               : dimension ?? _scaledExtent(context, effectiveSize),
-          child: Stack(
-            fit: _intrinsic ? StackFit.loose : StackFit.expand,
-            clipBehavior: Clip.none,
-            children: [picture],
-          ),
+          child: _intrinsic
+              ? Stack(clipBehavior: Clip.none, children: [picture])
+              : picture,
         ),
       ),
     );
@@ -337,9 +334,7 @@ class _DAvatarImageState extends State<DAvatarImage> {
 }
 
 /// Muted initials or an icon, displayed while an image is unavailable.
-/// A delay avoids flashing initials during fast loads. It restarts each time
-/// the fallback is mounted; changing the delay updates the pending timer.
-class DAvatarFallback extends StatefulWidget {
+class DAvatarFallback extends StatelessWidget {
   const DAvatarFallback({
     super.key,
     required this.child,
@@ -352,51 +347,16 @@ class DAvatarFallback extends StatefulWidget {
   final Color? backgroundColor;
   final Color? foregroundColor;
   @override
-  State<DAvatarFallback> createState() => _DAvatarFallbackState();
-}
-
-class _DAvatarFallbackState extends State<DAvatarFallback> {
-  Timer? _timer;
-  bool _visible = false;
-  void _start() {
-    _timer?.cancel();
-    _visible = Duration.zero <= Duration.zero;
-    if (!_visible) {
-      _timer = Timer(Duration.zero, () {
-        if (mounted) setState(() => _visible = true);
-      });
-    }
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _start();
-  }
-
-  @override
-  void didUpdateWidget(DAvatarFallback oldWidget) {
-    super.didUpdateWidget(oldWidget);
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    if (!_visible) return const SizedBox.expand();
     final tokens = DTokens.of(context);
     final small = _AvatarScope.of(context)?.size == DAvatarSize.sm;
     return ColoredBox(
-      color: widget.backgroundColor ?? tokens.muted,
+      color: backgroundColor ?? tokens.muted,
       child: Center(
         child: DefaultTextStyle(
           style: (Theme.of(context).textTheme.bodyMedium ?? const TextStyle())
               .copyWith(
-                color: widget.foregroundColor ?? tokens.mutedForeground,
+                color: foregroundColor ?? tokens.mutedForeground,
                 fontSize: small
                     ? DiscourseTypography.xs
                     : DiscourseTypography.sm,
@@ -409,9 +369,9 @@ class _DAvatarFallbackState extends State<DAvatarFallback> {
           child: IconTheme.merge(
             data: IconThemeData(
               size: small ? 12 : 16,
-              color: widget.foregroundColor ?? tokens.mutedForeground,
+              color: foregroundColor ?? tokens.mutedForeground,
             ),
-            child: widget.child,
+            child: child,
           ),
         ),
       ),

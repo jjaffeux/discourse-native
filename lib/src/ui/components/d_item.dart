@@ -1029,22 +1029,15 @@ class DItemContent extends StatelessWidget {
   Widget build(BuildContext context) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: alignment,
-    children: [
-      for (var i = 0; i < children.length; i++) ...[
-        if (i > 0)
-          SizedBox(
-            height:
-                spacing ??
-                (_ItemScope.drawerOf(context)
-                    ? 2
-                    : (switch (_ItemScope.sizeOf(context)) {
-                        DItemSize.xs || DItemSize.artwork => 0,
-                        _ => 4,
-                      })),
-          ),
-        children[i],
-      ],
-    ],
+    spacing:
+        spacing ??
+        (_ItemScope.drawerOf(context)
+            ? 2
+            : (switch (_ItemScope.sizeOf(context)) {
+                DItemSize.xs || DItemSize.artwork => 0,
+                _ => 4,
+              })),
+    children: children,
   );
 }
 
