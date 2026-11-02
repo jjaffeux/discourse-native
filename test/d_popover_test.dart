@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -94,6 +95,37 @@ void popoverBackdropTests() {
 
 void main() {
   popoverBackdropTests();
+
+  for (final remove in [false, true]) {
+    testWidgets(
+      'unopened popovers allocate no animations during ${remove ? 'disposal' : 'rebuild'}',
+      (tester) async {
+        Widget popover(String label) => DPopover(
+          content: DPopoverContent(child: Text(label)),
+          child: const Text('Closed trigger'),
+        );
+        await tester.pumpWidget(_app(popover('First content')));
+        await tester.pumpAndSettle();
+        var allocations = 0;
+        void track(ObjectEvent event) {
+          if (event case ObjectCreated(object: AnimationController())) {
+            allocations++;
+          }
+        }
+
+        FlutterMemoryAllocations.instance.addListener(track);
+        addTearDown(
+          () => FlutterMemoryAllocations.instance.removeListener(track),
+        );
+        await tester.pumpWidget(
+          _app(remove ? const SizedBox.shrink() : popover('Updated content')),
+        );
+        await tester.pumpAndSettle();
+        expect(allocations, 0);
+        expect(find.byType(DPopoverContent), findsNothing);
+      },
+    );
+  }
 
   testWidgets(
     'a phone menu uses 17 point type with app and accessibility scaling',

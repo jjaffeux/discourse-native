@@ -162,6 +162,7 @@ void main() {
           end - start,
         );
         phase['cpuSamples'] = samples.sampleCount;
+        phase['widgetCensus'] = _widgetCensus(tester);
         binding.reportData!['cpuFolded.$name'] = _folded(samples);
       }
       debugPrint(
@@ -217,8 +218,11 @@ String _folded(vm.CpuSamples samples) {
   final names = [
     for (final profile in samples.functions ?? const <vm.ProfileFunction>[])
       switch (profile.function) {
-        vm.FuncRef(:final name, owner: vm.ClassRef(name: final owner)) =>
-          '$owner.$name',
+        vm.FuncRef(:final name, owner: vm.ClassRef(name: final owner)) ||
+        vm.FuncRef(
+          :final name,
+          owner: vm.FuncRef(name: final owner),
+        ) => '$owner.$name',
         vm.FuncRef(:final name) => '$name',
         vm.NativeFunction(:final name) => '$name',
         _ => profile.kind ?? '?',
@@ -232,4 +236,28 @@ String _folded(vm.CpuSamples samples) {
     counts.update(key, (n) => n + 1, ifAbsent: () => 1);
   }
   return [for (final e in counts.entries) '${e.key} ${e.value}'].join('\n');
+}
+
+Map<String, Object> _widgetCensus(WidgetTester tester) {
+  final widgets = <String, int>{};
+  final tickerDomains = <Object, int>{};
+  var elements = 0;
+  for (final element in tester.allElements) {
+    elements++;
+    final name = element.widget.runtimeType.toString();
+    widgets.update(name, (count) => count + 1, ifAbsent: () => 1);
+    if (element is StatefulElement && element.state is TickerProvider) {
+      final notifier = TickerMode.getValuesNotifier(element);
+      tickerDomains.update(notifier, (count) => count + 1, ifAbsent: () => 1);
+    }
+  }
+  final domains = tickerDomains.values.toList()..sort((a, b) => b.compareTo(a));
+  final sorted = widgets.entries.toList()
+    ..sort((a, b) => b.value.compareTo(a.value));
+  return {
+    'elements': elements,
+    'tickerProviders': domains.fold<int>(0, (sum, count) => sum + count),
+    'tickerProvidersPerDomain': domains,
+    'widgetCounts': Map.fromEntries(sorted),
+  };
 }

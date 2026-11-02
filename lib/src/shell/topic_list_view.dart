@@ -1655,7 +1655,12 @@ class _TopicRowBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) => _buildBody(context);
 
-  Widget _buildBody(BuildContext context) => _ConversationTopicCard(row: this);
+  Widget _buildBody(BuildContext context) => TickerMode(
+    // Keep row animations on a local notifier: disposing a row must not scan
+    // and compact the ticker listeners belonging to every other visible row.
+    enabled: true,
+    child: _ConversationTopicCard(row: this),
+  );
 }
 
 class _Message extends StatelessWidget {

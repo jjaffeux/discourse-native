@@ -34,11 +34,13 @@ def write_profiles(response, output):
                    "_topic", "EventTopic", "AssignmentTopic", "PluginRegistry.",
                    "TextPainter.", "RenderParagraph.", "RenderSuperSliverList.",
                    "ExtentManager.", "_ItemLayout.", "_InactiveElements._unmount",
-                   "ImplicitlyAnimatedWidgetState.", "ChangeNotifier.")
+                   "ImplicitlyAnimatedWidgetState.", "ChangeNotifier.",
+                   "DButton.", "_DInlineButton", "_DPopoverState.")
         compact = collections.Counter()
         for stack, count in stacks:
             kept = tuple(dict.fromkeys(frame for frame in stack
-                                       if frame.startswith(callers)))
+                                       if frame.startswith(callers)
+                                       or "TickerProviderStateMixin" in frame))
             compact[kept or ("other UI/runtime work",)] += count
         title = (f"{output.name}: {phase} — selected Dart callers "
                  "(native cost included; recursion collapsed)")
@@ -66,6 +68,7 @@ def capture(app, output, cpu=False):
     threading.Thread(target=read_lines, daemon=True).start()
     log = []
     passed = False
+    expired = False
     deadline = time.monotonic() + 90
     try:
         while time.monotonic() < deadline:
@@ -82,6 +85,7 @@ def capture(app, output, cpu=False):
             if "All tests passed!" in line:
                 passed = True
                 break
+        expired = time.monotonic() >= deadline
     finally:
         process.terminate()
         try:
@@ -91,6 +95,8 @@ def capture(app, output, cpu=False):
             process.wait()
         output.with_suffix(".log").write_text("".join(log))
     if not passed or not output.exists():
+        if expired:
+            raise TimeoutError(f"Native test timed out; inspect {output.with_suffix('.log')}")
         raise RuntimeError(f"Workload failed; inspect {output.with_suffix('.log')}")
     data = json.loads(output.read_text())
     report = data["summary"]
@@ -120,12 +126,26 @@ def main():
         parser.error("Comparison requires both bundles and at least five alternating runs")
     apps = {label: getattr(args, label).resolve() for label in ("baseline", "candidate")}
     reports = {label: [] for label in apps}
+    failed_attempts = []
     for repeat in range(args.runs):
-        for label, app in apps.items():
-            report = capture(app, args.output / f"{label}-{repeat + 1}.json")
-            reports[label].append(report)
-            print(f"{label} {repeat + 1}: fast down build p95 "
-                  f"{report['phases']['fastDown']['build']['p95Ms']} ms", flush=True)
+        for attempt in range(3):
+            pair = {}
+            try:
+                for label, app in apps.items():
+                    report = capture(app, args.output / f"{label}-{repeat + 1}-{attempt + 1}.json")
+                    pair[label] = report
+                    print(f"{label} {repeat + 1}: fast down build p95 "
+                          f"{report['phases']['fastDown']['build']['p95Ms']} ms", flush=True)
+            except TimeoutError as error:
+                failed_attempts.append(dict(pair=repeat + 1, attempt=attempt + 1,
+                                            error=str(error)))
+                print(f"Discarding incomplete pair {repeat + 1}: {error}", flush=True)
+                if attempt == 2:
+                    raise
+                continue
+            for label, report in pair.items():
+                reports[label].append(report)
+            break
     errors = []
     shapes = {(tuple(r["physicalSize"]), r["pixelRatio"], r["platform"])
               for side in reports.values() for r in side}
@@ -166,7 +186,7 @@ def main():
     artifact = dict(
         runsPerSide=args.runs, failures=0, primaryPhase="fastDown",
         verdict=phase_verdicts["fastDown"], phaseVerdicts=phase_verdicts,
-        comparisonErrors=errors,
+        comparisonErrors=errors, failedAttempts=failed_attempts,
         appFrameworkSha256={
             label: hashlib.sha256((app / "Contents/Frameworks/App.framework/Versions/A/App")
                                   .read_bytes()).hexdigest()

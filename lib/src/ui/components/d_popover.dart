@@ -369,14 +369,21 @@ class _DPopoverState extends State<DPopover>
     with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   final _portal = OverlayPortalController();
   final _surfaceKey = GlobalKey();
-  final _surfaceFocus = FocusScopeNode(debugLabel: 'DPopover content');
-  late final _ownedController = DPopoverController();
-  late final _animation = AnimationController(
-    vsync: this,
-    duration: widget.transitionDuration,
-    reverseDuration: widget.reverseTransitionDuration,
-  )..addStatusListener(_animationStatus);
-  late final _curve = CurvedAnimation(
+  FocusScopeNode? _allocatedSurfaceFocus;
+  FocusScopeNode get _surfaceFocus =>
+      _allocatedSurfaceFocus ??= FocusScopeNode(debugLabel: 'DPopover content');
+  DPopoverController? _allocatedController;
+  DPopoverController get _ownedController =>
+      _allocatedController ??= DPopoverController();
+  AnimationController? _allocatedAnimation;
+  CurvedAnimation? _allocatedCurve;
+  AnimationController get _animation =>
+      _allocatedAnimation ??= (AnimationController(
+        vsync: this,
+        duration: widget.transitionDuration,
+        reverseDuration: widget.reverseTransitionDuration,
+      )..addStatusListener(_animationStatus));
+  CurvedAnimation get _curve => _allocatedCurve ??= CurvedAnimation(
     parent: _animation,
     curve: widget.transitionCurve,
     reverseCurve: widget.reverseTransitionCurve,
@@ -387,7 +394,9 @@ class _DPopoverState extends State<DPopover>
   FocusNode? _previousFocus;
   bool _open = false;
   bool _sheet = false;
-  final _menuFocus = FocusNode(skipTraversal: true);
+  FocusNode? _allocatedMenuFocus;
+  FocusNode get _menuFocus =>
+      _allocatedMenuFocus ??= FocusNode(skipTraversal: true);
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
@@ -443,11 +452,11 @@ class _DPopoverState extends State<DPopover>
       (oldWidget.controller ?? _ownedController)._detach(this);
       _controller._attach(this);
     }
-    _animation
-      ..duration = widget.transitionDuration
+    _allocatedAnimation
+      ?..duration = widget.transitionDuration
       ..reverseDuration = widget.reverseTransitionDuration;
-    _curve
-      ..curve = widget.transitionCurve
+    _allocatedCurve
+      ?..curve = widget.transitionCurve
       ..reverseCurve = widget.reverseTransitionCurve;
     _scheduleSync();
   }
@@ -466,8 +475,11 @@ class _DPopoverState extends State<DPopover>
         _setOpen(widget.defaultOpen);
       }
       _initialized = true;
-      if (MediaQuery.disableAnimationsOf(context) && _animation.isAnimating) {
-        _animation.value = _open ? 1 : 0;
+      final animation = _allocatedAnimation;
+      if (MediaQuery.disableAnimationsOf(context) &&
+          animation != null &&
+          animation.isAnimating) {
+        animation.value = _open ? 1 : 0;
         if (!_open && _portal.isShowing) _hidePortal();
       }
     });
@@ -992,11 +1004,11 @@ class _DPopoverState extends State<DPopover>
     _open = false;
     _syncGlobalListeners();
     WidgetsBinding.instance.removeObserver(this);
-    _curve.dispose();
-    _animation.dispose();
-    _surfaceFocus.dispose();
-    _menuFocus.dispose();
-    _ownedController.dispose();
+    _allocatedCurve?.dispose();
+    _allocatedAnimation?.dispose();
+    _allocatedSurfaceFocus?.dispose();
+    _allocatedMenuFocus?.dispose();
+    _allocatedController?.dispose();
     super.dispose();
   }
 }

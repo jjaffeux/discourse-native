@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
@@ -1371,7 +1372,15 @@ class DButton extends StatelessWidget {
     }
 
     // The exterior ring paints beyond the Material, so the button never clips.
-    Widget result = isLink
+    Widget result = inlineMetadata
+        ? _DInlineButtonPrimitive(
+            onPressed: enabled ? linkActivation.onPressed : null,
+            style: style,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            child: child,
+          )
+        : isLink
         ? _DLinkPrimitive(
             onPressed: enabled ? linkActivation.onPressed : null,
             style: style,
@@ -1633,6 +1642,160 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
 /// which the leading edge is shared with a preceding control: that edge has no
 /// border and the fill reaches it. The ring is painted outside the bounds.
 typedef DButtonDecoration = DControlDecoration;
+
+// Inline metadata shares the Native styles with a compact focus and tap owner.
+class _DInlineButtonPrimitive extends StatefulWidget {
+  const _DInlineButtonPrimitive({
+    required this.onPressed,
+    required this.style,
+    required this.focusNode,
+    required this.autofocus,
+    required this.child,
+  });
+
+  final VoidCallback? onPressed;
+  final ButtonStyle style;
+  final FocusNode? focusNode;
+  final bool autofocus;
+  final Widget child;
+
+  @override
+  State<_DInlineButtonPrimitive> createState() =>
+      _DInlineButtonPrimitiveState();
+}
+
+class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
+  final _states = <WidgetState>{};
+  FocusNode? _ownedFocus;
+  FocusNode get _focus =>
+      widget.focusNode ?? (_ownedFocus ??= FocusNode(debugLabel: 'DButton'));
+  Timer? _keyboardPress;
+  bool get _enabled => widget.onPressed != null;
+
+  void _update(WidgetState state, bool value) {
+    if (value ? _states.add(state) : _states.remove(state)) setState(() {});
+  }
+
+  void _activate() {
+    if (!_enabled) return;
+    if (widget.style.enableFeedback ?? true) {
+      unawaited(Feedback.forTap(context));
+    }
+    widget.onPressed!();
+  }
+
+  void _activateFromKeyboard() {
+    if (!_enabled) return;
+    _keyboardPress?.cancel();
+    _update(WidgetState.pressed, true);
+    _activate();
+    _keyboardPress = Timer(const Duration(milliseconds: 100), () {
+      if (mounted) _update(WidgetState.pressed, false);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_enabled) {
+      _states.remove(WidgetState.disabled);
+    } else {
+      _states
+        ..add(WidgetState.disabled)
+        ..remove(WidgetState.pressed)
+        ..remove(WidgetState.hovered)
+        ..remove(WidgetState.focused);
+    }
+    final style = widget.style;
+    final minimum = style.minimumSize!.resolve(_states)!;
+    final maximum = style.maximumSize!.resolve(_states)!;
+    var constraints = BoxConstraints(
+      minWidth: minimum.width,
+      minHeight: minimum.height,
+      maxWidth: maximum.width,
+      maxHeight: maximum.height,
+    );
+    final fixed = style.fixedSize?.resolve(_states);
+    if (fixed != null) {
+      final size = constraints.constrain(fixed);
+      constraints = constraints.copyWith(
+        minWidth: size.width.isFinite ? size.width : null,
+        maxWidth: size.width.isFinite ? size.width : null,
+        minHeight: size.height.isFinite ? size.height : null,
+        maxHeight: size.height.isFinite ? size.height : null,
+      );
+    }
+    final content = Padding(
+      padding: style.padding!.resolve(_states)!,
+      child: Align(
+        alignment: style.alignment!,
+        widthFactor: 1,
+        heightFactor: 1,
+        child: widget.child,
+      ),
+    );
+    return Semantics(
+      container: true,
+      enabled: _enabled,
+      onTap: _enabled ? _activate : null,
+      child: FocusableActionDetector(
+        enabled: _enabled,
+        focusNode: _focus,
+        autofocus: widget.autofocus,
+        onFocusChange: (value) => _update(WidgetState.focused, value),
+        mouseCursor: style.mouseCursor!.resolve(_states)!,
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) => _activateFromKeyboard(),
+          ),
+          ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+            onInvoke: (_) => _activateFromKeyboard(),
+          ),
+        },
+        child: MouseRegion(
+          onEnter: _enabled ? (_) => _update(WidgetState.hovered, true) : null,
+          onExit: (_) => _update(WidgetState.hovered, false),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTapDown: _enabled
+                ? (_) => _update(WidgetState.pressed, true)
+                : null,
+            onTapUp: _enabled
+                ? (_) => _update(WidgetState.pressed, false)
+                : null,
+            onTapCancel: _enabled
+                ? () => _update(WidgetState.pressed, false)
+                : null,
+            onTap: _enabled ? _activate : null,
+            child: ConstrainedBox(
+              constraints: constraints,
+              child: IconTheme.merge(
+                data: IconThemeData(
+                  color: style.iconColor!.resolve(_states),
+                  size: style.iconSize!.resolve(_states),
+                ),
+                child: AnimatedDefaultTextStyle(
+                  style: style.textStyle!
+                      .resolve(_states)!
+                      .copyWith(color: style.foregroundColor!.resolve(_states)),
+                  duration: style.animationDuration!,
+                  child: style.backgroundBuilder!(context, _states, content),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _keyboardPress?.cancel();
+    _ownedFocus?.dispose();
+    super.dispose();
+  }
+}
 
 // ButtonStyleButton retains native Actions/Focus and activation semantics.
 // Navigation must not expose the button role inherited by FilledButton.

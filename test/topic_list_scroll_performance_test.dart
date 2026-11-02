@@ -6,6 +6,34 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/topic_list_scroll_fixture.dart';
 
 void main() {
+  testWidgets('row animations follow page ticker availability', (tester) async {
+    final controller = await topicListScrollController(count: 10);
+    addTearDown(() async {
+      controller.dispose();
+      await controller.pluginTeardown;
+      await controller.plugins.close();
+    });
+    final fixture = TopicListScrollFixture(controller: controller);
+    for (final (enabled, forceFrames) in [
+      (true, false),
+      (false, false),
+      (false, true),
+      (true, true),
+      (true, false),
+    ]) {
+      await tester.pumpWidget(
+        TickerMode(enabled: enabled, forceFrames: forceFrames, child: fixture),
+      );
+      await tester.pumpAndSettle();
+      final rowContext = tester.element(find.byType(TopicTitle).first);
+      expect(
+        TickerMode.valuesOf(rowContext),
+        TickerModeData(enabled: enabled, forceFrames: forceFrames),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets(
     'rows reuse their construction until the width breakpoint changes',
     (tester) async {

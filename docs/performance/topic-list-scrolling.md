@@ -1,5 +1,7 @@
 # Desktop topic-list scrolling
 
+The later [fast-scroll construction and teardown report](fast-topic-list-scrolling.md) records the follow-up improvements.
+
 Ordinary wheel scrolling has a reproducible frame-build improvement after sharing metadata text measurements between topic rows. Its p95 fell from a median **3.529 ms to 3.185 ms (9.7%)** across five alternating native macOS runs per revision. The run ranges do not overlap. Fast downward scrolling remains inconclusive: its median improved, but the ranges overlap.
 
 ## Evidence
