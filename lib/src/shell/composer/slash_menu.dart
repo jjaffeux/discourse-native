@@ -274,6 +274,7 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
       content: DDropdownMenuContent(
         semanticLabel: context.l10n.composerCommands,
         autofocus: false,
+        scrollable: false,
         width: 320,
         children: [
           TextFieldTapRegion(
@@ -287,38 +288,40 @@ class ComposerSlashMenuState extends State<ComposerSlashMenu> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  DCommandList<String>(
-                    children: [
-                      DCommandEmpty(
-                        child: Text(context.l10n.noMatchingCommands),
-                      ),
-                      for (final group in actions.map((a) => a.group).toSet())
-                        DCommandGroup<String>(
-                          heading: Text(group),
-                          items: [
-                            for (final action in actions.where(
-                              (a) => a.group == group,
-                            ))
-                              DCommandItem<String>(
-                                value: action.label,
-                                searchValue: action.label,
-                                keywords: action.keywords,
-                                leading: action.leadingText != null
-                                    ? Text(action.leadingText!)
-                                    : action.icon != null
-                                    ? DIcon(action.icon!)
-                                    : null,
-                                trailing: action.hint == null
-                                    ? null
-                                    : DText(
-                                        action.hint!,
-                                        variant: DTextVariant.muted,
-                                      ),
-                                child: Text(action.label),
-                              ),
-                          ],
+                  Flexible(
+                    child: DCommandList<String>(
+                      children: [
+                        DCommandEmpty(
+                          child: Text(context.l10n.noMatchingCommands),
                         ),
-                    ],
+                        for (final group in actions.map((a) => a.group).toSet())
+                          DCommandGroup<String>(
+                            heading: Text(group),
+                            items: [
+                              for (final action in actions.where(
+                                (a) => a.group == group,
+                              ))
+                                DCommandItem<String>(
+                                  value: action.label,
+                                  searchValue: action.label,
+                                  keywords: action.keywords,
+                                  leading: action.leadingText != null
+                                      ? Text(action.leadingText!)
+                                      : action.icon != null
+                                      ? DIcon(action.icon!)
+                                      : null,
+                                  trailing: action.hint == null
+                                      ? null
+                                      : DText(
+                                          action.hint!,
+                                          variant: DTextVariant.muted,
+                                        ),
+                                  child: Text(action.label),
+                                ),
+                            ],
+                          ),
+                      ],
+                    ),
                   ),
                   const DSeparator(),
                   DButton(

@@ -371,4 +371,43 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Close menu'), findsNothing);
   });
+
+  testWidgets('phone slash menu has one scroll owner above the keyboard', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 700);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetViewInsets);
+    final composer = await pump(tester);
+    await type(tester, '/');
+
+    final menu = find.byType(DDropdownMenuContent);
+    final scrollables = find.descendant(
+      of: menu,
+      matching: find.byType(Scrollable),
+    );
+    expect(scrollables, findsOneWidget);
+    final scroll = tester.state<ScrollableState>(scrollables).position;
+    expect(scroll.maxScrollExtent, greaterThan(0));
+    final close = find.widgetWithText(DButton, 'Close menu');
+    final closeRect = tester.getRect(close);
+    expect(close.hitTestable(), findsOneWidget);
+    expect(closeRect.bottom, lessThanOrEqualTo(400));
+
+    await tester.drag(scrollables, const Offset(0, -180));
+    await tester.pumpAndSettle();
+    expect(scroll.pixels, greaterThan(0));
+    expect(tester.getRect(close), closeRect);
+    expect(composer.focus.hasFocus, isTrue);
+
+    await tester.tap(close);
+    await tester.pumpAndSettle();
+    expect(find.byType(DDropdownMenuContent), findsNothing);
+    expect(composer.text.text, isEmpty);
+    expect(composer.focus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 }
