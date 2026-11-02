@@ -83,21 +83,39 @@ class _BoardsDirectoryState extends State<BoardsDirectory> {
               onChanged: (value) => setState(() => _query = value),
             ),
           ),
-          DSelect<_BoardStatus>.controlled(
-            size: DControlSize.filter,
-            value: _status,
-            semanticLabel: l10n.boardsStatus,
-            entries: [
-              for (final status in _BoardStatus.values)
-                DSelectOption(
-                  value: status,
-                  label: _statusLabel(status),
-                  child: Text(_statusLabel(status)),
+          DDropdownMenu(
+            sheetOnMobile: true,
+            mobileSheetVariant: DSheetVariant.adaptiveMenu,
+            content: DDropdownMenuContent(
+              width: 240,
+              semanticLabel: l10n.boardsStatus,
+              children: [
+                DDropdownMenuRadioGroup<_BoardStatus>(
+                  value: _status,
+                  onChanged: (value) => setState(() => _status = value),
+                  children: [
+                    for (final status in _BoardStatus.values)
+                      DDropdownMenuRadioItem(
+                        value: status,
+                        closeOnSelect: true,
+                        child: Text(_statusLabel(status)),
+                      ),
+                  ],
                 ),
-            ],
-            onChanged: (value) {
-              if (value != null) setState(() => _status = value);
-            },
+              ],
+            ),
+            child: DDropdownMenuTrigger(
+              builder: (context, state) => DButton(
+                size: DControlSize.filter,
+                variant: DButtonVariant.quiet,
+                label: Text(_statusLabel(_status)),
+                semanticLabel: '${l10n.boardsStatus}: ${_statusLabel(_status)}',
+                focusNode: state.focusNode,
+                hasPopup: true,
+                expanded: state.open,
+                onPressed: state.toggle,
+              ),
+            ),
           ),
         ],
       ),
