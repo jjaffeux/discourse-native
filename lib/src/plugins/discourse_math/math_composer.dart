@@ -253,7 +253,13 @@ class _MathProjection implements ComposerInteractiveSyntaxProjection {
             : PlaceholderAlignment.baseline,
         baseline: TextBaseline.alphabetic,
         style: context.baseStyle,
-        child: child,
+        child: DItem(
+          size: DItemSize.artwork,
+          fitContent: !blockPresentation,
+          semanticLabel: appL10n.editMath,
+          onPressed: _editable(editor) ? openEditor : null,
+          children: [IgnorePointer(child: child)],
+        ),
       ),
       if (hiddenEnd > 1)
         TextSpan(

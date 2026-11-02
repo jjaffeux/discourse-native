@@ -133,6 +133,41 @@ void main() {
         as Map<String, dynamic>;
   }
 
+  testWidgets('native activation edits only the current editable expression', (
+    tester,
+  ) async {
+    var edits = 0;
+    await tester.pumpWidget(host(edit: () => edits++));
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(request(platform.controllers.last)['editable'], isTrue);
+    send({'type': 'activate', 'generation': 0});
+    expect(edits, 0);
+    send({'type': 'activate', 'generation': 1});
+    expect(edits, 1);
+    expect(find.byTooltip('Edit math'), findsNothing);
+
+    await tester.pumpWidget(host(source: 'x', edit: () => edits++));
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    send({'type': 'activate', 'generation': 1});
+    expect(edits, 1);
+    send({'type': 'activate', 'generation': 2});
+    expect(edits, 2);
+
+    await tester.pumpWidget(host(source: 'x'));
+    await tester.pump();
+    send({'type': 'ready'});
+    await tester.pump();
+    expect(request(platform.controllers.last)['editable'], isFalse);
+    send({'type': 'activate', 'generation': 2});
+    send({'type': 'activate', 'generation': 3});
+    expect(edits, 2);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump();
+  });
   testWidgets('math canvas uses its enclosing dark card surface', (
     tester,
   ) async {
@@ -355,22 +390,6 @@ void main() {
     expect(platform.controllers.single.channels, isEmpty);
     expect(platform.controllers.single.assets, isEmpty);
   });
-  testWidgets(
-    'inline and display expose the Native pencil action without overflow',
-    (tester) async {
-      var edits = 0;
-      for (final display in [false, true]) {
-        await tester.pumpWidget(host(display: display, edit: () => edits++));
-        await tester.pump();
-        await tester.tap(find.byTooltip('Edit math'));
-        await tester.pump();
-        expect(tester.takeException(), isNull);
-      }
-      expect(edits, 2);
-      await tester.pumpWidget(const SizedBox());
-      await tester.pump();
-    },
-  );
   testWidgets('native expansion uses the selected engine zoom factor', (
     tester,
   ) async {

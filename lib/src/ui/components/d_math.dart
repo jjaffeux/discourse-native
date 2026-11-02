@@ -9,8 +9,6 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:webview_all/webview_all.dart';
 
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'd_button.dart';
 import 'd_card.dart';
 import 'd_context_menu.dart';
@@ -250,6 +248,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
       'v': 1,
       ...widget.expression.toMessage(),
       'config': _configuration.toMessage(),
+      'editable': widget.onEdit != null,
       'context': bounded.expressions.map((e) => e.toMessage()).toList(),
       'contextIndex': bounded.index,
       'color':
@@ -371,7 +370,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
           unawaited(_showScale(scale.toDouble()));
         }
       case 'activate':
-        break;
+        widget.onEdit?.call();
     }
   }
 
@@ -614,35 +613,7 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
         child: DContextMenuTrigger(controller: _menu, child: content),
       );
     }
-    if (widget.onEdit != null) {
-      final edit = DButton.iconOnly(
-        icon: const DIcon(DIcons.pencil),
-        tooltip: context.l10n.editMath,
-        onPressed: widget.onEdit,
-      );
-      content = widget.expression.display
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Align(alignment: Alignment.topRight, child: edit),
-                content,
-              ],
-            )
-          : Row(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Flexible(child: content),
-                edit,
-              ],
-            );
-    }
-    return _MathBaseline(
-      baseline:
-          _baseline +
-          (widget.onEdit != null && widget.expression.display ? 32 : 0),
-      child: content,
-    );
+    return _MathBaseline(baseline: _baseline, child: content);
   }
 
   @override
