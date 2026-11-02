@@ -3402,6 +3402,75 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final swipeDismiss in [false, true]) {
+    _mobileTest('feed chooser remains tappable after leaving a scrolled topic '
+        '(swipe: $swipeDismiss)', (tester) async {
+      final shell = await pumpMobileShellFixture(
+        tester,
+        topic: topicPayload(
+          id: 7,
+          title: 'Shared topic card',
+          posts: [
+            for (var id = 1; id <= 30; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'reader',
+                cooked:
+                    '<p>Post $id discusses mobile navigation and reading.</p>',
+              ),
+          ],
+        ),
+      );
+      tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 59, bottom: 34);
+      addTearDown(tester.view.resetPadding);
+      addTearDown(tester.view.resetViewPadding);
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pumpAndSettle();
+      final posts = find
+          .descendant(
+            of: find.byType(TopicView),
+            matching: find.byType(CustomScrollView),
+          )
+          .first;
+      final scroll = tester.widget<CustomScrollView>(posts).controller!;
+      await tester.drag(posts, const Offset(0, -400));
+      await tester.pumpAndSettle();
+      expect(scroll.offset, greaterThan(100));
+      if (swipeDismiss) {
+        await tester.dragFrom(
+          tester.getCenter(
+            find.byKey(const ValueKey('sheet-drag-handle')).last,
+          ),
+          const Offset(0, 600),
+        );
+      } else {
+        shell.handleBack();
+      }
+      await tester.pumpAndSettle();
+      expect(find.byType(TopicView), findsNothing);
+
+      final chooser = find.byKey(const ValueKey('topic-list-feed-menu'));
+      for (final fraction in [.85, .5, .15]) {
+        final rect = tester.getRect(chooser);
+        await tester.tapAt(
+          Offset(rect.center.dx, rect.top + rect.height * fraction),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('topic-list-unseen')),
+          findsOneWidget,
+          reason: 'tap at $fraction of the visible chooser $rect',
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-list-latest')));
+        await tester.pumpAndSettle();
+      }
+    });
+  }
+
   _mobileTest('list page actions sit with the list, not in the dock', (
     tester,
   ) async {
