@@ -200,6 +200,46 @@ void boardsDirectoryWidgetTests({
     );
   }
 
+  for (final width in [520.0, 320.0]) {
+    testWidgets('directory filters fit naturally at width $width', (
+      tester,
+    ) async {
+      resize(tester, Size(width, 740));
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [
+        directoryBoard(1, 'Team roadmap'),
+        directoryBoard(2, 'Old roadmap', archived: true),
+      ]);
+      await prepareNativeUiEvidence(tester);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      final search = tester.getRect(find.byType(DInput));
+      final status = tester.getRect(find.text('Active boards'));
+      if (!nativeView) {
+        if (width == 520) {
+          expect(status.center.dy, closeTo(search.center.dy, 1));
+        } else {
+          expect(status.top, greaterThan(search.bottom));
+        }
+        expect(search.width, lessThan(width - 32));
+      }
+      await captureNativeUi(tester, 'boards-directory-filters-$width');
+      await onCapture?.call(tester, 'boards-directory-filters-$width');
+      await tester.enterText(find.byType(DInput), 'team');
+      await tester.pumpAndSettle();
+      expect(find.text('Team roadmap'), findsOneWidget);
+      expect(find.text('Old roadmap'), findsNothing);
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Archived boards').last);
+      await tester.pumpAndSettle();
+      expect(find.text('No boards match your filters.'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    });
+  }
+
   testWidgets(
     'directory uses category cards and exposes board metadata without detail requests',
     (tester) async {
