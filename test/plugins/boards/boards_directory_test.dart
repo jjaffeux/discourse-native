@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' show CheckedState;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
@@ -8,6 +9,8 @@ import 'package:discourse_native/src/plugins/boards/boards_page.dart';
 import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -55,6 +58,7 @@ void boardsDirectoryWidgetTests({
     BoardsFixture fixture, {
     String site = boardsSite,
     bool dark = false,
+    TargetPlatform? platform,
     double scale = 1,
     bool disableAnimations = false,
     AppSettingsController? settings,
@@ -76,7 +80,9 @@ void boardsDirectoryWidgetTests({
       );
     }
     return MaterialApp(
-      theme: dark ? AppTheme.dark : AppTheme.light,
+      theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+        platform: platform,
+      ),
       builder: (context, child) => nativeUiEvidenceBuilder(
         context,
         MediaQuery(
@@ -99,6 +105,161 @@ void boardsDirectoryWidgetTests({
       'boards': boards,
     };
   }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('directory status uses a bottom sheet on $platform', (
+      tester,
+    ) async {
+      final semantics = tester.ensureSemantics();
+      resize(tester, const Size(390, 844));
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [
+        directoryBoard(1, 'Team roadmap'),
+        directoryBoard(2, 'Old roadmap', archived: true),
+      ]);
+      await prepareNativeUiEvidence(tester);
+      await tester.pumpWidget(page(fixture, platform: platform, dark: true));
+      await tester.pumpAndSettle();
+      expect(
+        find.bySemanticsLabel('Board status: Active boards'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      final sheet = find.byType(DSheetContent);
+      expect(sheet, findsOneWidget);
+      expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
+      for (final label in ['All boards', 'Active boards', 'Archived boards']) {
+        expect(
+          find.descendant(of: sheet, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
+      expect(
+        tester
+            .getSemantics(
+              find.descendant(of: sheet, matching: find.text('Active boards')),
+            )
+            .flagsCollection
+            .isChecked,
+        CheckedState.isTrue,
+      );
+      await captureNativeUi(tester, 'boards-status-sheet-${platform.name}');
+      await tester.tap(
+        find.descendant(of: sheet, matching: find.text('Archived boards')),
+      );
+      await tester.pumpAndSettle();
+      expect(sheet, findsNothing);
+      expect(find.text('Old roadmap'), findsOneWidget);
+      expect(find.text('Team roadmap'), findsNothing);
+      await tester.tap(find.text('Archived boards'));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .getSemantics(
+              find.descendant(
+                of: sheet,
+                matching: find.text('Archived boards'),
+              ),
+            )
+            .flagsCollection
+            .isChecked,
+        CheckedState.isTrue,
+      );
+      await tester.tap(
+        find.descendant(of: sheet, matching: find.text('All boards')),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Old roadmap'), findsOneWidget);
+      expect(find.text('Team roadmap'), findsOneWidget);
+      expect(fixture.transport.reads, hasLength(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+      semantics.dispose();
+    });
+  }
+
+  testWidgets(
+    'directory status trigger shows complete labels on a narrow phone',
+    (tester) async {
+      resize(tester, const Size(320, 740));
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+      await (FontLoader(
+        'Roboto',
+      )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+      await prepareNativeUiEvidence(tester);
+      await tester.pumpWidget(
+        page(fixture, platform: TargetPlatform.iOS, scale: 2, dark: true),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('Active boards'))
+            .didExceedMaxLines,
+        isFalse,
+      );
+      await tester.tap(find.text('Active boards'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Archived boards').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .renderObject<RenderParagraph>(find.text('Archived boards'))
+            .didExceedMaxLines,
+        isFalse,
+      );
+      await captureNativeUi(tester, 'boards-status-trigger-narrow');
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('directory status retains an anchored popup on desktop', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [directoryBoard(1, 'Team roadmap')]);
+    await tester.pumpWidget(page(fixture, platform: TargetPlatform.macOS));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Active boards'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    expect(find.text('Archived boards'), findsOneWidget);
+    await tester.tap(find.text('Archived boards'));
+    await tester.pumpAndSettle();
+    expect(find.text('Team roadmap'), findsNothing);
+    expect(find.text('Archived boards'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('directory status supports keyboard selection on desktop', (
+    tester,
+  ) async {
+    resize(tester, const Size(1100, 800));
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    respond(fixture, [
+      directoryBoard(1, 'Team roadmap'),
+      directoryBoard(2, 'Old roadmap', archived: true),
+    ]);
+    await tester.pumpWidget(page(fixture, platform: TargetPlatform.macOS));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Active boards'));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.end);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(find.text('Old roadmap'), findsOneWidget);
+    expect(find.text('Team roadmap'), findsNothing);
+    expect(fixture.transport.reads, hasLength(1));
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('pending directory uses card skeletons until boards arrive', (
     tester,
