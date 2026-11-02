@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
+import '../foundation/bounded_lru_cache.dart';
 import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import 'global_search_api.dart';
 import 'global_search_filters.dart';
@@ -63,6 +64,17 @@ class GlobalSearchController extends ChangeNotifier {
   AppLocalizations? _filterL10n;
   List<GlobalSearchFilter> _coreFilters = const [];
   _SearchQueryTail? _queryTail;
+  final _recentExpressions =
+      BoundedLruCache<
+        ({
+          String term,
+          GlobalSearchRequest? saved,
+          GlobalSearchCapabilities capabilities,
+          AppLocalizations l10n,
+          int utcDay,
+        }),
+        GlobalSearchExpression
+      >(5);
 
   GlobalSearchScope? _preferredScope;
   int? _contextTopicId;
@@ -329,6 +341,7 @@ class GlobalSearchController extends ChangeNotifier {
         _capabilities.username != capabilities.username;
     if (!changedSite && _baseFingerprint == capabilities.fingerprint) return;
     _configuration++;
+    _recentExpressions.clear();
     _invalidateLookups();
     _tagChoices.clear();
     _baseFingerprint = capabilities.fingerprint;
@@ -711,24 +724,38 @@ class GlobalSearchController extends ChangeNotifier {
 
   GlobalSearchExpression recentExpression(String term) {
     final saved = history.savedRequest(term);
+    final key = (
+      term: term,
+      saved: saved,
+      capabilities: capabilities,
+      l10n: appL10n,
+      utcDay:
+          DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay,
+    );
+    final cached = _recentExpressions.read(key);
+    if (cached != null) return cached;
+    late final GlobalSearchExpression expression;
     if (saved != null) {
-      return GlobalSearchExpression(
+      expression = GlobalSearchExpression(
         saved.query,
         saved.conditions,
         saved.scope == GlobalSearchScope.forum && saved.order != 'relevance'
             ? saved.order
             : null,
       );
+    } else {
+      try {
+        expression = parseGlobalSearchExpression(
+          term,
+          GlobalSearchScope.all,
+          capabilities,
+        );
+      } on FormatException {
+        expression = GlobalSearchExpression(term, const [], null);
+      }
     }
-    try {
-      return parseGlobalSearchExpression(
-        term,
-        GlobalSearchScope.all,
-        capabilities,
-      );
-    } on FormatException {
-      return GlobalSearchExpression(term, const [], null);
-    }
+    _recentExpressions.put(key, expression);
+    return expression;
   }
 
   void removeRecentSearch(String term) => history.remove(term);
@@ -1018,6 +1045,7 @@ class GlobalSearchController extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     _configuration++;
+    _recentExpressions.clear();
     _invalidateLookups();
     _execution.dispose();
     history.removeListener(_notify);

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -27,8 +28,37 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 import 'support/global_search_fixtures.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 bool _useDeviceMetrics = false;
+
+class _ScrollingTopicSearchApi extends GlobalSearchFixtureApi {
+  @override
+  Future<TopicPayload> topic({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    bool summary = false,
+    String? apiKey,
+    String? clientId,
+    Future<void>? abortTrigger,
+  }) async => topicPayload(
+    id: id,
+    title: 'Scrolling from search',
+    posts: [
+      for (var number = 1; number <= 30; number++)
+        Post(
+          id: number,
+          postNumber: number,
+          username: 'reader',
+          cooked:
+              '<p>Reply $number with enough text to scroll the reader.</p>'
+              '<p>Reading the discussion moves its header and navigation.</p>',
+        ),
+    ],
+  );
+}
 
 class _DirectorySearchApi extends GlobalSearchFixtureApi {
   @override
@@ -733,6 +763,60 @@ void main({bool useDeviceMetrics = false}) {
   );
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    _testPresentation(
+      '$platform hidden search stays idle during topic scrolling',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = platform;
+        final shell = await _pumpSearch(
+          tester,
+          size: phone,
+          api: _ScrollingTopicSearchApi(),
+        );
+        await _openAndSearch(tester, '');
+        expect(_panelText('keyboard shortcuts'), findsOneWidget);
+        final panel = find.byType(GlobalSearchPanel, skipOffstage: false);
+        final state = tester.state(panel);
+        shell.openTopic(globalSearchFixtureTopics.first);
+        await tester.pumpAndSettle();
+        expect(find.byType(TopicView), findsOneWidget);
+        final hiddenSize = tester.getSize(panel);
+        final position = topicPostList(tester).controller!.position;
+        expect(position.maxScrollExtent, greaterThan(1000));
+        var hiddenBuilds = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          element.visitAncestorElements((ancestor) {
+            if (identical(ancestor, state.context)) {
+              hiddenBuilds++;
+              return false;
+            }
+            return true;
+          });
+        };
+        try {
+          final gesture = await tester.startGesture(
+            tester.getCenter(topicPostListFinder()),
+          );
+          for (var frame = 0; frame < 40; frame++) {
+            await gesture.moveBy(Offset(0, frame < 20 ? -24 : 24));
+            await tester.pump(const Duration(milliseconds: 16));
+            expect(tester.getSize(panel), hiddenSize);
+          }
+          await gesture.up();
+          await tester.pumpAndSettle();
+        } finally {
+          debugOnRebuildDirtyWidget = previous;
+        }
+        expect(hiddenBuilds, 0);
+        expect(shell.handleBack(), isTrue);
+        await tester.pumpAndSettle();
+        expect(tester.state(panel), same(state));
+        expect(_panelText('keyboard shortcuts'), findsOneWidget);
+        expect(_editor(tester).controller.text, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
     for (final fromChat in [false, true]) {
       _testPresentation(
         '$platform topic sheet returns to retained search from ${fromChat ? 'Chat' : 'Topics'}',

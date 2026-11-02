@@ -5806,14 +5806,15 @@ class ShellController extends FrameSafeNotifier
     // Update counts and visible queues from that same optimistic position.
     final position = _topicReads.lastReadPostNumberFor(siteUrl, topicId);
     if (!isDisposed && lease.isCurrent && position != null) {
+      var trackingChanged = false;
       if (store
               .read<Topic>(siteUrl, topicId)
               ?.readingPolicy
               .usesPositionForCatchUp !=
           false) {
-        tracking?.markRead(topicId, position);
+        trackingChanged = tracking?.markRead(topicId, position) ?? false;
       }
-      if (tracking?.isCurrent == true && currentInstance?.url == siteUrl) {
+      if (trackingChanged && currentInstance?.url == siteUrl) {
         _notifyLiveChange();
       }
     }

@@ -5,6 +5,8 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/global_search.dart'
+    show GlobalSearchContribution;
 import 'package:discourse_native/src/plugins/assign/assign_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/poll/poll_global_search.dart';
@@ -45,6 +47,87 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  testWidgets('unchanged recent rows do not reread the filter catalogue', (
+    tester,
+  ) async {
+    final contribution = _CountingSearchContribution();
+    final controller = _controller(_EngineApi());
+    addTearDown(controller.dispose);
+    controller.configure(
+      siteUrl: _site,
+      capabilities: GlobalSearchCapabilities(
+        authenticated: true,
+        username: 'mira',
+        contributions: [contribution],
+      ),
+    );
+    await tester.pump(const Duration(seconds: 1));
+    contribution.filterReads = 0;
+    final first = controller.recentExpression('keyboard shortcuts');
+    expect(first.query, 'keyboard shortcuts');
+    expect(first.conditions, isEmpty);
+    expect(contribution.filterReads, greaterThan(0));
+    contribution.filterReads = 0;
+    for (var rowBuild = 0; rowBuild < 20; rowBuild++) {
+      final expression = controller.recentExpression('keyboard shortcuts');
+      expect(expression.query, 'keyboard shortcuts');
+      expect(expression.conditions, isEmpty);
+    }
+    expect(contribution.filterReads, 0);
+  });
+
+  testWidgets(
+    'recent expressions follow saved requests and permission changes',
+    (tester) async {
+      final controller = _controller(_EngineApi());
+      addTearDown(controller.dispose);
+      const term = 'remembered @mira in:all-posts';
+      expect(
+        controller
+            .recentExpression(term)
+            .conditions
+            .map((item) => item.filterId),
+        ['author', 'searchIn'],
+      );
+      controller.setScope(GlobalSearchScope.forum);
+      controller.addCondition(
+        const GlobalSearchCondition(filterId: 'author', value: ['mira']),
+      );
+      controller.setQuery('remembered');
+      controller.rememberSearch();
+      expect(controller.recentSearches, [term]);
+      expect(
+        controller
+            .recentExpression(term)
+            .conditions
+            .map((condition) => (condition.filterId, condition.text)),
+        [('author', 'mira')],
+      );
+      expect(
+        controller.recentExpression('in:whispers').conditions.single.filterId,
+        'whispers',
+      );
+      controller.configure(
+        siteUrl: _site,
+        capabilities: const GlobalSearchCapabilities(
+          authenticated: true,
+          username: 'other',
+        ),
+      );
+      final restricted = controller.recentExpression('in:whispers');
+      expect(restricted.query, 'in:whispers');
+      expect(restricted.conditions, isEmpty);
+      expect(
+        controller
+            .recentExpression(term)
+            .conditions
+            .map((item) => item.filterId),
+        ['author', 'searchIn'],
+      );
+      await tester.pump(const Duration(seconds: 1));
+    },
+  );
+
   for (final scope in [
     GlobalSearchScope.users,
     GlobalSearchScope.groups,
@@ -2115,6 +2198,25 @@ GlobalSearchController _controller(
   lifecycle: lifecycle ?? SiteLifecycle(),
   debounceDuration: const Duration(milliseconds: 1),
 )..configure(siteUrl: _site, capabilities: _caps);
+
+class _CountingSearchContribution extends GlobalSearchContribution {
+  _CountingSearchContribution() : super('counting');
+
+  int filterReads = 0;
+
+  @override
+  List<GlobalSearchFilter> get filters {
+    filterReads++;
+    return const [];
+  }
+
+  @override
+  bool available(
+    Map<String, dynamic> settings,
+    Map<String, dynamic> user,
+    bool authenticated,
+  ) => true;
+}
 
 GlobalSearchPage _page(String title, {bool hasMore = false}) =>
     GlobalSearchPage(

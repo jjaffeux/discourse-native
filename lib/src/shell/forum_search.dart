@@ -253,7 +253,7 @@ class _ForumSearchState extends State<ForumSearch> {
     _retireClosedDraftIfScopeChanged();
     _syncText();
 
-    setState(() {});
+    if (!widget._pageContent || _surfaceOpen) setState(() {});
   }
 
   void _retireClosedDraftIfScopeChanged() =>

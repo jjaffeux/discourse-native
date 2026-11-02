@@ -218,9 +218,8 @@ final class TopicTrackingAccount implements TopicTrackingAdmission {
     return row;
   }
 
-  void markRead(int topicId, int position) {
-    if (isCurrent) reconciler.markRead(topicId, position);
-  }
+  bool markRead(int topicId, int position) =>
+      isCurrent && reconciler.markRead(topicId, position);
 
   void markLastPostUnread(int topicId, int position) {
     if (isCurrent) reconciler.markLastPostUnread(topicId, position);
