@@ -9,9 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('last visible line number keeps its contrast', (
-    tester,
-  ) async {
+  testWidgets('last visible line number keeps its contrast', (tester) async {
     final controller = DCodeEditingController(
       text: List.filled(30, 'dzadada').join('\n'),
     );
@@ -95,6 +93,10 @@ void main() {
           ),
         ),
       );
+      await tester.pumpAndSettle();
+      final oneDigitWidth = tester.getSize(find.text('1')).width;
+      var previousDigits = 1;
+      var previousWidth = oneDigitWidth;
       for (final count in [10, 9, 99, 100, 1000, 9]) {
         controller.text = List.filled(count, 'x').join('\n');
         await tester.pumpAndSettle();
@@ -106,7 +108,15 @@ void main() {
           reason: 'Line $count must fit on one row',
         );
         expect(last.right, closeTo(first.right, .01));
-        expect(first.width, greaterThan(0));
+        final digits = count.toString().length;
+        if (digits > previousDigits) {
+          expect(first.width, greaterThan(previousWidth));
+        } else if (digits < previousDigits) {
+          expect(first.width, lessThan(previousWidth));
+        }
+        if (digits == 1) expect(first.width, closeTo(oneDigitWidth, .01));
+        previousDigits = digits;
+        previousWidth = first.width;
         expect(last.top - first.top, closeTo((count - 1) * first.height, .01));
         expect(tester.takeException(), isNull);
       }

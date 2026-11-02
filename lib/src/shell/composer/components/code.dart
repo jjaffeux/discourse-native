@@ -463,7 +463,12 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
                   Align(
                     alignment: AlignmentDirectional.centerStart,
                     child: Padding(
-                      padding: const EdgeInsets.all(DSpacing.xs),
+                      padding: const EdgeInsets.fromLTRB(
+                        DSpacing.xs,
+                        DSpacing.xs,
+                        DSpacing.xs,
+                        0,
+                      ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -472,10 +477,10 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor> {
                               key: const ValueKey('composer-code-language'),
                               value: _language,
                               semanticLabel: context.l10n.language,
-                              size: DSelectSize.small,
+                              size: DSelectSize.chip,
                               triggerBuilder: (context, state, _) => DButton(
                                 variant: DButtonVariant.ghost,
-                                size: DButtonSize.small,
+                                size: DButtonSize.chip,
                                 focusNode: state.focusNode,
                                 hasPopup: true,
                                 expanded: state.open,

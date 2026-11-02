@@ -1,5 +1,3 @@
-import 'dart:math' as math;
-
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
@@ -163,8 +161,7 @@ class _DCodeEditorState extends State<DCodeEditor> {
       textScaler: MediaQuery.textScalerOf(context),
     )..layout();
     // Upstream subtracts 16px for each disabled error and folding column.
-    final gutterWidth =
-        math.max(44.0, numberPainter.width.ceilToDouble() + 12) + 32;
+    final gutterWidth = numberPainter.width.ceilToDouble() + 12 + 32;
     numberPainter.dispose();
     return Semantics(
       container: true,

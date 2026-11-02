@@ -139,6 +139,26 @@ void main() {
     );
   }
 
+  for (final scale in [1.0, 1.5]) {
+    testWidgets(
+      'mobile code language stays close to the source at $scale',
+      (tester) async {
+        await _pump(tester, '```text\ntest\n```', width: 390, scale: scale);
+        final language = tester.getRect(find.text('Plain text'));
+        final firstLine = tester.getRect(find.text('1'));
+        expect(
+          firstLine.top - language.bottom,
+          inInclusiveRange(0, 20 * scale),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
   for (final theme in [AppTheme.light, AppTheme.dark]) {
     testWidgets(
       'mobile code range selection uses only the card border in ${theme.brightness.name}',
