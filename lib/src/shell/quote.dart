@@ -140,23 +140,23 @@ class QuoteBlock extends StatelessWidget {
   final QuoteData data;
   final String? siteUrl;
 
-  static const double _avatarSize = 20;
+  static const double _avatarSize = 18;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasHeader = data.title != null || data.avatarUrl != null;
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+      padding: const EdgeInsets.symmetric(vertical: 12),
       child: DQuote(
         header: hasHeader ? _Header(data: data, siteUrl: siteUrl) : null,
         child: CookedHtml(
           html: data.bodyHtml,
           siteUrl: siteUrl,
           textStyle: theme.textTheme.bodyMedium?.copyWith(
-            fontSize: DiscourseTypography.compact,
+            fontSize: DiscourseTypography.base,
             color: DTokens.of(context).mutedForeground,
-            height: DiscourseTypography.lineHeightSmall,
+            height: DiscourseTypography.lineHeightContent,
           ),
         ),
       ),
@@ -175,10 +175,7 @@ class _Header extends StatelessWidget {
     final theme = Theme.of(context);
     final accent = DTokens.of(context).primary;
     final link = data.link;
-    final titleStyle = theme.textTheme.labelMedium?.copyWith(
-      color: accent,
-      fontWeight: FontWeight.w600,
-    );
+    final titleStyle = DefaultTextStyle.of(context).style;
     // A linked title is a topic title, so its shortcodes draw as the site's
     // emoji; a username attribution is a name and stays plain text. Artwork
     // needs the shell, which quotes rendered outside one do not have.
@@ -200,7 +197,7 @@ class _Header extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 7),
         ],
         if (data.title case final title?)
           Flexible(

@@ -329,8 +329,8 @@ class _ComposerQuotePreviewState extends State<ComposerQuotePreview> {
     final theme = Theme.of(context);
     final title = block.title;
     final quoteBodyStyle = baseStyle.copyWith(
-      fontSize: DiscourseTypography.compact,
-      height: DiscourseTypography.lineHeightSmall,
+      fontSize: DiscourseTypography.base,
+      height: DiscourseTypography.lineHeightContent,
       color: DTokens.of(context).mutedForeground,
     );
     final runs = [

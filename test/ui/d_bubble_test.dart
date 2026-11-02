@@ -55,7 +55,7 @@ void main() {
     ),
   );
 
-  testWidgets('reply quotes keep the thin rail on an unfilled surface', (
+  testWidgets('reply quotes share the rounded raised quote surface', (
     tester,
   ) async {
     const boundary = ValueKey('reply-quote-pixels');
@@ -77,16 +77,28 @@ void main() {
     final tokens = DTokens.of(tester.element(find.byType(DBubbleQuote)));
     final pixels = await samplePixels(tester, find.byKey(boundary), [
       const Offset(.5, .5),
-      const Offset(1.5, 25),
-      const Offset(2.5, 25),
+      const Offset(.5, 25),
+      const Offset(12.5, 25),
       const Offset(100, 25),
     ]);
-    expect(pixels, [
-      tokens.primary,
-      tokens.primary,
-      const Color(0xffff9800),
-      const Color(0xffff9800),
-    ]);
+    expect(
+      pixels.map((color) => [color.a, color.r, color.g, color.b]),
+      [
+        const Color(0xffff9800),
+        tokens.raisedBackground,
+        tokens.primary,
+        tokens.raisedBackground,
+      ].map(
+        (color) => orderedEquals(
+          [
+            color.a,
+            color.r,
+            color.g,
+            color.b,
+          ].map((channel) => closeTo(channel, 1 / 255)),
+        ),
+      ),
+    );
   });
 
   testWidgets(
