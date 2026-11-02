@@ -13,6 +13,9 @@ const cases=[
   ].map(config=>({name:`${config.engine} ${config.output || ''} dark inline at provisional viewport`,config,
     source:'2x + 3 = 12',display:false,fontSize:14,color:'#dddddd',background:'#20242a',
     viewportWidth:1,singleLine:true,selector:config.engine==='katex'?'.katex':'mjx-container'})),
+  ...['mathjax','katex'].map(engine=>({name:`${engine} editable activation takes priority over links and menus`,
+    config:{engine,output:'html',accessibility:false,menu:true,zoom:true},
+    source:'\\href{https://example.test}{x}',editable:true,activate:true,selector:'a[href="https://example.test"]'})),
   {name:'MathJax HTML fraction',config:{engine:'mathjax',output:'html',accessibility:false},source:'\\frac{a}{b}',selector:'mjx-mfrac'},
   {name:'MathJax SVG fraction',config:{engine:'mathjax',output:'svg',accessibility:false},source:'\\frac{a}{b}',selector:'svg'},
   {name:'MathJax ASCII',config:{engine:'mathjax',output:'html',accessibility:false},input:'ascii',source:'sqrt(x^2+1)',selector:'mjx-msqrt'},
@@ -42,6 +45,12 @@ await writeFile(resolve(output,'fixture-client.js'),`const cases=${JSON.stringif
 let actionDone=false;window.NativeMath={postMessage:message=>{const data=JSON.parse(message);if(data.type==='ready') {
 window.renderMath({v:1,generation:1,context:[],input:'tex',display:true,color:'#000000',background:'#ffffff',fontSize:18,...test});
 } else if(data.type==='result'||data.type==='error') {
+if(test.activate && data.type==='result') {
+const events=[];window.NativeMath.postMessage=message=>events.push(JSON.parse(message));
+const target=document.querySelector(test.selector);const clicks=['click','dblclick','contextmenu'].map(type=>new MouseEvent(type,{bubbles:true,cancelable:true}));
+for(const event of clicks)target.dispatchEvent(event);
+parent.postMessage({name:test.name,pass:events.length===1&&events[0].type==='activate'&&events[0].generation===1&&clicks.every(event=>event.defaultPrevented),events},'*');return;
+}
 if(test.action && data.type==='result' && !actionDone){actionDone=true;let entries=data.menu;let chosen;for(const label of test.action){chosen=entries?.find(item=>item.label===label);entries=chosen?.children;}if(!chosen){parent.postMessage({name:test.name,pass:false,error:'missing-menu-item',menu:data.menu},'*');return;}window.mathMenuAction({v:1,generation:1,id:chosen.id});return;}
 const canvasPass=!test.singleLine || (data.width>60 && data.height<30 && getComputedStyle(document.body).backgroundColor==='rgb(32, 36, 42)' && getComputedStyle(document.getElementById('math')).color==='rgb(221, 221, 221)' && (test.config.engine!=='mathjax' || MathJax.startup.document.menu.settings.breakInline===false));
 const settingsPass=!test.action || (test.a11ySetting ? MathJax.startup.document.menu.getA11y(test.a11ySetting) : MathJax.startup.document.menu.settings[test.setting])===test.expected;

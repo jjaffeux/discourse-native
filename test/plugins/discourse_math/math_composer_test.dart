@@ -32,6 +32,7 @@ void main() {
     double width = 700,
     bool dark = false,
     double textScale = 1,
+    bool Function()? isCurrent,
   }) async {
     late ComposerController composer;
     final policy = MathComposerPolicy(
@@ -54,6 +55,7 @@ void main() {
       ),
       syntaxPolicies: [policy],
       pluginStateReader: () => state,
+      isCurrentComposer: isCurrent,
     );
     addTearDown(composer.dispose);
     composer.text.value = TextEditingValue(
@@ -187,7 +189,7 @@ void main() {
       expect(find.byType(MathComposerCard), findsNothing);
       final math = tester.widget<DMath>(find.byType(DMath));
       expect(math.expression.display, isFalse);
-      expect(find.byTooltip('Edit math'), findsOneWidget);
+      expect(find.byTooltip('Edit math'), findsNothing);
       expect(tester.takeException(), isNull);
       await finish(tester);
     });
@@ -227,7 +229,7 @@ void main() {
       }
     },
   );
-  testWidgets('read-only composer card has no Copy source and disables edit', (
+  testWidgets('passive math card has no edit or Copy source buttons', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -247,42 +249,66 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(
-      tester
-          .widget<DButton>(
-            find.byWidgetPredicate(
-              (widget) => widget is DButton && widget.tooltip == 'Edit math',
-            ),
-          )
-          .onPressed,
-      isNull,
-    );
+    expect(find.byType(DButton), findsNothing);
     expect(find.byTooltip('Copy source'), findsNothing);
     expect(find.byTooltip('More options'), findsNothing);
     await finish(tester);
   });
-  testWidgets('composer card and inline math expose only edit', (tester) async {
-    final composer = await pump(tester, r'$$x$$');
-    expect(find.byType(MathComposerCard), findsOneWidget);
-    expect(find.text('Math expression'), findsNothing);
-    expect(tester.widget<DMath>(find.byType(DMath)).expression.display, isTrue);
-    expect(tester.widget<DMath>(find.byType(DMath)).onEdit, isNull);
-    expect(find.byTooltip('Edit math'), findsOneWidget);
-    expect(find.byTooltip('Copy source'), findsNothing);
-    expect(find.byTooltip('More options'), findsNothing);
-    expect(
-      find.descendant(
-        of: find.byType(MathComposerCard),
-        matching: find.byType(DButton),
-      ),
-      findsOneWidget,
-    );
-    composer.text.value = const TextEditingValue(text: r'Before $x$ after');
-    await tester.pumpAndSettle();
-    expect(find.byType(MathComposerCard), findsNothing);
-    expect(find.byTooltip('Edit math'), findsOneWidget);
-    await finish(tester);
-  });
+  testWidgets(
+    'composer card and inline math have no pencil or Copy source buttons',
+    (tester) async {
+      final composer = await pump(tester, r'$$x$$');
+      expect(find.byType(MathComposerCard), findsOneWidget);
+      expect(find.text('Math expression'), findsNothing);
+      expect(
+        tester.widget<DMath>(find.byType(DMath)).expression.display,
+        isTrue,
+      );
+      expect(find.byTooltip('Edit math'), findsNothing);
+      expect(find.byTooltip('Copy source'), findsNothing);
+      expect(find.byTooltip('More options'), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(MathComposerCard),
+          matching: find.byType(DButton),
+        ),
+        findsNothing,
+      );
+      composer.text.value = const TextEditingValue(text: r'Before $x$ after');
+      await tester.pumpAndSettle();
+      expect(find.byType(MathComposerCard), findsNothing);
+      expect(find.byTooltip('Edit math'), findsNothing);
+      await finish(tester);
+    },
+  );
+  testWidgets(
+    'clicking the block surface edits only inside its visible bounds',
+    (tester) async {
+      await pump(tester, r'$$x$$');
+      final card = tester.getRect(find.byType(MathComposerCard));
+      await tester.tapAt(Offset(card.center.dx, card.bottom + 5));
+      await tester.pumpAndSettle();
+      expect(find.byType(DTextarea), findsNothing);
+      await tester.tapAt(Offset(card.left + 12, card.center.dy));
+      await tester.pumpAndSettle();
+      expect(find.byType(DTextarea), findsOneWidget);
+      await tester.tap(find.widgetWithText(DButton, 'Cancel'));
+      await finish(tester);
+    },
+  );
+  for (final source in [r'$x$', r'$$x$$']) {
+    testWidgets('retired composer cannot open math editor: $source', (
+      tester,
+    ) async {
+      var current = true;
+      await pump(tester, source, isCurrent: () => current);
+      current = false;
+      await tester.tapAt(tester.getCenter(find.byType(DMath)));
+      await tester.pumpAndSettle();
+      expect(find.byType(DTextarea), findsNothing);
+      await finish(tester);
+    });
+  }
   testWidgets('display math uses one flat native code surface', (tester) async {
     await pump(tester, r'$$x$$');
     final cards = find.descendant(
@@ -293,15 +319,6 @@ void main() {
     final card = tester.widget<DCard>(cards);
     expect(card.border, isFalse);
     expect(card.backgroundColor, AppTheme.light.code.blockBackground);
-    await finish(tester);
-  });
-  testWidgets('composer card keeps its ghost edit action', (tester) async {
-    await pump(tester, r'$$x$$');
-    final edit = find.byWidgetPredicate(
-      (w) => w is DButton && w.tooltip == 'Edit math',
-    );
-    expect(tester.widget<DButton>(edit).variant, DButtonVariant.ghost);
-    expect(find.byTooltip('Copy source'), findsNothing);
     await finish(tester);
   });
   for (final source in [
@@ -450,7 +467,7 @@ void main() {
     final cards = tester.getRect(find.byType(MathComposerCard).first);
     final second = tester.getRect(find.byType(MathComposerCard).last);
     expect(cards.bottom, lessThanOrEqualTo(second.top));
-    await tester.tap(find.byTooltip('Edit math').last);
+    await tester.tapAt(tester.getCenter(find.byType(DMath).last));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -476,7 +493,7 @@ void main() {
           textScale: 1.7,
         );
         expect(find.text('Math expression'), findsNothing);
-        expect(find.byTooltip('Edit math'), findsOneWidget);
+        expect(find.byTooltip('Edit math'), findsNothing);
         expect(find.byTooltip('Copy source'), findsNothing);
         expect(tester.takeException(), isNull);
         await finish(tester);
@@ -492,10 +509,10 @@ void main() {
     'Before\n\n\$\$\nx\n\$\$\n\nAfter',
   ]) {
     testWidgets(
-      'pencil Apply preserves notation and surrounding text: $source',
+      'clicking math and Apply preserves notation and surrounding text: $source',
       (tester) async {
         final composer = await pump(tester, source);
-        await tester.tap(find.byTooltip('Edit math'));
+        await tester.tapAt(tester.getCenter(find.byType(DMath)));
         await tester.pumpAndSettle();
         final input = find.descendant(
           of: find.byType(DTextarea),
@@ -518,7 +535,7 @@ void main() {
       tester,
     ) async {
       final composer = await pump(tester, source);
-      await tester.tap(find.byTooltip('Edit math'));
+      await tester.tapAt(tester.getCenter(find.byType(DMath)));
       await tester.pumpAndSettle();
       await tester.enterText(
         find.descendant(
@@ -538,7 +555,7 @@ void main() {
   }
   testWidgets('Cancel and stale Apply do not change source', (tester) async {
     final composer = await pump(tester, r'$x$');
-    await tester.tap(find.byTooltip('Edit math'));
+    await tester.tapAt(tester.getCenter(find.byType(DMath)));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -550,7 +567,7 @@ void main() {
     await tester.tap(find.widgetWithText(DButton, 'Cancel'));
     await tester.pumpAndSettle();
     expect(composer.text.text, r'$x$');
-    await tester.tap(find.byTooltip('Edit math'));
+    await tester.tapAt(tester.getCenter(find.byType(DMath)));
     await tester.pumpAndSettle();
     composer.text.text = r'$new$';
     await tester.tap(find.widgetWithText(DButton, 'Apply'));
@@ -655,7 +672,7 @@ void main() {
   ) async {
     const source = r'Before $x$ after';
     final composer = await pump(tester, source);
-    await tester.tap(find.byTooltip('Edit math'));
+    await tester.tapAt(tester.getCenter(find.byType(DMath)));
     await tester.pumpAndSettle();
     await tester.enterText(
       find.descendant(
@@ -734,7 +751,7 @@ void main() {
   ) async {
     const source = r'$x \ $';
     final composer = await pump(tester, source);
-    await tester.tap(find.byTooltip('Edit math'));
+    await tester.tapAt(tester.getCenter(find.byType(DMath)));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(DButton, 'Apply'));
     await tester.pumpAndSettle();

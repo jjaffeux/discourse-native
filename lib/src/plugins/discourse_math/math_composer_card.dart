@@ -1,6 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 class MathComposerCard extends StatelessWidget {
@@ -28,18 +27,6 @@ class MathComposerCard extends StatelessWidget {
     backgroundColor: Theme.of(context).code.blockBackground,
     children: [
       DCardContent(
-        child: Align(
-          alignment: Alignment.centerRight,
-          child: DButton.iconOnly(
-            variant: DButtonVariant.ghost,
-            size: DButtonSize.small,
-            icon: const DIcon(DIcons.pencil),
-            tooltip: context.l10n.editMath,
-            onPressed: onEdit,
-          ),
-        ),
-      ),
-      DCardContent(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
           child: Align(
@@ -49,6 +36,7 @@ class MathComposerCard extends StatelessWidget {
               configuration: configuration,
               context: expressions,
               contextIndex: expressionIndex,
+              onEdit: onEdit,
               fontSize: MediaQuery.textScalerOf(
                 context,
               ).scale(DiscourseTypography.xxl),
