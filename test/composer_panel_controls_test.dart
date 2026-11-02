@@ -60,6 +60,47 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    for (final width in [340.0, 900.0]) {
+      testWidgets(
+        'compact taxonomy errors fit above desktop controls at width $width',
+        (tester) async {
+          final composer = ComposerController(
+            const CategoryEditComposerTarget(
+              privateMessageTopic: false,
+              siteUrl: 'https://meta.discourse.org',
+              topicId: 7,
+              slug: 'a-topic',
+              topicTitle: 'A topic',
+            ),
+          );
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            size: Size(width, 650),
+            height: 190,
+          );
+          expect(tester.takeException(), isNull);
+          composer.failed(
+            const WriteException(
+              WriteFailure.validation,
+              errors: ['Please review this change.'],
+            ),
+          );
+          await tester.pumpAndSettle();
+          expect(find.text('Please review this change.'), findsOneWidget);
+          expect(
+            find.byKey(const ValueKey('composer-submit')).hitTestable(),
+            findsOneWidget,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+
     for (final scale in [1.0, 2.0]) {
       testWidgets(
         'expanded errors stay above the mobile toolbar and keyboard at scale $scale',
@@ -102,7 +143,7 @@ void main() {
 
           expect(find.text("Couldn't complete this action"), findsOneWidget);
           expect(find.text(message), findsOneWidget);
-          final alert = find.byType(DAlert);
+          final alert = find.byKey(const ValueKey('composer-error-viewport'));
           final toolbar = find.byKey(const ValueKey('composer-toolbar-scroll'));
           expect(
             tester.getRect(alert).bottom,
@@ -158,7 +199,9 @@ void main() {
               WriteException(WriteFailure.validation, errors: [message]),
             );
             await tester.pumpAndSettle();
-            final alert = tester.getRect(find.byType(DAlert));
+            final alert = tester.getRect(
+              find.byKey(const ValueKey('composer-error-viewport')),
+            );
             final toolbar = tester.getRect(
               find.byKey(const ValueKey('composer-toolbar-scroll')),
             );
@@ -166,7 +209,7 @@ void main() {
             expect(alert.bottom, lessThan(toolbar.top));
             expect(toolbar.bottom, lessThanOrEqualTo(340));
             final scrollable = find.descendant(
-              of: find.byType(DAlert),
+              of: find.byKey(const ValueKey('composer-error-viewport')),
               matching: find.byType(Scrollable),
             );
             final position = tester.state<ScrollableState>(scrollable).position;
@@ -202,7 +245,7 @@ void main() {
 
         expect(find.text(message), findsOneWidget);
         final scrollable = find.descendant(
-          of: find.byType(DAlert),
+          of: find.byKey(const ValueKey('composer-error-viewport')),
           matching: find.byType(Scrollable),
         );
         final position = tester.state<ScrollableState>(scrollable).position;
