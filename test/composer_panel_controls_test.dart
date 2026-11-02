@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
@@ -51,6 +52,122 @@ void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
   group('editor layout and controls', () {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'expanded errors stay above the mobile toolbar and keyboard at scale $scale',
+        (tester) async {
+          const message =
+              'La publication doit inclure au moins un de ces mots :\n'
+              '#leave, #sick, #family-reasons, #chitchat, #work, '
+              '#public-holiday, #authorized-absence, #parental-leave, '
+              '#special-leave(AU), #chit-chat, #sabbatical';
+          final composer = ComposerController(_replyTarget);
+          composer.text.text = 'My reply with #chitchat';
+          final shell = await _shell();
+          addTearDown(composer.dispose);
+          addTearDown(shell.dispose);
+          tester.view.viewInsets = FakeViewPadding(
+            bottom: 330 * tester.view.devicePixelRatio,
+          );
+          addTearDown(tester.view.resetViewInsets);
+          await _pumpPanel(
+            tester,
+            shell,
+            composer,
+            size: const Size(390, 800),
+            height: 800,
+            textScaler: TextScaler.linear(scale),
+            resizeToAvoidBottomInset: false,
+          );
+          composer.focus.requestFocus();
+          composer.failed(
+            const WriteException(WriteFailure.validation, errors: [message]),
+          );
+          await tester.pumpAndSettle();
+          await _toolbarPixels(tester, name: 'expanded-error-$scale');
+
+          expect(find.text("Couldn't complete this action"), findsOneWidget);
+          expect(find.text(message), findsOneWidget);
+          final alert = find.byType(DAlert);
+          final toolbar = find.byKey(const ValueKey('composer-toolbar-scroll'));
+          expect(
+            tester.getRect(alert).bottom,
+            lessThan(tester.getRect(toolbar).top),
+          );
+          expect(tester.getRect(toolbar).bottom, lessThanOrEqualTo(470));
+          expect(composer.focus.hasFocus, isTrue);
+          expect(composer.raw, 'My reply with #chitchat');
+          expect(tester.takeException(), isNull);
+        },
+        variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      );
+    }
+
+    testWidgets(
+      'collapsed errors reopen for a new failure and keep the full server message reachable',
+      (tester) async {
+        final message = List.filled(
+          24,
+          'A long server validation explanation.',
+        ).join('\n');
+        final composer = ComposerController(_replyTarget);
+        composer.text.text = 'Keep this draft';
+        final shell = await _shell();
+        addTearDown(composer.dispose);
+        addTearDown(shell.dispose);
+        await _pumpPanel(tester, shell, composer);
+        composer.failed(
+          WriteException(WriteFailure.validation, errors: [message]),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text(message), findsOneWidget);
+        final scrollable = find.descendant(
+          of: find.byType(DAlert),
+          matching: find.byType(Scrollable),
+        );
+        final position = tester.state<ScrollableState>(scrollable).position;
+        expect(position.maxScrollExtent, greaterThan(0));
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Show less'));
+        await tester.pumpAndSettle();
+        expect(find.text(message), findsNothing);
+        await tester.tap(find.text('Details'));
+        await tester.pumpAndSettle();
+        expect(find.text(message), findsOneWidget);
+        tester
+            .state<ScrollableState>(scrollable)
+            .position
+            .jumpTo(position.maxScrollExtent);
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Show less'));
+        await tester.pumpAndSettle();
+        composer.failed(
+          WriteException(WriteFailure.validation, errors: [message]),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(message), findsOneWidget);
+        expect(composer.raw, 'Keep this draft');
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('composer notices retain their existing presentation', (
+      tester,
+    ) async {
+      final composer = ComposerController(_replyTarget);
+      final shell = await _shell();
+      addTearDown(composer.dispose);
+      addTearDown(shell.dispose);
+      await _pumpPanel(tester, shell, composer);
+      composer.showNotice('Your draft is still available.');
+      await tester.pumpAndSettle();
+      expect(find.text('Your draft is still available.'), findsOneWidget);
+      expect(find.byType(DAlert), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     for (final dark in [false, true]) {
       testWidgets(
         'desktop toolbar paints button shadows outside their targets: $dark flat',
@@ -2251,6 +2368,7 @@ Future<void> _pumpPanel(
   double height = 500,
   ComposerPlacement placement = ComposerPlacement.right,
   ThemeData? theme,
+  bool resizeToAvoidBottomInset = true,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -2268,6 +2386,7 @@ Future<void> _pumpPanel(
         child: RepaintBoundary(
           key: const ValueKey('composer-controls-capture'),
           child: Scaffold(
+            resizeToAvoidBottomInset: resizeToAvoidBottomInset,
             body: Align(
               alignment: Alignment.bottomCenter,
               child: ComposerPanel(
