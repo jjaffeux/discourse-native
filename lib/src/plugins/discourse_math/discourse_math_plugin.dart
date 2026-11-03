@@ -5,7 +5,6 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
@@ -22,7 +21,6 @@ final class DiscourseMathPlugin
         CookingPlugin,
         CookedElementPlugin,
         ComposerToolbarPlugin,
-        ComposerShortcutPlugin,
         ComposerSyntaxPlugin,
         ChatPreviewContribution {
   const DiscourseMathPlugin();
@@ -73,16 +71,6 @@ final class DiscourseMathPlugin
             onInvoke: () => insertMath(context, editor),
           ),
         ];
-  @override
-  Map<ShortcutActivator, VoidCallback> composerShortcuts(
-    BuildContext context,
-    ComposerEditorHost editor,
-  ) => !_enabled(editor)
-      ? const {}
-      : {
-          const SingleActivator(LogicalKeyboardKey.keyM, shift: true): () =>
-              insertMath(context, editor),
-        };
   @override
   Widget? cookedElement(String? siteUrl, dom.Element element) {
     final expression = readMathElement(element);

@@ -1,5 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugins/discourse_math/discourse_math_plugin.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_composer_card.dart';
 import 'package:discourse_native/src/plugins/discourse_math/math_settings.dart';
@@ -75,11 +77,18 @@ void main() {
           body: SizedBox(
             width: width,
             height: 450,
-            child: ComposerEditor(
-              composer: composer,
-              hintText: 'Reply',
-              textStyle: const TextStyle(fontSize: 16, height: 1.5),
-              hintStyle: null,
+            child: Builder(
+              builder: (context) => CallbackShortcuts(
+                bindings: const PluginRegistry([
+                  DiscourseMathPlugin(),
+                ]).composerShortcuts(context, composer),
+                child: ComposerEditor(
+                  composer: composer,
+                  hintText: 'Reply',
+                  textStyle: const TextStyle(fontSize: 16, height: 1.5),
+                  hintStyle: null,
+                ),
+              ),
             ),
           ),
         ),
@@ -93,6 +102,24 @@ void main() {
     await tester.pumpWidget(const SizedBox());
     await tester.pump();
   }
+
+  testWidgets('Shift+M stays available for uppercase text input', (
+    tester,
+  ) async {
+    final composer = await pump(tester, 'Before ');
+    composer.focus.requestFocus();
+    await tester.pump();
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    final handled = await tester.sendKeyEvent(LogicalKeyboardKey.keyM);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+
+    expect(handled, isFalse);
+    expect(find.byType(DDialogTitle), findsNothing);
+    expect(composer.text.text, 'Before ');
+    await finish(tester);
+  });
 
   Future<void> removeCard(
     WidgetTester tester,
