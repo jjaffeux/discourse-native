@@ -5,6 +5,8 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_module.dart';
+import 'package:discourse_native/src/shell/plugin_topic_reader.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_skeleton.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
@@ -16,6 +18,97 @@ import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
+  for (final resolveReader in [false, true]) {
+    for (final limited in [false, true]) {
+      testWidgets('desktop skeleton keeps its width through loading '
+          '(resolve reader: $resolveReader, limited: $limited)', (
+        tester,
+      ) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [
+              const Topic(
+                id: 7,
+                title: 'Desktop loading',
+                slug: 'desktop-loading',
+              ),
+            ],
+          },
+          topicGate: gate,
+          topics: {
+            7: topicPayload(
+              id: 7,
+              title: 'Desktop loading',
+              posts: [
+                const Post(
+                  id: 1,
+                  postNumber: 1,
+                  username: 'reader',
+                  cooked: '<p>Loaded desktop post</p>',
+                ),
+              ],
+            ),
+          },
+        );
+        await pumpShell(
+          tester,
+          const Size(2000, 900),
+          api: api,
+          pluginManifest: PluginManifest([
+            ...bundledWidgetTestManifest.modules,
+            if (resolveReader) postVotingModule,
+          ]),
+        );
+        await tester.drag(
+          find.byKey(const ValueKey('main-panel-resize-handle')),
+          const Offset(650, 0),
+        );
+        await tester.pumpAndSettle();
+        final title = topicListTitle('Desktop loading');
+        final shell = ShellScope.read(tester.element(title));
+        await shell.appSettings.setLimitContentSize(limited);
+        await tester.pumpAndSettle();
+        await tester.tap(title);
+        await tester.pump();
+
+        final skeleton = find.byType(TopicLoadingSkeleton);
+        final placeholders = find.descendant(
+          of: skeleton,
+          matching: find.byType(DSkeletonRegion),
+        );
+        void expectLoadingWidth(String phase) {
+          final viewport = tester.getRect(find.byType(TopicReaderOutlet));
+          final region = tester.getRect(placeholders);
+          expect(viewport.width, greaterThan(825), reason: phase);
+          expect(
+            region.width,
+            closeTo(limited ? 825 : viewport.width, 0.01),
+            reason: phase,
+          );
+          expect(region.center.dx, closeTo(viewport.center.dx, 0.01));
+        }
+
+        expect(skeleton, findsOneWidget);
+        for (var frame = 0; frame < 30; frame++) {
+          expectLoadingWidth('Loading frame $frame');
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        gate.complete();
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (skeleton.evaluate().isNotEmpty) {
+            expectLoadingWidth('Reader resolution frame $frame');
+          }
+        }
+        await tester.pumpAndSettle();
+        expect(skeleton, findsNothing);
+        expect(renderedText('Loaded desktop post'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+    }
+  }
+
   for (final target in [1, 12]) {
     testWidgets(
       'phone skeleton keeps post $target layout through reader resolution',

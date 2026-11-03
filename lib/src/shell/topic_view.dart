@@ -1453,12 +1453,9 @@ class _TopicViewState extends State<TopicView>
                   if (skeleton)
                     Positioned.fill(
                       key: const ValueKey('topic-loading-skeleton-slot'),
-                      child: Padding(
-                        padding: lanePadding,
-                        child: TopicLoadingSkeleton(
-                          key: const ValueKey('topic-loading-skeleton'),
-                          header: header,
-                        ),
+                      child: TopicLoadingSkeleton(
+                        key: const ValueKey('topic-loading-skeleton'),
+                        header: header,
                       ),
                     ),
                   ...overlays,
@@ -2781,11 +2778,13 @@ class TopicLoadingSkeleton extends StatelessWidget {
         ),
       ),
     );
-    if (DSheetPageBand.maybeOf(context)?.readerStart ==
-        DSheetReaderStart.scrolled) {
-      return DSheetPageBand.followEdge(context, child: placeholders);
-    }
-    return header.inset(placeholders, fullExtent: true);
+    return ContentReadingLaneBox(
+      child:
+          DSheetPageBand.maybeOf(context)?.readerStart ==
+              DSheetReaderStart.scrolled
+          ? DSheetPageBand.followEdge(context, child: placeholders)
+          : header.inset(placeholders, fullExtent: true),
+    );
   }
 }
 
