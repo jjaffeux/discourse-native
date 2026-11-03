@@ -5,6 +5,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/main.dart' as production;
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
@@ -94,9 +95,26 @@ class _ScrollProfileBinding extends WidgetsFlutterBinding {
 
   Future<void> _replay() async {
     var topicPresent = false;
+    ScrollPosition? topicPosition;
+    void findScroll(Element element) {
+      if (element is StatefulElement && element.state is ScrollableState) {
+        final position = (element.state as ScrollableState).position;
+        if (position.axis == Axis.vertical &&
+            position.hasContentDimensions &&
+            position.viewportDimension >
+                (topicPosition?.viewportDimension ?? 0)) {
+          topicPosition = position;
+        }
+      }
+      element.visitChildren(findScroll);
+    }
+
     void findTopic(Element element) {
-      if (element.widget case TopicView(:final route)) {
-        topicPresent = route?.topicId == 195627;
+      if (element.widget case TopicView(:final route)
+          when route?.topicId == 195627 &&
+              ShellScope.read(element).currentContent?.topicId == 195627) {
+        topicPresent = true;
+        element.visitChildren(findScroll);
       }
       element.visitChildren(findTopic);
     }
@@ -106,6 +124,8 @@ class _ScrollProfileBinding extends WidgetsFlutterBinding {
       rows.add({'kind': 'replay-error', 'reason': 'Algolia topic is not open'});
       return;
     }
+    _scrollPixels = topicPosition?.pixels;
+    _scrollMax = topicPosition?.maxScrollExtent;
     final view = platformDispatcher.implicitView!;
     final logicalSize = view.physicalSize / view.devicePixelRatio;
     var forward = true;
