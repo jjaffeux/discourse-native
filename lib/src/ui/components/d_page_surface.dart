@@ -36,12 +36,15 @@ class DPageSurface extends StatefulWidget {
   /// in its scroll content. Use [child] for a bounded body such as a table or
   /// calendar. The kit owns the heading typography, spacing and scroll motion.
   /// An [icon] marks the title the way the page's navigation entry does.
+  /// [secondaryControls] adds a persistent second row, 8 pixels below [controls],
+  /// with a 2-pixel bottom inset. Both rows keep the page's 16-pixel side inset.
   DPageSurface.headed({
     super.key,
     required Widget title,
     String? titleText,
     DIconData? icon,
     Widget? controls,
+    Widget? secondaryControls,
     this.bodyBuilder,
     this.adaptiveBodyBuilder,
     this.child,
@@ -62,7 +65,10 @@ class DPageSurface extends StatefulWidget {
        holdTitleInBar = false,
        titleLeading = null,
        header = _PageTitle(icon: icon, child: title),
-       headerControls = _PageControls(child: controls),
+       headerControls = _PageControls(
+         secondaryChild: secondaryControls,
+         child: controls,
+       ),
        compactHeader = null,
        initialCompactHeader = null,
        measureCompactHeader = false,
@@ -1092,7 +1098,9 @@ class _DPageSurfaceState extends State<DPageSurface>
                           clipper: _HeaderBodyClipper(
                             null,
                             _bodyAtTop,
-                            _PageControls.bottomPadding,
+                            _PageControls.bottomPaddingOf(
+                              widget.headerControls,
+                            ),
                           ),
                           child: _builtAdaptiveBody!.child,
                         );
@@ -1181,7 +1189,9 @@ class _DPageSurfaceState extends State<DPageSurface>
                         widget.fadeHeaderOnScroll ? null : _headerGeometry,
                         _bodyAtTop,
                         widget.headerControls is _PageControls
-                            ? _PageControls.bottomPadding
+                            ? _PageControls.bottomPaddingOf(
+                                widget.headerControls,
+                              )
                             : 0,
                       ),
                       child: _PageGeometryScope(
@@ -1409,23 +1419,38 @@ class _PageTitle extends StatelessWidget {
 }
 
 class _PageControls extends StatelessWidget {
-  const _PageControls({this.child});
-  final Widget? child;
+  const _PageControls({this.child, this.secondaryChild});
+  final Widget? child, secondaryChild;
 
   static const bottomPadding = 14.0;
+  static double bottomPaddingOf(Widget? controls) =>
+      controls is _PageControls && controls.secondaryChild != null
+      ? 2
+      : bottomPadding;
 
   @override
   Widget build(BuildContext context) =>
-      DPageHeaderHost.titlesInBarOf(context) && child == null
+      DPageHeaderHost.titlesInBarOf(context) &&
+          child == null &&
+          secondaryChild == null
       ? const SizedBox(height: 12)
       : Padding(
           padding: EdgeInsets.fromLTRB(
             16,
             DPageHeaderHost.titlesInBarOf(context) ? 12 : 16,
             16,
-            bottomPadding,
+            bottomPaddingOf(this),
           ),
-          child: DTouchFields(child: child ?? const SizedBox.shrink()),
+          child: DTouchFields(
+            child: secondaryChild == null
+                ? child ?? const SizedBox.shrink()
+                : Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    spacing: 8,
+                    children: [?child, secondaryChild!],
+                  ),
+          ),
         );
 }
 

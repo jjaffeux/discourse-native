@@ -23343,7 +23343,13 @@ abstract class AppLocalizations {
   /// **'Delete this room? Everyone in the call will be disconnected. This cannot be undone.'**
   String get voiceRoomDeleteConfirm;
 
-  /// Drawer entry opening the shared forum search scoped to Chat or the current channel.
+  /// Empty result for a nonblank chat sidebar filter.
+  ///
+  /// In en, this message translates to:
+  /// **'No chats match.'**
+  String get noChatsMatch;
+
+  /// Editable field narrowing chats and rooms in the sidebar.
   ///
   /// In en, this message translates to:
   /// **'Search chat'**

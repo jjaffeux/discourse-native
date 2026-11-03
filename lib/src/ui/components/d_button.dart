@@ -11,6 +11,7 @@ import '../foundation/control_artwork.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
@@ -586,6 +587,9 @@ class DButton extends StatelessWidget {
     final backLink = density == DButtonDensity.backLink;
     final inlineMetadata = density == DButtonDensity.inlineMetadata;
     final searchClear = density == DButtonDensity.searchClear;
+    final quietSearchClear =
+        searchClear &&
+        (DInputGroupControlScope.maybeOf(context)?.quiet ?? false);
     final avatar = density == DButtonDensity.avatar;
     final rail = density == DButtonDensity.rail;
     final dashedTile = variant == DButtonVariant.dashedTile;
@@ -622,7 +626,9 @@ class DButton extends StatelessWidget {
         ? DControlStyle.fontSize(DButtonSize.large, context: context)
         : DControlStyle.fontSize(effectiveSize, context: context);
     // Both dock densities scale artwork with the 11px destination labels.
-    final spacingUnit = postReaction
+    final spacingUnit = quietSearchClear
+        ? 11.0
+        : postReaction
         ? DPostReactionStyle.iconSize
         : timelineEnd
         ? 11.0
@@ -699,7 +705,7 @@ class DButton extends StatelessWidget {
         : rail
         ? 32.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : searchClear
-        ? MediaQuery.textScalerOf(context).scale(12)
+        ? MediaQuery.textScalerOf(context).scale(quietSearchClear ? 22 : 12)
         : avatar
         ? 36.0 *
               (MediaQuery.textScalerOf(context).scale(14) / 14).clamp(

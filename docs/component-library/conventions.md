@@ -4,6 +4,9 @@ Use `DPageSurface.headed` for each route with a page title and page controls.
 Put the title in `title`.
 Put filters, menus, selectors, and actions in `controls`.
 Use Native components for these controls.
+Use `secondaryControls` for a second row: the kit leaves 8 pixels between rows,
+16 pixels at the sides and 2 pixels below the second row. Both rows share the
+page's persistent controls and adaptive keyboard layout.
 
 The kit supplies the title style and the space around the heading.
 On phones, `DPageHeaderHost(titlesInBar: true)` keeps ordinary page names in

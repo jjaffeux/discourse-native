@@ -1,0 +1,15 @@
+file	test	baseline_result
+test/chat_search_entry_test.dart	forum drawer opens focused search at 320.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	forum drawer opens focused search at 390.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	forum drawer opens focused search at 320.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	forum drawer opens focused search at 390.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	channel drawer opens focused search at 320.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	channel drawer opens focused search at 390.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	channel drawer opens focused search at 320.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	channel drawer opens focused search at 390.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	thread drawer opens focused search at 320.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	thread drawer opens focused search at 390.0 and 1.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	thread drawer opens focused search at 320.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	thread drawer opens focused search at 390.0 and 2.0x	reproduced on unchanged ffb4cc4c9
+test/chat_search_entry_test.dart	narrow phone keeps Cancel and scope removal at 200% text	reproduced on unchanged ffb4cc4c9
+test/mobile_drawer_structure_test.dart	render forum and chat drawers with scrolled content (variant: TargetPlatform.iOS)	reproduced on unchanged ffb4cc4c9

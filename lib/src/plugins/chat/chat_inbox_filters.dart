@@ -58,6 +58,33 @@ final class ChatInboxFilter {
 final class ChatInboxFilters extends FrameSafeNotifier {
   final Map<String, ChatInboxFilter> _filters = {};
   final Map<String, ChatBrowseFilters> _browseFilters = {};
+  final Map<String, String> _sidebarQueries = {};
+  final Set<String> _expandedSidebarRooms = {};
+
+  bool sidebarRoomsExpandedFor(String siteUrl) =>
+      _expandedSidebarRooms.contains(siteUrl);
+
+  void setSidebarRoomsExpanded(String siteUrl, bool expanded) {
+    if (sidebarRoomsExpandedFor(siteUrl) == expanded) return;
+    if (expanded) {
+      _expandedSidebarRooms.add(siteUrl);
+    } else {
+      _expandedSidebarRooms.remove(siteUrl);
+    }
+    notifySafely();
+  }
+
+  String sidebarQueryFor(String siteUrl) => _sidebarQueries[siteUrl] ?? '';
+
+  void setSidebarQuery(String siteUrl, String query) {
+    if (sidebarQueryFor(siteUrl) == query) return;
+    if (query.isEmpty) {
+      _sidebarQueries.remove(siteUrl);
+    } else {
+      _sidebarQueries[siteUrl] = query;
+    }
+    notifySafely();
+  }
 
   ChatBrowseFilters browseFor(String siteUrl) =>
       _browseFilters.putIfAbsent(siteUrl, ChatBrowseFilters.new);
@@ -77,6 +104,17 @@ final class ChatInboxFilters extends FrameSafeNotifier {
 
   void forget(String siteUrl) {
     _browseFilters.remove(siteUrl);
-    if (_filters.remove(siteUrl) != null) notifySafely();
+    _expandedSidebarRooms.remove(siteUrl);
+    final hadQuery = _sidebarQueries.remove(siteUrl) != null;
+    if (_filters.remove(siteUrl) != null || hadQuery) notifySafely();
   }
+}
+
+bool chatInboxWordsMatch(String query, Iterable<String?> fields) {
+  final text = fields.whereType<String>().join('\n').toLowerCase();
+  return query
+      .toLowerCase()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .every(text.contains);
 }

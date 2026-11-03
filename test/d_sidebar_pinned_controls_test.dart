@@ -33,13 +33,16 @@ void main() {
                           backgroundColor: Colors.transparent,
                           collapsible: DSidebarCollapsible.none,
                           child: DSidebarContent.slivers(
-                            header: SizedBox(
-                              height: height,
-                              child: Align(
-                                alignment: Alignment.topLeft,
-                                child: DButton(
-                                  label: const Text('Search chat'),
-                                  onPressed: () => presses++,
+                            header: Padding(
+                              padding: const EdgeInsets.fromLTRB(8, 2, 8, 14),
+                              child: SizedBox(
+                                height: height,
+                                child: Align(
+                                  alignment: Alignment.topLeft,
+                                  child: DButton(
+                                    label: const Text('Search chat'),
+                                    onPressed: () => presses++,
+                                  ),
                                 ),
                               ),
                             ),

@@ -43,36 +43,30 @@ class ChatInboxNavigation extends StatelessWidget {
         }
         final settings = chat.siteConfigFor(siteUrl).chatSettings;
         return DReferenceTextScale(
-          child: Padding(
+          child: Wrap(
             key: const ValueKey('chat-inbox-navigation'),
-            padding: const EdgeInsets.only(
-              top: DSpacing.xs,
-              bottom: DSpacing.xs,
-            ),
-            child: Wrap(
-              spacing: DSpacing.sm,
-              runSpacing: DSpacing.sm,
-              children: [
-                if (settings.publicChannelsEnabled)
-                  DButton(
-                    key: const ValueKey('chat-inbox-channels-card'),
-                    variant: DButtonVariant.quiet,
-                    size: DControlSize.filter,
-                    icon: const DIcon(DIcons.hashtag),
-                    label: Text(context.l10n.browseChannels),
-                    onPressed: () => shell.openBrowseChannels(),
-                  ),
-                if (settings.threadsEnabled)
-                  DButton(
-                    key: const ValueKey('chat-inbox-threads-card'),
-                    variant: DButtonVariant.quiet,
-                    size: DControlSize.filter,
-                    icon: const DIcon(DIcons.comments),
-                    label: Text(context.l10n.threads),
-                    onPressed: () => shell.openMyThreads(),
-                  ),
-              ],
-            ),
+            spacing: DSpacing.sm,
+            runSpacing: DSpacing.sm,
+            children: [
+              if (settings.publicChannelsEnabled)
+                DButton(
+                  key: const ValueKey('chat-inbox-channels-card'),
+                  variant: DButtonVariant.quiet,
+                  size: DControlSize.filter,
+                  icon: const DIcon(DIcons.hashtag),
+                  label: Text(context.l10n.browseChannels),
+                  onPressed: () => shell.openBrowseChannels(),
+                ),
+              if (settings.threadsEnabled)
+                DButton(
+                  key: const ValueKey('chat-inbox-threads-card'),
+                  variant: DButtonVariant.quiet,
+                  size: DControlSize.filter,
+                  icon: const DIcon(DIcons.comments),
+                  label: Text(context.l10n.threads),
+                  onPressed: () => shell.openMyThreads(),
+                ),
+            ],
           ),
         );
       },

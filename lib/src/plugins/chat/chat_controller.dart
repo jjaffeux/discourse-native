@@ -950,6 +950,38 @@ class ChatController extends FrameSafeNotifier {
       ) ??
       <ChatChannel>[];
 
+  /// Narrows the sidebar using the directory excerpt and messages retained by
+  /// this client, including loaded thread replies and local sends.
+  List<ChatChannel> sidebarConversations(String siteUrl) {
+    final channels = inboxConversations(
+      siteUrl,
+      inboxFilters.filterFor(siteUrl),
+    );
+    final query = inboxFilters.sidebarQueryFor(siteUrl);
+    if (query.trim().isEmpty) return channels;
+    final fields = <int, List<String?>>{
+      for (final channel in channels)
+        channel.id: [
+          channel.title,
+          channel.lastMessagePreview,
+          channel.lastMessageUsername,
+        ],
+    };
+    for (final message in _store.retainedRecords<ChatMessage>(siteUrl)) {
+      if (message == null || message.isDeleted) continue;
+      fields[message.channelId]?.addAll([
+        message.raw,
+        jsonHtmlText(message.cooked),
+        message.author.username,
+        message.author.name,
+      ]);
+    }
+    return [
+      for (final channel in channels)
+        if (chatInboxWordsMatch(query, fields[channel.id]!)) channel,
+    ];
+  }
+
   List<ChatChannel> publicChannels(String siteUrl) =>
       _heldDirectory(siteUrl)?.publicChannels() ?? [];
 

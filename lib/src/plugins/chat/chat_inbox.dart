@@ -466,12 +466,17 @@ class ChatSidebarInboxHeader extends StatelessWidget {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       ChatSearchEntry(siteUrl: siteUrl),
-      ChatInboxFilterBar(
-        siteUrl: siteUrl,
-        filters: PluginUiScope.require(
-          context,
-          chatControllerService,
-        ).inboxFilters,
+      Padding(
+        padding: DControlStyle.isTouch(context)
+            ? const EdgeInsets.fromLTRB(6, 6, 6, 6)
+            : const EdgeInsets.fromLTRB(8, 0, 8, 14),
+        child: ChatInboxFilterBar(
+          siteUrl: siteUrl,
+          filters: PluginUiScope.require(
+            context,
+            chatControllerService,
+          ).inboxFilters,
+        ),
       ),
     ],
   );
@@ -503,6 +508,8 @@ final class _ChatSidebarInboxLayout {
     required this.failed,
     required this.empty,
     required this.activeChannelId,
+    required this.query,
+    required this.hasRooms,
   });
 
   final ChatInboxFilter filter;
@@ -512,6 +519,8 @@ final class _ChatSidebarInboxLayout {
   final bool failed;
   final bool empty;
   final int? activeChannelId;
+  final String query;
+  final bool hasRooms;
 
   @override
   bool operator ==(Object other) =>
@@ -521,6 +530,8 @@ final class _ChatSidebarInboxLayout {
       failed == other.failed &&
       empty == other.empty &&
       activeChannelId == other.activeChannelId &&
+      query == other.query &&
+      hasRooms == other.hasRooms &&
       listEquals(channelIds, other.channelIds) &&
       listEquals(starredIds, other.starredIds);
 
@@ -531,6 +542,8 @@ final class _ChatSidebarInboxLayout {
     failed,
     empty,
     activeChannelId,
+    query,
+    hasRooms,
     Object.hashAll(channelIds),
     Object.hashAll(starredIds),
   );
@@ -541,6 +554,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
   ChatInboxRooms? _rooms;
   ChatShellService? _shell;
   final _expanded = <ChatInboxSectionKind>{};
+  final _collapsed = <ChatInboxSectionKind>{};
   Listenable? _sources;
   late _ChatSidebarInboxLayout _layout;
   Widget? _content;
@@ -570,6 +584,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl == widget.siteUrl) return;
     _expanded.clear();
+    _collapsed.clear();
     _layout = _read();
     _content = null;
   }
@@ -578,7 +593,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     final chat = _chat!;
     final siteUrl = widget.siteUrl;
     final filter = chat.inboxFilters.filterFor(siteUrl);
-    final channels = chatInboxConversations(chat, siteUrl, filter);
+    final channels = chat.sidebarConversations(siteUrl);
     final error = chat.channelsError(siteUrl);
     return _ChatSidebarInboxLayout(
       filter: filter,
@@ -589,8 +604,11 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
       ],
       loading: !chat.channelsLoaded(siteUrl) && error == null,
       failed: error != null && channels.isEmpty,
-      empty: channels.isEmpty && (_rooms?.rooms(siteUrl).isEmpty ?? true),
+      empty:
+          channels.isEmpty && (_rooms?.sidebarRooms(siteUrl).isEmpty ?? true),
       activeChannelId: _shell?.visibleChannelId,
+      query: chat.inboxFilters.sidebarQueryFor(siteUrl).trim(),
+      hasRooms: _rooms?.sidebarRooms(siteUrl).isNotEmpty ?? false,
     );
   }
 
@@ -623,7 +641,26 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
       slivers: [
         if (layout.loading)
           const SliverToBoxAdapter(child: _ChatSidebarInboxSkeleton())
-        else if (layout.failed)
+        else if (layout.query.isNotEmpty && layout.empty)
+          SliverToBoxAdapter(
+            child: DReferenceTextScale(
+              child: Padding(
+                key: const ValueKey('chat-sidebar-no-matches'),
+                padding: EdgeInsets.symmetric(
+                  horizontal: DControlStyle.isTouch(context) ? 10 : 2,
+                  vertical: 12,
+                ),
+                child: Text(
+                  context.l10n.noChatsMatch,
+                  style: TextStyle(
+                    fontSize: DControlStyle.isTouch(context) ? 15 : 13,
+                    color: DTokens.of(context).mutedForeground,
+                  ),
+                ),
+              ),
+            ),
+          )
+        else if (layout.failed && layout.query.isEmpty)
           SliverToBoxAdapter(
             child: ChatInboxError(
               onRetry: () => unawaited(chat.loadChannels(siteUrl, force: true)),
@@ -635,7 +672,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
           )
         else
           for (final section in sections)
-            _section(section, alone: sections.length == 1),
+            _section(section, alone: sections.length == 1 && !layout.hasRooms),
       ],
     );
   }
@@ -644,7 +681,7 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     final expanded = _expanded.contains(section.kind);
     final slice = ChatInboxSectionSlice(
       section.channels,
-      expanded: expanded,
+      expanded: expanded || _layout.query.isNotEmpty,
       alone: alone,
       keep: (channel) => channel.id == _layout.activeChannelId,
     );
@@ -653,7 +690,15 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
     };
     return DCollapsible(
       key: ValueKey(section.kind),
-      defaultOpen: true,
+      open: !_collapsed.contains(section.kind),
+      onOpenChange: (open) => setState(() {
+        if (open) {
+          _collapsed.remove(section.kind);
+        } else {
+          _collapsed.add(section.kind);
+        }
+        _content = null;
+      }),
       child: DSidebarGroup.sliver(
         padding: EdgeInsets.zero,
         header: DCollapsibleTrigger(
@@ -675,7 +720,9 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
         ),
         sliver: DCollapsibleContent.sliver(
           sliver: SliverList.builder(
-            itemCount: slice.visible.length + (slice.canFold ? 1 : 0),
+            itemCount:
+                slice.visible.length +
+                (slice.canFold && _layout.query.isEmpty ? 1 : 0),
             findChildIndexCallback: (key) =>
                 key is ValueKey<int> ? indexes[key.value] : null,
             itemBuilder: (context, index) => index == slice.visible.length

@@ -373,7 +373,7 @@ class _DInputState extends FormFieldState<String> {
               : Color.lerp(t.background, t.foreground, .9),
         );
     final group = _group;
-    final hintColor = group?.search == true
+    final hintColor = group?.search == true && group?.quiet != true
         ? Color.lerp(t.background, t.foreground, .5)!
         : t.mutedForeground;
     final enabled = input.enabled && (group?.enabled ?? true);

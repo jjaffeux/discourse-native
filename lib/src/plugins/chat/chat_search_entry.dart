@@ -2,35 +2,104 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
+import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
-/// The drawer opens the forum's shared search using Chat's current context.
-class ChatSearchEntry extends StatelessWidget {
+/// Narrows this forum's sidebar without navigating away from it.
+class ChatSearchEntry extends StatefulWidget {
   const ChatSearchEntry({super.key, required this.siteUrl});
 
   final String siteUrl;
 
   @override
+  State<ChatSearchEntry> createState() => _ChatSearchEntryState();
+}
+
+class _ChatSearchEntryState extends State<ChatSearchEntry> {
+  final _focus = FocusNode();
+  final _text = TextEditingController();
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
+    final filters = PluginUiScope.require(
+      context,
+      chatControllerService,
+    ).inboxFilters;
     return ListenableBuilder(
-      listenable: shell,
-      builder: (context, _) => shell.searchContextFor(siteUrl) == null
-          ? const SizedBox.shrink()
-          : Padding(
-              padding: const EdgeInsets.only(bottom: DSpacing.sm),
-              child: DButton(
+      listenable: Listenable.merge([shell, filters]),
+      builder: (context, _) {
+        if (!shell.isConnected(widget.siteUrl) ||
+            !shell.chatAvailable(widget.siteUrl)) {
+          return const SizedBox.shrink();
+        }
+        final query = filters.sidebarQueryFor(widget.siteUrl);
+        if (_text.text != query) {
+          _text.value = TextEditingValue(
+            text: query,
+            selection: TextSelection.collapsed(offset: query.length),
+          );
+        }
+        void clear() {
+          filters.setSidebarQuery(widget.siteUrl, '');
+          _focus.requestFocus();
+        }
+
+        final touch = DControlStyle.isTouch(context);
+        return Padding(
+          padding: touch
+              ? const EdgeInsets.fromLTRB(10, 10, 10, 0)
+              : const EdgeInsets.fromLTRB(4, 4, 4, 6),
+          child: DReferenceTextScale(
+            child: Focus(
+              canRequestFocus: false,
+              skipTraversal: true,
+              onKeyEvent: (_, event) {
+                if (event is KeyDownEvent &&
+                    event.logicalKey == LogicalKeyboardKey.escape) {
+                  clear();
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: DInputGroup(
                 key: const ValueKey('chat-search-entry'),
-                variant: DButtonVariant.quiet,
-                size: DButtonSize.field,
-                alignment: AlignmentDirectional.centerStart,
-                foregroundColor: DTokens.of(context).mutedForeground,
-                icon: const DIcon(DIcons.magnifyingGlass),
-                label: Text(context.l10n.searchChat),
-                onPressed: () => shell.openGlobalSearch(siteUrl),
+                variant: DInputGroupVariant.quiet,
+                size: DControlSize.filter,
+                children: [
+                  DInputGroupInput(
+                    controller: _text,
+                    focusNode: _focus,
+                    semanticLabel: context.l10n.searchChat,
+                    hintText: context.l10n.searchChat,
+                    onChanged: (value) =>
+                        filters.setSidebarQuery(widget.siteUrl, value),
+                  ),
+                  const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+                  if (query.isNotEmpty)
+                    DInputGroupAddon(
+                      alignment: DInputGroupAddonAlignment.inlineEnd,
+                      child: DInputGroupButton.icon(
+                        icon: const DIcon(DIcons.xmark),
+                        tooltip: context.l10n.clearSearch,
+                        onPressed: clear,
+                      ),
+                    ),
+                ],
               ),
             ),
+          ),
+        );
+      },
     );
   }
 }

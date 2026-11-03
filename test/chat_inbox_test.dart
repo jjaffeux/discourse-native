@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox_filters.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -14,6 +15,96 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  test(
+    'sidebar matches all words across names, messages and authors, locally',
+    () async {
+      final subject = await _fixture(
+        public: const [
+          ChatChannel(
+            id: 1,
+            title: 'Design studio',
+            kind: ChatChannelKind.category,
+            lastMessagePreview: 'Release planning',
+            lastMessageUsername: 'mira',
+          ),
+          ChatChannel(
+            id: 2,
+            title: 'Engineering',
+            kind: ChatChannelKind.category,
+          ),
+        ],
+        direct: const [
+          ChatChannel(
+            id: 3,
+            title: 'Alice and Bob',
+            kind: ChatChannelKind.directMessage,
+            isGroup: true,
+            membership: ChatMembership(starred: true),
+          ),
+        ],
+      );
+      final chat = subject.chat;
+      subject.store.putAll(_site, [
+        const ChatMessage(
+          id: 10,
+          channelId: 1,
+          cooked: '<p>Keyboard &amp; focus</p>',
+          author: ChatMessageAuthor(
+            id: 4,
+            username: 'david',
+            name: 'David Smith',
+          ),
+        ),
+        const ChatMessage(
+          id: 11,
+          channelId: 1,
+          threadId: 77,
+          cooked: '<p>Thread reply</p>',
+          author: ChatMessageAuthor(id: 5, username: 'sam'),
+        ),
+        const ChatMessage(
+          id: -1,
+          channelId: 3,
+          cooked: '',
+          raw: 'Local draft send',
+          author: ChatMessageAuthor(id: 7, username: 'reader'),
+        ),
+      ]);
+      for (final (query, ids) in [
+        ('  DESIGN   MiRa release ', [1]),
+        ('studio keyboard smith', [1]),
+        ('design thread sam', [1]),
+        ('alice draft reader', [3]),
+        ('engineering mira', <int>[]),
+        ('missing', <int>[]),
+        (' \t ', [3, 1, 2]),
+      ]) {
+        chat.inboxFilters.setSidebarQuery(_site, query);
+        expect(
+          chat.sidebarConversations(_site).map((c) => c.id),
+          ids,
+          reason: query,
+        );
+        expect(chat.inboxFilters.sidebarQueryFor(_site), query);
+      }
+      chat.inboxFilters.setSidebarQuery(_site, 'design');
+      chat.inboxFilters.update(
+        _site,
+        const ChatInboxFilter(kind: ChatInboxKind.directMessages),
+      );
+      expect(chat.sidebarConversations(_site), isEmpty);
+      chat.inboxFilters.update(_site, const ChatInboxFilter(unreadOnly: true));
+      expect(chat.sidebarConversations(_site), isEmpty);
+      expect(
+        chat.inboxFilters.sidebarQueryFor('https://another.invalid'),
+        isEmpty,
+      );
+      chat.inboxFilters.forget(_site);
+      expect(chat.inboxFilters.sidebarQueryFor(_site), isEmpty);
+      expect(chat.inboxFilters.filterFor(_site), const ChatInboxFilter());
+    },
+  );
+
   test(
     'By type extracts starred channels and DMs once; Newest keeps activity order',
     () {

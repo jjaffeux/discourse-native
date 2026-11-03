@@ -14795,6 +14795,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Delete this room? Everyone in the call will be disconnected. This cannot be undone.';
 
   @override
+  String get noChatsMatch => 'No chats match.';
+
+  @override
   String get searchChat => 'Search chat';
 
   @override

@@ -16,9 +16,9 @@ import 'd_kbd.dart';
 import 'd_scroll_area.dart';
 import 'd_textarea.dart';
 
-/// Search uses a recessed capsule; composer supplies the mobile chat reference's
-/// one-line editor, tool spacing and matching full/compact geometry.
-enum DInputGroupVariant { standard, search, composer }
+/// Search uses a recessed capsule; quiet matches the editable sidebar pill.
+/// Composer supplies the mobile chat reference's one-line editor and tools.
+enum DInputGroupVariant { standard, search, quiet, composer }
 
 enum DInputGroupAddonAlignment { inlineStart, inlineEnd, blockStart, blockEnd }
 
@@ -94,6 +94,7 @@ class DInputGroup extends StatefulWidget {
 }
 
 class _DInputGroupState extends State<DInputGroup> {
+  bool _hovered = false;
   final Map<FocusNode, ({bool enabled, bool invalid})> _controls = {};
   bool _updateQueued = false;
 
@@ -146,7 +147,9 @@ class _DInputGroupState extends State<DInputGroup> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final search = widget.variant == DInputGroupVariant.search;
+    final quiet = widget.variant == DInputGroupVariant.quiet;
+    final search = widget.variant == DInputGroupVariant.search || quiet;
+    final quietFontSize = DControlStyle.isTouch(context) ? 16.0 : 12.5;
     final composer = widget.variant == DInputGroupVariant.composer;
     final compactComposerExtent = DComposerDock.foldedDockExtentOf(context);
     final dark = Theme.of(context).brightness == Brightness.dark;
@@ -325,7 +328,12 @@ class _DInputGroupState extends State<DInputGroup> {
     if (search) {
       content = Padding(
         // The reference's 14px inset sits inside its 1px transparent border.
-        padding: const EdgeInsets.symmetric(horizontal: 15),
+        padding: quiet
+            ? EdgeInsetsDirectional.only(
+                start: 11,
+                end: inlineEnd.isEmpty ? 11 : 7,
+              )
+            : const EdgeInsets.symmetric(horizontal: 15),
         child: DIconGlyphTheme(scale: 1, child: content),
       );
     }
@@ -361,6 +369,8 @@ class _DInputGroupState extends State<DInputGroup> {
         excludeFromSemantics: true,
         onTap: _requestControlFocus,
         child: MouseRegion(
+          onEnter: quiet ? (_) => setState(() => _hovered = true) : null,
+          onExit: quiet ? (_) => setState(() => _hovered = false) : null,
           cursor: widget.enabled
               ? MouseCursor.defer
               : SystemMouseCursors.forbidden,
@@ -382,6 +392,13 @@ class _DInputGroupState extends State<DInputGroup> {
                         widget.viewportHeight ??
                         (composer
                             ? (widget.compact ? compactComposerExtent : 0)
+                            : quiet
+                            ? (DControlStyle.isTouch(context) ? 36 : 30) +
+                                  (MediaQuery.textScalerOf(
+                                            context,
+                                          ).scale(quietFontSize) -
+                                          quietFontSize) *
+                                      1.5
                             : widget.compact
                             ? MediaQuery.textScalerOf(context).scale(48)
                             : multiline
@@ -391,11 +408,20 @@ class _DInputGroupState extends State<DInputGroup> {
                                     MediaQuery.textScalerOf(context),
                                     context: context,
                                   ) +
-                                  (search && widget.size == DControlSize.field
+                                  (search &&
+                                          !quiet &&
+                                          widget.size == DControlSize.field
                                       ? .5
                                       : 0)),
                   ),
-                  decoration: search && !widget.borderless
+                  decoration: quiet && !widget.borderless
+                      ? BoxDecoration(
+                          color: _hovered
+                              ? tokens.quietControlSurface().hover
+                              : tokens.quietControlSurface().background,
+                          borderRadius: radius,
+                        )
+                      : search && !widget.borderless
                       ? _SearchInputSurfaceDecoration(dark: dark)
                       : _InputGroupSurfaceDecoration(
                           backgroundColor: widget.borderless
@@ -465,8 +491,19 @@ class _DInputGroupState extends State<DInputGroup> {
       inputPadding: inputPadding,
       size: widget.size,
       search: search,
+      quiet: quiet,
       composer: composer,
-      editorStyle: composer ? DInputGroup.composerTextStyleOf(context) : null,
+      editorStyle: composer
+          ? DInputGroup.composerTextStyleOf(context)
+          : quiet
+          ? Theme.of(context).textTheme.bodyMedium!.copyWith(
+              fontSize: quietFontSize,
+              height: 1.5,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              color: tokens.foreground,
+            )
+          : null,
       enabled: widget.enabled,
       child: surface,
     );
@@ -514,7 +551,8 @@ class DInputGroupAddon extends StatelessWidget {
         ? 5.6
         : 8.0;
     final search = DInputGroupControlScope.maybeOf(context)?.search ?? false;
-    final foreground = search
+    final quiet = DInputGroupControlScope.maybeOf(context)?.quiet ?? false;
+    final foreground = search && !quiet
         ? Color.lerp(tokens.background, tokens.foreground, .5)!
         : tokens.mutedForeground;
     final composer =
@@ -570,7 +608,9 @@ class DInputGroupAddon extends StatelessWidget {
           padding: padding,
           child: IconTheme.merge(
             data: IconThemeData(
-              size: DControlStyle.iconDimension(size, context: context),
+              size: quiet
+                  ? (DControlStyle.isTouch(context) ? 14 : 12)
+                  : DControlStyle.iconDimension(size, context: context),
               color: foreground,
             ),
             child: DefaultTextStyle.merge(
@@ -653,6 +693,7 @@ class DInputGroupButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final search = DInputGroupControlScope.maybeOf(context)?.search ?? false;
+    final quiet = DInputGroupControlScope.maybeOf(context)?.quiet ?? false;
     final radius = (DTokens.of(context).radius - 3)
         .clamp(0, double.infinity)
         .toDouble();
@@ -663,7 +704,9 @@ class DInputGroupButton extends StatelessWidget {
         onPressed: onPressed,
         variant: search ? DButtonVariant.ghost : DButtonVariant.ghost,
         density: search ? DButtonDensity.searchClear : DButtonDensity.standard,
-        foregroundColor: search
+        foregroundColor: quiet
+            ? DTokens.of(context).mutedForeground
+            : search
             ? Color.lerp(
                 DTokens.of(context).background,
                 DTokens.of(context).foreground,
@@ -673,7 +716,7 @@ class DInputGroupButton extends StatelessWidget {
         size: size,
         semanticLabel: null,
         focusNode: focusNode,
-        borderRadius: BorderRadius.circular(radius),
+        borderRadius: BorderRadius.circular(quiet ? DRadius.pill : radius),
         loading: false,
         hasPopup: hasPopup,
       );

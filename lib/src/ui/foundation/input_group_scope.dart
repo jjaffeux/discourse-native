@@ -17,6 +17,7 @@ class DInputGroupControlScope extends InheritedWidget {
     required this.enabled,
     this.size = DControlSize.regular,
     this.search = false,
+    this.quiet = false,
     this.composer = false,
     this.editorStyle,
     required super.child,
@@ -34,6 +35,7 @@ class DInputGroupControlScope extends InheritedWidget {
        enabled = parent.enabled,
        size = parent.size,
        search = parent.search,
+       quiet = parent.quiet,
        composer = parent.composer,
        editorStyle = parent.editorStyle,
        _boundary = true;
@@ -45,6 +47,7 @@ class DInputGroupControlScope extends InheritedWidget {
   final bool enabled;
   final DControlSize size;
   final bool search;
+  final bool quiet;
   final bool composer;
   final TextStyle? editorStyle;
   final bool _boundary;
@@ -64,6 +67,7 @@ class DInputGroupControlScope extends InheritedWidget {
       enabled != oldWidget.enabled ||
       size != oldWidget.size ||
       search != oldWidget.search ||
+      quiet != oldWidget.quiet ||
       composer != oldWidget.composer ||
       editorStyle != oldWidget.editorStyle ||
       _boundary != oldWidget._boundary;

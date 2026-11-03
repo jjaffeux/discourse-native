@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +29,75 @@ Widget host(
 );
 
 void main() {
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'quiet search owns editor, icon and clear geometry on $platform',
+      (tester) async {
+        final text = TextEditingController(text: 'draft');
+        final focus = FocusNode();
+        addTearDown(text.dispose);
+        addTearDown(focus.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 280,
+                  child: DInputGroup(
+                    variant: DInputGroupVariant.quiet,
+                    children: [
+                      DInputGroupInput(
+                        controller: text,
+                        focusNode: focus,
+                        hintText: 'Search chat',
+                      ),
+                      const DInputGroupAddon(
+                        child: DIcon(DIcons.magnifyingGlass),
+                      ),
+                      DInputGroupAddon(
+                        alignment: DInputGroupAddonAlignment.inlineEnd,
+                        child: DInputGroupButton.icon(
+                          icon: const DIcon(DIcons.xmark),
+                          tooltip: 'Clear search',
+                          onPressed: text.clear,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final touch = platform != TargetPlatform.macOS;
+        expect(
+          tester.getSize(find.byType(DInputGroup)).height,
+          touch ? 36 : 30,
+        );
+        expect(
+          tester.widget<EditableText>(find.byType(EditableText)).style.fontSize,
+          touch ? 16 : 12.5,
+        );
+        expect(tester.getSize(find.byType(DButton)), const Size(22, 22));
+        final group = tester.getRect(find.byType(DInputGroup));
+        expect(group.right - tester.getRect(find.byType(DButton)).right, 7);
+        await tester.tap(find.byTooltip('Clear search'));
+        await tester.pumpAndSettle();
+        expect(text.text, isEmpty);
+        await tester.tapAt(group.centerLeft + const Offset(2, 0));
+        await tester.pumpAndSettle();
+        expect(focus.hasFocus, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
   for (final scale in [1.0, 2.0]) {
     testWidgets('fixed viewport scrolls editor and addons at scale $scale', (
       tester,

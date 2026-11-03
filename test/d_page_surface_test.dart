@@ -38,6 +38,51 @@ Widget _list({ScrollController? controller}) => ListView.builder(
 );
 
 void main() {
+  testWidgets('headed secondary controls own both row and body spacing', (
+    tester,
+  ) async {
+    for (final platform in [
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    ]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: DPageSurface.headed(
+              title: const Text('Chats'),
+              controls: DButton(
+                key: const ValueKey('primary-row'),
+                label: const Text('Recent'),
+                onPressed: () {},
+              ),
+              secondaryControls: Wrap(
+                children: [
+                  DButton(
+                    key: const ValueKey('secondary-row'),
+                    label: const Text('Browse channels'),
+                    onPressed: () {},
+                  ),
+                ],
+              ),
+              child: const SizedBox.expand(key: ValueKey('content-body')),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final primary = tester.getRect(find.byKey(const ValueKey('primary-row')));
+      final secondary = tester.getRect(
+        find.byKey(const ValueKey('secondary-row')),
+      );
+      final body = tester.getRect(find.byKey(const ValueKey('content-body')));
+      expect(secondary.top - primary.bottom, 8, reason: '$platform');
+      expect(body.top - secondary.bottom, 2, reason: '$platform');
+      expect(secondary.left, 16, reason: '$platform');
+      expect(tester.takeException(), isNull);
+    }
+  });
   testWidgets('a phone draws the fields under a page title 44 tall', (
     tester,
   ) async {

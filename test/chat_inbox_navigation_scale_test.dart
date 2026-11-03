@@ -1,22 +1,75 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
-import 'package:discourse_native/src/plugins/chat/chat_inbox_section.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'chat_sidebar_parity_test.dart' show capture;
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
+import 'sidebar_panel_tabs_test.dart' as panels;
+import 'support/load_test_fonts.dart';
+import 'support/native_ui_evidence.dart';
 
 void main() {
+  setUpAll(loadTestFonts);
+  setUp(
+    () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+          const MethodChannel('org.discourse.native/notification_opens'),
+          (_) async => null,
+        ),
+  );
+  testWidgets('desktop chat directory pills sit eight below the switches', (
+    tester,
+  ) async {
+    await prepareNativeUiEvidence(tester);
+    final shell = await panels.pumpTabs(tester, threads: true, voice: false);
+    shell.pluginSession.require(chatShellService).openChats();
+    await tester.pumpAndSettle();
+    final page = find.byType(ChatMobileSidebar);
+    final filters = find.descendant(
+      of: page,
+      matching: find.byType(ChatInboxFilterBar),
+    );
+    final navigation = find.descendant(
+      of: page,
+      matching: find.byKey(const ValueKey('chat-inbox-navigation')),
+    );
+    expect(tester.getRect(navigation).top - tester.getRect(filters).bottom, 8);
+    expect(tester.getRect(navigation).left - tester.getRect(page).left, 16);
+    for (final key in ['chat-inbox-channels-card', 'chat-inbox-threads-card']) {
+      _expectFilter(
+        tester,
+        find.descendant(of: page, matching: find.byKey(ValueKey(key))),
+        height: 30,
+        text: 12.5,
+      );
+    }
+    expect(tester.takeException(), isNull);
+    await capture(tester, 'chat-page-desktop-navigation');
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   testWidgets(
     'chat navigation keeps reference size and user text scaling',
     (tester) async {
+      await prepareNativeUiEvidence(tester);
       final shell = await pumpMobileShellFixture(
         tester,
         size: const Size(600, 1000),
       );
       shell.selectMobilePanel('chat');
       await tester.pumpAndSettle();
+      final filters = find.byType(ChatInboxFilterBar);
+      final navigation = find.byKey(const ValueKey('chat-inbox-navigation'));
+      expect(
+        tester.getRect(navigation).top - tester.getRect(filters).bottom,
+        8,
+      );
+      expect(tester.getRect(navigation).left, 16);
+      await capture(tester, 'chat-page-phone-navigation');
       for (final key in [
         'chat-inbox-channels-card',
         'chat-inbox-threads-card',

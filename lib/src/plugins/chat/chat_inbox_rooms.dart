@@ -67,6 +67,12 @@ final class ChatInboxRooms extends FrameSafeNotifier {
     ];
   }
 
+  List<ChatInboxRoom> sidebarRooms(String siteUrl) => [
+    for (final room in rooms(siteUrl))
+      if (chatInboxWordsMatch(filters.sidebarQueryFor(siteUrl), [room.name]))
+        room,
+  ];
+
   VoidCallback attach(ChatInboxRoomProvider provider) {
     _provider?.removeListener(notifySafely);
     _provider = provider..addListener(notifySafely);

@@ -2,6 +2,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/d_icons.dart';
+
 import '../styleguide_example.dart';
 
 final inputGroupExamples = ComponentExamples(
@@ -20,6 +22,20 @@ final inputGroupExamples = ComponentExamples(
       'lifecycle. Empty uses the same accepted composition. Button Group remains '
       'a downstream consumer of this public API.',
   examples: [
+    StyleguideExample(
+      title: 'Quiet sidebar search',
+      description:
+          'An editable page pill, with a muted placeholder and circular clear action. Global search retains its recessed capsule.',
+      states: const ['Quiet', 'Search', 'Clear'],
+      code: '''DInputGroup(variant: DInputGroupVariant.quiet, children: [
+  DInputGroupInput(hintText: 'Search chat'),
+  DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+  DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
+    child: DInputGroupButton.icon(icon: DIcon(DIcons.xmark),
+      tooltip: 'Clear search', onPressed: clear)),
+])''',
+      builder: (_) => const _QuietSearchExample(),
+    ),
     StyleguideExample(
       title: 'Title-bar search',
       description:
@@ -287,6 +303,42 @@ final inputGroupExamples = ComponentExamples(
     ),
   ],
 );
+
+class _QuietSearchExample extends StatefulWidget {
+  const _QuietSearchExample();
+  @override
+  State<_QuietSearchExample> createState() => _QuietSearchExampleState();
+}
+
+class _QuietSearchExampleState extends State<_QuietSearchExample> {
+  final _text = TextEditingController();
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: _text,
+    builder: (context, _) => DInputGroup(
+      variant: DInputGroupVariant.quiet,
+      children: [
+        DInputGroupInput(controller: _text, hintText: 'Search chat'),
+        const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
+        if (_text.text.isNotEmpty)
+          DInputGroupAddon(
+            alignment: DInputGroupAddonAlignment.inlineEnd,
+            child: DInputGroupButton.icon(
+              icon: const DIcon(DIcons.xmark),
+              tooltip: 'Clear search',
+              onPressed: _text.clear,
+            ),
+          ),
+      ],
+    ),
+  );
+}
 
 class _AlignmentExample extends StatelessWidget {
   const _AlignmentExample();

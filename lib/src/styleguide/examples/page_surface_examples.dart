@@ -8,6 +8,7 @@ final pageSurfaceExamples = ComponentExamples(
   description: 'The shared page frame, tabs, reading width and scroll header.',
   notes:
       'Use DPageSurface.headed for route titles and persistent controls. '
+      'secondaryControls supplies a second row with an 8px gap and a 2px bottom inset. '
       'The kit owns 22px title typography, platform spacing and the 14px soft scroll edge. '
       'Desktop titles retract on downward input and return on upward input or at the top. '
       'DPageHeaderHost(titlesInBar: true) moves phone page names into the bar from the first frame. '
@@ -41,6 +42,56 @@ final pageSurfaceExamples = ComponentExamples(
       'DPageSurface also supplies the outer frame, tabs and footer. Its width policy '
       'centers the heading and content together. Tabs and the viewport stay full width.',
   examples: [
+    StyleguideExample(
+      title: 'Two control rows',
+      description:
+          'Primary switches and ordinary navigation pills share the page controls, with Native spacing.',
+      code: '''DPageSurface.headed(
+  title: Text('Chats'),
+  controls: DToggleGroup<String>(values: ['recent'], items: [
+    DToggleGroupItem(value: 'recent', child: Text('Recent')),
+    DToggleGroupItem(value: 'unread', child: Text('Unread')),
+  ], onChanged: select),
+  secondaryControls: Wrap(spacing: 8, runSpacing: 8, children: [
+    DButton(variant: DButtonVariant.quiet, size: DControlSize.filter,
+      label: Text('Browse channels'), onPressed: browse),
+  ]),
+  child: content,
+)''',
+      builder: (_) => SizedBox(
+        height: 260,
+        child: DPageSurface.headed(
+          title: const Text('Chats'),
+          controls: DToggleGroup<String>(
+            values: const ['recent'],
+            items: const [
+              DToggleGroupItem(value: 'recent', child: Text('Recent')),
+              DToggleGroupItem(value: 'unread', child: Text('Unread')),
+            ],
+            onChanged: (_) {},
+          ),
+          secondaryControls: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              DButton(
+                variant: DButtonVariant.quiet,
+                size: DControlSize.filter,
+                label: const Text('Browse channels'),
+                onPressed: () {},
+              ),
+              DButton(
+                variant: DButtonVariant.quiet,
+                size: DControlSize.filter,
+                label: const Text('Threads'),
+                onPressed: () {},
+              ),
+            ],
+          ),
+          child: const SizedBox.expand(),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Header contract',
       description:

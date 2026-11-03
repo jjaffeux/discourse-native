@@ -103,10 +103,6 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
         }
 
         final entries = <Widget>[
-          ChatInboxNavigation(
-            key: ValueKey(('chat-navigation', siteUrl)),
-            siteUrl: siteUrl,
-          ),
           for (final section in sections) ...sectionRows(section),
           if (rooms.isNotEmpty || createRoom != null)
             const _VoiceRoomsHeading(),
@@ -150,6 +146,13 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
           controls: ContentReadingLaneBox(
             padding: EdgeInsets.zero,
             child: ChatInboxFilterBar(siteUrl: siteUrl, filters: filters),
+          ),
+          secondaryControls: ContentReadingLaneBox(
+            padding: EdgeInsets.zero,
+            child: ChatInboxNavigation(
+              key: ValueKey(('chat-navigation', siteUrl)),
+              siteUrl: siteUrl,
+            ),
           ),
           adaptiveBodyBuilder: (context, lazy) => ContentReadingLane(
             basePadding: const EdgeInsets.symmetric(horizontal: 16),

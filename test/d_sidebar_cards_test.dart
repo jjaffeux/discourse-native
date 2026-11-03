@@ -21,10 +21,13 @@ Future<void> _pump(WidgetTester tester, {double scale = 1}) async {
             width: 390,
             collapsible: DSidebarCollapsible.none,
             child: DSidebarContent.slivers(
-              header: DButton(
-                key: const ValueKey('controls'),
-                label: const Text('Search'),
-                onPressed: () {},
+              header: Padding(
+                padding: const EdgeInsets.all(6),
+                child: DButton(
+                  key: const ValueKey('controls'),
+                  label: const Text('Search'),
+                  onPressed: () {},
+                ),
               ),
               slivers: [
                 for (final name in ['Forum', 'Categories', 'Tags'])

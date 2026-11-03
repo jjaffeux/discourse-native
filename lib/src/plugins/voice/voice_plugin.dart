@@ -256,8 +256,13 @@ final class VoicePlugin
     final directory = controller.directory(instance.url);
     if (directory == null) return const [];
     final inbox = PluginUiScope.require(context, voiceChatInboxService);
-    final rooms = inbox.rooms(instance.url);
+    final rooms = inbox.sidebarRooms(instance.url);
     final createRoom = inbox.createRoom(instance.url);
+    final filtering = inbox.filters
+        .sidebarQueryFor(instance.url)
+        .trim()
+        .isNotEmpty;
+    if (filtering && rooms.isEmpty) return const [];
     if (rooms.isEmpty && createRoom == null) return const [];
 
     return [
@@ -268,6 +273,12 @@ final class VoicePlugin
         bodyBuilder: (_) => _VoiceSidebarRooms(
           key: ValueKey(('voice-sidebar-rooms', instance.url)),
           rooms: rooms,
+          filtering: filtering,
+          expanded: inbox.filters.sidebarRoomsExpandedFor(instance.url),
+          onToggleMore: () => inbox.filters.setSidebarRoomsExpanded(
+            instance.url,
+            !inbox.filters.sidebarRoomsExpandedFor(instance.url),
+          ),
           createRoom: createRoom,
         ),
         destinations: [
@@ -326,6 +337,7 @@ final class VoicePlugin
   @override
   Listenable sidebarListenable(BuildContext context) => Listenable.merge([
     PluginUiScope.require(context, voiceControllerService),
+    PluginUiScope.require(context, voiceChatInboxService),
     PluginUiScope.require(context, voiceChatInboxService).filters,
   ]);
 
@@ -365,37 +377,40 @@ final class VoicePlugin
   ];
 }
 
-class _VoiceSidebarRooms extends StatefulWidget {
-  const _VoiceSidebarRooms({super.key, required this.rooms, this.createRoom});
+class _VoiceSidebarRooms extends StatelessWidget {
+  const _VoiceSidebarRooms({
+    super.key,
+    required this.rooms,
+    this.createRoom,
+    required this.filtering,
+    required this.expanded,
+    required this.onToggleMore,
+  });
 
   final List<ChatInboxRoom> rooms;
+  final bool filtering;
+  final bool expanded;
+  final VoidCallback onToggleMore;
   final Future<void> Function(BuildContext context)? createRoom;
-
-  @override
-  State<_VoiceSidebarRooms> createState() => _VoiceSidebarRoomsState();
-}
-
-class _VoiceSidebarRoomsState extends State<_VoiceSidebarRooms> {
-  bool _expanded = false;
 
   @override
   Widget build(BuildContext context) {
     final slice = ChatInboxSectionSlice(
-      widget.rooms,
-      expanded: _expanded,
+      rooms,
+      expanded: expanded || filtering,
       alone: false,
     );
-    final createRoom = widget.createRoom;
+    final createRoom = this.createRoom;
     return SliverList.list(
       children: [
         for (final room in slice.visible)
           ChatInboxRoomRow(room: room, compact: true),
-        if (slice.canFold)
+        if (slice.canFold && !filtering)
           ChatInboxMore(
             hidden: slice.hidden,
-            expanded: _expanded,
+            expanded: expanded,
             compact: true,
-            onPressed: () => setState(() => _expanded = !_expanded),
+            onPressed: onToggleMore,
           ),
         if (createRoom != null)
           DButton(

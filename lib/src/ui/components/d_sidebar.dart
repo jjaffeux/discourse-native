@@ -421,7 +421,7 @@ class DSidebarContent extends StatelessWidget {
 
   final List<Widget> children;
 
-  /// Controls pinned above the scrolling rows. Card headings stack below them.
+  /// Controls pinned above the scrolling rows. The caller supplies padding.
   final Widget? header;
   final bool _slivers;
 
@@ -554,12 +554,7 @@ class _SidebarControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final drawer = DSidebarRowScope.drawerOf(context);
-    final controls = Padding(
-      padding: drawer
-          ? const EdgeInsets.all(6)
-          : const EdgeInsets.fromLTRB(8, 2, 8, 14),
-      child: child,
-    );
+    final controls = child;
     if (drawer) {
       return ColoredBox(
         color: DTokens.of(context).panelBackground,
