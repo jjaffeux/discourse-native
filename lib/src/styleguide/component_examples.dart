@@ -49,14 +49,15 @@ import 'examples/kbd_examples.dart';
 import 'examples/label_examples.dart';
 import 'examples/live_reaction_examples.dart';
 import 'examples/marker_examples.dart';
+import 'examples/math_examples.dart';
 import 'examples/menubar_examples.dart';
 import 'examples/mermaid_examples.dart';
-import 'examples/math_examples.dart';
 import 'examples/message_examples.dart';
 import 'examples/message_inbox_menu_examples.dart';
 import 'examples/message_scroller_examples.dart';
 import 'examples/mobile_chrome_examples.dart';
 import 'examples/navigation_menu_examples.dart';
+import 'examples/navigation_pill_examples.dart';
 import 'examples/notification_dot_examples.dart';
 import 'examples/notification_level_menu_examples.dart';
 import 'examples/onebox_examples.dart';
@@ -142,6 +143,7 @@ final componentExamples = <String, ComponentExamples>{
   'radio-group': radioGroupExamples,
   'checkbox': checkboxExamples,
   'item': itemExamples,
+  'navigation-pill': navigationPillExamples,
   'empty': emptyExamples,
   'calendar': calendarExamples,
   'card': cardExamples,

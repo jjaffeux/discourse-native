@@ -74,8 +74,7 @@ void main() {
   for (final scope in [
     GlobalSearchScope.users,
     GlobalSearchScope.groups,
-    GlobalSearchScope.tags,
-    GlobalSearchScope.categories,
+    GlobalSearchScope.places,
   ]) {
     for (final term in ['l', 'l r f t club']) {
       testWidgets(

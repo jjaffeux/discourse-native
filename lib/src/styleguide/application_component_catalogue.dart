@@ -4,6 +4,11 @@ import 'styleguide_example.dart';
 /// component reference catalogue.
 const applicationComponentCatalogue = <ComponentReference>[
   ComponentReference(
+    id: 'navigation-pill',
+    name: 'Navigation pill',
+    sections: ['Section navigation'],
+  ),
+  ComponentReference(
     id: 'animated-emoji',
     name: 'Animated emoji',
     sections: ['Animated and static artwork'],

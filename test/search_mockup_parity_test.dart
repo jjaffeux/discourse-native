@@ -83,6 +83,12 @@ void main() {
     expect(controller.sections.first.topicId, 1038);
     expect(controller.sections.first.topicTitle, 'Current topic');
     expect(
+      controller.sections
+          .singleWhere((section) => section.scope == GlobalSearchScope.places)
+          .hasMore,
+      isTrue,
+    );
+    expect(
       (controller.sections.first.results.single.source as SearchPostHit)
           .postNumber,
       7,
@@ -92,8 +98,7 @@ void main() {
       controller.results.map((row) => row.scope),
       containsAll([
         GlobalSearchScope.forum,
-        GlobalSearchScope.categories,
-        GlobalSearchScope.tags,
+        GlobalSearchScope.places,
         GlobalSearchScope.messages,
       ]),
     );
@@ -115,6 +120,47 @@ void main() {
       isTrue,
     );
   });
+
+  for (final tagging in [true, false]) {
+    testWidgets('combined category/tag search respects tagging=$tagging', (
+      tester,
+    ) async {
+      final api = _SearchWireApi();
+      final shell = createGlobalSearchFixtureController(api: api);
+      addTearDown(shell.dispose);
+      await shell.load();
+      final search = shell.globalSearch;
+      search.configure(
+        siteUrl: globalSearchFixtureSite,
+        capabilities: GlobalSearchCapabilities(
+          authenticated: true,
+          tagging: tagging,
+        ),
+      );
+      search.setScope(GlobalSearchScope.places);
+      search.setQuery('design keyboard');
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+      expect(search.sections, hasLength(1));
+      expect(search.sections.single.scope, GlobalSearchScope.places);
+      expect(
+        search.results.where((result) => result.source is SearchCategoryHit),
+        hasLength(1),
+      );
+      expect(
+        search.results.where((result) => result.source is SearchTagHit),
+        hasLength(tagging ? 1 : 0),
+      );
+      expect(
+        api.requests.any(
+          (request) =>
+              request.uri.path == '/search/query.json' &&
+              request.uri.queryParameters['term'] == 'design keyboard',
+        ),
+        isTrue,
+      );
+    });
+  }
 
   testWidgets(
     'staged filters keep words, replace the same key and retain word history',
@@ -264,6 +310,13 @@ void main() {
           child: RepaintBoundary(
             key: boundary,
             child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              builder: (context, child) => MediaQuery(
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(scale)),
+                child: child!,
+              ),
               theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
                 textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme
                     .apply(fontFamily: "Lato"),
@@ -280,8 +333,11 @@ void main() {
                   child: Align(
                     alignment: Alignment.topCenter,
                     child: SizedBox(
-                      width: width < 700 ? width - 16 : 600,
-                      child: const ForumSearch(showNavigationControls: false),
+                      width: width < 700 ? width : 600,
+                      child: ForumSearch(
+                        fullScreen: width < 700,
+                        showNavigationControls: false,
+                      ),
                     ),
                   ),
                 ),
@@ -292,7 +348,13 @@ void main() {
       );
       await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(ForumSearch.inputKey));
+      await tester.tap(
+        find.byKey(
+          width < 700
+              ? const ValueKey('mobile-search-button')
+              : ForumSearch.inputKey,
+        ),
+      );
       await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
       await tester.enterText(
@@ -303,11 +365,32 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(GlobalSearchPanel), findsOneWidget);
       expect(
+        MediaQuery.textScalerOf(
+          tester.element(find.byType(GlobalSearchPanel)),
+        ).scale(13),
+        13 * scale,
+      );
+      expect(
         tester.getRect(find.byKey(ForumSearch.panelKey)).right,
         lessThanOrEqualTo(width),
       );
+      expect(
+        find.byKey(const ValueKey('global-search-filter-trigger')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('global-search-display-trigger')),
+        findsNothing,
+      );
+      if (width < 700) {
+        expect(
+          find.byKey(const ValueKey('mobile-search-back')),
+          findsOneWidget,
+        );
+      }
       expect(tester.takeException(), isNull);
-      if (Platform.environment['SEARCH_CAPTURE'] == '1') {
+      Future<void> capture(String suffix) async {
+        if (Platform.environment['SEARCH_CAPTURE'] != '1') return;
         await tester.runAsync(() async {
           final image =
               await (boundary.currentContext!.findRenderObject()
@@ -315,10 +398,29 @@ void main() {
                   .toImage();
           final data = await image.toByteData(format: ui.ImageByteFormat.png);
           await File(
-            '/private/tmp/search-$width-$dark-$scale.png',
+            '/private/tmp/search-$width-$dark-$scale$suffix.png',
           ).writeAsBytes(data!.buffer.asUint8List());
           image.dispose();
         });
+      }
+
+      await capture('');
+      if (width < 700) {
+        tester.view.viewInsets = const FakeViewPadding(bottom: 330);
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byType(GlobalSearchPanel)).bottom,
+          lessThanOrEqualTo(570),
+        );
+        expect(
+          tester
+              .widget<EditableText>(find.byType(EditableText))
+              .focusNode
+              .hasFocus,
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+        await capture('-keyboard');
       }
     });
   }
@@ -389,7 +491,10 @@ class _SearchWireApi extends GlobalSearchFixtureApi {
         'tags': [
           {'id': 3, 'name': 'design-keyboard'},
         ],
-      'grouped_search_result': {'more_full_page_results': false},
+      'grouped_search_result': {
+        'more_full_page_results': false,
+        'more_categories': true,
+      },
     };
   }
 }

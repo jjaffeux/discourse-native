@@ -228,8 +228,11 @@ void main() {
     final selected = find.byWidgetPredicate(
       (widget) => widget is DItem && widget.selected,
     );
+    expect(
+      tester.widget<DItem>(selected).key,
+      const ValueKey('section:forum:'),
+    );
     for (final expected in [
-      'section:forum:',
       'global-search-result-mixed-0',
       'global-search-result-mixed-1',
     ]) {
@@ -306,7 +309,6 @@ void main() {
         final state = tester.state<GlobalSearchPanelState>(
           find.byType(GlobalSearchPanel),
         );
-        state.handleKey(LogicalKeyboardKey.arrowDown);
         state.handleKey(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
         final row = _key('global-search-result-shared');
@@ -398,7 +400,7 @@ void main() {
   for (final width in [320.0, 430.0]) {
     for (final textScale in [1.0, 2.0]) {
       testWidgets(
-        'mobile search tools share one row at $width with $textScale text',
+        'phone type tabs scroll and reveal the active type at $width/$textScale',
         (tester) async {
           final controller = await _pump(
             tester,
@@ -406,84 +408,114 @@ void main() {
             viewport: Size(width, 640),
             textScale: textScale,
             platform: TargetPlatform.iOS,
+            showConditions: false,
           );
-          controller.setScope(GlobalSearchScope.forum);
-          await tester.pumpAndSettle();
-
-          final scope = tester.getRect(_key('global-search-scope-select'));
-          final filter = tester.getRect(_key('global-search-filter-trigger'));
-          final display = tester.getRect(_key('global-search-display-trigger'));
-          expect(scope.center.dy, closeTo(filter.center.dy, .5));
-          expect(scope.center.dy, closeTo(display.center.dy, .5));
-          expect(scope.right, lessThan(filter.left));
-          expect(filter.right, lessThan(display.left));
-          expect(scope.left, greaterThanOrEqualTo(0));
-          expect(display.right, lessThanOrEqualTo(width));
-          expect(
-            _key('global-search-filter-trigger').hitTestable(),
-            findsOneWidget,
-          );
-          expect(
-            _key('global-search-display-trigger').hitTestable(),
-            findsOneWidget,
-          );
+          expect(find.byType(DSelect<GlobalSearchScope>), findsNothing);
+          expect(_key('global-search-filter-trigger'), findsNothing);
+          expect(_key('global-search-display-trigger'), findsNothing);
+          for (final scope in [
+            chatSearchScope,
+            GlobalSearchScope.forum,
+            GlobalSearchScope.all,
+          ]) {
+            controller.setScope(scope);
+            await tester.pumpAndSettle();
+            final toggle = _scopeToggle(scope);
+            expect(toggle.hitTestable(), findsOneWidget);
+            final bounds = tester.getRect(toggle);
+            if (bounds.width <= width) {
+              expect(bounds.left, greaterThanOrEqualTo(0));
+              expect(bounds.right, lessThanOrEqualTo(width));
+            } else {
+              expect(bounds.center.dx, closeTo(width / 2, 1));
+            }
+            expect(tester.widget<DToggle>(toggle).pressed, isTrue);
+          }
           expect(tester.takeException(), isNull);
         },
       );
     }
   }
 
-  testWidgets('mobile scope selector switches core and plugin searches', (
-    tester,
-  ) async {
-    final controller = await _pump(
-      tester,
-      width: 320,
-      viewport: const Size(320, 640),
-      textScale: 2,
-      platform: TargetPlatform.android,
-    );
-    controller.setQuery('design');
-    await tester.pumpAndSettle();
-    final selector = _key('global-search-scope-select');
-    for (final scope in [
-      ...controller.scopes.where((scope) => scope != GlobalSearchScope.all),
-      GlobalSearchScope.all,
-    ]) {
-      await tester.tap(selector);
+  testWidgets(
+    'phone type tabs switch core and plugin searches without losing words',
+    (tester) async {
+      final controller = await _pump(
+        tester,
+        width: 320,
+        viewport: const Size(320, 640),
+        textScale: 2,
+        platform: TargetPlatform.android,
+        showConditions: false,
+      );
+      controller.setQuery('design');
       await tester.pumpAndSettle();
-      final option = find.text(scope.label).last;
-      await tester.ensureVisible(option);
+      for (final scope in [
+        ...controller.scopes.where((scope) => scope != GlobalSearchScope.all),
+        GlobalSearchScope.all,
+      ]) {
+        final toggle = _scopeToggle(scope);
+        await tester.ensureVisible(toggle);
+        await tester.pumpAndSettle();
+        await tester.tap(toggle);
+        await tester.pumpAndSettle();
+        expect(controller.scope, scope);
+        expect(controller.query, 'design');
+        expect(tester.widget<DToggle>(toggle).pressed, isTrue);
+      }
+      controller.addCondition(
+        const GlobalSearchCondition(
+          filterId: 'postCount',
+          operator: 'gte',
+          value: ['3'],
+        ),
+      );
       await tester.pumpAndSettle();
-      await tester.tap(option);
-      await tester.pumpAndSettle();
-      expect(controller.scope, scope);
-      expect(controller.query, 'design');
+      expect(controller.scope, GlobalSearchScope.forum);
       expect(
-        find.descendant(of: selector, matching: find.text(scope.label)),
+        _scopeToggle(GlobalSearchScope.forum).hitTestable(),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);
-    }
+    },
+  );
 
-    controller.addCondition(
-      const GlobalSearchCondition(
-        filterId: 'postCount',
-        operator: 'gte',
-        value: ['3'],
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(controller.scope, GlobalSearchScope.forum);
-    expect(
-      find.descendant(
-        of: selector,
-        matching: find.text(GlobalSearchScope.forum.label),
-      ),
-      findsOneWidget,
-    );
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'normal topic hits keep a compact three-line row with one metadata line',
+    (tester) async {
+      final controller = await _pump(
+        tester,
+        width: 320,
+        showConditions: false,
+        results: [
+          GlobalSearchResult(
+            id: 'compact',
+            scope: GlobalSearchScope.forum,
+            title: 'A long topic title about algolia',
+            excerpt: 'Algolia search should be compact',
+            path: '/t/compact/1',
+            replies: 30,
+            createdAt: DateTime.utc(2026, 10, 29),
+            closed: true,
+          ),
+        ],
+      );
+      controller.setScope(GlobalSearchScope.forum);
+      controller.setQuery('algolia');
+      await tester.pumpAndSettle();
+      final row = _key('global-search-result-compact');
+      expect(tester.getSize(row).height, lessThanOrEqualTo(74));
+      expect(
+        find.descendant(of: row, matching: find.text('30 replies')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: row, matching: find.text('Closed')),
+        findsNothing,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   for (final query in ['fixed laughing', 'in:first']) {
     testWidgets('result emoji render with query "$query"', (tester) async {
@@ -1245,6 +1277,11 @@ void main() {
 
 Finder _key(String key) => find.byKey(ValueKey(key));
 
+Finder _scopeToggle(GlobalSearchScope scope) => find.ancestor(
+  of: _key('global-search-scope-${scope.keyName}'),
+  matching: find.byType(DToggle),
+);
+
 Future<void> _filter(WidgetTester tester, String id) async {
   await tester.tap(_key('global-search-filter-trigger'));
   await tester.pumpAndSettle();
@@ -1265,6 +1302,7 @@ Future<GlobalSearchController> _pump(
   Size viewport = const Size(1000, 800),
   double textScale = 1,
   bool dark = true,
+  bool showConditions = true,
   TargetPlatform platform = TargetPlatform.macOS,
   SiteLifecycle? lifecycle,
   List<TopicCategory> categories = const [],
@@ -1323,6 +1361,7 @@ Future<GlobalSearchController> _pump(
             width: width,
             height: height,
             child: GlobalSearchPanel(
+              showConditions: showConditions,
               controller: controller,
               onOpen: onOpen ?? (_) {},
             ),

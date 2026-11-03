@@ -1,17 +1,17 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/global_search_models.dart';
+import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'support/fakes.dart';
 import 'support/global_search_fixtures.dart';
-import 'support/shell_test_harness.dart';
 
 void main() {
   for (final phase in ['before frame', 'debounce', 'request']) {
@@ -164,21 +164,32 @@ Future<ShellController> _openAuthor(
   _UserLookupApi api,
 ) async {
   addTearDown(api.release);
-  await pumpShell(
-    tester,
-    desktop,
-    instances: globalSearchFixtureSites,
-    api: api,
-    authenticator: FakeAuthenticator()
-      ..keys.addAll({
-        globalSearchFixtureSite: 'local-fixture',
-        globalSearchFixtureOtherSite: 'local-fixture',
-      }),
+  final shell = createGlobalSearchFixtureController(api: api);
+  addTearDown(shell.dispose);
+  await shell.load();
+  shell.globalSearch.configure(
+    siteUrl: globalSearchFixtureSite,
+    capabilities: const GlobalSearchCapabilities(authenticated: true),
   );
-  final shell = ShellScope.read(tester.element(find.byType(ForumSearch)));
-  await tester.tap(find.byKey(ForumSearch.inputKey));
-  await tester.pumpAndSettle();
-  await tester.enterText(find.byKey(ForumSearch.inputKey), 'design');
+  shell.globalSearch.setQuery('design');
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            height: 650,
+            child: GlobalSearchPanel(
+              controller: shell.globalSearch,
+              onOpen: (_) {},
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
   await tester.pump(const Duration(milliseconds: 450));
   await tester.pumpAndSettle();
   await tester.tap(_key('global-search-filter-trigger'));

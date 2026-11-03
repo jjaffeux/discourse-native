@@ -82,6 +82,7 @@ export 'src/ui/components/d_mobile_dock_growth.dart';
 export 'src/ui/components/d_mobile_dock_item.dart';
 export 'src/ui/components/d_mobile_dock_reorder.dart';
 export 'src/ui/components/d_navigation_menu.dart';
+export 'src/ui/components/d_navigation_pill.dart';
 export 'src/ui/components/d_notification_dot.dart';
 export 'src/ui/components/d_notification_level_menu.dart';
 export 'src/ui/components/d_page_header.dart';

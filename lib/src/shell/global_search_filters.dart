@@ -800,8 +800,7 @@ List<GlobalSearchOrder> globalSearchOrders(
 ) => switch (scope) {
   GlobalSearchScope.all ||
   GlobalSearchScope.messages ||
-  GlobalSearchScope.categories ||
-  GlobalSearchScope.tags => [
+  GlobalSearchScope.places => [
     GlobalSearchOrder('relevance', appL10n.mostRelevant),
   ],
   GlobalSearchScope.forum => [

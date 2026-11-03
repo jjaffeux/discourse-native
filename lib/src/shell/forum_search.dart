@@ -679,14 +679,8 @@ class _ForumSearchState extends State<ForumSearch> {
             '$words in:personal',
             messageMode: MessageListMode.inbox,
           )
-        : section.scope == GlobalSearchScope.categories
+        : section.scope == GlobalSearchScope.places
         ? ContentRoute.allCategories()
-        : section.scope == GlobalSearchScope.tags
-        ? ContentRoute(
-            destination: const PageDestination(CorePage.tags),
-            title: appL10n.tags,
-            icon: DIcons.tag,
-          )
         : section.scope == GlobalSearchScope.users
         ? ContentRoute(
             destination: const PageDestination(CorePage.users),
@@ -719,7 +713,7 @@ class _ForumSearchState extends State<ForumSearch> {
       skipTraversal: true,
       onKeyEvent: _handleKey,
       child: DInputGroup(
-        size: widget.size,
+        size: widget.fullScreen ? DControlSize.filter : widget.size,
         variant: DInputGroupVariant.search,
         borderless: expanded && !widget.fullScreen,
         children: [
@@ -962,7 +956,6 @@ class _ForumSearchState extends State<ForumSearch> {
                       ),
                     ),
                   ),
-                  const DSeparator(),
                   Expanded(
                     child: GlobalSearchPanel(
                       key: _panelKey,
@@ -986,16 +979,47 @@ class _ForumSearchState extends State<ForumSearch> {
                       key: const ValueKey('global-search-footer'),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
-                        vertical: 8,
+                        vertical: 7,
                       ),
                       child: DefaultTextStyle.merge(
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        style: TextStyle(
+                          fontSize: 11.5,
                           color: DTokens.of(context).mutedForeground,
                         ),
                         child: Wrap(
+                          alignment: WrapAlignment.center,
                           spacing: 16,
                           runSpacing: 8,
-                          children: [Text(context.l10n.searchNavigationHelp)],
+                          children: [
+                            for (final (keys, label) in [
+                              (
+                                [
+                                  LogicalKeyboardKey.arrowUp,
+                                  LogicalKeyboardKey.arrowDown,
+                                ],
+                                context.l10n.move,
+                              ),
+                              ([LogicalKeyboardKey.enter], context.l10n.open),
+                              (
+                                [LogicalKeyboardKey.tab],
+                                context.l10n.nextSearchType,
+                              ),
+                              ([LogicalKeyboardKey.escape], context.l10n.close),
+                            ])
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 4,
+                                children: [
+                                  for (final key in keys)
+                                    DShortcutKeycaps(
+                                      shortcut: DShortcut(SingleActivator(key)),
+                                      compact: true,
+                                      listenToKeyboard: false,
+                                    ),
+                                  Text(label),
+                                ],
+                              ),
+                          ],
                         ),
                       ),
                     ),
@@ -1068,50 +1092,56 @@ class _ForumSearchState extends State<ForumSearch> {
 
   Widget _buildPageContent() => ListenableBuilder(
     listenable: Listenable.merge([_global, _pageRevision]),
-    builder: (context, _) => Column(
-      key: ForumSearch.panelKey,
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(DSpacing.sm),
-          child: Row(
-            children: [
-              Expanded(
-                child: LayoutBuilder(
-                  builder: (context, constraints) =>
-                      _editor(constraints.maxWidth, expanded: true),
+    builder: (context, _) => DReferenceTextScale(
+      child: Column(
+        key: ForumSearch.panelKey,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+            child: Row(
+              spacing: 10,
+              children: [
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, constraints) =>
+                        _editor(constraints.maxWidth, expanded: true),
+                  ),
                 ),
-              ),
-              DButton(
-                key: const ValueKey('mobile-search-back'),
-                label: Text(appL10n.cancel),
-                variant: DButtonVariant.ghost,
-                onPressed: _closeSearch,
-              ),
-            ],
+                DButton(
+                  key: const ValueKey('mobile-search-back'),
+                  label: Text(
+                    appL10n.cancel,
+                    style: TextStyle(color: DTokens.of(context).primary),
+                  ),
+                  size: DButtonSize.filter,
+                  variant: DButtonVariant.inline,
+                  onPressed: _closeSearch,
+                ),
+              ],
+            ),
           ),
-        ),
-        const DSeparator(),
-        Expanded(
-          child: GlobalSearchPanel(
-            key: _panelKey,
-            showConditions: false,
-            showClearFilters:
-                _listExpression.isNotEmpty &&
-                _global.wordsQuery.isEmpty &&
-                _global.conditions.isEmpty,
-            controller: _global,
-            onApply: _apply,
-            onOpenSection: _openSection,
-            onRefocus: _focus.requestFocus,
-            selectedResultId: _selectedResultId,
-            onSelect: (id) {
-              _selectResult(id);
-              _pageRevision.value++;
-            },
-            onOpen: _openResult,
+          Expanded(
+            child: GlobalSearchPanel(
+              key: _panelKey,
+              showConditions: false,
+              showClearFilters:
+                  _listExpression.isNotEmpty &&
+                  _global.wordsQuery.isEmpty &&
+                  _global.conditions.isEmpty,
+              controller: _global,
+              onApply: _apply,
+              onOpenSection: _openSection,
+              onRefocus: _focus.requestFocus,
+              selectedResultId: _selectedResultId,
+              onSelect: (id) {
+                _selectResult(id);
+                _pageRevision.value++;
+              },
+              onOpen: _openResult,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
   void _openPage() {

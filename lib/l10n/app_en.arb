@@ -1,4 +1,8 @@
 {
+  "nextSearchType": "Next type",
+  "@nextSearchType": {"description": "Keyboard hint for cycling through global search result types."},
+  "categoriesAndTags": "Categories & tags",
+  "@categoriesAndTags": {"description": "Combined global search result type for categories and tags."},
   "chatTranscript": "Transcript",
   "@chatTranscript": {"description": "Label for a quoted Chat transcript."},
   "dsaVerifyEmailRequired": "Verify your contact email before submitting this report.",

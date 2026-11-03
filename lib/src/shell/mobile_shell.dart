@@ -517,7 +517,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                         child: ForumMobileSurface(
                           key: const ValueKey('mobile-content-panel'),
-                          sheet: !pageSheetOpen
+                          sheet: route?.isGlobalSearch == true
+                              ? ForumMobileSheet.page
+                              : !pageSheetOpen
                               ? ForumMobileSheet.none
                               : route?.isTopic == true
                               ? ForumMobileSheet.raised
@@ -948,8 +950,12 @@ class MobileHistoryGestures extends StatelessWidget {
           tabClipper: sidebarOpen
               ? null
               : DHistoryTabClipper(
-                  borderRadius: DSheetViewport.pageBorderRadius(context),
-                  insets: const EdgeInsets.only(top: 6),
+                  borderRadius: shell.currentContent?.isGlobalSearch == true
+                      ? BorderRadius.zero
+                      : DSheetViewport.pageBorderRadius(context),
+                  insets: shell.currentContent?.isGlobalSearch == true
+                      ? EdgeInsets.zero
+                      : const EdgeInsets.only(top: 6),
                 ),
           entry: sidebarOpen ? sidebarEntry : navigation.entryId,
           backSwipeAnywhere: true,

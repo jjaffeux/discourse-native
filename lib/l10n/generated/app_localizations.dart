@@ -94,6 +94,18 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Keyboard hint for cycling through global search result types.
+  ///
+  /// In en, this message translates to:
+  /// **'Next type'**
+  String get nextSearchType;
+
+  /// Combined global search result type for categories and tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Categories & tags'**
+  String get categoriesAndTags;
+
   /// Label for a quoted Chat transcript.
   ///
   /// In en, this message translates to:

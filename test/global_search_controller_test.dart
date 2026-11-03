@@ -131,8 +131,7 @@ void main() {
   for (final scope in [
     GlobalSearchScope.users,
     GlobalSearchScope.groups,
-    GlobalSearchScope.tags,
-    GlobalSearchScope.categories,
+    GlobalSearchScope.places,
     GlobalSearchScope.messages,
     chatSearchScope,
   ]) {

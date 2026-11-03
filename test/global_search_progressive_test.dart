@@ -196,11 +196,19 @@ void main() {
               error: 'last error',
             ),
             const GlobalSearchSection(
-              scope: GlobalSearchScope.tags,
+              scope: GlobalSearchScope.plugin(
+                owner: 'disabled',
+                name: 'hidden',
+                label: 'Hidden',
+              ),
               results: [
                 GlobalSearchResult(
                   id: 'hidden',
-                  scope: GlobalSearchScope.tags,
+                  scope: GlobalSearchScope.plugin(
+                    owner: 'disabled',
+                    name: 'hidden',
+                    label: 'Hidden',
+                  ),
                   title: 'Hidden',
                   path: '/tag/hidden',
                 ),
@@ -230,9 +238,7 @@ void main() {
         expect(actual, expected, reason: order.join(', '));
         expect(updates, hasLength(3));
         expect(
-          page.sections.any(
-            (section) => section.scope == GlobalSearchScope.tags,
-          ),
+          page.sections.any((section) => section.scope.owner == 'disabled'),
           isFalse,
         );
         final forum = page.sections.singleWhere(

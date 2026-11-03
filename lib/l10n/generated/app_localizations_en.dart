@@ -9,6 +9,12 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get nextSearchType => 'Next type';
+
+  @override
+  String get categoriesAndTags => 'Categories & tags';
+
+  @override
   String get chatTranscript => 'Transcript';
 
   @override

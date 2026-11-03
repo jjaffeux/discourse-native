@@ -325,7 +325,6 @@ void main({bool useDeviceMetrics = false}) {
         expect(shell.globalSearch.phase, GlobalSearchPhase.loading);
         expect(shell.globalSearch.results.single.id, 'chat:3001');
         await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
         await tester.pumpAndSettle();
         final selected = find.byWidgetPredicate(
           (widget) => widget is DItem && widget.selected,
@@ -426,11 +425,7 @@ void main({bool useDeviceMetrics = false}) {
 
           expect(
             shell.globalSearch.sections.first.scope.name,
-            extension
-                ? GlobalSearchScope.categories.name
-                : page == CorePage.categories
-                ? GlobalSearchScope.categories.name
-                : GlobalSearchScope.tags.name,
+            GlobalSearchScope.places.name,
             reason: shell.globalSearch.sections
                 .map((section) => section.scope.name)
                 .join(', '),
@@ -1571,11 +1566,19 @@ void main({bool useDeviceMetrics = false}) {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
       await tester.pumpAndSettle();
-      expect(selected, findsNothing);
+      expect(selected, findsOneWidget);
+      expect(
+        tester.widget<DItem>(selected).key,
+        const ValueKey('section:forum:'),
+      );
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
       expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(selected, findsNothing);
+      expect(selected, findsOneWidget);
+      expect(
+        tester.widget<DItem>(selected).key,
+        const ValueKey('section:forum:'),
+      );
 
       input.value = input.value.copyWith(composing: TextRange.empty);
       await tester.pump();
@@ -1683,7 +1686,7 @@ void main({bool useDeviceMetrics = false}) {
                 ),
               )
               .toList();
-          expect(hints, isEmpty);
+          expect(hints, hasLength(5));
           expect(tester.takeException(), isNull);
         },
       );
@@ -1747,53 +1750,27 @@ void main({bool useDeviceMetrics = false}) {
   );
 
   _testPresentation(
-    'filter menus own Escape and apply visible editable conditions',
+    'inline author filtering preserves the draft and remains editable',
     (tester) async {
       final shell = await _pumpSearch(tester);
-      await _openAndSearch(tester, 'design');
-      final filterTrigger = find.byKey(
-        const ValueKey('global-search-filter-trigger'),
-      );
-      await tester.tap(filterTrigger);
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('global-search-filter-author')),
-        findsOneWidget,
-      );
+      await _openAndSearch(tester, 'design author:');
+      final author = find.byKey(const ValueKey('global-search-staged-mira'));
+      expect(author, findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('global-search-filter-author')),
-        findsNothing,
-      );
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-
-      await tester.tap(filterTrigger);
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-author')),
-      );
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const ValueKey('global-search-filter-value')),
-        'mira',
-      );
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-apply')),
-      );
+      expect(find.byKey(ForumSearch.panelKey), findsNothing);
+      await tester.tap(find.byKey(ForumSearch.inputKey));
       await _finishSearch(tester);
-
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(
-        find.byKey(const ValueKey('global-search-condition-0')),
-        findsOneWidget,
-      );
-      expect(shell.globalSearch.query, 'design');
+      expect(author, findsOneWidget);
+      await tester.tap(author);
+      await _finishSearch(tester);
+      expect(shell.globalSearch.query.trim(), 'design');
       expect(shell.globalSearch.conditions.single.value, ['mira']);
-      await tester.tap(find.byKey(const ValueKey('global-search-condition-0')));
+      final chip = find.byKey(const ValueKey('global-search-condition-0'));
+      expect(chip, findsOneWidget);
+      await tester.tap(chip);
       await tester.pumpAndSettle();
       expect(shell.globalSearch.stagedFilter?.id, 'author');
-      expect(shell.globalSearch.stagedTerm, '');
       expect(shell.globalSearch.wordsQuery, 'design');
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -1806,27 +1783,9 @@ void main({bool useDeviceMetrics = false}) {
     'category conditions show lookup labels and use compact chip widths',
     (tester) async {
       final shell = await _pumpSearch(tester);
-      await _openAndSearch(tester, 'design');
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-trigger')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-category')),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.descendant(
-          of: find.byKey(const ValueKey('global-search-category-list')),
-          matching: find.text('UX'),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-apply')),
-      );
+      await _openAndSearch(tester, 'design category:');
+      await tester.tap(find.byKey(const ValueKey('global-search-staged-1')));
       await _finishSearch(tester);
-
       final chip = find.byKey(const ValueKey('global-search-condition-0'));
       expect(shell.globalSearch.conditions.single.value, ['1']);
       expect(
@@ -1848,45 +1807,31 @@ void main({bool useDeviceMetrics = false}) {
   );
 
   _testPresentation(
-    'ordering controls keep nested dismissal separate from search',
+    'inline ordering keeps the author filter and exposes an editable chip',
     (tester) async {
       final shell = await _pumpSearch(tester);
       await _openAndSearch(tester, 'design');
-      await tester.tap(find.byKey(const ValueKey('global-search-scope-forum')));
       shell.globalSearch.addCondition(
         const GlobalSearchCondition(filterId: 'author', value: ['sam']),
       );
       await _finishSearch(tester);
+      await tester.enterText(find.byKey(ForumSearch.inputKey), 'design order:');
+      await _finishSearch(tester);
       await tester.tap(
-        find.byKey(const ValueKey('global-search-display-trigger')),
+        find.byKey(const ValueKey('global-search-staged-likes')),
       );
-      await tester.pumpAndSettle();
-      final order = find.byKey(const ValueKey('global-search-order'));
-      await tester.tap(order);
-      await tester.pumpAndSettle();
-      expect(find.text('Most liked'), findsOneWidget);
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(order, findsOneWidget);
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
-      expect(shell.globalSearch.conditions.single.text, 'sam');
-      await tester.tap(order);
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Most liked'));
       await _finishSearch(tester);
       expect(shell.globalSearch.order, 'likes');
-      expect(order, findsOneWidget);
-      await tester.tap(find.widgetWithText(DCheckbox, 'Excerpt'));
-      await tester.pumpAndSettle();
-      expect(
-        shell.globalSearch.properties,
-        isNot(contains(GlobalSearchDisplayProperty.excerpt)),
-      );
-      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
-      await tester.pumpAndSettle();
-      expect(order, findsNothing);
-      expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
       expect(shell.globalSearch.conditions.single.text, 'sam');
+      final orderChip = find.byWidgetPredicate(
+        (widget) =>
+            widget is SearchFilterChip && widget.condition.filterId == 'order',
+      );
+      expect(orderChip, findsOneWidget);
+      await tester.tap(orderChip);
+      await tester.pumpAndSettle();
+      expect(shell.globalSearch.stagedFilter?.id, 'order');
+      expect(shell.globalSearch.wordsQuery, 'design');
       expect(tester.takeException(), isNull);
     },
   );
@@ -1938,8 +1883,7 @@ void main({bool useDeviceMetrics = false}) {
             dismissal == 'result' ||
                     [
                       GlobalSearchScope.all,
-                      GlobalSearchScope.categories,
-                      GlobalSearchScope.tags,
+                      GlobalSearchScope.places,
                       GlobalSearchScope.messages,
                     ].contains(scope)
                 ? isEmpty
@@ -1977,16 +1921,13 @@ void main({bool useDeviceMetrics = false}) {
         of: footer,
         matching: find.byType(DShortcutKeycaps),
       );
-      expect(keycaps, findsNothing);
-      expect(
-        find.descendant(
-          of: footer,
-          matching: find.text(
-            '↑ ↓ Move · Enter Open · Tab Next type · Esc Close',
-          ),
-        ),
-        findsOneWidget,
-      );
+      expect(keycaps, findsNWidgets(5));
+      for (final label in ['Move', 'Open', 'Next type', 'Close']) {
+        expect(
+          find.descendant(of: footer, matching: find.text(label)),
+          findsOneWidget,
+        );
+      }
       expect(
         find.descendant(
           of: panel,
@@ -1994,7 +1935,7 @@ void main({bool useDeviceMetrics = false}) {
             (widget) => widget is DIcon && widget.icon.name.contains('clock'),
           ),
         ),
-        findsNothing,
+        findsWidgets,
       );
       expect(find.textContaining('to navigate'), findsNothing);
       expect(find.textContaining('to select'), findsNothing);
@@ -2019,18 +1960,29 @@ void main({bool useDeviceMetrics = false}) {
       debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
       await _pumpSearch(tester, size: phone);
       await _openAndSearch(tester, 'design');
+      final surface = tester.widget<DPageSurface>(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('mobile-content-panel')),
+              matching: find.byType(DPageSurface),
+            )
+            .first,
+      );
+      expect(surface.border, isFalse);
+      expect(surface.borderRadius, BorderRadius.zero);
       final panel = tester.getRect(find.byKey(ForumSearch.panelKey));
       expect(panel.left, greaterThanOrEqualTo(0));
       expect(panel.right, lessThanOrEqualTo(phone.width));
       expect(panel.top, greaterThanOrEqualTo(0));
       expect(panel.bottom, lessThanOrEqualTo(phone.height));
       expect(_editor(tester).focusNode.hasFocus, isTrue);
-      await tester.tap(
-        find.byKey(const ValueKey('global-search-filter-trigger')),
+      await tester.enterText(
+        find.byKey(ForumSearch.inputKey),
+        'design author:',
       );
-      await tester.pumpAndSettle();
+      await _finishSearch(tester);
       expect(
-        find.byKey(const ValueKey('global-search-filter-author')),
+        find.byKey(const ValueKey('global-search-staged-mira')),
         findsOneWidget,
       );
       expect(tester.takeException(), isNull);

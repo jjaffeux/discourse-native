@@ -59,6 +59,8 @@ class GlobalSearchPanel extends StatefulWidget {
   final ValueChanged<String>? onSelect;
   final ValueChanged<GlobalSearchSection>? onOpenSection;
   final VoidCallback? onApply, onRefocus;
+
+  /// Includes the standalone condition toolbar; shell chips live in its input.
   final bool showConditions;
   final bool showClearFilters;
 
@@ -72,6 +74,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   final _preparedResults =
       Map<GlobalSearchResult, _PreparedSearchResult>.identity();
   final _resultSelection = ValueNotifier<String?>(null);
+  final _scopeKeys = <GlobalSearchScope, GlobalKey>{};
+  GlobalSearchScope? _revealedScope;
   final _actions =
       <
         ({
@@ -82,6 +86,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         })
       >[];
   String? _selected;
+  bool _initialSectionPending = true;
   Object? _selectedNavigationIdentity;
   final _drill = <int>[];
   Object? _lookupKey;
@@ -104,6 +109,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         _targetFor(_selected) != _selectedNavigationIdentity) {
       _selected = null;
       _selectedNavigationIdentity = null;
+      _initialSectionPending = false;
     }
   }
 
@@ -236,6 +242,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   void resetSelection() {
     _selected = null;
+    _initialSectionPending = true;
     _selectedNavigationIdentity = null;
     _drill.clear();
   }
@@ -303,9 +310,23 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     return [
       Padding(
         padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-        child: Text(
-          context.l10n.addFilter,
-          style: TextStyle(color: DTokens.of(context).mutedForeground),
+        child: Row(
+          spacing: 10,
+          children: [
+            DIcon(
+              DIcons.filter,
+              size: 16,
+              color: DTokens.of(context).mutedForeground,
+            ),
+            Text(
+              context.l10n.startPageFilters,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
+          ],
         ),
       ),
       for (final group in groups.entries) ...[
@@ -323,7 +344,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             () => _stage(filter),
             DItem(
               key: ValueKey('global-search-offered-${filter.id}'),
-              size: DItemSize.sm,
+              size: DItemSize.artwork,
+              shape: DItemShape.menu,
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
               selected:
                   _selected == 'filter:${filter.id}' ||
                   (_selected == null && _actions.isEmpty),
@@ -331,14 +354,20 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               onPressed: () => _stage(filter),
               children: [
                 DItemMedia(
-                  child: DIcon(_filterIcon(context, filter.icon), size: 16),
+                  child: SizedBox(
+                    width: 40,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: DIcon(_filterIcon(context, filter.icon), size: 16),
+                    ),
+                  ),
                 ),
                 DItemContent(
                   children: [
                     DItemTitle(
                       child: Text(
                         filter.label,
-                        style: TextStyle(color: DTokens.of(context).primary),
+                        style: const TextStyle(fontSize: 13, height: 1.35),
                       ),
                     ),
                   ],
@@ -714,6 +743,19 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     listenable: widget.controller,
     builder: (context, _) {
       final controller = widget.controller;
+      if (_revealedScope != controller.scope) {
+        _revealedScope = controller.scope;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final target = _scopeKeys[widget.controller.scope]?.currentContext;
+          final scroll = target == null
+              ? null
+              : Scrollable.maybeOf(target, axis: Axis.horizontal);
+          final renderObject = target?.findRenderObject();
+          if (scroll == null || renderObject == null) return;
+          scroll.position.ensureVisible(renderObject, alignment: .5);
+        });
+      }
       final signature = (
         controller,
         controller.categoryLookupSession,
@@ -764,82 +806,60 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.all(8),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final tools = Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              _GlobalSearchFilterPicker(controller: controller),
-                              const SizedBox(width: 4),
-                              _GlobalSearchDisplay(controller: controller),
-                            ],
-                          );
-                          final scopes = constraints.maxWidth < 530
-                              ? DSelect<GlobalSearchScope>.controlled(
-                                  key: const ValueKey(
-                                    'global-search-scope-select',
-                                  ),
-                                  value: controller.scope,
-                                  onChanged: (scope) {
-                                    if (scope != null) {
-                                      controller.setScope(scope);
-                                    }
-                                  },
-                                  size: DSelectSize.small,
-                                  isExpanded: true,
-                                  semanticLabel: context.l10n
-                                      .searchGlobalsearchpanel(
-                                        controller.scope.label,
+                    DToggleGroup<GlobalSearchScope>(
+                      values: [controller.scope],
+                      onChanged: (values) => controller.setScope(values.single),
+                      allowEmptySelection: false,
+                      density: DToggleDensity.menuFilter,
+                      variant: DToggleVariant.outline,
+                      spacing: 1.5,
+                      semanticLabel: context.l10n.globalSearch,
+                      items: [
+                        for (final scope in controller.scopes)
+                          DToggleGroupItem(
+                            value: scope,
+                            semanticLabel: scope.label,
+                            child: KeyedSubtree(
+                              key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
+                              child: Row(
+                                key: ValueKey(
+                                  'global-search-scope-${scope.keyName}',
+                                ),
+                                mainAxisSize: MainAxisSize.min,
+                                spacing: 6,
+                                children: [
+                                  Text(scope.label),
+                                  if (scope != GlobalSearchScope.all &&
+                                      controller.sections.any(
+                                        (section) =>
+                                            section.scope == scope &&
+                                            section.topicId == null &&
+                                            section.results.isNotEmpty,
+                                      ))
+                                    Text(
+                                      '${controller.sections.where((section) => section.scope == scope && section.topicId == null).fold<int>(0, (count, section) => count + section.results.length)}',
+                                      style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
                                       ),
-                                  entries: [
-                                    for (final scope in controller.scopes)
-                                      DSelectItem(
-                                        value: scope,
-                                        textValue: scope.label,
-                                        child: Text(scope.label),
-                                      ),
-                                  ],
-                                )
-                              : DScrollArea(
-                                  axes: DScrollAxes.horizontal,
-                                  showScrollbar: false,
-                                  child: Row(
-                                    spacing: DSpacing.controlGap,
-                                    children: [
-                                      for (final scope in controller.scopes)
-                                        DToggle(
-                                          key: ValueKey(
-                                            'global-search-scope-${scope.keyName}',
-                                          ),
-                                          pressed: controller.scope == scope,
-                                          onPressedChanged: (_) =>
-                                              controller.setScope(scope),
-                                          variant: DToggleVariant.outline,
-                                          size: DToggleSize.small,
-                                          selectedIcon: const DIcon(
-                                            DIcons.check,
-                                          ),
-                                          semanticLabel: context.l10n
-                                              .searchGlobalsearchpanel(
-                                                (scope.label).toString(),
-                                              ),
-                                          child: Text(scope.label),
-                                        ),
-                                    ],
-                                  ),
-                                );
-                          return Row(
-                            children: [
-                              Expanded(child: scopes),
-                              const SizedBox(width: 8),
-                              tools,
-                            ],
-                          );
-                        },
-                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
+                    if (widget.showConditions)
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+                        child: Row(
+                          spacing: 4,
+                          children: [
+                            _GlobalSearchFilterPicker(controller: controller),
+                            _GlobalSearchDisplay(controller: controller),
+                          ],
+                        ),
+                      ),
                     if (widget.showConditions &&
                         controller.conditions.isNotEmpty)
                       _conditions(context),
@@ -942,6 +962,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         clear: controller.conditions.isNotEmpty,
       );
     }
+    var sectionIndex = 0;
     final children = <Object>[
       if (controller.hintedFilters.isNotEmpty) ..._filterRows(context),
       for (final section in controller.sections.where(
@@ -950,6 +971,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             section.results.isNotEmpty ||
             section.error != null,
       )) ...[
+        if (sectionIndex++ > 0)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 6),
+            child: DSeparator(),
+          ),
         if (controller.scope == GlobalSearchScope.all)
           _sectionHeader(context, section),
         if (section.error != null)
@@ -1025,7 +1051,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       controller: _scroll,
       child: ListView.builder(
         controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+        padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
         itemCount: children.length,
         findChildIndexCallback: (key) => childIndices[key],
         itemBuilder: (context, index) {
@@ -1044,7 +1070,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   }
 
   Widget _loadingResults(BuildContext context) => SingleChildScrollView(
-    padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+    padding: const EdgeInsets.all(6),
     child: DSkeletonRegion(
       semanticsLabel: context.l10n.loading,
       color: skeletonFill(context, on: SkeletonSurface.floating),
@@ -1052,24 +1078,39 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         children: [
           for (var index = 0; index < 8; index++)
             DItem(
-              size: DItemSize.sm,
+              size: DItemSize.artwork,
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
               children: [
-                if (widget.controller.scope.showAvatar)
-                  const DItemMedia(child: DSkeleton.circle(diameter: 32))
-                else
-                  const DItemMedia(child: SizedBox.square(dimension: 32)),
                 DItemContent(
                   children: [
-                    FractionallySizedBox(
-                      widthFactor: index.isEven ? .75 : .6,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: const DSkeleton(height: 16),
-                    ),
-                    const DSkeleton(height: 14),
-                    const FractionallySizedBox(
-                      widthFactor: .45,
-                      alignment: AlignmentDirectional.centerStart,
-                      child: DSkeleton(height: 12),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 10,
+                      children: [
+                        if (widget.controller.scope.showAvatar)
+                          const DSkeleton.circle(diameter: 30)
+                        else
+                          const SizedBox(width: 30),
+                        Expanded(
+                          child: DItemContent(
+                            spacing: 3,
+                            alignment: CrossAxisAlignment.stretch,
+                            children: [
+                              FractionallySizedBox(
+                                widthFactor: index.isEven ? .75 : .6,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: const DSkeleton(height: 16),
+                              ),
+                              const DSkeleton(height: 14),
+                              const FractionallySizedBox(
+                                widthFactor: .45,
+                                alignment: AlignmentDirectional.centerStart,
+                                child: DSkeleton(height: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -1092,62 +1133,69 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     }
 
     final id = 'section:${section.scope.keyName}:${section.topicId ?? ""}';
+    if (_initialSectionPending &&
+        _selected == null &&
+        _actions.isEmpty &&
+        section.results.isNotEmpty) {
+      _selected = id;
+      _initialSectionPending = false;
+    }
     return _action(
       id,
       open,
       DItem(
         key: ValueKey(id),
-        size: DItemSize.sm,
+        size: DItemSize.artwork,
+        shape: DItemShape.menu,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6.5),
         selected: _selected == id,
+        selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: section.results.isEmpty ? null : open,
         children: [
-          DItemMedia(
-            child: SizedBox.square(
-              dimension: 32,
-              child: Center(
-                child: DIcon(
-                  section.topicId != null
-                      ? DIcons.comments
-                      : section.scope == GlobalSearchScope.messages
-                      ? DIcons.envelope
-                      : section.scope == GlobalSearchScope.users
-                      ? DIcons.users
-                      : section.scope == GlobalSearchScope.groups
-                      ? DIcons.userGroup
-                      : section.scope == GlobalSearchScope.categories
-                      ? DIcons.folder
-                      : section.scope == GlobalSearchScope.tags
-                      ? DIcons.tag
-                      : DIcons.magnifyingGlass,
-                  size: 16,
-                ),
-              ),
-            ),
-          ),
           DItemContent(
             children: [
-              DItemTitle(
-                child: Text(
-                  section.topicId != null
-                      ? '${context.l10n.inThisTopicSearch} · ${section.topicTitle ?? ""}'
-                      : section.scope.label,
-                ),
+              Row(
+                spacing: 10,
+                children: [
+                  SizedBox(
+                    width: 30,
+                    child: DIcon(
+                      section.topicId != null ||
+                              section.scope == GlobalSearchScope.forum
+                          ? DIcons.comments
+                          : section.scope == GlobalSearchScope.messages
+                          ? DIcons.envelope
+                          : section.scope == GlobalSearchScope.users
+                          ? DIcons.users
+                          : section.scope == GlobalSearchScope.groups
+                          ? DIcons.userGroup
+                          : section.scope == GlobalSearchScope.places
+                          ? DIcons.layerGroup
+                          : DIcons.comment,
+                      size: 16,
+                      color: DTokens.of(context).mutedForeground,
+                    ),
+                  ),
+                  Expanded(
+                    child: Text(
+                      section.topicId != null
+                          ? '${context.l10n.inThisTopicSearch} · ${section.topicTitle ?? ""}'
+                          : section.scope.label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        height: 1.35,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  if (section.results.isNotEmpty) const DNavigationPill(),
+                ],
               ),
             ],
           ),
-          if (section.results.isNotEmpty)
-            DItemActions(
-              children: [
-                DButton.iconOnly(
-                  icon: const DIcon(DIcons.chevronRight),
-                  tooltip: context.l10n.viewAllResults(section.scope.label),
-                  variant: DButtonVariant.ghost,
-                  size: DButtonSize.small,
-                  onPressed: open,
-                ),
-              ],
-            ),
         ],
       ),
     );
@@ -1220,12 +1268,29 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 widget.onRefocus?.call();
               },
               DItem(
-                size: DItemSize.sm,
-                onPressed: () => controller.useRecentSearch(query),
+                size: DItemSize.xs,
+                shape: DItemShape.menu,
+                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+                selected: _selected == 'recent:$query',
+                selectionStyle: DItemSelectionStyle.strongNeutral,
+                showSelectionIndicator: false,
+                onPressed: () {
+                  controller.useRecentSearch(query);
+                  widget.onRefocus?.call();
+                },
                 children: [
+                  const DItemMedia(
+                    child: SizedBox(
+                      width: 30,
+                      child: DIcon(DIcons.farClock, size: 16),
+                    ),
+                  ),
                   DItemContent(
                     children: [
-                      DItemTitle(child: _RecentQuery(controller, query)),
+                      DefaultTextStyle.merge(
+                        style: const TextStyle(fontSize: 13, height: 1.35),
+                        child: _RecentQuery(controller, query),
+                      ),
                     ],
                   ),
                   DItemActions(
@@ -1266,18 +1331,31 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     bool clear = false,
   }) => SingleChildScrollView(
     child: DEmpty(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
       children: [
-        DEmptyHeader(
+        DItem(
+          size: DItemSize.artwork,
           children: [
-            DEmptyMedia(
-              variant: DEmptyMediaVariant.icon,
-              child: DIcon(
-                error ? DIcons.triangleExclamation : DIcons.magnifyingGlass,
-              ),
+            DItemContent(
+              spacing: 4,
+              alignment: CrossAxisAlignment.stretch,
+              children: [
+                DEmptyDescription.child(
+                  child: Text(
+                    title,
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(fontSize: 13, height: 1.35),
+                  ),
+                ),
+                DEmptyDescription.child(
+                  child: Text(
+                    description,
+                    textAlign: TextAlign.start,
+                    style: const TextStyle(fontSize: 12.5, height: 1.35),
+                  ),
+                ),
+              ],
             ),
-            DEmptyTitle(title),
-            DEmptyDescription(description),
           ],
         ),
         if (error)
@@ -1372,51 +1450,109 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       final count = source is SearchCategoryHit
           ? source.topicCount
           : (source as SearchTagHit).topicCount;
-      final parent = source is SearchCategoryHit
-          ? ShellScope.maybeRead(
-              context,
-            )?.categoryFor(source.parentCategoryId, siteUrl: controller.siteUrl)
+      final parents = <String>[];
+      final seen = <int>{};
+      var parentId = source is SearchCategoryHit
+          ? source.parentCategoryId
           : null;
+      while (parentId != null && seen.add(parentId)) {
+        final parent = ShellScope.maybeRead(
+          context,
+        )?.categoryFor(parentId, siteUrl: controller.siteUrl);
+        if (parent == null) break;
+        parents.insert(0, parent.name);
+        parentId = parent.parentCategoryId;
+      }
       return DItem(
         key: ValueKey('global-search-result-${result.id}'),
-        size: DItemSize.sm,
+        size: DItemSize.artwork,
+        shape: DItemShape.menu,
+        padding: const EdgeInsetsDirectional.fromSTEB(49, 6, 9, 6),
         selected: _selected == result.id,
+        selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
         onPressed: () => widget.onOpen(result),
         children: [
-          DItemMedia(
-            child: swatch != null
-                ? CategoryIcon(
-                    category: swatch,
-                    size: 12,
-                    siteUrl: controller.siteUrl,
-                  )
-                : const Text('#'),
-          ),
           DItemContent(
             children: [
-              DItemTitle(
-                child: _SearchHighlight(
-                  siteUrl: controller.siteUrl!,
-                  text: result.title,
-                  query: controller.query,
-                ),
+              Row(
+                spacing: 10,
+                children: [
+                  SizedBox(
+                    width: 16,
+                    child: Center(
+                      child: swatch != null
+                          ? CategoryIcon(
+                              category: swatch,
+                              size: 9,
+                              siteUrl: controller.siteUrl,
+                            )
+                          : DIcon(
+                              DIcons.hashtag,
+                              size: 12,
+                              color: tokens.mutedForeground,
+                            ),
+                    ),
+                  ),
+                  Expanded(
+                    child: DItemContent(
+                      spacing: 1,
+                      children: [
+                        DItemTitle(
+                          child: _SearchHighlight(
+                            siteUrl: controller.siteUrl!,
+                            text: result.title,
+                            query: controller.query,
+                            style: const TextStyle(fontSize: 13, height: 1.35),
+                          ),
+                        ),
+                        if (parents.isNotEmpty)
+                          DItemDescription(
+                            maxLines: 1,
+                            child: Text(
+                              parents.join(' › '),
+                              style: const TextStyle(fontSize: 11.5),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  if (count != null)
+                    Text(
+                      '$count',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: tokens.mutedForeground,
+                      ),
+                    ),
+                ],
               ),
-              if (parent != null) DItemDescription(child: Text(parent.name)),
             ],
           ),
-          if (count != null)
-            DItemActions(children: [Text(countLabel(count, CountNoun.topic))]),
         ],
       );
     }
+    final inTopic = result.id.startsWith('in-topic:');
+    final individualPost =
+        inTopic ||
+        source is SearchPostHit &&
+            controller.conditions.any(
+              (condition) => condition.filterId == 'author',
+            );
     final metadata = <Widget>[
-      if (properties.contains(GlobalSearchDisplayProperty.author) &&
+      if ((individualPost ||
+              properties.contains(GlobalSearchDisplayProperty.author)) &&
           result.username?.isNotEmpty == true)
         Text('@${result.username}'),
-      if (result.contextLabel?.isNotEmpty == true) Text(result.contextLabel!),
+      if (individualPost && source is SearchPostHit)
+        Text('#${source.postNumber}'),
+      if (result.contextLabel?.isNotEmpty == true)
+        Text(result.contextLabel!)
+      else if (result.privateMessage)
+        Text(context.l10n.personalMessage),
       if ((properties.contains(GlobalSearchDisplayProperty.category) ||
               result.scope == GlobalSearchScope.forum) &&
+          !individualPost &&
           category != null)
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -1436,40 +1572,44 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           when properties.contains(GlobalSearchDisplayProperty.likes))
         Text(countLabel(likes, CountNoun.like)),
       if (result.replies case final replies?
-          when properties.contains(GlobalSearchDisplayProperty.replies) ||
-              result.scope == GlobalSearchScope.forum ||
-              result.privateMessage)
+          when !individualPost &&
+              (properties.contains(GlobalSearchDisplayProperty.replies) ||
+                  result.scope == GlobalSearchScope.forum ||
+                  result.privateMessage))
         Text(countLabel(replies, CountNoun.reply)),
       if (result.memberCount case final members?)
         Text(countLabel(members, CountNoun.member)),
       if (result.createdAt != null) Text(_searchDate(result.createdAt!)),
-      if (result.privateMessage) Text(context.l10n.personalMessage),
-      if (result.closed) Text(context.l10n.closed),
-      if (result.archived) Text(context.l10n.archived),
     ];
+    final largeText = MediaQuery.textScalerOf(context).scale(13) > 19.5;
     return DItem(
       key: ValueKey('global-search-result-${result.id}'),
-      size: DItemSize.sm,
+      size: DItemSize.artwork,
+      shape: DItemShape.menu,
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       onPressed: () {
         widget.onSelect?.call(result.id);
         widget.onOpen(result);
       },
       link: true,
       selected: _selected == result.id || widget.selectedResultId == result.id,
+      selectionStyle: DItemSelectionStyle.strongNeutral,
       showSelectionIndicator: false,
       children: [
-        if (result.scope.showAvatar ||
-            result.id.startsWith('in-topic:') ||
-            result.source is SearchCategoryHit ||
-            result.source is SearchTagHit)
-          DItemMedia(
-            child: result.scope.showAvatar || result.id.startsWith('in-topic:')
-                ? DAvatar(
-                    size: DAvatarSize.standard,
+        DItemContent(
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              spacing: 10,
+              children: [
+                if (result.scope.showAvatar || individualPost)
+                  DAvatar(
+                    dimension: 30,
+                    border: false,
                     decorative: true,
                     child: AvatarImage(
                       url: result.avatarUrl,
-                      size: 32,
+                      size: 30,
                       fallback: DAvatarFallback(
                         child: Text(
                           (result.username ?? result.title).characters
@@ -1480,50 +1620,121 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       ),
                     ),
                   )
-                : result.source is SearchCategoryHit && category != null
-                ? CategoryIcon(
-                    category: category,
-                    size: 12,
-                    siteUrl: controller.siteUrl,
-                  )
-                : DIcon(
-                    result.scope == GlobalSearchScope.groups
-                        ? DIcons.users
-                        : DIcons.comments,
-                    size: 18,
-                    color: tokens.mutedForeground,
+                else
+                  const SizedBox(width: 30),
+                Expanded(
+                  child: DItemContent(
+                    spacing: 1,
+                    alignment: CrossAxisAlignment.stretch,
+                    children: [
+                      DItemTitle(
+                        child: inTopic && source is SearchPostHit
+                            ? SiteEmojiText(
+                                [
+                                  SiteEmojiTextRun(
+                                    result.username ?? '',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SiteEmojiTextRun(
+                                    '  #${source.postNumber}${result.createdAt == null ? '' : ' · ${_searchDate(result.createdAt!)}'}',
+                                    style: TextStyle(
+                                      color: tokens.mutedForeground,
+                                      fontWeight: FontWeight.w400,
+                                    ),
+                                  ),
+                                ],
+                                siteUrl: controller.siteUrl!,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.35,
+                                ),
+                              )
+                            : _SearchHighlight(
+                                siteUrl: controller.siteUrl!,
+                                text: result.title,
+                                query: controller.query,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  height: 1.35,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                      ),
+                      if (properties.contains(
+                            GlobalSearchDisplayProperty.excerpt,
+                          ) &&
+                          result.excerpt.isNotEmpty)
+                        DItemDescription(
+                          maxLines: 1,
+                          child: _SearchHighlight(
+                            siteUrl: controller.siteUrl!,
+                            text: searchSnippet(
+                              result.excerpt,
+                              controller.query,
+                            ),
+                            query: controller.query,
+                            style: TextStyle(
+                              fontSize: 12.5,
+                              height: 1.35,
+                              fontWeight: FontWeight.w400,
+                              color: tokens.mutedForeground,
+                            ),
+                          ),
+                        ),
+                      if (!inTopic && metadata.isNotEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 2),
+                          child: DefaultTextStyle.merge(
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              height: 1.35,
+                              color: tokens.mutedForeground,
+                            ),
+                            child: largeText
+                                ? Wrap(
+                                    spacing: 10,
+                                    runSpacing: 3,
+                                    children: metadata,
+                                  )
+                                : ClipRect(
+                                    child: SizedBox(
+                                      height:
+                                          (MediaQuery.textScalerOf(
+                                                    context,
+                                                  ).scale(11.5) *
+                                                  1.35)
+                                              .ceilToDouble(),
+                                      child: OverflowBox(
+                                        alignment:
+                                            AlignmentDirectional.centerStart,
+                                        minWidth: 0,
+                                        maxWidth: double.infinity,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          spacing: 10,
+                                          children: [
+                                            for (
+                                              var i = 0;
+                                              i < metadata.length;
+                                              i++
+                                            ) ...[
+                                              if (i > 0) const Text('·'),
+                                              metadata[i],
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                          ),
+                        ),
+                    ],
                   ),
-          ),
-        if (!result.scope.showAvatar && !result.id.startsWith('in-topic:'))
-          const DItemMedia(child: SizedBox.square(dimension: 32)),
-        DItemContent(
-          children: [
-            DItemTitle(
-              maxLines: 1,
-              child: _SearchHighlight(
-                siteUrl: controller.siteUrl!,
-                text: result.title,
-                query: controller.query,
-              ),
+                ),
+              ],
             ),
-            if (properties.contains(GlobalSearchDisplayProperty.excerpt) &&
-                result.excerpt.isNotEmpty)
-              DItemDescription(
-                maxLines: 1,
-                child: _SearchHighlight(
-                  siteUrl: controller.siteUrl!,
-                  text: searchSnippet(result.excerpt, controller.query),
-                  query: controller.query,
-                ),
-              ),
-            if (metadata.isNotEmpty)
-              DefaultTextStyle.merge(
-                style: TextStyle(
-                  fontSize: DiscourseTypography.xs,
-                  color: tokens.mutedForeground,
-                ),
-                child: Wrap(spacing: 10, runSpacing: 3, children: metadata),
-              ),
           ],
         ),
       ],
@@ -1743,12 +1954,16 @@ class _SearchHighlight extends StatelessWidget {
     required this.siteUrl,
     required this.text,
     required this.query,
+    this.style,
   });
   final String siteUrl, text, query;
+  final TextStyle? style;
   @override
   Widget build(BuildContext context) {
     final words = searchWords(query);
-    if (words.isEmpty) return SiteEmojiText.plain(text, siteUrl: siteUrl);
+    if (words.isEmpty) {
+      return SiteEmojiText.plain(text, siteUrl: siteUrl, style: style);
+    }
     final expression = RegExp(
       words.map(RegExp.escape).join('|'),
       caseSensitive: false,
@@ -1773,7 +1988,7 @@ class _SearchHighlight extends StatelessWidget {
     if (cursor < text.length) {
       runs.add(SiteEmojiTextRun(text.substring(cursor)));
     }
-    return SiteEmojiText(runs, siteUrl: siteUrl);
+    return SiteEmojiText(runs, siteUrl: siteUrl, style: style);
   }
 }
 

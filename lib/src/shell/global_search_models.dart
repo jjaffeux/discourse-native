@@ -28,8 +28,7 @@ final class GlobalSearchScope {
   static const all = GlobalSearchScope._core('all');
   static const forum = GlobalSearchScope._core('forum');
   static const messages = GlobalSearchScope._core('messages');
-  static const categories = GlobalSearchScope._core('categories');
-  static const tags = GlobalSearchScope._core('tags');
+  static const places = GlobalSearchScope._core('places');
   static const users = GlobalSearchScope._core(
     'users',
     showAvatar: true,
@@ -39,7 +38,7 @@ final class GlobalSearchScope {
     'groups',
     singletonFilters: true,
   );
-  static const values = [all, categories, tags, forum, messages, users, groups];
+  static const values = [all, places, forum, messages, users, groups];
   final String owner, name;
   final String? _label;
   String get label =>
@@ -48,8 +47,7 @@ final class GlobalSearchScope {
         'all' => appL10n.all,
         'forum' => appL10n.topicsPosts,
         'messages' => appL10n.messages,
-        'categories' => appL10n.categories,
-        'tags' => appL10n.tags,
+        'places' => appL10n.categoriesAndTags,
         'users' => appL10n.users,
         'groups' => appL10n.groups,
         _ => name,
@@ -142,9 +140,7 @@ class GlobalSearchCapabilities {
   final Set<String> enabledContributions;
   List<GlobalSearchScope> get scopes => [
     ...GlobalSearchScope.values.where(
-      (scope) =>
-          (scope != GlobalSearchScope.messages || authenticated) &&
-          (scope != GlobalSearchScope.tags || tagging),
+      (scope) => (scope != GlobalSearchScope.messages || authenticated),
     ),
     for (final contribution in contributions)
       if (enabledContributions.contains(contribution.owner))

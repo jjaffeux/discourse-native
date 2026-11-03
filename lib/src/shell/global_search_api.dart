@@ -262,7 +262,7 @@ class GlobalSearchApi {
           clientId,
           abortTrigger: abortTrigger,
         );
-        return _core(body, siteUrl).sections;
+        return _core(body, siteUrl, includeTags: c.tagging).sections;
       }, fallback: appL10n.topicsUsersAndGroupsCouldNotLoad);
       for (final contribution in c.contributions) {
         if (!c.enabledContributions.contains(contribution.owner) ||
@@ -300,7 +300,7 @@ class GlobalSearchApi {
               results: List.unmodifiable(
                 {
                   for (final row in [...?previous?.results, ...section.results])
-                    row.id: row,
+                    if (c.tagging || row.source is! SearchTagHit) row.id: row,
                 }.values,
               ),
               error: section.error ?? previous?.error,
@@ -366,8 +366,7 @@ class GlobalSearchApi {
     }
 
     if (r.scope == GlobalSearchScope.messages ||
-        r.scope == GlobalSearchScope.categories ||
-        r.scope == GlobalSearchScope.tags) {
+        r.scope == GlobalSearchScope.places) {
       final body = await _get(
         siteUrl,
         _path(
@@ -391,6 +390,7 @@ class GlobalSearchApi {
         body,
         siteUrl,
         scope: r.scope,
+        includeTags: c.tagging,
         canPage: r.scope == GlobalSearchScope.messages && r.page < 9,
       );
     }
@@ -546,6 +546,7 @@ class GlobalSearchApi {
     String site, {
     GlobalSearchScope? scope,
     bool canPage = true,
+    bool includeTags = true,
   }) {
     final parsed = SearchResults.fromJson(body, site);
     if (parsed.error != null) throw FormatException(parsed.error!);
@@ -557,12 +558,13 @@ class GlobalSearchApi {
         };
     final sections = <GlobalSearchSection>[];
     for (final section in parsed.effectiveSections) {
+      if (!includeTags && section.kind == SearchResultKind.tag) continue;
       final target = switch (section.kind) {
         SearchResultKind.topic => GlobalSearchScope.forum,
         SearchResultKind.user => GlobalSearchScope.users,
         SearchResultKind.group => GlobalSearchScope.groups,
-        SearchResultKind.category => GlobalSearchScope.categories,
-        SearchResultKind.tag => GlobalSearchScope.tags,
+        SearchResultKind.category => GlobalSearchScope.places,
+        SearchResultKind.tag => GlobalSearchScope.places,
       };
       if (scope != null &&
           scope != target &&
@@ -651,13 +653,24 @@ class GlobalSearchApi {
         }
         continue;
       }
-      sections.add(
-        GlobalSearchSection(
-          scope: target,
-          results: List.unmodifiable(rows),
-          hasMore: canPage && section.hasMore,
-        ),
+      final existing = sections.indexWhere(
+        (section) => section.scope == target,
       );
+      final combined = GlobalSearchSection(
+        scope: target,
+        results: List.unmodifiable([
+          if (existing >= 0) ...sections[existing].results,
+          ...rows,
+        ]),
+        hasMore:
+            canPage && section.hasMore ||
+            existing >= 0 && sections[existing].hasMore,
+      );
+      if (existing < 0) {
+        sections.add(combined);
+      } else {
+        sections[existing] = combined;
+      }
     }
     return GlobalSearchPage(
       sections: List.unmodifiable(sections),
@@ -702,7 +715,7 @@ class GlobalSearchApi {
         ),
         SearchCategoryHit hit => GlobalSearchResult(
           id: 'categories:${hit.categoryId}',
-          scope: GlobalSearchScope.categories,
+          scope: GlobalSearchScope.places,
           title: hit.name,
           path: hit.path,
           categoryId: hit.categoryId,
@@ -710,7 +723,7 @@ class GlobalSearchApi {
         ),
         SearchTagHit hit => GlobalSearchResult(
           id: 'tags:${hit.name}',
-          scope: GlobalSearchScope.tags,
+          scope: GlobalSearchScope.places,
           title: hit.name,
           path: hit.path,
           source: hit,
