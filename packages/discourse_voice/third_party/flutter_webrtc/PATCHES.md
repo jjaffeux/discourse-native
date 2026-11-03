@@ -1,14 +1,17 @@
 # Local patches
 
-Voice vendors the published `flutter_webrtc` 1.6.2+hotfix.4 package under
+Voice vendors the published `flutter_webrtc` 1.6.3 package under
 `packages/discourse_voice/third_party/flutter_webrtc`, from
-<https://pub.dev/packages/flutter_webrtc/versions/1.6.2+hotfix.4>. The owner-local
+<https://pub.dev/packages/flutter_webrtc/versions/1.6.3>. The owner-local
 `packages/discourse_voice/tool/vendor_contract.json` connects that external
 source tree to this reviewed inventory without teaching the root runner about
 Voice or WebRTC.
 
-- Archive SHA-256: `ebf5ceef2897caae425ed65a38b2961c29d9d9a626159418ed460e1a65038c00`
-- Upstream source: <https://github.com/flutter-webrtc/flutter-webrtc/tree/v1.6.2+hotfix.4>
+- Archive SHA-256: `b98ef03376401e54ff87fc78907b38e562b15ca8424aba589c263eddc3c1ecf9`
+- Upstream source: <https://github.com/flutter-webrtc/flutter-webrtc/tree/v1.6.3>
+
+Version 1.6.3 updates the native WebRTC libraries and preserves every local
+patch below. LiveKit 2.13.2 uses this same baseline.
 
 The archive is the review baseline. The sections below enumerate every known
 local delta; this file is not a claim that the directory is otherwise
@@ -18,7 +21,7 @@ not part of the published archive.
 ## iOS privacy manifest
 
 The upstream iOS screen-broadcast reader calls `mach_absolute_time()` to create
-elapsed video-frame timestamps, but version 1.6.2+hotfix.4 does not provide a privacy
+elapsed video-frame timestamps, but version 1.6.3 does not provide a privacy
 manifest for that required-reason API.
 
 This copy adds `PrivacyInfo.xcprivacy` to the `flutter_webrtc` Swift package and
