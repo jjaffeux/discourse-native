@@ -24,6 +24,27 @@ import 'voice_controller_test.dart'
         fixture;
 
 void main() {
+  test('unchanged idle runtime does not refresh the call overlay', () async {
+    final runtime = _Runtime()..state = const VoiceCallPortState.idle();
+    final port = _port(runtime);
+    addTearDown(port.close);
+    var changes = 0;
+    port.addListener(() => changes++);
+
+    runtime.replaceState(const VoiceCallPortState.idle());
+    runtime.replaceState(const VoiceCallPortState.idle());
+    expect(changes, 0);
+
+    runtime.replaceState(_state());
+    expect(changes, 1);
+    expect(port.state.call?.roomName, 'Planning');
+    runtime.replaceState(const VoiceCallPortState.idle());
+    expect(changes, 2);
+    expect(port.state.call, isNull);
+    runtime.replaceState(const VoiceCallPortState.idle());
+    expect(changes, 2);
+  });
+
   test(
     'tracks route visibility, retains video off-route and recovers connection errors',
     () async {

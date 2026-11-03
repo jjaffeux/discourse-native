@@ -135,7 +135,9 @@ final class VoiceCallControllerPort extends ChangeNotifier
   void _runtimeChanged() {
     if (_closed) return;
     _actionRevision = Object();
-    _state = _readState();
+    final next = _readState();
+    if (identical(next, _state)) return;
+    _state = next;
     notifyListeners();
   }
 

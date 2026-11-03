@@ -59,9 +59,10 @@ final class CakedayController extends FrameSafeNotifier
   final _forbidden = <String>{};
   final _unavailable = <(String, CakedayKind)>{};
   final _visible = <(String, CakedayQuery), int>{};
+  final _siteDays = <String, DateTime>{};
   Timer? _timer;
   bool _foreground = true;
-  String? _day;
+  DateTime? _day;
   DateTime get now => _clock();
   int revision(String site) => _revisions[site] ?? 0;
   CakedaySettings settings(String site) =>
@@ -218,7 +219,7 @@ final class CakedayController extends FrameSafeNotifier
 
   void _observe(String site) {
     if (isDisposed) return;
-    _observedSites.add(site);
+    if (_observedSites.add(site)) _siteDays[site] = viewerToday(site);
     if (_settingsListeners.containsKey(site)) return;
     final source = siteState.siteConfigListenableFor?.call(site);
     if (source != null) {
@@ -249,24 +250,30 @@ final class CakedayController extends FrameSafeNotifier
       return;
     }
     if (_timer != null) return;
-    _day = _dayKey();
+    _rememberDays();
     _timer = Timer.periodic(const Duration(minutes: 1), (_) {
-      final day = _dayKey();
-      if (day != _day) {
-        _day = day;
+      if (_deviceDay() != _day ||
+          _observedSites.any((site) => viewerToday(site) != _siteDays[site])) {
         _timeChanged();
       }
     });
   }
 
-  String _dayKey() => [
-    now.year,
-    now.month,
-    now.day,
-    for (final site in _observedSites) viewerToday(site),
-  ].join('/');
+  DateTime _deviceDay() {
+    final date = now;
+    return DateTime.utc(date.year, date.month, date.day);
+  }
+
+  void _rememberDays() {
+    _day = _deviceDay();
+    for (final site in _observedSites) {
+      _siteDays[site] = viewerToday(site);
+    }
+  }
+
   void _timeChanged() {
     if (isDisposed) return;
+    _rememberDays();
     for (final site in _visible.keys.map((key) => key.$1).toSet()) {
       _revisions[site] = revision(site) + 1;
       _tokens.removeWhere((key, _) => key.$1 == site);
@@ -308,6 +315,7 @@ final class CakedayController extends FrameSafeNotifier
 
   void forget(String site) {
     _observedSites.remove(site);
+    _siteDays.remove(site);
     _revisions[site] = revision(site) + 1;
     _states.removeWhere((key, _) => key.$1 == site);
     _tokens.removeWhere((key, _) => key.$1 == site);
@@ -337,6 +345,7 @@ final class CakedayController extends FrameSafeNotifier
       listener.$1.removeListener(listener.$2);
     }
     _observedSites.clear();
+    _siteDays.clear();
     _settingsListeners.clear();
     _states.clear();
     _tokens.clear();

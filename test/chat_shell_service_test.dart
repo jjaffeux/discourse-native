@@ -83,6 +83,34 @@ void main() {
     expect(fixture.host.pageSearchWords, hasLength(1));
   });
 
+  test('forum tracking counts do not invalidate chat presentation', () async {
+    final fixture = await _fixture(
+      channels: ChatChannels(public: [_channel(9)]),
+    );
+    addTearDown(fixture.dispose);
+    var changes = 0;
+    fixture.shell.addListener(() => changes++);
+
+    fixture.host.totals = chatNotificationTotals(
+      topicTrackingUnread: 4,
+      topicTrackingNew: 2,
+    );
+    fixture.host.instance = fixture.host.instance.copyWith(
+      notificationTotals: fixture.host.totals,
+    );
+    fixture.host._changes.notifyListeners();
+    expect(changes, 0);
+    expect(fixture.shell.currentTotals!.topicTrackingUnread, 4);
+
+    fixture.host.totals = chatNotificationTotals(available: false);
+    fixture.host.instance = fixture.host.instance.copyWith(
+      notificationTotals: fixture.host.totals,
+    );
+    fixture.host._changes.notifyListeners();
+    expect(changes, 1);
+    expect(fixture.shell.chatAvailable(_site), isFalse);
+  });
+
   test(
     'unrelated host updates do not notify chat presentation listeners',
     () async {
@@ -360,7 +388,7 @@ final class _NavigationHost implements PluginNavigationHost {
       ];
 
   DiscourseInstance instance;
-  final NotificationTotals totals;
+  NotificationTotals totals;
   final ValueNotifier<Rect?> bounds = ValueNotifier(null);
   final ChangeNotifier _changes = ChangeNotifier();
   List<ContentRoute> _contentStack;

@@ -12,6 +12,95 @@ import 'package:timezone/data/latest.dart' as tzdata;
 import 'cakeday_fixture.dart';
 
 void main() {
+  testWidgets('minute timer ignores newly observed forums on the same day', (
+    tester,
+  ) async {
+    final f = CakedayFixture();
+    addTearDown(f.dispose);
+    f.controller.observeDecorations(cakedaySite);
+    var changes = 0;
+    f.controller.addListener(() => changes++);
+    f.controller.observeDecorations('https://second.example');
+
+    await tester.pump(const Duration(minutes: 1));
+    f.controller.setForeground(false);
+
+    expect(changes, 0);
+  });
+
+  testWidgets('minute timer ignores forgotten forums on the same day', (
+    tester,
+  ) async {
+    final f = CakedayFixture();
+    addTearDown(f.dispose);
+    f.controller.observeDecorations(cakedaySite);
+    f.controller.observeDecorations('https://second.example');
+    f.controller.setForeground(true);
+    f.controller.forget('https://second.example');
+    var changes = 0;
+    f.controller.addListener(() => changes++);
+
+    await tester.pump(const Duration(minutes: 1));
+    f.controller.setForeground(false);
+
+    expect(changes, 0);
+  });
+
+  testWidgets('minute timer does not repeat an announced timezone change', (
+    tester,
+  ) async {
+    tzdata.initializeTimeZones();
+    final f = CakedayFixture();
+    addTearDown(f.dispose);
+    f.clock = DateTime.utc(2026, 11, 1, 23, 30);
+    f.controller.observeDecorations(cakedaySite);
+    var changes = 0;
+    f.controller.addListener(() => changes++);
+    f.user = const DiscourseUser(
+      id: 7,
+      username: 'reader',
+      timezone: 'Pacific/Kiritimati',
+    );
+    f.timezoneChanges.notifyListeners();
+    expect(changes, 1);
+
+    await tester.pump(const Duration(minutes: 1));
+    f.controller.setForeground(false);
+
+    expect(changes, 1);
+  });
+
+  for (final viewerMidnight in [false, true]) {
+    testWidgets(
+      'minute timer preserves ${viewerMidnight ? 'viewer' : 'device'} midnight when another forum is observed',
+      (tester) async {
+        tzdata.initializeTimeZones();
+        final f = CakedayFixture();
+        addTearDown(f.dispose);
+        if (viewerMidnight) {
+          f.user = const DiscourseUser(
+            id: 7,
+            username: 'reader',
+            timezone: 'Pacific/Kiritimati',
+          );
+        }
+        f.clock = DateTime.utc(2026, 11, 1, viewerMidnight ? 9 : 23, 59);
+        f.controller.observeDecorations(cakedaySite);
+        var changes = 0;
+        f.controller.addListener(() => changes++);
+        f.clock = f.clock.add(const Duration(minutes: 1));
+        f.controller.observeDecorations('https://second.example');
+
+        await tester.pump(const Duration(minutes: 1));
+        final afterMidnight = changes;
+        await tester.pump(const Duration(minutes: 1));
+        f.controller.setForeground(false);
+        expect(afterMidnight, 1);
+        expect(changes, 1);
+      },
+    );
+  }
+
   test(
     'effective birthday gate requires master plus login and makes no request',
     () async {

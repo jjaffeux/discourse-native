@@ -49,7 +49,6 @@ final class ChatShellService
        _postFlagCatalog = postFlagCatalog {
     _rememberHeaderRoutes();
     _lastHostPresentation = _hostPresentation;
-    _lastHostInstance = _host.currentInstance;
     _host.changes.addListener(_handleHostChanged);
   }
 
@@ -64,21 +63,33 @@ final class ChatShellService
   int _urlOpenGeneration = 0;
   bool _disposed = false;
   Object? _lastHostPresentation;
-  DiscourseInstance? _lastHostInstance;
   final _lastChatRoutes = <(String, int?), ContentRoute>{};
   final _lastForumRoutes = <(String, int?), ContentRoute>{};
 
-  // Topic pagination and reading progress notify the host without changing
-  // anything exposed by this service. Do not rebuild chat chrome and sidebar
-  // panels for those updates. Commands still read the host directly.
-  Object get _hostPresentation => (
-    _host.currentContent,
-    _host.currentTotals,
-    _host.forumActive,
-    _currentSiteCanUseChat,
-    currentSiteUrl == null ? false : doNotDisturbActive(currentSiteUrl!),
-    separateSidebarMode,
-  );
+  // Reading replaces the instance with updated forum counters. Chat surfaces
+  // only use totals for availability; their unread indicators listen to chat.
+  Object get _hostPresentation {
+    final instance = _host.currentInstance;
+    return (
+      instance?.url,
+      instance?.title,
+      instance?.description,
+      instance?.iconUrl,
+      instance?.apiVersion,
+      instance?.loginRequired,
+      instance?.user,
+      instance?.localDraftAccount,
+      instance?.appearance,
+      instance?.config,
+      _host.currentContent,
+      _host.currentTotals?.hasChatEnabled,
+      _host.forumActive,
+      _currentSiteCanUseChat,
+      currentSiteUrl == null ? false : doNotDisturbActive(currentSiteUrl!),
+      separateSidebarMode,
+    );
+  }
+
   @override
   void addListener(VoidCallback listener) => _changes.addListener(listener);
 
@@ -204,8 +215,7 @@ final class ChatShellService
     if (_disposed) return;
     _rememberHeaderRoutes();
     final presentation = _hostPresentation;
-    if (!identical(_host.currentInstance, _lastHostInstance) ||
-        presentation != _lastHostPresentation) {
+    if (presentation != _lastHostPresentation) {
       _notify();
     }
   }
@@ -227,7 +237,6 @@ final class ChatShellService
   void _notify() {
     if (!_disposed) {
       _lastHostPresentation = _hostPresentation;
-      _lastHostInstance = _host.currentInstance;
       _changes.value++;
     }
   }
