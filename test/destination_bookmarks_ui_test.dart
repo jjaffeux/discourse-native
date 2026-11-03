@@ -11,7 +11,6 @@ import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
 import 'package:discourse_native/src/shell/destination_bookmark_ui.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -424,40 +423,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.currentContent, _page);
   });
-
-  testWidgets(
-    'Start local bookmarks and generic recently closed pages expose context actions',
-    (tester) async {
-      final shell = await tester.runAsync(() => _shell());
-      addTearDown(shell!.dispose);
-      await tester.runAsync(
-        () => shell.destinationBookmarkAction(_page)!.invoke(),
-      );
-      await shell.openDestinationRoute(ContentRoute.forumAbout(), newTab: true);
-      final closed = shell.tabsForCurrentForum.last;
-      shell.closeTab(closed.id);
-      await _pump(tester, shell, NewTabPage(onBrowseTopics: () {}));
-      final saved = find.byKey(
-        const ValueKey('start-page-recent-bookmark-page:preferences'),
-      );
-      expect(saved, findsOneWidget);
-      await _capture(tester, 'start-local-bookmarks');
-      await tester.tap(saved);
-      await tester.pumpAndSettle();
-      expect(shell.currentContent, _page);
-      await tester.tap(
-        find.byKey(ValueKey('start-page-recent-closed-${closed.id}')),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await tester.pumpAndSettle();
-      expect(
-        find.byKey(const ValueKey('destination-bookmark-forum-about')),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
 
   testWidgets('desktop tab context menu bookmarks the tab page', (
     tester,

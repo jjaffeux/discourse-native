@@ -2017,7 +2017,7 @@ void main({bool useDeviceMetrics = false}) {
       expect(shell.globalSearch.query, 'keyboard');
       // Dismissing in the empty secondary pane also focuses its Start tab.
       // The chrome now shows that tab's local filter, preserving server search.
-      expect(shell.currentContent?.id, 'new-tab');
+      expect(shell.currentContent?.id, 'latest');
       expect(_editor(tester).controller.text, isEmpty);
       expect(tester.takeException(), isNull);
     },

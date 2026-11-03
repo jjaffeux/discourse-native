@@ -1,3 +1,5 @@
+> Superseded for startup and Start navigation by [Latest default parity](latest-default-mockup-parity.md). Explicit feature pages remain available.
+
 # AI conversations homepage
 
 The server registers `ai-conversations` at

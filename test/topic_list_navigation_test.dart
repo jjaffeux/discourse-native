@@ -1005,22 +1005,19 @@ void main() {
     );
   }
 
-  test(
-    'fresh settings select the first feed before requesting topics',
-    () async {
-      final gate = Completer<void>();
-      final setup = await _controller(
-        remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
-        siteConfigGate: gate,
-      );
-      addTearDown(setup.controller.dispose);
-      expect(setup.api.feedPaths, isEmpty);
-      gate.complete();
-      await Future<void>.delayed(Duration.zero);
-      expect(setup.controller.currentTopicListMode, TopicListMode.popular);
-      expect(setup.api.feedPaths, ['/hot.json']);
-    },
-  );
+  test('fresh settings preserve Latest before requesting topics', () async {
+    final gate = Completer<void>();
+    final setup = await _controller(
+      remoteConfig: const SiteConfig(defaultHomepage: 'hot'),
+      siteConfigGate: gate,
+    );
+    addTearDown(setup.controller.dispose);
+    expect(setup.api.feedPaths, isEmpty);
+    gate.complete();
+    await Future<void>.delayed(Duration.zero);
+    expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+    expect(setup.api.feedPaths, ['/latest.json']);
+  });
 
   test(
     'late homepage settings preserve an explicit filter selection',
@@ -1039,60 +1036,33 @@ void main() {
     },
   );
 
-  test('homepage uses top menu fallback and anonymous visibility', () {
+  test('homepage is ordinary unfiltered Latest', () {
     expect(
-      ContentRoute.homepage(
-        const SiteConfig(topMenu: ['hot', 'latest']),
-        connected: true,
-      ).feedPath,
-      '/hot.json',
-    );
-    expect(
-      ContentRoute.homepage(
-        const SiteConfig(defaultHomepage: 'new', topMenu: ['new', 'top']),
-        connected: false,
-      ).feedPath,
-      '/top.json?period=yearly',
-    );
-    expect(
-      ContentRoute.homepage(
-        const SiteConfig(defaultHomepage: 'categories'),
-        connected: false,
-      ).id,
-      'all-categories',
-    );
-    expect(
-      ContentRoute.homepage(
-        const SiteConfig(defaultHomepage: 'plugin-page'),
-        connected: true,
-      ).id,
-      'latest',
+      ContentRoute.homepage(),
+      ContentRoute.topicList(TopicListMode.latest),
     );
   });
 
-  test(
-    'initial topics and Topics navigation use the configured homepage',
-    () async {
-      final setup = await _controller(
-        config: const SiteConfig(
-          defaultHomepage: 'top',
-          topPageDefaultPeriod: 'weekly',
-        ),
-      );
-      addTearDown(setup.controller.dispose);
-      expect(setup.controller.currentTopicListMode, TopicListMode.topWeekly);
-      await Future<void>.delayed(Duration.zero);
-      expect(setup.api.feedPaths, contains('/top.json?period=weekly'));
-      expect(setup.api.feedPaths, isNot(contains('/latest.json')));
-      await setup.controller.selectTopicListMode(TopicListMode.latest);
-      expect(setup.controller.currentTopicListMode, TopicListMode.latest);
-      setup.controller.selectDestination(
-        setup.controller.currentInstance!.defaultDestination,
-      );
-      await Future<void>.delayed(Duration.zero);
-      expect(setup.controller.currentTopicListMode, TopicListMode.topWeekly);
-    },
-  );
+  test('initial topics and Topics navigation always use Latest', () async {
+    final setup = await _controller(
+      config: const SiteConfig(
+        defaultHomepage: 'top',
+        topPageDefaultPeriod: 'weekly',
+      ),
+    );
+    addTearDown(setup.controller.dispose);
+    expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+    await Future<void>.delayed(Duration.zero);
+    expect(setup.api.feedPaths, contains('/latest.json'));
+    expect(setup.api.feedPaths, isNot(contains('/top.json?period=weekly')));
+    await setup.controller.selectTopicListMode(TopicListMode.latest);
+    expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+    setup.controller.selectDestination(
+      setup.controller.currentInstance!.defaultDestination,
+    );
+    await Future<void>.delayed(Duration.zero);
+    expect(setup.controller.currentTopicListMode, TopicListMode.latest);
+  });
 
   testWidgets('restored list search survives category, tag and feed changes', (
     tester,

@@ -27,7 +27,6 @@ class ShellSearchController extends ChangeNotifier {
   final Map<Object, ValueChanged<SearchFocusRequest>> _focusFields = {};
   Object? _activeField;
   bool _disposed = false;
-  final Map<({String siteUrl, String tabId}), String> _startPageQueries = {};
   final Map<({String siteUrl, String tabId, String routeId}), String>
   _pageWords = {};
 
@@ -90,27 +89,12 @@ class ShellSearchController extends ChangeNotifier {
   bool get panelOpen => _panelOpen;
   List<String> get recentSearches => history.terms;
 
-  String startPageQueryFor(String siteUrl, String tabId) =>
-      _startPageQueries[(siteUrl: siteUrl, tabId: tabId)] ?? '';
-
-  void setStartPageQuery(String siteUrl, String tabId, String query) {
-    if (startPageQueryFor(siteUrl, tabId) == query) return;
-    final key = (siteUrl: siteUrl, tabId: tabId);
-    if (query.isEmpty) {
-      _startPageQueries.remove(key);
-    } else {
-      _startPageQueries[key] = query;
-    }
-    _notify();
-  }
-
   void retainTabs(Set<({String siteUrl, String tabId})> retainedTabs) {
     _pageWords.removeWhere(
       (key, _) =>
           key.tabId.isNotEmpty &&
           !retainedTabs.contains((siteUrl: key.siteUrl, tabId: key.tabId)),
     );
-    _startPageQueries.removeWhere((key, _) => !retainedTabs.contains(key));
     _usersQueries.removeWhere((key, _) => !retainedTabs.contains(key));
   }
 
@@ -173,7 +157,6 @@ class ShellSearchController extends ChangeNotifier {
     _anonymousSearchDenied.remove(siteUrl);
     _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);
     _usersQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
-    _startPageQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_siteUrl != siteUrl) return;
     history.forget(siteUrl);
     clear();

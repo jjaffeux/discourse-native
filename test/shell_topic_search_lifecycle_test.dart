@@ -96,7 +96,6 @@ void main() {
       shell.applySearchToList('list words', const []);
       final list = shell.currentContent!;
       final tab = shell.activeTabId!;
-      shell.search.setStartPageQuery(site, tab, 'start words');
       shell.openSearchResult(_hit, words: 'matched words');
       expect(shell.search.wordsFor(site, tab, 'topic-1'), 'matched words');
 
@@ -119,7 +118,6 @@ void main() {
 
       expect(shell.search.wordsFor(site, tab, 'topic-1'), isEmpty);
       expect(shell.search.wordsFor(site, tab, list.id), 'list words');
-      expect(shell.search.startPageQueryFor(site, tab), 'start words');
 
       if (departure == 'site') shell.selectInstance(0);
       if (departure == 'close') expect(shell.reopenClosedTab(tab), isTrue);

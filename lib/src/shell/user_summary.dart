@@ -273,7 +273,7 @@ class _SummaryContentState extends State<_SummaryContent> {
   );
 }
 
-// Profile, line tabs and content share the Start page's reading column.
+// Profile, line tabs and content share the shared reading column.
 class _SummaryLayout extends StatelessWidget {
   const _SummaryLayout({
     required this.profile,
@@ -1554,7 +1554,7 @@ class _CategoryRows extends StatelessWidget {
   );
 }
 
-// Milestones as the Start page's rows across the whole width: packed to the
+// Milestones as the shared summary rows across the whole width: packed to the
 // start, so they read as a list of things rather than a rank of columns.
 class _BadgeRows extends StatelessWidget {
   const _BadgeRows({required this.badges});

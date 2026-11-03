@@ -2453,23 +2453,18 @@ final class PluginRegistry
         ?plugin.communitySidebarListenable(_uiContext(context, plugin)),
   ];
 
-  List<StartPageSection> startPageSections(BuildContext context) => [
-    for (final plugin in plugins.whereType<StartPagePlugin>())
-      for (final section in plugin.startPageSections(
-        _uiContext(context, plugin),
-      ))
-        StartPageSection(
-          destination: _ownedDestination(plugin, section.destination),
-          entries: [
-            for (final entry in section.entries)
-              _ownedDestination(plugin, entry),
-          ],
-        ),
-  ];
+  List<SidebarDestination> mobileNavigationDestinations(BuildContext context) =>
+      [
+        for (final plugin in plugins.whereType<MobileNavigationPlugin>())
+          for (final destination in plugin.mobileNavigationDestinations(
+            _uiContext(context, plugin),
+          ))
+            _ownedDestination(plugin, destination),
+      ];
 
-  List<Listenable> startPageListenables(BuildContext context) => [
-    for (final plugin in plugins.whereType<StartPagePlugin>())
-      ?plugin.startPageListenable(_uiContext(context, plugin)),
+  List<Listenable> mobileNavigationListenables(BuildContext context) => [
+    for (final plugin in plugins.whereType<MobileNavigationPlugin>())
+      ?plugin.mobileNavigationListenable(_uiContext(context, plugin)),
   ];
 
   List<SidebarSection> sidebarSections(

@@ -103,10 +103,6 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
        assert(
          !wrap || (!expanded && !inset && !slidingIndicator),
          'Wrapping groups require independent, non-expanded choices.',
-       ),
-       assert(
-         density != DToggleDensity.compactInset || ((inset) && !expanded),
-         'Compact inset groups require two horizontal icon choices.',
        );
 
   /// Draw a shared recessed frame around the choices. Standard density uses
@@ -420,10 +416,6 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
   @override
   Widget build(BuildContext context) {
     assert(
-      widget.density != DToggleDensity.compactInset || widget.items.length == 2,
-      'Compact inset groups require exactly two choices.',
-    );
-    assert(
       widget.items.map((item) => item.value).toSet().length ==
           widget.items.length,
       'DToggleGroup item values must be unique.',
@@ -439,23 +431,18 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
             widget.items.length == 2 &&
             widget.items.every((item) => !item._iconOnly) &&
             widget.density == DToggleDensity.standard);
-    final compactInset = widget.density == DToggleDensity.compactInset;
     final viewSwitch =
         widget.inset &&
         widget.size == DToggleSize.segment &&
         widget.density == DToggleDensity.standard;
-    final gap = compactInset
-        ? 2.0
-        : widget.inset
-        ? 2.0
-        : widget.spacing * 4;
+    final gap = widget.inset ? 2.0 : widget.spacing * 4;
     final connected = gap == 0 && !widget.wrap;
     final children = <Widget>[];
     for (var index = 0; index < widget.items.length; index++) {
       final item = widget.items[index];
       final variant =
           (widget.inset &&
-              (widget.density == DToggleDensity.standard || compactInset) &&
+              widget.density == DToggleDensity.standard &&
               widget.variant == DToggleVariant.standard
           ? DToggleVariant.segmented
           : widget.variant);
@@ -484,13 +471,7 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
           : baseStyle?.borderEdges ?? DToggleBorderEdges.all;
       final style = DToggleVisualStyle(
         borderRadius: widget.inset
-            ? BorderRadius.circular(
-                viewSwitch
-                    ? DRadius.pill
-                    : compactInset
-                    ? 7
-                    : 8,
-              )
+            ? BorderRadius.circular(viewSwitch ? DRadius.pill : 8)
             : joinedRadius ?? baseStyle?.borderRadius,
         borderEdges: edges,
         expandArtwork: equalWidth,
@@ -629,12 +610,9 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
                 ? tokens.border
                 : Color.lerp(tokens.background, tokens.foreground, .12)!,
           ),
-          borderRadius: BorderRadius.circular(compactInset ? 9 : 10),
+          borderRadius: BorderRadius.circular(10),
         );
         group = DecoratedBox(
-          key: compactInset
-              ? const ValueKey('toggle-group-compact-frame')
-              : null,
           decoration: decoration,
           child: Padding(padding: const EdgeInsets.all(3), child: group),
         );

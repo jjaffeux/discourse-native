@@ -313,32 +313,18 @@ void main() {
     },
   );
 
-  test('unavailable and anonymous homepages follow top-menu visibility', () {
+  test('unavailable and anonymous AI pages fall back to Latest', () {
     const plugin = AiConversationsPlugin();
     for (final user in [null, const DiscourseUser(username: 'reader')]) {
       expect(
-        (plugin.homepage(_config, user) ??
-                ContentRoute.homepage(_config, connected: user != null))
-            .id,
-        'top-yearly',
+        (plugin.homepage(_config, user) ?? ContentRoute.homepage()).id,
+        'latest',
       );
     }
     final disabled = _config.withPlugins(PluginData.none);
     expect(
-      (plugin.homepage(disabled, _user) ??
-              ContentRoute.homepage(disabled, connected: true))
-          .id,
-      'top-yearly',
-    );
-    expect(
-      ContentRoute.homepage(
-        const SiteConfig(
-          defaultHomepage: 'ai-conversations',
-          topMenu: ['new', 'categories', 'latest'],
-        ),
-        connected: false,
-      ).id,
-      'all-categories',
+      (plugin.homepage(disabled, _user) ?? ContentRoute.homepage()).id,
+      'latest',
     );
   });
 
@@ -666,11 +652,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('No AI conversations yet.'), findsOneWidget);
     await tester.tap(find.text('Browse forum'));
-    expect(setup.navigation.currentContent?.id, 'top-yearly');
-    expect(
-      setup.navigation.currentContent?.feedPath,
-      '/top.json?period=yearly',
-    );
+    expect(setup.navigation.currentContent?.id, 'latest');
+    expect(setup.navigation.currentContent?.feedPath, null);
   });
 
   testWidgets('unavailable API displays the account fallback and hides rows', (
@@ -704,9 +687,9 @@ void main() {
   });
 
   testWidgets(
-    'startup, PM return, Voice return and homepage selection use AI',
+    'Latest startup and explicit AI navigation retain PM and Voice return',
     (tester) async {
-      final setup = await _shell();
+      final setup = await _shell(openConversations: false);
       addTearDown(setup.shell.dispose);
       await tester.pumpWidget(
         ShellScope(
@@ -720,8 +703,16 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(setup.shell.currentContent?.id, 'ai-conversations');
-      expect(setup.api.feedPaths, isNot(contains('/latest.json')));
+      expect(setup.shell.currentContent?.id, 'latest');
+      setup.shell.pushContent(
+        const ContentRoute(
+          destination: ExtensionDestination('ai-conversations'),
+          title: 'AI conversations',
+          icon: DIcons.comments,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(setup.api.feedPaths, contains('/latest.json'));
       expect(find.text('Conversation 42'), findsOneWidget);
       await tester.tap(find.text('Conversation 42'));
       await tester.pumpAndSettle();
@@ -746,22 +737,23 @@ void main() {
         setup.shell.currentInstance!.defaultDestination,
       );
       await tester.pumpAndSettle();
-      expect(setup.shell.currentContent?.id, 'ai-conversations');
+      expect(setup.shell.currentContent?.id, 'latest');
       expect(setup.shell.openCorePageUrl('$_site/latest'), isTrue);
       expect(setup.shell.openCorePageUrl('$_site/'), isTrue);
-      expect(setup.shell.currentContent?.id, 'ai-conversations');
+      expect(setup.shell.currentContent?.id, 'latest');
       expect(tester.takeException(), isNull);
     },
   );
 
-  test('fresh account eligibility replaces old startup snapshots', () async {
+  test('Latest startup avoids resolving a private AI homepage', () async {
     final setup = await _shell(
+      openConversations: false,
       storedUser: const DiscourseUser(id: 7, username: 'reader'),
     );
     addTearDown(setup.shell.dispose);
     await Future<void>.delayed(const Duration(milliseconds: 20));
-    expect(setup.shell.currentContent?.id, 'ai-conversations');
-    expect(setup.api.feedPaths, isNot(contains('/latest.json')));
+    expect(setup.shell.currentContent?.id, 'latest');
+    expect(setup.api.feedPaths, contains('/latest.json'));
   });
 
   test('explicit navigation survives a late homepage response', () async {
@@ -776,7 +768,7 @@ void main() {
 
   for (final mobile in [false, true]) {
     test(
-      'Voice navigation preserves the AI homepage with mobile=$mobile',
+      'Voice navigation preserves an explicitly opened AI list with mobile=$mobile',
       () async {
         final setup = await _shell(mobile: mobile, voice: true);
         addTearDown(setup.shell.dispose);
@@ -785,6 +777,14 @@ void main() {
           setup.shell.selectMobileDestination(
             MobileTab.topics,
             setup.shell.currentInstance!.defaultDestination,
+          );
+          expect(setup.shell.currentContent?.id, 'latest');
+          setup.shell.pushContent(
+            const ContentRoute(
+              destination: ExtensionDestination('ai-conversations'),
+              title: 'AI conversations',
+              icon: DIcons.comments,
+            ),
           );
         }
         expect(setup.shell.currentContent?.id, 'ai-conversations');
@@ -881,12 +881,12 @@ void main() {
     expect(transport.reads.map((read) => read.path), [_path, _path, _path]);
   });
 
-  test('cold plugin-pane return resolves the configured homepage', () async {
-    final setup = await _shell();
+  test('cold plugin-pane return resolves to Latest', () async {
+    final setup = await _shell(openConversations: false);
     addTearDown(setup.shell.dispose);
     await Future<void>.delayed(const Duration(milliseconds: 20));
     setup.shell.deactivatePluginPane(const PluginId('voice'));
-    expect(setup.shell.currentContent?.id, 'ai-conversations');
+    expect(setup.shell.currentContent?.id, 'latest');
   });
 }
 
@@ -953,6 +953,7 @@ class _Navigation
 }
 
 Future<({ShellController shell, FakeDiscourseApi api})> _shell({
+  bool openConversations = true,
   DiscourseUser? storedUser,
   Completer<void>? configGate,
   bool mobile = false,
@@ -1015,6 +1016,15 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
     ownsApi: false,
   );
   await shell.load();
+  if (openConversations) {
+    shell.pushContent(
+      const ContentRoute(
+        destination: ExtensionDestination('ai-conversations'),
+        title: 'AI conversations',
+        icon: DIcons.comments,
+      ),
+    );
+  }
   return (shell: shell, api: api);
 }
 

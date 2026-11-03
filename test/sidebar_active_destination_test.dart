@@ -140,7 +140,7 @@ void main() {
 
         // Focus a tab in the secondary panel; the sidebar navigates it.
         shell.openContentInNewTab(
-          ContentRoute.newTab(),
+          ContentRoute.topicList(TopicListMode.latest),
           panel: ForumPanel.secondary,
           select: true,
         );

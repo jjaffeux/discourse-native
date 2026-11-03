@@ -143,7 +143,6 @@ final class ContentPageContract {
           allowsTopicCreation: false,
         ),
         PageDestination(:final page) => switch (page) {
-          CorePage.start => const ContentPageContract._(),
           CorePage.search => const ContentPageContract._(
             header: _ShellHeader.none,
             showSearchWords: false,

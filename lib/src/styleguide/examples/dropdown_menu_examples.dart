@@ -134,14 +134,14 @@ final dropdownMenuExamples = ComponentExamples(
       description:
           'The popup can use a 12px radius while menu rows retain their Native interaction and focus styling.',
       code:
-          "DDropdownMenu(content: DDropdownMenuContent(cornerRadius: 12, children: [DDropdownMenuItem(onPressed: action, child: Text('Start page'))]), child: DDropdownMenuTrigger.button(label: Text('Browse tabs')))",
+          "DDropdownMenu(content: DDropdownMenuContent(cornerRadius: 12, children: [DDropdownMenuItem(onPressed: action, child: Text('Latest topics'))]), child: DDropdownMenuTrigger.button(label: Text('Browse tabs')))",
       builder: (_) => DDropdownMenu(
         content: DDropdownMenuContent(
           cornerRadius: 12,
           children: [
             DDropdownMenuItem(
               onPressed: () {},
-              child: const Text('Start page'),
+              child: const Text('Latest topics'),
             ),
           ],
         ),

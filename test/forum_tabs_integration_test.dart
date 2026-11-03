@@ -30,6 +30,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart' show primaryMainContent;
 
 const _compact = Size(390, 844);
 const _medium = Size(1000, 800);
@@ -52,7 +53,10 @@ void main() {
       expect(controller.activeTabId, originalId);
       expect(controller.activeTab?.panel, ForumPanel.main);
       expect(
-        controller.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+        controller
+            .selectedTabIn(ForumPanel.secondary)
+            ?.currentContent
+            .isTopicList,
         isTrue,
       );
       expect(controller.currentContent?.topicId, 42);
@@ -136,7 +140,10 @@ void main() {
       controller.selectTab(original.id);
       await tester.pumpAndSettle();
       await tester.tap(
-        find.text('#flutter'),
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.text('#flutter'),
+        ),
         kind: PointerDeviceKind.mouse,
         buttons: kMiddleMouseButton,
       );
@@ -354,7 +361,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
-      expect(controller.currentContent!.isNewTab, isTrue);
+      expect(controller.currentContent!.isTopicList, isTrue);
       expect(binding.exitRequests, isEmpty);
     });
   });
@@ -399,7 +406,7 @@ void main() {
         expect(controller.tabsForCurrentForum, hasLength(3));
         expect(_bar(tester).selectedId, openedTabId);
 
-        // Start pages are intentionally excluded from recently closed tabs.
+        // Use a directory to distinguish this tab from its initial Latest list.
         controller.pushContent(
           const ContentRoute(
             destination: PageDestination(CorePage.categories),
@@ -468,12 +475,12 @@ void main() {
 
         expect(binding.exitRequests, isEmpty);
         expect(controller.currentWorkspace!.tabById(originalTabId), isNull);
-        expect(controller.currentContent!.isNewTab, isTrue);
+        expect(controller.currentContent!.isTopicList, isTrue);
         expect(
           controller
               .selectedTabIn(ForumPanel.secondary)!
               .currentContent
-              .isNewTab,
+              .isTopicList,
           isTrue,
         );
       }),
@@ -587,7 +594,7 @@ void main() {
           if (tabCount == 1) {
             expect(binding.exitRequests, isEmpty);
             expect(controller.currentWorkspace!.tabById(activeTabId), isNull);
-            expect(controller.currentContent!.isNewTab, isTrue);
+            expect(controller.currentContent!.isTopicList, isTrue);
             expect(controller.tabsForCurrentForum, hasLength(2));
           } else {
             expect(binding.exitRequests, isEmpty);
@@ -683,7 +690,7 @@ void main() {
 
       expect(find.byType(ForumTabsBar), findsNWidgets(2));
       expect(_bar(tester).forumName, 'One');
-      expect(_bar(tester).items.single.title, 'Latest');
+      expect(_bar(tester).items.single.title, 'Latest topics');
       expect(_bar(tester).selectedId, originalId);
 
       controller.openContentInNewTab(
@@ -710,7 +717,7 @@ void main() {
       expect(newId, isNot(originalId));
       expect(_bar(tester).items, hasLength(4));
       expect(_bar(tester).selectedId, newId);
-      expect(controller.currentContent?.isNewTab, isTrue);
+      expect(controller.currentContent?.isTopicList, isTrue);
 
       const color = Color(0xFF0088CC);
       controller.pushContent(
@@ -881,7 +888,13 @@ void main() {
       ));
 
       expect(controller.activeTabId, firstTabId);
-      expect(find.byKey(originalViewportKey), findsOneWidget);
+      expect(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byKey(originalViewportKey),
+        ),
+        findsOneWidget,
+      );
       expect(slowFeedStarted.isCompleted, isFalse);
 
       final savesBeforeRapidSwitch = tabStore.saveCount;
@@ -901,7 +914,13 @@ void main() {
           find.byKey(const ValueKey('forum-tab-item-tab-slow')),
           findsOneWidget,
         );
-        expect(find.byKey(originalViewportKey), findsNothing);
+        expect(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(originalViewportKey),
+          ),
+          findsNothing,
+        );
         expect(find.byKey(slowViewportKey), findsOneWidget);
         expect(find.byType(TopicListLoadingSkeleton), findsOneWidget);
         expect(find.text('Not found'), findsNothing);
@@ -930,7 +949,13 @@ void main() {
         find.byKey(const ValueKey('forum-tab-item-tab-slow')),
         findsOneWidget,
       );
-      expect(find.byKey(originalViewportKey), findsNothing);
+      expect(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byKey(originalViewportKey),
+        ),
+        findsNothing,
+      );
       expect(find.byKey(slowViewportKey), findsOneWidget);
       expect(find.byType(TopicListLoadingSkeleton), findsOneWidget);
       expect(find.text('Not found'), findsNothing);
@@ -994,7 +1019,7 @@ void main() {
             find.byKey(const ValueKey('forum-tabs-add')),
             findsNWidgets(panelCount),
           );
-          expect(_bar(tester).items.single.title, 'Latest');
+          expect(_bar(tester).items.single.title, 'Latest topics');
           for (final header in find.byType(TopicPanelTabs).evaluate()) {
             final headerFinder = find.byWidget(header.widget);
             final headerRect = tester.getRect(headerFinder);

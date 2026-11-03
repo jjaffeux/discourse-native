@@ -25,9 +25,7 @@ void main() {
       addTearDown(search.dispose);
       search.setPageWords(site, 'main', 'first', 'kept first');
       search.setPageWords(site, 'main', 'second', 'kept second');
-      search.setStartPageQuery(site, 'main', 'kept start');
       search.setPageWords(otherSite, 'main', 'first', 'retired words');
-      search.setStartPageQuery(otherSite, 'main', 'retired start');
       search.setPageWords(site, 'retired', 'first', 'retired tab');
       search.setPageWords(site, null, 'unscoped', 'unscoped words');
       var notifications = 0;
@@ -37,38 +35,11 @@ void main() {
         search.retainTabs({(siteUrl: site, tabId: 'main')});
         expect(search.wordsFor(site, 'main', 'first'), 'kept first');
         expect(search.wordsFor(site, 'main', 'second'), 'kept second');
-        expect(search.startPageQueryFor(site, 'main'), 'kept start');
         expect(search.wordsFor(otherSite, 'main', 'first'), isEmpty);
-        expect(search.startPageQueryFor(otherSite, 'main'), isEmpty);
         expect(search.wordsFor(site, 'retired', 'first'), isEmpty);
         expect(search.wordsFor(site, null, 'unscoped'), 'unscoped words');
         expect(notifications, 0);
       }
-    },
-  );
-
-  test(
-    'Start queries stay isolated by forum and tab and clear on account removal',
-    () {
-      final search = _search(
-        api: _SearchApi(),
-        credentials: FakeApiCredentialReader(),
-        lifecycle: SiteLifecycle(),
-      )..selectSite(site);
-      addTearDown(search.dispose);
-      search.setStartPageQuery(site, 'main', 'garden');
-      search.setStartPageQuery(site, 'secondary', 'design');
-      search.setStartPageQuery('https://other.example', 'main', 'community');
-      expect(search.startPageQueryFor(site, 'main'), 'garden');
-      expect(search.startPageQueryFor(site, 'secondary'), 'design');
-      search.forget(site);
-      expect(search.startPageQueryFor(site, 'main'), isEmpty);
-      expect(search.startPageQueryFor(site, 'secondary'), isEmpty);
-      expect(
-        search.startPageQueryFor('https://other.example', 'main'),
-        'community',
-      );
-      expect(search.panelOpen, isFalse);
     },
   );
 

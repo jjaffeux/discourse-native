@@ -1742,16 +1742,6 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> recentTopicsFor(String siteUrl) =>
       recentDestinations.topicsFor(siteUrl, _recentAccountIdentity(siteUrl));
 
-  /// Reads the shared Latest feed without starting a request. Start previews
-  /// use only data already loaded by the forum's topic list.
-  List<Topic> cachedLatestTopicsFor(String siteUrl) {
-    final feed = topicFeeds.feedFor(siteUrl, TopicListMode.latest.routeId);
-    if (feed?.loaded != true) return const [];
-    return List.unmodifiable([
-      for (final id in feed!.topicIds) ?store.read<Topic>(siteUrl, id),
-    ]);
-  }
-
   void _rememberCurrentContent() {
     if (!loaded) return;
     final siteUrl = currentInstance?.url;
@@ -1977,14 +1967,6 @@ class ShellController extends FrameSafeNotifier
       ? 'anonymous'
       : 'user:${instance.user!.username.toLowerCase()}';
 
-  ContentRoute? _registeredHomepageFor(DiscourseInstance instance) {
-    final config = _presentation.accountConfigFor(instance.url);
-    if (config == null) return null;
-    return plugins.registry
-        .homepage(config.defaultHomepage)
-        ?.homepage(config, instance.user);
-  }
-
   bool _isRegisteredHomepage(DiscourseInstance instance, ContentRoute route) {
     final config = _presentation.accountConfigFor(instance.url);
     return config != null &&
@@ -1996,13 +1978,6 @@ class ShellController extends FrameSafeNotifier
               true,
         );
   }
-
-  ContentRoute _homepageFor(DiscourseInstance instance) =>
-      _registeredHomepageFor(instance) ??
-      ContentRoute.homepage(
-        siteConfigFor(instance.url),
-        connected: instance.isConnected,
-      );
 
   Future<void>? _loadTask;
 
@@ -2091,7 +2066,7 @@ class ShellController extends FrameSafeNotifier
     );
     _instanceIndex = selectedIndex < 0 ? 0 : selectedIndex;
     final workspacesNormalized = _workspace.restore(workspaces);
-    // Only forums on the rail keep Start page visits: a removal may have ended
+    // Only forums on the rail keep Recent visits: a removal may have ended
     // before its visits were saved away, and older builds kept them. An empty
     // rail may be a list that could not be decoded, so it must not erase every
     // forum's visits.
@@ -2100,7 +2075,7 @@ class ShellController extends FrameSafeNotifier
         recentDestinations.retainSites({
           for (final instance in stored) instance.url,
         });
-    // Existing installations have tab history but no separate Start page
+    // Existing installations have tab history but no separate recent-destination
     // visits yet. Seed it once so those visits appear after the upgrade.
     for (final workspace in _workspace.values) {
       if (recentDestinations.hasVisits(
@@ -2302,7 +2277,7 @@ class ShellController extends FrameSafeNotifier
                 .catchError((Object error, StackTrace stack) {}),
           );
         }
-        // Start page visits name private messages and direct chats, and stored
+        // Recent visits name private messages and direct chats, and stored
         // preferences name the forum, its usernames and what was used there, so
         // both leave with the forum for every account. Only a durable removal
         // drops them: a rollback restores the forum with them, and a re-add that
@@ -4834,6 +4809,7 @@ class ShellController extends FrameSafeNotifier
       _taxonomy.knownTopicTag(siteUrl, topicTag)?.pmOnly == true;
 
   void openSearchResult(SearchPostHit hit, {String words = ''}) {
+    focusPrimarySearchPane();
     if (currentContent?.isGlobalSearch != true) search.clear();
     if (currentContent?.topicId == hit.topicId) {
       search.setPageWords(
@@ -4874,6 +4850,7 @@ class ShellController extends FrameSafeNotifier
     List<GlobalSearchCondition> conditions, {
     bool clearFilters = false,
   }) {
+    focusPrimarySearchPane();
     final site = currentInstance?.url;
     if (site == null) return;
     final source = currentContent;
@@ -5212,7 +5189,7 @@ class ShellController extends FrameSafeNotifier
     final instance = target.instance;
     final decoded = target.decode(
       config: siteConfigFor(instance.url),
-      homepage: target.isHomepage ? _homepageFor(instance) : null,
+      homepage: target.isHomepage ? ContentRoute.homepage() : null,
       title: title,
       specializedTitle: specializedTitle,
     );
@@ -8783,13 +8760,6 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(instance.url);
     await _presentation.ensureConfig(instance.url);
     if (!lease.isCurrent) return;
-    if (instance.isConnected &&
-        plugins.registry.homepage(
-              siteConfigFor(instance.url).defaultHomepage,
-            ) !=
-            null) {
-      await _refreshSessionUserFor(instance);
-    }
     if (isDisposed ||
         !lease.isCurrent ||
         currentInstance?.url != instance.url ||
@@ -8802,7 +8772,7 @@ class ShellController extends FrameSafeNotifier
       instance.url,
       initialTab.navigate(
         rootDestinationId: initialTab.rootDestinationId,
-        contentStack: [_homepageFor(_instanceAt(instance.url) ?? instance)],
+        contentStack: [ContentRoute.homepage()],
       ),
     );
     _refreshMobileVisit(instance.url, initialTab.id);
@@ -8915,7 +8885,7 @@ class ShellController extends FrameSafeNotifier
     final workspace = _workspace.ensure(instance);
     final tab = workspace.activeTab;
     final content = destination.id == 'latest'
-        ? _homepageFor(instance)
+        ? ContentRoute.homepage()
         : destination.id == 'groups'
         ? ContentRoute.group(const GroupRoute.directory())
         : destination.id == 'badges'
@@ -9546,6 +9516,48 @@ class ShellController extends FrameSafeNotifier
     }
     _persistMobileNavigation();
     _notify();
+  }
+
+  /// Returns to the primary home tab. True means it was already at Latest.
+  bool openDesktopHome() {
+    final instance = currentInstance;
+    final workspace = currentWorkspace;
+    if (instance == null || workspace == null) return false;
+    final home = workspace.homeTab;
+    if (home == null) return false;
+    final route = ContentRoute.topicList(TopicListMode.latest);
+    final alreadyHome =
+        activeTabId == home.id &&
+        home.contentStack.length == 1 &&
+        route.sameDestinationAs(home.currentContent) &&
+        rootMode == ShellRootMode.forum;
+    if (alreadyHome) return true;
+    _workspace.consumeHomepage(home.id);
+    _workspace.put(
+      workspace.copyWith(
+        tabs: [
+          for (final tab in workspace.tabs)
+            if (tab.id == home.id)
+              tab.navigate(rootDestinationId: 'latest', contentStack: [route])
+            else
+              tab,
+        ],
+        activeTabId: home.id,
+      ),
+    );
+    _rootMode = ShellRootMode.forum;
+    _mobilePane = MobilePane.content;
+    _syncTopicChannels();
+    _notify();
+    _hydrateActiveTab(instance);
+    return false;
+  }
+
+  /// Selects the primary pane for destinations chosen from global search.
+  void focusPrimarySearchPane() {
+    if (!desktopPanelsEnabled) return;
+    final tab = selectedTabIn(ForumPanel.main);
+    if (tab != null) selectTab(tab.id);
   }
 
   /// Opens unfiltered Latest from the forum mark, regardless of homepage settings.

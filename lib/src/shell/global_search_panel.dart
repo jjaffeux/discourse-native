@@ -319,7 +319,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               color: DTokens.of(context).mutedForeground,
             ),
             Text(
-              context.l10n.startPageFilters,
+              context.l10n.filters,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,

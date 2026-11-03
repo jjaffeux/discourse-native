@@ -1,3 +1,5 @@
+> Superseded for startup and Start navigation by [Latest default parity](latest-default-mockup-parity.md). Explicit feature pages remain available.
+
 # Start page parity
 
 ## Current launcher layout

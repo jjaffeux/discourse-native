@@ -20,6 +20,7 @@ import 'account_menu_scope.dart';
 import 'bookmark_ui.dart';
 import 'composer/panel.dart';
 import 'composer/presentation.dart';
+import 'content_navigation_controls.dart';
 import 'desktop_navigation.dart';
 import 'desktop_panels.dart';
 
@@ -1071,72 +1072,75 @@ class _WideShellState extends State<_WideShell> {
                                 const _ShellLoadFailure(),
                               InstanceLoadStatus.ready
                                   when state.hasInstances =>
-                                DesktopNavigation(
-                                  compact: !sidebarExpanded,
-                                  showTrigger: sidebarChoice == null,
-                                  header: chromeSized(
-                                    child: OverflowBox(
-                                      alignment: AlignmentDirectional.centerEnd,
-                                      minWidth: sidebarExpanded
-                                          ? null
-                                          : constraints.maxWidth,
-                                      maxWidth: sidebarExpanded
-                                          ? null
-                                          : constraints.maxWidth,
-                                      child: ShellTitleBar(
-                                        panelsLayout: widget.panelsLayout,
-                                        leadingInset: sidebarExpanded
-                                            ? 12
-                                            : null,
+                                DesktopHomeHeaderHost(
+                                  child: DesktopNavigation(
+                                    compact: !sidebarExpanded,
+                                    showTrigger: sidebarChoice == null,
+                                    header: chromeSized(
+                                      child: OverflowBox(
+                                        alignment:
+                                            AlignmentDirectional.centerEnd,
+                                        minWidth: sidebarExpanded
+                                            ? null
+                                            : constraints.maxWidth,
+                                        maxWidth: sidebarExpanded
+                                            ? null
+                                            : constraints.maxWidth,
+                                        child: ShellTitleBar(
+                                          panelsLayout: widget.panelsLayout,
+                                          leadingInset: sidebarExpanded
+                                              ? 12
+                                              : null,
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  sidebar: Padding(
-                                    padding: EdgeInsets.only(
-                                      bottom: profileExtent,
-                                    ),
-                                    child: ResizablePane(
-                                      controller: widget.sidebarWidth,
-                                      edge: ResizablePaneEdge.trailing,
-                                      resizeKey: 'sidebar',
-                                      semanticsLabel:
-                                          context.l10n.resizeSidebar,
-                                      maximumWidth: windowMaximum,
-                                      dividerWidth: 1,
-                                      gap: context.isTouch
-                                          ? 0
-                                          : workspacePanelGap,
-                                      child: DCard(
-                                        border: false,
-                                        spacing: 0,
-                                        backgroundColor: Colors.transparent,
-                                        child: Expanded(
-                                          child: InstanceSidebar(
-                                            communityHeaderLeadingInset:
-                                                sidebarHeaderInset,
+                                    sidebar: Padding(
+                                      padding: EdgeInsets.only(
+                                        bottom: profileExtent,
+                                      ),
+                                      child: ResizablePane(
+                                        controller: widget.sidebarWidth,
+                                        edge: ResizablePaneEdge.trailing,
+                                        resizeKey: 'sidebar',
+                                        semanticsLabel:
+                                            context.l10n.resizeSidebar,
+                                        maximumWidth: windowMaximum,
+                                        dividerWidth: 1,
+                                        gap: context.isTouch
+                                            ? 0
+                                            : workspacePanelGap,
+                                        child: DCard(
+                                          border: false,
+                                          spacing: 0,
+                                          backgroundColor: Colors.transparent,
+                                          child: Expanded(
+                                            child: InstanceSidebar(
+                                              communityHeaderLeadingInset:
+                                                  sidebarHeaderInset,
+                                            ),
                                           ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  child: ShellWorkspace(
-                                    atWindowEdge: widget.atWindowEdge,
-                                    child: _PageComposerDock(
-                                      child:
-                                          !context.isTouch &&
-                                              ShellScope.read(
-                                                context,
-                                              ).forumTabsEnabled
-                                          ? _desktopPanels
-                                          : MainContent(
-                                              key:
-                                                  ComposerPresentationHost.contentKeyOf(
-                                                    context,
-                                                  ),
-                                              layout: context.isTouch
-                                                  ? widget.layout
-                                                  : ShellLayout.expanded,
-                                            ),
+                                    child: ShellWorkspace(
+                                      atWindowEdge: widget.atWindowEdge,
+                                      child: _PageComposerDock(
+                                        child:
+                                            !context.isTouch &&
+                                                ShellScope.read(
+                                                  context,
+                                                ).forumTabsEnabled
+                                            ? _desktopPanels
+                                            : MainContent(
+                                                key:
+                                                    ComposerPresentationHost.contentKeyOf(
+                                                      context,
+                                                    ),
+                                                layout: context.isTouch
+                                                    ? widget.layout
+                                                    : ShellLayout.expanded,
+                                              ),
+                                      ),
                                     ),
                                   ),
                                 ),

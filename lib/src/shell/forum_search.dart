@@ -605,6 +605,7 @@ class _ForumSearchState extends State<ForumSearch> {
         resolveSiteRootPath(site, result.path),
         title: result.title,
         siteUrl: site,
+        panel: shell.desktopPanelsEnabled ? ForumPanel.main : null,
         onNavigated: () {
           final opened = shell.focusedTabContext;
           final tab = opened.tab;
@@ -694,6 +695,7 @@ class _ForumSearchState extends State<ForumSearch> {
             title: section.scope.label,
             icon: DIcons.magnifyingGlass,
           );
+    shell.focusPrimarySearchPane();
     shell.pushContent(route);
     shell.search.setPageWords(site, shell.activeTabId, route.id, words);
     if (route.isMessages) unawaited(shell.loadFeed(route.id));

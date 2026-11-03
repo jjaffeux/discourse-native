@@ -15,7 +15,6 @@ import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
-import 'd_avatar.dart';
 import 'd_fit_row.dart';
 import 'd_kbd.dart';
 import 'd_link_interaction.dart';
@@ -34,9 +33,6 @@ enum DButtonVariant {
   /// tight width constraint when the whole row should activate the action.
   dashedTile,
 
-  /// Square, transparent destination with an accent icon above its label.
-  /// The kit owns its artwork, scaling, interaction fill and exact hit bounds.
-  launcher,
   secondary,
 
   /// Flat, borderless page picker. Always uses a pill with medium text.
@@ -413,10 +409,6 @@ class DButton extends StatelessWidget {
         : height * 20 / DControlStyle.regularHeight;
   }
 
-  /// Minimum square cell for launcher grids, growing with the label's text.
-  static double launcherMinimumExtent(BuildContext context) =>
-      112 + (MediaQuery.textScalerOf(context).scale(13) - 13) * 3;
-
   DButtonVariantStyle _referenceStyle(DTokens tokens, bool dark) {
     final buttons = tokens.buttonTheme;
     final subduedForeground = buttons.accent.foreground;
@@ -465,17 +457,6 @@ class DButton extends StatelessWidget {
       ),
     );
     return switch (variant) {
-      DButtonVariant.launcher => DButtonVariantStyle(
-        enabled: state(Colors.transparent, tokens.foreground),
-        interactive: state(
-          tokens.quietControlSurface().background,
-          tokens.foreground,
-        ),
-        focused: state(
-          tokens.quietControlSurface().background,
-          tokens.foreground,
-        ),
-      ),
       DButtonVariant.recessed => pair(
         Colors.black.withValues(alpha: dark ? .16 : .045),
         (dark ? Colors.white : Colors.black).withValues(
@@ -609,7 +590,6 @@ class DButton extends StatelessWidget {
     final rail = density == DButtonDensity.rail;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final resume = variant == DButtonVariant.resume;
-    final launcher = variant == DButtonVariant.launcher;
     final intrinsicIcon =
         _iconOnly &&
         (size == DControlSize.chip || size == DControlSize.chrome) &&
@@ -634,8 +614,6 @@ class DButton extends StatelessWidget {
         ? DPostReactionStyle.fontSize
         : header || menuAction
         ? 12.5
-        : launcher
-        ? 13.0
         : chrome && !_iconOnly
         ? 12.5
         : inlineMetadata
@@ -706,8 +684,6 @@ class DButton extends StatelessWidget {
                   1.5
         : menuAction
         ? MediaQuery.textScalerOf(context).scale(fontSize) * 1.5 + 8
-        : launcher
-        ? launcherMinimumExtent(context)
         : resume
         ? resumeHeight(context)
         : chrome
@@ -747,7 +723,7 @@ class DButton extends StatelessWidget {
     final baseRadius =
         borderRadius ??
         BorderRadius.circular(
-          resume || launcher
+          resume
               ? 16
               : postAction
               ? 8
@@ -1035,7 +1011,7 @@ class DButton extends StatelessWidget {
             ? (_iconOnly
                   ? EdgeInsets.zero
                   : const EdgeInsets.symmetric(horizontal: 10))
-            : resume || launcher
+            : resume
             ? const EdgeInsets.all(8)
             : avatar
             ? const EdgeInsets.all(2)
@@ -1109,7 +1085,7 @@ class DButton extends StatelessWidget {
               ? FontWeight.w600
               : mobileDock || backLink || quiet
               ? FontWeight.w500
-              : variant == DButtonVariant.primary || dashedTile || launcher
+              : variant == DButtonVariant.primary || dashedTile
               ? FontWeight.w600
               : FontWeight.w400,
           letterSpacing: 0,
@@ -1224,44 +1200,7 @@ class DButton extends StatelessWidget {
             ),
           )
         : icon;
-    Widget child = launcher && !_iconOnly
-        ? ExcludeSemantics(
-            excluding: semanticLabel != null,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  DAvatar(
-                    dimension: 52,
-                    decorative: true,
-                    border: false,
-                    borderRadius: BorderRadius.circular(16),
-                    child: ColoredBox(
-                      color: Color.alphaBlend(
-                        tokens.primary.withValues(alpha: .2),
-                        tokens.background,
-                      ),
-                      child: Center(
-                        child: IconTheme.merge(
-                          data: IconThemeData(size: 24, color: tokens.primary),
-                          child: DIconGlyphTheme(scale: 1, child: icon!),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-                DefaultTextStyle.merge(
-                  maxLines: 1,
-                  softWrap: false,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  child: label,
-                ),
-              ],
-            ),
-          )
-        : resume && !_iconOnly
+    Widget child = resume && !_iconOnly
         ? ExcludeSemantics(
             excluding: semanticLabel != null,
             child: _ResumeContent(
@@ -1424,18 +1363,6 @@ class DButton extends StatelessWidget {
       result = Transform.translate(
         offset: Offset(direction == TextDirection.ltr ? -2 : 2, 0),
         child: result,
-      );
-    }
-
-    if (launcher) {
-      final button = result;
-      result = LayoutBuilder(
-        builder: (context, constraints) {
-          final extent = constraints.hasBoundedWidth
-              ? constraints.maxWidth
-              : launcherMinimumExtent(context);
-          return SizedBox.square(dimension: extent, child: button);
-        },
       );
     }
 

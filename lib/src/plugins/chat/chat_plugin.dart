@@ -57,7 +57,7 @@ class ChatPlugin
         CookingPlugin,
         IconCatalogPlugin,
         SidebarPlugin,
-        StartPagePlugin,
+        MobileNavigationPlugin,
         HomepagePlugin,
         SidebarPanelPlugin,
         SidebarPanelListenablePlugin,
@@ -551,11 +551,11 @@ class ChatPlugin
       PluginUiScope.require(context, chatControllerService);
 
   @override
-  Listenable startPageListenable(BuildContext context) =>
+  Listenable mobileNavigationListenable(BuildContext context) =>
       PluginUiScope.require(context, chatControllerService);
 
   @override
-  List<StartPageSection> startPageSections(BuildContext context) {
+  List<SidebarDestination> mobileNavigationDestinations(BuildContext context) {
     final shell = PluginUiScope.require(context, chatShellService);
     final site = shell.currentSiteUrl;
     if (site == null || !shell.chatAvailable(site)) return const [];
@@ -563,22 +563,18 @@ class ChatPlugin
     final settings = chat.siteConfigFor(site).chatSettings;
     return [
       if (shell.isConnected(site) && settings.publicChannelsEnabled)
-        StartPageSection(
-          destination: SidebarDestination(
-            id: browseRouteId,
-            label: context.l10n.channels,
-            icon: DIcons.hashtag,
-            onTap: shell.openBrowseChannels,
-          ),
+        SidebarDestination(
+          id: browseRouteId,
+          label: context.l10n.channels,
+          icon: DIcons.hashtag,
+          onTap: shell.openBrowseChannels,
         ),
       if (shell.isConnected(site) && settings.threadsEnabled)
-        StartPageSection(
-          destination: SidebarDestination(
-            id: myThreadsRouteId,
-            label: context.l10n.threads,
-            icon: DIcons.comments,
-            onTap: shell.openMyThreads,
-          ),
+        SidebarDestination(
+          id: myThreadsRouteId,
+          label: context.l10n.threads,
+          icon: DIcons.comments,
+          onTap: shell.openMyThreads,
         ),
     ];
   }

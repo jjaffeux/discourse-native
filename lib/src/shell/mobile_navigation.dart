@@ -16,7 +16,7 @@ final class MobileTab {
 
   /// The place [name] names, null for a name no build has written.
   static MobileTab? tryParse(String name) => switch (name) {
-    'topics' => topics,
+    'topics' || 'destination/new-tab' => topics,
     'messages' => messages,
     'users' => users,
     _ when name.startsWith('panel/') && name.length > 6 => MobileTab.panel(

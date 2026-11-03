@@ -380,13 +380,15 @@ void main() {
       const tag = SidebarTag(id: 12, name: 'User experience', slug: 'ux');
       final (shell: shell, api: _) = await fixture(tester, knownTags: [tag]);
       for (var selection = 0; selection < 2; selection++) {
-        await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
-        await tester.pumpAndSettle();
         await tester.tap(
           find.descendant(
-            of: find.byType(DCommandList<String>),
-            matching: find.text(tag.name),
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('topic-list-tag-filter')),
           ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('topic-filter-suggestion-0')),
         );
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('topic-filter-done-tags')));
@@ -459,7 +461,7 @@ void main() {
       await tester.pumpAndSettle();
       final originalTab = shell.activeTabId!;
       final originalRoute = shell.currentContent;
-      shell.openContentInNewTab(ContentRoute.newTab());
+      shell.openContentInNewTab(ContentRoute.topicList(TopicListMode.latest));
       await tester.pumpAndSettle();
       final startTab = shell.activeTabId;
       await tester.tap(row('Support'));
@@ -1134,7 +1136,10 @@ void main() {
       (tester) async {
         final (shell: shell, api: _) = await fixture(tester, size: size);
         await tester.tap(
-          find.byKey(const ValueKey('topic-list-category-filter')),
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('topic-list-category-filter')),
+          ),
         );
         await tester.pumpAndSettle();
         final popup = find.byWidgetPredicate(

@@ -1,5 +1,4 @@
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
@@ -11,7 +10,6 @@ import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -44,11 +42,6 @@ SiteConfig _config({
       anonymousChatAllowed: anonymous,
     ),
   ),
-);
-
-Finder _heading(String label) => find.descendant(
-  of: find.byType(NewTabPage).first,
-  matching: find.byKey(ValueKey('start-page-section-link-$label')),
 );
 
 void main() {
@@ -198,21 +191,6 @@ void main() {
             find.byKey(const ValueKey('sidebar-panel-switch-chat')),
             chat ? findsOneWidget : findsNothing,
           );
-          shell.pushContent(ContentRoute.newTab());
-          await tester.pumpAndSettle();
-          expect(_heading('Chat'), chat ? findsOneWidget : findsNothing);
-          expect(
-            _heading('Channels'),
-            channels ? findsOneWidget : findsNothing,
-          );
-          expect(_heading('Threads'), threads ? findsOneWidget : findsNothing);
-          if (chat) {
-            await Scrollable.ensureVisible(tester.element(_heading('Chat')));
-            await tester.pumpAndSettle();
-            await tester.tap(_heading('Chat'));
-            await tester.pumpAndSettle();
-            expect(find.byType(ChatMobileSidebar), findsOneWidget);
-          }
         }
         expect(tester.takeException(), isNull);
       }, variant: TargetPlatformVariant.only(platform));

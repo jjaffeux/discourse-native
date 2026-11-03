@@ -14,7 +14,6 @@ import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -666,7 +665,7 @@ void main() {
 
     await expectSingleSurface(); // Topic list.
     shell.createTab();
-    await expectSingleSurface(); // Start page.
+    await expectSingleSurface(); // Latest list.
     _openTopicTab(shell, _topic);
     await expectSingleSurface(); // Split reader and list.
   });
@@ -839,7 +838,13 @@ void main() {
         ),
       );
 
-      expect(shell.activeTabId, targetId);
+      expect(shell.activeTabId, shell.selectedTabIn(ForumPanel.main)?.id);
+      if (panel == ForumPanel.secondary) {
+        expect(
+          shell.currentWorkspace?.tabById(targetId!)?.currentContent.topicId,
+          43,
+        );
+      }
       expect(shell.currentContent?.postNumber, 3);
       expect(shell.topicScrollPostNumber(42), 3);
       expect(shell.topicScrollPostOffset(42), 0);
@@ -874,7 +879,7 @@ void main() {
       shell.moveTabToPanel(topic.id, ForumPanel.main, index: 0);
       expect(shell.activeTab, beforeMove.copyWith(panel: ForumPanel.main));
       expect(
-        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isTopicList,
         isTrue,
       );
 
@@ -906,7 +911,7 @@ void main() {
   });
 
   test(
-    'opening content in the secondary Start page works at the tab limit',
+    'opening content in the secondary Latest list works at the tab limit',
     () {
       while (shell.canCreateTab) {
         shell.createTab(panel: ForumPanel.main);
@@ -1164,15 +1169,18 @@ void main() {
     },
   );
 
-  testWidgets('an unused panel shows a Start page and can take focus', (
+  testWidgets('an unused panel shows Latest topics and can take focus', (
     tester,
   ) async {
     final main = shell.activeTab!;
     final start = shell.selectedTabIn(ForumPanel.secondary)!;
     await _pump(tester, shell);
-    expect(start.currentContent.isNewTab, isTrue);
+    expect(start.currentContent.isTopicList, isTrue);
     expect(
-      find.descendant(of: _secondaryPanel, matching: find.byType(NewTabPage)),
+      find.descendant(
+        of: _secondaryPanel,
+        matching: find.byKey(const ValueKey('topic-card-42')),
+      ),
       findsOneWidget,
     );
     expect(shell.activeTabId, main.id);
@@ -1180,12 +1188,12 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
     await tester.pumpAndSettle();
     expect(shell.activeTabId, start.id);
-    expect(find.byType(NewTabPage), findsOneWidget);
+    expect(shell.currentContent?.id, 'latest');
     expect(shell.currentWorkspace!.tabById(main.id), main);
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Start page links navigate in their own panel', (tester) async {
+  testWidgets('Latest topic rows navigate in their own panel', (tester) async {
     final start = shell.selectedTabIn(ForumPanel.secondary)!;
     await _pump(tester, shell);
     shell.openTopicFromList(_topic);
@@ -1194,10 +1202,6 @@ void main() {
     await tester.pumpAndSettle();
     final main = shell.activeTab!;
 
-    await tester.tap(
-      find.descendant(of: _secondaryPanel, matching: find.text('Topics')),
-    );
-    await tester.pumpAndSettle();
     await tester.tap(
       find.descendant(
         of: _secondaryPanel,
@@ -1615,7 +1619,7 @@ void main() {
     );
   }
 
-  testWidgets('dragging the last tab leaves a Start page in each panel', (
+  testWidgets('dragging the last tab leaves a Latest list in each panel', (
     tester,
   ) async {
     await _pump(tester, shell);
@@ -1645,18 +1649,18 @@ void main() {
     expect(shell.activeTab?.panel, ForumPanel.secondary);
     expect(shell.activeTabId, id);
     final main = shell.selectedTabIn(ForumPanel.main)!;
-    expect(main.currentContent.title, 'Start page');
-    expect(main.currentContent.icon, DIcons.house);
+    expect(main.currentContent.title, 'Latest topics');
+    expect(main.currentContent.icon, DIcons.layerGroup);
     final startTab = find.byKey(ValueKey('forum-tab-${main.id}'));
     expect(
-      find.descendant(of: startTab, matching: find.text('Start page')),
+      find.descendant(of: startTab, matching: find.text('Latest topics')),
       findsOneWidget,
     );
     expect(
       find.descendant(
         of: startTab,
         matching: find.byWidgetPredicate(
-          (widget) => widget is DIcon && widget.icon == DIcons.house,
+          (widget) => widget is DIcon && widget.icon == DIcons.layerGroup,
         ),
       ),
       findsOneWidget,
@@ -1667,14 +1671,14 @@ void main() {
     expect(shell.activeTab?.panel, ForumPanel.main);
     expect(shell.activeTabId, id);
     expect(
-      shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+      shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isTopicList,
       isTrue,
     );
     expect(tester.takeException(), isNull);
   });
 
   testWidgets(
-    'a Start page panel previews an incoming tab and clears on drag exit',
+    'a Latest list panel previews an incoming tab and clears on drag exit',
     (tester) async {
       await _pump(tester, shell);
       final original = shell.currentWorkspace!;

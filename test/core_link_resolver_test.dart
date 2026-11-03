@@ -97,33 +97,36 @@ void main() {
     },
   );
 
-  test('only bare roots receive configured or contributed homepages', () {
-    const config = SiteConfig(defaultHomepage: 'categories');
-    const contributed = ContentRoute(
-      destination: ExtensionDestination('custom-home'),
-      title: 'Custom home',
-      icon: DIcons.folder,
-    );
-    for (final path in ['/forum', '/forum/']) {
-      final target = _match(path)!;
-      expect(target.isHomepage, isTrue);
-      expect(target.decode(config: config)?.id, 'all-categories');
-      expect(
-        target.decode(
-          config: config,
-          homepage: contributed,
-          title: 'Ignored',
-          specializedTitle: 'Also ignored',
-        ),
-        same(contributed),
+  test(
+    'bare roots receive Latest or an explicitly supplied contributed route',
+    () {
+      const config = SiteConfig(defaultHomepage: 'categories');
+      const contributed = ContentRoute(
+        destination: ExtensionDestination('custom-home'),
+        title: 'Custom home',
+        icon: DIcons.folder,
       );
-    }
-    for (final path in ['/forum?x=1', '/forum#section']) {
-      final target = _match(path)!;
-      expect(target.isHomepage, isFalse);
-      expect(target.decode(config: config, homepage: contributed), isNull);
-    }
-  });
+      for (final path in ['/forum', '/forum/']) {
+        final target = _match(path)!;
+        expect(target.isHomepage, isTrue);
+        expect(target.decode(config: config)?.id, 'latest');
+        expect(
+          target.decode(
+            config: config,
+            homepage: contributed,
+            title: 'Ignored',
+            specializedTitle: 'Also ignored',
+          ),
+          same(contributed),
+        );
+      }
+      for (final path in ['/forum?x=1', '/forum#section']) {
+        final target = _match(path)!;
+        expect(target.isHomepage, isFalse);
+        expect(target.decode(config: config, homepage: contributed), isNull);
+      }
+    },
+  );
 
   test(
     'the codec retains site configuration and account admission authority',

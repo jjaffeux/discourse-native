@@ -1,0 +1,37 @@
+file	test	baseline_result
+test/shell_topic_search_lifecycle_test.dart	a mobile plugin panel ends highlighting but its sidebar overlay does not	reproduced on c52ef1d68
+test/desktop_panels_test.dart	folding ForumPanel.secondary retains document paint during motion	reproduced on c52ef1d68
+test/desktop_topic_page_test.dart	narrow topic header separates controls from the list (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	tag sheet opens without margins with 0 tags on TargetPlatform.iOS (flat) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	Filters move with native keyboard timing (flat) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	focusing Filters animates its bounds after the keyboard on TargetPlatform.iOS (flat) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	Filters reserve the expansion gesture and accept backdrop swipes on TargetPlatform.iOS (flat) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	filter sheet expands, floats, and preserves its query on TargetPlatform.iOS (flat) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	category sheet opens without margins with 30 tags on TargetPlatform.android (flat) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	tag sheet opens without margins with 0 tags on TargetPlatform.android (flat) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	focusing Filters animates its bounds after the keyboard on TargetPlatform.android (flat) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	Filters reserve the expansion gesture and accept backdrop swipes on TargetPlatform.android (flat) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/sidebar_filter_parity_test.dart	filter sheet expands, floats, and preserves its query on TargetPlatform.android (flat) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	Voice keeps the redesigned Chat inbox and its filters (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	Voice keeps the redesigned Chat inbox and its filters (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	reader fades its header without changing topic or viewport (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	reader fades its header without changing topic or viewport (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (0.0, 0.0) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (0.0, 0.0) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (34.0, 0.0) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (34.0, 0.0) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (0.0, 280.0) (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation panel consumes bottom safe area once (0.0, 280.0) (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 320.0 viewport with large text (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 320.0 viewport with large text (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 430.0 viewport with large text (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 430.0 viewport with large text (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 600.0 viewport with large text (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	navigation uses the full 600.0 viewport with large text (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	header retains notifications and drawer profile; search is a dedicated page (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	header retains notifications and drawer profile; search is a dedicated page (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	forum identity stays logo-only and goes home at mobile widths (variant: TargetPlatform.iOS)	reproduced on c52ef1d68
+test/mobile_shell_test.dart	forum identity stays logo-only and goes home at mobile widths (variant: TargetPlatform.android)	reproduced on c52ef1d68
+test/topic_list_navigation_test.dart	focused toolbar fits 760.0 at 1.0x including RTL	reproduced on c52ef1d68
+test/topic_list_navigation_test.dart	focused toolbar fits 760.0 at 2.0x including RTL	reproduced on c52ef1d68
+test/topic_list_navigation_test.dart	time range picker applies keyboard choices and cancels cleanly	reproduced on c52ef1d68

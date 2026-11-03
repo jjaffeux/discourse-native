@@ -5,6 +5,12 @@ import 'package:flutter/foundation.dart';
 
 import 'content_route.dart';
 
+String _restoredRootDestinationId(String root, ContentRoute first) =>
+    root == 'new-tab' &&
+        first.sameDestinationAs(ContentRoute.topicList(TopicListMode.latest))
+    ? 'latest'
+    : root;
+
 /// Stable panel identity, independent of its visual position.
 enum ForumPanel { main, secondary }
 
@@ -90,7 +96,10 @@ final class ForumTabLocation {
       preserveRoot: true,
     );
     if (root is! String || root.isEmpty || routes.isEmpty) return null;
-    return ForumTabLocation(rootDestinationId: root, contentStack: routes);
+    return ForumTabLocation(
+      rootDestinationId: _restoredRootDestinationId(root, routes.first),
+      contentStack: routes,
+    );
   }
 
   @override
@@ -291,7 +300,7 @@ final class ForumTab {
   ) => _bounded([
     for (var index = 1; index < routes.length; index++)
       ForumTabLocation(
-        rootDestinationId: root,
+        rootDestinationId: _restoredRootDestinationId(root, routes.first),
         contentStack: routes.take(index).toList(),
       ),
   ]);
@@ -313,7 +322,10 @@ final class ForumTab {
         route,
       ];
       entries.add(
-        ForumTabLocation(rootDestinationId: root, contentStack: stack),
+        ForumTabLocation(
+          rootDestinationId: _restoredRootDestinationId(root, stack.first),
+          contentStack: stack,
+        ),
       );
     }
     return entries.reversed.toList();
@@ -413,7 +425,7 @@ final class ForumTab {
         'secondary' => ForumPanel.secondary,
         _ => ForumPanel.main,
       },
-      rootDestinationId: root,
+      rootDestinationId: _restoredRootDestinationId(root, stack.first),
       contentStack: stack,
       backHistory: backHistory,
       forwardHistory: forwardHistory,
@@ -556,6 +568,7 @@ final class ForumWorkspace {
     required this.accountIdentity,
     required List<ForumTab> tabs,
     required this.activeTabId,
+    this.homeTabId,
     this.mainTabId,
     this.secondaryTabId,
     this.mobile,
@@ -570,13 +583,14 @@ final class ForumWorkspace {
   static const int maximumTabs = 20;
 
   // A restored single-panel workspace may already be at the user tab limit.
-  // Leave room for the other panel's Start page without discarding a document.
+  // Leave room for the other panel's initial list without discarding a document.
   static const int maximumWorkspaceTabs = maximumTabs + 1;
 
   final String siteUrl;
   final String accountIdentity;
   final List<ForumTab> tabs;
   final String activeTabId;
+  final String? homeTabId;
   final String? mainTabId;
   final String? secondaryTabId;
   final MobileNavigationState? mobile;
@@ -591,6 +605,14 @@ final class ForumWorkspace {
     return selected?.panel == panel
         ? selected
         : tabs.where((tab) => tab.panel == panel).firstOrNull;
+  }
+
+  /// The primary home document keeps its identity when tabs are reordered.
+  ForumTab? get homeTab {
+    final held = homeTabId == null ? null : tabById(homeTabId!);
+    return held?.panel == ForumPanel.main
+        ? held
+        : tabs.where((tab) => tab.panel == ForumPanel.main).firstOrNull;
   }
 
   ForumTab get activeTab => tabs.firstWhere((tab) => tab.id == activeTabId);
@@ -613,6 +635,7 @@ final class ForumWorkspace {
     accountIdentity: accountIdentity,
     tabs: tabs ?? this.tabs,
     activeTabId: activeTabId ?? this.activeTabId,
+    homeTabId: homeTab?.id,
     mainTabId: mainTabId ?? selectedTabIn(ForumPanel.main)?.id,
     secondaryTabId: secondaryTabId ?? selectedTabIn(ForumPanel.secondary)?.id,
     mobile: mobile ?? this.mobile,
@@ -627,6 +650,7 @@ final class ForumWorkspace {
     'site_url': siteUrl,
     'account_identity': accountIdentity,
     'active_tab_id': activeTabId,
+    'home_tab_id': homeTab?.id,
     'main_tab_id': selectedTabIn(ForumPanel.main)?.id,
     'secondary_tab_id': selectedTabIn(ForumPanel.secondary)?.id,
     'tabs': tabsJson(tabs),
@@ -696,6 +720,9 @@ final class ForumWorkspace {
       accountIdentity: accountIdentity,
       tabs: tabs,
       activeTabId: activeTabId,
+      homeTabId: json['home_tab_id'] is String
+          ? json['home_tab_id'] as String
+          : null,
       mainTabId: json['main_tab_id'] is String
           ? json['main_tab_id'] as String
           : null,
@@ -712,6 +739,7 @@ final class ForumWorkspace {
       other.siteUrl == siteUrl &&
       other.accountIdentity == accountIdentity &&
       other.activeTabId == activeTabId &&
+      other.homeTab?.id == homeTab?.id &&
       other.selectedTabIn(ForumPanel.main)?.id ==
           selectedTabIn(ForumPanel.main)?.id &&
       other.selectedTabIn(ForumPanel.secondary)?.id ==
@@ -724,6 +752,7 @@ final class ForumWorkspace {
     siteUrl,
     accountIdentity,
     activeTabId,
+    homeTab?.id,
     selectedTabIn(ForumPanel.main)?.id,
     selectedTabIn(ForumPanel.secondary)?.id,
     mobile,

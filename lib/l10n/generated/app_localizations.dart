@@ -13999,12 +13999,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/mobile_shell.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Start page'**
-  String get startPage;
-
-  /// English UI message used by shell/mobile_shell.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Close navigation'**
   String get closeNavigation;
 
@@ -15883,23 +15877,11 @@ abstract class AppLocalizations {
   /// **'Discourse'**
   String get discourse;
 
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Recently closed'**
-  String get recentlyClosedNewtabpage;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
+  /// Shared label for the badge directory and navigation.
   ///
   /// In en, this message translates to:
   /// **'Badges'**
   String get badges;
-
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'Browse latest topics'**
-  String get browseLatestTopics;
 
   /// English UI message used by shell/draft_list_controller.dart. Keep placeholders intact.
   ///
@@ -20413,12 +20395,6 @@ abstract class AppLocalizations {
   /// **'OK'**
   String get oK;
 
-  /// English UI message used by shell/new_tab_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'{label} at {wallUse24HourClockUse24HourClock}'**
-  String atNewtabpage(String label, String wallUse24HourClockUse24HourClock);
-
   /// English UI message used by shell/message_archive_button.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -21963,23 +21939,11 @@ abstract class AppLocalizations {
   /// **'{count, plural, one {{formattedCount} voice participant} other {{formattedCount} voice participants}}'**
   String forumAboutVoiceParticipants(int count, String formattedCount);
 
-  /// Start page cached search has no matching rows.
-  ///
-  /// In en, this message translates to:
-  /// **'Nothing matches “{query}”'**
-  String startPageNoMatches(String query);
-
-  /// Number of matching rows in the start page cached search.
-  ///
-  /// In en, this message translates to:
-  /// **'{count, plural, =1{1 result} other{{count} results}} for “{query}”'**
-  String startPageResults(int count, String query);
-
-  /// Start page toolbar action that opens the topic filter builder.
+  /// Topic list and global search filter controls.
   ///
   /// In en, this message translates to:
   /// **'Filters'**
-  String get startPageFilters;
+  String get filters;
 
   /// Field validation for a value that exceeds the server's Unicode character limit.
   ///

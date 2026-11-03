@@ -219,7 +219,8 @@ class InstanceSidebar extends StatelessWidget {
       } else if (currentContent?.isAppearance == true ||
           currentContent?.isPreferences == true ||
           currentContent?.isPage(CorePage.categories) == true ||
-          currentContent?.isPage(CorePage.bookmarks) == true) {
+          currentContent?.isPage(CorePage.bookmarks) == true ||
+          currentContent?.isPage(CorePage.dashboard) == true) {
         selectedDestinationId = currentContent?.id;
       } else if (currentContent?.isTopic == true &&
           selectedDestinationId == 'drafts') {
@@ -476,6 +477,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                   icon: DNativeIcons.sliders,
                   onTap: () => controller.openPreferences(sidebar.siteUrl!),
                 ),
+              if (controller.currentInstance?.user?.staff == true)
+                SidebarDestination.dashboard(),
             ],
             showHeader: widget.mobile || section.showHeader,
             collapsible: widget.mobile || section.collapsible,
@@ -626,14 +629,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                           includeOwner:
                                                               includePluginOwner,
                                                         ),
-                                                    if (controller
-                                                            .instanceFor(
-                                                              sidebar.siteUrl!,
-                                                            )
-                                                            ?.user
-                                                            ?.staff ==
-                                                        true)
-                                                      SidebarDestination.dashboard(),
                                                   ]
                                                 : const [],
                                             store: sectionStore,
@@ -1424,6 +1419,10 @@ class _SectionState extends State<_Section> {
           ? pending ?? _pendingDestinations ?? section.destinations
           : section.destinations,
       ...widget.appendedDestinations,
+      if (!_moreOpen)
+        ...section.moreDestinations.where(
+          (destination) => destination.id == widget.selectedId,
+        ),
       if (section.moreDestinations.isNotEmpty) _moreDestination,
     ];
     final rows = <SidebarDestination>[

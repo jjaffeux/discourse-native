@@ -8141,9 +8141,6 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get startPage => 'Start page';
-
-  @override
   String get closeNavigation => 'Close navigation';
 
   @override
@@ -9213,13 +9210,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get discourse => 'Discourse';
 
   @override
-  String get recentlyClosedNewtabpage => 'Recently closed';
-
-  @override
   String get badges => 'Badges';
-
-  @override
-  String get browseLatestTopics => 'Browse latest topics';
 
   @override
   String reconnectToToSeeYourDrafts(String instanceHost) {
@@ -12157,11 +12148,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get oK => 'OK';
 
   @override
-  String atNewtabpage(String label, String wallUse24HourClockUse24HourClock) {
-    return '$label at $wallUse24HourClockUse24HourClock';
-  }
-
-  @override
   String theInbox(String group) {
     return 'the $group inbox';
   }
@@ -14009,23 +13995,7 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String startPageNoMatches(String query) {
-    return 'Nothing matches “$query”';
-  }
-
-  @override
-  String startPageResults(int count, String query) {
-    String _temp0 = intl.Intl.pluralLogic(
-      count,
-      locale: localeName,
-      other: '$count results',
-      one: '1 result',
-    );
-    return '$_temp0 for “$query”';
-  }
-
-  @override
-  String get startPageFilters => 'Filters';
+  String get filters => 'Filters';
 
   @override
   String useAtMostCharacters(String maximum) {

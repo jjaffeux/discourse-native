@@ -449,7 +449,7 @@ void main() {
     ) async {
       final launched = watchBrowser(tester);
       final controller = await _pumpLink(tester, url: 'https://one.example/u');
-      controller.pushContent(ContentRoute.newTab());
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -487,7 +487,7 @@ void main() {
             },
           ),
         );
-        controller.pushContent(ContentRoute.newTab());
+        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
         await tester.pumpAndSettle();
 
         await tester.tap(
@@ -539,7 +539,7 @@ void main() {
           messageGroupNames: const ['team'],
           api: api,
         );
-        controller.pushContent(ContentRoute.newTab());
+        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
         await tester.pumpAndSettle();
 
         await tester.tap(
@@ -591,7 +591,7 @@ void main() {
         tester,
         url: 'https://one.example/latest',
       );
-      controller.pushContent(ContentRoute.newTab());
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
       await tester.pumpAndSettle();
 
       await tester.tap(
@@ -651,7 +651,7 @@ void main() {
           signedIn: true,
           api: api,
         );
-        controller.pushContent(ContentRoute.newTab());
+        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
         await tester.pumpAndSettle();
 
         await tester.tap(
@@ -734,7 +734,7 @@ void main() {
         tester,
         url: 'https://one.example/categories',
       );
-      controller.pushContent(ContentRoute.newTab());
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
       await tester.pumpAndSettle();
 
       await tester.tap(

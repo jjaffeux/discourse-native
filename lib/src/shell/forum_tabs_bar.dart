@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -17,12 +16,10 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'destination_bookmark_ui.dart';
-import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_emoji_text.dart';
-import 'start_page_drag.dart';
 
 @immutable
 class ForumTabItem {
@@ -96,8 +93,6 @@ class ForumTabsBar extends StatefulWidget {
     this.onDropTab,
     this.incomingTab,
     this.itemForDrop,
-    this.acceptsLink,
-    this.onDropLink,
     this.panel,
     this.onMoveToPanel,
   }) : assert(items.isNotEmpty),
@@ -121,8 +116,6 @@ class ForumTabsBar extends StatefulWidget {
   final void Function(String id, int index)? onDropTab;
   final ForumTabItem? incomingTab;
   final ForumTabItem? Function(String id)? itemForDrop;
-  final bool Function(StartPageDrag link)? acceptsLink;
-  final void Function(StartPageDrag link, int index)? onDropLink;
   final ForumPanel? panel;
   final void Function(String id, ForumPanel panel)? onMoveToPanel;
   final String forumName;
@@ -300,20 +293,6 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     return true;
   }
 
-  bool _startLinkDrop(DragTargetDetails<StartPageDrag> details) {
-    if (widget.onDropLink == null ||
-        !(widget.acceptsLink?.call(details.data) ?? false)) {
-      return false;
-    }
-    final item = ForumTabItem(
-      id: 'incoming-start-page-link',
-      title: details.data.title,
-      icon: DIcons.link,
-    );
-    _beginDrop(item, details.offset);
-    return true;
-  }
-
   void _beginDrop(ForumTabItem item, Offset pointerGlobal) {
     _captureDropGeometry(item.id);
     setState(() {
@@ -399,36 +378,25 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
   }
 
   @override
-  Widget build(BuildContext context) => DragTarget<StartPageDrag>(
-    onWillAcceptWithDetails: _startLinkDrop,
-    onMove: (details) =>
-        _moveDropAt('incoming-start-page-link', details.offset),
+  Widget build(BuildContext context) => DragTarget<String>(
+    onWillAcceptWithDetails: _startDrop,
+    onMove: (details) => _moveDropAt(details.data, details.offset),
     onLeave: (_) => _clearDrop(),
     onAcceptWithDetails: (details) {
-      final index = _indexAt('incoming-start-page-link', details.offset);
+      final destination = _destinationFor(
+        widget.items.indexWhere((item) => item.id == details.data),
+        _indexAt(details.data, details.offset),
+      );
       _clearDrop();
-      widget.onDropLink?.call(details.data, index);
+      if (destination == null || _droppable(details.data) == null) return;
+      (widget.onDropTab ?? widget.onReorder)(details.data, destination);
     },
-    builder: (context, links, rejectedLinks) => DragTarget<String>(
-      onWillAcceptWithDetails: _startDrop,
-      onMove: (details) => _moveDropAt(details.data, details.offset),
-      onLeave: (_) => _clearDrop(),
-      onAcceptWithDetails: (details) {
-        final destination = _destinationFor(
-          widget.items.indexWhere((item) => item.id == details.data),
-          _indexAt(details.data, details.offset),
-        );
-        _clearDrop();
-        if (destination == null || _droppable(details.data) == null) return;
-        (widget.onDropTab ?? widget.onReorder)(details.data, destination);
-      },
-      // Build against this State's context: its inherited reads (text scale,
-      // theme, direction) must reach didChangeDependencies, which is what
-      // discards the cached contents. The builder's own context would only
-      // rebuild the builder and keep returning the stale strip.
-      builder: (_, candidates, rejected) =>
-          _contents ??= _buildContents(this.context),
-    ),
+    // Build against this State's context: its inherited reads (text scale,
+    // theme, direction) must reach didChangeDependencies, which is what
+    // discards the cached contents. The builder's own context would only
+    // rebuild the builder and keep returning the stale strip.
+    builder: (_, candidates, rejected) =>
+        _contents ??= _buildContents(this.context),
   );
 
   Widget _buildContents(BuildContext context) {
@@ -1479,141 +1447,108 @@ class CurrentForumTabsBar extends StatelessWidget {
   final String? incomingTabId;
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => ShellSelector<_CurrentForumTabsSnapshot>(
-    select: _CurrentForumTabsSnapshot.of,
-    builder: (context, state, _) {
-      final siteUrl = state.siteUrl;
-      final forumName = state.forumName;
-      final activeTabId = state.activeTabId;
-      if (siteUrl == null ||
-          forumName == null ||
-          activeTabId == null ||
-          state.tabs.isEmpty) {
-        return const SizedBox.shrink();
-      }
-
-      final controller = ShellScope.read(context);
-      final tabs = state.tabs
-          .where((tab) => (panel == null || tab.panel == panel))
-          .toList();
-      final selectedId = panel == null
-          ? activeTabId
-          : controller.selectedTabIn(panel!)?.id;
-      final registry = PluginScope.of(context).registry;
-      return ListenableBuilder(
-        listenable: Listenable.merge(
-          registry.forumTabListenables(context, siteUrl),
-        ),
-        builder: (context, _) {
-          ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
-            context,
-            controller: controller,
-            registry: registry,
-            siteUrl: siteUrl,
-            tab: tab,
-          );
-
-          ForumTabItem? itemForDrop(String id) {
-            final tab = controller.currentWorkspace?.tabById(id);
-            return panel != null && tab != null ? itemFor(tab) : null;
+  Widget build(BuildContext context) =>
+      ShellSelector<_CurrentForumTabsSnapshot>(
+        select: _CurrentForumTabsSnapshot.of,
+        builder: (context, state, _) {
+          final siteUrl = state.siteUrl;
+          final forumName = state.forumName;
+          final activeTabId = state.activeTabId;
+          if (siteUrl == null ||
+              forumName == null ||
+              activeTabId == null ||
+              state.tabs.isEmpty) {
+            return const SizedBox.shrink();
           }
 
-          final incoming = incomingTabId == null
-              ? null
-              : controller.currentWorkspace?.tabById(incomingTabId!)?.panel ==
-                    panel
-              ? null
-              : itemForDrop(incomingTabId!);
-          if (tabs.isEmpty) {
-            return DragTarget<StartPageDrag>(
-              onWillAcceptWithDetails: (details) =>
-                  details.data.siteUrl == siteUrl && controller.canCreateTab,
-              onAcceptWithDetails: (details) => unawaited(
-                openLink(
-                  context,
-                  details.data.path,
-                  title: details.data.title,
-                  siteUrl: details.data.siteUrl,
-                  newTab: true,
-                  panel: panel,
-                  tabIndex: 0,
-                ),
-              ),
-              builder: (context, links, rejected) => Row(
-                children: [
-                  if (links.isNotEmpty || incoming != null) ...[
-                    _ForumTabDropPlaceholder(
-                      item:
-                          incoming ??
-                          ForumTabItem(
-                            id: 'incoming-start-page-link',
-                            title: links.first!.title,
-                          ),
-                    ),
-                    const SizedBox(width: DSpacing.controlGap),
-                  ],
-                  DButton.iconOnly(
-                    key: ValueKey('add-empty-${panel?.name}'),
-                    icon: const DIcon(DIcons.plus),
-                    tooltip: context.l10n.openANewTab,
-                    variant: DButtonVariant.inline,
-                    onPressed: controller.canCreateTab
-                        ? () => controller.createTab(panel: panel)
-                        : null,
-                  ),
-                ],
-              ),
-            );
-          }
-
-          return ForumTabsBar(
-            key: ValueKey(('forum-tabs', siteUrl, panel)),
-            forumName: forumName,
-            panel: panel,
-            onMoveToPanel: panel == null ? null : controller.moveTabToPanel,
-            showAdd: true,
-            incomingTab: incoming,
-            itemForDrop: itemForDrop,
-            acceptsLink: (link) =>
-                link.siteUrl == siteUrl && controller.canCreateTab,
-            onDropLink: (link, index) => unawaited(
-              openLink(
+          final controller = ShellScope.read(context);
+          final tabs = state.tabs
+              .where((tab) => (panel == null || tab.panel == panel))
+              .toList();
+          final selectedId = panel == null
+              ? activeTabId
+              : controller.selectedTabIn(panel!)?.id;
+          final registry = PluginScope.of(context).registry;
+          return ListenableBuilder(
+            listenable: Listenable.merge(
+              registry.forumTabListenables(context, siteUrl),
+            ),
+            builder: (context, _) {
+              ForumTabItem itemFor(ForumTab tab) => _forumTabItem(
                 context,
-                link.path,
-                title: link.title,
-                siteUrl: link.siteUrl,
-                newTab: true,
+                controller: controller,
+                registry: registry,
+                siteUrl: siteUrl,
+                tab: tab,
+              );
+
+              ForumTabItem? itemForDrop(String id) {
+                final tab = controller.currentWorkspace?.tabById(id);
+                return panel != null && tab != null ? itemFor(tab) : null;
+              }
+
+              final incoming = incomingTabId == null
+                  ? null
+                  : controller.currentWorkspace
+                            ?.tabById(incomingTabId!)
+                            ?.panel ==
+                        panel
+                  ? null
+                  : itemForDrop(incomingTabId!);
+              if (tabs.isEmpty) {
+                return Row(
+                  children: [
+                    if (incoming != null) ...[
+                      _ForumTabDropPlaceholder(item: incoming),
+                      const SizedBox(width: DSpacing.controlGap),
+                    ],
+                    DButton.iconOnly(
+                      key: ValueKey('add-empty-${panel?.name}'),
+                      icon: const DIcon(DIcons.plus),
+                      tooltip: context.l10n.openANewTab,
+                      variant: DButtonVariant.inline,
+                      onPressed: controller.canCreateTab
+                          ? () => controller.createTab(panel: panel)
+                          : null,
+                    ),
+                  ],
+                );
+              }
+
+              return ForumTabsBar(
+                key: ValueKey(('forum-tabs', siteUrl, panel)),
+                forumName: forumName,
                 panel: panel,
-                tabIndex: index,
-              ),
-            ),
-            items: [for (final tab in tabs) itemFor(tab)],
-            selectedId: tabs.any((tab) => tab.id == selectedId)
-                ? selectedId!
-                : tabs.first.id,
-            onAdd: controller.canCreateTab
-                ? () => controller.createTab(panel: panel)
-                : null,
-            acceptsTab: (id) =>
-                controller.currentWorkspace?.tabById(id) != null,
-            onDropTab: panel == null
-                ? null
-                : (id, index) =>
-                      controller.moveTabToPanel(id, panel!, index: index),
-            onSelect: controller.selectTab,
-            onClose: controller.closeTab,
-            onReorder: (id, index) => controller.moveTab(
-              id,
-              state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
-            ),
-            onCloseOthers: (id) => controller.closeOtherTabs(id, panel: panel),
+                onMoveToPanel: panel == null ? null : controller.moveTabToPanel,
+                showAdd: true,
+                incomingTab: incoming,
+                itemForDrop: itemForDrop,
+                items: [for (final tab in tabs) itemFor(tab)],
+                selectedId: tabs.any((tab) => tab.id == selectedId)
+                    ? selectedId!
+                    : tabs.first.id,
+                onAdd: controller.canCreateTab
+                    ? () => controller.createTab(panel: panel)
+                    : null,
+                acceptsTab: (id) =>
+                    controller.currentWorkspace?.tabById(id) != null,
+                onDropTab: panel == null
+                    ? null
+                    : (id, index) =>
+                          controller.moveTabToPanel(id, panel!, index: index),
+                onSelect: controller.selectTab,
+                onClose: controller.closeTab,
+                onReorder: (id, index) => controller.moveTab(
+                  id,
+                  state.tabs.indexWhere((tab) => tab.id == tabs[index].id),
+                ),
+                onCloseOthers: (id) =>
+                    controller.closeOtherTabs(id, panel: panel),
+              );
+            },
           );
         },
       );
-    },
-  );
 }
 
 ForumTabItem _forumTabItem(

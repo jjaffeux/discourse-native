@@ -56,7 +56,7 @@ void main() {
       ('Threads', ChatPlugin.myThreadsRouteId),
     ]) {
       if (directoryTabs.isNotEmpty) {
-        shell.openContentInNewTab(ContentRoute.newTab());
+        shell.openContentInNewTab(ContentRoute.topicList(TopicListMode.latest));
         await tester.pumpAndSettle();
       }
       await tester.tap(panels.tab('chat'));
@@ -168,7 +168,7 @@ void main() {
       ),
     );
     while (shell.canCreateTab) {
-      shell.openContentInNewTab(ContentRoute.newTab());
+      shell.openContentInNewTab(ContentRoute.topicList(TopicListMode.latest));
     }
     await tester.pumpAndSettle();
     final sourceTab = shell.activeTabId;

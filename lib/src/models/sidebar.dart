@@ -273,6 +273,6 @@ class SidebarSection {
 
   /// A plugin-owned sliver drawn in place of the destination rows. The
   /// section's [destinations] still describe it to readers that do not draw
-  /// it, such as the new-tab page, so keep them complete.
+  /// it, so keep them complete.
   final WidgetBuilder? bodyBuilder;
 }

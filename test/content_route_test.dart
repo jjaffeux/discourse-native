@@ -325,19 +325,21 @@ void main() {
     expect(ContentRoute.appearance().isForumAbout, isFalse);
   });
 
-  test('start page uses house and upgrades saved new tabs', () {
-    final route = ContentRoute.newTab();
-    expect(route.tabTitle, 'Start page');
-    expect(route.icon, DIcons.house);
-    expect(ContentRoute.fromJson(route.toJson()), route);
-
-    final restored = ContentRoute.fromJson({
-      ...route.toJson(),
-      'title': 'New tab',
-      'icon': DIcons.house.name,
-    });
-    expect(restored.tabTitle, 'Start page');
-    expect(restored.icon, DIcons.house);
+  test('legacy Start routes upgrade to ordinary unfiltered Latest', () {
+    final latest = ContentRoute.topicList(TopicListMode.latest);
+    for (final type in [null, 'page']) {
+      final restored = ContentRoute.fromJson({
+        'id': 'new-tab',
+        'destination_type': ?type,
+        'title': 'Start page',
+        'icon': DIcons.house.name,
+      });
+      expect(restored, latest);
+      expect(restored.title, 'Latest topics');
+      expect(restored.tabTitle, 'Latest topics');
+      expect(restored.icon, DIcons.layerGroup);
+      expect(ContentRoute.fromJson(restored.toJson()), latest);
+    }
   });
 
   test(
@@ -354,7 +356,10 @@ void main() {
         ).tabTitle,
         'Top - month',
       );
-      expect(ContentRoute.topicList(TopicListMode.latest).tabTitle, 'Latest');
+      expect(
+        ContentRoute.topicList(TopicListMode.latest).tabTitle,
+        'Latest topics',
+      );
       expect(ContentRoute.topicList(TopicListMode.unread).tabTitle, 'Unread');
       expect(ContentRoute.topicFilter('status:open').tabTitle, 'Topics');
       expect(

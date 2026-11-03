@@ -12,6 +12,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -181,22 +183,22 @@ void main() {
 
   for (final guest in [false, true]) {
     test(
-      'subfolder ${guest ? 'guest' : 'account'} homepage returns to topics and root',
+      'subfolder ${guest ? 'guest' : 'account'} startup and root use Latest',
       () async {
         final setup = await _shell(guest: guest);
         addTearDown(setup.shell.dispose);
         await _flush();
-        expect(setup.shell.currentContent?.id, 'chat-c-9');
-        expect(setup.api.feedPaths, isNot(contains('/latest.json')));
+        expect(setup.shell.currentContent?.id, 'latest');
+        expect(setup.api.feedPaths, contains('/latest.json'));
         expect(setup.shell.openCorePageUrl('$_site/latest'), isTrue);
         expect(setup.shell.currentContent?.id, 'latest');
         expect(setup.shell.openCorePageUrl('$_site/'), isTrue);
-        expect(setup.shell.currentContent?.id, 'chat-c-9');
+        expect(setup.shell.currentContent?.id, 'latest');
       },
     );
   }
 
-  testWidgets('guest Chat homepage renders a channel and can open topics', (
+  testWidgets('guest starts at Latest and can explicitly open a Chat channel', (
     tester,
   ) async {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -262,6 +264,15 @@ void main() {
     final shell = ShellScope.read(
       tester.element(find.byType(MobileForumRoot).first),
     );
+    expect(shell.currentContent?.id, 'latest');
+    await shell.pluginSession
+        .require(chatControllerService)
+        .loadChannels(_site);
+    expect(
+      shell.pluginSession.require(chatShellService).openChannel(9),
+      isTrue,
+    );
+    await tester.pumpAndSettle();
     expect(shell.currentContent?.id, 'chat-c-9');
     expect(find.byType(ChatChannelView), findsOneWidget);
     expect(find.text('General'), findsWidgets);
@@ -293,7 +304,7 @@ void main() {
       final setup = await _shell();
       addTearDown(setup.shell.dispose);
       await _flush();
-      expect(setup.shell.currentContent?.id, 'chat-c-9');
+      expect(setup.shell.currentContent?.id, 'latest');
       setup.api.nextConfig = Completer<SiteConfig>();
       expect(await setup.shell.disconnectInstance(_site), isTrue);
       expect(setup.shell.currentContent?.id, 'latest');

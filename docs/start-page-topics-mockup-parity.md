@@ -1,3 +1,5 @@
+> Superseded for startup and Start navigation by [Latest default parity](latest-default-mockup-parity.md). Explicit feature pages remain available.
+
 # Start Topics and pins parity
 
 Reference: `discourse-native-mockups` commits `31bdc07` and `4d045d0`,

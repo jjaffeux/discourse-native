@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/platform.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -34,8 +35,23 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
 
+Finder _primary(Finder matching, {bool skipOffstage = true}) => find.descendant(
+  of: find.byElementPredicate(
+    (element) =>
+        element.widget is MainContent &&
+        element.getInheritedWidgetOfExactType<ForumTabScope>()?.panel !=
+            ForumPanel.secondary,
+    skipOffstage: skipOffstage,
+  ),
+  matching: matching,
+  skipOffstage: skipOffstage,
+);
+final _primaryLists = _primary(find.byType(TopicListView));
 final _reader = find.byType(TopicView);
-final _allLists = find.byType(TopicListView, skipOffstage: false);
+final _allLists = _primary(
+  find.byType(TopicListView, skipOffstage: false),
+  skipOffstage: false,
+);
 
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
@@ -68,8 +84,10 @@ void main() {
         matching: find.byKey(const ValueKey('forum-tabs-bar')),
       );
       final options = find.byKey(const ValueKey('panel-split-view-main'));
-      final title = find.byKey(const ValueKey('topic-list-title'));
-      final filters = find.byKey(const ValueKey('topic-list-feed-row'));
+      final title = _primary(find.byKey(const ValueKey('topic-list-title')));
+      final filters = _primary(
+        find.byKey(const ValueKey('topic-list-feed-row')),
+      );
       final separator = find.byKey(
         const ValueKey('topic-list-heading-separator'),
       );
@@ -94,7 +112,7 @@ void main() {
       );
       expect(separator, findsNothing);
       expect(
-        tester.getRect(find.text('Conversation 1')).top,
+        tester.getRect(_primary(find.text('Conversation 1'))).top,
         greaterThan(tester.getRect(filters).bottom),
       );
       expect(tester.getRect(filterAction).top, tester.getRect(filters).top);
@@ -153,19 +171,19 @@ void main() {
   ) async {
     await _setup(tester, size: const Size(390, 844));
     final title = tester.getRect(
-      find.byKey(const ValueKey('topic-list-title')),
+      _primary(find.byKey(const ValueKey('topic-list-title'))),
     );
     final controls = tester.getRect(
-      find.byKey(const ValueKey('topic-list-feed-row')),
+      _primary(find.byKey(const ValueKey('topic-list-feed-row'))),
     );
     expect(controls.left, title.left);
     expect(controls.top, greaterThan(title.bottom));
     expect(
-      find.byKey(const ValueKey('topic-list-heading-separator')),
+      _primary(find.byKey(const ValueKey('topic-list-heading-separator'))),
       findsNothing,
     );
     expect(
-      tester.getRect(find.text('Conversation 1')).top,
+      tester.getRect(_primary(find.text('Conversation 1'))).top,
       greaterThan(controls.bottom),
     );
     expect(tester.takeException(), isNull);
@@ -175,15 +193,19 @@ void main() {
     tester,
   ) async {
     await _setup(tester, size: const Size(390, 844));
-    final heading = find.byKey(const ValueKey('topic-list-heading'));
+    final heading = _primary(find.byKey(const ValueKey('topic-list-heading')));
     expect(heading, findsOneWidget);
     expect(
       find.descendant(of: heading, matching: find.byTooltip('Back')),
       findsNothing,
     );
     expect(
-      tester.getRect(find.byKey(const ValueKey('topic-list-title'))).left,
-      tester.getRect(find.byKey(const ValueKey('topic-list-feed-row'))).left,
+      tester
+          .getRect(_primary(find.byKey(const ValueKey('topic-list-title'))))
+          .left,
+      tester
+          .getRect(_primary(find.byKey(const ValueKey('topic-list-feed-row'))))
+          .left,
     );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -202,7 +224,10 @@ void main() {
       await h.shell.appSettings.setTopicListMode(TopicListDisplayMode.compact);
       await tester.pumpAndSettle();
       final listState = tester.state(_allLists);
-      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(
+        _primary(find.byKey(const ValueKey('topic-card-1'))),
+        findsOneWidget,
+      );
       final previous = find.byKey(const ValueKey('inbox-previous-topic'));
       final next = find.byKey(const ValueKey('inbox-next-topic'));
       expect(previous, findsNothing);
@@ -212,16 +237,25 @@ void main() {
       await tester.pumpAndSettle();
       expect(previous, findsNothing);
       expect(next, findsNothing);
-      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(
+        _primary(find.byKey(const ValueKey('topic-card-1'))),
+        findsOneWidget,
+      );
       expect(find.byType(DCardFooter), findsNothing);
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
 
       await tester.tap(find.byKey(const ValueKey('panel-split-view-main')));
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-card-1')), findsNothing);
       expect(
-        find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
+        _primary(find.byKey(const ValueKey('topic-card-1'))),
+        findsNothing,
+      );
+      expect(
+        _primary(
+          find.byKey(const ValueKey('topic-card-1'), skipOffstage: false),
+          skipOffstage: false,
+        ),
         findsOneWidget,
       );
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
@@ -231,13 +265,19 @@ void main() {
         find.byKey(const ValueKey('panel-split-view-secondary')),
       );
       await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(
+        _primary(find.byKey(const ValueKey('topic-card-1'))),
+        findsOneWidget,
+      );
       h.shell.selectTab(h.shell.selectedTabIn(ForumPanel.secondary)!.id);
       h.shell.closeTopic();
       await tester.pumpAndSettle();
       expect(previous, findsNothing);
       expect(next, findsNothing);
-      expect(find.byKey(const ValueKey('topic-card-1')), findsOneWidget);
+      expect(
+        _primary(find.byKey(const ValueKey('topic-card-1'))),
+        findsOneWidget,
+      );
       expect(h.shell.appSettings.topicListMode, TopicListDisplayMode.compact);
       expect(tester.state(_allLists), same(listState));
       expect(tester.takeException(), isNull);
@@ -346,7 +386,7 @@ void main() {
       h.shell.closeTopic();
       await tester.pumpAndSettle();
       expect(tester.state(_allLists), same(listState));
-      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      expect(_primaryLists.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
@@ -568,13 +608,13 @@ void main() {
     await tester.pumpAndSettle();
     expect(h.shell.tabsForCurrentForum, hasLength(3));
     expect(
-      h.shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isNewTab,
+      h.shell.selectedTabIn(ForumPanel.secondary)?.currentContent.isTopicList,
       isTrue,
     );
-    expect(find.byType(TopicListView).hitTestable(), findsNothing);
+    expect(_primaryLists.hitTestable(), findsNothing);
     h.shell.selectTab(listId);
     await tester.pumpAndSettle();
-    expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+    expect(_primaryLists.hitTestable(), findsOneWidget);
     h.shell.moveTabToPanel(topicId, ForumPanel.secondary);
     await tester.pumpAndSettle();
     expect(h.shell.currentContent?.topicId, 1);
@@ -642,29 +682,29 @@ void main() {
         const Offset(120, 0),
       );
       await tester.pumpAndSettle();
-      final preferredWidth = tester.getSize(find.byType(TopicListView)).width;
+      final preferredWidth = tester.getSize(_primaryLists).width;
       tester.view.physicalSize = Size(chrome + 304 + 320 + 12, 900);
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(_primaryLists, findsOneWidget);
       expect(tester.getSize(_reader).width, greaterThanOrEqualTo(320));
       tester.view.physicalSize = const Size(600, 900);
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView).hitTestable(), findsNothing);
+      expect(_primaryLists.hitTestable(), findsNothing);
       expect(tester.state(_allLists), same(listState));
       expect(tester.state(_reader), same(readerState));
 
       tester.view.physicalSize = const Size(1800, 900);
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(TopicListView)).width, preferredWidth);
+      expect(tester.getSize(_primaryLists).width, preferredWidth);
       h.shell.openReply();
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      expect(_primaryLists.hitTestable(), findsOneWidget);
       tester.view.physicalSize = const Size(1000, 900);
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView).hitTestable(), findsNothing);
+      expect(_primaryLists.hitTestable(), findsNothing);
       tester.view.physicalSize = const Size(2400, 900);
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(_primaryLists, findsOneWidget);
       expect(tester.getSize(_reader).width, greaterThanOrEqualTo(320));
       expect(tester.state(_reader), same(readerState));
       expect(tester.takeException(), isNull);
@@ -682,7 +722,7 @@ void main() {
         size: const Size(1800, 900),
       );
       final listElement = tester.element(_allLists);
-      final listRect = tester.getRect(find.byType(TopicListView));
+      final listRect = tester.getRect(_primaryLists);
       _openTopicTab(h.shell, h.topics.first);
       await tester.pumpAndSettle();
       expect(_reader, findsOneWidget);
@@ -691,10 +731,10 @@ void main() {
         find.descendant(of: _reader, matching: find.byType(BackdropFilter)),
         findsNothing,
       );
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(_primaryLists, findsOneWidget);
       expect(tester.element(_allLists), same(listElement));
       final reader = tester.getRect(_reader);
-      final reducedList = tester.getRect(find.byType(TopicListView));
+      final reducedList = tester.getRect(_primaryLists);
       expect(reducedList.width, listRect.width);
       expect(reducedList.width, inInclusiveRange(304, 480));
       if (direction == TextDirection.ltr) {
@@ -708,17 +748,17 @@ void main() {
         Offset(direction == TextDirection.ltr ? 60 : -60, 0),
       );
       await tester.pumpAndSettle();
-      final resizedWidth = tester.getSize(find.byType(TopicListView)).width;
+      final resizedWidth = tester.getSize(_primaryLists).width;
       expect(resizedWidth, greaterThan(reducedList.width));
       final topicState = tester.state(_reader);
       tester.view.physicalSize = const Size(600, 900);
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView).hitTestable(), findsNothing);
+      expect(_primaryLists.hitTestable(), findsNothing);
       expect(tester.element(_allLists), same(listElement));
       expect(tester.state(_reader), same(topicState));
       tester.view.physicalSize = const Size(1800, 900);
       await tester.pumpAndSettle();
-      expect(tester.getSize(find.byType(TopicListView)).width, resizedWidth);
+      expect(tester.getSize(_primaryLists).width, resizedWidth);
       expect(tester.state(_reader), same(topicState));
       expect(find.byType(InstanceRail).hitTestable(), findsOneWidget);
       expect(find.byType(InstanceSidebar).hitTestable(), findsOneWidget);
@@ -735,7 +775,7 @@ void main() {
       h.shell.selectTab(h.shell.listPanelTab!.id);
       await tester.pumpAndSettle();
       expect(_reader, findsNothing);
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(_primaryLists, findsOneWidget);
       expect(tester.element(_allLists), same(listElement));
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
@@ -745,7 +785,7 @@ void main() {
     'narrow page restores exact list scroll and topic reading position',
     (tester) async {
       final h = await _setup(tester, size: const Size(600, 900));
-      await tester.drag(find.byType(TopicListView), const Offset(0, -420));
+      await tester.drag(_primaryLists, const Offset(0, -420));
       await tester.pumpAndSettle();
       final listPosition = tester
           .state<ScrollableState>(
@@ -916,7 +956,7 @@ void main() {
       expect(tester.getRect(find.byType(InstanceSidebar)), sidebar);
       expect(tester.getRect(find.byType(ShellTitleBar)), titlebar);
       expect(h.shell.visibleComposer!.focus.hasFocus, isTrue);
-      expect(find.byType(TopicListView).hitTestable(), findsOneWidget);
+      expect(_primaryLists.hitTestable(), findsOneWidget);
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }

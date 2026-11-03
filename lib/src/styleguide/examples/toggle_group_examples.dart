@@ -58,32 +58,6 @@ final toggleGroupExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
-      title: 'Compact inset icon choices',
-      description:
-          'The Start page density control draws a 68×32px frame with two 30×26px choices. Each choice uses its visible bounds for interaction.',
-      states: const ['Inset', 'Compact artwork', 'Matching hit areas'],
-      code:
-          "DToggleGroup<bool>(inset: true, density: DToggleDensity.compactInset, allowEmptySelection: false,  items: const [DToggleGroupItem.iconOnly(value: false, semanticLabel: \"Comfortable\", icon: Icon(Icons.grid_view, size: 12)), DToggleGroupItem.iconOnly(value: true, semanticLabel: \"Compact\", icon: Icon(Icons.list, size: 12))])",
-      builder: (_) => const DToggleGroup<bool>(
-        inset: true,
-        density: DToggleDensity.compactInset,
-        allowEmptySelection: false,
-
-        items: [
-          DToggleGroupItem.iconOnly(
-            value: false,
-            semanticLabel: 'Comfortable',
-            icon: Icon(Icons.grid_view, size: 12),
-          ),
-          DToggleGroupItem.iconOnly(
-            value: true,
-            semanticLabel: 'Compact',
-            icon: Icon(Icons.list, size: 12),
-          ),
-        ],
-      ),
-    ),
-    StyleguideExample(
       title: 'View-switch segments',
       description:
           'Inset segments share a tinted selection indicator that slides in 240ms and honors reduced motion. Binary text choices have equal widths.',

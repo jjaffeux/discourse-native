@@ -183,7 +183,7 @@ void main() {
       expect(registry.homepage('shared')!.homepage(config, null), isNull);
       first.available = true;
       expect(
-        registry.homepage('shared')!.homepage(config, null)!.isNewTab,
+        registry.homepage('shared')!.homepage(config, null)!.isTopicList,
         isTrue,
       );
       expect(first.idReads, 1);
@@ -504,7 +504,7 @@ final class _MutableHomepage implements SitePlugin, HomepagePlugin {
 
   @override
   ContentRoute? homepage(SiteConfig config, DiscourseUser? user) =>
-      available ? ContentRoute.newTab() : null;
+      available ? ContentRoute.topicList(TopicListMode.latest) : null;
 }
 
 final class _EqualHashtag implements SitePlugin, HashtagKindPlugin {

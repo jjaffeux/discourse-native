@@ -8,6 +8,7 @@ import '../app_shortcuts.dart';
 import '../models/bookmark.dart';
 import '../models/category_feed.dart';
 import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
 import '../models/topic_presentation.dart';
@@ -41,7 +42,6 @@ import 'message_create_button.dart';
 import 'message_inbox_page.dart';
 import 'message_inbox_title.dart';
 import 'mobile_presentation.dart';
-import 'new_tab_page.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'plugin_topic_reader.dart';
@@ -278,7 +278,10 @@ class _MainContentBody extends StatelessWidget {
   final Widget? sheetUnderlay;
 
   @override
-  Widget build(BuildContext context) => _buildPanel(context);
+  Widget build(BuildContext context) => DPageHeaderHost.exclude(
+    excluding: ForumTabScope.panelOf(context) == ForumPanel.secondary,
+    child: Builder(builder: _buildPanel),
+  );
 
   Widget _buildPanel(BuildContext context) {
     final theme = Theme.of(context);
@@ -290,21 +293,6 @@ class _MainContentBody extends StatelessWidget {
     if (route == null) {
       return ColoredBox(
         color: ForumWindowBackground.surfaceColor(context, theme.shell.content),
-      );
-    }
-    if (route.isNewTab) {
-      return DPageSurface(
-        border: false,
-        borderRadius: WorkspacePanelCorner.borderRadiusOf(context),
-        backgroundColor: ForumWindowBackground.panelColor(context),
-        depth: DSurfaceDepth.rim,
-        framed: !context.isTouch && !panelScoped,
-        limitContentSize: ContentSettingsScope.limitContentSizeOf(context),
-        tabs: forumTabsEnabled ? const TopicPanelTabs() : null,
-        child: NewTabPage(
-          onBrowseTopics: () =>
-              openLink(context, ShellScope.read(context).siteLink('/latest')),
-        ),
       );
     }
     final pluginContent = registry.content(context, route);
@@ -1018,7 +1006,6 @@ class _ContentViewport extends StatelessWidget {
                       ? fallback
                       : CategoriesPage(siteUrl: site, feed: categoryFeed!),
                 CorePage.tags => TagsPage(siteUrl: site),
-                CorePage.start => fallback,
                 CorePage.search => const ForumSearch.page(),
               },
       BadgeDestination(:final route) =>

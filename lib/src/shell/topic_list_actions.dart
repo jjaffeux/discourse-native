@@ -215,7 +215,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         ? null
         : topicFilterMenuCount(widget.query);
     final label =
-        '${widget.label ?? context.l10n.startPageFilters}${count == null ? '' : ' · $count'}';
+        '${widget.label ?? context.l10n.filters}${count == null ? '' : ' · $count'}';
     // Short of room in its row, the Filters menu keeps its glyph and how many
     // filters it holds; said aloud and under the pointer at full length.
     final tight =

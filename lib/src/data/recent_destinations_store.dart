@@ -45,7 +45,7 @@ final class MemoryRecentDestinationsPersistence
   }
 }
 
-/// The Start page's last five visits of each kind, scoped to a forum account.
+/// Recent visits of each kind, scoped to a forum account.
 class RecentDestinationsStore {
   RecentDestinationsStore({RecentDestinationsPersistence? persistence})
     : _persistence =

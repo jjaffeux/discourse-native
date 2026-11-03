@@ -118,7 +118,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         shell.draftList,
         ...registry.sidebarPanelListenables(context),
         ...registry.communitySidebarListenables(context),
-        ...registry.startPageListenables(context),
+        ...registry.mobileNavigationListenables(context),
       ]),
       builder: (context, _) {
         final instance = shell.currentInstance;
@@ -807,9 +807,8 @@ Object _mobileChromePresentation(ShellController shell) {
 
 /// Every place the phone offers, in the order its bar shows them and the
 /// panel the bar grows into holds the rest: the ones the person has placed,
-/// as [order] names them, then the rest in their own order. The bar is the
-/// phone's Start page, so this list holds what that page offers elsewhere;
-/// the dock and the history gestures read this one order.
+/// as [order] names them, then the rest in their own order. The dock and
+/// the history gestures read this one order.
 List<_DockDestination> _mobilePlaces(
   BuildContext context, {
   required ShellController shell,
@@ -845,12 +844,11 @@ List<_DockDestination> _mobilePlaces(
             destination.mobileNavigationLabel != null && destination.enabled,
       )
       .toList();
-  // A contributed section can be the shortcut already offered above.
-  final startSections = [
-    for (final section in registry.startPageSections(context))
-      if (section.destination.enabled &&
-          !shortcuts.any((shortcut) => shortcut.id == section.destination.id))
-        section.destination,
+  final mobileDestinations = [
+    for (final destination in registry.mobileNavigationDestinations(context))
+      if (destination.enabled &&
+          !shortcuts.any((shortcut) => shortcut.id == destination.id))
+        destination,
   ];
   final hasResumableDraft = shell.draftList
       .feedFor(instance.url)
@@ -942,7 +940,7 @@ List<_DockDestination> _mobilePlaces(
         ),
       ),
     ],
-    for (final section in startSections) page(section),
+    for (final destination in mobileDestinations) page(destination),
     // Deleting the last draft from its own page keeps the page open.
     if (destination('drafts') case final drafts?
         when signedIn &&

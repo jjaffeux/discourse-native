@@ -11,7 +11,6 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
@@ -177,20 +176,15 @@ Finder contentText(String label) => find.byElementPredicate((element) {
   var inMainContent = false;
   var insideTopicTitle = false;
   var inForumTabs = false;
-  var inStartPage = false;
   element.visitAncestorElements((ancestor) {
     inMainContent |= ancestor.widget is MainContent;
     insideTopicTitle |=
         ancestor.widget is TopicTitle &&
         (ancestor.widget as TopicTitle).title == label;
     inForumTabs |= ancestor.widget is ForumTabsBar;
-    inStartPage |= ancestor.widget is NewTabPage;
     return true;
   });
-  return inMainContent &&
-      !inForumTabs &&
-      !inStartPage &&
-      !(widget is Text && insideTopicTitle);
+  return inMainContent && !inForumTabs && !(widget is Text && insideTopicTitle);
 }, description: 'content text labelled "$label"');
 
 Future<TestGesture> hoverPost(
@@ -247,7 +241,7 @@ final Uint8List emojiPng = base64Decode(
   'YPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==',
 );
 
-/// The forum's primary viewport; desktop also mounts a secondary Start panel.
+/// The forum's primary viewport; desktop also mounts a secondary topic list.
 Finder get primaryMainContent => find.byElementPredicate(
   (element) =>
       element.widget is MainContent &&

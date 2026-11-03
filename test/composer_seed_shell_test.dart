@@ -277,7 +277,7 @@ void main() {
                   title: 'Latest',
                   icon: DIcons.list,
                 )
-              : ContentRoute.newTab(),
+              : ContentRoute.topicList(TopicListMode.latest),
         );
         api.capabilityGate.complete();
 

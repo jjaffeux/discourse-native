@@ -107,8 +107,8 @@ final class _WorkspaceController {
     final id = _nextTabId();
     return ForumTab(
       id: id,
-      rootDestinationId: 'new-tab',
-      contentStack: [ContentRoute.newTab()],
+      rootDestinationId: 'latest',
+      contentStack: [ContentRoute.topicList(TopicListMode.latest)],
     );
   }
 
@@ -117,7 +117,7 @@ final class _WorkspaceController {
     final tab = ForumTab(
       id: id,
       rootDestinationId: instance.defaultDestination.id,
-      contentStack: [_shell._homepageFor(instance)],
+      contentStack: [ContentRoute.homepage()],
     );
     _pendingHomepageTabs.add(id);
     return ForumWorkspace(
@@ -783,7 +783,6 @@ final class _WorkspaceController {
     required ForumTab tab,
     required int index,
   }) {
-    if (tab.currentContent.isNewTab) return;
     _closedForumTabs.removeWhere(
       (closed) =>
           closed.siteUrl == siteUrl &&
@@ -925,9 +924,7 @@ final class _WorkspaceController {
         active.navigate(
           rootDestinationId:
               source?.rootDestinationId ?? instance.defaultDestination.id,
-          contentStack: [
-            source?.currentContent ?? _shell._homepageFor(instance),
-          ],
+          contentStack: [source?.currentContent ?? ContentRoute.homepage()],
         ),
       );
       _shell._mobilePane = MobilePane.content;
@@ -956,7 +953,7 @@ final class _WorkspaceController {
         ForumTab(
           id: tab.id,
           rootDestinationId: instance.defaultDestination.id,
-          contentStack: [_shell._homepageFor(instance)],
+          contentStack: [ContentRoute.homepage()],
         );
     _restorePluginPaneTab(
       instance,

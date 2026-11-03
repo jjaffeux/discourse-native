@@ -112,7 +112,7 @@ final itemExamples = ComponentExamples(
       description:
           'Compact menu rows use 8px corners and a stronger neutral selected fill. Choose either row to move selection.',
       code:
-          "DItem(size: DItemSize.xs, shape: DItemShape.menu, selected: selected, selectionStyle: DItemSelectionStyle.strongNeutral, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [Text('Start page')])])",
+          "DItem(size: DItemSize.xs, shape: DItemShape.menu, selected: selected, selectionStyle: DItemSelectionStyle.strongNeutral, showSelectionIndicator: false, onPressed: select, children: [DItemContent(children: [Text('Latest topics')])])",
       builder: (_) => const _SelectionExample(
         style: DItemSelectionStyle.strongNeutral,
         shape: DItemShape.menu,

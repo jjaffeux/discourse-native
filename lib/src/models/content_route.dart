@@ -264,14 +264,6 @@ class ContentRoute {
 
   bool get isGlobalSearch => isPage(CorePage.search);
 
-  factory ContentRoute.newTab() => ContentRoute(
-    destination: const PageDestination(CorePage.start),
-    title: appL10n.startPage,
-    icon: DIcons.house,
-  );
-
-  bool get isNewTab => isPage(CorePage.start);
-
   factory ContentRoute.appearance() => ContentRoute(
     destination: const PageDestination(CorePage.appearance),
     title: appL10n.interface,
@@ -333,7 +325,7 @@ class ContentRoute {
       sourcePath: mode.feedPath,
       mode: mode,
     ),
-    title: appL10n.topics,
+    title: mode == TopicListMode.latest ? appL10n.latestTopics : appL10n.topics,
     icon: DIcons.layerGroup,
   );
 
@@ -482,40 +474,8 @@ class ContentRoute {
     return slugs.join(':');
   }
 
-  factory ContentRoute.homepage(SiteConfig config, {required bool connected}) {
-    const anonymous = {'latest', 'top', 'categories', 'hot'};
-    var homepage = config.defaultHomepage.isNotEmpty
-        ? config.defaultHomepage
-        : config.topMenu.firstOrNull ?? 'latest';
-    const discovery = {
-      'latest',
-      'top',
-      'categories',
-      'hot',
-      'new',
-      'unread',
-      'unseen',
-    };
-    if (!discovery.contains(homepage)) {
-      homepage = config.topMenu.firstOrNull ?? 'latest';
-    }
-    if (!connected && !anonymous.contains(homepage)) {
-      homepage =
-          config.topMenu.where(anonymous.contains).firstOrNull ?? 'latest';
-    }
-    if (homepage == 'categories') return ContentRoute.allCategories();
-    final mode = switch (homepage) {
-      'hot' => TopicListMode.popular,
-      'top' => TopicListMode.top(
-        TopPeriod.fromQueryValue(config.topPageDefaultPeriod),
-      ),
-      'new' => TopicListMode.newActivity,
-      'unread' => TopicListMode.unread,
-      'unseen' => TopicListMode.unseen,
-      _ => TopicListMode.latest,
-    };
-    return ContentRoute.topicList(mode);
-  }
+  factory ContentRoute.homepage() =>
+      ContentRoute.topicList(TopicListMode.latest);
 
   factory ContentRoute.fromDestination(SidebarDestination source) =>
       ContentRoute(
@@ -531,7 +491,7 @@ class ContentRoute {
   String get tabTitle {
     if (isAdvancedTopicFilter) return title;
     return switch (TopicListMode.fromRoute(this)) {
-      TopicListMode.latest => appL10n.latest,
+      TopicListMode.latest => appL10n.latestTopics,
       TopicListMode.newActivity => appL10n.messageNew,
       TopicListMode.newTopics => appL10n.newTopicsContentroute,
       TopicListMode.newReplies => appL10n.newRepliesContentroute,

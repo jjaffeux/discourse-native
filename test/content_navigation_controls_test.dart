@@ -8,7 +8,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
-import 'package:discourse_native/src/shell/new_tab_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -25,36 +24,17 @@ import 'support/shell_test_harness.dart';
 void main() {
   _testOnPlatform(
     TargetPlatform.macOS,
-    'Start page omits search and navigation controls',
+    'new tabs show Latest with ordinary navigation and filter controls',
     (tester) async {
       await pumpShell(tester, desktop);
       final shell = _shell(tester);
-
-      expect(shell.canCreateTab, isTrue);
       shell.createTab();
       await tester.pumpAndSettle();
-
-      expect(shell.tabsForCurrentForum.last.currentContent.isNewTab, isTrue);
-      expect(shell.currentContent?.isNewTab, isTrue);
-      final startPage = find.descendant(
-        of: primaryMainContent,
-        matching: find.byType(NewTabPage),
-      );
-      expect(startPage, findsOneWidget);
-      expect(
-        find.descendant(
-          of: startPage,
-          matching: find.byKey(ForumSearch.inputKey),
-        ),
-        findsNothing,
-      );
-      expect(
-        find.descendant(
-          of: startPage,
-          matching: find.byType(ContentNavigationControls),
-        ),
-        findsNothing,
-      );
+      expect(shell.currentContent?.id, 'latest');
+      expect(shell.currentContent?.title, 'Latest topics');
+      expect(find.byType(ContentNavigationControls), findsOneWidget);
+      expect(find.byKey(const ValueKey('topic-list-filter')), findsWidgets);
+      expect(tester.takeException(), isNull);
     },
   );
 
@@ -99,7 +79,7 @@ void main() {
         await tester.tap(find.byKey(ContentNavigationControls.homeKey));
         await tester.pumpAndSettle();
         final latest = shell.activeTabId!;
-        expect(latest, isNot(original));
+        expect(latest, original);
         expect(shell.currentContent?.id, 'latest');
         shell.createTab();
         await tester.pumpAndSettle();
@@ -115,7 +95,7 @@ void main() {
           shell.tabsForCurrentForum
               .firstWhere((tab) => tab.id == start)
               .currentContent
-              .isNewTab,
+              .isTopicList,
           isTrue,
         );
         expect(
@@ -123,7 +103,7 @@ void main() {
               .firstWhere((tab) => tab.id == original)
               .currentContent
               .id,
-          'away-from-latest',
+          'latest',
         );
       },
     );
@@ -302,7 +282,13 @@ void main() {
         await tester.tap(find.byKey(ContentNavigationControls.refreshKey));
         await tester.pumpAndSettle();
         expect(api.feedPaths, ['/latest.json']);
-        expect(topicListTitle('Updated feed'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: primaryMainContent,
+            matching: topicListTitle('Updated feed'),
+          ),
+          findsOneWidget,
+        );
 
         final gate = Completer<void>();
         gates['/latest.json'] = gate;
@@ -464,8 +450,8 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(api.topicsOpened, [topic.id]);
-      // The tab opened on the Start page, so it holds no list to reload.
-      expect(api.feedPaths, isEmpty);
+      // A new tab retains Latest as the topic's source list.
+      expect(api.feedPaths, ['/latest.json']);
       expect(shell.activeTabId, tab.id);
       expect(shell.contentStack, tab.contentStack);
       expect(shell.activeTab!.forwardStack, tab.forwardStack);

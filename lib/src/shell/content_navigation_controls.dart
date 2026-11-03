@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
-import '../models/content_route.dart';
+import '../models/forum_workspace.dart';
 import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -54,9 +54,19 @@ class ContentNavigationControls extends StatelessWidget {
                   semanticLabel: context.l10n.latest,
                   variant: DButtonVariant.ghost,
                   density: DButtonDensity.chrome,
-                  onPressed: () => ShellScope.read(
-                    context,
-                  ).openPageTab(ContentRoute.topicList(TopicListMode.latest)),
+                  onPressed: () {
+                    if (ShellScope.read(context).openDesktopHome()) {
+                      final header =
+                          context
+                              .getInheritedWidgetOfExactType<
+                                _DesktopHomeHeader
+                              >()
+                              ?.header
+                              .value ??
+                          DPageHeaderScope.maybeOf(context);
+                      unawaited(header?.scrollToTop());
+                    }
+                  },
                 ),
                 Flexible(
                   child: DCard(
@@ -142,4 +152,34 @@ class ContentNavigationControls extends StatelessWidget {
           );
         },
       );
+}
+
+/// Shares the primary page's Native scroll action with desktop Home chrome.
+class DesktopHomeHeaderHost extends StatelessWidget {
+  const DesktopHomeHeaderHost({super.key, required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => ShellSelector<Object>(
+    select: (shell) => (
+      shell.currentInstance?.url,
+      shell.selectedTabIn(ForumPanel.main)?.id,
+      shell.selectedTabIn(ForumPanel.main)?.currentContent,
+    ),
+    builder: (context, identity, _) => DPageHeaderHost(
+      identity: identity,
+      builder: (context, header, child) =>
+          _DesktopHomeHeader(header: header, child: child),
+      child: child,
+    ),
+  );
+}
+
+class _DesktopHomeHeader extends InheritedWidget {
+  const _DesktopHomeHeader({required this.header, required super.child});
+  final ValueListenable<DPageHeader?> header;
+
+  @override
+  bool updateShouldNotify(_DesktopHomeHeader oldWidget) =>
+      header != oldWidget.header;
 }

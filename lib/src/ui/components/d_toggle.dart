@@ -35,7 +35,6 @@ enum DToggleDensity {
   /// Flat 30px post pills with 14px emoji, 12.5px counts and accent selection.
   postReaction,
   tile,
-  compactInset,
   chrome,
   splitView,
 }
@@ -286,7 +285,6 @@ class _DToggleState extends State<DToggle> {
     // the panel fill. Reaction chips stay flat in both appearance materials.
     final chatBackground = tokens.colors.surface;
     final tile = widget.density == DToggleDensity.tile;
-    final compactInset = widget.density == DToggleDensity.compactInset;
     final chrome = widget.density == DToggleDensity.chrome;
     final splitView = widget.density == DToggleDensity.splitView;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
@@ -335,14 +333,12 @@ class _DToggleState extends State<DToggle> {
         ? 36.0 + math.max(0, scaler.scale(13) - 13)
         : chrome
         ? 32.0 + math.max(0, scaler.scale(13) - 13)
-        : compactInset
-        ? 26.0
         : tile
         ? 54.0
         : chatReaction
         ? (scaler.scale(12) * 1.5 + 6).clamp(24.0, double.infinity)
         : (DControlStyle.scaledHeight(widget.size, scaler, context: context));
-    final visualWidth = compactInset ? 30.0 : visualDimension;
+    final visualWidth = visualDimension;
     final iconDimension = disclosure
         ? 10.0
         : postReaction
@@ -355,9 +351,7 @@ class _DToggleState extends State<DToggle> {
         ? 20.0
         : chatReaction
         ? 12.0
-        : (compactInset
-              ? 12.0
-              : DControlStyle.iconDimension(widget.size, context: context));
+        : DControlStyle.iconDimension(widget.size, context: context);
     final fontSize = postReaction
         ? DPostReactionStyle.fontSize
         : menuFilter

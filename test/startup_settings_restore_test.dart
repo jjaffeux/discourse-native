@@ -52,7 +52,10 @@ void main() {
             ForumTab(
               id: 'saved-$i',
               rootDestinationId: 'new-tab',
-              contentStack: [ContentRoute.newTab(), ContentRoute.appearance()],
+              contentStack: [
+                ContentRoute.topicList(TopicListMode.latest),
+                ContentRoute.appearance(),
+              ],
             ),
           ],
           activeTabId: 'saved-$i',

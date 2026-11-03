@@ -26,7 +26,7 @@ void main() {
         final first = _controller(instances, persistence, mobile: mobile);
         await first.load();
         first.selectInstance(1);
-        first.pushContent(ContentRoute.newTab());
+        first.pushContent(ContentRoute.topicList(TopicListMode.latest));
         await first.moveInstance(sites.last, 0);
         first.selectInstance(1);
         await first.flushForExit();

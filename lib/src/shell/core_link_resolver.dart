@@ -41,8 +41,7 @@ final class CoreLinkTarget {
     String? specializedTitle,
   }) {
     if (isHomepage) {
-      return homepage ??
-          ContentRoute.homepage(config, connected: instance.isConnected);
+      return homepage ?? ContentRoute.homepage();
     }
     final decoded = ContentRouteCodec.fromUrl(
       _target.toString(),

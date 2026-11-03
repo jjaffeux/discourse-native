@@ -397,7 +397,7 @@ void main() {
 
       for (final stacked in [false, true]) {
         test(
-          'restored feed hydrates its explicit mode ${stacked ? 'above a same-key Start page' : 'independently of its key'}',
+          'restored feed hydrates its explicit mode ${stacked ? 'above a same-key Latest list' : 'independently of its key'}',
           () async {
             const route = ContentRoute(
               destination: FeedDestination(
@@ -421,7 +421,11 @@ void main() {
                     ForumTab(
                       id: 'custom',
                       rootDestinationId: 'latest',
-                      contentStack: [if (stacked) ContentRoute.newTab(), route],
+                      contentStack: [
+                        if (stacked)
+                          ContentRoute.topicList(TopicListMode.latest),
+                        route,
+                      ],
                     ),
                   ],
                   activeTabId: 'custom',
@@ -507,13 +511,13 @@ void main() {
       );
 
       test(
-        'desktop panels seed Start pages without changing active content',
+        'desktop panels seed Latest lists without changing active content',
         () {
           final main = controller.activeTab!;
           controller.desktopTopicTabs = true;
 
           final start = controller.selectedTabIn(ForumPanel.secondary)!;
-          expect(start.currentContent.isNewTab, isTrue);
+          expect(start.currentContent.isTopicList, isTrue);
           expect(controller.activeTab, main);
           controller.desktopTopicTabs = false;
           controller.desktopTopicTabs = true;
@@ -522,12 +526,12 @@ void main() {
 
           controller.selectInstance(1);
           expect(controller.activeTab!.panel, ForumPanel.main);
-          expect(controller.currentContent!.isNewTab, isFalse);
+          expect(controller.currentContent!.id, 'latest');
           expect(
             controller
                 .selectedTabIn(ForumPanel.secondary)
                 ?.currentContent
-                .isNewTab,
+                .isTopicList,
             isTrue,
           );
         },
@@ -570,14 +574,14 @@ void main() {
             expect(restored.currentWorkspace!.tabsIn(panel), tabs);
             expect(restored.activeTab, tabs.first);
             final start = restored.selectedTabIn(other)!;
-            expect(start.currentContent.isNewTab, isTrue);
+            expect(start.currentContent.isTopicList, isTrue);
             expect(restored.canCreateTab, isFalse);
             expect(
               ForumWorkspace.tryFromJson(restored.currentWorkspace!.toJson()),
               restored.currentWorkspace,
             );
             restored.selectTab(start.id);
-            restored.pushContent(_topic(99, 'Opened from Start page'));
+            restored.pushContent(_topic(99, 'Opened from Latest list'));
             expect(restored.activeTab!.panel, other);
             expect(restored.currentContent!.topicId, 99);
             expect(
@@ -589,7 +593,7 @@ void main() {
       }
 
       test(
-        'Start page visits survive a restart, including background tabs',
+        'Recent visits survive a restart, including background tabs',
         () async {
           final persistence = MemoryRecentDestinationsPersistence();
           final firstStore = RecentDestinationsStore(persistence: persistence);
@@ -652,8 +656,8 @@ void main() {
       for (final rail in [forums, <DiscourseInstance>[]]) {
         test(
           rail.isEmpty
-              ? 'an empty rail keeps every Start page visit'
-              : 'a restart drops Start page visits of forums off the rail',
+              ? 'an empty rail keeps every Latest list visit'
+              : 'a restart drops Recent visits of forums off the rail',
           () async {
             final persistence = MemoryRecentDestinationsPersistence();
             await (RecentDestinationsStore(persistence: persistence)
@@ -877,7 +881,7 @@ void main() {
         expect(controller.activeTab, original);
       });
 
-      test('adds and activates a fresh new-tab page', () {
+      test('adds and activates a fresh Latest list', () {
         final originalTabId = controller.activeTabId;
 
         expect(originalTabId, isNotNull);
@@ -1202,7 +1206,6 @@ void main() {
         controller.pushContent(_topic(101, 'Visited topic'));
         controller.search.setPageWords(site, id, 'topic-101', 'first words');
         controller.search.setPageWords(site, id, 'topic-202', 'second words');
-        controller.search.setStartPageQuery(site, id, 'start query');
         const users = UserDirectoryQuery(
           search: 'sam',
           period: UserDirectoryPeriod.monthly,
@@ -1221,23 +1224,7 @@ void main() {
           controller.search.wordsFor(site, id, 'topic-202'),
           'second words',
         );
-        expect(controller.search.startPageQueryFor(site, id), 'start query');
         expect(controller.search.usersQueryFor(site, id), users);
-      });
-
-      test('discarded Start tabs retire their search state', () {
-        final site = forums.first.url;
-        final id = controller.activeTabId!;
-        controller.pushContent(_topic(101, 'Visited topic'));
-        controller.search.setPageWords(site, id, 'topic-101', 'retired words');
-        controller.search.setStartPageQuery(site, id, 'retired query');
-        controller.pushContent(ContentRoute.newTab());
-
-        controller.closeTab(id);
-
-        expect(controller.reopenClosedTab(id), isFalse);
-        expect(controller.search.wordsFor(site, id, 'topic-101'), isEmpty);
-        expect(controller.search.startPageQueryFor(site, id), isEmpty);
       });
 
       test('closed-tab eviction retires only unreachable search owners', () {
@@ -1295,7 +1282,7 @@ void main() {
         expect(controller.reopenClosedTab(oldest), isFalse);
       });
 
-      test('bulk close retires Start and evicted content search state', () {
+      test('bulk close retires evicted evicted content search state', () {
         final firstSite = forums.first.url;
         final closed = <String>[];
         for (var index = 0; index < ForumWorkspace.maximumTabs; index++) {
@@ -1314,7 +1301,7 @@ void main() {
         final start = controller.activeTabId!;
         controller.pushContent(_topic(2001, 'Visited topic'));
         controller.search.setPageWords(site, start, 'topic-2001', 'discarded');
-        controller.pushContent(ContentRoute.newTab());
+        controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
         final restorable = <String>[];
         for (final topicId in [2002, 2003]) {
           controller.createTab();
@@ -1341,7 +1328,7 @@ void main() {
           );
           expect(controller.reopenClosedTab(restorable[index]), isTrue);
         }
-        expect(controller.reopenClosedTab(start), isFalse);
+        expect(controller.reopenClosedTab(start), isTrue);
       });
 
       test('desktop topic tabs select the next topic after closing', () {
@@ -1390,7 +1377,7 @@ void main() {
         },
       );
 
-      test('replaces the final closed tab with a fresh new-tab page', () {
+      test('replaces the final closed tab with a fresh Latest list', () {
         final closedTabId = controller.activeTabId!;
 
         controller.closeTab(closedTabId);
@@ -1401,36 +1388,7 @@ void main() {
         _expectNewTabRoot(controller);
       });
 
-      test('ignores a closed Start page even after visiting content', () {
-        controller.pushContent(_topic(101, 'Visited topic'));
-        controller.pushContent(ContentRoute.newTab());
-        final closedTabId = controller.activeTabId!;
-
-        controller.closeTab(closedTabId);
-
-        expect(controller.currentWorkspace?.tabById(closedTabId), isNull);
-        _expectNewTabRoot(controller);
-        expect(controller.recentlyClosedTabsForCurrentForum, isEmpty);
-        expect(controller.reopenClosedTab(closedTabId), isFalse);
-        expect(controller.reopenClosedTab(), isFalse);
-      });
-
-      test('closing Start pages preserves earlier closed content tabs', () {
-        final contentTab = controller.activeTab!;
-        controller.closeTab(contentTab.id);
-
-        for (var index = 0; index <= ForumWorkspace.maximumTabs; index++) {
-          _expectNewTabRoot(controller);
-          controller.closeTab(controller.activeTabId!);
-        }
-
-        expect(controller.recentlyClosedTabsForCurrentForum, [contentTab]);
-        expect(controller.reopenClosedTab(), isTrue);
-        expect(controller.activeTab, contentTab);
-        expect(controller.reopenClosedTab(), isFalse);
-      });
-
-      test('closing the last tab in a panel opens a Start page there', () {
+      test('closing the last tab in a panel opens a Latest list there', () {
         controller.desktopTopicTabs = true;
         final mainId = controller.activeTabId!;
         controller.selectTab(
@@ -1442,18 +1400,18 @@ void main() {
         final newMain = controller.selectedTabIn(ForumPanel.main);
         expect(newMain, isNotNull);
         expect(newMain!.id, isNot(mainId));
-        expect(newMain.currentContent.isNewTab, isTrue);
+        expect(newMain.currentContent.isTopicList, isTrue);
         expect(controller.activeTabId, secondaryId);
 
         controller.closeTab(secondaryId);
         final newSecondary = controller.selectedTabIn(ForumPanel.secondary);
         expect(newSecondary, isNotNull);
         expect(newSecondary!.id, isNot(secondaryId));
-        expect(newSecondary.currentContent.isNewTab, isTrue);
+        expect(newSecondary.currentContent.isTopicList, isTrue);
         expect(controller.activeTabId, newSecondary.id);
       });
 
-      test('moving the only main tab leaves a Start page behind', () {
+      test('moving the only main tab leaves a Latest list behind', () {
         controller.desktopTopicTabs = true;
         final movedId = controller.activeTabId!;
 
@@ -1464,11 +1422,11 @@ void main() {
         final main = controller.selectedTabIn(ForumPanel.main);
         expect(main, isNotNull);
         expect(main!.id, isNot(movedId));
-        expect(main.currentContent.title, 'Start page');
-        expect(main.currentContent.icon, DIcons.house);
+        expect(main.currentContent.title, 'Latest topics');
+        expect(main.currentContent.icon, DIcons.layerGroup);
       });
 
-      test('closing other tabs keeps a Start page in the emptied panel', () {
+      test('closing other tabs keeps a Latest list in the emptied panel', () {
         controller.desktopTopicTabs = true;
         final mainId = controller.activeTabId!;
         controller.selectTab(
@@ -1482,7 +1440,7 @@ void main() {
         expect(controller.currentWorkspace?.tabById(secondaryId), isNull);
         expect(
           controller.selectedTabIn(ForumPanel.secondary)?.currentContent.title,
-          'Start page',
+          'Latest topics',
         );
       });
 
@@ -1539,9 +1497,9 @@ void main() {
 
         expect(
           controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
-          [firstTabId, thirdTabId],
+          [firstTabId, thirdTabId, startTabId],
         );
-        expect(controller.reopenClosedTab(startTabId), isFalse);
+
         expect(controller.reopenClosedTab(thirdTabId), isTrue);
         expect(controller.tabsForCurrentForum.map((tab) => tab.id), [
           secondTabId,
@@ -1551,7 +1509,7 @@ void main() {
         expect(controller.currentContent?.topicId, 303);
         expect(
           controller.recentlyClosedTabsForCurrentForum.map((tab) => tab.id),
-          [firstTabId],
+          [firstTabId, startTabId],
         );
         expect(controller.reopenClosedTab('missing'), isFalse);
 
@@ -1563,6 +1521,8 @@ void main() {
         ]);
         expect(controller.activeTabId, firstTabId);
 
+        expect(controller.reopenClosedTab(startTabId), isTrue);
+        expect(controller.currentContent?.id, 'latest');
         expect(controller.reopenClosedTab(), isFalse);
       });
     });
@@ -1761,7 +1721,7 @@ void main() {
 
     group('workspace persistence', () {
       test(
-        'restores a Start page when a saved workspace has no main tab',
+        'restores a Latest list when a saved workspace has no main tab',
         () async {
           final secondary = ForumTab(
             id: 'secondary-only',
@@ -1799,7 +1759,7 @@ void main() {
           );
           expect(
             restored.selectedTabIn(ForumPanel.main)?.currentContent.title,
-            'Start page',
+            'Latest topics',
           );
         },
       );
@@ -2023,8 +1983,8 @@ List<String> _routeIds(ShellController controller) => [
 ];
 
 void _expectNewTabRoot(ShellController controller) {
-  expect(controller.destinationId, 'new-tab');
-  expect(_routeIds(controller), ['new-tab']);
-  expect(controller.currentContent?.title, 'Start page');
-  expect(controller.currentContent?.icon, DIcons.house);
+  expect(controller.destinationId, 'latest');
+  expect(_routeIds(controller), ['latest']);
+  expect(controller.currentContent?.title, 'Latest topics');
+  expect(controller.currentContent?.icon, DIcons.layerGroup);
 }

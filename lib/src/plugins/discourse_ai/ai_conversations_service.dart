@@ -169,23 +169,6 @@ final class AiConversationsService implements PluginLinkHandler {
 
   void openForum(String siteUrl) {
     if (navigation.currentSite?.url != siteUrl) return;
-    final fallback = ContentRoute.homepage(
-      siteState.siteConfigFor(siteUrl),
-      connected: navigation.currentSite?.isConnected == true,
-    );
-    if (fallback.id == 'all-categories') {
-      navigation.pushContent(fallback);
-    } else {
-      topicLists.openTopicList(
-        ContentRoute(
-          destination: FeedDestination.fromPath(
-            key: fallback.id,
-            path: fallback.feedPath ?? '/latest.json',
-          ),
-          title: fallback.title,
-          icon: fallback.icon,
-        ),
-      );
-    }
+    topicLists.openTopicList(ContentRoute.homepage());
   }
 }

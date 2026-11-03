@@ -71,6 +71,9 @@ final class ContentRouteCodec {
               feedPath == null:
         return BadgeDestination(badgeRoute);
       case 'page' when !hasOther && feedPath == null:
+        if (id == 'new-tab') {
+          return ContentRoute.topicList(TopicListMode.latest).destination;
+        }
         final page = CorePage.values
             .where((page) => page.key == id)
             .firstOrNull;
@@ -147,6 +150,9 @@ final class ContentRouteCodec {
           legacyKey: id,
         );
       }
+    }
+    if (id == 'new-tab') {
+      return ContentRoute.topicList(TopicListMode.latest).destination;
     }
     for (final page in CorePage.values) {
       if (id == page.key) return PageDestination(page);
@@ -322,16 +328,20 @@ final class ContentRouteCodec {
             groupRoute: groupRoute,
             badgeRoute: badgeRoute,
           );
+    if (id == 'new-tab' &&
+        (type == null || type == 'page') &&
+        destination is FeedDestination) {
+      return ContentRoute.topicList(TopicListMode.latest);
+    }
     final page = switch (destination) {
       PageDestination(:final page) => page,
       _ => null,
     };
     final route = ContentRoute(
       destination: destination,
-      title: page == CorePage.start ? appL10n.startPage : title,
+      title: title,
       // Upgrade legacy default glyphs while preserving other saved artwork.
       icon:
-          (page == CorePage.start ? DIcons.house : null) ??
           (page == CorePage.users && iconName == DIcons.user.name
               ? DIcons.users
               : null) ??

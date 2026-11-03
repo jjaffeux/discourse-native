@@ -107,7 +107,7 @@ void main() {
         expect(_button('Groups'), findsOneWidget);
         await tester.tap(_more);
         await tester.pumpAndSettle();
-        expect(_button('Groups'), findsNothing);
+        expect(_button('Groups'), findsOneWidget);
         expect(tester.widget<DSidebarMenuButton>(_more).isActive, isTrue);
         expect(tester.widget<DSidebarMenuButton>(_more).expanded, isFalse);
         expect(
