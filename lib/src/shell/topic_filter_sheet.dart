@@ -258,7 +258,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         else if (suggestion.menuIcon case final icon?)
           DIcon(
             DIcons.byName[icon] ?? DNativeIcons.byName[icon] ?? DIcons.filter,
-            size: 14,
+            size: 12,
           )
         else if (suggestion.categoryUp)
           DIcon(
@@ -285,7 +285,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
           )
         else
           _topicFilterSuggestionIcon(suggestion),
-        const SizedBox(width: 8),
+        const SizedBox(width: 10),
         Expanded(
           child: Text.rich(
             TextSpan(
@@ -335,6 +335,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   TextSpan(
                     text: '  ${suggestion.description}',
                     style: TextStyle(
+                      fontSize: DiscourseTypography.metadata,
                       color: DTokens.of(context).mutedForeground,
                     ),
                   ),
@@ -562,7 +563,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   for (final group in groups.entries)
                     DCommandGroup<String>(
                       heading: group.key.isEmpty ? null : Text(group.key),
-                      showGuide: group.key.isNotEmpty,
                       items: [
                         for (final suggestion in group.value)
                           DCommandItem<String>(

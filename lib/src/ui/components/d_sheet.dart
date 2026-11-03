@@ -2851,6 +2851,7 @@ class DSheetHeader extends StatelessWidget {
         trailing == null &&
         (_DSheetHeaderScope.maybeOf(context)?.showCloseButton ?? false);
     final hasActions = leading != null || trailing != null || reserveClose;
+    if (children.isEmpty && !hasActions) return const SizedBox.shrink();
     final actionExtent = actionRowHeightOf(context) - 2 * DSpacing.md;
     return Padding(
       padding: const EdgeInsets.all(DSpacing.md),

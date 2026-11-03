@@ -249,7 +249,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
         width: 320,
         collisionBoundary: _boundary,
         sideOffset: widget.filterKey == null ? DSpacing.controlGap : 6,
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+        padding: const EdgeInsets.only(top: 8),
         scrollable: false,
         align: DPopoverAlign.start,
         semanticLabel: context.l10n.filterTopics,
