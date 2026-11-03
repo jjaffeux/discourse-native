@@ -422,25 +422,25 @@ class _LocalDateButton extends StatelessWidget {
             onPressed: activate,
             children: [
               ExcludeSemantics(
-                child: Text.rich(
-                  TextSpan(
-                    style: inherited.copyWith(
-                      color: color,
-                      decoration: TextDecoration.underline,
-                      decorationStyle: TextDecorationStyle.dotted,
-                      decorationColor: color,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    DIcon(DIcons.globe, size: 15, color: color),
+                    Flexible(
+                      child: Text.rich(
+                        TextSpan(
+                          text: ' $formatted',
+                          mouseCursor: SystemMouseCursors.click,
+                          style: inherited.copyWith(
+                            color: color,
+                            decoration: TextDecoration.underline,
+                            decorationStyle: TextDecorationStyle.dotted,
+                            decorationColor: color,
+                          ),
+                        ),
+                      ),
                     ),
-                    children: [
-                      WidgetSpan(
-                        alignment: PlaceholderAlignment.middle,
-                        child: DIcon(DIcons.globe, size: 15, color: color),
-                      ),
-                      TextSpan(
-                        text: ' $formatted',
-                        mouseCursor: SystemMouseCursors.click,
-                      ),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ],

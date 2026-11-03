@@ -123,12 +123,15 @@ void main() {
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
-    await mouse.moveTo(bounds.center);
-    await tester.pump();
-    expect(
-      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
-      SystemMouseCursors.click,
-    );
+    final globe = find.descendant(of: target, matching: find.byType(DIcon));
+    for (final position in [tester.getCenter(globe), bounds.center]) {
+      await mouse.moveTo(position);
+      await tester.pump();
+      expect(
+        RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+        SystemMouseCursors.click,
+      );
+    }
     final surfaces = tester.widgetList<Container>(
       find.descendant(of: target, matching: find.byType(Container)),
     );
@@ -142,7 +145,7 @@ void main() {
     await tester.tapAt(Offset(bounds.right + 4, bounds.center.dy));
     await tester.pumpAndSettle();
     expect(find.byType(DPopoverContent), findsNothing);
-    await tester.tap(target);
+    await tester.tap(globe);
     await tester.pumpAndSettle();
     final popup = tester.getRect(find.byType(DPopoverContent));
     expect(popup.top, greaterThanOrEqualTo(bounds.bottom));
