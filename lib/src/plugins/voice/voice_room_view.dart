@@ -270,7 +270,10 @@ class VoiceRoomContent extends StatefulWidget {
   State<VoiceRoomContent> createState() => _VoiceRoomContentState();
 }
 
+enum _VoiceRoomLayout { auto, presentation, tiled }
+
 class _VoiceRoomContentState extends State<VoiceRoomContent> {
+  _VoiceRoomLayout _layout = _VoiceRoomLayout.auto;
   @override
   void initState() {
     super.initState();
@@ -286,6 +289,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
       return;
     }
     _stopWatching(oldWidget);
+    _layout = _VoiceRoomLayout.auto;
     _startWatching(widget);
   }
 
@@ -332,7 +336,6 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
     final recordingEnabled = widget.recordingEnabled;
     final controllerResolver = widget.controllerResolver;
     final error = widget.error;
-    final recording = room.recording;
     return Column(
       children: [
         if (error != null)
@@ -346,8 +349,7 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
               ),
             ),
           ),
-        if (recording != null && recording.active)
-          _RecordingBadge(recording: recording),
+        if (room.isBeingRecorded) _RecordingBadge(room: room),
         if (active != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -373,6 +375,28 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
                     ),
                   ),
                 ),
+                DSelect<_VoiceRoomLayout>.controlled(
+                  value: _layout,
+                  initialValue: _VoiceRoomLayout.auto,
+                  semanticLabel: context.l10n.voiceLayout,
+                  onChanged: (value) =>
+                      setState(() => _layout = value ?? _layout),
+                  entries: [
+                    for (final (value, label) in [
+                      (_VoiceRoomLayout.auto, context.l10n.auto),
+                      (
+                        _VoiceRoomLayout.presentation,
+                        context.l10n.voiceLayoutPresentation,
+                      ),
+                      (_VoiceRoomLayout.tiled, context.l10n.voiceLayoutTiled),
+                    ])
+                      DSelectOption(
+                        value: value,
+                        label: label,
+                        child: Text(label),
+                      ),
+                  ],
+                ),
                 Text(
                   context.l10n.present(
                     siteName,
@@ -391,65 +415,36 @@ class _VoiceRoomContentState extends State<VoiceRoomContent> {
             child: VoiceRingingClock(
               room: room,
               clock: widget.ringingClock,
-              builder: (context, ringing) => LayoutBuilder(
-                builder: (context, constraints) {
-                  final participants = room.participants;
-                  if (participants.isEmpty && ringing.isEmpty) {
-                    return _EmptyRoom(room: room);
-                  }
-                  final count = participants.length + ringing.length;
-                  final columns = constraints.maxWidth >= 900
-                      ? math.min(3, count)
-                      : constraints.maxWidth >= 560 || count >= 3
-                      ? math.min(2, count)
-                      : 1;
-                  final rows = math.min(3, (count / columns).ceil());
-                  final stageHeight = math.max(
-                    140.0,
-                    (constraints.maxHeight - 24 - (rows - 1) * 12) / rows,
-                  );
-                  return GridView.builder(
-                    padding: const EdgeInsets.all(12),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: columns,
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      mainAxisExtent: active == null ? null : stageHeight,
-                      childAspectRatio: 16 / 10,
-                    ),
-                    itemCount: participants.length + ringing.length,
-                    itemBuilder: (context, index) {
-                      if (index >= participants.length) {
-                        return _RingingTile(
-                          entry: ringing[index - participants.length],
-                          siteUrl: siteUrl,
-                        );
-                      }
-                      final participant = participants[index];
-                      return _ParticipantTile(
-                        key: ValueKey(('voice-participant', participant.id)),
-                        controller: controller,
-                        participant: participant,
-                        siteUrl: siteUrl,
-                        roomId: room.id,
-                        media: media,
-                        canManage: active?.room.canManage ?? false,
-                        canKick:
-                            active?.room.canManage == true &&
-                            participant.id != currentUserId &&
-                            participant.id != room.creatorId,
-                        canAdjustLocally:
-                            active != null && participant.id != currentUserId,
-                        stageRoleChange: _stageRoleChange(
-                          active,
-                          participant,
-                          currentUserId,
-                        ),
-                        controllerResolver: controllerResolver,
-                      );
-                    },
-                  );
-                },
+              builder: (context, ringing) => _VoiceRoomStage(
+                room: room,
+                active: active != null,
+                layout: _layout,
+                currentUserId: currentUserId,
+                ringingTiles: [
+                  for (final entry in ringing)
+                    _RingingTile(entry: entry, siteUrl: siteUrl),
+                ],
+                tileBuilder: (participant) => _ParticipantTile(
+                  key: ValueKey(('voice-participant', participant.id)),
+                  controller: controller,
+                  participant: participant,
+                  siteUrl: siteUrl,
+                  roomId: room.id,
+                  media: media,
+                  canManage: active?.room.canManage ?? false,
+                  canKick:
+                      active?.room.canManage == true &&
+                      participant.id != currentUserId &&
+                      participant.id != room.creatorId,
+                  canAdjustLocally:
+                      active != null && participant.id != currentUserId,
+                  stageRoleChange: _stageRoleChange(
+                    active,
+                    participant,
+                    currentUserId,
+                  ),
+                  controllerResolver: controllerResolver,
+                ),
               ),
             ),
           ),
@@ -589,16 +584,24 @@ class _RingingTile extends StatelessWidget {
 /// The room-wide "this call is being recorded" indicator. Drawn for
 /// everyone looking at the room, not only for whoever can stop it.
 class _RecordingBadge extends StatelessWidget {
-  const _RecordingBadge({required this.recording});
-  final VoiceRecording recording;
+  const _RecordingBadge({required this.room});
+  final VoiceRoom room;
 
   @override
   Widget build(BuildContext context) => Padding(
     padding: const EdgeInsets.only(top: DSpacing.sm),
     child: DTooltip(
-      message: recording.startedByUsername == null
-          ? context.l10n.thisCallIsBeingRecorded
-          : context.l10n.recordingStartedBy(recording.startedByUsername!),
+      message: [
+        if (room.recording?.active == true)
+          room.recording?.startedByUsername == null
+              ? context.l10n.thisCallIsBeingRecorded
+              : context.l10n.recordingStartedBy(
+                  room.recording!.startedByUsername!,
+                ),
+        for (final participant in room.participants)
+          if (participant.recordingLocally)
+            context.l10n.voiceLocalRecordingStarted(participant.username),
+      ].join('\n'),
       child: DBadge(
         variant: DBadgeVariant.destructive,
         leading: const DIcon(DIcons.circle),
@@ -634,6 +637,121 @@ class _EmptyRoom extends StatelessWidget {
         ],
       ),
     ),
+  );
+}
+
+class _VoiceRoomStage extends StatelessWidget {
+  const _VoiceRoomStage({
+    required this.room,
+    required this.active,
+    required this.layout,
+    required this.currentUserId,
+    required this.ringingTiles,
+    required this.tileBuilder,
+  });
+
+  final VoiceRoom room;
+  final bool active;
+  final _VoiceRoomLayout layout;
+  final int? currentUserId;
+  final List<Widget> ringingTiles;
+  final Widget Function(VoiceParticipant) tileBuilder;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final participants = room.participants;
+      final count = participants.length + ringingTiles.length;
+      if (count == 0) return _EmptyRoom(room: room);
+      final remoteShare = participants
+          .where((p) => p.screenSharing && p.id != currentUserId)
+          .firstOrNull;
+      final presentation =
+          active &&
+          participants.isNotEmpty &&
+          switch (layout) {
+            _VoiceRoomLayout.auto =>
+              remoteShare != null || room.type == VoiceRoomType.stage,
+            _VoiceRoomLayout.presentation => true,
+            _VoiceRoomLayout.tiled => false,
+          };
+      if (presentation) {
+        final featured =
+            remoteShare ??
+            participants
+                .where((p) => p.videoOn && p.id != currentUserId)
+                .firstOrNull ??
+            participants
+                .where((p) => p.videoOn || p.screenSharing)
+                .firstOrNull ??
+            participants
+                .where((p) => p.role != VoiceRole.participant)
+                .firstOrNull ??
+            participants.first;
+        final others = [
+          for (final participant in participants)
+            if (participant.id != featured.id) tileBuilder(participant),
+          ...ringingTiles,
+        ];
+        final wide = constraints.maxWidth >= 700;
+        final featuredTile = tileBuilder(featured);
+        return Padding(
+          padding: const EdgeInsets.all(DSpacing.md),
+          child: others.isEmpty
+              ? featuredTile
+              : Flex(
+                  direction: wide ? Axis.horizontal : Axis.vertical,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 3, child: featuredTile),
+                    SizedBox(
+                      width: wide ? DSpacing.md : 0,
+                      height: wide ? 0 : DSpacing.md,
+                    ),
+                    Expanded(
+                      child: ListView.separated(
+                        scrollDirection: wide ? Axis.vertical : Axis.horizontal,
+                        itemCount: others.length,
+                        separatorBuilder: (_, _) => SizedBox(
+                          width: wide ? 0 : DSpacing.md,
+                          height: wide ? DSpacing.md : 0,
+                        ),
+                        itemBuilder: (context, index) => SizedBox(
+                          width: wide ? null : 180,
+                          height: wide ? 150 : null,
+                          child: others[index],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+        );
+      }
+      final columns = constraints.maxWidth >= 900
+          ? math.min(3, count)
+          : constraints.maxWidth >= 560 || count >= 3
+          ? math.min(2, count)
+          : 1;
+      final rows = math.min(3, (count / columns).ceil());
+      final stageHeight = math.max(
+        140.0,
+        (constraints.maxHeight - 24 - (rows - 1) * 12) / rows,
+      );
+      return GridView.builder(
+        padding: const EdgeInsets.all(DSpacing.md),
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: columns,
+          crossAxisSpacing: DSpacing.md,
+          mainAxisSpacing: DSpacing.md,
+          mainAxisExtent: active ? stageHeight : null,
+          childAspectRatio: 16 / 10,
+        ),
+        itemCount: count,
+        itemBuilder: (context, index) => index < participants.length
+            ? tileBuilder(participants[index])
+            : ringingTiles[index - participants.length],
+      );
+    },
   );
 }
 

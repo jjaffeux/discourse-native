@@ -88,6 +88,91 @@ void main() {
   _mobileVoiceFormTests();
 
   group('room availability and layout', () {
+    for (final width in [390.0, 1100.0]) {
+      testWidgets('auto features remote screen shares at width $width', (
+        tester,
+      ) async {
+        await prepareNativeUiEvidence(tester);
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = Size(width, 844);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        final media = harness.media.createSession();
+        VoiceRoom roomWithShare(int? sharer) => _room(
+          videoAllowed: true,
+          participants: [
+            for (var id = 1; id <= 3; id++)
+              VoiceParticipant.fromJson({
+                'id': id,
+                'username': 'person$id',
+                'role': 'participant',
+                'is_video_on': true,
+                'is_screen_sharing': id == sharer,
+              }),
+          ],
+        );
+        Future<void> show(int? sharer) async {
+          final room = roomWithShare(sharer);
+          await tester.pumpWidget(
+            _app(harness.controller, room: room, call: _call(room, media)),
+          );
+          await tester.pumpAndSettle();
+        }
+
+        Rect tile(int id) => tester.getRect(
+          find
+              .ancestor(
+                of: find.text('person$id'),
+                matching: find.byType(DCard),
+              )
+              .last,
+        );
+        double area(int id) => tile(id).width * tile(id).height;
+        await show(null);
+        final tiledArea = area(3);
+        await show(3);
+        expect(area(3), greaterThan(tiledArea));
+        expect(area(3), greaterThan(area(1) * 2));
+        expect(find.text('person2'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+        await captureNativeUi(tester, 'voice-screen-share-$width');
+        await show(null);
+        expect(area(3), closeTo(tiledArea, .1));
+        await show(1);
+        expect(
+          area(3),
+          closeTo(tiledArea, .1),
+          reason: 'own share stays tiled',
+        );
+        await show(3);
+        await tester.tap(find.text('Auto'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Tiled').last);
+        await tester.pumpAndSettle();
+        expect(area(3), closeTo(tiledArea, .1));
+        await show(null);
+        await show(2);
+        expect(
+          area(2),
+          closeTo(area(3), .1),
+          reason: 'manual choice survives new shares',
+        );
+        await tester.tap(find.text('Tiled'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Presentation').last);
+        await tester.pumpAndSettle();
+        await show(null);
+        expect(
+          area(2),
+          greaterThan(area(3) * 2),
+          reason: 'manual presentation survives share ending',
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
+
     testWidgets('video stage fills a solo call and fits a mobile group', (
       tester,
     ) async {
@@ -3707,6 +3792,33 @@ void _roomSurfaceTests() {
       expect(find.byTooltip('Recording started by @lee'), findsOneWidget);
       expect(find.text('Join room'), findsOneWidget);
     });
+
+    testWidgets(
+      'local recording is visible without server recording permission',
+      (tester) async {
+        final harness = _Harness();
+        addTearDown(harness.dispose);
+        VoiceRoom room(bool recording) => _room(
+          participants: [
+            VoiceParticipant.fromJson({
+              'id': 2,
+              'username': 'lee',
+              'role': 'participant',
+              'is_recording_locally': recording,
+            }),
+          ],
+        );
+        await tester.pumpWidget(_app(harness.controller, room: room(true)));
+        expect(find.text('Recording'), findsOneWidget);
+        expect(
+          find.byTooltip('@lee is recording this call to their device.'),
+          findsOneWidget,
+        );
+        expect(find.text('Join room'), findsOneWidget);
+        await tester.pumpWidget(_app(harness.controller, room: room(false)));
+        expect(find.text('Recording'), findsNothing);
+      },
+    );
 
     testWidgets('an empty room shows its cooked description', (tester) async {
       final harness = _Harness();

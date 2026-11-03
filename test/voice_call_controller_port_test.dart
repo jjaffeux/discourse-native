@@ -7,11 +7,13 @@ import 'package:discourse_native/src/plugins/voice/voice_call_controller_port.da
 import 'package:discourse_native/src/plugins/voice/voice_call_port.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
 import 'package:discourse_native/src/plugins/voice/voice_media.dart';
+import 'package:discourse_native/src/plugins/voice/voice_picture_in_picture.dart';
 import 'package:discourse_native/src/plugins/voice/voice_room_view.dart'
     show VoiceVideoSurface;
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
 import 'package:discourse_native/src/plugins/voice/voice_shell_service.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fake_voice_video_handle.dart';
@@ -188,6 +190,89 @@ void main() {
         isFalse,
       );
       expect(media.disposeCount, 0);
+    },
+  );
+
+  test(
+    'local recording broadcasts reach the floating call and native PiP',
+    () async {
+      TestWidgetsFlutterBinding.ensureInitialized();
+      const site = 'https://voice.example.com';
+      const channel = MethodChannel('org.discourse.native/voice_pip');
+      final commands = <MethodCall>[];
+      final messenger =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      messenger.setMockMethodCallHandler(channel, (call) async {
+        commands.add(call);
+        return null;
+      });
+      addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+      final transport = RecordingPluginTransport(
+        responses: {
+          'GET /voice/rooms.json': fixture('directory'),
+          'POST /voice/rooms/7/join.json': fixture('join_mesh'),
+          'POST /voice/rooms/7/state.json': <String, dynamic>{},
+          'DELETE /voice/rooms/7/leave.json': <String, dynamic>{},
+        },
+      );
+      final channels = RecordingPluginLiveChannels();
+      final controller = VoiceController(
+        api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
+        requests: PluginTestRequestHost(apiKeys: const {site: 'key'}),
+        chatConversations: FakeChatConversationCapability(),
+        trackerFor: (_) => channels,
+        userIdFor: (_) => 1,
+        onCallSiteChanged: () {},
+        mediaFactory: FakeVoiceMediaFactory(),
+        systemCall: FakeVoiceSystemCall(),
+        preferences: FakeVoicePreferences(),
+        heartbeatInterval: const Duration(days: 1),
+      );
+      final port = VoiceCallControllerPort(
+        controller: controller,
+        shell: VoiceShellService(
+          controller: controller,
+          host: _RouteHost(),
+          recordingEnabled: (_) => false,
+        ),
+      );
+      final video = VoiceCallVideoSession(
+        controller: controller,
+        pictureInPicture: NativeVoicePictureInPicture(
+          enabled: true,
+          onRestore: () {},
+        ),
+      );
+      addTearDown(() async {
+        await video.close();
+        await port.close();
+        await controller.close();
+      });
+      await controller.ensureLoaded(site);
+      await controller.join(
+        siteUrl: site,
+        siteName: 'meta',
+        room: controller.room(site, 7)!,
+      );
+      for (final recording in [true, false]) {
+        channels.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {
+              'id': 2,
+              'username': 'lee',
+              'role': 'participant',
+              'is_recording_locally': recording,
+            },
+          ],
+        });
+        await pumpEventQueue();
+        expect(port.state.call?.recording, recording);
+        final args =
+            commands.lastWhere((c) => c.method == 'configure').arguments as Map;
+        expect(args['recording'], recording);
+      }
     },
   );
 

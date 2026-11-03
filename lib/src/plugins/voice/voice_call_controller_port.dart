@@ -182,7 +182,7 @@ final class VoiceCallControllerPort extends ChangeNotifier
           VoiceCallStatus.failed => VoiceCallPresentationStatus.failed,
         },
         muted: call.muted,
-        recording: call.room.recording?.active ?? false,
+        recording: call.room.isBeingRecorded,
         localVideoPreview: selectedVideoTrack == null
             ? null
             : VoiceVideoSurface(track: selectedVideoTrack),

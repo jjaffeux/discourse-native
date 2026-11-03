@@ -667,6 +667,7 @@ final class VoiceController extends ChangeNotifier {
     deafened: participant.deafened,
     videoOn: participant.videoOn,
     screenSharing: participant.screenSharing,
+    recordingLocally: participant.recordingLocally,
     watchingVideo: participant.watchingVideo,
     idleState: idleState,
     handRaisedAt: participant.handRaisedAt,

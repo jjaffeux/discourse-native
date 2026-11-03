@@ -20717,5 +20717,26 @@
   "userNotesLoading": "Loading user notes",
   "@userNotesLoading": {
     "description": "User Notes plugin text."
+  },
+  "voiceLocalRecordingStarted": "@{username} is recording this call to their device.",
+  "@voiceLocalRecordingStarted": {
+    "description": "Notice and recording badge tooltip when a Live participant records locally.",
+    "placeholders": {
+      "username": {
+        "type": "String"
+      }
+    }
+  },
+  "voiceLayout": "Call layout",
+  "@voiceLayout": {
+    "description": "Label for the Live room video layout selector."
+  },
+  "voiceLayoutPresentation": "Presentation",
+  "@voiceLayoutPresentation": {
+    "description": "Live room layout featuring one participant above or beside the others."
+  },
+  "voiceLayoutTiled": "Tiled",
+  "@voiceLayoutTiled": {
+    "description": "Live room layout showing equally sized participant tiles."
   }
 }

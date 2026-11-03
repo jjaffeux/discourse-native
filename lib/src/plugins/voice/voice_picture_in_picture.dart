@@ -210,7 +210,7 @@ class VoiceCallVideoSession extends ChangeNotifier {
         roomName: call.room.name,
         track: _track,
         cameraEnabled: call.cameraEnabled,
-        recording: call.room.recording?.active == true,
+        recording: call.room.isBeingRecorded,
         recordingLabel: appL10n.recording,
       ),
     );

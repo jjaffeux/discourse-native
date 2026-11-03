@@ -7659,6 +7659,87 @@ void main() {
       ]);
     });
 
+    test(
+      'announces each new local recorder once and preserves the flag on role changes',
+      () async {
+        await joinAsManager();
+        void roster(bool recording) => firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {
+              'id': 2,
+              'username': 'lee',
+              'role': 'participant',
+              'is_recording_locally': recording,
+            },
+          ],
+        });
+        roster(true);
+        roster(true);
+        await pumpEventQueue();
+        expect(notices.map((n) => n.message), [
+          '@lee is recording this call to their device.',
+        ]);
+        expect(controller.call!.room.isBeingRecorded, isTrue);
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'role_change',
+          'room_id': 7,
+          'user_id': 2,
+          'role': 'speaker',
+        });
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'hand_raise',
+          'room_id': 7,
+          'user_id': 2,
+          'raised': false,
+        });
+        expect(
+          controller.call!.room.participants
+              .singleWhere((p) => p.id == 2)
+              .recordingLocally,
+          isTrue,
+        );
+        roster(false);
+        expect(controller.call!.room.isBeingRecorded, isFalse);
+        roster(true);
+        await pumpEventQueue();
+        expect(notices, hasLength(2));
+      },
+    );
+
+    test(
+      'joining an existing local recording shows the state without a new-start notice',
+      () async {
+        await joinAsManager(
+          roster: const [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {
+              'id': 2,
+              'username': 'lee',
+              'role': 'participant',
+              'is_recording_locally': true,
+            },
+          ],
+        );
+        expect(controller.call!.room.isBeingRecorded, isTrue);
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'participants': [
+            {'id': 1, 'username': 'sam', 'role': 'participant'},
+            {
+              'id': 2,
+              'username': 'lee',
+              'role': 'participant',
+              'is_recording_locally': true,
+            },
+          ],
+        });
+        await pumpEventQueue();
+        expect(notices, isEmpty);
+      },
+    );
+
     test('tells participants when someone else records the call', () async {
       await joinAsManager();
 

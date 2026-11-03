@@ -77,6 +77,24 @@ final class _VoiceRoomEvents {
         updateRoom(siteUrl, roomId, (room) => room.withRinging(event.entry));
         _publish();
       case VoiceParticipantsEvent():
+        final call = _call;
+        if (call != null &&
+            call.siteUrl == siteUrl &&
+            call.room.id == roomId &&
+            call.status != VoiceCallStatus.joining &&
+            call.status != VoiceCallStatus.leaving) {
+          final previous = {
+            for (final participant in call.room.participants)
+              if (participant.recordingLocally) participant.id,
+          };
+          for (final participant in event.participants) {
+            if (participant.recordingLocally &&
+                participant.id != _userIdFor(siteUrl) &&
+                !previous.contains(participant.id)) {
+              _notify(appL10n.voiceLocalRecordingStarted(participant.username));
+            }
+          }
+        }
         _replaceParticipants(
           siteUrl,
           roomId,
@@ -229,6 +247,7 @@ final class _VoiceRoomEvents {
     deafened: participant.deafened,
     videoOn: participant.videoOn,
     screenSharing: participant.screenSharing,
+    recordingLocally: participant.recordingLocally,
     watchingVideo: participant.watchingVideo,
     idleState: participant.idleState,
     handRaisedAt: participant.handRaisedAt,
@@ -251,6 +270,7 @@ final class _VoiceRoomEvents {
     deafened: participant.deafened,
     videoOn: participant.videoOn,
     screenSharing: participant.screenSharing,
+    recordingLocally: participant.recordingLocally,
     watchingVideo: participant.watchingVideo,
     idleState: participant.idleState,
     handRaisedAt: handRaisedAt,

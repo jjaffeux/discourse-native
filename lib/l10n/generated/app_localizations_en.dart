@@ -15890,4 +15890,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get userNotesLoading => 'Loading user notes';
+
+  @override
+  String voiceLocalRecordingStarted(String username) {
+    return '@$username is recording this call to their device.';
+  }
+
+  @override
+  String get voiceLayout => 'Call layout';
+
+  @override
+  String get voiceLayoutPresentation => 'Presentation';
+
+  @override
+  String get voiceLayoutTiled => 'Tiled';
 }

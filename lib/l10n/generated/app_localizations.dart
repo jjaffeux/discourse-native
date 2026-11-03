@@ -25256,6 +25256,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Loading user notes'**
   String get userNotesLoading;
+
+  /// Notice and recording badge tooltip when a Live participant records locally.
+  ///
+  /// In en, this message translates to:
+  /// **'@{username} is recording this call to their device.'**
+  String voiceLocalRecordingStarted(String username);
+
+  /// Label for the Live room video layout selector.
+  ///
+  /// In en, this message translates to:
+  /// **'Call layout'**
+  String get voiceLayout;
+
+  /// Live room layout featuring one participant above or beside the others.
+  ///
+  /// In en, this message translates to:
+  /// **'Presentation'**
+  String get voiceLayoutPresentation;
+
+  /// Live room layout showing equally sized participant tiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Tiled'**
+  String get voiceLayoutTiled;
 }
 
 class _AppLocalizationsDelegate

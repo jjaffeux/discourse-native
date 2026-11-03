@@ -74,6 +74,7 @@ class VoiceParticipant {
     this.deafened = false,
     this.videoOn = false,
     this.screenSharing = false,
+    this.recordingLocally = false,
     this.watchingVideo = false,
     this.idleState = VoiceIdleState.active,
     this.handRaisedAt,
@@ -103,6 +104,7 @@ class VoiceParticipant {
       deafened: json['is_deafened'] == true,
       videoOn: json['is_video_on'] == true,
       screenSharing: json['is_screen_sharing'] == true,
+      recordingLocally: json['is_recording_locally'] == true,
       watchingVideo: json['watching_video'] == true,
       idleState: switch (idle) {
         'idle' => VoiceIdleState.idle,
@@ -122,6 +124,7 @@ class VoiceParticipant {
   final bool deafened;
   final bool videoOn;
   final bool screenSharing;
+  final bool recordingLocally;
   final bool watchingVideo;
   final VoiceIdleState idleState;
   final DateTime? handRaisedAt;
@@ -508,6 +511,9 @@ class VoiceRoom {
   /// Only ephemeral call rooms carry this. Entries are never pruned here: the
   /// display filters out people already present and rings that have run out.
   final List<VoiceRingingEntry> ringing;
+
+  bool get isBeingRecorded =>
+      recording?.active == true || participants.any((p) => p.recordingLocally);
 
   /// People this call is still reaching out to at [now]: rung, not present,
   /// and within the ring window.
