@@ -614,31 +614,53 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
-  testWidgets(
-    'an empty filtered page loads the next page before showing caught up',
-    (tester) async {
-      final gate = Completer<void>();
-      final (shell, api, _) = await _setup(
-        tester,
-        count: 1,
-        nextPageGate: gate,
-      );
-      await shell.markTopicRead(_site, 1, 10, caughtUp: true);
-      await tester.pump();
-      await tester.pump();
-      expect(find.text("You're all caught up."), findsNothing);
-      expect(
-        api.feedPaths.where((path) => path.contains('page=1')),
-        hasLength(1),
-      );
-      gate.complete();
-      await tester.pumpAndSettle();
-      expect(_card(2), findsOneWidget);
-      expect(shell.currentFeed!.topicIds, [2]);
-      expect(tester.takeException(), isNull);
-    },
-    variant: TargetPlatformVariant.only(TargetPlatform.linux),
-  );
+  for (final limited in [false, true]) {
+    testWidgets(
+      'an empty filtered page keeps its width while loading (limited: $limited)',
+      (tester) async {
+        final gate = Completer<void>();
+        final (shell, api, _) = await _setup(
+          tester,
+          count: 1,
+          nextPageGate: gate,
+          size: const Size(2000, 900),
+        );
+        await tester.drag(
+          find.byKey(const ValueKey('main-panel-resize-handle')),
+          const Offset(650, 0),
+        );
+        await shell.appSettings.setLimitContentSize(limited);
+        await tester.pumpAndSettle();
+        final viewport = tester.getRect(find.byType(TopicListView));
+        expect(viewport.width, greaterThan(825));
+        await shell.markTopicRead(_site, 1, 10, caughtUp: true);
+        await tester.pump();
+        await tester.pump();
+        final placeholders = tester.getRect(
+          find.descendant(
+            of: find.byType(TopicListLoadingSkeleton),
+            matching: find.byType(DSkeletonRegion),
+          ),
+        );
+        expect(
+          placeholders.width,
+          closeTo(limited ? 825 : viewport.width, 0.01),
+        );
+        expect(placeholders.center.dx, closeTo(viewport.center.dx, 0.01));
+        expect(find.text("You're all caught up."), findsNothing);
+        expect(
+          api.feedPaths.where((path) => path.contains('page=1')),
+          hasLength(1),
+        );
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(_card(2), findsOneWidget);
+        expect(shell.currentFeed!.topicIds, [2]);
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+  }
 
   testWidgets('an empty filtered page can retry a failed next page', (
     tester,

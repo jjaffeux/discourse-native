@@ -772,14 +772,7 @@ class _TopicListViewState extends State<TopicListView> {
     _syncControllers(feedIdentity);
 
     if (feed.loading && feed.rowCount == 0) {
-      return ContentReadingLaneBox(
-        widthLimit: topicListContentWidth,
-        padding: const EdgeInsets.symmetric(vertical: 8),
-        child: TopicListLoadingSkeleton(
-          key: const ValueKey('topic-list-loading-skeleton'),
-          destination: destination,
-        ),
-      );
+      return _loadingSkeleton(destination);
     }
     if (feed.error case final error? when feed.rowCount == 0) {
       return _Message(
@@ -813,7 +806,7 @@ class _TopicListViewState extends State<TopicListView> {
     if (feed.isEmpty && feed.hasMore) {
       _scheduleLoadMore(controller, destination, feedIdentity, feed);
       // A filtered page can be empty while later pages still contain replies.
-      return TopicListLoadingSkeleton(destination: destination);
+      return _loadingSkeleton(destination);
     }
     if (feed.isEmpty) {
       return _Message(
@@ -1051,6 +1044,15 @@ class _TopicListViewState extends State<TopicListView> {
       child: content,
     );
   }
+
+  Widget _loadingSkeleton(String destination) => ContentReadingLaneBox(
+    widthLimit: topicListContentWidth,
+    padding: const EdgeInsets.symmetric(vertical: 8),
+    child: TopicListLoadingSkeleton(
+      key: const ValueKey('topic-list-loading-skeleton'),
+      destination: destination,
+    ),
+  );
 
   // Separators occupy half of the sliver indices. Estimating them at the
   // library's default 100px forces large corrections as they are measured.
