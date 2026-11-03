@@ -965,8 +965,12 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
             _DCommandLazyRow(
               ValueKey((#heading, i)),
               (context) => Padding(
-                padding: const EdgeInsets.fromLTRB(4, 4, 4, 0),
-                child: _commandGroupHeading(context, heading),
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: _commandGroupHeading(
+                  context,
+                  heading,
+                  first: node.first,
+                ),
               ),
             ),
           );
@@ -979,12 +983,7 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
               (context) => KeyedSubtree(
                 key: item.key,
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(
-                    4,
-                    j == 0 && node.group.heading == null ? 4 : 0,
-                    4,
-                    j == node.scored.length - 1 ? 4 : 0,
-                  ),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: _DCommandItemSurface<T>(
                     key: _itemKeys.putIfAbsent(item.identity, GlobalKey.new),
                     item: item,
@@ -1059,7 +1058,9 @@ class _DCommandListState<T> extends State<DCommandList<T>> {
           if (child is DCommandGroup<T>) {
             final items = _score(child.items, scope, query);
             if (items.isNotEmpty) {
-              resultNodes.add(_DGroupNode(child, items));
+              resultNodes.add(
+                _DGroupNode(child, items, first: resultNodes.isEmpty),
+              );
             }
           } else if (child is DCommandItem<T>) {
             final items = _score([child], scope, query);
@@ -1232,12 +1233,16 @@ class _DCommandLazyRow {
   final Object? identity;
 }
 
-Widget _commandGroupHeading(BuildContext context, Widget heading) => Padding(
-  padding: const EdgeInsetsDirectional.fromSTEB(8, 6, 8, 6),
+Widget _commandGroupHeading(
+  BuildContext context,
+  Widget heading, {
+  required bool first,
+}) => Padding(
+  padding: EdgeInsetsDirectional.fromSTEB(9, first ? 2 : 10, 9, 4),
   child: DefaultTextStyle(
     style: Theme.of(context).textTheme.bodySmall!.copyWith(
-      fontSize: DiscourseTypography.xs,
-      fontWeight: FontWeight.w500,
+      fontSize: DiscourseTypography.metadata,
+      fontWeight: FontWeight.w600,
       color: DTokens.of(context).mutedForeground,
     ),
     child: heading,
@@ -1255,7 +1260,8 @@ sealed class _DResultNode<T> {
 }
 
 class _DGroupNode<T> extends _DResultNode<T> {
-  const _DGroupNode(this.group, this.scored);
+  const _DGroupNode(this.group, this.scored, {required this.first});
+  final bool first;
   final DCommandGroup<T> group;
   final List<_DScoredItem<T>> scored;
   @override
@@ -1266,13 +1272,13 @@ class _DGroupNode<T> extends _DResultNode<T> {
     _DCommandScope<T> scope,
     Map<Object, GlobalKey> keys,
   ) => Padding(
-    padding: const EdgeInsets.all(DSpacing.xs),
+    padding: const EdgeInsets.symmetric(horizontal: DSpacing.xs),
     child: Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (group.heading != null)
-          _commandGroupHeading(context, group.heading!),
+          _commandGroupHeading(context, group.heading!, first: first),
         for (final item in scored)
           KeyedSubtree(
             key: item.item.key,
