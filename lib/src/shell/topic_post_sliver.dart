@@ -207,10 +207,66 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
         previousConstraints != null &&
         previousConstraints!.crossAxisExtent != constraints.crossAxisExtent;
     try {
+      final correction = _layoutLeadingCache();
+      if (correction.abs() > precisionErrorTolerance) {
+        geometry = SliverGeometry(scrollOffsetCorrection: correction);
+        return;
+      }
       super.performLayout();
     } finally {
       _resizing = false;
     }
+  }
+
+  double _layoutLeadingCache() {
+    if (_resizing ||
+        previousConstraints == null ||
+        hasChildScrollOffsetEstimation ||
+        constraints.scrollOffset <= 0 ||
+        constraints.remainingPaintExtent <= 0) {
+      return 0;
+    }
+    final leading =
+        constraints.scrollOffset +
+        (constraints.overlap > 0 ? constraints.overlap : 0);
+    final trailing =
+        constraints.scrollOffset + constraints.remainingPaintExtent;
+    RenderBox? anchor;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final offset = childScrollOffset(child);
+      if (offset == null || !child.hasSize) continue;
+      if (offset >= trailing) break;
+      if (offset + paintExtentOf(child) > leading) {
+        anchor = child;
+        break;
+      }
+    }
+    if (anchor == null || anchor == firstChild) return 0;
+
+    // Measure the cached prefix before normal layout can collect a visible
+    // child's state using the newly expanded prefix's uncorrected offsets.
+    final manager = (childManager as _TopicPostSliverElement).extentManager;
+    if (indexOf(anchor) >= manager.numberOfItems) return 0;
+    final childConstraints = constraints.asBoxConstraints();
+    var correction = 0.0;
+    var beforeAnchor = true;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final data = child.parentData! as SliverMultiBoxAdaptorParentData;
+      if (data.layoutOffset case final offset? when correction != 0) {
+        data.layoutOffset = offset + correction;
+      }
+      if (child == anchor) beforeAnchor = false;
+      if (!beforeAnchor) continue;
+      final index = indexOf(child);
+      final previousExtent = manager.getExtent(index);
+      child.layout(childConstraints, parentUsesSize: true);
+      final extent = paintExtentOf(child);
+      if (extent != previousExtent) {
+        manager.setExtent(index, extent);
+        correction += extent - previousExtent;
+      }
+    }
+    return correction;
   }
 
   bool _didRebuild = false;
