@@ -122,8 +122,63 @@ class TopicInboxHeader extends StatelessWidget {
       header: _morphHeader(context, rows: rows),
       fadeHeaderOnScroll: shell.mobileNavigationEnabled,
       titleLeading: _barStatus(),
+      titleMetadata: _barMetadata(context),
       headerControls: shell.mobileNavigationEnabled ? null : headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),
+    );
+  }
+
+  Widget? _barMetadata(BuildContext context) {
+    final detail = topic;
+    final site = siteUrl;
+    if (detail == null || site == null) return null;
+    final shell = ShellScope.read(context);
+    final path = <TopicCategory>[];
+    var category = detail.privateMessage
+        ? null
+        : shell.categoryFor(detail.categoryId, siteUrl: site);
+    while (category != null) {
+      path.insert(0, category);
+      category = shell.categoryFor(category.parentCategoryId, siteUrl: site);
+    }
+    if (path.isEmpty && detail.tags.isEmpty) return null;
+    return Text.rich(
+      key: const ValueKey('topic-bar-metadata'),
+      TextSpan(
+        children: [
+          for (final (index, step) in path.indexed) ...[
+            if (index > 0) ...[
+              const WidgetSpan(
+                alignment: PlaceholderAlignment.middle,
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 6),
+                  child: DIcon(DIcons.chevronRight, size: 9),
+                ),
+              ),
+            ],
+            WidgetSpan(
+              alignment: PlaceholderAlignment.middle,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(end: 5),
+                child: CategoryIcon(
+                  category: step,
+                  siteUrl: site,
+                  squareSize: 9,
+                  size: 9,
+                ),
+              ),
+            ),
+            TextSpan(text: step.name),
+          ],
+          for (final (index, tag) in detail.tags.indexed) ...[
+            if (path.isNotEmpty || index > 0)
+              const WidgetSpan(child: SizedBox(width: 6)),
+            TextSpan(text: '#${tag.name}'),
+          ],
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
     );
   }
 

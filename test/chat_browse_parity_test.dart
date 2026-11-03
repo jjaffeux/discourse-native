@@ -1108,6 +1108,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets('sidebar navigation sits under its switches on $platform', (
+      tester,
+    ) async {
+      final fixture = await _pump(
+        tester,
+        platform: platform,
+        size: const Size(390, 844),
+      );
+      for (final (key, route) in [
+        ('chat-inbox-channels-card', ChatPlugin.browseRouteId),
+        ('chat-inbox-threads-card', ChatPlugin.myThreadsRouteId),
+      ]) {
+        await fixture.show(_sidebarInbox());
+        await tester.pumpAndSettle();
+        final navigation = find.byKey(ValueKey(key));
+        final switches = find.byType(ChatInboxFilterBar);
+        expect(
+          tester.getRect(navigation).top,
+          greaterThan(tester.getRect(switches).bottom),
+        );
+        await tester.tap(navigation);
+        await tester.pumpAndSettle();
+        expect(fixture.shell.currentContent?.id, route);
+        expect(tester.takeException(), isNull);
+      }
+    });
+  }
+
   testWidgets('fixed inbox filters preserve the continuous sidebar canvas', (
     tester,
   ) async {

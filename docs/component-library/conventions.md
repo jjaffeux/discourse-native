@@ -23,8 +23,11 @@ header retraction. Phone topics use `fadeHeaderOnScroll`: `DHeaderMorph` parts
 fade as the first post approaches them, and the topic name enters the bar as
 its title fades. The full header keeps one layout.
 Headed pages infer `titleText` from a plain `Text` title. Supply `titleText`
-for composite headings and specialized topic readers; graphical identities without a page name leave it null. Channels supply
-their name and marker through `titleText` and `titleLeading`.
+for composite headings and specialized topic readers. Graphical identities
+without a page name leave it null. Specialized readers supply `titleMetadata`
+for the secondary identity line in surrounding chrome. It follows the title
+fade and retained page transitions. Channels supply their name and marker
+through `titleText` and `titleLeading`.
 `DPageHeaderHost` shares the innermost foreground header with surrounding
 chrome. Its identity follows the navigation entry. Native sheets exclude
 their retained underlays, and inactive pages cannot publish through the host.

@@ -18,6 +18,7 @@ import 'package:discourse_native/src/shell/stream_day_separator.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/fakes.dart';
+import 'support/native_ui_evidence.dart';
 import 'support/topic_post_list.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -112,6 +114,104 @@ void main() {
     }
   });
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
+
+  for (final privateMessage in [false, true]) {
+    testWidgets('topic bar shows its path and tags (private: $privateMessage)', (
+      tester,
+    ) async {
+      await prepareNativeUiEvidence(tester);
+      final shell = await pumpMobileShellFixture(
+        tester,
+        sidebarCategories: const [
+          TopicCategory(id: 1, name: 'Support', color: 'ff0000'),
+          TopicCategory(
+            id: 2,
+            name: 'Installation',
+            color: '00ff00',
+            parentCategoryId: 1,
+          ),
+        ],
+        topic: topicPayload(
+          id: 7,
+          title: 'Topic with metadata',
+          categoryId: 2,
+          privateMessage: privateMessage,
+          closed: true,
+          tags: const [
+            TopicTag(id: 1, name: 'how-to'),
+            TopicTag(id: 2, name: 'setup'),
+          ],
+          posts: [
+            for (var id = 1; id <= 30; id++)
+              Post(
+                id: id,
+                postNumber: id,
+                username: 'reader',
+                cooked:
+                    '<p>A discussion post with enough height to scroll.</p>',
+              ),
+          ],
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pumpAndSettle();
+      final scroll = topicPostList(tester).controller!;
+      scroll.jumpTo(500);
+      await tester.pumpAndSettle();
+      final bar = find.byKey(const ValueKey('mobile-page-title'));
+      expect(bar.hitTestable(), findsOneWidget);
+      final metadata = find.descendant(
+        of: bar,
+        matching: find.byKey(const ValueKey('topic-bar-metadata')),
+      );
+      final rich = tester.widget<Text>(metadata);
+      final words = rich.textSpan!.toPlainText();
+      expect(words, contains('#how-to'));
+      expect(words, contains('#setup'));
+      if (privateMessage) {
+        expect(words, isNot(contains('Support')));
+        expect(
+          find.descendant(of: metadata, matching: find.byType(CategoryIcon)),
+          findsNothing,
+        );
+      } else {
+        expect(
+          words.indexOf('Support'),
+          lessThan(words.indexOf('Installation')),
+        );
+        final marks = tester
+            .widgetList<CategoryIcon>(
+              find.descendant(
+                of: metadata,
+                matching: find.byType(CategoryIcon),
+              ),
+            )
+            .toList();
+        expect(marks.map((mark) => mark.color), [
+          const Color(0xffff0000),
+          const Color(0xff00ff00),
+        ]);
+      }
+      expect(
+        find.descendant(
+          of: bar,
+          matching: find.byWidgetPredicate(
+            (widget) => widget is DIcon && widget.icon == DIcons.lock,
+          ),
+        ),
+        findsOneWidget,
+      );
+      await _capture(
+        tester,
+        'metadata-${privateMessage ? 'private' : 'public'}-${Theme.of(tester.element(bar)).platform.name}',
+      );
+      await tester.tap(bar);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+      expect(shell.currentContent?.topicId, 7);
+      expect(tester.takeException(), isNull);
+    }, variant: _platforms);
+  }
 
   testWidgets(
     'topic sheet shows a skeleton while its reader type is unresolved',

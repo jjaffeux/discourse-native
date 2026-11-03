@@ -1912,6 +1912,8 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   Timer? _wheelEnd;
   bool _wheeling = false;
   DateTime? _wheelSpentUntil;
+  Timer? _wheelPause;
+  bool _wheelFromTop = false;
   _DSheetDragScopeState? _dragOwner;
   bool _externalDragEnabled = false;
 
@@ -1954,10 +1956,6 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   }
 
   void _onPointerSignal(PointerSignalEvent event) {
-    if (identical(event.original ?? event, _contentSignal)) {
-      _contentSignal = null;
-      return;
-    }
     if (!widget.page ||
         event is! PointerScrollEvent ||
         event.scrollDelta.dy.abs() < event.scrollDelta.dx.abs() ||
@@ -1965,9 +1963,19 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
         ModalRoute.of(context)?.isCurrent == false) {
       return;
     }
+    final now = DateTime.now();
+    if (_wheelPause == null) _wheelFromTop = _atTop(event.position);
+    _wheelPause?.cancel();
+    _wheelPause = Timer(const Duration(milliseconds: 200), () {
+      _wheelPause = null;
+    });
+    if (identical(event.original ?? event, _contentSignal)) {
+      _contentSignal = null;
+      return;
+    }
     final spent = _wheelSpentUntil;
-    if (spent != null && DateTime.now().isBefore(spent)) return;
-    if (!_wheeling && (event.scrollDelta.dy >= 0 || !_atTop(event.position))) {
+    if (spent != null && now.isBefore(spent)) return;
+    if (!_wheeling && (event.scrollDelta.dy >= 0 || !_wheelFromTop)) {
       return;
     }
     GestureBinding.instance.pointerSignalResolver.register(event, (_) {
@@ -2333,6 +2341,7 @@ class _DSheetSwipeDismissState extends State<_DSheetSwipeDismiss>
   void dispose() {
     _dragOwner?._detach(this);
     _wheelEnd?.cancel();
+    _wheelPause?.cancel();
     _exit.detach();
     widget.routeAnimation.removeListener(_syncBackdrop);
     widget.routeAnimation.removeStatusListener(_onRouteStatus);

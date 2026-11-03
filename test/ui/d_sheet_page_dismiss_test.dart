@@ -172,6 +172,40 @@ void main() {
       expect(_sheet, findsOneWidget);
     });
 
+    testWidgets('wheel momentum needs a fresh pull at the top on $platform', (
+      tester,
+    ) async {
+      final scroll = ScrollController(initialScrollOffset: 100);
+      addTearDown(scroll.dispose);
+      await _pumpPage(tester, platform, scroll);
+      final bounds = tester.getRect(_sheet);
+      final point = tester.getCenter(_reader);
+      Future<void> wheel(double delta) async {
+        await tester.sendEventToBinding(
+          PointerScrollEvent(position: point, scrollDelta: Offset(0, delta)),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      await wheel(-120);
+      expect(scroll.offset, 0);
+      // Momentum remains part of the same scroll even over a long run.
+      for (var step = 0; step < 20; step++) {
+        await wheel(-30);
+        expect(tester.getRect(_sheet), bounds);
+      }
+      expect(_sheet, findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 201));
+      for (var step = 0; step < 4; step++) {
+        await wheel(-45);
+      }
+      expect(tester.getRect(_sheet).top, greaterThan(bounds.top + 120));
+      await tester.pump(const Duration(milliseconds: 160));
+      await tester.pumpAndSettle();
+      expect(_sheet, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('trackpad scrolling requires a fresh page pull on $platform', (
       tester,
     ) async {

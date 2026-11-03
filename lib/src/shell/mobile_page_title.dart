@@ -51,16 +51,11 @@ class MobilePageTitle extends StatelessWidget {
                           foregroundColor: DTokens.of(context).foreground,
                           alignment: AlignmentDirectional.centerStart,
                           semanticLabel: context.l10n.backToTopOf(title),
-                          icon: page.leading,
-                          label: SiteEmojiText.plain(
+                          label: _identity(
+                            context,
                             title,
-                            siteUrl: siteUrl,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              fontSize: DiscourseTypography.lg,
-                              fontWeight: FontWeight.w600,
-                            ),
+                            page.leading,
+                            page.metadata,
                           ),
                           onPressed: () => unawaited(page.scrollToTop()),
                         ),
@@ -95,15 +90,11 @@ class MobilePageTitle extends StatelessWidget {
                               opacity: pull,
                               child: Align(
                                 alignment: AlignmentDirectional.centerStart,
-                                child: SiteEmojiText.plain(
+                                child: _identity(
+                                  context,
                                   previous.title,
-                                  siteUrl: siteUrl,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: DiscourseTypography.lg,
-                                    fontWeight: FontWeight.w600,
-                                  ),
+                                  previous.leading,
+                                  previous.metadata,
                                 ),
                               ),
                             ),
@@ -117,4 +108,54 @@ class MobilePageTitle extends StatelessWidget {
             },
           ),
   );
+
+  Widget _identity(
+    BuildContext context,
+    String title,
+    Widget? leading,
+    Widget? metadata,
+  ) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      spacing: metadata == null ? 0 : 1,
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          spacing: 6,
+          children: [
+            ?leading,
+            Flexible(
+              child: SiteEmojiText.plain(
+                title,
+                siteUrl: siteUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  fontSize: DiscourseTypography.lg,
+                  fontWeight: FontWeight.w600,
+                  height: 1.2,
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (metadata != null)
+          DefaultTextStyle.merge(
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w400,
+              height: 1.3,
+              color: DTokens.of(context).mutedForeground,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            child: IconTheme.merge(
+              data: IconThemeData(color: DTokens.of(context).mutedForeground),
+              child: metadata,
+            ),
+          ),
+      ],
+    );
+  }
 }

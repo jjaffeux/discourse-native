@@ -29,7 +29,9 @@ final pageSurfaceExamples = ComponentExamples(
       'DPageHeaderScope exposes the actual retraction and owning scrollToTop action '
       'to headings, controls and bodies. DPageHeaderHost shares the foreground '
       'header with surrounding chrome. Plain Text headings infer titleText; '
-      'composite titles supply it. Graphical identities leave it null. '
+      'composite titles supply it. titleMetadata carries a secondary identity line '
+      'alongside the title through fades and retained page transitions. '
+      'Graphical identities leave it null. '
       'Specialized readers use DPageSurface.scrollable for custom compact headers '
       'or headerSuppressed. Their full spacer stays reserved and their existing '
       'two-viewport short-content policy remains. '
@@ -42,6 +44,37 @@ final pageSurfaceExamples = ComponentExamples(
       'DPageSurface also supplies the outer frame, tabs and footer. Its width policy '
       'centers the heading and content together. Tabs and the viewport stay full width.',
   examples: [
+    StyleguideExample(
+      title: 'Bar title metadata',
+      description:
+          'A secondary identity line follows its page name into surrounding chrome.',
+      code:
+          "DPageSurface.headed(title: Text('Discussion'), titleMetadata: Text('Support #how-to'), child: content)",
+      builder: (_) => SizedBox(
+        height: 260,
+        child: DPageHeaderHost(
+          identity: 'metadata-example',
+          titlesInBar: true,
+          builder: (context, header, child) => Column(
+            children: [
+              ValueListenableBuilder<DPageHeader?>(
+                valueListenable: header,
+                builder: (context, page, _) => Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [Text(page?.titleText ?? ''), ?page?.metadata],
+                ),
+              ),
+              Expanded(child: child),
+            ],
+          ),
+          child: DPageSurface.headed(
+            title: const Text('Discussion'),
+            titleMetadata: const Text('Support #how-to'),
+            child: const SizedBox.expand(),
+          ),
+        ),
+      ),
+    ),
     StyleguideExample(
       title: 'Two control rows',
       description:

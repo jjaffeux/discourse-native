@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_browse_navigation.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
@@ -470,12 +471,19 @@ class ChatSidebarInboxHeader extends StatelessWidget {
         padding: DControlStyle.isTouch(context)
             ? const EdgeInsets.fromLTRB(6, 6, 6, 6)
             : const EdgeInsets.fromLTRB(8, 0, 8, 14),
-        child: ChatInboxFilterBar(
-          siteUrl: siteUrl,
-          filters: PluginUiScope.require(
-            context,
-            chatControllerService,
-          ).inboxFilters,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          spacing: DSpacing.controlGap,
+          children: [
+            ChatInboxFilterBar(
+              siteUrl: siteUrl,
+              filters: PluginUiScope.require(
+                context,
+                chatControllerService,
+              ).inboxFilters,
+            ),
+            ChatInboxNavigation(siteUrl: siteUrl),
+          ],
         ),
       ),
     ],

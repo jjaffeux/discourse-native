@@ -11,6 +11,7 @@ import 'chat_browse_skeleton.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
+import 'chat_find_field.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_plugin.dart';
 import 'chat_services.dart';
@@ -142,16 +143,12 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   );
 
   Widget _buildControls(BuildContext context, BoxConstraints constraints) {
-    final textScaler = MediaQuery.textScalerOf(context);
     const navigation = ChatBrowseBack();
-    final search = DInput(
-      size: DControlSize.field,
+    final search = ChatFindField(
       key: const ValueKey('chat-browse-filter'),
       controller: _filterController,
       onChanged: _browse.changeQuery,
-      hintText: context.l10n.findAChannel,
-      semanticLabel: context.l10n.findAChannel,
-      prefix: const DIcon(DIcons.magnifyingGlass),
+      placeholder: context.l10n.findAChannel,
     );
     final status = ChatBrowseFilter<ChatChannelBrowseStatus>(
       key: const ValueKey('chat-browse-status'),
@@ -181,44 +178,16 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
       },
       onChanged: _browse.changeMembership,
     );
-    // A desktop lane holds the inbox link, search and both filters in
-    // the one bar the mockup draws; narrower lanes stack them.
-    if (constraints.maxWidth >= textScaler.scale(760)) {
-      return DControlWrap(
-        wrap: false,
-        spacing: DSpacing.controlGap,
-        children: [
-          navigation,
-          DControlExpanded(child: search),
-          status,
-          membership,
-        ],
-      );
-    }
-    final filters = Wrap(
-      spacing: DSpacing.controlGap,
-      runSpacing: DSpacing.controlGap,
-      children: [status, membership],
-    );
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      spacing: DSpacing.md,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      spacing: DSpacing.controlGap,
       children: [
-        navigation,
-        if (constraints.maxWidth >= textScaler.scale(600))
-          Row(
-            spacing: DSpacing.controlGap,
-            children: [
-              Expanded(child: search),
-              filters,
-            ],
-          )
-        else
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: DSpacing.controlGap,
-            children: [search, filters],
-          ),
+        search,
+        Wrap(
+          spacing: DSpacing.controlGap,
+          runSpacing: DSpacing.controlGap,
+          children: [navigation, status, membership],
+        ),
       ],
     );
   }

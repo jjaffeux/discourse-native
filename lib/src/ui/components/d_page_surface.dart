@@ -42,6 +42,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     required Widget title,
     String? titleText,
+    this.titleMetadata,
     DIconData? icon,
     Widget? controls,
     Widget? secondaryControls,
@@ -88,6 +89,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.titleText,
     this.titleLeading,
+    this.titleMetadata,
     this.holdTitleInBar = false,
     this.fadeHeaderOnScroll = false,
     this.header,
@@ -125,6 +127,7 @@ class DPageSurface extends StatefulWidget {
     super.key,
     this.titleText,
     this.titleLeading,
+    this.titleMetadata,
     this.holdTitleInBar = false,
     this.fadeHeaderOnScroll = false,
     this.header,
@@ -163,6 +166,9 @@ class DPageSurface extends StatefulWidget {
   /// A graphical identity without a page name leaves it null.
   final String? titleText;
   final Widget? titleLeading;
+
+  /// A secondary identity line for surrounding chrome, below the page name.
+  final Widget? titleMetadata;
 
   /// Keeps a conversation name in surrounding chrome while its full head scrolls.
   final bool holdTitleInBar;
@@ -366,6 +372,7 @@ class _DPageSurfaceState extends State<DPageSurface>
   void _syncPageHeader() => _pageHeader.update(
     titleText: widget.titleText,
     leading: widget.titleLeading,
+    metadata: widget.titleMetadata,
     barOpacity: _titleInBar || widget.holdTitleInBar
         ? 1
         : widget.fadeHeaderOnScroll

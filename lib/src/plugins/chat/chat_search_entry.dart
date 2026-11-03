@@ -2,8 +2,8 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
+import 'chat_find_field.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
@@ -49,54 +49,18 @@ class _ChatSearchEntryState extends State<ChatSearchEntry> {
             selection: TextSelection.collapsed(offset: query.length),
           );
         }
-        void clear() {
-          filters.setSidebarQuery(widget.siteUrl, '');
-          _focus.requestFocus();
-        }
-
         final touch = DControlStyle.isTouch(context);
         return Padding(
           padding: touch
               ? const EdgeInsets.fromLTRB(10, 10, 10, 0)
               : const EdgeInsets.fromLTRB(4, 4, 4, 6),
-          child: DReferenceTextScale(
-            child: Focus(
-              canRequestFocus: false,
-              skipTraversal: true,
-              onKeyEvent: (_, event) {
-                if (event is KeyDownEvent &&
-                    event.logicalKey == LogicalKeyboardKey.escape) {
-                  clear();
-                  return KeyEventResult.handled;
-                }
-                return KeyEventResult.ignored;
-              },
-              child: DInputGroup(
-                key: const ValueKey('chat-search-entry'),
-                variant: DInputGroupVariant.quiet,
-                size: DControlSize.filter,
-                children: [
-                  DInputGroupInput(
-                    controller: _text,
-                    focusNode: _focus,
-                    semanticLabel: context.l10n.searchChat,
-                    hintText: context.l10n.searchChat,
-                    onChanged: (value) =>
-                        filters.setSidebarQuery(widget.siteUrl, value),
-                  ),
-                  const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
-                  if (query.isNotEmpty)
-                    DInputGroupAddon(
-                      alignment: DInputGroupAddonAlignment.inlineEnd,
-                      child: DInputGroupButton.icon(
-                        icon: const DIcon(DIcons.xmark),
-                        tooltip: context.l10n.clearSearch,
-                        onPressed: clear,
-                      ),
-                    ),
-                ],
-              ),
-            ),
+          child: ChatFindField(
+            key: const ValueKey('chat-search-entry'),
+            controller: _text,
+            focusNode: _focus,
+            placeholder: context.l10n.searchChat,
+            onChanged: (value) =>
+                filters.setSidebarQuery(widget.siteUrl, value),
           ),
         );
       },

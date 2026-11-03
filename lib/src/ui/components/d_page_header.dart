@@ -20,6 +20,7 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
   double _value = 0;
   double _barOpacity = 0;
   Widget? _leading;
+  Widget? _metadata;
   bool _scheduled = false;
   bool _disposed = false;
 
@@ -27,6 +28,7 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
   DPageHeaderLayout get layout => _layout;
   double get barOpacity => _barOpacity;
   Widget? get leading => _leading;
+  Widget? get metadata => _metadata;
   @override
   double get value => _value;
 
@@ -37,6 +39,7 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
     required DPageHeaderLayout layout,
     double? barOpacity,
     Widget? leading,
+    Widget? metadata,
   }) {
     assert(retraction >= 0 && retraction <= 1);
     final opacity =
@@ -45,11 +48,13 @@ class DPageHeader extends ChangeNotifier implements ValueListenable<double> {
         _value == retraction &&
         _layout == layout &&
         _barOpacity == opacity &&
-        _leading == leading) {
+        _leading == leading &&
+        _metadata == metadata) {
       return;
     }
     _barOpacity = opacity;
     _leading = leading;
+    _metadata = metadata;
     _titleText = titleText;
     _value = retraction;
     _layout = layout;
@@ -155,7 +160,7 @@ class DPageHeaderHost extends StatefulWidget {
   });
 
   final bool titlesInBar;
-  static ({String title, Widget? leading})? previousTitleOf(
+  static ({String title, Widget? leading, Widget? metadata})? previousTitleOf(
     BuildContext context,
   ) => context
       .dependOnInheritedWidgetOfExactType<_HostScope>()
@@ -203,6 +208,7 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
         ({
           String title,
           Widget? leading,
+          Widget? metadata,
           double retraction,
           double barOpacity,
           DPageHeaderLayout layout,
@@ -211,11 +217,15 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
   late final _transitionHeader = DPageHeader(
     scrollToTop: () async => _foregroundHeader?.scrollToTop(),
   );
-  ({String title, Widget? leading})? get _previousTitle {
+  ({String title, Widget? leading, Widget? metadata})? get _previousTitle {
     final previous = _presentations[widget.previousIdentity];
     return previous == null
         ? null
-        : (title: previous.title, leading: previous.leading);
+        : (
+            title: previous.title,
+            leading: previous.leading,
+            metadata: previous.metadata,
+          );
   }
 
   final _headers = <Object, ({DPageHeader header, int depth})>{};
@@ -261,6 +271,7 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
         _presentations[oldWidget.identity] = (
           title: title,
           leading: previous?.leading,
+          metadata: previous?.metadata,
           retraction: previous!.value,
           barOpacity: previous.barOpacity,
           layout: previous.layout,
@@ -277,6 +288,7 @@ class _DPageHeaderHostState extends State<DPageHeaderHost> {
         _transitionHeader.update(
           titleText: presentation.title,
           leading: presentation.leading,
+          metadata: presentation.metadata,
           retraction: presentation.retraction,
           barOpacity: presentation.barOpacity,
           layout: presentation.layout,
