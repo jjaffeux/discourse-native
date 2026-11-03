@@ -3,76 +3,118 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/post_voting/post_voting_module.dart';
 import 'package:discourse_native/src/shell/topic_skeleton.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
+import 'support/topic_post_list.dart';
 
 void main() {
   for (final target in [1, 12]) {
-    testWidgets('phone loading skeleton respects opening post $target', (
-      tester,
-    ) async {
-      final gate = Completer<void>();
-      final api = FakeDiscourseApi(
-        feeds: {
-          '/latest.json': [
-            Topic(
+    testWidgets(
+      'phone skeleton keeps post $target layout through reader resolution',
+      (tester) async {
+        final gate = Completer<void>();
+        final api = FakeDiscourseApi(
+          feeds: {
+            '/latest.json': [
+              Topic(
+                id: 7,
+                title: 'Reading position',
+                slug: 'reading-position',
+                highestPostNumber: 30,
+                lastReadPostNumber: target - 1,
+              ),
+            ],
+          },
+          topicGate: gate,
+          topics: {
+            7: topicPayload(
               id: 7,
               title: 'Reading position',
-              slug: 'reading-position',
-              highestPostNumber: 30,
-              lastReadPostNumber: target - 1,
+              posts: [
+                for (var number = 1; number <= 30; number++)
+                  Post(
+                    id: number,
+                    postNumber: number,
+                    username: 'reader',
+                    cooked: '<p>Post $number</p>',
+                  ),
+              ],
             ),
-          ],
-        },
-        topicGate: gate,
-        topics: {
-          7: topicPayload(
-            id: 7,
-            title: 'Reading position',
-            posts: [
-              for (var number = 1; number <= 30; number++)
-                Post(
-                  id: number,
-                  postNumber: number,
-                  username: 'reader',
-                  cooked: '<p>Post $number</p>',
-                ),
-            ],
-          ),
-        },
-      );
-      await pumpShell(tester, phone, api: api);
-      await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
-      await tester.pumpAndSettle();
-      await tester.tap(topicListTitle('Reading position'));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
+          },
+        );
+        await pumpShell(
+          tester,
+          phone,
+          api: api,
+          pluginManifest: PluginManifest([
+            ...bundledWidgetTestManifest.modules,
+            postVotingModule,
+          ]),
+        );
+        await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
+        await tester.pumpAndSettle();
+        await tester.tap(topicListTitle('Reading position'));
+        await tester.pump();
 
-      final skeleton = find.byType(TopicLoadingSkeleton);
-      final handle = find.byKey(const ValueKey('sheet-drag-handle')).last;
-      final gap =
-          tester.getTopLeft(skeleton).dy - tester.getBottomLeft(handle).dy;
-      if (target > 1) {
-        expect(gap, inInclusiveRange(-16, 16));
-      } else {
-        expect(gap, greaterThan(40));
-      }
-      expect(
-        tester.getBottomLeft(skeleton).dy,
-        greaterThanOrEqualTo(tester.getBottomLeft(find.byType(TopicView)).dy),
-      );
+        final skeleton = find.byType(TopicLoadingSkeleton);
+        final placeholders = find.descendant(
+          of: skeleton,
+          matching: find.byType(DSkeletonRegion),
+        );
+        final handle = find.byKey(const ValueKey('sheet-drag-handle')).last;
+        void expectLoadingPosition(String phase) {
+          final gap =
+              tester.getTopLeft(placeholders).dy -
+              tester.getBottomLeft(handle).dy;
+          if (target > 1) {
+            expect(gap, inInclusiveRange(-16, 16), reason: phase);
+          } else {
+            expect(gap, greaterThan(40), reason: phase);
+          }
+          expect(
+            tester.getBottomLeft(placeholders).dy,
+            greaterThanOrEqualTo(
+              tester.getBottomLeft(find.byType(DSheetContent)).dy,
+            ),
+            reason: phase,
+          );
+        }
 
-      gate.complete();
-      await tester.pumpAndSettle();
-      expect(skeleton, findsNothing);
-      expect(api.topicPostNumbersOpened, everyElement(target));
-      expect(tester.takeException(), isNull);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+        for (var frame = 0; frame < 30; frame++) {
+          expectLoadingPosition('Loading frame $frame');
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+
+        gate.complete();
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          if (skeleton.evaluate().isNotEmpty) {
+            expectLoadingPosition('Reader resolution frame $frame');
+          }
+        }
+        await tester.pumpAndSettle();
+        expect(skeleton, findsNothing);
+        final targetPost = find.byKey(ValueKey(target));
+        expect(targetPost, findsOneWidget);
+        expect(
+          tester.getRect(targetPost).overlaps(topicReadingViewportRect(tester)),
+          isTrue,
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
   }
 
   testWidgets(

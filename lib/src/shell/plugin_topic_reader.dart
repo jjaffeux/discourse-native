@@ -114,8 +114,7 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
         registry: widget.registry,
         canReturnToSidebar: true,
         keepTopicListOpen: false,
-        bodyBuilder: (header) =>
-            header.inset(const TopicLoadingSkeleton(), fullExtent: true),
+        bodyBuilder: (header) => TopicLoadingSkeleton(header: header),
       );
     }
     return widget.registry.buildTopicReader(

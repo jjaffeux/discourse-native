@@ -1453,23 +1453,12 @@ class _TopicViewState extends State<TopicView>
                   if (skeleton)
                     Positioned.fill(
                       key: const ValueKey('topic-loading-skeleton-slot'),
-                      child: Builder(
-                        builder: (context) {
-                          final placeholders = Padding(
-                            padding: lanePadding,
-                            child: const TopicLoadingSkeleton(
-                              key: ValueKey('topic-loading-skeleton'),
-                            ),
-                          );
-                          if (DSheetPageBand.maybeOf(context)?.readerStart ==
-                              DSheetReaderStart.scrolled) {
-                            return DSheetPageBand.followEdge(
-                              context,
-                              child: placeholders,
-                            );
-                          }
-                          return header.inset(placeholders, fullExtent: true);
-                        },
+                      child: Padding(
+                        padding: lanePadding,
+                        child: TopicLoadingSkeleton(
+                          key: const ValueKey('topic-loading-skeleton'),
+                          header: header,
+                        ),
                       ),
                     ),
                   ...overlays,
@@ -2734,7 +2723,9 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
 }
 
 class TopicLoadingSkeleton extends StatelessWidget {
-  const TopicLoadingSkeleton({super.key});
+  const TopicLoadingSkeleton({super.key, required this.header});
+
+  final DPageHeaderGeometry header;
 
   static const _patternHeight = 404.0;
 
@@ -2742,7 +2733,7 @@ class TopicLoadingSkeleton extends StatelessWidget {
   Widget build(BuildContext context) {
     final divider = Theme.of(context).shell.divider;
 
-    return TopicSkeletonReveal(
+    final placeholders = TopicSkeletonReveal(
       child: DSkeletonRegion(
         expand: true,
         semanticsLabel: context.l10n.loadingTopic,
@@ -2790,6 +2781,11 @@ class TopicLoadingSkeleton extends StatelessWidget {
         ),
       ),
     );
+    if (DSheetPageBand.maybeOf(context)?.readerStart ==
+        DSheetReaderStart.scrolled) {
+      return DSheetPageBand.followEdge(context, child: placeholders);
+    }
+    return header.inset(placeholders, fullExtent: true);
   }
 }
 
