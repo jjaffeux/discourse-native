@@ -435,7 +435,10 @@ class _LocalDateButton extends StatelessWidget {
                         alignment: PlaceholderAlignment.middle,
                         child: DIcon(DIcons.globe, size: 15, color: color),
                       ),
-                      TextSpan(text: ' $formatted'),
+                      TextSpan(
+                        text: ' $formatted',
+                        mouseCursor: SystemMouseCursors.click,
+                      ),
                     ],
                   ),
                 ),

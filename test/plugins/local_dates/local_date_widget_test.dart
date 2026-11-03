@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:ui' show SemanticsAction;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
@@ -9,6 +8,7 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:relative_time/relative_time.dart';
@@ -24,7 +24,12 @@ void main() {
     LocalDateEnvironment.instance.setDeviceTimezone('Etc/UTC');
   });
 
-  Future<void> pump(WidgetTester tester, String html) async {
+  Future<void> pump(
+    WidgetTester tester,
+    String html, {
+    bool selectable = false,
+  }) async {
+    final content = CookedHtml(html: html, registry: pluginRegistry);
     await tester.pumpWidget(
       MaterialApp(
         // Keep the existing anchored preview and keyboard coverage on desktop;
@@ -34,7 +39,7 @@ void main() {
             RelativeTimeLocalizations.localizationsDelegates,
         supportedLocales: RelativeTimeLocalizations.supportedLocales,
         home: Scaffold(
-          body: CookedHtml(html: html, registry: pluginRegistry),
+          body: selectable ? SelectionArea(child: content) : content,
         ),
       ),
     );
@@ -91,7 +96,7 @@ void main() {
     });
   }
 
-  testWidgets('a date-only line stays compact and has no hover fill', (
+  testWidgets('inline dates have a pointer cursor and no hover fill', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1000, 600);
@@ -102,6 +107,7 @@ void main() {
       tester,
       '<p><span class="discourse-local-date" data-date="2026-09-18" '
       'data-timezone="Australia/Brisbane">server value</span></p>',
+      selectable: true,
     );
 
     final date = find.byType(LocalDateInline);
@@ -119,6 +125,10 @@ void main() {
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(bounds.center);
     await tester.pump();
+    expect(
+      RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+      SystemMouseCursors.click,
+    );
     final surfaces = tester.widgetList<Container>(
       find.descendant(of: target, matching: find.byType(Container)),
     );
