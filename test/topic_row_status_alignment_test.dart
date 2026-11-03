@@ -9,6 +9,77 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('lock aligns with the timestamp at the trailing row edge', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    for (final direction in TextDirection.values) {
+      for (final width in [320.0, 900.0, 1200.0]) {
+        for (final scale in [1.0, 2.0]) {
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.dark,
+              home: Scaffold(
+                body: MediaQuery(
+                  data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+                  child: Directionality(
+                    textDirection: direction,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(
+                        width: width,
+                        child: TopicListRow(
+                          siteUrl: 'https://example.com',
+                          topic: Topic(
+                            id: 1,
+                            title:
+                                'A closed topic with a title that can wrap ' *
+                                3,
+                            slug: 'closed-topic',
+                            closed: true,
+                            bumpedAt: DateTime.now().subtract(
+                              const Duration(hours: 4),
+                            ),
+                          ),
+                          onTap: () {},
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          final icon = find.descendant(
+            of: find.byKey(const ValueKey('topic-card-status-1')),
+            matching: find.byType(DIcon),
+          );
+          expect(tester.widget<DIcon>(icon).icon, DIcons.lock);
+          final time = find.byKey(const ValueKey('inbox-row-time-1'));
+          final card = find.byKey(const ValueKey('topic-card-1'));
+          double trailing(Finder finder) => direction == TextDirection.ltr
+              ? tester.getRect(finder).right
+              : tester.getRect(finder).left;
+          expect(
+            trailing(icon),
+            closeTo(trailing(time), .01),
+            reason: '$direction at width $width and text scale $scale',
+          );
+          expect(trailing(icon), closeTo(trailing(card), .01));
+          expect(
+            tester.getSize(find.byType(TopicTitle)).width,
+            lessThanOrEqualTo(760),
+          );
+          expect(tester.takeException(), isNull);
+        }
+      }
+    }
+  });
+
   testWidgets(
     'trailing status stays beside the first title line at every text size',
     (tester) async {

@@ -175,15 +175,15 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                   spacing: 0,
                   alignment: CrossAxisAlignment.stretch,
                   children: [
-                    Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 779),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          spacing: 6,
-                          children: [
-                            Expanded(
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: 6,
+                      children: [
+                        Expanded(
+                          child: Align(
+                            alignment: AlignmentDirectional.centerStart,
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 760),
                               child: registry.decorateTopicListTitle(
                                 context,
                                 row.siteUrl,
@@ -191,13 +191,13 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
                                 _TopicListTitle(row: row),
                               ),
                             ),
-                            _TopicCardStatus(
-                              topic: topic,
-                              titleStyle: row.titleStyle,
-                            ),
-                          ],
+                          ),
                         ),
-                      ),
+                        _TopicCardStatus(
+                          topic: topic,
+                          titleStyle: row.titleStyle,
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 5),
                     if (topic.excerpt case final excerpt?
