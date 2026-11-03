@@ -11,7 +11,6 @@ import '../foundation/control_style.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
-import 'd_gradient_blur.dart';
 import 'd_input.dart';
 import 'd_scroll_area.dart';
 import 'd_scroll_behavior.dart';
@@ -460,8 +459,9 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
   @override
   Widget build(BuildContext context) {
     final controller = (_ownedController);
+    final drawer = DSidebarRowScope.drawerOf(context);
     return DScrollFadeScope(
-      topExtent: DSidebarRowScope.drawerOf(context) ? 0 : 14,
+      topExtent: drawer || widget.header != null ? 0 : 14,
       child: DScrollBar(
         controller: controller,
         showScrollbar: false,
@@ -470,12 +470,81 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
           slivers: [
             if (widget.header case final header?)
               PinnedHeaderSliver(child: _SidebarControls(child: header)),
-            ...widget.slivers,
+            if (!drawer && widget.header != null)
+              _SidebarBodyMask(
+                child: SliverMainAxisGroup(slivers: widget.slivers),
+              )
+            else
+              ...widget.slivers,
           ],
         ),
       ),
     );
   }
+}
+
+// Mask only the rows, leaving the pinned controls sharp and the panel's
+// backdrop visible. Sliver overlap tracks the controls' laid-out height.
+class _SidebarBodyMask extends SingleChildRenderObjectWidget {
+  const _SidebarBodyMask({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSidebarBodyMask();
+}
+
+class _RenderSidebarBodyMask extends RenderProxySliver {
+  @override
+  bool get alwaysNeedsCompositing => child != null;
+
+  @override
+  ShaderMaskLayer? get layer => super.layer as ShaderMaskLayer?;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final height = geometry!.paintExtent;
+    final covered = constraints.overlap.clamp(0.0, height);
+    if (height == 0 || covered == 0) {
+      layer = null;
+      super.paint(context, offset);
+      return;
+    }
+    final bounds = Rect.fromLTWH(0, 0, constraints.crossAxisExtent, height);
+    layer ??= ShaderMaskLayer();
+    layer!
+      ..shader = LinearGradient(
+        begin: Alignment.topCenter,
+        end: Alignment.bottomCenter,
+        colors: const [
+          Colors.transparent,
+          Colors.transparent,
+          Colors.white,
+          Colors.white,
+        ],
+        stops: [
+          0,
+          covered / height,
+          math.min(covered + 14, height) / height,
+          1,
+        ],
+      ).createShader(bounds)
+      ..maskRect = bounds.shift(offset)
+      ..blendMode = BlendMode.dstIn;
+    context.pushLayer(layer!, super.paint, offset);
+  }
+
+  @override
+  bool hitTestChildren(
+    SliverHitTestResult result, {
+    required double mainAxisPosition,
+    required double crossAxisPosition,
+  }) =>
+      mainAxisPosition >= constraints.overlap &&
+      super.hitTestChildren(
+        result,
+        mainAxisPosition: mainAxisPosition,
+        crossAxisPosition: crossAxisPosition,
+      );
 }
 
 class _SidebarControls extends StatelessWidget {
@@ -497,18 +566,7 @@ class _SidebarControls extends StatelessWidget {
         child: controls,
       );
     }
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: LayoutBuilder(
-            builder: (context, bounds) => DGradientBlur(
-              fullStrengthExtent: math.max(0, bounds.maxHeight - 14),
-            ),
-          ),
-        ),
-        controls,
-      ],
-    );
+    return controls;
   }
 }
 

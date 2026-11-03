@@ -10,7 +10,7 @@ final sidebarExamples = ComponentExamples(
       'Composable navigation with collapsible panels, groups, and menus.',
   status: ComponentStatus.implemented,
   notes:
-      'Sidebar owns phone rows at 40px, rich rows at 56px, and card headings at 48px. Sliver group headings pin within their section and push one another away; held headings paint an opaque surface and a soft lower fade. Content.header keeps shared controls outside the scrolling rows. Desktop retains its compact geometry. Menu links use flat hover and active fills; rich inbox rows share this treatment with DItemSelectionStyle.sidebar and DItemShape.menu. Group labels can navigate up with onPressed. Persistence and routing remain with the app.',
+      'Sidebar owns phone rows at 40px, rich rows at 56px, and card headings at 48px. Sliver group headings pin within their section and push one another away; held headings paint an opaque surface and a soft lower fade. Content.header pins shared controls above the scrolling rows. Desktop masks rows beneath those controls with a 14px fade below them and retains its compact geometry. Menu links use flat hover and active fills; rich inbox rows share this treatment with DItemSelectionStyle.sidebar and DItemShape.menu. Group labels can navigate up with onPressed. Persistence and routing remain with the app.',
   examples: [
     StyleguideExample(
       title: 'Application sidebar',
