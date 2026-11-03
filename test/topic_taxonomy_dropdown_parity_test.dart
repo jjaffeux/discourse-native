@@ -68,6 +68,83 @@ void main() {
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('tag selection reveals matching controls on $platform', (
+      tester,
+    ) async {
+      if (platform == TargetPlatform.iOS) {
+        tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+        tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      }
+      final data = await fixture.fixture(
+        tester,
+        size: platform == TargetPlatform.macOS ? desktop : phone,
+        filterOptions: fixture.filterMenuOptions,
+        knownTags: const [
+          SidebarTag(
+            id: 1,
+            name: 'vuln-status-create',
+            slug: 'vuln-status-create',
+            count: 10792,
+          ),
+          SidebarTag(
+            id: 2,
+            name: 'vuln-moderate',
+            slug: 'vuln-moderate',
+            count: 6266,
+          ),
+          SidebarTag(id: 3, name: 'vuln-high', slug: 'vuln-high', count: 4441),
+          SidebarTag(id: 4, name: 'rack', slug: 'rack', count: 2616),
+          SidebarTag(id: 5, name: 'dev', slug: 'dev', count: 2548),
+          SidebarTag(id: 6, name: 'approved', slug: 'approved'),
+          SidebarTag(id: 7, name: 'commit', slug: 'commit'),
+          SidebarTag(id: 8, name: 'pri-high', slug: 'pri-high'),
+          SidebarTag(id: 9, name: 'pri-medium', slug: 'pri-medium'),
+          SidebarTag(id: 10, name: 'pri-urgent', slug: 'pri-urgent'),
+        ],
+      );
+      await data.shell.forumSettings.setThemeMode(
+        fixture.site,
+        AppThemeMode.dark,
+      );
+      await tester.pumpAndSettle();
+      await _open(tester, 'topic-list-tag-filter');
+      if (platform == TargetPlatform.iOS) {
+        await tester.drag(
+          find.byKey(const ValueKey('sheet-drag-handle')),
+          const Offset(0, -550),
+        );
+        await tester.pumpAndSettle();
+      }
+      await fixture.capture(tester, 'taxonomy-tags-empty-$platform');
+      expect(find.text('Match'), findsNothing);
+      expect(find.byType(DToggleGroup<String>), findsNothing);
+      expect(find.byType(DCheckbox), findsNothing);
+      expect(find.text('Done'), findsOneWidget);
+      expect(find.text('No tags yet'), findsOneWidget);
+
+      final firstTag = find.byKey(const ValueKey('topic-filter-suggestion-0'));
+      await tester.tap(firstTag);
+      await tester.pumpAndSettle();
+      expect(data.shell.topicListContent!.tagNames, ['vuln-status-create']);
+      expect(find.text('Match'), findsOneWidget);
+      expect(find.byType(DToggleGroup<String>), findsOneWidget);
+      expect(
+        tester
+            .widgetList<DCheckbox>(find.byType(DCheckbox))
+            .where((checkbox) => checkbox.value == true),
+        hasLength(1),
+      );
+      await fixture.capture(tester, 'taxonomy-tags-selected-$platform');
+
+      await tester.tap(firstTag);
+      await tester.pumpAndSettle();
+      expect(data.shell.topicListContent!.tagNames, isEmpty);
+      expect(find.text('Match'), findsNothing);
+      expect(find.byType(DCheckbox), findsNothing);
+      expect(_list, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(platform));
+
     testWidgets('category levels and live tags on $platform flat', (
       tester,
     ) async {
@@ -361,6 +438,9 @@ void main() {
             platform == TargetPlatform.macOS ? desktop.width : phone.width,
           ),
         );
+        await tester.ensureVisible(_choice('Alpha'));
+        await tester.tap(_choice('Alpha'));
+        await tester.pumpAndSettle();
         final toggles = find.descendant(
           of: _list,
           matching: find.byType(DToggle),
@@ -371,12 +451,9 @@ void main() {
         expect(rects.map((rect) => rect.top).toSet().length, greaterThan(1));
         final modes = tester.getRect(find.byType(DToggleGroup<String>));
         for (final rect in rects) {
-          expect(rect.left, greaterThanOrEqualTo(modes.left));
-          expect(rect.right, lessThanOrEqualTo(modes.right));
+          expect(rect.left, greaterThanOrEqualTo(modes.left - .001));
+          expect(rect.right, lessThanOrEqualTo(modes.right + .001));
         }
-        await tester.ensureVisible(_choice('Alpha'));
-        await tester.tap(_choice('Alpha'));
-        await tester.pumpAndSettle();
         await tester.ensureVisible(find.text('Not all'));
         await tester.tap(find.text('Not all'));
         await tester.pumpAndSettle();

@@ -243,18 +243,20 @@ extension _TopicFilterSheet on _TopicFilterInputState {
         if (_isTagStage &&
             RegExp(r'^tags?:').hasMatch(suggestion.name) &&
             suggestion.term != null)
-          IgnorePointer(
-            child: ExcludeSemantics(
-              child: DCheckbox(
-                size: DCheckboxSize.compact,
-                value: _sheetTags.contains(
-                  _unquoteTopicFilterValue(suggestion.term!),
-                ),
-                readOnly: true,
-                onChanged: (_) {},
-              ),
-            ),
-          )
+          _sheetTags.isEmpty
+              ? const DIcon(DIcons.hashtag, size: 14)
+              : IgnorePointer(
+                  child: ExcludeSemantics(
+                    child: DCheckbox(
+                      size: DCheckboxSize.compact,
+                      value: _sheetTags.contains(
+                        _unquoteTopicFilterValue(suggestion.term!),
+                      ),
+                      readOnly: true,
+                      onChanged: (_) {},
+                    ),
+                  ),
+                )
         else if (suggestion.menuIcon case final icon?)
           DIcon(
             DIcons.byName[icon] ?? DNativeIcons.byName[icon] ?? DIcons.filter,
@@ -377,7 +379,7 @@ extension _TopicFilterSheet on _TopicFilterInputState {
       children: [
         DToggleGroup<String>(
           wrap: true,
-          spacing: 1,
+          spacing: 4,
           values: [_tagMode],
           allowEmptySelection: false,
           density: DToggleDensity.menuFilter,
@@ -398,12 +400,19 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                   _setSheetTags(_sheetTags);
                 },
         ),
-        Text(switch (_tagMode) {
-          'all' => context.l10n.filterAllHint,
-          'none' => context.l10n.filterNoneHint,
-          'notAll' => context.l10n.filterNotAllHint,
-          _ => context.l10n.filterAnyHint,
-        }, style: TextStyle(color: DTokens.of(context).mutedForeground)),
+        const SizedBox(height: 5),
+        Text(
+          switch (_tagMode) {
+            'all' => context.l10n.filterAllHint,
+            'none' => context.l10n.filterNoneHint,
+            'notAll' => context.l10n.filterNotAllHint,
+            _ => context.l10n.filterAnyHint,
+          },
+          style: TextStyle(
+            fontSize: DiscourseTypography.metadata,
+            color: DTokens.of(context).mutedForeground,
+          ),
+        ),
       ],
     );
     final command = DCommand<String>(
@@ -544,13 +553,33 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                       enabled: _canFinishTags,
                       leading: const DIcon(DIcons.tag, size: 14),
                       trailing: const DIcon(DIcons.check, size: 12),
-                      child: Text(
-                        '${context.l10n.done}  ${_sheetTags.isEmpty ? context.l10n.filterNoTagsYet : _sheetTags.join(', ')}',
+                      child: Row(
+                        children: [
+                          Text(
+                            context.l10n.done,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(width: 8),
+                          Flexible(
+                            child: Text(
+                              _sheetTags.isEmpty
+                                  ? context.l10n.filterNoTagsYet
+                                  : _sheetTags.join(', '),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                fontSize: DiscourseTypography.metadata,
+                                color: DTokens.of(context).mutedForeground,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
+                  ],
+                  if (_isTagStage && _sheetTags.isNotEmpty)
                     DCommandGroup<String>(
                       heading: Text(context.l10n.searchFilterMatch),
-                      showGuide: true,
                       items: [
                         DCommandItem<String>(
                           value: '@tag-mode',
@@ -559,7 +588,6 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                         ),
                       ],
                     ),
-                  ],
                   for (final group in groups.entries)
                     DCommandGroup<String>(
                       heading: group.key.isEmpty ? null : Text(group.key),
@@ -584,6 +612,12 @@ extension _TopicFilterSheet on _TopicFilterInputState {
                                             null
                                         ? suggestion.description!
                                         : '',
+                                    style: TextStyle(
+                                      fontSize: DiscourseTypography.metadata,
+                                      color: DTokens.of(
+                                        context,
+                                      ).mutedForeground,
+                                    ),
                                   )
                                 : null,
                             child: row(suggestion),
