@@ -112,11 +112,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     final placeOrder = MobilePlaceOrderHost.maybeOf(context);
     // The chrome reads facade and plugin state only. Topic feeds notify
     // several times per page, and the widgets that read them listen directly.
-    final body = ListenableBuilder(
+    Widget body() => ListenableBuilder(
       listenable: Listenable.merge([
-        shell,
         ?placeOrder,
-        shell.accountActivity.totalsListenable,
         shell.draftList,
         ...registry.sidebarPanelListenables(context),
         ...registry.communitySidebarListenables(context),
@@ -567,7 +565,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         );
       },
     );
-    return body;
+    return ShellSelector(
+      select: _mobileChromePresentation,
+      builder: (context, _, _) => body(),
+    );
   }
 
   Widget _buildBottomBar(
@@ -767,6 +768,43 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   );
 }
 
+// Forum read counters do not change the frame. Badges and contributed panels
+// listen to their own state; keep navigation, identity and permissions current.
+Object _mobileChromePresentation(ShellController shell) {
+  final instance = shell.currentInstance;
+  final navigation = shell.mobileNavigation;
+  return (
+    instance: (
+      instance?.url,
+      instance?.title,
+      instance?.description,
+      instance?.iconUrl,
+      instance?.apiVersion,
+      instance?.loginRequired,
+      instance?.user,
+      instance?.localDraftAccount,
+      instance?.appearance,
+      instance?.config,
+    ),
+    account: shell.currentAccountIdentity,
+    connecting: shell.connecting,
+    hidePresence: instance == null
+        ? false
+        : shell.hidePresenceFor(instance.url),
+    route: shell.currentContent,
+    source: shell.topicListContent,
+    tab: shell.activeTab?.location,
+    navigation: navigation.state,
+    sidebarOpen: navigation.sidebarOpen,
+    history: navigation.historyId,
+    entry: navigation.entryId,
+    previous: navigation.previousEntryId,
+    next: navigation.nextEntryId,
+    canReply: shell.canReplyHere,
+    canCreateTopic: shell.canCreateTopicFromSidebar,
+  );
+}
+
 /// Every place the phone offers, in the order its bar shows them and the
 /// panel the bar grows into holds the rest: the ones the person has placed,
 /// as [order] names them, then the rest in their own order. The bar is the
@@ -936,7 +974,7 @@ class MobileHistoryGestures extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.of(context);
+    final shell = ShellScope.read(context);
     final navigation = shell.mobileNavigation;
     final sidebarOpen = navigation.sidebarOpen;
     final sidebarEntry = (navigation.historyId, 'sidebar');
