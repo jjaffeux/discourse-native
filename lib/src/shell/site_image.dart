@@ -16,6 +16,7 @@ import '../data/site_image_repository.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../theme/d_icons.dart';
+import 'html_paragraph_selection.dart';
 import 'image_decode.dart';
 import 'open_link.dart';
 import 'progressive_html_mode.dart';
@@ -762,10 +763,12 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     InheritedProperties resolved,
     InlineSpan text,
   ) {
-    final built = super.buildText(tree, resolved, text);
+    var built = super.buildText(tree, resolved, text);
     if (built == null) return null;
     final urls = <GestureRecognizer, String>{};
+    var hasInlineWidgets = false;
     void collect(InlineSpan span) {
+      if (span is WidgetSpan) hasInlineWidgets = true;
       if (span is! TextSpan) return;
       final recognizer = span.recognizer;
       if (recognizer != null) {
@@ -778,6 +781,14 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     }
 
     collect(text);
+    if (hasInlineWidgets) {
+      final paragraph = built;
+      built = Builder(
+        builder: (context) => SelectionContainer.maybeOf(context) == null
+            ? paragraph
+            : HtmlParagraphSelection(child: paragraph),
+      );
+    }
     if (urls.isEmpty) return built;
     return _InlineLinkContextMenu(siteUrl: siteUrl, urls: urls, child: built);
   }
