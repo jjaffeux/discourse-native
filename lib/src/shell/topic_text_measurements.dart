@@ -12,12 +12,11 @@ typedef _MeasurementConfiguration = ({
   double? ambientWordSpacing,
 });
 
-/// Retains bounded text widths for one typography configuration.
+/// Retains bounded text widths across recent typography configurations.
 final class TopicTextMeasurements {
   static const maximumEntries = 128;
 
-  final _widths = <String, double>{};
-  _MeasurementConfiguration? _configuration;
+  final _widths = <(String, _MeasurementConfiguration), double>{};
   int _measurementCount = 0;
 
   @visibleForTesting
@@ -47,13 +46,10 @@ final class TopicTextMeasurements {
       ambientLetterSpacing: ambientLetterSpacing,
       ambientWordSpacing: ambientWordSpacing,
     );
-    if (_configuration != configuration) {
-      clear();
-      _configuration = configuration;
-    }
-    final retained = _widths.remove(text);
+    final key = (text, configuration);
+    final retained = _widths.remove(key);
     if (retained != null) {
-      _widths[text] = retained;
+      _widths[key] = retained;
       return retained;
     }
     final painter = TextPainter(
@@ -68,7 +64,7 @@ final class TopicTextMeasurements {
       if (_widths.length == maximumEntries) {
         _widths.remove(_widths.keys.first);
       }
-      _widths[text] = width;
+      _widths[key] = width;
       return width;
     } finally {
       painter.dispose();
@@ -77,6 +73,5 @@ final class TopicTextMeasurements {
 
   void clear() {
     _widths.clear();
-    _configuration = null;
   }
 }

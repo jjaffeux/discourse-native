@@ -53,14 +53,13 @@ void main() {
     expect(cache.cachedEntryCount, 6);
   });
 
-  test('every effective typography dependency invalidates retained widths', () {
+  test('each typography dependency selects an independent retained width', () {
     final cache = TopicTextMeasurements();
     void verify(double Function() request) {
       final before = cache.measurementCount;
       final result = request();
       expect(request(), result);
       expect(cache.measurementCount, before + 1);
-      expect(cache.cachedEntryCount, 1);
     }
 
     verify(() => width(cache, 'metadata'));
@@ -94,16 +93,33 @@ void main() {
     verify(() => width(cache, 'metadata', wordSpacing: 2));
   });
 
+  test('alternating typography contexts reuse their own retained widths', () {
+    final cache = TopicTextMeasurements();
+    final large = style.copyWith(fontSize: 18);
+    final normalWidth = width(cache, 'metadata');
+    final largeWidth = width(cache, 'metadata', textStyle: large);
+    expect(largeWidth, greaterThan(normalWidth));
+
+    for (var row = 0; row < 10; row++) {
+      expect(width(cache, 'metadata'), normalWidth);
+      expect(width(cache, 'metadata', textStyle: large), largeWidth);
+    }
+
+    expect(cache.measurementCount, 2);
+    expect(cache.cachedEntryCount, 2);
+  });
+
   test('least recently used eviction keeps retention bounded', () {
     final cache = TopicTextMeasurements();
+    final large = style.copyWith(fontSize: 18);
     for (var i = 0; i < TopicTextMeasurements.maximumEntries; i++) {
-      width(cache, 'label-$i');
+      width(cache, 'label-$i', textStyle: i.isEven ? large : style);
     }
-    width(cache, 'label-0');
+    width(cache, 'label-0', textStyle: large);
     width(cache, 'new-label');
     expect(cache.cachedEntryCount, TopicTextMeasurements.maximumEntries);
     final before = cache.measurementCount;
-    width(cache, 'label-0');
+    width(cache, 'label-0', textStyle: large);
     expect(cache.measurementCount, before);
     width(cache, 'label-1');
     expect(cache.measurementCount, before + 1);
