@@ -630,7 +630,16 @@ class _ComposerDockState extends State<ComposerDock> {
         });
       }
     }
-    final reader = KeyedSubtree(key: _readerKey, child: widget.child);
+    final reader = KeyedSubtree(
+      key: _readerKey,
+      child: ExcludeFocus(
+        excluding:
+            entry?.minimized == false &&
+            owner._presentation.preference.placement ==
+                ComposerPlacement.fullScreen,
+        child: widget.child,
+      ),
+    );
     Widget readerViewport({
       bool bottomDocked = false,
       ComposerPlacement? workspacePlacement,

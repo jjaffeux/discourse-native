@@ -25,6 +25,33 @@ import 'support/fakes.dart';
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets('full screen composer excludes its retained reader input', (
+    tester,
+  ) async {
+    final readerFocus = FocusNode();
+    addTearDown(readerFocus.dispose);
+    final harness = await _Harness.create(
+      tester,
+      reader: DInput(focusNode: readerFocus),
+    );
+    readerFocus.requestFocus();
+    await tester.pump();
+    expect(readerFocus.hasFocus, isTrue);
+
+    harness.presentation.dock(ComposerPlacement.fullScreen);
+    await tester.pumpAndSettle();
+    expect(readerFocus.hasFocus, isFalse);
+    readerFocus.requestFocus();
+    await tester.pump();
+    expect(readerFocus.hasFocus, isFalse);
+
+    harness.presentation.dock(ComposerPlacement.right);
+    await tester.pumpAndSettle();
+    readerFocus.requestFocus();
+    await tester.pump();
+    expect(readerFocus.hasFocus, isTrue);
+  });
+
   testWidgets('the bottom-right window corner moves with the composer', (
     tester,
   ) async {

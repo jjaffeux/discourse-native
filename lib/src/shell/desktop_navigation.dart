@@ -94,7 +94,13 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
       ),
       child: Row(
         children: [
-          Offstage(offstage: widget.compact, child: widget.sidebar),
+          Offstage(
+            offstage: widget.compact,
+            child: ExcludeFocus(
+              excluding: widget.compact,
+              child: widget.sidebar,
+            ),
+          ),
           Expanded(
             child: Column(
               children: [

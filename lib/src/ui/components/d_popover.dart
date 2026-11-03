@@ -491,6 +491,7 @@ class _DPopoverState extends State<DPopover>
         if (!_open && _portal.isShowing) _hidePortal();
       }
     });
+    WidgetsBinding.instance.ensureVisualUpdate();
   }
 
   void _request(
@@ -532,6 +533,7 @@ class _DPopoverState extends State<DPopover>
       return;
     }
     _open = value;
+    _allocatedSurfaceFocus?.canRequestFocus = value;
     final noMotion = immediate || MediaQuery.disableAnimationsOf(context);
     if (value) {
       _DPopoverLayers.activate(this);
@@ -808,6 +810,7 @@ class _DPopoverState extends State<DPopover>
               },
               child: FocusScope(
                 node: _surfaceFocus,
+                canRequestFocus: _open,
                 child: KeyedSubtree(key: _surfaceKey, child: widget.content),
               ),
             ),
