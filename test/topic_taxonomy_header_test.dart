@@ -71,6 +71,8 @@ void main({
         final mobile =
             platform == TargetPlatform.iOS ||
             platform == TargetPlatform.android;
+        // The mockup enlarges the whole phone menu, including its spacing.
+        final menuScale = mobile ? 17 / 13 : 1.0;
 
         final nativeSize = tester.view.physicalSize;
         final nativePixelRatio = tester.view.devicePixelRatio;
@@ -123,7 +125,7 @@ void main({
         expect(remove.right, pill.right);
         expect(remove.top, pill.top);
         expect(remove.bottom, pill.bottom);
-        expect(pill.height, closeTo(18 * scale + 6, .01));
+        expect(pill.height, closeTo((18 * scale + 6) * menuScale, .01));
         final input = find.descendant(
           of: fixture.field,
           matching: find.byType(DInput),
@@ -133,10 +135,10 @@ void main({
         expect(tester.widget<DInput>(input).style!.fontSize, 13);
         if (query.top < pill.bottom) {
           expect(query.center.dy, closeTo(pill.center.dy, .01));
-          expect(query.left, closeTo(pill.right + 9, .01));
+          expect(query.left, closeTo(pill.right + 9 * menuScale, .01));
         } else {
-          expect(query.left, closeTo(pill.left + 4, .01));
-          expect(query.top, greaterThanOrEqualTo(pill.bottom + 8));
+          expect(query.left, closeTo(pill.left + 4 * menuScale, .01));
+          expect(query.top, closeTo(pill.bottom + 8 * menuScale, .01));
         }
         await fixture.capture(
           tester,
