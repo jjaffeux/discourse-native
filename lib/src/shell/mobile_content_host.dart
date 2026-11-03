@@ -57,7 +57,7 @@ class _MobileContentHost extends StatefulWidget {
 
   final Object owner;
   final _MainContentSnapshot state;
-  final Widget Function(_MainContentSnapshot snapshot, Key? key) builder;
+  final Widget Function(_MainContentSnapshot, Key?, Widget?) builder;
 
   @override
   State<_MobileContentHost> createState() => _MobileContentHostState();
@@ -82,7 +82,20 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         : null;
     final stack = tab.contentStack;
     final searchIndex = stack.lastIndexWhere((route) => route.isGlobalSearch);
-    final searchOpen = widget.state.route?.isGlobalSearch == true;
+    final route = widget.state.route;
+    final searchOpen = route?.isGlobalSearch == true;
+    final searchPage =
+        (presentation != null
+            ? presentation.searchRoute != null
+            : searchIndex >= 0)
+        ? ForumSearch.page(key: _searchPageKey)
+        : null;
+    final searchBehindSheet =
+        searchPage != null &&
+        !searchOpen &&
+        widget.state.previousRoute?.isGlobalSearch == true &&
+        route != null &&
+        (presentation?.usesSheet(route) ?? route.isTopic);
     final searchSource = presentation != null
         ? presentation.searchSourceRoute
         : searchIndex > 0
@@ -107,6 +120,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
             )
           : widget.state,
       _sourceBodyKey,
+      searchBehindSheet ? searchPage : null,
     );
     final hidden = covered || searchOpen;
     return Stack(
@@ -134,16 +148,11 @@ class _MobileContentHostState extends State<_MobileContentHost> {
             ),
           ),
         ),
-        if (covered && !searchOpen) widget.builder(widget.state, null),
-        if (presentation != null
-            ? presentation.searchRoute != null
-            : searchIndex >= 0)
+        if (covered && !searchOpen) widget.builder(widget.state, null, null),
+        if (searchPage != null && !searchBehindSheet)
           Offstage(
             offstage: !searchOpen,
-            child: ExcludeFocus(
-              excluding: !searchOpen,
-              child: ForumSearch.page(key: _searchPageKey),
-            ),
+            child: ExcludeFocus(excluding: !searchOpen, child: searchPage),
           ),
       ],
     );

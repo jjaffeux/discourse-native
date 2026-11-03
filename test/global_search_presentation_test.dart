@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -22,6 +23,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -778,6 +780,8 @@ void main({bool useDeviceMetrics = false}) {
         final position = topicPostList(tester).controller!.position;
         expect(position.maxScrollExtent, greaterThan(1000));
         var hiddenBuilds = 0;
+        var hiddenPaints = 0;
+        final previousPaint = debugOnProfilePaint;
         final previous = debugOnRebuildDirtyWidget;
         debugOnRebuildDirtyWidget = (element, builtOnce) {
           previous?.call(element, builtOnce);
@@ -788,6 +792,18 @@ void main({bool useDeviceMetrics = false}) {
             }
             return true;
           });
+        };
+        debugOnProfilePaint = (object) {
+          previousPaint?.call(object);
+          if (object.debugCreator case final DebugCreator creator) {
+            creator.element.visitAncestorElements((ancestor) {
+              if (identical(ancestor, state.context)) {
+                hiddenPaints++;
+                return false;
+              }
+              return true;
+            });
+          }
         };
         try {
           final gesture = await tester.startGesture(
@@ -802,8 +818,10 @@ void main({bool useDeviceMetrics = false}) {
           await tester.pumpAndSettle();
         } finally {
           debugOnRebuildDirtyWidget = previous;
+          debugOnProfilePaint = previousPaint;
         }
         expect(hiddenBuilds, 0);
+        expect(hiddenPaints, 0);
         expect(shell.handleBack(), isTrue);
         await tester.pumpAndSettle();
         expect(tester.state(panel), same(state));
@@ -816,6 +834,16 @@ void main({bool useDeviceMetrics = false}) {
       _testPresentation(
         '$platform topic sheet returns to retained search from ${fromChat ? 'Chat' : 'Topics'}',
         (tester) async {
+          const channel = MethodChannel(
+            'org.discourse.native/notification_opens',
+          );
+          final messenger = tester.binding.defaultBinaryMessenger;
+          messenger.setMockMethodCallHandler(channel, (_) async => null);
+          addTearDown(() async {
+            await tester.pumpWidget(const SizedBox.shrink());
+            await tester.pump();
+            messenger.setMockMethodCallHandler(channel, null);
+          });
           debugDefaultTargetPlatformOverride = platform;
           final shell = await _pumpSearch(tester, size: phone);
           if (fromChat) {
@@ -824,6 +852,7 @@ void main({bool useDeviceMetrics = false}) {
           }
           await _openAndSearch(tester, 'design');
           final panelState = tester.state(find.byType(GlobalSearchPanel));
+          final searchFocus = _editor(tester).focusNode;
           final result = _panelText(
             'A calmer, more useful global search',
           ).first;
@@ -849,10 +878,50 @@ void main({bool useDeviceMetrics = false}) {
           await tester.tap(result);
           await tester.pumpAndSettle();
           final handle = find.byKey(const ValueKey('sheet-drag-handle'));
-          final drag = await tester.startGesture(tester.getCenter(handle));
-          await drag.moveBy(const Offset(0, 20));
-          await drag.moveBy(const Offset(0, 180));
-          await tester.pump();
+          Future<TestGesture> pullTopic() async {
+            final drag = await tester.startGesture(tester.getCenter(handle));
+            await drag.moveBy(const Offset(0, 20));
+            await drag.moveBy(const Offset(0, 180));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 16));
+            return drag;
+          }
+
+          final preview = await pullTopic();
+          expect(shell.currentContent?.topicId, 1038);
+          expect(searchFocus.hasFocus, isFalse);
+          expect(find.byKey(ForumSearch.inputKey).hitTestable(), findsNothing);
+          const exposedSearchHeader = Rect.fromLTWH(12, 80, 366, 100);
+          final image = await tester.runAsync(() async {
+            final builder = ui.SceneBuilder()
+              ..pushOffset(-exposedSearchHeader.left, -exposedSearchHeader.top);
+            tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+            final scene = builder.build();
+            try {
+              return await scene.toImage(
+                exposedSearchHeader.width.toInt(),
+                exposedSearchHeader.height.toInt(),
+              );
+            } finally {
+              scene.dispose();
+            }
+          });
+          try {
+            await expectLater(
+              image!,
+              matchesGoldenFile(
+                'goldens/search-topic-underlay-${platform.name}.png',
+              ),
+            );
+          } finally {
+            image!.dispose();
+          }
+          await preview.cancel();
+          await tester.pumpAndSettle();
+          expect(shell.currentContent?.topicId, 1038);
+          expect(find.byKey(ForumSearch.inputKey), findsNothing);
+
+          final drag = await pullTopic();
           await drag.up();
           await tester.pumpAndSettle();
           expect(find.byKey(ForumSearch.inputKey), findsOneWidget);

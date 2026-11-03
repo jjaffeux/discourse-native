@@ -111,7 +111,7 @@ class _MainContentState extends State<MainContent> {
     return _MobileContentHost(
       owner: owner,
       state: state,
-      builder: (snapshot, key) => _MainContentBody(
+      builder: (snapshot, key, underlay) => _MainContentBody(
         key: key,
         layout: widget.layout,
         state: snapshot,
@@ -120,6 +120,7 @@ class _MainContentState extends State<MainContent> {
         groupPagesPort: port,
         aboutPageKey: _aboutPageKey,
         dashboardPageKey: _dashboardPageKey,
+        sheetUnderlay: underlay,
       ),
     );
   }
@@ -264,6 +265,7 @@ class _MainContentBody extends StatelessWidget {
     required this.groupPagesPort,
     required this.aboutPageKey,
     required this.dashboardPageKey,
+    this.sheetUnderlay,
   });
 
   final ShellLayout layout;
@@ -273,6 +275,7 @@ class _MainContentBody extends StatelessWidget {
   final GroupPagesPort groupPagesPort;
   final GlobalKey<ForumAboutPageState> aboutPageKey;
   final GlobalKey<DashboardHostState> dashboardPageKey;
+  final Widget? sheetUnderlay;
 
   @override
   Widget build(BuildContext context) => _buildPanel(context);
@@ -484,6 +487,7 @@ class _MainContentBody extends StatelessWidget {
       // A plugin page that draws its own chrome renders live, as it will once
       // the sheet is dismissed.
       final livePrevious =
+          sheetUnderlay == null &&
           previous != null &&
           (presentation?.ownsChrome(previous) ??
               registry.ownsContentChrome(context, previous)) &&
@@ -518,7 +522,8 @@ class _MainContentBody extends StatelessWidget {
                   dashboardPageKey: dashboardPageKey,
                 ),
               )
-            : DHistoryTransition.previousPageUnderlayOf(context),
+            : sheetUnderlay ??
+                  DHistoryTransition.previousPageUnderlayOf(context),
       );
     }
     if (!route.isTopic || sourceRoute == null) return page;
