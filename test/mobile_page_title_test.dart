@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/mobile_page_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -58,6 +59,70 @@ Widget _page(
 );
 
 void main() {
+  for (final width in [320.0, 800.0]) {
+    testWidgets('bar metadata stays beneath the title at width $width', (
+      tester,
+    ) async {
+      tester.view.physicalSize = Size(width, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await tester.pumpWidget(
+        _app(
+          page: DPageSurface.scrollable(
+            titleText:
+                'A long community discussion title that truncates in the bar',
+            titleLeading: const DIcon(DIcons.lock, size: 13),
+            titleMetadata: const Text(
+              'Support › Installation #getting-started #another-long-tag',
+            ),
+            hideHeaderOnScroll: true,
+            header: const SizedBox(height: 100),
+            bodyBuilder: (_, geometry) => CustomScrollView(
+              controller: scroll,
+              slivers: [
+                SliverToBoxAdapter(child: geometry.spacer),
+                const SliverToBoxAdapter(child: SizedBox(height: 3000)),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(_title).hitTestable(), findsNothing);
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -500));
+      await tester.pumpAndSettle();
+      final bar = find.byKey(_title);
+      expect(bar.hitTestable(), findsOneWidget);
+      final metadata = find.descendant(
+        of: bar,
+        matching: find.text(
+          'Support › Installation #getting-started #another-long-tag',
+        ),
+      );
+      final title = find.descendant(
+        of: bar,
+        matching: find.text(
+          'A long community discussion title that truncates in the bar',
+        ),
+      );
+      expect(
+        tester.getRect(metadata).top,
+        greaterThan(tester.getRect(title).bottom),
+      );
+      final textStyle = DefaultTextStyle.of(tester.element(metadata));
+      expect(textStyle.style.fontSize, 12.5);
+      expect(textStyle.maxLines, 1);
+      expect(textStyle.overflow, TextOverflow.ellipsis);
+      expect(tester.getRect(bar).right, lessThanOrEqualTo(width));
+      expect(tester.takeException(), isNull);
+      await tester.tap(bar);
+      await tester.pumpAndSettle();
+      expect(scroll.offset, 0);
+    });
+  }
+
   for (final reduced in [false, true]) {
     testWidgets(
       'visible title returns only its owning page to top (reduced: $reduced)',

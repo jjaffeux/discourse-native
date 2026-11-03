@@ -278,7 +278,7 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
-  testWidgets('a returning sheet previews its own previous visit title', (
+  testWidgets('a returning sheet previews its previous title and metadata', (
     tester,
   ) async {
     Future<void> show(String id, String title, String? previous) async {
@@ -291,11 +291,18 @@ void main() {
             builder: (_, active, child) => Column(
               children: [
                 Builder(
-                  builder: (context) => Text(
-                    DPageHeaderHost.previousTitleOf(context)?.title ??
-                        'No previous page',
-                    key: const ValueKey('previous-title'),
-                  ),
+                  builder: (context) {
+                    final previous = DPageHeaderHost.previousTitleOf(context);
+                    return Column(
+                      children: [
+                        Text(
+                          previous?.title ?? 'No previous page',
+                          key: const ValueKey('previous-title'),
+                        ),
+                        ?previous?.metadata,
+                      ],
+                    );
+                  },
                 ),
                 Expanded(child: child),
               ],
@@ -303,6 +310,7 @@ void main() {
             child: DPageSurface.headed(
               key: ValueKey(id),
               title: Text(title),
+              titleMetadata: id == 'list' ? null : Text('Metadata for $title'),
               child: const SizedBox.expand(),
             ),
           ),
@@ -318,8 +326,10 @@ void main() {
     expect(previousTitle(), 'Latest topics');
     await show('two', 'Second topic', 'one');
     expect(previousTitle(), 'First topic');
+    expect(find.text('Metadata for First topic'), findsOneWidget);
     await show('one', 'First topic', 'list');
     expect(previousTitle(), 'Latest topics');
+    expect(find.text('Metadata for First topic'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

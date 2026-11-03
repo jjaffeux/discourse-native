@@ -44,6 +44,8 @@ void main() {
     testWidgets(
       'pulling refresh keeps the first channel card fully visible',
       (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 800));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
         final api = _BrowseApi(
           chatBrowsePagesByKey: {
             FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
@@ -137,6 +139,36 @@ void main() {
         TargetPlatform.macOS,
       }),
     );
+
+    testWidgets('channel search clears with its button and Escape', (
+      tester,
+    ) async {
+      final api = _BrowseApi(
+        chatBrowsePagesByKey: {
+          FakeDiscourseApi.chatBrowseKey(): ChatChannelBrowsePage(
+            channels: [_channel(1)],
+          ),
+        },
+      );
+      await _pumpBrowse(tester, api);
+      for (final escape in [false, true]) {
+        await tester.enterText(_filter, 'no such channel');
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Clear search'), findsOneWidget);
+        if (escape) {
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        } else {
+          await tester.tap(find.byTooltip('Clear search'));
+        }
+        await tester.pumpAndSettle();
+        expect(_filterText(tester).text, isEmpty);
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pumpAndSettle();
+        expect(api.chatBrowseRequested.last.filter, isEmpty);
+        expect(_card(1), findsOneWidget);
+        expect(find.byTooltip('Clear search'), findsNothing);
+      }
+    });
 
     testWidgets('a pending search cannot append with the old offset', (
       tester,
@@ -287,7 +319,7 @@ void main() {
       }
     });
 
-    testWidgets('a desktop lane keeps every control on one line', (
+    testWidgets('channel search spans its own row above the pickers', (
       tester,
     ) async {
       final api = _BrowseApi(
@@ -297,31 +329,24 @@ void main() {
           ),
         },
       );
-      for (final (width, oneLine) in [(1400.0, true), (700.0, false)]) {
+      for (final width in [1400.0, 700.0]) {
         await tester.binding.setSurfaceSize(Size(width, 800));
         addTearDown(() => tester.binding.setSurfaceSize(null));
         await _pumpBrowse(tester, api);
         final navigation = tester.getRect(
           find.byKey(const ValueKey('chat-inbox-back')),
         );
-        final controls = [_filter, _status, _joined].map(tester.getRect);
-        for (final control in controls) {
-          expect(
-            control.center.dy,
-            oneLine
-                ? closeTo(navigation.center.dy, 0.5)
-                : greaterThan(navigation.bottom),
-            reason: 'at $width',
-          );
-        }
-        final cards = [1, 2, 3].map((id) => tester.getRect(_card(id)));
-        if (oneLine) {
-          expect(
-            cards.map((card) => card.top).toSet(),
-            hasLength(1),
-            reason: 'cards share a grid row',
-          );
-        }
+        final field = tester.getRect(_filter);
+        final status = tester.getRect(_status);
+        final joined = tester.getRect(_joined);
+        final controls = tester.getRect(
+          find.byKey(const ValueKey('chat-browse-controls')),
+        );
+        expect(navigation.top, greaterThan(field.bottom), reason: 'at $width');
+        expect(field.left, controls.left);
+        expect(field.right, controls.right);
+        expect(status.top, greaterThan(field.bottom));
+        expect(joined.top, status.top);
         expect(tester.takeException(), isNull);
       }
     });
