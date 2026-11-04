@@ -332,46 +332,55 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                           ),
                         ),
                         Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: Row(
-                              children: [
-                                DReferenceTextScale(
-                                  child: DButton.iconOnly(
-                                    key: const ValueKey('mobile-home-button'),
-                                    tooltip: context.l10n.latestTopics,
-                                    variant: DButtonVariant.inline,
-                                    size: DButtonSize.segment,
-                                    onPressed: () {
-                                      if (!sidebarOpen &&
-                                          selected == MobileTab.topics &&
-                                          route?.isTopicList == true &&
-                                          route?.id == 'latest' &&
-                                          route!.topicFilterQuery.isEmpty) {
-                                        unawaited(header.value?.scrollToTop());
-                                      } else {
-                                        shell.openMobileHome();
-                                      }
-                                    },
-                                    icon: ForumIdentityHeader(
-                                      size: 32,
-                                      name: instance.title,
-                                      iconUrl: instance.iconUrl,
-                                      monogram: instance.monogram,
-                                      accentColor: instance.accentColor,
+                          child: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              minHeight: MobilePageTitle.minimumExtentOf(
+                                context,
+                              ),
+                            ),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: Row(
+                                children: [
+                                  DReferenceTextScale(
+                                    child: DButton.iconOnly(
+                                      key: const ValueKey('mobile-home-button'),
+                                      tooltip: context.l10n.latestTopics,
+                                      variant: DButtonVariant.inline,
+                                      size: DButtonSize.segment,
+                                      onPressed: () {
+                                        if (!sidebarOpen &&
+                                            selected == MobileTab.topics &&
+                                            route?.isTopicList == true &&
+                                            route?.id == 'latest' &&
+                                            route!.topicFilterQuery.isEmpty) {
+                                          unawaited(
+                                            header.value?.scrollToTop(),
+                                          );
+                                        } else {
+                                          shell.openMobileHome();
+                                        }
+                                      },
+                                      icon: ForumIdentityHeader(
+                                        size: 32,
+                                        name: instance.title,
+                                        iconUrl: instance.iconUrl,
+                                        monogram: instance.monogram,
+                                        accentColor: instance.accentColor,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                if (!sidebarOpen) ...[
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: MobilePageTitle(
-                                      header: header,
-                                      siteUrl: instance.url,
+                                  if (!sidebarOpen) ...[
+                                    const SizedBox(width: 12),
+                                    Expanded(
+                                      child: MobilePageTitle(
+                                        header: header,
+                                        siteUrl: instance.url,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ],
-                              ],
+                              ),
                             ),
                           ),
                         ),
