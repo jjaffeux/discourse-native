@@ -847,8 +847,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       _keyboardChanged(systemKeyboard);
     }
     final keyboard = _exit.geometry?.keyboard ?? _keyboardInset;
-    final keyboardFoot =
-        keyboard + _sheetKeyboardGap * _keyboardPlacement.value;
+
     final safeTop = math.max(
       media.padding.top,
       view.viewPadding.top / view.devicePixelRatio,
@@ -869,17 +868,13 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       child: _DSheetSideScope(
         side: DSheetSide.bottom,
         inset: false,
-        menuFootCorners: BorderRadius.lerp(
-          _sheetBottomCorners(context),
-          const BorderRadius.vertical(bottom: _sheetMenuCorner),
-          _keyboardPlacement.value,
-        ),
+        menuFootCorners: _sheetBottomCorners(context),
         fillAvailableHeight: false,
         extendBehindKeyboard: false,
         child: MediaQuery(
           data: media.copyWith(
             padding: EdgeInsets.only(bottom: safeBottom),
-            viewInsets: EdgeInsets.zero,
+            viewInsets: EdgeInsets.only(bottom: keyboard),
           ),
           child: widget.presentation.content,
         ),
@@ -915,7 +910,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
     return LayoutBuilder(
       builder: (context, bounds) {
-        _room = math.max(0, bounds.maxHeight - keyboardFoot);
+        _room = math.max(0, bounds.maxHeight - keyboard);
         final maximum = math.max(0.0, _room - safeTop - 8);
         _fixedLow = math.max(
           0,
@@ -945,7 +940,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                 Positioned(
                   left: 0,
                   right: 0,
-                  bottom: keyboardFoot,
+                  bottom: 0,
                   child: Transform.translate(
                     offset: Offset(
                       0,
@@ -962,9 +957,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       child: ConstrainedBox(
                         key: _surface,
                         constraints: widget.sizeToContent
-                            ? BoxConstraints(maxHeight: maximum)
+                            ? BoxConstraints(maxHeight: maximum + keyboard)
                             : BoxConstraints.tightFor(
-                                height: math.max(0, maximum - heightOffset),
+                                height:
+                                    math.max(0, maximum - heightOffset) +
+                                    keyboard,
                               ),
                         child: child,
                       ),

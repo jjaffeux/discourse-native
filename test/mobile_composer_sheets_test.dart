@@ -212,7 +212,11 @@ void main() {
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
         await tester.pumpAndSettle();
         expect(sheet, findsOneWidget);
-        expect(tester.getRect(sheet).bottom, lessThanOrEqualTo(420));
+        expect(tester.getRect(sheet).bottom, 700);
+        final safeArea = tester.widget<SafeArea>(
+          find.descendant(of: sheet, matching: find.byType(SafeArea)).first,
+        );
+        expect(tester.getRect(find.byWidget(safeArea.child)).bottom, 420);
         expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
         if (picker != 'gif') {
           final apply = find.widgetWithText(DButton, 'Apply');

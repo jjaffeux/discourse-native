@@ -248,10 +248,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 50));
       expect(
         (pageClip(tester) as BorderRadius).bottomLeft.x,
-        inExclusiveRange(31, 55),
+        inExclusiveRange(0, 55),
       );
       await tester.pumpAndSettle();
-      expect((pageClip(tester) as BorderRadius).bottomLeft.x, 31);
+      expect((pageClip(tester) as BorderRadius).bottomLeft.x, 0);
       expect(tester.getRect(find.byType(DSheetViewport)).bottom, 544);
       tester.view.viewInsets = FakeViewPadding.zero;
       tester.view.padding = const FakeViewPadding(bottom: 34);
@@ -259,6 +259,42 @@ void main() {
       expect((pageClip(tester) as BorderRadius).bottomLeft.x, 55);
     },
   );
+
+  for (final resizes in [true, false]) {
+    testWidgets(
+      'reading viewport avoids keyboard once (resizing host: $resizes)',
+      (tester) async {
+        tester.view.physicalSize = const Size(390, 844);
+        tester.view.devicePixelRatio = 1;
+        tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+        addTearDown(tester.view.reset);
+        const readerKey = ValueKey('keyboard-bounded-reader');
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: ThemeData(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              resizeToAvoidBottomInset: resizes,
+              body: const DSheetViewport(
+                content: DSheetContent(
+                  side: DSheetSide.bottom,
+                  variant: DSheetVariant.page,
+                  showCloseButton: false,
+                  children: [Expanded(child: SizedBox(key: readerKey))],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.getRect(find.byKey(readerKey)).bottom, 544);
+        expect(
+          tester.getRect(find.byType(DSheetContent)).bottom,
+          resizes ? 544 : 844,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   for (final (foot, display, bottomCorners) in [
     (34.0, null, const BorderRadius.vertical(bottom: Radius.circular(55))),
@@ -500,25 +536,23 @@ void main() {
           tester.view.padding = const FakeViewPadding(top: 59);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
-          expect(
-            (corners() as BorderRadius).bottomLeft.x,
-            inExclusiveRange(22, 55),
-          );
+          expect((corners() as BorderRadius).bottomLeft.x, 55);
           await tester.pumpAndSettle();
           final safeArea = find
               .descendant(of: sheet, matching: find.byType(SafeArea))
               .first;
           expect(MediaQuery.paddingOf(tester.element(safeArea)).bottom, 0);
-          expect(corners(), BorderRadius.circular(22));
-          expect(tester.getRect(sheet).bottom, phone.height - 300 - 1);
+          expect(corners(), restingCorners);
+          expect(tester.getRect(sheet).bottom, phone.height);
+          expect(
+            tester.getRect(find.text('Body')).bottom,
+            lessThanOrEqualTo(phone.height - 300),
+          );
           tester.view.viewInsets = FakeViewPadding.zero;
           tester.view.padding = const FakeViewPadding(top: 59, bottom: 34);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 50));
-          expect(
-            (corners() as BorderRadius).bottomLeft.x,
-            inExclusiveRange(22, 55),
-          );
+          expect((corners() as BorderRadius).bottomLeft.x, 55);
           await tester.pumpAndSettle();
           expect(corners(), restingCorners);
           expect(tester.getRect(sheet).bottom, phone.height);
@@ -530,7 +564,7 @@ void main() {
 
   for (final reducedMotion in [false, true]) {
     testWidgets(
-      'form corners follow native keyboard timing and refresh after a child (reduced: $reducedMotion)',
+      'form surface stays at the screen foot across keyboard frames and child routes (reduced: $reducedMotion)',
       (tester) async {
         const channel = MethodChannel('org.discourse.native/keyboard');
         Map<String, Object>? snapshot;
@@ -593,24 +627,23 @@ void main() {
         await sendKeyboardFrame(tester);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
-        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 22 : 52, .01));
-        expect(
-          corners().bottomRight.x,
-          closeTo(reducedMotion ? 22 : 41.5, .01),
-        );
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 100));
-        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 22 : 42, .01));
-        expect(corners().bottomRight.x, closeTo(reducedMotion ? 22 : 35, .01));
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
         await tester.pump(const Duration(milliseconds: 200));
-        expect(corners(), BorderRadius.circular(22));
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+        expect(tester.getRect(sheet).bottom, 844);
         snapshot = keyboardFramePayload(inset: 0);
         await sendKeyboardFrame(tester, inset: 0);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
-        expect(corners().bottomLeft.x, closeTo(reducedMotion ? 62 : 42, .01));
-        expect(corners().bottomRight.x, closeTo(reducedMotion ? 48 : 35, .01));
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
         tester.view.viewInsets = FakeViewPadding.zero;
         await tester.pumpAndSettle();
         expect(corners().bottomLeft.x, 62);
@@ -619,7 +652,9 @@ void main() {
         snapshot = keyboardFramePayload(milliseconds: 0);
         await sendKeyboardFrame(tester, milliseconds: 0);
         await tester.pumpAndSettle();
-        expect(corners(), BorderRadius.circular(22));
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+        expect(tester.getRect(sheet).bottom, 844);
         final closed = showDDialog<void>(
           context: tester.element(sheet),
           builder: (_, controller) => DDialogContent(
@@ -635,7 +670,9 @@ void main() {
         snapshot = keyboardFramePayload(inset: 0, milliseconds: 0);
         await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
         await tester.pumpAndSettle();
-        expect(corners(), BorderRadius.circular(22));
+        expect(corners().bottomLeft.x, 62);
+        expect(corners().bottomRight.x, 48);
+        expect(tester.getRect(sheet).bottom, 844);
         await tester.tap(find.text('Close child'));
         await tester.pumpAndSettle();
         await closed;
@@ -2011,7 +2048,7 @@ void main() {
     expect(tester.takeException(), isNull);
     final last = find.text('End of room settings');
     expect(MediaQuery.viewInsetsOf(tester.element(last)).bottom, 0);
-    expect(tester.getRect(find.byType(DSheetContent)).bottom, 339);
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
     final owner = Scrollable.of(tester.element(last), axis: Axis.vertical);
     final viewport = find.byElementPredicate(
       (element) => identical(element, owner.context),
@@ -2037,7 +2074,7 @@ void main() {
     expect(reached.top, greaterThanOrEqualTo(visible.top - 1));
     expect(reached.bottom, lessThanOrEqualTo(visible.bottom + 1));
     expect(reached.bottom, lessThanOrEqualTo(341));
-    expect(tester.getRect(find.byType(DSheetContent)).bottom, 339);
+    expect(tester.getRect(find.byType(DSheetContent)).bottom, 640);
   });
 
   testWidgets(

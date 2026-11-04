@@ -564,7 +564,26 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
   double? _sheetKeyboard;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector(
+    select: (shell) => (
+      route: shell.currentContent,
+      sidebarOpen: shell.mobileNavigation.sidebarOpen,
+    ),
+    builder: (context, state, _) {
+      final route = state.route;
+      final pageSheet =
+          widget.mobile &&
+          !state.sidebarOpen &&
+          route != null &&
+          (route.isTopic ||
+              PluginScope.of(
+                context,
+              ).registry.usesMobilePageSheet(context, route));
+      return _buildScaffold(context, pageSheet: pageSheet);
+    },
+  );
+
+  Widget _buildScaffold(BuildContext context, {required bool pageSheet}) {
     final media = MediaQuery.of(context);
     if (widget.mobile) {
       final keyboard = media.viewInsets.bottom;
@@ -584,11 +603,13 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
               padding: media.padding.copyWith(bottom: media.viewPadding.bottom),
             ),
       child: Scaffold(
+        resizeToAvoidBottomInset: !pageSheet,
         backgroundColor: Colors.transparent,
         body: Padding(
           padding: EdgeInsets.only(
             bottom:
                 widget.mobile &&
+                    !pageSheet &&
                     _sheetKeyboard == null &&
                     media.viewInsets.bottom > 0
                 ? 1

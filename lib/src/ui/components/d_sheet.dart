@@ -28,7 +28,6 @@ part 'd_sheet_adaptive_menu.dart';
 part 'd_sheet_lifecycle.dart';
 
 const _sheetMenuCorner = Radius.circular(22);
-const _sheetKeyboardGap = 1.0;
 
 /// Sheet artwork presets. Phone bottom sheets fill the viewport's foot,
 /// with a grab handle and bottom corners matching the display.
@@ -40,7 +39,8 @@ enum DSheetVariant {
   page,
 
   /// A full-width mobile menu with a lower opening height, pull-to-expand,
-  /// and placement above a visible keyboard.
+  /// and content that stays above a visible keyboard while its surface
+  /// continues behind it.
   adaptiveMenu,
 }
 
@@ -655,9 +655,14 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
         child: Stack(
           fit: StackFit.expand,
           children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: widget.children,
+            Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: widget.children,
+              ),
             ),
             ValueListenableBuilder<double>(
               valueListenable:
@@ -813,9 +818,7 @@ class _DSheetPageCorners extends StatelessWidget {
       child: Builder(
         builder: (metricsContext) => _DSheetKeyboardCorners(
           viewportCorners: _sheetBottomCorners(metricsContext),
-          keyboardCorners: const BorderRadius.vertical(
-            bottom: Radius.circular(DMobileDockGeometry.capsuleRadius),
-          ),
+          keyboardCorners: BorderRadius.zero,
           overKeyboard: MediaQuery.viewInsetsOf(metricsContext).bottom > 0,
           builder: (corners) => MediaQuery(
             data: media,
@@ -1270,7 +1273,6 @@ Widget _sheetLayout(
                   padding: MediaQuery.paddingOf(
                     context,
                   ).copyWith(bottom: overKeyboard ? 0 : end.foot),
-                  viewInsets: EdgeInsets.zero,
                 ),
                 child: presentation.content,
               ),
@@ -1298,7 +1300,7 @@ Widget _sheetLayout(
                   child: content,
                 ),
               )
-            : fillAvailableHeight
+            : fillAvailableHeight && !viewportBottom
             ? MediaQuery.removeViewInsets(
                 context: context,
                 removeBottom: true,
@@ -1312,16 +1314,6 @@ Widget _sheetLayout(
               )
             : content,
       );
-      if (followsViewport && !extendBehindKeyboard && !page) {
-        return _DSheetKeyboardCorners(
-          viewportCorners: _sheetBottomCorners(context),
-          keyboardCorners: const BorderRadius.vertical(
-            bottom: _sheetMenuCorner,
-          ),
-          overKeyboard: overKeyboard,
-          builder: withCorners,
-        );
-      }
       return withCorners(followsViewport ? _sheetBottomCorners(context) : null);
     },
   );
@@ -1394,7 +1386,6 @@ Widget _sheetLayout(
         return Stack(fit: StackFit.expand, children: [backdrop, popup]);
       }
       final keyboard = MediaQuery.viewInsetsOf(context).bottom;
-      final keyboardFoot = keyboard > 0 ? keyboard + _sheetKeyboardGap : 0.0;
       final margin = viewportBottom
           ? 0.0
           : inset
@@ -1458,11 +1449,9 @@ Widget _sheetLayout(
             ? null
             : margin,
         bottom: viewportBottom
-            ? keyboardFoot
+            ? 0.0
             : fillAvailableHeight
-            ? (extendBehindKeyboard
-                      ? 0.0
-                      : math.max(keyboardFoot, safeBottom)) +
+            ? (extendBehindKeyboard ? 0.0 : math.max(keyboard, safeBottom)) +
                   margin
             : side == DSheetSide.top
             ? null
@@ -1479,7 +1468,6 @@ Widget _sheetLayout(
                         safeTop -
                         DSpacing.sm -
                         safeBottom -
-                        (viewportBottom ? keyboardFoot : 0) -
                         margin,
                   ),
                 ),
@@ -1495,13 +1483,14 @@ Widget _sheetLayout(
       );
     },
   );
-  return fillAvailableHeight || viewportBottom
-      ? _DSheetKeyboardInsets(
-          child: retainKeyboardInsets
-              ? _DSheetRetainedKeyboardInsets(child: layout)
-              : layout,
-        )
+  final retainedLayout = retainKeyboardInsets
+      ? _DSheetRetainedKeyboardInsets(child: layout)
       : layout;
+  // Reading pages use their host's remaining inset. Restoring the raw view
+  // inset after a Scaffold has resized would reserve the keyboard twice.
+  return !page && (fillAvailableHeight || viewportBottom)
+      ? _DSheetKeyboardInsets(child: retainedLayout)
+      : retainedLayout;
 }
 
 class _DSheetMotion extends StatelessWidget {
@@ -2528,14 +2517,15 @@ class DSheetContent extends StatelessWidget {
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
 
-  /// Whether the sheet fills the viewport above the keyboard.
+  /// Whether the content fills the viewport above the keyboard.
   ///
+  /// Phone bottom-sheet surfaces continue behind the keyboard.
   /// The top gap is at least 11% of the viewport and 24px below the safe area.
-  /// [extendBehindKeyboard] instead fills to the bottom of the viewport with
-  /// an 8px gap below the top safe area.
+  /// [extendBehindKeyboard] instead lets the content own its keyboard avoidance
+  /// and uses an 8px gap below the top safe area.
   final bool fillAvailableHeight;
 
-  /// Whether a full-height sheet paints behind the keyboard.
+  /// Whether a full-height sheet leaves keyboard avoidance to its content.
   ///
   /// The live bottom view inset remains available to the content, which must
   /// keep controls and scroll reveal bounds above it. Bottom safe-area padding
@@ -2733,75 +2723,81 @@ class DSheetContent extends StatelessWidget {
                   ? 0
                   : MediaQuery.viewInsetsOf(context).bottom,
             ),
-            child: Stack(
-              children: [
-                if (headerImage != null)
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: 132,
-                    child: IgnorePointer(
-                      child: ExcludeSemantics(
-                        child: Stack(
-                          fit: StackFit.expand,
-                          children: [
-                            Image(
-                              image: headerImage!,
-                              fit: BoxFit.cover,
-                              errorBuilder: (_, _, _) =>
-                                  const SizedBox.shrink(),
-                            ),
-                            DecoratedBox(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.topCenter,
-                                  end: Alignment.bottomCenter,
-                                  colors: [
-                                    surfaceColor.withValues(alpha: .45),
-                                    surfaceColor.withValues(alpha: .84),
-                                    surfaceColor,
-                                  ],
-                                  stops: const [0, .55, 1],
+            child: Builder(
+              builder: (context) => MediaQuery.removeViewInsets(
+                context: context,
+                removeBottom: !extendBehindKeyboard,
+                child: Stack(
+                  children: [
+                    if (headerImage != null)
+                      Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        height: 132,
+                        child: IgnorePointer(
+                          child: ExcludeSemantics(
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                Image(
+                                  image: headerImage!,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox.shrink(),
                                 ),
-                              ),
+                                DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [
+                                        surfaceColor.withValues(alpha: .45),
+                                        surfaceColor.withValues(alpha: .84),
+                                        surfaceColor,
+                                      ],
+                                      stops: const [0, .55, 1],
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
-                    ),
-                  ),
-                if (scrollWholeSheet)
-                  SingleChildScrollView(
-                    primary: false,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: parts,
-                    ),
-                  )
-                else
-                  Column(
-                    mainAxisSize: fillsHeight
-                        ? MainAxisSize.max
-                        : MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: parts,
-                  ),
-                if (resolved == DSheetSide.bottom)
-                  Positioned(top: 0, left: 0, right: 0, child: handle),
-                if (showCloseButton)
-                  Positioned(
-                    top: DSpacing.md,
-                    right: DSpacing.md,
-                    child: (DSheetClose<void>(
-                      builder: (context, close) => DSheetHeaderAction.close(
-                        onPressed: close,
-                        tooltip: closeSemanticLabel,
+                    if (scrollWholeSheet)
+                      SingleChildScrollView(
+                        primary: false,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: parts,
+                        ),
+                      )
+                    else
+                      Column(
+                        mainAxisSize: fillsHeight
+                            ? MainAxisSize.max
+                            : MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: parts,
                       ),
-                    )),
-                  ),
-              ],
+                    if (resolved == DSheetSide.bottom)
+                      Positioned(top: 0, left: 0, right: 0, child: handle),
+                    if (showCloseButton)
+                      Positioned(
+                        top: DSpacing.md,
+                        right: DSpacing.md,
+                        child: (DSheetClose<void>(
+                          builder: (context, close) => DSheetHeaderAction.close(
+                            onPressed: close,
+                            tooltip: closeSemanticLabel,
+                          ),
+                        )),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),

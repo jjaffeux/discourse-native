@@ -53,8 +53,8 @@ final sheetExamples = ComponentExamples(
       'clearance, and rounded foot follow the upward pull and settle together. '
       'They also animate to 6px side margins '
       'and float above the home indicator at the end of their content, for short '
-      'content, or above the system keyboard. Margins remain until the sheet '
-      'is closed. '
+      'content. With the system keyboard visible, the surface continues behind it '
+      'while its scroll viewport and actions stop above it. '
       'The scroll viewport extends through the bottom safe area. '
       'Set sizeToContent: false to keep a 55% opening viewport through '
       'asynchronous loading and result changes, and contentLoading: true '
@@ -128,7 +128,7 @@ final sheetExamples = ComponentExamples(
       description:
           'Pull upward to expand while the sheet fills the viewport foot. '
           'Reserve a stable opening height for asynchronous results. '
-          'The same surface floats above a visible keyboard.',
+          'The surface continues behind a visible keyboard while content stays above it.',
       code:
           'DSheetContent(variant: DSheetVariant.adaptiveMenu, sizeToContent: false, side: DSheetSide.bottom, showCloseButton: false, scrollWholeSheet: false, children: [Flexible(child: menu)])',
       builder: (_) => DSheet<void>(

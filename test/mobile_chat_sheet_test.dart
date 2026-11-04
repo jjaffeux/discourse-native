@@ -689,7 +689,7 @@ void main() {
 
   for (final thread in [false, true]) {
     testWidgets(
-      'chat reading sheet matches its top corners above keyboard (thread: $thread)',
+      'chat reading sheet extends behind keyboard and keeps its content above it (thread: $thread)',
       (tester) async {
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
@@ -727,15 +727,24 @@ void main() {
           'keyboard-corners-${thread ? 'thread' : 'channel'}',
         );
         expect(corners().topLeft.x, 31);
-        expect(corners().bottomLeft.x, 31);
-        expect(corners().bottomRight.x, 31);
+        expect(corners().bottomLeft.x, 0);
+        expect(corners().bottomRight.x, 0);
+        expect(tester.getRect(_sheet).bottom, 844);
+        expect(
+          tester.getRect(find.byKey(const ValueKey('chat-composer'))).bottom,
+          lessThanOrEqualTo(544),
+        );
+        expect(
+          tester.getRect(find.byType(DMessageScrollerViewport)).bottom,
+          lessThanOrEqualTo(544),
+        );
         FocusManager.instance.primaryFocus?.unfocus();
         tester.view.viewInsets = FakeViewPadding.zero;
         tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
         await tester.pumpAndSettle();
         expect(corners().bottomLeft.x, 55);
       },
-      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+      variant: _platforms,
     );
   }
 
@@ -791,17 +800,17 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding(bottom: 150);
       tester.view.padding = const FakeViewPadding(top: 44);
       await tester.pump(const Duration(milliseconds: 200));
-      expectCorners(43);
+      expectCorners(27.5);
       await _capture(tester, 'keyboard-corners-channel-midpoint');
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pump(const Duration(milliseconds: 200));
-      expectCorners(31);
+      expectCorners(0);
       snapshot = keyboardFramePayload(inset: 0);
       await sendKeyboardFrame(tester, inset: 0);
       await tester.pump();
       tester.view.viewInsets = const FakeViewPadding(bottom: 150);
       await tester.pump(const Duration(milliseconds: 200));
-      expectCorners(43);
+      expectCorners(27.5);
       tester.view.viewInsets = FakeViewPadding.zero;
       tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
       await tester.pumpAndSettle();
@@ -810,7 +819,7 @@ void main() {
       await sendKeyboardFrame(tester, milliseconds: 0);
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       await tester.pumpAndSettle();
-      expectCorners(31);
+      expectCorners(0);
       final child = showDDialog<void>(
         context: tester.element(_sheet),
         builder: (_, controller) => DDialogContent(
@@ -827,7 +836,7 @@ void main() {
       await sendKeyboardFrame(tester, inset: 0, milliseconds: 0);
       tester.view.viewInsets = FakeViewPadding.zero;
       await tester.pumpAndSettle();
-      expectCorners(31);
+      expectCorners(0);
       await tester.tap(find.text('Close corner child'));
       await tester.pumpAndSettle();
       await child;
@@ -878,13 +887,13 @@ void main() {
       expect(send.hitTestable(), findsOneWidget);
       expect(tester.getRect(send).bottom, lessThanOrEqualTo(544));
       expect(_dock.hitTestable(), findsNothing);
-      expect(tester.getRect(_sheet).bottom, 542);
+      expect(tester.getRect(_sheet).bottom, 844);
       expect(
         tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
         Colors.transparent,
       );
       final composer = find.byKey(const ValueKey('chat-composer'));
-      expect(tester.getRect(composer).bottom, closeTo(536, .01));
+      expect(tester.getRect(composer).bottom, closeTo(538, .01));
       await _capture(
         tester,
         '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-${width.toInt()}',
