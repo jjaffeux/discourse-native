@@ -10,6 +10,9 @@ import 'oklab.dart';
 /// Semantic component tokens. The host maps its palette at the theme boundary.
 @immutable
 class DTokens extends ThemeExtension<DTokens> {
+  static final _controlThemes = Expando<DControlTheme>();
+  static final _buttonThemes = Expando<DControlTheme>();
+
   const DTokens({
     required this.colors,
     required this.background,
@@ -62,7 +65,7 @@ class DTokens extends ThemeExtension<DTokens> {
   DControlTheme get controlTheme => controls ?? _referenceControls;
 
   /// Button styling follows the app redesign independently of field surfaces.
-  DControlTheme get buttonTheme =>
+  DControlTheme get buttonTheme => _buttonThemes[this] ??=
       DControlTheme.buttons(colors, background, radius: controlRadius);
 
   double get controlRadius => controlTheme.radius;
@@ -196,7 +199,7 @@ class DTokens extends ThemeExtension<DTokens> {
     );
   }
 
-  DControlTheme get _referenceControls =>
+  DControlTheme get _referenceControls => _controlThemes[this] ??=
       DControlTheme.linear(colors, background, radius: radius);
 }
 

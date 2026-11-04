@@ -6,6 +6,38 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'derived controls reuse immutable tokens and follow palette changes',
+    () {
+      for (final theme in [AppTheme.light, AppTheme.dark]) {
+        final installed = theme.extension<DTokens>()!;
+        expect(installed.buttonTheme, same(installed.buttonTheme));
+        final tokens = DTokens.fromTheme(theme);
+        expect(tokens.controlTheme, same(tokens.controlTheme));
+        expect(tokens.buttonTheme, same(tokens.buttonTheme));
+        final changed = tokens.copyWith(
+          colors: tokens.colors.copyWith(onSurface: Colors.purple),
+          background: Colors.orange,
+        );
+        expect(changed.controlTheme, isNot(same(tokens.controlTheme)));
+        expect(changed.controlTheme.outline.foreground, Colors.purple);
+        expect(changed.buttonTheme, isNot(same(tokens.buttonTheme)));
+        expect(
+          changed.buttonTheme.outline.background,
+          isNot(tokens.buttonTheme.outline.background),
+        );
+        final controls = tokens.controlTheme;
+        final custom = changed.copyWith(controls: controls);
+        expect(custom.controlTheme, same(controls));
+        expect(custom.buttonTheme.radius, controls.radius);
+        expect(custom.buttonTheme, same(custom.buttonTheme));
+        final resized = DTokens.fromTheme(theme).copyWith(radius: 12);
+        expect(resized.controlRadius, 12);
+        expect(resized.buttonTheme.radius, 12);
+      }
+    },
+  );
+
+  test(
     'all app and sample palettes map existing colors to component tokens',
     () {
       for (final mode in StyleguideTheme.values) {
