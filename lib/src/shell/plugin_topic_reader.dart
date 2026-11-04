@@ -110,6 +110,7 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
             topic?.displayTitle ?? preview?.displayTitle ?? reader.route.title,
         siteUrl: reader.siteUrl,
         route: reader.route,
+        topic: topic,
         preview: preview,
         registry: widget.registry,
         canReturnToSidebar: true,

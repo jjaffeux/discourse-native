@@ -57,9 +57,9 @@ class TopicInboxHeader extends StatelessWidget {
   final ContentRoute? route;
   final TopicDetail? topic;
 
-  /// The cached list row. Only its closed state is drawn, because that renders
-  /// identically once the topic arrives; its other fields size placeholders.
-  /// Taxonomy and activity depend on permissions and participants it lacks.
+  /// The cached list row supplying the bar's initial title state and taxonomy.
+  ///
+  /// Permission-dependent controls and activity retain their placeholders.
   final Topic? preview;
 
   /// Reserves the loaded header's rows with placeholders until [topic] arrives.
@@ -112,8 +112,13 @@ class TopicInboxHeader extends StatelessWidget {
     final tab = ForumTabScope.tabOf(context);
     final route = this.route ?? tab.currentContent;
     final topicId = topic?.id ?? route?.topicId ?? preview?.id;
+    final hasPreviewTaxonomy =
+        preview != null &&
+        (preview.privateMessage ||
+            preview.categoryId != null ||
+            preview.tags.isNotEmpty);
     return DPageSurface.scrollable(
-      titleText: title,
+      titleText: !loading || topic != null || hasPreviewTaxonomy ? title : null,
       headerSuppressed: headerSuppressed,
       hideHeaderOnScroll: true,
       framed: false,
@@ -131,17 +136,21 @@ class TopicInboxHeader extends StatelessWidget {
   Widget? _barMetadata(BuildContext context) {
     final detail = topic;
     final site = siteUrl;
-    if (detail == null || site == null) return null;
+    if (site == null) return null;
+    final categoryId = detail != null ? detail.categoryId : preview?.categoryId;
+    final tags = detail?.tags ?? preview?.tags ?? const <TopicTag>[];
+    final privateMessage =
+        detail?.privateMessage ?? preview?.privateMessage ?? false;
+    if ((privateMessage || categoryId == null) && tags.isEmpty) return null;
     final shell = ShellScope.read(context);
     final path = <TopicCategory>[];
-    var category = detail.privateMessage
+    var category = privateMessage
         ? null
-        : shell.categoryFor(detail.categoryId, siteUrl: site);
+        : shell.categoryFor(categoryId, siteUrl: site);
     while (category != null) {
       path.insert(0, category);
       category = shell.categoryFor(category.parentCategoryId, siteUrl: site);
     }
-    if (path.isEmpty && detail.tags.isEmpty) return null;
     return Text.rich(
       key: const ValueKey('topic-bar-metadata'),
       TextSpan(
@@ -170,7 +179,7 @@ class TopicInboxHeader extends StatelessWidget {
             ),
             TextSpan(text: step.name),
           ],
-          for (final (index, tag) in detail.tags.indexed) ...[
+          for (final (index, tag) in tags.indexed) ...[
             if (path.isNotEmpty || index > 0)
               const WidgetSpan(child: SizedBox(width: 6)),
             TextSpan(text: '#${tag.name}'),
