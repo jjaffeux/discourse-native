@@ -148,6 +148,7 @@ class _DTableState extends State<DTable> {
             explicitChildNodes: true,
             label: widget.semanticLabel,
             child: _TableLayout(
+              rowBackgroundBeforeHeader: singleRow,
               fragment: widget._fragment,
               rowIndex: widget._rowIndex,
               rows: rows,
@@ -187,80 +188,64 @@ class _DTableState extends State<DTable> {
                       child: singleRow
                           ? rows[r].cells[c]
                           : MouseRegion(
-                              onEnter: ((_) => _hovered.value = r),
+                              onEnter: (_) => _hovered.value = r,
                               onExit: (_) {
-                                if (_hovered.value == r) {
-                                  _hovered.value = null;
-                                }
+                                if (_hovered.value == r) _hovered.value = null;
                               },
-                              child: ValueListenableBuilder<int?>(
-                                valueListenable: _hovered,
-                                child: DefaultTextStyle.merge(
-                                  style: TextStyle(
-                                    fontWeight: r >= footerStart
-                                        ? FontWeight.w500
-                                        : FontWeight.w400,
-                                  ),
-                                  child: rows[r].cells[c],
+                              child: DefaultTextStyle.merge(
+                                style: TextStyle(
+                                  fontWeight: r >= footerStart
+                                      ? FontWeight.w500
+                                      : FontWeight.w400,
                                 ),
-                                builder: (context, hovered, child) =>
-                                    AnimatedContainer(
-                                      duration: DMotion.duration(
-                                        context,
-                                        const Duration(milliseconds: 150),
-                                      ),
-                                      curve: Curves.easeInOut,
-                                      color: rows[r].selected
-                                          ? tokens.muted
-                                          : r < headerCount &&
-                                                widget.headerBackgroundColor !=
-                                                    null
-                                          ? widget.headerBackgroundColor
-                                          : ((((hovered == r))) ||
-                                                r >= footerStart)
-                                          ? tokens.muted.withValues(
-                                              alpha: tokens.muted.a * .5,
-                                            )
-                                          : tokens.muted.withValues(alpha: 0),
-                                      child: child,
-                                    ),
+                                child: rows[r].cells[c],
                               ),
                             ),
                     ),
                 ?widget.caption,
+                // One transition per row, independent of its column count.
+                // Appending them keeps existing unkeyed cell slots stable.
+                for (var r = 0; r < rows.length; r++)
+                  ValueListenableBuilder<int?>(
+                    key: ValueKey((#tableRowBackground, rows[r].key ?? r)),
+                    valueListenable: _hovered,
+                    builder: (context, hovered, _) =>
+                        TweenAnimationBuilder<Color?>(
+                          tween: ColorTween(
+                            end: rows[r].selected
+                                ? tokens.muted
+                                : r < headerCount &&
+                                      widget.headerBackgroundColor != null
+                                ? widget.headerBackgroundColor
+                                : hovered == r || r >= footerStart
+                                ? tokens.muted.withValues(
+                                    alpha: tokens.muted.a * .5,
+                                  )
+                                : tokens.muted.withValues(alpha: 0),
+                          ),
+                          duration: DMotion.duration(
+                            context,
+                            const Duration(milliseconds: 150),
+                          ),
+                          curve: Curves.easeInOut,
+                          builder: (context, color, _) =>
+                              ColoredBox(color: color!),
+                        ),
+                  ),
               ],
             ),
           );
           if (singleRow) {
-            final row = rows.single;
             content = MouseRegion(
-              onEnter: ((_) => _hovered.value = 0),
+              onEnter: (_) => _hovered.value = 0,
               onExit: (_) => _hovered.value = null,
-              child: ValueListenableBuilder<int?>(
-                valueListenable: _hovered,
-                child: DefaultTextStyle.merge(
-                  style: TextStyle(
-                    fontWeight: footerStart == 0
-                        ? FontWeight.w500
-                        : FontWeight.w400,
-                  ),
-                  child: content,
+              child: DefaultTextStyle.merge(
+                style: TextStyle(
+                  fontWeight: footerStart == 0
+                      ? FontWeight.w500
+                      : FontWeight.w400,
                 ),
-                builder: (context, hovered, child) => AnimatedContainer(
-                  duration: DMotion.duration(
-                    context,
-                    const Duration(milliseconds: 150),
-                  ),
-                  curve: Curves.easeInOut,
-                  color: row.selected
-                      ? tokens.muted
-                      : headerCount > 0 && widget.headerBackgroundColor != null
-                      ? widget.headerBackgroundColor
-                      : (((hovered != null))) || footerStart == 0
-                      ? tokens.muted.withValues(alpha: tokens.muted.a * .5)
-                      : tokens.muted.withValues(alpha: 0),
-                  child: child,
-                ),
+                child: content,
               ),
             );
           }
@@ -477,10 +462,12 @@ class DTableCell extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget content = Padding(
       padding: padding,
-      child: Align(
+      child: ConstraintsTransformBox(
         alignment: alignment,
-        widthFactor: 1,
-        heightFactor: 1,
+        // Row height aligns the cell; it does not constrain its natural body.
+        // Reuse that body's layout when a taller sibling fills out the row.
+        constraintsTransform: (constraints) =>
+            BoxConstraints(maxWidth: constraints.maxWidth),
         child: DefaultTextStyle.merge(
           softWrap: softWrap,
           style: textStyle,
@@ -556,6 +543,7 @@ class DTableCaption extends StatelessWidget {
 
 class _TableLayout extends MultiChildRenderObjectWidget {
   const _TableLayout({
+    required this.rowBackgroundBeforeHeader,
     required this.fragment,
     required this.rowIndex,
     required this.rows,
@@ -571,6 +559,7 @@ class _TableLayout extends MultiChildRenderObjectWidget {
     required this.hasCaption,
     required super.children,
   });
+  final bool rowBackgroundBeforeHeader;
   final bool fragment;
   final int rowIndex;
   final List<DTableRow> rows;
@@ -592,7 +581,9 @@ class _TableLayout extends MultiChildRenderObjectWidget {
       renderObject.configure(this);
 }
 
-class _CellData extends ContainerBoxParentData<RenderBox> {}
+class _CellData extends ContainerBoxParentData<RenderBox> {
+  bool background = false;
+}
 
 /// Flutter's stock Table has no column spans. This small eager layout keeps
 /// spans, intrinsic overflow and shared row heights under one rendering owner.
@@ -611,8 +602,6 @@ class _RenderTable extends RenderBox
   void setupParentData(RenderBox child) {
     if (child.parentData is! _CellData) child.parentData = _CellData();
   }
-
-  List<RenderBox> get _cells => getChildrenAsList();
 
   List<double> _widths(List<RenderBox> cells) {
     final natural = List.filled(spec.columns, 0.0);
@@ -679,12 +668,17 @@ class _RenderTable extends RenderBox
 
   @override
   void performLayout() {
-    final cells = _cells;
+    final children = getChildrenAsList();
+    final cellCount = children.length - spec.rows.length;
+    final cells = children.sublist(0, cellCount);
+    final backgrounds = children.sublist(cellCount);
+    for (var i = 0; i < children.length; i++) {
+      (children[i].parentData! as _CellData).background = i >= cellCount;
+    }
     final widths = _widths(cells);
-    final width = math.max(
-      spec.minimumWidth,
-      widths.fold(0.0, (a, b) => a + b),
-    );
+    final occupied = widths.fold(0.0, (a, b) => a + b);
+    final width = math.max(spec.minimumWidth, occupied);
+    final backgroundBounds = <Rect>[];
     var y = 0.0;
     var index = 0;
     _rowEnds = [];
@@ -726,6 +720,14 @@ class _RenderTable extends RenderBox
         );
         x += w;
       }
+      backgroundBounds.add(
+        Rect.fromLTWH(
+          spec.direction == TextDirection.ltr ? 0 : width - occupied,
+          y + top,
+          occupied,
+          height,
+        ),
+      );
       y += top + height + (spec.borders[r] ? 1 : 0);
       _rowEnds.add(y);
     }
@@ -739,6 +741,13 @@ class _RenderTable extends RenderBox
       y += caption.size.height;
     }
     size = constraints.constrain(Size(width, y));
+    for (var r = 0; r < backgrounds.length; r++) {
+      final bounds = spec.rowBackgroundBeforeHeader
+          ? Offset.zero & size
+          : backgroundBounds[r];
+      backgrounds[r].layout(BoxConstraints.tight(bounds.size));
+      (backgrounds[r].parentData! as _CellData).offset = bounds.topLeft;
+    }
   }
 
   final Map<int, SemanticsNode> _semanticRows = {};
@@ -808,8 +817,26 @@ class _RenderTable extends RenderBox
     );
   }
 
+  void _paintGroup(
+    PaintingContext context,
+    Offset offset, {
+    required bool backgrounds,
+  }) {
+    RenderBox? child = firstChild;
+    while (child != null) {
+      final data = child.parentData! as _CellData;
+      if (data.background == backgrounds) {
+        context.paintChild(child, offset + data.offset);
+      }
+      child = data.nextSibling;
+    }
+  }
+
   @override
   void paint(PaintingContext context, Offset offset) {
+    if (spec.rowBackgroundBeforeHeader) {
+      _paintGroup(context, offset, backgrounds: true);
+    }
     if (spec.headerBackgroundColor case final color?
         when spec.headerCount > 0) {
       context.canvas.drawRect(
@@ -817,7 +844,10 @@ class _RenderTable extends RenderBox
         Paint()..color = color,
       );
     }
-    defaultPaint(context, offset);
+    if (!spec.rowBackgroundBeforeHeader) {
+      _paintGroup(context, offset, backgrounds: true);
+    }
+    _paintGroup(context, offset, backgrounds: false);
     final paint = Paint()..color = spec.border;
     for (var r = 0; r < _rowEnds.length; r++) {
       if (spec.borders[r]) {
@@ -841,6 +871,22 @@ class _RenderTable extends RenderBox
   }
 
   @override
-  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
-      defaultHitTestChildren(result, position: position);
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    RenderBox? child = lastChild;
+    while (child != null) {
+      final current = child;
+      final data = current.parentData! as _CellData;
+      if (!data.background &&
+          result.addWithPaintOffset(
+            offset: data.offset,
+            position: position,
+            hitTest: (result, position) =>
+                current.hitTest(result, position: position),
+          )) {
+        return true;
+      }
+      child = data.previousSibling;
+    }
+    return false;
+  }
 }

@@ -310,13 +310,30 @@ void main() {
     }
   });
 
-  for (final towardEnd in [true, false]) {
+  for (final (towardEnd, quoted) in [
+    (true, false),
+    (false, false),
+    (true, true),
+    (false, true),
+  ]) {
     testWidgets(
       'replies dragged into the leading or trailing cache build their bodies '
-      'after that frame (towardEnd=$towardEnd)',
+      'after that frame (towardEnd=$towardEnd, quoted=$quoted)',
       (tester) async {
         final controller = await topicScrollController();
         addTearDown(controller.dispose);
+        if (quoted) {
+          for (var id = 2; id <= 60; id++) {
+            if (id == 20) continue;
+            controller.store.update<Post>(
+              controller.currentInstance!.url,
+              id,
+              (post) => post.copyWith(
+                cooked: '<blockquote>${post.cooked}</blockquote>',
+              ),
+            );
+          }
+        }
         try {
           await tester.pumpWidget(
             TopicScrollFixture(controller: controller, inbox: false),

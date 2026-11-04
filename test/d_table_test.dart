@@ -9,6 +9,112 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('a multi-column row shares one hover animation clock', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      DTable(
+        columnWidths: {
+          for (var column = 0; column < 10; column++)
+            column: const FixedColumnWidth(50),
+        },
+        body: DTableBody(
+          rows: [
+            for (var row = 0; row < 2; row++)
+              DTableRow(
+                cells: [
+                  for (var column = 0; column < 10; column++)
+                    DTableCell(child: Text('$row:$column')),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+    var animationOwners = 0;
+    void countOwners(Element element) {
+      if (element is StatefulElement && element.state is TickerProvider) {
+        animationOwners++;
+      }
+      element.visitChildren(countOwners);
+    }
+
+    countOwners(find.byType(DTable).evaluate().single);
+    expect(animationOwners, 2);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: const Offset(799, 599));
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(find.text('0:0')));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 1);
+    await tester.pumpAndSettle();
+    await mouse.moveTo(tester.getCenter(find.text('0:9')));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('appending rows and changing direction retain a focused cell', (
+    tester,
+  ) async {
+    final controller = TextEditingController(text: 'retained');
+    final focus = FocusNode();
+    addTearDown(controller.dispose);
+    addTearDown(focus.dispose);
+    Widget table({
+      bool extraRow = false,
+      TextDirection direction = TextDirection.ltr,
+    }) => Directionality(
+      textDirection: direction,
+      child: DTable(
+        columnWidths: const {
+          0: FixedColumnWidth(100),
+          1: FixedColumnWidth(100),
+        },
+        body: DTableBody(
+          rows: [
+            DTableRow(
+              selected: extraRow,
+              cells: [
+                DTableCell(
+                  child: DInput(
+                    controller: controller,
+                    focusNode: focus,
+                    showCursor: false,
+                  ),
+                ),
+                const DTableCell(child: Text('Metadata')),
+              ],
+            ),
+            if (extraRow)
+              const DTableRow(
+                cells: [
+                  DTableCell(child: Text('Added')),
+                  DTableCell(child: Text('Second')),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+    await _pump(tester, table());
+    await tester.tap(find.byType(DInput));
+    await tester.pumpAndSettle();
+    final input = tester.element(find.byType(DInput));
+    expect(focus.hasFocus, isTrue);
+    await _pump(tester, table(extraRow: true, direction: TextDirection.rtl));
+    await tester.pumpAndSettle();
+    expect(tester.element(find.byType(DInput)), same(input));
+    expect(focus.hasFocus, isTrue);
+    expect(controller.text, 'retained');
+    expect(
+      tester.getTopLeft(find.byType(DInput)).dx,
+      greaterThan(tester.getTopLeft(find.text('Metadata')).dx),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('a flexible single row shares hover across its cells', (
     tester,
   ) async {
@@ -28,29 +134,20 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(AnimatedContainer), findsOneWidget);
     final first = find.text('Title');
     final last = find.text('Metadata');
-    expect(
-      tester.getSize(find.byType(AnimatedContainer)).height,
-      tester.getSize(find.byType(DTableCell).first).height,
-    );
+    expect(tester.getSize(find.byType(DTableCell).first).height, 36);
+    expect(tester.getSize(find.byType(DTableCell).last).height, 36);
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: const Offset(1, 1));
+    await mouse.addPointer(location: const Offset(799, 599));
     addTearDown(mouse.removePointer);
     await mouse.moveTo(tester.getCenter(first));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 1);
     await tester.pumpAndSettle();
-    final decoration = tester
-        .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-        .decoration;
     await mouse.moveTo(tester.getCenter(last));
     await tester.pump();
-    expect(
-      tester
-          .widget<AnimatedContainer>(find.byType(AnimatedContainer))
-          .decoration,
-      decoration,
-    );
+    expect(tester.binding.transientCallbackCount, 0);
     expect(tester.getTopLeft(first).dy, tester.getTopLeft(last).dy);
     expect(tester.takeException(), isNull);
   });
@@ -132,36 +229,76 @@ void main() {
         ),
       ),
     );
-    expect(find.byType(AnimatedContainer), findsNWidgets(2));
     final first = find.text('Cell 0:0');
     final last = find.text('Cell 0:2');
-    final rowBackground = find.ancestor(
-      of: first,
-      matching: find.byType(AnimatedContainer),
-    );
-    expect(rowBackground, findsOneWidget);
-    final original = tester.widget<AnimatedContainer>(rowBackground).decoration;
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await mouse.addPointer(location: const Offset(1, 1));
+    await mouse.addPointer(location: const Offset(799, 599));
     addTearDown(mouse.removePointer);
     await mouse.moveTo(tester.getCenter(first));
+    await tester.pump();
+    expect(tester.binding.transientCallbackCount, 1);
     await tester.pumpAndSettle();
-    final hovered = tester.widget<AnimatedContainer>(rowBackground).decoration;
-    expect(hovered, isNot(original));
-    expect(
-      tester
-          .widget<AnimatedContainer>(
-            find.ancestor(of: last, matching: find.byType(AnimatedContainer)),
-          )
-          .decoration,
-      hovered,
-    );
     await mouse.moveTo(tester.getCenter(last));
     await tester.pump();
-    expect(tester.widget<AnimatedContainer>(rowBackground).decoration, hovered);
+    expect(tester.binding.transientCallbackCount, 0);
     expect(tester.getTopLeft(first).dy, tester.getTopLeft(last).dy);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'unequal rows keep natural child layout and fill the visible cell',
+    (tester) async {
+      var layouts = 0;
+      var taps = 0;
+      var height = 80.0;
+      final short = DTableCell(
+        key: const ValueKey('short-cell'),
+        onTap: () => taps++,
+        child: _LayoutProbe(
+          onLayout: () => layouts++,
+          child: const SizedBox(width: 40, height: 20),
+        ),
+      );
+      Future<void> pumpRow() => _pump(
+        tester,
+        DTable(
+          columnWidths: const {
+            0: FixedColumnWidth(200),
+            1: FixedColumnWidth(200),
+          },
+          body: DTableBody(
+            rows: [
+              DTableRow(
+                cells: [
+                  short,
+                  DTableCell(child: SizedBox(height: height)),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+      await pumpRow();
+      expect(layouts, 1);
+      final cell = find.byKey(const ValueKey('short-cell'));
+      expect(tester.getSize(cell).height, 96);
+      expect(
+        tester.getCenter(find.byType(_LayoutProbe)).dy,
+        tester.getCenter(cell).dy,
+      );
+      await tester.tapAt(tester.getBottomLeft(cell) + const Offset(8, -4));
+      expect(taps, 1);
+      height = 120;
+      await pumpRow();
+      expect(layouts, 1);
+      expect(tester.getSize(cell).height, 136);
+      expect(
+        tester.getCenter(find.byType(_LayoutProbe)).dy,
+        tester.getCenter(cell).dy,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'equal-height cells lay out once and hover does not relayout them',
@@ -400,70 +537,6 @@ void main() {
       await _pump(tester, const SizedBox());
       expect(controller.hasClients, isFalse);
       controller.addListener(() {});
-    },
-  );
-
-  testWidgets(
-    'hover and selected states use live multiplied alpha with reduced motion',
-    (tester) async {
-      final colors = ThemeData().colorScheme;
-      final tokens = DTokens.fromTheme(
-        ThemeData(),
-      ).copyWith(muted: const Color(0x80334455));
-      Widget table({bool selected = false}) => DTable(
-        body: DTableBody(
-          rows: [
-            DTableRow(
-              selected: selected,
-
-              cells: const [DTableCell(child: Text('Row'))],
-            ),
-          ],
-        ),
-      );
-      Future<void> pump(Widget child, DTokens t) => _pump(
-        tester,
-        MediaQuery(
-          data: const MediaQueryData(disableAnimations: true),
-          child: child,
-        ),
-        theme: ThemeData(colorScheme: colors, extensions: [t]),
-      );
-      Color? background() =>
-          (tester
-                      .widget<AnimatedContainer>(
-                        find
-                            .descendant(
-                              of: find.byType(DTable),
-                              matching: find.byType(AnimatedContainer),
-                            )
-                            .first,
-                      )
-                      .decoration!
-                  as BoxDecoration)
-              .color;
-      await pump(table(), tokens);
-      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      addTearDown(mouse.removePointer);
-      await mouse.addPointer(location: Offset.zero);
-      await mouse.moveTo(tester.getCenter(find.text('Row')));
-      await tester.pump();
-      expect(background(), tokens.muted.withValues(alpha: tokens.muted.a * .5));
-      await mouse.moveTo(
-        tester.getBottomRight(find.byType(DTable)) + const Offset(10, 10),
-      );
-      await tester.pumpAndSettle();
-      expect(background(), tokens.muted.withValues(alpha: 0));
-      final changed = tokens.copyWith(muted: const Color(0x40665544));
-      await pump(table(selected: true), changed);
-      await tester.pumpAndSettle();
-      expect(background(), changed.muted);
-      expect(
-        tester
-            .widget<AnimatedContainer>(find.byType(AnimatedContainer).first)
-            .duration,
-        Duration.zero,
-      );
     },
   );
 

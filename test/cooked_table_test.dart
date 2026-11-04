@@ -1,10 +1,13 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/cooked_document.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/cooked_table.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/shell/progressive_html_mode.dart';
+import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,6 +15,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
+import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 const _html = '''
@@ -31,6 +35,9 @@ Future<void> _pump(
   TextDirection direction = TextDirection.ltr,
   ThemeData? theme,
   RenderMode renderMode = RenderMode.column,
+  String searchQuery = '',
+  PluginRegistry? registry,
+  bool transient = false,
   ValueChanged<SelectedContent?>? onSelectionChanged,
 }) async {
   await tester.pumpWidget(
@@ -44,12 +51,17 @@ Future<void> _pump(
             body: SingleChildScrollView(
               child: SelectionArea(
                 onSelectionChanged: onSelectionChanged,
-                child: CookedHtml(
-                  html: html,
-                  post: post,
-                  siteUrl: 'https://source.example.com',
-                  buildAsync: false,
-                  renderMode: renderMode,
+                child: SearchWords(
+                  query: searchQuery,
+                  child: CookedHtml(
+                    html: html,
+                    post: post,
+                    registry: registry,
+                    transient: transient,
+                    siteUrl: 'https://source.example.com',
+                    buildAsync: false,
+                    renderMode: renderMode,
+                  ),
                 ),
               ),
             ),
@@ -71,6 +83,96 @@ Future<void> _sort(WidgetTester tester, String column, String order) async {
 }
 
 void main() {
+  testWidgets('plain cells preserve plugin overrides and transient isolation', (
+    tester,
+  ) async {
+    final registry = PluginRegistry.validated([_PlainCellRenderer()]);
+    const source =
+        '<table><tr><th>Value</th></tr><tr><td>  Plain &amp; cell \n</td></tr></table>';
+    await _pump(tester, source, registry: registry);
+    expect(find.text('Plugin cell'), findsOneWidget);
+    expect(_text('Plain & cell'), findsNothing);
+    await _pump(tester, source, registry: registry, transient: true);
+    expect(find.text('Plugin cell'), findsNothing);
+    expect(_text('Plain & cell'), findsOneWidget);
+  });
+  testWidgets('plain cells keep HTML text geometry and whitespace', (
+    tester,
+  ) async {
+    for (final direction in TextDirection.values) {
+      for (final scale in [1.0, 1.6]) {
+        for (final (source, text) in [
+          (' \n Alpha\t &amp;   beta \r\n ', 'Alpha & beta'),
+          ('&nbsp;Near&nbsp;far&nbsp;', '\u00a0Near\u00a0far\u00a0'),
+          (
+            'Un texte assez long qui se replie sur plusieurs lignes',
+            'Un texte assez long qui se replie sur plusieurs lignes',
+          ),
+          ('مرحبا بالعالم', 'مرحبا بالعالم'),
+        ]) {
+          Future<(Size, List<Rect>)> measure(String cell) async {
+            await _pump(
+              tester,
+              '<table><tr><th>Value</th></tr><tr><td>$cell</td></tr></table>',
+              direction: direction,
+              scale: scale,
+            );
+            final paragraph = find.byWidgetPredicate(
+              (widget) =>
+                  widget is RichText && widget.text.toPlainText() == text,
+            );
+            expect(paragraph, findsOneWidget);
+            final render = tester.renderObject<RenderParagraph>(paragraph);
+            final cellOrigin = tester.getTopLeft(find.byType(DTableCell));
+            return (
+              tester.getSize(find.byType(DTableCell)),
+              [
+                for (final box in render.getBoxesForSelection(
+                  TextSelection(baseOffset: 0, extentOffset: text.length),
+                ))
+                  box.toRect().shift(
+                    render.localToGlobal(Offset.zero) - cellOrigin,
+                  ),
+              ],
+            );
+          }
+
+          final rich = await measure('<span>$source</span>');
+          final plain = await measure(source);
+          expect(plain.$1, rich.$1, reason: '$direction $scale $source');
+          expect(plain.$2, rich.$2, reason: '$direction $scale $source');
+        }
+      }
+    }
+  });
+
+  testWidgets('plain cells retain search highlights', (tester) async {
+    await _pump(
+      tester,
+      '<table><tr><th>Value</th></tr><tr><td>Find this needle here</td></tr></table>',
+      searchQuery: 'needle',
+    );
+    final paragraph = tester.widget<RichText>(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is RichText &&
+            widget.text.toPlainText() == 'Find this needle here',
+      ),
+    );
+    final spans = <TextSpan>[];
+    paragraph.text.visitChildren((span) {
+      if (span is TextSpan && span.text == 'needle') spans.add(span);
+      return true;
+    });
+    expect(spans, hasLength(1));
+    final style = spans.single.style!;
+    expect(
+      (style.background?.color ?? style.backgroundColor)?.a,
+      closeTo(.13, .005),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('large progressive tables bound mounted cells and page every row', (
     tester,
   ) async {
@@ -80,7 +182,7 @@ void main() {
         '</table>';
     await _pump(tester, html, renderMode: const ProgressiveHtmlMode());
 
-    expect(find.byType(CookedHtml).evaluate().length, 51);
+    expect(find.byType(DTableCell), findsNWidgets(50));
     expect(_text('Member 499'), findsNothing);
     final semantics = tester.ensureSemantics();
     try {
@@ -90,7 +192,7 @@ void main() {
           expect(_text('Member $row'), findsOneWidget);
           visited.add('Member $row');
         }
-        expect(find.byType(CookedHtml).evaluate().length, 51);
+        expect(find.byType(DTableCell), findsNWidgets(50));
         final last = _text('Member ${(page + 1) * 25 - 1}');
         await tester.ensureVisible(last);
         await tester.pumpAndSettle();
@@ -208,9 +310,18 @@ void main() {
     'initial widths bound shaping and cache until layout inputs change',
     (tester) async {
       var scaleCalls = 0;
-      var theme = AppTheme.dark;
+      var theme = AppTheme.dark.copyWith(
+        textTheme: AppTheme.dark.textTheme.copyWith(
+          bodyMedium: AppTheme.dark.textTheme.bodyMedium!.copyWith(
+            fontSize: 17.25,
+          ),
+        ),
+      );
       var direction = TextDirection.ltr;
-      var textScaler = _CountingTextScaler(onScale: () => scaleCalls++);
+      var textScaler = _CountingTextScaler(
+        onScale: () => scaleCalls++,
+        fontSizes: const [17.25, 18.25],
+      );
       var value = 'cell';
       var rowCount = 500;
       Future<void> pumpTable() async {
@@ -283,13 +394,17 @@ void main() {
       scaleCalls = 0;
       theme = theme.copyWith(
         textTheme: theme.textTheme.copyWith(
-          bodyMedium: theme.textTheme.bodyMedium!.copyWith(fontSize: 16),
+          bodyMedium: theme.textTheme.bodyMedium!.copyWith(fontSize: 18.25),
         ),
       );
       await pumpTable();
       expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       scaleCalls = 0;
-      textScaler = _CountingTextScaler(factor: 2, onScale: () => scaleCalls++);
+      textScaler = _CountingTextScaler(
+        factor: 2,
+        onScale: () => scaleCalls++,
+        fontSizes: const [17.25, 18.25],
+      );
       await pumpTable();
       expect(scaleCalls, inExclusiveRange(cachedBuildCalls, 500));
       scaleCalls = 0;
@@ -299,6 +414,57 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('column width sampling shares shaping across cells', (
+    tester,
+  ) async {
+    var scaleCalls = 0;
+    final scaler = _CountingTextScaler(
+      onScale: () => scaleCalls++,
+      fontSizes: const [17.25, 18.25],
+    );
+    Future<int> measure({required bool unique}) async {
+      final source =
+          '<table><tr>${List.filled(8, '<th>Header</th>').join()}</tr>'
+          '${List.generate(20, (row) => '<tr>${List.generate(8, (column) => '<td>entry ${unique ? row * 8 + column : row % 2}</td>').join()}</tr>').join()}</table>';
+      scaleCalls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.dark.copyWith(
+            textTheme: AppTheme.dark.textTheme.copyWith(
+              bodyMedium: AppTheme.dark.textTheme.bodyMedium!.copyWith(
+                fontSize: 17.25,
+              ),
+            ),
+          ),
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: scaler),
+            child: SingleChildScrollView(
+              child: KeyedSubtree(
+                key: UniqueKey(),
+                child: Builder(
+                  builder: (context) => cookedTableWidgetBuilder(
+                    html_parser.parseFragment(source).querySelector('table')!,
+                    content: CookedDocument(
+                      source,
+                    ).bind((_, fragment, style) => const SizedBox(height: 1)),
+                  )!,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return scaleCalls;
+    }
+
+    await measure(unique: false);
+    final uniqueCalls = await measure(unique: true);
+    final repeatedCalls = await measure(unique: false);
+    expect(uniqueCalls - repeatedCalls, inExclusiveRange(0, 50));
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('copy table copies complete Markdown beside Columns', (
     tester,
@@ -349,10 +515,7 @@ void main() {
     final copyButton = find.byWidgetPredicate(
       (widget) => widget is DButton && widget.tooltip == 'Copy table',
     );
-    final paintedCopy = tester.widget<FilledButton>(
-      find.descendant(of: copyButton, matching: find.byType(FilledButton)),
-    );
-    expect(paintedCopy.style!.fixedSize!.resolve({}), const Size(30, 30));
+    expect(tester.getSize(copyButton), const Size(30, 30));
     await _sort(tester, 'Days', 'ascending');
     await tester.tap(find.text('Notes'));
     await tester.pumpAndSettle();
@@ -662,17 +825,33 @@ void main() {
 }
 
 class _CountingTextScaler extends TextScaler {
-  const _CountingTextScaler({required this.onScale, this.factor = 1});
+  const _CountingTextScaler({
+    required this.onScale,
+    this.factor = 1,
+    this.fontSizes,
+  });
 
   final double factor;
   final VoidCallback onScale;
+  final List<double>? fontSizes;
 
   @override
   double scale(double fontSize) {
-    onScale();
+    if (fontSizes == null || fontSizes!.contains(fontSize)) onScale();
     return fontSize * factor;
   }
 
   @override
   double get textScaleFactor => factor;
+}
+
+final class _PlainCellRenderer implements SitePlugin, CookedElementPlugin {
+  @override
+  String get name => 'plain-cell-test';
+
+  @override
+  Widget? cookedElement(String? siteUrl, dom.Element element) =>
+      element.localName == 'div' && element.text == '  Plain & cell \n'
+      ? const DText('Plugin cell')
+      : null;
 }

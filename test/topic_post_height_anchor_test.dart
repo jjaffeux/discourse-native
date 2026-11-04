@@ -69,7 +69,78 @@ void main() {
         },
       );
     }
+    for (final (first, second, delta) in [
+      (400.0, 0.0, 0.0),
+      (20.0, 1000.0, 620.0),
+      (20.0, 30.0, -350.0),
+    ]) {
+      testWidgets(
+        'simultaneous cached height changes retain the drag anchor ($direction, $delta)',
+        (tester) async {
+          final h = _Harness();
+          addTearDown(h.dispose);
+          await _show(tester, h, direction: direction);
+          final anchor = find.byKey(const ValueKey(5));
+          final drag = await tester.startGesture(
+            tester.getCenter(find.byType(CustomScrollView)),
+          );
+          await drag.moveBy(const Offset(0, -30));
+          await tester.pump();
+          final top = tester.getTopLeft(anchor).dy;
+          final pixels = h.scroll.offset;
+          final element = tester.element(anchor);
+          h.heights[1].value = first;
+          h.heights[2].value = second;
+          await tester.pump();
+          expect(h.scroll.offset, closeTo(pixels + delta, .01));
+          for (var frame = 0; frame < 3; frame++) {
+            expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
+            expect(tester.element(anchor), same(element));
+            await tester.pump(const Duration(milliseconds: 8));
+          }
+          await drag.moveBy(const Offset(0, -20));
+          await tester.pump();
+          expect(tester.getTopLeft(anchor).dy, closeTo(top - 20, .01));
+          await drag.up();
+          await tester.pumpAndSettle();
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
+
+  testWidgets('cached growth keeps the visible post focused during a drag', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    final h = _Harness(anchorFocus: focus);
+    addTearDown(h.dispose);
+    await _show(tester, h);
+    focus.requestFocus();
+    await tester.pump();
+    expect(focus.hasPrimaryFocus, isTrue);
+    final anchor = find.byKey(const ValueKey(5));
+    final element = tester.element(anchor);
+    final drag = await tester.startGesture(
+      tester.getCenter(find.byType(CustomScrollView)),
+    );
+    await drag.moveBy(const Offset(0, -30));
+    await tester.pump();
+    final top = tester.getTopLeft(anchor).dy;
+    for (final height in [1200.0, 20.0]) {
+      h.heights[2].value = height;
+      await tester.pump();
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(tester.element(anchor), same(element));
+      expect(tester.getTopLeft(anchor).dy, closeTo(top, .01));
+    }
+    await drag.up();
+    await tester.pumpAndSettle();
+    expect(focus.hasPrimaryFocus, isTrue);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets(
     'growing the partially visible post keeps its own reading position',
@@ -171,7 +242,7 @@ Future<void> _show(
 }
 
 class _Harness {
-  _Harness({this.wrapRows = false}) {
+  _Harness({this.wrapRows = false, this.anchorFocus}) {
     geometry.applyWindowChange(
       TopicViewportWindowChange(
         extentAction: TopicViewportExtentAction.replace,
@@ -185,6 +256,7 @@ class _Harness {
     );
   }
   final bool wrapRows;
+  final FocusNode? anchorFocus;
   final scroll = ScrollController(initialScrollOffset: 650);
   final list = ListController();
   final ids = List.generate(30, (i) => i + 1);
@@ -225,6 +297,12 @@ class _Harness {
                     height:
                         value *
                         (wrapRows && constraints.maxWidth < 400 ? 2 : 1),
+                    child: index == 4 && anchorFocus != null
+                        ? Focus(
+                            focusNode: anchorFocus,
+                            child: const SizedBox.shrink(),
+                          )
+                        : null,
                   ),
                 ),
               ),
