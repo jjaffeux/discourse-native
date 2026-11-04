@@ -68,6 +68,32 @@ Future<TestGesture> _drag(
 }
 
 void main() {
+  testWidgets('navigation preview covers the frame and carries its chrome', (
+    tester,
+  ) async {
+    final state = await _pump(tester, framed: true, splitNavigation: true);
+    state.visit(1);
+    await tester.pumpAndSettle();
+    final header = find.widgetWithText(DButton, 'Header action');
+    final resting = _paintedRect(tester, header);
+    final gesture = await tester.startGesture(const Offset(5, 12));
+    await gesture.moveBy(
+      const Offset(120, 0),
+      timeStamp: const Duration(milliseconds: 200),
+    );
+    await tester.pump();
+    final preview = find.byType(DPageSurface);
+    final bounds = _paintedRect(tester, preview);
+    expect(bounds.height, closeTo(600 * .958, .01));
+    expect(bounds.top, closeTo(600 * (1 - .958) / 2, .01));
+    expect(_paintedRect(tester, header).left, closeTo(resting.left + 120, .01));
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(_paintedRect(tester, header), resting);
+    expect(state.navigationOpens, 0);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final (direction, reducedMotion) in [
     for (final direction in TextDirection.values)
       for (final reducedMotion in [false, true]) (direction, reducedMotion),

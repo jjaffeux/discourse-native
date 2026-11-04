@@ -15903,5 +15903,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get voiceLayoutPresentation => 'Presentation';
 
   @override
+  String get switchToLight => 'Switch to light';
+
+  @override
+  String get switchToDark => 'Switch to dark';
+
+  @override
   String get voiceLayoutTiled => 'Tiled';
 }

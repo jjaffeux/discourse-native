@@ -32,8 +32,8 @@ final class DHistoryTabClipper extends CustomClipper<RRect> {
       borderRadius != oldClipper.borderRadius || insets != oldClipper.insets;
 }
 
-/// A navigation surface revealed from the top leading corner or when Back is
-/// unavailable, independently of the current page's Back destination.
+/// A navigation surface revealed over the whole frame, including its chrome.
+/// Keep it supplied while open, with [entry] equal to the transition's entry.
 final class DHistoryNavigation {
   const DHistoryNavigation({
     required this.entry,
@@ -157,7 +157,8 @@ class DHistoryTransition extends StatefulWidget {
   /// Places the animated page within stationary navigation chrome.
   ///
   /// The whole returned frame accepts edge swipes, including its padding and
-  /// chrome. Only the supplied page moves and is captured for history previews.
+  /// chrome. Page history moves and captures only the supplied page. Navigation
+  /// reveals cover the whole frame and retain its chrome in their previews.
   /// Insert it once with bounded width and height. Without a builder it fills the
   /// gesture surface.
   final Widget Function(BuildContext context, Widget page)? frameBuilder;
@@ -202,8 +203,17 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   static const _tabDuration = Duration(milliseconds: 300);
 
   final _boundary = GlobalKey();
+  final _frameBoundary = GlobalKey();
   final _previews =
-      <Object, ({ui.Image image, Object? previousEntry, Offset origin})>{};
+      <
+        Object,
+        ({
+          ui.Image image,
+          ui.Image? frame,
+          Object? previousEntry,
+          Offset origin,
+        })
+      >{};
   final _pointers = <int>{};
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
@@ -211,12 +221,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   Object? _environment;
   Object? _committedEntry;
   Size _size = Size.zero;
+  Size _frameSize = Size.zero;
   double _gestureWidth = 0;
   bool _back = false;
   bool _openingNavigation = false;
   bool _dragging = false;
   bool _settling = false;
   bool _switchingTab = false;
+  bool _switchingNavigation = false;
   bool _clipTab = false;
   bool _animatePageEntrance = true;
   double _tabSign = 1;
@@ -226,6 +238,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
   bool get _rtl => Directionality.of(context) == TextDirection.rtl;
   double get _sign => _back != _rtl ? 1 : -1;
+  bool get _navigationOpen => widget.navigation?.entry == widget.entry;
+  bool get _navigationTransition =>
+      _openingNavigation || _navigationOpen || _switchingNavigation;
   Object? get _target => _openingNavigation
       ? widget.navigation?.entry
       : _back
@@ -266,6 +281,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   void didUpdateWidget(DHistoryTransition oldWidget) {
     super.didUpdateWidget(oldWidget);
     final committed = _committedEntry == widget.entry;
+    final navigationChanged =
+        oldWidget.navigation?.entry == oldWidget.entry || _navigationOpen;
     _committedEntry = null;
     if (oldWidget.entry != widget.entry ||
         oldWidget.history != widget.history) {
@@ -286,17 +303,25 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       final image = boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
           : null;
+      final frameImage = navigationChanged ? _snapshotFrame() : null;
       if (oldWidget.history == widget.history) {
         _resetGesture();
         if (image != null) {
-          _remember(oldWidget.entry, oldWidget.previousEntry, image.clone());
+          _remember(
+            oldWidget.entry,
+            oldWidget.previousEntry,
+            image.clone(),
+            frame: frameImage?.clone(),
+          );
         }
       } else {
         _clear();
       }
-      _preview = image;
+      _preview = navigationChanged ? frameImage : image;
+      if (navigationChanged) image?.dispose();
       _tabSign = (now.index > was.index ? 1 : -1) * (_rtl ? -1.0 : 1.0);
       _switchingTab = true;
+      _switchingNavigation = navigationChanged;
       _clipTab = oldWidget.tabClipper != null && widget.tabClipper != null;
       unawaited(_animateTab());
     } else if (oldWidget.history != widget.history) {
@@ -308,7 +333,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       if (boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
-          _remember(oldWidget.entry, oldWidget.previousEntry, image);
+          _remember(
+            oldWidget.entry,
+            oldWidget.previousEntry,
+            image,
+            frame: navigationChanged ? _snapshotFrame() : null,
+          );
         }
       }
       _resetGesture();
@@ -346,6 +376,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _dragging = false;
     _settling = false;
     _switchingTab = false;
+    _switchingNavigation = false;
     _clipTab = false;
     _distance = 0;
     _openingNavigation = false;
@@ -374,19 +405,37 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _previews.removeWhere((entry, preview) {
       if (retained.contains(entry)) return false;
       preview.image.dispose();
+      preview.frame?.dispose();
       return true;
     });
   }
 
-  void _remember(Object entry, Object? previousEntry, ui.Image image) {
-    _previews.remove(entry)?.image.dispose();
+  ui.Image? _snapshotFrame() {
+    final boundary = _frameBoundary.currentContext?.findRenderObject();
+    return boundary is _HistoryRepaintBoundary
+        ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
+        : null;
+  }
+
+  void _remember(
+    Object entry,
+    Object? previousEntry,
+    ui.Image image, {
+    ui.Image? frame,
+  }) {
+    final previous = _previews.remove(entry);
+    previous?.image.dispose();
+    previous?.frame?.dispose();
     _previews[entry] = (
       image: image,
+      frame: frame,
       previousEntry: previousEntry,
       origin: _pageOrigin(),
     );
     while (_previews.length > 8) {
-      _previews.remove(_previews.keys.first)!.image.dispose();
+      final evicted = _previews.remove(_previews.keys.first)!;
+      evicted.image.dispose();
+      evicted.frame?.dispose();
     }
   }
 
@@ -420,7 +469,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   }
 
   bool _navigationOrigin(Offset position) {
-    if (widget.navigation == null) return false;
+    if (widget.navigation == null || _navigationOpen) return false;
     final leading = _rtl ? _gestureWidth - position.dx : position.dx;
     return (position.dy >= 0 &&
             position.dy < _navigationCorner.height &&
@@ -450,8 +499,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _dragging = true;
       _distance = 0;
       final preview = _previews[_target];
-      _preview = preview?.image.clone();
-      _previewOffset = preview == null
+      _preview = (_navigationOpen ? preview?.frame : preview?.image)?.clone();
+      _previewOffset = preview == null || _navigationTransition
           ? Offset.zero
           : preview.origin - _pageOrigin();
     });
@@ -463,11 +512,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       unawaited(_settle(false));
       return;
     }
-    _distance = (_distance + details.primaryDelta! * _sign).clamp(
-      0,
-      _size.width,
-    );
-    _progress.value = _distance / _size.width;
+    final width = _navigationTransition ? _gestureWidth : _size.width;
+    _distance = (_distance + details.primaryDelta! * _sign).clamp(0, width);
+    _progress.value = _distance / width;
   }
 
   void _end(DragEndDetails details) {
@@ -545,6 +592,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       _gestureWidth = constraints.maxWidth;
+      if (_frameSize != constraints.biggest) {
+        final widthChanged = _frameSize.width != constraints.maxWidth;
+        _frameSize = constraints.biggest;
+        if (widthChanged) {
+          _clear();
+        } else if (_dragging || _settling) {
+          _resetGesture();
+        }
+      }
       final page = _buildPage(context);
       return Listener(
         behavior: HitTestBehavior.opaque,
@@ -576,26 +632,123 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                     ..onCancel = () => unawaited(_settle(false)),
                 ),
           },
-          child: widget.frameBuilder == null
-              ? page
-              : AnimatedBuilder(
-                  animation: _progress,
-                  builder: (context, child) => _HistorySwipeScope(
-                    swipe:
-                        !_switchingTab &&
-                            (_dragging || _settling) &&
-                            !MediaQuery.disableAnimationsOf(context)
-                        ? (entry: _target!, progress: _progress.value)
-                        : null,
-                    child: child!,
-                  ),
-                  child: Builder(
-                    builder: (context) => widget.frameBuilder!(context, page),
-                  ),
-                ),
+          child: AnimatedBuilder(
+            animation: _progress,
+            builder: (context, child) => _HistorySwipeScope(
+              swipe:
+                  !_switchingTab &&
+                      (_dragging || _settling) &&
+                      !MediaQuery.disableAnimationsOf(context)
+                  ? (entry: _target!, progress: _progress.value)
+                  : null,
+              child: child!,
+            ),
+            child: _buildNavigationFrame(context, page),
+          ),
         ),
       );
     },
+  );
+
+  Widget _buildNavigationFrame(
+    BuildContext context,
+    Widget page,
+  ) => LayoutBuilder(
+    builder: (context, constraints) => AnimatedBuilder(
+      animation: _progress,
+      child: _HistoryBoundary(
+        key: _frameBoundary,
+        child: widget.frameBuilder == null
+            ? page
+            : Builder(
+                builder: (context) => widget.frameBuilder!(context, page),
+              ),
+      ),
+      builder: (context, child) {
+        final reduced = MediaQuery.disableAnimationsOf(context);
+        final p = _navigationTransition && !reduced ? _progress.value : 0.0;
+        final switching = _switchingNavigation && !reduced;
+        final active = !switching && p > 0;
+        final width = constraints.maxWidth;
+        final scrim = DTokens.of(context).colors.scrim;
+        Widget preview(Widget content, {required bool back}) =>
+            Transform.translate(
+              offset: Offset(
+                back
+                    ? -_sign * width * _parallax * (1 - p)
+                    : -_sign * width * (1 - p),
+                0,
+              ),
+              child: Transform.scale(
+                scale: _previewScale + (1 - _previewScale) * p,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    scrim.withValues(alpha: .40 * (back ? 1 - p : p)),
+                    BlendMode.srcATop,
+                  ),
+                  child: ExcludeSemantics(
+                    child: IgnorePointer(child: ExcludeFocus(child: content)),
+                  ),
+                ),
+              ),
+            );
+        final snapshot = _preview == null
+            ? ColoredBox(color: DTokens.of(context).background)
+            : RawImage(
+                image: _preview,
+                fit: BoxFit.fitWidth,
+                alignment: Alignment.topCenter,
+              );
+        return ClipRect(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (widget.navigation case final navigation?
+                  when !_navigationOpen)
+                Offstage(
+                  offstage: !_openingNavigation,
+                  child: preview(navigation.preview, back: true),
+                ),
+              if (switching)
+                Transform.translate(
+                  key: const ValueKey('history-outgoing-navigation'),
+                  offset: Offset(-_tabSign * width * p, 0),
+                  child: ExcludeSemantics(
+                    child: IgnorePointer(child: snapshot),
+                  ),
+                ),
+              Transform.translate(
+                key: const ValueKey('history-navigation-frame'),
+                offset: Offset(
+                  switching
+                      ? _tabSign * width * (1 - p)
+                      : _sign * width * p * (_back ? 1 : _parallax),
+                  0,
+                ),
+                child: Transform.scale(
+                  scale: switching || !_navigationTransition || _back
+                      ? 1
+                      : 1 - (1 - _previewScale) * p,
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      scrim.withValues(alpha: active && !_back ? .40 * p : 0),
+                      BlendMode.srcATop,
+                    ),
+                    child: IgnorePointer(
+                      ignoring:
+                          _navigationTransition &&
+                          (_dragging || _settling || switching),
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+              if (active && _navigationOpen) preview(snapshot, back: false),
+            ],
+          ),
+        );
+      },
+    ),
   );
 
   Widget _buildPage(BuildContext context) {
@@ -604,18 +757,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (_size != constraints.biggest) {
-          // The dock changes the viewport's height when navigation opens.
-          // Keep same-width previews at their original aspect ratio so closing
-          // navigation can reveal the page without stretching its text.
-          final widthChanged = _size.width != constraints.maxWidth;
-          _size = constraints.biggest;
-          if (widthChanged) {
-            _clear();
-          } else if (_dragging || _settling) {
-            _resetGesture();
-          }
-        }
+        _size = constraints.biggest;
         final previous = _previews[widget.previousEntry];
         return ClipRect(
           child: AnimatedBuilder(
@@ -628,8 +770,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               child: _HistoryBoundary(key: _boundary, child: widget.child),
             ),
             builder: (context, child) {
-              final switching = _switchingTab && !reducedMotion;
-              final p = reducedMotion ? 0.0 : _progress.value;
+              final switching =
+                  _switchingTab && !_switchingNavigation && !reducedMotion;
+              final p = reducedMotion || _navigationTransition
+                  ? 0.0
+                  : _progress.value;
               final active = !switching && p > 0;
               // Tint only painted pixels. A rectangular scrim would also
               // darken transparent page gutters and rounded corners.
@@ -699,11 +844,6 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               final pages = Stack(
                 fit: StackFit.expand,
                 children: [
-                  if (widget.navigation case final navigation?)
-                    Offstage(
-                      offstage: !_openingNavigation,
-                      child: previewLayer(navigation.preview, back: true),
-                    ),
                   if (!_openingNavigation && widget.previousPreview != null)
                     previewLayer(widget.previousPreview!, back: true)
                   else if (!_openingNavigation && active && _back)

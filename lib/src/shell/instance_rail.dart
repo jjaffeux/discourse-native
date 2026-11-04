@@ -11,6 +11,7 @@ import 'package:flutter/services.dart';
 import '../app_shortcuts.dart';
 
 import '../foundation/count_label.dart';
+import '../models/app_settings.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
 import '../styleguide/styleguide_page.dart';
@@ -26,6 +27,7 @@ import 'instance_actions.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'theme_icons.dart';
 import 'update_controller.dart';
 import 'update_sheet.dart';
 
@@ -148,7 +150,8 @@ Color _railSurface(BuildContext context) {
   return ForumWindowBackground.chromeColor(context, _railBackground(theme));
 }
 
-const double _railListPadding = 8;
+double _railListPadding(BuildContext context) =>
+    usesMobileNavigation(Theme.of(context).platform) ? 10 : 8;
 const double _railIconSize = 16;
 const double _railFooterIconSize = 24;
 const double _railSourceOpacity = 0.3;
@@ -297,7 +300,8 @@ class _InstanceRailListState extends State<_InstanceRailList> {
       return null;
     }
 
-    final contentY = local.dy + scrollable.position.pixels - _railListPadding;
+    final contentY =
+        local.dy + scrollable.position.pixels - _railListPadding(context);
     return ((contentY + _itemExtent / 2) / _itemExtent)
         .floor()
         .clamp(0, widget.state.instances.length)
@@ -501,7 +505,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           topExtent: 26,
           bottomExtent: 26,
           child: ListView.builder(
-            padding: const EdgeInsets.symmetric(vertical: _railListPadding),
+            padding: EdgeInsets.symmetric(vertical: _railListPadding(context)),
             itemExtent: _itemExtent,
             itemCount: widget.state.instances.length + 1,
             findChildIndexCallback: (key) {
@@ -877,6 +881,7 @@ class _RailFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final updates = ShellScope.read(context).updates;
+    final mobile = usesMobileNavigation(Theme.of(context).platform);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -886,20 +891,26 @@ class _RailFooter extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 2),
             child: Center(child: _UpdateButton()),
           ),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 2),
-          child: Center(
-            child: _RailFooterButton(
-              buttonKey: const ValueKey('styleguide-rail-button'),
-              tooltip: context.l10n.openComponentStyleguide,
-              onTap: () => unawaited(showComponentStyleguide(context)),
-              icon: const Icon(
-                Icons.palette_outlined,
-                size: _railFooterIconSize,
+        if (mobile)
+          const Padding(
+            padding: EdgeInsets.symmetric(vertical: 2),
+            child: Center(child: _ThemeModeButton()),
+          )
+        else
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Center(
+              child: _RailFooterButton(
+                buttonKey: const ValueKey('styleguide-rail-button'),
+                tooltip: context.l10n.openComponentStyleguide,
+                onTap: () => unawaited(showComponentStyleguide(context)),
+                icon: const Icon(
+                  Icons.palette_outlined,
+                  size: _railFooterIconSize,
+                ),
               ),
             ),
           ),
-        ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
           child: Center(
@@ -916,6 +927,45 @@ class _RailFooter extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ThemeModeButton extends StatelessWidget {
+  const _ThemeModeButton();
+
+  @override
+  Widget build(BuildContext context) {
+    final shell = ShellScope.read(context);
+    return ListenableBuilder(
+      listenable: shell.forumSettings,
+      builder: (context, _) {
+        final site = shell.currentInstance?.url;
+        final mode = site == null
+            ? shell.appSettings.themeMode
+            : shell.forumSettings.themeModeFor(site);
+        final dark = switch (mode) {
+          AppThemeMode.system =>
+            MediaQuery.platformBrightnessOf(context) == Brightness.dark,
+          AppThemeMode.light => false,
+          AppThemeMode.dark => true,
+        };
+        return _RailFooterButton(
+          buttonKey: const ValueKey('theme-mode-rail-button'),
+          tooltip: dark
+              ? context.l10n.switchToLight
+              : context.l10n.switchToDark,
+          onTap: () {
+            final next = dark ? AppThemeMode.light : AppThemeMode.dark;
+            unawaited(
+              site == null
+                  ? shell.appSettings.setThemeMode(next)
+                  : shell.forumSettings.setThemeMode(site, next),
+            );
+          },
+          icon: ThemeIcon(dark ? ThemeIcons.sun : ThemeIcons.moon, size: 18),
+        );
+      },
     );
   }
 }
@@ -968,7 +1018,12 @@ class _SettingsButton extends StatelessWidget {
       buttonKey: const ValueKey('settings-rail-button'),
       tooltip: context.l10n.interface,
       onTap: onTap,
-      icon: const DIcon(DIcons.gear, size: _railFooterIconSize),
+      icon: DIcon(
+        DIcons.gear,
+        size: usesMobileNavigation(Theme.of(context).platform)
+            ? 20
+            : _railFooterIconSize,
+      ),
     );
   }
 }

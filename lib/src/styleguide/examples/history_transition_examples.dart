@@ -146,13 +146,11 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
               history: _history,
               entry: _open ? 'navigation' : 'page',
               backSwipeAnywhere: true,
-              navigation: _open
-                  ? null
-                  : DHistoryNavigation(
-                      entry: 'navigation',
-                      preview: navigation,
-                      onOpen: _toggle,
-                    ),
+              navigation: DHistoryNavigation(
+                entry: 'navigation',
+                preview: navigation,
+                onOpen: _toggle,
+              ),
               nextEntry: _open ? 'page' : null,
               onForward: _open ? _toggle : null,
               tab: (id: _open ? 'navigation' : 'page', index: _open ? -1 : 0),

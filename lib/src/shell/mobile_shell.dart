@@ -295,8 +295,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           ValueListenable<DPageHeader?> header,
           Widget page,
         ) => _MobileFrame(
-          headerVisible: route?.isGlobalSearch != true || sidebarOpen,
-          raised: pageSheetOpen && route?.isTopic == true,
+          headerVisible: !sidebarOpen && route?.isGlobalSearch != true,
+          raised: !sidebarOpen && pageSheetOpen && route?.isTopic == true,
           key: const ValueKey('mobile-root'),
           // Ancestor Material ink layers also repaint on scroll. Retain the
           // fixed header independently of the moving page and dock.
@@ -1032,16 +1032,14 @@ class MobileHistoryGestures extends StatelessWidget {
                 ),
           entry: sidebarOpen ? sidebarEntry : navigation.entryId,
           backSwipeAnywhere: true,
-          navigation: sidebarOpen
-              ? null
-              : DHistoryNavigation(
-                  entry: sidebarEntry,
-                  preview: navigationPreview,
-                  onOpen: () {
-                    FocusManager.instance.primaryFocus?.unfocus();
-                    shell.toggleMobileSidebar();
-                  },
-                ),
+          navigation: DHistoryNavigation(
+            entry: sidebarEntry,
+            preview: navigationPreview,
+            onOpen: () {
+              FocusManager.instance.primaryFocus?.unfocus();
+              shell.toggleMobileSidebar();
+            },
+          ),
           previousEntry: sidebarOpen ? null : navigation.previousEntryId,
           nextEntry: sidebarOpen ? navigation.entryId : navigation.nextEntryId,
           onBack: !sidebarOpen && navigation.canGoBack

@@ -297,7 +297,7 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'mobile drawer profile opens a sheet over the sidebar on $platform',
+      'mobile drawer profile opens a sheet over the page on $platform',
       (tester) async {
         final shell = await _pumpProduction(tester, phone);
         final profile = find.byKey(UserMenuButton.avatarKey);
@@ -356,8 +356,8 @@ void main() {
         await _capture(tester, '${platform.name}-drawer');
         await tester.tap(profile);
         await tester.pumpAndSettle();
-        expect(shell.mobileNavigation.sidebarOpen, isTrue);
-        expect(navigation, findsOneWidget);
+        expect(shell.mobileNavigation.sidebarOpen, isFalse);
+        expect(navigation, findsNothing);
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(
           find.byKey(const ValueKey('user-menu-own-card')),
@@ -367,8 +367,8 @@ void main() {
         await tester.binding.handlePopRoute();
         await tester.pumpAndSettle();
         expect(find.byType(DSheetContent), findsNothing);
-        expect(shell.mobileNavigation.sidebarOpen, isTrue);
-        expect(profile.hitTestable(), findsOneWidget);
+        expect(shell.mobileNavigation.sidebarOpen, isFalse);
+        expect(profile, findsNothing);
         final focus = FocusManager.instance.primaryFocus?.context;
         expect(
           focus?.findAncestorWidgetOfExactType<Offstage>()?.offstage ?? false,
@@ -550,7 +550,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
-      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
       for (var visit = 0; visit < 2; visit++) {
         await profile();
         await tester.tap(find.byKey(const ValueKey('user-menu-row-summary')));

@@ -13,12 +13,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'support/button_surface.dart';
 import 'support/theme_settings.dart' as settings;
 
-const _actionKeys = [
-  'add-instance-rail-button',
-  'styleguide-rail-button',
-  'settings-rail-button',
-];
-
 void _expectIconColor(WidgetTester tester, Finder button, Color expected) {
   final icons = find.descendant(
     of: button,
@@ -81,7 +75,17 @@ void main() {
             ),
           );
           await tester.pumpAndSettle();
-          for (final key in _actionKeys) {
+          for (final key in [
+            'add-instance-rail-button',
+            if ({
+              TargetPlatform.iOS,
+              TargetPlatform.android,
+            }.contains(debugDefaultTargetPlatformOverride))
+              'theme-mode-rail-button'
+            else
+              'styleguide-rail-button',
+            'settings-rail-button',
+          ]) {
             final expected = key == 'add-instance-rail-button'
                 ? theme.colorScheme.onSurface
                 : muted;

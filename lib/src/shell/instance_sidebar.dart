@@ -155,14 +155,7 @@ Listenable _sidebarPanelChanges(BuildContext context) => Listenable.merge([
   ...PluginScope.of(context).registry.sidebarPanelListenables(context),
 ]);
 
-const String _newTopicDestinationId = 'new-topic';
 const String _moreDestinationId = 'sidebar-more-destinations';
-
-SidebarDestination get _newTopicDestination => SidebarDestination(
-  id: _newTopicDestinationId,
-  label: appL10n.newTopicInstancesidebar,
-  icon: DIcons.plus,
-);
 
 SidebarDestination get _moreDestination => SidebarDestination(
   id: _moreDestinationId,
@@ -646,28 +639,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                 },
                                             badgeFor:
                                                 controller.sidebarBadgeFor,
-                                            insertedDestination:
-                                                widget.mobile &&
-                                                    sidebar.canCreateTopic &&
-                                                    section.destinations.any(
-                                                      (destination) =>
-                                                          destination.id ==
-                                                          'messages',
-                                                    )
-                                                ? _newTopicDestination
-                                                : null,
-                                            insertAfterDestinationId:
-                                                'messages',
                                             onNavigate: widget.onNavigate,
                                             onSelect: (destination) {
-                                              if (destination.id ==
-                                                  _newTopicDestinationId) {
-                                                unawaited(
-                                                  controller
-                                                      .openNewTopicFromSidebar(),
-                                                );
-                                                return;
-                                              }
                                               if (destination.id == 'admin') {
                                                 unawaited(
                                                   openExternalLink(
@@ -1058,8 +1031,6 @@ class _Section extends StatefulWidget {
     this.onNavigate,
     this.loadingDestinationId,
     this.linkEdit,
-    this.insertedDestination,
-    this.insertAfterDestinationId,
     this.appendedDestinations = const [],
   });
 
@@ -1072,8 +1043,6 @@ class _Section extends StatefulWidget {
   final SidebarBadge Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
   final VoidCallback? onNavigate;
-  final SidebarDestination? insertedDestination;
-  final String? insertAfterDestinationId;
   final List<SidebarDestination> appendedDestinations;
 
   @override
@@ -1425,16 +1394,8 @@ class _SectionState extends State<_Section> {
         ),
       if (section.moreDestinations.isNotEmpty) _moreDestination,
     ];
-    final rows = <SidebarDestination>[
-      for (final destination in destinations) ...[
-        destination,
-        if (destination.id == widget.insertAfterDestinationId &&
-            widget.insertedDestination != null)
-          widget.insertedDestination!,
-      ],
-    ];
     final runs = <List<SidebarDestination>>[];
-    for (final destination in rows) {
+    for (final destination in destinations) {
       if (runs.isEmpty || runs.last.first.indent != destination.indent) {
         runs.add([]);
       }
@@ -1448,7 +1409,7 @@ class _SectionState extends State<_Section> {
       final reorderable =
           !submenu &&
           runs.length == 1 &&
-          rows.length == section.destinations.length &&
+          destinations.length == section.destinations.length &&
           canEdit;
       final navigation =
           section.id == 'community' || section.id == 'chat-directories';
@@ -1707,12 +1668,7 @@ class _SectionHeader extends StatelessWidget {
               accentColor: instance.accentColor,
             )
           else
-            DIcon(
-              section.id == 'categories' || section.id == 'tags'
-                  ? DIcons.tag
-                  : DIcons.folder,
-              size: 16,
-            ),
+            DIcon(section.id == 'tags' ? DIcons.tag : DIcons.folder, size: 16),
           Expanded(child: ExcludeSemantics(child: label)),
           DIcon(icon, size: 10),
         ],

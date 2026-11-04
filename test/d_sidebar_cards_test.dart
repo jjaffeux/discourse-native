@@ -1,60 +1,77 @@
+import 'dart:ui' as ui;
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _controls = find.byKey(const ValueKey('controls'));
 Finder _heading(String name) => find.byKey(ValueKey('heading-$name'));
 Finder _trigger(String name) => find.byKey(ValueKey('trigger-$name'));
 
-Future<void> _pump(WidgetTester tester, {double scale = 1}) async {
+Future<void> _pump(
+  WidgetTester tester, {
+  double scale = 1,
+  int rowCount = 12,
+  Color? border,
+}) async {
   await tester.binding.setSurfaceSize(const Size(390, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
+  final theme = ThemeData(platform: TargetPlatform.iOS);
   await tester.pumpWidget(
-    MaterialApp(
-      theme: ThemeData(platform: TargetPlatform.iOS),
-      home: MediaQuery(
-        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-        child: DSidebarProvider(
-          mobileBreakpoint: 0,
-          child: DSidebar(
-            width: 390,
-            collapsible: DSidebarCollapsible.none,
-            child: DSidebarContent.slivers(
-              header: Padding(
-                padding: const EdgeInsets.all(6),
-                child: DButton(
-                  key: const ValueKey('controls'),
-                  label: const Text('Search'),
-                  onPressed: () {},
-                ),
+    RepaintBoundary(
+      key: const ValueKey('sidebar-card-capture'),
+      child: MaterialApp(
+        theme: border == null
+            ? theme
+            : theme.copyWith(
+                extensions: [DTokens.fromTheme(theme).copyWith(border: border)],
               ),
-              slivers: [
-                for (final name in ['Forum', 'Categories', 'Tags'])
-                  DCollapsible(
-                    defaultOpen: true,
-                    child: DSidebarGroup.sliver(
-                      padding: EdgeInsets.zero,
-                      header: DCollapsibleTrigger(
-                        key: ValueKey('trigger-$name'),
-                        child: DSidebarGroupLabel(
-                          key: ValueKey('heading-$name'),
-                          child: Text(name),
+        home: MediaQuery(
+          data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+          child: DSidebarProvider(
+            mobileBreakpoint: 0,
+            child: DSidebar(
+              width: 390,
+              collapsible: DSidebarCollapsible.none,
+              footer: const DSidebarFooter(child: Text('Views')),
+              child: DSidebarContent.slivers(
+                header: Padding(
+                  padding: const EdgeInsets.all(6),
+                  child: DButton(
+                    key: const ValueKey('controls'),
+                    label: const Text('Search'),
+                    onPressed: () {},
+                  ),
+                ),
+                slivers: [
+                  for (final name in ['Forum', 'Categories', 'Tags'])
+                    DCollapsible(
+                      defaultOpen: true,
+                      child: DSidebarGroup.sliver(
+                        padding: EdgeInsets.zero,
+                        header: DCollapsibleTrigger(
+                          key: ValueKey('trigger-$name'),
+                          child: DSidebarGroupLabel(
+                            key: ValueKey('heading-$name'),
+                            child: Text(name),
+                          ),
                         ),
-                      ),
-                      sliver: DCollapsibleContent.sliver(
-                        sliver: DSidebarMenu.sliverBuilder(
-                          itemCount: 12,
-                          itemBuilder: (context, index) => DSidebarMenuButton(
-                            key: ValueKey('$name-$index'),
-                            onPressed: () {},
-                            child: Text('$name destination $index'),
+                        sliver: DCollapsibleContent.sliver(
+                          sliver: DSidebarMenu.sliverBuilder(
+                            itemCount: rowCount,
+                            itemBuilder: (context, index) => DSidebarMenuButton(
+                              key: ValueKey('$name-$index'),
+                              onPressed: () {},
+                              child: Text('$name destination $index'),
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -65,6 +82,88 @@ Future<void> _pump(WidgetTester tester, {double scale = 1}) async {
 }
 
 void main() {
+  testWidgets(
+    'section sheets overlap down to the sidebar foot before and after pinning',
+    (tester) async {
+      const border = Color(0xFFE020D0);
+      await _pump(tester, rowCount: 4, border: border);
+      final viewport = find.byType(CustomScrollView);
+      final controller = tester.widget<CustomScrollView>(viewport).controller!;
+
+      Future<void> expectOutline() async {
+        final heading = tester.getRect(_heading('Forum'));
+        final next = tester.getRect(_heading('Categories'));
+        final bottom = tester.getRect(find.byType(DSidebar)).bottom;
+        final boundary = tester.renderObject<RenderRepaintBoundary>(
+          find.byKey(const ValueKey('sidebar-card-capture')),
+        );
+        final data = await tester.runAsync(() async {
+          final image = await boundary.toImage();
+          try {
+            return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+          } finally {
+            image.dispose();
+          }
+        });
+        Color pixel(int x, int y) {
+          final offset = (y * 390 + x) * 4;
+          return Color.fromARGB(
+            data!.getUint8(offset + 3),
+            data.getUint8(offset),
+            data.getUint8(offset + 1),
+            data.getUint8(offset + 2),
+          );
+        }
+
+        final bodyY = (next.bottom + 20).floor();
+        expect(pixel(195, heading.top.floor()), border, reason: 'Top edge');
+        expect(
+          pixel(195, next.top.floor()),
+          border,
+          reason: 'The next sheet starts at its heading',
+        );
+        expect(pixel(0, bodyY), border, reason: 'Left edge beside the rows');
+        expect(pixel(389, bodyY), border, reason: 'Right edge beside the rows');
+        expect(
+          pixel(195, bottom.floor() - 1),
+          border,
+          reason: 'The sheets share the sidebar bottom edge',
+        );
+        expect(
+          pixel(195, next.top.floor() - 1),
+          isNot(border),
+          reason: 'The preceding sheet continues behind the next section',
+        );
+        expect(
+          pixel(0, next.top.floor() + 1),
+          border,
+          reason: 'The preceding sheet shows behind the next rounded corner',
+        );
+        expect(
+          pixel(195, (next.top + 80).floor()),
+          isNot(border),
+          reason: 'Scrolling leaves no stale sheet edge across the rows',
+        );
+      }
+
+      await expectOutline();
+      controller.jumpTo(80);
+      await tester.pumpAndSettle();
+      await expectOutline();
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.tap(_trigger('Forum'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(_heading('Categories')).top -
+            tester.getRect(_heading('Forum')).bottom,
+        8,
+      );
+      await expectOutline();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'phone sidebar defaults are 40-point rows and 48-point headings',
     (tester) async {

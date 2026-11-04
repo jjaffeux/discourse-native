@@ -316,7 +316,10 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               drawer: drawer,
               isCurrent: isCurrentMenu,
               controller: _profile,
-              onOpen: _notifications.close,
+              onOpen: () {
+                _notifications.close();
+                if (drawer) controller.closeMobileSidebar();
+              },
               connecting: connecting,
               tooltip: context.l10n.profile,
               semanticLabel:

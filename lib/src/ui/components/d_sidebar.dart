@@ -281,13 +281,18 @@ class _DSidebarState extends State<DSidebar> {
                 ),
                 child: Stack(
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        if (widget.header != null) widget.header!,
-                        Expanded(child: widget.child),
-                        if (widget.footer != null) widget.footer!,
-                      ],
+                    _SidebarSheetStack(
+                      fill: t.panelBackground,
+                      border: t.border,
+                      enabled: mobile || DControlStyle.isTouch(context),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (widget.header != null) widget.header!,
+                          Expanded(child: widget.child),
+                          if (widget.footer != null) widget.footer!,
+                        ],
+                      ),
                     ),
                   ],
                 ),
@@ -451,6 +456,16 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
   final _ownedController = ScrollController();
 
   @override
+  void initState() {
+    super.initState();
+    _ownedController.addListener(_repaintSheets);
+  }
+
+  void _repaintSheets() => context
+      .findAncestorRenderObjectOfType<_RenderSidebarSheetStack>()
+      ?.markNeedsPaint();
+
+  @override
   void dispose() {
     _ownedController.dispose();
     super.dispose();
@@ -596,32 +611,32 @@ class DSidebarGroup extends StatelessWidget {
     if (_sliver) {
       final drawer = DSidebarRowScope.drawerOf(context);
       final card = drawer && header != null;
-      return SliverPadding(
-        padding: padding,
-        sliver: SliverMainAxisGroup(
-          slivers: [
-            if (header case final heading?)
-              if (drawer)
-                SliverLayoutBuilder(
-                  builder: (context, constraints) => PinnedHeaderSliver(
+      final content = SliverMainAxisGroup(
+        slivers: [
+          if (header case final heading?)
+            if (drawer)
+              SliverLayoutBuilder(
+                builder: (context, constraints) => PinnedHeaderSliver(
+                  child: _SidebarSheetEdge(
                     child: _SidebarCardHeading(
                       pinned: constraints.scrollOffset > 0,
                       child: heading,
                     ),
                   ),
-                )
-              else
-                SliverToBoxAdapter(child: heading),
-            SliverPadding(
-              padding: card
-                  ? const EdgeInsets.symmetric(horizontal: 6)
-                  : EdgeInsets.zero,
-              sliver: child,
-            ),
-            if (card) const SliverToBoxAdapter(child: SizedBox(height: 8)),
-          ],
-        ),
+                ),
+              )
+            else
+              SliverToBoxAdapter(child: heading),
+          SliverPadding(
+            padding: card
+                ? const EdgeInsets.symmetric(horizontal: 6)
+                : EdgeInsets.zero,
+            sliver: child,
+          ),
+          if (card) const SliverToBoxAdapter(child: SizedBox(height: 8)),
+        ],
       );
+      return SliverPadding(padding: padding, sliver: content);
     }
     return Padding(
       padding: padding,
@@ -673,6 +688,114 @@ class DSidebarGroupLabel extends StatelessWidget {
         );
 }
 
+class _SidebarSheetStack extends SingleChildRenderObjectWidget {
+  const _SidebarSheetStack({
+    required this.fill,
+    required this.border,
+    required this.enabled,
+    required super.child,
+  });
+
+  final Color fill, border;
+  final bool enabled;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSidebarSheetStack(fill, border, enabled);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderSidebarSheetStack renderObject,
+  ) {
+    renderObject
+      ..fill = fill
+      ..border = border
+      ..enabled = enabled
+      ..markNeedsPaint();
+  }
+}
+
+class _RenderSidebarSheetStack extends RenderProxyBox {
+  _RenderSidebarSheetStack(this.fill, this.border, this.enabled);
+
+  Color fill, border;
+  bool enabled;
+  final edges = <_RenderSidebarSheetEdge>{};
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (enabled) {
+      context.canvas
+        ..save()
+        ..clipRect(offset & size);
+      final tops = [
+        for (final edge in edges)
+          if (edge.attached && edge.hasSize)
+            MatrixUtils.transformRect(
+              edge.getTransformTo(this),
+              Offset.zero & edge.size,
+            ),
+      ]..sort((a, b) => a.top.compareTo(b.top));
+      for (final heading in tops) {
+        if (heading.bottom <= 0 || heading.top >= size.height) continue;
+        final rect = Rect.fromLTRB(0, heading.top, size.width, size.height);
+        final sheet = const BorderRadius.vertical(
+          top: Radius.circular(18),
+          bottom: Radius.circular(26),
+        ).toRRect(rect);
+        context.canvas.drawRRect(sheet.shift(offset), Paint()..color = fill);
+        context.canvas.drawRRect(
+          sheet.deflate(.5).shift(offset),
+          Paint()
+            ..color = border
+            ..style = PaintingStyle.stroke,
+        );
+      }
+      context.canvas.restore();
+    }
+    super.paint(context, offset);
+  }
+}
+
+class _SidebarSheetEdge extends SingleChildRenderObjectWidget {
+  const _SidebarSheetEdge({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderSidebarSheetEdge();
+}
+
+class _RenderSidebarSheetEdge extends RenderProxyBox {
+  _RenderSidebarSheetStack? _stack;
+
+  @override
+  void attach(PipelineOwner owner) {
+    super.attach(owner);
+    RenderObject? ancestor = parent;
+    while (ancestor != null && ancestor is! _RenderSidebarSheetStack) {
+      ancestor = ancestor.parent;
+    }
+    _stack = ancestor as _RenderSidebarSheetStack?;
+    _stack?.edges.add(this);
+    _stack?.markNeedsPaint();
+  }
+
+  @override
+  void detach() {
+    _stack?.edges.remove(this);
+    _stack?.markNeedsPaint();
+    _stack = null;
+    super.detach();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    _stack?.markNeedsPaint();
+  }
+}
+
 class _SidebarCardHeading extends StatelessWidget {
   const _SidebarCardHeading({required this.pinned, required this.child});
   final bool pinned;
@@ -686,7 +809,7 @@ class _SidebarCardHeading extends StatelessWidget {
       pinned,
     ),
     child: ClipRRect(
-      borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+      borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
           minHeight: DSidebarRowScope.headingHeight,
@@ -705,7 +828,7 @@ class _SidebarCardPaint extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
-    const corners = BorderRadius.vertical(top: Radius.circular(12));
+    const corners = BorderRadius.vertical(top: Radius.circular(18));
     final paint = Paint()..color = fill;
     if (pinned) {
       canvas.drawRect(rect, paint);
@@ -726,10 +849,13 @@ class _SidebarCardPaint extends CustomPainter {
     canvas.drawPath(
       Path()
         ..moveTo(.5, size.height)
-        ..lineTo(.5, 12)
-        ..quadraticBezierTo(.5, .5, 12, .5)
-        ..lineTo(size.width - 12, .5)
-        ..quadraticBezierTo(size.width - .5, .5, size.width - .5, 12)
+        ..lineTo(.5, 18)
+        ..arcToPoint(const Offset(18, .5), radius: const Radius.circular(17.5))
+        ..lineTo(size.width - 18, .5)
+        ..arcToPoint(
+          Offset(size.width - .5, 18),
+          radius: const Radius.circular(17.5),
+        )
         ..lineTo(size.width - .5, size.height),
       Paint()
         ..color = border

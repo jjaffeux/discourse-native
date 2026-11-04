@@ -142,6 +142,15 @@ Future<void> _captureChrome(WidgetTester tester, String name) async {
   });
 }
 
+Future<void> _toggleNavigation(WidgetTester tester) async {
+  final menu = find.byKey(const ValueKey('mobile-menu-button'));
+  if (menu.evaluate().isEmpty) {
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+  } else {
+    await tester.tap(menu);
+  }
+}
+
 Future<void> _chatWheel(
   WidgetTester tester,
   Finder messages,
@@ -1778,11 +1787,10 @@ void main() {
       expect(tester.takeException(), isNull);
     }
     if (const bool.fromEnvironment('captureMobileChrome')) {
-      final menu = find.byKey(const ValueKey('mobile-menu-button'));
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       await _captureChrome(tester, 'navigation-open');
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       final gesture = await tester.startGesture(const Offset(1, 350));
       await gesture.moveBy(const Offset(80, 0));
@@ -2348,6 +2356,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('sidebar covers the header and switches forum appearance', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(tester);
+    await shell.forumSettings.setThemeMode(_site, AppThemeMode.light);
+    await tester.pumpAndSettle();
+    await _toggleNavigation(tester);
+    await tester.pumpAndSettle();
+    final panel = find.byKey(const ValueKey('mobile-navigation-panel'));
+    expect(tester.getTopLeft(panel), const Offset(68, 50));
+    expect(_header, findsNothing);
+    expect(find.byKey(UserMenuButton.bellKey), findsNothing);
+    expect(find.byKey(const ValueKey('styleguide-rail-button')), findsNothing);
+    expect(sidebarDestination('New Topic'), findsNothing);
+    final toggle = find.byKey(const ValueKey('theme-mode-rail-button'));
+    expect(tester.widget<DButton>(toggle).tooltip, 'Switch to dark');
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.dark);
+    expect(tester.widget<DButton>(toggle).tooltip, 'Switch to light');
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    await tester.tap(toggle);
+    await tester.pumpAndSettle();
+    expect(shell.forumSettings.themeModeFor(_site), AppThemeMode.light);
+    await _toggleNavigation(tester);
+    await tester.pumpAndSettle();
+    expect(_header, findsOneWidget);
+    expect(find.byKey(UserMenuButton.bellKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
     _mobileTest('mobile sidebar mockup parity ${mode.name} flat', (
       tester,
@@ -2384,7 +2424,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       final route = shell.currentContent;
       final tab = shell.mobileNavigation.tab;
@@ -2422,7 +2462,7 @@ void main() {
           final scene = builder.build();
           final image = await scene.toImage(390, 844);
           final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
-          final platform = Theme.of(tester.element(_header)).platform.name;
+          final platform = Theme.of(tester.element(switcher)).platform.name;
           await File(
             '/private/tmp/mobile-sidebar-$platform-${mode.name}-flat-$state.png',
           ).writeAsBytes(bytes!.buffer.asUint8List());
@@ -2497,12 +2537,11 @@ void main() {
               )
             : null,
       );
-      final menu = find.byKey(const ValueKey('mobile-menu-button'));
       final tabs = find.byKey(const ValueKey('sidebar-panel-tabs'));
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       expect(tester.widget<DTabs<String>>(tabs).value, 'forum');
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
 
       if (conversation == 'thread') {
@@ -2512,7 +2551,7 @@ void main() {
       }
       await tester.pumpAndSettle();
       final route = shell.currentContent;
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
       expect(
@@ -2525,9 +2564,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.widget<DTabs<String>>(tabs).value, 'forum');
       expect(shell.currentContent, route);
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
       expect(shell.currentContent, route);
@@ -2539,7 +2578,7 @@ void main() {
     tester,
   ) async {
     await pumpMobileShellFixture(tester, chat: false);
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     expect(
       find.byKey(const ValueKey('sidebar-panel-switch-chat')),
@@ -2557,7 +2596,7 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pumpAndSettle();
     final shell = await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('sidebar-panel-switch-chat')));
     await tester.pumpAndSettle();
@@ -2573,12 +2612,12 @@ void main() {
     'navigation page exposes forum identity, destinations and custom Shortcuts',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
-      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.byType(DSheetContent), findsNothing);
       expect(_bar, findsNothing);
-      expect(_header, findsOneWidget);
+      expect(_header, findsNothing);
       expect(find.byKey(const ValueKey('mobile-content-panel')), findsNothing);
       expect(find.text('Forum'), findsOneWidget);
       expect(find.text('Shortcuts'), findsOneWidget);
@@ -2633,7 +2672,6 @@ void main() {
     tester,
   ) async {
     final shell = await pumpMobileShellFixture(tester);
-    final menu = find.byKey(const ValueKey('mobile-menu-button'));
     final page = find.byType(MainContent, skipOffstage: false);
     final originalPage = tester.element(page);
     final visit = shell.mobileNavigation.entryId;
@@ -2643,19 +2681,19 @@ void main() {
     );
 
     for (final open in [true, false]) {
-      await tester.tap(menu);
+      await _toggleNavigation(tester);
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       final incoming = tester.widget<Transform>(
-        find.byKey(const ValueKey('history-incoming-tab')),
+        find.byKey(const ValueKey('history-navigation-frame')),
       );
       final outgoing = tester.widget<Transform>(
-        find.byKey(const ValueKey('history-outgoing-tab')),
+        find.byKey(const ValueKey('history-outgoing-navigation')),
       );
       final direction = open ? -1 : 1;
       expect(incoming.transform.getTranslation().x * direction, greaterThan(0));
       expect(outgoing.transform.getTranslation().x * direction, lessThan(0));
-      expect(tester.getRect(_header), header);
+      expect(_header, open ? findsNothing : findsOneWidget);
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.entryId, same(visit));
       expect(tester.element(page), same(originalPage));
@@ -2668,11 +2706,11 @@ void main() {
         );
         expect(navigation.left, content.left);
         expect(navigation.right, content.right);
-        expect(navigation.top + 6, content.top);
+        expect(navigation.top, header.top);
         expect(navigation.bottom, content.bottom);
       }
     }
-    await tester.tap(menu);
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
@@ -2737,7 +2775,7 @@ void main() {
     tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     final page = find.byKey(const ValueKey('mobile-navigation-page'));
     expect(tester.getRect(page).bottom, phone.height - 280 - 1);
@@ -2755,8 +2793,7 @@ void main() {
         tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
         tester.view.viewInsets = FakeViewPadding(bottom: keyboard);
         final shell = await pumpMobileShellFixture(tester);
-        final menu = find.byKey(const ValueKey('mobile-menu-button'));
-        await tester.tap(menu);
+        await _toggleNavigation(tester);
         await tester.pumpAndSettle();
         final page = tester.getRect(
           find.byKey(const ValueKey('mobile-navigation-page')),
@@ -2809,12 +2846,13 @@ void main() {
         expect(rail.bottom, railColumn.bottom);
         expect(panel.left, rail.right);
         expect(page.right - panel.right, 6);
-        final menuBounds = tester.getRect(menu);
-        expect(menuBounds.center.dx, closeTo(rail.center.dx, .001));
-        await tester.tap(menu);
+        expect(_header, findsNothing);
+        expect(page.top, 44);
+        expect(panel.top, 50);
+        await _toggleNavigation(tester);
         await tester.pumpAndSettle();
         expect(shell.mobileNavigation.sidebarOpen, isFalse);
-        await tester.tap(menu);
+        await _toggleNavigation(tester);
         await tester.pumpAndSettle();
         expect(
           tester.getRect(find.byKey(const ValueKey('mobile-navigation-panel'))),
@@ -2842,7 +2880,7 @@ void main() {
       expect(panel.width, width);
       expect(content.left, greaterThanOrEqualTo(0));
       expect(content.right, lessThanOrEqualTo(width));
-      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       final navigation = tester.getRect(
         find.byKey(const ValueKey('mobile-navigation-page')),
@@ -2852,10 +2890,8 @@ void main() {
       final rail = tester.getRect(find.byType(InstanceRail));
       expect(rail.left, 0);
       expect(rail.width, 68);
-      final menu = tester.getRect(
-        find.byKey(const ValueKey('mobile-menu-button')),
-      );
-      expect(menu.center.dx, closeTo(rail.center.dx, .001));
+      expect(_header, findsNothing);
+      expect(navigation.top, 0);
       final navigationPanel = tester.getRect(
         find.byKey(const ValueKey('mobile-navigation-panel')),
       );
@@ -2884,7 +2920,7 @@ void main() {
     final shell = await pumpMobileShellFixture(tester);
     await _tapDockTab(tester, 'panel/chat');
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     // The drawer opens on the foreground's side; the forum is one switch
     // away at its foot.
@@ -4408,7 +4444,7 @@ void main() {
       shell.mobileNavigation.tab,
       const MobileTab.destination('events-upcoming'),
     );
-    await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+    await _toggleNavigation(tester);
     await tester.pumpAndSettle();
     shell.selectInstance(1);
     await tester.pump();
@@ -4559,7 +4595,7 @@ void main() {
       expect(find.text('General'), findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
       expect(voice.call, isNull);
-      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       // The drawer opens on the foreground's side, Chat, with its rooms;
       // the forum side lists none.
@@ -4581,7 +4617,7 @@ void main() {
       expect(find.byKey(const ValueKey('mobile-mode-voice')), findsNothing);
       expect(find.text('Voice rooms'), findsNothing);
       expect(find.text('Watercooler'), findsNothing);
-      await tester.tap(find.byTooltip('Close navigation'));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsNothing);
       expect(find.byType(ChatMobileSidebar), findsOneWidget);
@@ -4617,7 +4653,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
       expect(find.byType(UserMenuPanel), findsNothing);
-      await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+      await _toggleNavigation(tester);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(UserMenuButton.avatarKey));
       await tester.pumpAndSettle();
@@ -4641,9 +4677,6 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(profileSheet, findsNothing);
-      expect(find.byType(InstanceRail), findsOneWidget);
-      await tester.tap(find.byTooltip('Close navigation'));
-      await tester.pumpAndSettle();
       expect(find.byType(InstanceRail), findsNothing);
       await tester.tap(find.byKey(const ValueKey('forum-identity-logo')));
       await tester.pumpAndSettle();
@@ -5172,7 +5205,7 @@ void main() {
       await tester.dragFrom(Offset(surface.left + 1, y), const Offset(120, 0));
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
-      expect(tester.getRect(_header), header);
+      expect(_header, findsNothing);
       await tester.dragFrom(
         Offset(surface.right - 1, y),
         const Offset(-120, 0),
@@ -5213,10 +5246,25 @@ void main() {
             await tester.pump();
             final hidden = opening ? fraction : 1 - fraction;
             expect(
-              tester.getTopLeft(_bar).dy,
-              closeTo(bar.top + travel * hidden, .01),
+              tester
+                  .renderObject<RenderBox>(_bar)
+                  .localToGlobal(
+                    Offset.zero,
+                    ancestor: tester.renderObject<RenderBox>(
+                      find.byKey(const ValueKey('mobile-root')),
+                    ),
+                  )
+                  .dy,
+              closeTo(bar.top - header.top + travel * hidden, .01),
             );
-            expect(tester.getRect(_header), header);
+            if (opening) {
+              expect(
+                tester.getRect(_header).left,
+                closeTo(header.left + phone.width * fraction, .01),
+              );
+            } else {
+              expect(_header, findsNothing);
+            }
             if (opening) {
               expect(
                 tester.getSize(
@@ -5302,7 +5350,7 @@ void main() {
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.text('Forum'), findsOneWidget);
       expect(tester.element(navigationPage), same(navigationElement));
-      expect(tester.getRect(_header), header);
+      expect(tester.getRect(_header).left, closeTo(header.left + 120, .01));
       await open.up();
       await tester.pump();
       await tester.pump(DMotion.change);
@@ -5328,7 +5376,8 @@ void main() {
       final preview = tester.widget<RawImage>(find.byType(RawImage));
       expect(preview.image, isNotNull);
       expect(preview.fit, BoxFit.fitWidth);
-      expect(tester.getRect(_header), header);
+      expect(preview.image!.height, phone.height.toInt());
+      expect(_header, findsNothing);
       await close.up();
       await tester.pump();
       await tester.pump(DMotion.change);
@@ -5374,7 +5423,11 @@ void main() {
           expect(left, greaterThanOrEqualTo(-.001));
           expect(right, lessThan(width));
         }
-        expect(tester.getRect(_header), header);
+        if (shell.mobileNavigation.sidebarOpen) {
+          expect(_header, findsNothing);
+        } else {
+          expect(tester.getRect(_header).left, greaterThan(header.left));
+        }
       }
 
       for (final open in [true, false]) {
@@ -5468,7 +5521,7 @@ void main() {
     );
     for (final open in [false, true]) {
       if (open) {
-        await tester.tap(find.byKey(const ValueKey('mobile-menu-button')));
+        await _toggleNavigation(tester);
         await tester.pumpAndSettle();
       }
       for (final cancel in [false, true]) {

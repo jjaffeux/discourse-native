@@ -25275,6 +25275,18 @@ abstract class AppLocalizations {
   /// **'Presentation'**
   String get voiceLayoutPresentation;
 
+  /// Mobile sidebar action to use the forum's light appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to light'**
+  String get switchToLight;
+
+  /// Mobile sidebar action to use the forum's dark appearance.
+  ///
+  /// In en, this message translates to:
+  /// **'Switch to dark'**
+  String get switchToDark;
+
   /// Live room layout showing equally sized participant tiles.
   ///
   /// In en, this message translates to:

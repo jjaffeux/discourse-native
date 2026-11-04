@@ -20735,6 +20735,14 @@
   "@voiceLayoutPresentation": {
     "description": "Live room layout featuring one participant above or beside the others."
   },
+  "switchToLight": "Switch to light",
+  "@switchToLight": {
+    "description": "Mobile sidebar action to use the forum's light appearance."
+  },
+  "switchToDark": "Switch to dark",
+  "@switchToDark": {
+    "description": "Mobile sidebar action to use the forum's dark appearance."
+  },
   "voiceLayoutTiled": "Tiled",
   "@voiceLayoutTiled": {
     "description": "Live room layout showing equally sized participant tiles."
