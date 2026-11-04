@@ -252,7 +252,12 @@ class ComposerPanel extends StatelessWidget {
           mobileSubmit: mobile && !minimized
               ? DSheetHeaderAction(
                   buttonKey: const ValueKey('composer-submit'),
-                  icon: const DIcon(DIcons.arrowUp),
+                  icon: DIcon(
+                    DIcons.arrowUp,
+                    color: !busy && onSubmit != null
+                        ? Theme.of(context).colorScheme.primary
+                        : null,
+                  ),
                   tooltip: submitLabel,
                   semanticLabel: submitLabel,
                   loading: busy,
