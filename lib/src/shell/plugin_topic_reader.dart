@@ -8,6 +8,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/topic_reader.dart';
 import 'shell_scope.dart';
 import 'topic_inbox_header.dart';
+import 'topic_skeleton.dart';
 import 'topic_view.dart';
 
 class TopicReaderOutlet extends StatefulWidget {
@@ -77,6 +78,19 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
 
   @override
   Widget build(BuildContext context) {
+    final tab = ForumTabScope.tabOf(context);
+    return TopicSkeletonScope(
+      key: ValueKey((
+        tab.siteUrl,
+        tab.lease?.session,
+        tab.tabId,
+        widget.route.topicId,
+      )),
+      child: _buildReader(context),
+    );
+  }
+
+  Widget _buildReader(BuildContext context) {
     if (!widget.registry.hasTopicReaders) return widget.ordinary;
     final reader = _reader!;
     if (!reader.isCurrent) return const SizedBox.shrink();

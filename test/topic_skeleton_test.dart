@@ -10,6 +10,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_skeleton.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -18,6 +19,13 @@ import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+  const channel = MethodChannel('org.discourse.native/notification_opens');
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  setUp(() => messenger.setMockMethodCallHandler(channel, (_) async => null));
+  tearDown(() => messenger.setMockMethodCallHandler(channel, null));
+
   for (final resolveReader in [false, true]) {
     for (final limited in [false, true]) {
       testWidgets('desktop skeleton keeps its width through loading '
@@ -65,7 +73,7 @@ void main() {
           const Offset(650, 0),
         );
         await tester.pumpAndSettle();
-        final title = topicListTitle('Desktop loading');
+        final title = topicListTitle('Desktop loading').hitTestable().first;
         final shell = ShellScope.read(tester.element(title));
         await shell.appSettings.setLimitContentSize(limited);
         await tester.pumpAndSettle();
@@ -111,7 +119,7 @@ void main() {
 
   for (final target in [1, 12]) {
     testWidgets(
-      'phone skeleton keeps post $target layout through reader resolution',
+      'phone skeleton keeps post $target visible and positioned through reader resolution',
       (tester) async {
         final gate = Completer<void>();
         final api = FakeDiscourseApi(
@@ -137,7 +145,12 @@ void main() {
                     id: number,
                     postNumber: number,
                     username: 'reader',
-                    cooked: '<p>Post $number</p>',
+                    cooked: number == target && target > 1
+                        ? List.filled(
+                            450,
+                            '<p>Post $number with a long body to restore.</p>',
+                          ).join()
+                        : '<p>Post $number</p>',
                   ),
               ],
             ),
@@ -163,7 +176,27 @@ void main() {
           matching: find.byType(DSkeletonRegion),
         );
         final handle = find.byKey(const ValueKey('sheet-drag-handle')).last;
+        var revealed = false;
         void expectLoadingPosition(String phase) {
+          final reveal = find.descendant(
+            of: skeleton,
+            matching: find.byType(TopicSkeletonReveal),
+          );
+          final opacity = tester
+              .widget<FadeTransition>(
+                find
+                    .descendant(
+                      of: reveal,
+                      matching: find.byType(FadeTransition),
+                    )
+                    .first,
+              )
+              .opacity
+              .value;
+          if (revealed) {
+            expect(opacity, greaterThan(0), reason: phase);
+          }
+          revealed |= opacity > 0;
           final gap =
               tester.getTopLeft(placeholders).dy -
               tester.getBottomLeft(handle).dy;
@@ -187,10 +220,15 @@ void main() {
         }
 
         gate.complete();
-        for (var frame = 0; frame < 30; frame++) {
+        for (var frame = 0; frame < 100; frame++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
           await tester.pump(const Duration(milliseconds: 16));
           if (skeleton.evaluate().isNotEmpty) {
             expectLoadingPosition('Reader resolution frame $frame');
+          } else {
+            break;
           }
         }
         await tester.pumpAndSettle();
@@ -228,8 +266,16 @@ void main() {
       final handle = tester.ensureSemantics();
       try {
         double opacity() => tester
-            .widget<AnimatedOpacity>(find.byType(AnimatedOpacity))
-            .opacity;
+            .widget<FadeTransition>(
+              find
+                  .descendant(
+                    of: find.byType(TopicSkeletonReveal).last,
+                    matching: find.byType(FadeTransition),
+                  )
+                  .first,
+            )
+            .opacity
+            .value;
         bool ticking() => TickerMode.valuesOf(
           tester.element(find.byKey(const ValueKey('shape'))),
         ).enabled;
