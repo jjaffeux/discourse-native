@@ -10,6 +10,114 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final continuous in [false, true]) {
+      testWidgets(
+        'refresh works after retracting phone filters on $platform (continuous: $continuous)',
+        (tester) async {
+          final scroll = ScrollController();
+          addTearDown(scroll.dispose);
+          final response = Completer<void>();
+          var calls = 0;
+          await tester.pumpWidget(
+            MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: DHeaderMotionSettings(
+                tuning: const DHeaderTuning(
+                  settle: DHeaderSettle.stay,
+                  smoothing: 0,
+                  slack: 0,
+                  hold: 0,
+                ),
+                child: DScrollChrome(
+                  identity: 'topics',
+                  floatingFooter: true,
+                  footerBuilder: (_) => const SizedBox(height: 60),
+                  child: DPageHeaderHost(
+                    identity: 'topics',
+                    titlesInBar: true,
+                    builder: (_, _, child) => child,
+                    child: DPageSurface.headed(
+                      title: const Text('Topics'),
+                      retractControls: true,
+                      controls: SizedBox(
+                        height: 80,
+                        child: DButton(
+                          label: const Text('Filters'),
+                          onPressed: () {},
+                        ),
+                      ),
+                      child: DPullToRefresh(
+                        onRefresh: () {
+                          calls++;
+                          return response.future;
+                        },
+                        child: ListView(
+                          controller: scroll,
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          children: [
+                            for (var i = 0; i < 40; i++)
+                              SizedBox(height: 60, child: Text('Row $i')),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          late TestGesture gesture;
+          if (continuous) {
+            gesture = await tester.startGesture(
+              tester.getCenter(find.byType(ListView)),
+            );
+            for (var i = 0; i < 6; i++) {
+              await gesture.moveBy(const Offset(0, -40));
+              await tester.pump(const Duration(milliseconds: 16));
+            }
+          } else {
+            await tester.timedDrag(
+              find.byType(ListView),
+              const Offset(0, -240),
+              const Duration(milliseconds: 400),
+            );
+            await tester.pumpAndSettle();
+            gesture = await tester.startGesture(
+              tester.getCenter(find.byType(ListView)),
+            );
+          }
+          expect(find.text('Filters').hitTestable(), findsNothing);
+          for (var i = 0; i < 30; i++) {
+            await gesture.moveBy(const Offset(0, 40));
+            await tester.pump(const Duration(milliseconds: 16));
+            if (scroll.position.extentBefore > 0) {
+              expect(
+                find.byType(DSpinner),
+                findsNothing,
+                reason: 'Still above the top at step $i',
+              );
+            }
+          }
+          await gesture.up();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          await tester.pump(const Duration(milliseconds: 300));
+          expect(calls, 1);
+          expect(find.bySemanticsLabel('Refreshing'), findsOneWidget);
+          response.complete();
+          await tester.pumpAndSettle();
+          expect(find.byType(DSpinner), findsNothing);
+          expect(
+            tester.getTopLeft(find.text('Row 0')).dy,
+            closeTo(tester.getTopLeft(find.byType(ListView)).dy, .1),
+          );
+        },
+      );
+    }
+  }
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,

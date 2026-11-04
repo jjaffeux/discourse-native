@@ -121,7 +121,8 @@ class _DPullToRefreshState extends State<DPullToRefresh>
       0.0,
       notification.metrics.minScrollExtent - notification.metrics.pixels,
     );
-    var changed = _nativeOverscroll != nativeOverscroll;
+    final previousNativeOverscroll = _nativeOverscroll;
+    var changed = previousNativeOverscroll != nativeOverscroll;
     _nativeOverscroll = nativeOverscroll;
     if (!_busy && !_pulling && _extent.value == 0 && nativeOverscroll == 0) {
       changed = changed || _ownsOverscroll;
@@ -133,13 +134,17 @@ class _DPullToRefreshState extends State<DPullToRefresh>
       _ => false,
     };
     if (_pulling && dragging && widget.onRefresh != null) {
+      final previousExtent = _extent.value;
       final delta = switch (notification) {
-        ScrollUpdateNotification(:final scrollDelta) => scrollDelta ?? 0,
+        ScrollUpdateNotification() =>
+          previousNativeOverscroll - nativeOverscroll,
         OverscrollNotification(:final overscroll) => overscroll / 2,
         _ => 0.0,
       };
-      _extent.value = math.max(0.0, _extent.value - delta);
-      changed = changed || delta != 0;
+      _extent.value = notification.metrics.extentBefore > 0
+          ? 0
+          : math.max(0.0, _extent.value - delta);
+      changed = changed || _extent.value != previousExtent;
     }
     if (changed && mounted) {
       if (SchedulerBinding.instance.schedulerPhase ==
@@ -187,6 +192,7 @@ class _DPullToRefreshState extends State<DPullToRefresh>
           animation: _extent,
           child: RefreshIndicator.noSpinner(
             key: _indicator,
+            triggerMode: RefreshIndicatorTriggerMode.anywhere,
             onRefresh: _refresh,
             notificationPredicate: _acceptScrollNotification,
             onStatusChange: (status) {

@@ -756,6 +756,52 @@ void main() {
     },
   );
 
+  _mobileTest('pulling back to the top refreshes after hiding phone filters', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    await pumpMobileShellFixture(
+      tester,
+      topics: [
+        for (var id = 1; id <= 50; id++)
+          Topic(id: id, title: 'Scrollable topic $id', slug: 'scrollable-$id'),
+      ],
+      onApi: (value) => api = value,
+    );
+    final list = find.byType(TopicListView);
+    final element = tester.element(list);
+    final firstRow = find.byKey(const ValueKey('topic-card-1'));
+    final initialRowTop = tester.getTopLeft(firstRow).dy;
+    await tester.timedDrag(
+      list,
+      const Offset(0, -240),
+      const Duration(milliseconds: 400),
+    );
+    await tester.pumpAndSettle();
+    final category = find.byKey(const ValueKey('topic-list-category-filter'));
+    expect(category.hitTestable(), findsNothing);
+    final requests = api.feedPaths
+        .where((path) => path == '/latest.json')
+        .length;
+    final gesture = await tester.startGesture(tester.getCenter(list));
+    for (var i = 0; i < 30; i++) {
+      await gesture.moveBy(const Offset(0, 40));
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      api.feedPaths.where((path) => path == '/latest.json').length,
+      requests + 1,
+    );
+    expect(find.byType(DSpinner), findsNothing);
+    expect(category.hitTestable(), findsOneWidget);
+    expect(firstRow.hitTestable(), findsOneWidget);
+    expect(tester.getTopLeft(firstRow).dy, closeTo(initialRowTop, .1));
+    expect(tester.element(list), same(element));
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('returning from Chat keeps the scrolled topic row stable', (
     tester,
   ) async {
