@@ -427,7 +427,35 @@ void main() {
         final shot = await _capture(
           tester,
           brightness,
-          host(const ForumMobileSurface.sidebar(child: SizedBox.expand())),
+          host(
+            Builder(
+              builder: (context) => Theme(
+                data: Theme.of(context).copyWith(platform: TargetPlatform.iOS),
+                child: const ForumMobileSurface.sidebar(
+                  child: DSidebarProvider(
+                    mobileBreakpoint: 0,
+                    child: DSidebar(
+                      width: 200,
+                      collapsible: DSidebarCollapsible.none,
+                      child: DSidebarContent.slivers(
+                        slivers: [
+                          DSidebarGroup.sliver(
+                            padding: EdgeInsets.zero,
+                            header: DSidebarGroupLabel(
+                              child: Text('Navigation'),
+                            ),
+                            sliver: SliverToBoxAdapter(
+                              child: SizedBox(height: 20),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
         );
         expect(shot.below(), _canvas);
         expect(shot.beside(), _canvas);

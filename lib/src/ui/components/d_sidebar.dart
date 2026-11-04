@@ -9,6 +9,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/control_style.dart';
 import '../foundation/sidebar_row_surface.dart';
+import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_input.dart';
@@ -27,6 +28,11 @@ bool _touchPlatform(BuildContext context) =>
     };
 
 const _minimumSidebarGuideContrast = 1.25;
+
+Color _sidebarSheetBorder(BuildContext context) => Color.alphaBlend(
+  DSurfaceEdges.resolve(context, DSurfaceDepth.rim).rim!,
+  DTokens.of(context).panelBackground,
+);
 
 double _contrastRatio(Color first, Color second) {
   final firstLuminance = first.computeLuminance();
@@ -283,7 +289,7 @@ class _DSidebarState extends State<DSidebar> {
                   children: [
                     _SidebarSheetStack(
                       fill: t.panelBackground,
-                      border: t.border,
+                      border: _sidebarSheetBorder(context),
                       enabled: mobile || DControlStyle.isTouch(context),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -755,6 +761,18 @@ class _RenderSidebarSheetStack extends RenderProxyBox {
       context.canvas.restore();
     }
     super.paint(context, offset);
+    if (enabled) {
+      final outer = const BorderRadius.vertical(
+        top: Radius.circular(18),
+        bottom: Radius.circular(26),
+      ).toRRect(offset & size);
+      context.canvas.drawRRect(
+        outer.deflate(.5),
+        Paint()
+          ..color = border
+          ..style = PaintingStyle.stroke,
+      );
+    }
   }
 }
 
@@ -805,7 +823,7 @@ class _SidebarCardHeading extends StatelessWidget {
   Widget build(BuildContext context) => CustomPaint(
     painter: _SidebarCardPaint(
       DTokens.of(context).panelBackground,
-      DTokens.of(context).border,
+      _sidebarSheetBorder(context),
       pinned,
     ),
     child: ClipRRect(

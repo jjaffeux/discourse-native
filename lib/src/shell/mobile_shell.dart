@@ -1128,6 +1128,7 @@ class _MobileFrame extends StatelessWidget {
   Widget build(BuildContext context) => CustomMultiChildLayout(
     delegate: _MobileFrameLayout(
       raised,
+      DHistoryTransition.navigationProgressOf(context),
       (extent) => DSheetDragScope.reportTopBar(context, extent),
     ),
     children: [
@@ -1144,8 +1145,9 @@ class _MobileFrame extends StatelessWidget {
 }
 
 class _MobileFrameLayout extends MultiChildLayoutDelegate {
-  _MobileFrameLayout(this.raised, this.report);
+  _MobileFrameLayout(this.raised, this.navigationProgress, this.report);
   final bool raised;
+  final double navigationProgress;
   final ValueChanged<double> report;
   @override
   void performLayout(Size size) {
@@ -1153,9 +1155,12 @@ class _MobileFrameLayout extends MultiChildLayoutDelegate {
       _MobileFrameSlot.header,
       BoxConstraints.tightFor(width: size.width),
     );
-    positionChild(_MobileFrameSlot.header, Offset.zero);
-    report(header.height);
-    final top = raised ? 8.0 : header.height;
+    positionChild(
+      _MobileFrameSlot.header,
+      Offset(0, -header.height * navigationProgress),
+    );
+    report(header.height * (1 - navigationProgress));
+    final top = (raised ? 8.0 : header.height) * (1 - navigationProgress);
     layoutChild(
       _MobileFrameSlot.page,
       BoxConstraints.tight(Size(size.width, math.max(0, size.height - top))),
@@ -1165,5 +1170,6 @@ class _MobileFrameLayout extends MultiChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_MobileFrameLayout oldDelegate) =>
-      raised != oldDelegate.raised;
+      raised != oldDelegate.raised ||
+      navigationProgress != oldDelegate.navigationProgress;
 }

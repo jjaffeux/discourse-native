@@ -342,9 +342,7 @@ class _ForumMobileSurfaceState extends State<ForumMobileSurface> {
       backgroundColor: widget.sheet != ForumMobileSheet.none
           ? Colors.transparent
           : ForumWindowBackground.panelColor(context),
-      depth: widget._sidebar
-          ? DSurfaceDepth.rim
-          : widget.sheet != ForumMobileSheet.none
+      depth: widget._sidebar || widget.sheet != ForumMobileSheet.none
           ? null
           : DSurfaceDepth.panel,
       child: _MobileSurfaceScope(key: _content, child: widget.child),

@@ -134,6 +134,15 @@ class DHistoryTransition extends StatefulWidget {
   static ({Object entry, double progress})? swipeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_HistorySwipeScope>()?.swipe;
 
+  /// The navigation reveal, from zero on the page to one on navigation.
+  ///
+  /// Includes button transitions, interactive swipes, and their reversals.
+  static double navigationProgressOf(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<_HistorySwipeScope>()
+          ?.navigationProgress ??
+      0;
+
   final Object history;
   final Object entry;
   final Object? previousEntry;
@@ -216,7 +225,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         Object,
         ({
           ui.Image image,
-          ui.Image? frame,
+          _HistoryFrameSnapshot? frame,
           Object? previousEntry,
           Offset origin,
         })
@@ -224,6 +233,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   final _pointers = <int>{};
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
+  double _previewPageTop = 0;
+  _HistoryFrameSnapshot? _navigationDeparture;
   Offset _previewOffset = Offset.zero;
   Object? _environment;
   Object? _committedEntry;
@@ -248,6 +259,16 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   bool get _navigationOpen => widget.navigation?.entry == widget.entry;
   bool get _navigationTransition =>
       _openingNavigation || _navigationOpen || _switchingNavigation;
+  double get _navigationProgress {
+    if (MediaQuery.disableAnimationsOf(context)) return _navigationOpen ? 1 : 0;
+    if (_switchingNavigation) {
+      return _navigationOpen ? _progress.value : 1 - _progress.value;
+    }
+    if (_openingNavigation) return _progress.value;
+    if (_navigationOpen && (_dragging || _settling)) return 1 - _progress.value;
+    return _navigationOpen ? 1 : 0;
+  }
+
   Object? get _target => _openingNavigation
       ? widget.navigation?.entry
       : _back
@@ -310,7 +331,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       final image = boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
           : null;
-      final frameImage = navigationChanged ? _snapshotFrame() : null;
+      final frameImage = navigationChanged
+          ? _navigationDeparture?.clone() ?? _snapshotFrame()
+          : null;
       if (oldWidget.history == widget.history) {
         _resetGesture();
         if (image != null) {
@@ -324,7 +347,8 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       } else {
         _clear();
       }
-      _preview = navigationChanged ? frameImage : image;
+      _preview = navigationChanged ? frameImage?.image : image;
+      _previewPageTop = frameImage?.pageTop ?? 0;
       if (navigationChanged) image?.dispose();
       _tabSign = (now.index > was.index ? 1 : -1) * (_rtl ? -1.0 : 1.0);
       _switchingTab = true;
@@ -344,7 +368,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             oldWidget.entry,
             oldWidget.previousEntry,
             image,
-            frame: navigationChanged ? _snapshotFrame() : null,
+            frame: navigationChanged
+                ? _navigationDeparture?.clone() ?? _snapshotFrame()
+                : null,
           );
         }
       }
@@ -391,6 +417,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     if (_progress.value != 0) _progress.value = 0;
     final preview = _preview;
     _preview = null;
+    _previewPageTop = 0;
+    _navigationDeparture?.dispose();
+    _navigationDeparture = null;
     _previewOffset = Offset.zero;
     // A RawImage from this frame may still own the old handle until rebuild.
     if (preview != null) {
@@ -417,18 +446,21 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     });
   }
 
-  ui.Image? _snapshotFrame() {
+  _HistoryFrameSnapshot? _snapshotFrame() {
     final boundary = _frameBoundary.currentContext?.findRenderObject();
-    return boundary is _HistoryRepaintBoundary
+    final image = boundary is _HistoryRepaintBoundary
         ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
         : null;
+    return image == null
+        ? null
+        : _HistoryFrameSnapshot(image, _pageOrigin().dy);
   }
 
   void _remember(
     Object entry,
     Object? previousEntry,
     ui.Image image, {
-    ui.Image? frame,
+    _HistoryFrameSnapshot? frame,
   }) {
     final previous = _previews.remove(entry);
     previous?.image.dispose();
@@ -503,10 +535,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     setState(() {
       _back = _rtl ? distance < 0 : distance > 0;
       _openingNavigation = _back && _navigationOrigin(details.localPosition);
+      if (_openingNavigation) _navigationDeparture = _snapshotFrame();
       _dragging = true;
       _distance = 0;
       final preview = _previews[_target];
-      _preview = (_navigationOpen ? preview?.frame : preview?.image)?.clone();
+      _preview = (_navigationOpen ? preview?.frame?.image : preview?.image)
+          ?.clone();
+      _previewPageTop = _navigationOpen ? preview?.frame?.pageTop ?? 0 : 0;
       _previewOffset = preview == null || _navigationTransition
           ? Offset.zero
           : preview.origin - _pageOrigin();
@@ -567,7 +602,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     // A sidebar changes tabIndex as well as entry. The drag has already carried
     // it into place, so its committed update must not start another animation.
     _committedEntry = navigate != null ? _target : null;
+    final departure = navigate == null ? null : _navigationDeparture;
+    if (departure != null) _navigationDeparture = null;
     setState(_resetGesture);
+    _navigationDeparture = departure;
     navigate?.call();
   }
 
@@ -642,6 +680,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
           child: AnimatedBuilder(
             animation: _progress,
             builder: (context, child) => _HistorySwipeScope(
+              navigationProgress: _navigationProgress,
               swipe:
                   !_switchingTab &&
                       (_dragging || _settling) &&
@@ -706,10 +745,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             );
         final snapshot = _preview == null
             ? ColoredBox(color: DTokens.of(context).background)
-            : RawImage(
-                image: _preview,
-                fit: BoxFit.fitWidth,
-                alignment: Alignment.topCenter,
+            : CustomPaint(
+                key: const ValueKey('history-frame-preview'),
+                painter: _HistoryFramePainter(
+                  _preview!,
+                  _previewPageTop,
+                  _navigationProgress,
+                ),
+                child: const SizedBox.expand(),
               );
         return ClipRect(
           child: Stack(
@@ -918,13 +961,66 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 }
 
 class _HistorySwipeScope extends InheritedWidget {
-  const _HistorySwipeScope({required this.swipe, required super.child});
+  const _HistorySwipeScope({
+    required this.swipe,
+    required this.navigationProgress,
+    required super.child,
+  });
 
   final ({Object entry, double progress})? swipe;
+  final double navigationProgress;
 
   @override
   bool updateShouldNotify(_HistorySwipeScope oldWidget) =>
-      swipe != oldWidget.swipe;
+      swipe != oldWidget.swipe ||
+      navigationProgress != oldWidget.navigationProgress;
+}
+
+class _HistoryFrameSnapshot {
+  const _HistoryFrameSnapshot(this.image, this.pageTop);
+  final ui.Image image;
+  final double pageTop;
+
+  _HistoryFrameSnapshot clone() =>
+      _HistoryFrameSnapshot(image.clone(), pageTop);
+  void dispose() => image.dispose();
+}
+
+class _HistoryFramePainter extends CustomPainter {
+  const _HistoryFramePainter(this.image, this.pageTop, this.reveal);
+  final ui.Image image;
+  final double pageTop, reveal;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final ratio = image.width / size.width;
+    final sourceTop = (pageTop * ratio).clamp(0.0, image.height.toDouble());
+    final top = pageTop * (1 - reveal);
+    final paint = Paint()..filterQuality = FilterQuality.low;
+    if (sourceTop > 0) {
+      canvas.drawImageRect(
+        image,
+        Rect.fromLTWH(0, 0, image.width.toDouble(), sourceTop),
+        Rect.fromLTWH(0, -pageTop * reveal, size.width, pageTop),
+        paint,
+      );
+    }
+    canvas.drawImageRect(
+      image,
+      Rect.fromLTRB(
+        0,
+        sourceTop,
+        image.width.toDouble(),
+        image.height.toDouble(),
+      ),
+      Rect.fromLTWH(0, top, size.width, math.max(0, size.height - top)),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HistoryFramePainter old) =>
+      image != old.image || pageTop != old.pageTop || reveal != old.reveal;
 }
 
 class _HistoryEdgeRecognizer extends HorizontalDragGestureRecognizer {

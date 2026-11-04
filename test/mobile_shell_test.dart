@@ -135,7 +135,7 @@ Future<void> _captureChrome(WidgetTester tester, String name) async {
     );
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
     await File(
-      '/private/tmp/inset-body-${Theme.of(tester.element(_header)).platform.name}-$name.png',
+      '/private/tmp/inset-body-${Theme.of(tester.element(find.byType(MobileForumRoot))).platform.name}-$name.png',
     ).writeAsBytes(bytes!.buffer.asUint8List());
     image.dispose();
     scene.dispose();
@@ -5323,6 +5323,126 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('sidebar header and container follow and reverse the reveal', (
+    tester,
+  ) async {
+    await _loadChromeCaptureFonts(tester);
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(tester);
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      await shell.forumSettings.setThemeMode(_site, AppThemeMode.dark);
+      await shell.forumSettings.setThemes(
+        _site,
+        ForumThemePreferences.preset('dracula'),
+      );
+      await shell.forumSettings.setShared(
+        shell.forumSettings.shared.copyWith(
+          font: ForumFont.lato,
+          interfaceFont: ForumFont.lato,
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+    final header = tester.getRect(_header);
+    final panel = find.byKey(const ValueKey('mobile-content-panel'));
+    final resting = tester.getRect(panel);
+    final page = tester.element(panel);
+    final gesture = await tester.startGesture(Offset(1, header.top + 12));
+    var step = 0;
+    for (final fraction in [.2, .6, .35]) {
+      await gesture.moveTo(
+        Offset(1 + phone.width * fraction, header.top + 12),
+        timeStamp: Duration(milliseconds: ++step * 200),
+      );
+      await tester.pump();
+      expect(
+        tester.getRect(_header).top,
+        closeTo(header.top - header.height * fraction, .01),
+      );
+      expect(
+        tester.getRect(panel).top,
+        closeTo(resting.top - header.height * fraction, .01),
+      );
+      expect(
+        tester.getRect(panel).height,
+        closeTo(resting.height + header.height * fraction, .01),
+      );
+      expect(tester.getRect(panel).bottom, closeTo(resting.bottom, .01));
+      await _captureChrome(tester, 'sidebar-reveal-$fraction');
+      final held = tester.getRect(panel);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(tester.getRect(panel), held);
+    }
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_header), header);
+    expect(tester.getRect(panel), resting);
+    expect(tester.element(panel), same(page));
+
+    await _toggleNavigation(tester);
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    await _toggleNavigation(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    final closingHeader = tester.getRect(_header);
+    final closingPanel = tester.getRect(panel);
+    expect(closingHeader.top, greaterThan(header.top - header.height));
+    expect(closingHeader.top, lessThan(header.top));
+    expect(closingPanel.top, closeTo(closingHeader.bottom + 6, .01));
+    expect(closingPanel.bottom, closeTo(resting.bottom, .01));
+    await _captureChrome(tester, 'sidebar-button-closing');
+    await tester.pumpAndSettle();
+    expect(tester.getRect(_header), header);
+    expect(tester.getRect(panel), resting);
+    expect(tester.element(panel), same(page));
+    if (const bool.fromEnvironment('captureMobileChrome')) {
+      for (final direction in ['open', 'close']) {
+        await _captureChrome(tester, 'sidebar-button-$direction-00');
+        await _toggleNavigation(tester);
+        await tester.pump();
+        for (var frame = 1; frame <= 10; frame++) {
+          await tester.pump(const Duration(milliseconds: 30));
+          await _captureChrome(
+            tester,
+            'sidebar-button-$direction-${frame.toString().padLeft(2, '0')}',
+          );
+        }
+        await tester.pumpAndSettle();
+      }
+    }
+    expect(tester.takeException(), isNull);
+  });
+
+  _mobileTest(
+    'reduced motion keeps sidebar header and container changes instant',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await shell.appSettings.setReduceMotion(true);
+      await tester.pumpAndSettle();
+      final header = tester.getRect(_header);
+      final panel = find.byKey(const ValueKey('mobile-content-panel'));
+      final resting = tester.getRect(panel);
+      final gesture = await tester.startGesture(Offset(1, header.top + 12));
+      await gesture.moveBy(
+        const Offset(120, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      expect(tester.getRect(_header), header);
+      expect(tester.getRect(panel), resting);
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isTrue);
+      expect(_header, findsNothing);
+      await _toggleNavigation(tester);
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_header), header);
+      expect(tester.getRect(panel), resting);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('returning from the sidebar paints the tab bar above the page', (
     tester,
   ) async {
@@ -5426,7 +5546,11 @@ void main() {
                 tester.getSize(
                   find.byKey(const ValueKey('mobile-content-panel')),
                 ),
-                page,
+                Size(page.width, page.height + header.height * fraction),
+              );
+              expect(
+                tester.getRect(_header).top,
+                closeTo(header.top - header.height * fraction, .01),
               );
             }
             // Holding the finger still must hold the bar at the same position.
@@ -5529,10 +5653,9 @@ void main() {
       );
       await tester.pump();
       expect(shell.mobileNavigation.sidebarOpen, isTrue);
-      final preview = tester.widget<RawImage>(find.byType(RawImage));
-      expect(preview.image, isNotNull);
-      expect(preview.fit, BoxFit.fitWidth);
-      expect(preview.image!.height, phone.height.toInt());
+      final preview = find.byKey(const ValueKey('history-frame-preview'));
+      expect(preview, findsOneWidget);
+      expect(tester.getSize(preview).height, phone.height);
       expect(_header, findsNothing);
       await close.up();
       await tester.pump();
@@ -5635,7 +5758,12 @@ void main() {
         timeStamp: const Duration(milliseconds: 200),
       );
       await tester.pump();
-      if (right) {
+      if (right && shell.mobileNavigation.sidebarOpen) {
+        expect(
+          find.byKey(const ValueKey('history-frame-preview')),
+          findsOneWidget,
+        );
+      } else if (right) {
         expect(tester.widget<RawImage>(find.byType(RawImage)).image, isNotNull);
       }
       await gesture.up();

@@ -15,10 +15,11 @@ Future<void> _pump(
   double scale = 1,
   int rowCount = 12,
   Color? border,
+  Brightness brightness = Brightness.light,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final theme = ThemeData(platform: TargetPlatform.iOS);
+  final theme = ThemeData(platform: TargetPlatform.iOS, brightness: brightness);
   await tester.pumpWidget(
     RepaintBoundary(
       key: const ValueKey('sidebar-card-capture'),
@@ -35,7 +36,23 @@ Future<void> _pump(
             child: DSidebar(
               width: 390,
               collapsible: DSidebarCollapsible.none,
-              footer: const DSidebarFooter(child: Text('Views')),
+              footer: DSidebarFooter(
+                child: Center(
+                  child: SizedBox(
+                    width: 60,
+                    height: 20,
+                    child: DCard(
+                      key: const ValueKey('reference-rim'),
+                      spacing: 0,
+                      border: false,
+                      borderRadius: BorderRadius.zero,
+                      backgroundColor: DTokens.fromTheme(theme).panelBackground,
+                      depth: DSurfaceDepth.rim,
+                      child: const Expanded(child: SizedBox.shrink()),
+                    ),
+                  ),
+                ),
+              ),
               child: DSidebarContent.slivers(
                 header: Padding(
                   padding: const EdgeInsets.all(6),
@@ -82,87 +99,116 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets(
-    'section sheets overlap down to the sidebar foot before and after pinning',
-    (tester) async {
-      const border = Color(0xFFE020D0);
-      await _pump(tester, rowCount: 4, border: border);
-      final viewport = find.byType(CustomScrollView);
-      final controller = tester.widget<CustomScrollView>(viewport).controller!;
-
-      Future<void> expectOutline() async {
-        final heading = tester.getRect(_heading('Forum'));
-        final next = tester.getRect(_heading('Categories'));
-        final bottom = tester.getRect(find.byType(DSidebar)).bottom;
-        final boundary = tester.renderObject<RenderRepaintBoundary>(
-          find.byKey(const ValueKey('sidebar-card-capture')),
+  for (final brightness in Brightness.values) {
+    testWidgets(
+      'section rims match the container in ${brightness.name} before and after pinning',
+      (tester) async {
+        const themeBorder = Color(0xFFE020D0);
+        await _pump(
+          tester,
+          rowCount: 4,
+          border: themeBorder,
+          brightness: brightness,
         );
-        final data = await tester.runAsync(() async {
-          final image = await boundary.toImage();
-          try {
-            return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
-          } finally {
-            image.dispose();
+        final viewport = find.byType(CustomScrollView);
+        final controller = tester
+            .widget<CustomScrollView>(viewport)
+            .controller!;
+
+        Future<void> expectOutline() async {
+          final heading = tester.getRect(_heading('Forum'));
+          final next = tester.getRect(_heading('Categories'));
+          final bottom = tester.getRect(find.byType(DSidebar)).bottom;
+          final boundary = tester.renderObject<RenderRepaintBoundary>(
+            find.byKey(const ValueKey('sidebar-card-capture')),
+          );
+          final data = await tester.runAsync(() async {
+            final image = await boundary.toImage();
+            try {
+              return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+            } finally {
+              image.dispose();
+            }
+          });
+          Color pixel(int x, int y) {
+            final offset = (y * 390 + x) * 4;
+            return Color.fromARGB(
+              data!.getUint8(offset + 3),
+              data.getUint8(offset),
+              data.getUint8(offset + 1),
+              data.getUint8(offset + 2),
+            );
           }
-        });
-        Color pixel(int x, int y) {
-          final offset = (y * 390 + x) * 4;
-          return Color.fromARGB(
-            data!.getUint8(offset + 3),
-            data.getUint8(offset),
-            data.getUint8(offset + 1),
-            data.getUint8(offset + 2),
+
+          final reference = tester.getRect(
+            find.byKey(const ValueKey('reference-rim')),
+          );
+          final referenceRim = pixel(
+            reference.center.dx.floor(),
+            reference.top.floor(),
+          );
+          final bodyY = (next.bottom + 20).floor();
+          final border = pixel(0, bodyY);
+          expect(border, isNot(themeBorder));
+          for (final shift in [0, 8, 16, 24]) {
+            expect(
+              (border.toARGB32() >> shift) & 255,
+              closeTo((referenceRim.toARGB32() >> shift) & 255, 1),
+              reason:
+                  'Matches the rendered container rim, allowing GPU rounding',
+            );
+          }
+          expect(pixel(195, heading.top.floor()), border, reason: 'Top edge');
+          expect(
+            pixel(195, next.top.floor()),
+            border,
+            reason: 'The next sheet starts at its heading',
+          );
+          expect(
+            pixel(389, bodyY),
+            border,
+            reason: 'Right edge beside the rows',
+          );
+          expect(
+            pixel(195, bottom.floor() - 1),
+            border,
+            reason: 'The sheets share the sidebar bottom edge',
+          );
+          expect(
+            pixel(195, next.top.floor() - 1),
+            isNot(border),
+            reason: 'The preceding sheet continues behind the next section',
+          );
+          expect(
+            pixel(0, next.top.floor() + 1),
+            border,
+            reason: 'The preceding sheet shows behind the next rounded corner',
+          );
+          expect(
+            pixel(195, (next.top + 80).floor()),
+            isNot(border),
+            reason: 'Scrolling leaves no stale sheet edge across the rows',
           );
         }
 
-        final bodyY = (next.bottom + 20).floor();
-        expect(pixel(195, heading.top.floor()), border, reason: 'Top edge');
+        await expectOutline();
+        controller.jumpTo(80);
+        await tester.pumpAndSettle();
+        await expectOutline();
+        controller.jumpTo(0);
+        await tester.pumpAndSettle();
+        await tester.tap(_trigger('Forum'));
+        await tester.pumpAndSettle();
         expect(
-          pixel(195, next.top.floor()),
-          border,
-          reason: 'The next sheet starts at its heading',
+          tester.getRect(_heading('Categories')).top -
+              tester.getRect(_heading('Forum')).bottom,
+          8,
         );
-        expect(pixel(0, bodyY), border, reason: 'Left edge beside the rows');
-        expect(pixel(389, bodyY), border, reason: 'Right edge beside the rows');
-        expect(
-          pixel(195, bottom.floor() - 1),
-          border,
-          reason: 'The sheets share the sidebar bottom edge',
-        );
-        expect(
-          pixel(195, next.top.floor() - 1),
-          isNot(border),
-          reason: 'The preceding sheet continues behind the next section',
-        );
-        expect(
-          pixel(0, next.top.floor() + 1),
-          border,
-          reason: 'The preceding sheet shows behind the next rounded corner',
-        );
-        expect(
-          pixel(195, (next.top + 80).floor()),
-          isNot(border),
-          reason: 'Scrolling leaves no stale sheet edge across the rows',
-        );
-      }
-
-      await expectOutline();
-      controller.jumpTo(80);
-      await tester.pumpAndSettle();
-      await expectOutline();
-      controller.jumpTo(0);
-      await tester.pumpAndSettle();
-      await tester.tap(_trigger('Forum'));
-      await tester.pumpAndSettle();
-      expect(
-        tester.getRect(_heading('Categories')).top -
-            tester.getRect(_heading('Forum')).bottom,
-        8,
-      );
-      await expectOutline();
-      expect(tester.takeException(), isNull);
-    },
-  );
+        await expectOutline();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets(
     'phone sidebar defaults are 40-point rows and 48-point headings',
