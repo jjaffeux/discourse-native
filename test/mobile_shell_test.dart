@@ -5476,6 +5476,57 @@ void main() {
     },
   );
 
+  _mobileTest('sidebar fades in from transparent for swipes and buttons', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    double sidebarOpacity() => tester
+        .widgetList<Opacity>(
+          find.ancestor(
+            of: find.byType(InstanceRail),
+            matching: find.byType(Opacity),
+          ),
+        )
+        .fold(1, (opacity, widget) => opacity * widget.opacity);
+
+    const start = Offset(1, 400);
+    final gesture = await tester.startGesture(start);
+    await gesture.moveBy(
+      const Offset(40, 0),
+      timeStamp: const Duration(milliseconds: 200),
+    );
+    await tester.pump();
+    var step = 1;
+    for (final (progress, opacity) in <(double, Matcher)>[
+      (0, equals(0)),
+      (.02, inExclusiveRange(0, .05)),
+      (.5, inExclusiveRange(.1, .5)),
+      (.9, greaterThan(.5)),
+      (.3, inExclusiveRange(0, .3)),
+      (0, equals(0)),
+    ]) {
+      await gesture.moveTo(
+        start + Offset(phone.width * progress, 0),
+        timeStamp: Duration(milliseconds: ++step * 200),
+      );
+      await tester.pump();
+      expect(sidebarOpacity(), opacity, reason: 'reveal $progress');
+    }
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+
+    await _toggleNavigation(tester);
+    await tester.pump();
+    expect(sidebarOpacity(), 0);
+    await tester.pump(const Duration(milliseconds: 80));
+    expect(sidebarOpacity(), inExclusiveRange(0, 1));
+    await tester.pumpAndSettle();
+    expect(sidebarOpacity(), 1);
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('outgoing sidebar fades before a return finishes and reverses', (
     tester,
   ) async {

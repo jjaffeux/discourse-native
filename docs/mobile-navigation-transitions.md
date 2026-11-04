@@ -61,7 +61,7 @@ It paints above incoming page snapshots during sidebar return gestures and is ex
 The header stays in `frameBuilder` and remains horizontally fixed during sidebar reveals.
 It slides upward and fades out as the tab bar slides down; both return with the same reveal progress.
 The content expands into the header's space while moving horizontally.
-During return, the outgoing sidebar fades to near transparency before the transition finishes.
+The sidebar starts transparent and fades in with the reveal, reversing the same fade during return.
 The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
 It rebuilds route data through the corresponding `ShellTabContext` instead of keeping earlier permission, account, and busy-state snapshots.
 Retained list lookup stops at a nonsheet page, and every projected route uses its own actual predecessor.

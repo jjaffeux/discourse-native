@@ -751,7 +751,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         (_dragging || _settling || switching),
                     child: Opacity(
                       key: const ValueKey('history-sidebar-opacity'),
-                      opacity: returning ? math.pow(1 - p, 2).toDouble() : 1,
+                      opacity: _navigationOpen
+                          ? math.pow(_navigationProgress, 2).toDouble()
+                          : 1,
                       child: child,
                     ),
                   ),
@@ -819,7 +821,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                     when !_navigationOpen)
                   Offstage(
                     offstage: !_openingNavigation,
-                    child: preview(navigation.preview, back: true),
+                    child: Opacity(
+                      opacity: math.pow(_navigationProgress, 2).toDouble(),
+                      child: preview(navigation.preview, back: true),
+                    ),
                   ),
                 if (switching)
                   Transform.translate(
