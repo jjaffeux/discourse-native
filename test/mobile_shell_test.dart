@@ -5496,6 +5496,77 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('chat badge updates retain mobile sidebar roots and previews', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final shell = await pumpMobileShellFixture(
+      tester,
+      onApi: (value) => api = value,
+    );
+    await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+    await tester.pumpAndSettle();
+    final sidebars = find
+        .byType(InstanceSidebar, skipOffstage: false)
+        .evaluate()
+        .toList();
+    expect(sidebars, isNotEmpty);
+    final preview = tester
+        .widget<MobileHistoryGestures>(find.byType(MobileHistoryGestures))
+        .navigationPreview;
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      if (sidebars.contains(element)) rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    api.chatChannelsBySite[_site] = const ChatChannels(
+      public: [
+        ChatChannel(
+          id: 9,
+          title: 'General',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+          tracking: ChatTracking(unreadCount: 3),
+        ),
+      ],
+    );
+    await shell.chat.loadChannels(_site, force: true);
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('chat-mobile-unread-badge')),
+      findsOneWidget,
+    );
+    expect(
+      rebuilt,
+      isEmpty,
+      reason: 'A dock badge must not rebuild retained sidebar roots',
+    );
+    expect(
+      tester
+          .widget<MobileHistoryGestures>(find.byType(MobileHistoryGestures))
+          .navigationPreview,
+      same(preview),
+    );
+    api.chatChannelsBySite[_site] = const ChatChannels(
+      public: [
+        ChatChannel(
+          id: 9,
+          title: 'Updated General',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+          tracking: ChatTracking(unreadCount: 3),
+        ),
+      ],
+    );
+    await shell.chat.loadChannels(_site, force: true);
+    await tester.pumpAndSettle();
+    await _tapDockTab(tester, 'panel/chat');
+    expect(find.text('Updated General', findRichText: true), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('topic feed refreshes redraw the list without the chrome', (
     tester,
   ) async {

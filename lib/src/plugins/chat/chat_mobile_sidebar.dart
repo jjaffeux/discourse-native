@@ -54,15 +54,11 @@ class _ChatMobileSidebarState extends State<ChatMobileSidebar> {
             !chat.channelsLoaded(siteUrl) &&
             (chat.channelsLoading(siteUrl) || error == null);
         final colors = DTokens.of(context);
-        Widget row(ChatChannel channel) => ValueListenableBuilder<ChatChannel?>(
+        Widget row(ChatChannel channel) => ChatInboxEntry(
           key: ValueKey(channel.id),
-          valueListenable: chat.channelRef(siteUrl, channel.id),
-          builder: (context, current, _) => ChatInboxRow(
-            siteUrl: siteUrl,
-            channel: current ?? channel,
-            selected: shell.visibleChannelId == channel.id,
-            onPressed: () => shell.openChannel(channel.id),
-          ),
+          siteUrl: siteUrl,
+          channelId: channel.id,
+          compact: false,
         );
         // Rows are ruled within their own section; the rooms heading stands
         // between the two sections without a rule on either side.

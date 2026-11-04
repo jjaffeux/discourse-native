@@ -746,10 +746,11 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
                       _content = null;
                     }),
                   )
-                : _ChatSidebarInboxEntry(
+                : ChatInboxEntry(
                     key: ValueKey(slice.visible[index].id),
                     siteUrl: widget.siteUrl,
                     channelId: slice.visible[index].id,
+                    compact: true,
                   ),
           ),
         ),
@@ -758,28 +759,31 @@ class _ChatSidebarInboxState extends State<ChatSidebarInbox> {
   }
 }
 
-class _ChatSidebarInboxEntry extends StatefulWidget {
-  const _ChatSidebarInboxEntry({
+class ChatInboxEntry extends StatefulWidget {
+  const ChatInboxEntry({
     super.key,
     required this.siteUrl,
     required this.channelId,
+    required this.compact,
   });
 
   final String siteUrl;
   final int channelId;
+  final bool compact;
 
   @override
-  State<_ChatSidebarInboxEntry> createState() => _ChatSidebarInboxEntryState();
+  State<ChatInboxEntry> createState() => _ChatInboxEntryState();
 }
 
-class _ChatSidebarInboxEntryState extends State<_ChatSidebarInboxEntry> {
+class _ChatInboxEntryState extends State<ChatInboxEntry> {
   Widget? _content;
 
   @override
-  void didUpdateWidget(_ChatSidebarInboxEntry oldWidget) {
+  void didUpdateWidget(ChatInboxEntry oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.channelId != widget.channelId) {
+        oldWidget.channelId != widget.channelId ||
+        oldWidget.compact != widget.compact) {
       _content = null;
     }
   }
@@ -787,11 +791,17 @@ class _ChatSidebarInboxEntryState extends State<_ChatSidebarInboxEntry> {
   // Reordering rebuilds the list's delegate. Keep the mounted row's listeners
   // and content, so only its own channel or selection redraws it.
   @override
-  Widget build(BuildContext context) =>
-      _content ??= PluginServiceSelector<ChatShellService, bool>(
+  Widget build(BuildContext context) => _content ??=
+      PluginServiceSelector<
+        ChatShellService,
+        ({bool selected, DiscourseUser? user})
+      >(
         service: chatShellService,
-        select: (shell) => shell.visibleChannelId == widget.channelId,
-        builder: (context, selected, _) => ValueListenableBuilder<ChatChannel?>(
+        select: (shell) => (
+          selected: shell.visibleChannelId == widget.channelId,
+          user: shell.currentUser,
+        ),
+        builder: (context, state, _) => ValueListenableBuilder<ChatChannel?>(
           valueListenable: PluginUiScope.require(
             context,
             chatControllerService,
@@ -803,8 +813,8 @@ class _ChatSidebarInboxEntryState extends State<_ChatSidebarInboxEntry> {
               : ChatInboxRow(
                   siteUrl: widget.siteUrl,
                   channel: channel,
-                  compact: true,
-                  selected: selected,
+                  compact: widget.compact,
+                  selected: state.selected,
                   onPressed: () => PluginUiScope.require(
                     context,
                     chatShellService,
