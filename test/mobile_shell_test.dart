@@ -5577,6 +5577,80 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest(
+    'sidebar return keeps the page surface color through the final frame',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      final sample = Offset(phone.width - 40, phone.height - 180);
+      Future<List<int>> surfacePixel() async {
+        late List<int> color;
+        await tester.runAsync(() async {
+          final builder = ui.SceneBuilder();
+          tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+          final scene = builder.build();
+          final image = await scene.toImage(
+            phone.width.toInt(),
+            phone.height.toInt(),
+          );
+          final pixels = await image.toByteData(
+            format: ui.ImageByteFormat.rawRgba,
+          );
+          final offset =
+              (sample.dy.floor() * image.width + sample.dx.floor()) * 4;
+          color = List.generate(
+            3,
+            (channel) => pixels!.getUint8(offset + channel),
+          );
+          image.dispose();
+          scene.dispose();
+        });
+        return color;
+      }
+
+      for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+        await shell.forumSettings.setThemeMode(_site, mode);
+        await tester.pumpAndSettle();
+        for (final tab in ['panel/chat', 'topics']) {
+          await _tapDockTab(tester, tab);
+          final resting = await surfacePixel();
+          await _toggleNavigation(tester);
+          await tester.pumpAndSettle();
+          final gesture = await tester.startGesture(
+            Offset(phone.width - 1, 400),
+          );
+          await gesture.moveBy(
+            Offset(-phone.width * .999, 0),
+            timeStamp: const Duration(milliseconds: 400),
+          );
+          await tester.pump();
+          final arriving = await surfacePixel();
+          await _captureChrome(
+            tester,
+            'sidebar-surface-${mode.name}-$tab-arriving'.replaceAll('/', '-'),
+          );
+          await gesture.up();
+          await tester.pumpAndSettle();
+          final arrived = await surfacePixel();
+          await _captureChrome(
+            tester,
+            'sidebar-surface-${mode.name}-$tab-arrived'.replaceAll('/', '-'),
+          );
+          expect(shell.mobileNavigation.sidebarOpen, isFalse);
+          expect(arrived, resting);
+          for (var channel = 0; channel < 3; channel++) {
+            expect(
+              arriving[channel],
+              closeTo(arrived[channel], 1),
+              reason:
+                  '$tab ${mode.name} surface changes when the swipe commits',
+            );
+          }
+        }
+      }
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('returning from the sidebar paints the tab bar above the page', (
     tester,
   ) async {

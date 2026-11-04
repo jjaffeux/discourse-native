@@ -792,7 +792,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   child: ColorFiltered(
                     colorFilter: ColorFilter.mode(
                       DTokens.of(context).colors.scrim.withValues(
-                        alpha: .40 * (back ? 1 - p : p),
+                        alpha: .40 * (1 - p),
                       ),
                       BlendMode.srcATop,
                     ),
