@@ -28,7 +28,8 @@ final historyTransitionExamples = ComponentExamples(
       'in-memory images; navigation previews stay ready offstage for the first '
       'reveal. A frameBuilder includes stationary chrome and outer padding in '
       'the gesture surface. DHistoryTransition.swipeOf exposes the destination '
-      'and progress to its chrome; DScrollChrome.footerHiddenFraction slides '
+      'and progress to its chrome; foregroundBuilder keeps a floating footer '
+      'above moving pages, and DScrollChrome.footerHiddenFraction slides '
       'a floating footer with that progress. Reduced motion disables movement. '
       'Buttons remain available for keyboard, mouse and assistive technology.',
   examples: [
@@ -123,7 +124,7 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
         children: [
           Expanded(
             child: DHistoryTransition(
-              frameBuilder: (context, page) {
+              foregroundBuilder: (context, page) {
                 final swipe = DHistoryTransition.swipeOf(context);
                 final hidden = _open
                     ? 1.0 - (swipe?.progress ?? 0.0)

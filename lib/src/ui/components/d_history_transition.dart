@@ -91,6 +91,7 @@ class DHistoryTransition extends StatefulWidget {
     this.tabOwner,
     this.tabClipper,
     this.frameBuilder,
+    this.foregroundBuilder,
   }) : assert(tab == null || tabOwner != null);
 
   /// The previous visit's inert snapshot for a descendant reading sheet.
@@ -162,6 +163,12 @@ class DHistoryTransition extends StatefulWidget {
   /// Insert it once with bounded width and height. Without a builder it fills the
   /// gesture surface.
   final Widget Function(BuildContext context, Widget page)? frameBuilder;
+
+  /// Wraps the complete transition in chrome that stays above moving pages.
+  ///
+  /// Floating navigation footers belong here so page snapshots cannot cover
+  /// them. This chrome is excluded from snapshots and can follow [swipeOf].
+  final Widget Function(BuildContext context, Widget frame)? foregroundBuilder;
 
   /// A live previous navigation surface, kept ready before the first swipe.
   ///
@@ -643,7 +650,12 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   : null,
               child: child!,
             ),
-            child: _buildNavigationFrame(context, page),
+            child: Builder(
+              builder: (context) {
+                final frame = _buildNavigationFrame(context, page);
+                return widget.foregroundBuilder?.call(context, frame) ?? frame;
+              },
+            ),
           ),
         ),
       );

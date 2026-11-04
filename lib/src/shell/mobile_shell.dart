@@ -434,83 +434,82 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               ),
             ),
           ),
-          // The page runs under the home indicator; only the floating dock
-          // keeps clear of it, and pages pad their last row by its height.
-          // A route without a dock keeps an empty footer of that clearance.
-          page: ListenableBuilder(
-            listenable: _footerAction,
-            child: page,
-            builder: (context, content) {
-              final swipe = DHistoryTransition.swipeOf(context);
-              final sidebarEntry = (
-                shell.mobileNavigation.historyId,
-                'sidebar',
-              );
-              final hidden = sidebarOpen
-                  ? 1.0 - (swipe?.progress ?? 0.0)
-                  : swipe?.entry == sidebarEntry
-                  ? swipe!.progress
-                  : 0.0;
-              return MobileScrollDock(
-                identity: (
-                  owner,
-                  selected,
-                  preservePageChrome
-                      ? shell.mobileNavigation.previousEntryId
-                      : shell.mobileNavigation.entryId,
-                  widget.boundary,
-                ),
-                visible: hidden < 1,
-                hiddenFraction: hidden,
-                hideOnScroll: !hideDock || preservePageChrome,
-                keepActionVisible: _footerAction.action != null,
-                body: NotificationListener<ScrollNotification>(
-                  onNotification: (_) => preservePageChrome,
-                  child: content!,
-                ),
-                dockBuilder: (hidden) {
-                  if (route?.isGlobalSearch == true && !sidebarOpen) {
-                    return const SizedBox.shrink();
-                  }
-                  // A parked draft waits over the bar, which keeps pages
-                  // clear of both.
-                  final parked = ComposerDock.parkedDraftRoomOf(context);
-                  if (hideDock) {
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: parked + MediaQuery.paddingOf(context).bottom,
-                      ),
-                    );
-                  }
-                  final geometry = DMobileDockGeometry.of(context);
-                  return ForumSidebarTheme(
-                    child: Padding(
-                      padding: geometry.margin.add(
-                        EdgeInsets.only(top: parked),
-                      ),
-                      child: LayoutBuilder(
-                        builder: (context, constraints) => _buildBottomBar(
-                          context,
-                          constraints,
-                          geometry: geometry,
-                          destinations: places,
-                          selected: selected,
-                          instance: instance,
-                          showReply: showReply,
-                          showNewMessage: showNewMessage,
-                          panelAction: panelAction,
-                          showNewTopic: showNewTopic,
-                          shell: shell,
-                          placeOrder: placeOrder,
-                          hideDestinations: hidden,
-                        ),
-                      ),
+          page: page,
+        );
+        // The page runs under the home indicator; only the floating dock
+        // keeps clear of it, and pages pad their last row by its height.
+        // A route without a dock keeps an empty footer of that clearance.
+        Widget foreground(
+          BuildContext context,
+          Widget page,
+        ) => ListenableBuilder(
+          listenable: _footerAction,
+          child: page,
+          builder: (context, content) {
+            final swipe = DHistoryTransition.swipeOf(context);
+            final sidebarEntry = (shell.mobileNavigation.historyId, 'sidebar');
+            final hidden = sidebarOpen
+                ? 1.0 - (swipe?.progress ?? 0.0)
+                : swipe?.entry == sidebarEntry
+                ? swipe!.progress
+                : 0.0;
+            return MobileScrollDock(
+              identity: (
+                owner,
+                selected,
+                preservePageChrome
+                    ? shell.mobileNavigation.previousEntryId
+                    : shell.mobileNavigation.entryId,
+                widget.boundary,
+              ),
+              visible: hidden < 1,
+              hiddenFraction: hidden,
+              hideOnScroll: !hideDock || preservePageChrome,
+              keepActionVisible: _footerAction.action != null,
+              body: NotificationListener<ScrollNotification>(
+                onNotification: (_) => preservePageChrome,
+                child: content!,
+              ),
+              dockBuilder: (hidden) {
+                if (route?.isGlobalSearch == true && !sidebarOpen) {
+                  return const SizedBox.shrink();
+                }
+                // A parked draft waits over the bar, which keeps pages
+                // clear of both.
+                final parked = ComposerDock.parkedDraftRoomOf(context);
+                if (hideDock) {
+                  return Padding(
+                    padding: EdgeInsets.only(
+                      bottom: parked + MediaQuery.paddingOf(context).bottom,
                     ),
                   );
-                },
-              );
-            },
-          ),
+                }
+                final geometry = DMobileDockGeometry.of(context);
+                return ForumSidebarTheme(
+                  child: Padding(
+                    padding: geometry.margin.add(EdgeInsets.only(top: parked)),
+                    child: LayoutBuilder(
+                      builder: (context, constraints) => _buildBottomBar(
+                        context,
+                        constraints,
+                        geometry: geometry,
+                        destinations: places,
+                        selected: selected,
+                        instance: instance,
+                        showReply: showReply,
+                        showNewMessage: showNewMessage,
+                        panelAction: panelAction,
+                        showNewTopic: showNewTopic,
+                        shell: shell,
+                        placeOrder: placeOrder,
+                        hideDestinations: hidden,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            );
+          },
         );
         Widget frame(BuildContext context, Widget page) => DPageHeaderHost(
           key: ValueKey(('mobile-page-header', owner)),
@@ -530,6 +529,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             tab: (id: selected, index: tabOrder.indexOf(selected)),
             navigationPreview: _navigationPage,
             frameBuilder: frame,
+            foregroundBuilder: foreground,
             child: Stack(
               fit: StackFit.expand,
               children: [
@@ -999,6 +999,7 @@ class MobileHistoryGestures extends StatelessWidget {
     required this.tab,
     required this.navigationPreview,
     required this.frameBuilder,
+    required this.foregroundBuilder,
   });
   final Widget child;
 
@@ -1006,6 +1007,7 @@ class MobileHistoryGestures extends StatelessWidget {
   final DHistoryTab tab;
   final Widget navigationPreview;
   final Widget Function(BuildContext context, Widget page) frameBuilder;
+  final Widget Function(BuildContext context, Widget frame) foregroundBuilder;
 
   @override
   Widget build(BuildContext context) {
@@ -1017,6 +1019,7 @@ class MobileHistoryGestures extends StatelessWidget {
       child: Builder(
         builder: (context) => DHistoryTransition(
           frameBuilder: frameBuilder,
+          foregroundBuilder: foregroundBuilder,
           history: navigation.historyId,
           tab: sidebarOpen ? (id: sidebarEntry, index: -1) : tab,
           tabOwner: (shell.currentInstance?.url, shell.currentAccountIdentity),

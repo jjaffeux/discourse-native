@@ -587,19 +587,16 @@ final class _RecordingSiteActivator implements PluginSiteActivator {
 }
 
 void main() {
-  if (const bool.fromEnvironment('captureMobileChrome') ||
-      const bool.fromEnvironment('captureMobileSidebar') ||
-      Platform.environment['CHAT_HEADER_EXPORT_DIR'] != null) {
-    // Keep the channel alive through app disposal between capture variants.
-    TestWidgetsFlutterBinding.ensureInitialized();
-    final messenger =
-        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
-    const channel = MethodChannel('org.discourse.native/notification_opens');
-    setUpAll(
-      () => messenger.setMockMethodCallHandler(channel, (_) async => null),
-    );
-    tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
-  }
+  // Raster assertions let platform messages complete outside the fake clock.
+  // Keep the channel alive through app disposal between mobile variants.
+  TestWidgetsFlutterBinding.ensureInitialized();
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  const channel = MethodChannel('org.discourse.native/notification_opens');
+  setUpAll(
+    () => messenger.setMockMethodCallHandler(channel, (_) async => null),
+  );
+  tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
   group('forum switching', () {
     test(
       'activates the site once and never loads the replaced persisted route',
@@ -5218,6 +5215,64 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  _mobileTest('returning from the sidebar paints the tab bar above the page', (
+    tester,
+  ) async {
+    tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+    final shell = await pumpMobileShellFixture(tester);
+    for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
+      await shell.forumSettings.setThemeMode(_site, mode);
+      await tester.pumpAndSettle();
+      final bar = tester.getRect(_bar);
+      final travel = DMobileDockGeometry.of(tester.element(_bar)).footerExtent;
+      final surface = find.byKey(const ValueKey('mobile-dock-surface'));
+      final fill =
+          (tester.widget<AnimatedContainer>(surface).decoration
+                  as BoxDecoration)
+              .color!;
+      shell.toggleMobileSidebar();
+      await tester.pumpAndSettle();
+      final gesture = await tester.startGesture(Offset(phone.width - 1, 400));
+      await gesture.moveBy(
+        Offset(-phone.width * .5, 0),
+        timeStamp: const Duration(milliseconds: 200),
+      );
+      await tester.pump();
+      final sample = Offset(phone.width * .75, bar.top + travel * .5 + 8);
+      expect(tester.getRect(_bar).contains(sample), isTrue);
+      await tester.runAsync(() async {
+        final builder = ui.SceneBuilder();
+        tester.binding.renderViews.first.debugLayer!.addToScene(builder);
+        final scene = builder.build();
+        final image = await scene.toImage(
+          phone.width.toInt(),
+          phone.height.toInt(),
+        );
+        final pixels = await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        );
+        final offset =
+            (sample.dy.floor() * image.width + sample.dx.floor()) * 4;
+        expect(
+          List.generate(3, (channel) => pixels!.getUint8(offset + channel)),
+          [
+            (fill.r * 255).round(),
+            (fill.g * 255).round(),
+            (fill.b * 255).round(),
+          ],
+          reason:
+              'The incoming page must paint below the tab bar (${mode.name})',
+        );
+        image.dispose();
+        scene.dispose();
+      });
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest(
     'sidebar swipe moves the tab bar with the finger in both directions',
     (tester) async {
@@ -5246,17 +5301,10 @@ void main() {
             await tester.pump();
             final hidden = opening ? fraction : 1 - fraction;
             expect(
-              tester
-                  .renderObject<RenderBox>(_bar)
-                  .localToGlobal(
-                    Offset.zero,
-                    ancestor: tester.renderObject<RenderBox>(
-                      find.byKey(const ValueKey('mobile-root')),
-                    ),
-                  )
-                  .dy,
-              closeTo(bar.top - header.top + travel * hidden, .01),
+              tester.getTopLeft(_bar).dy,
+              closeTo(bar.top + travel * hidden, .01),
             );
+            expect(tester.getRect(_bar).left, bar.left);
             if (opening) {
               expect(
                 tester.getRect(_header).left,

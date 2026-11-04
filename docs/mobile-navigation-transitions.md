@@ -56,6 +56,9 @@ Search controls and completed horizontal swipes call these same commands.
 [`MobilePresentation`](../lib/src/shell/mobile_presentation.dart) derives the foreground route, per-visit predecessors, retained sources, and sheet/chrome policy from visit history.
 [`MobileForumRoot`](../lib/src/shell/mobile_shell.dart) shares that value with header, dock, and content through one inherited scope.
 The scope changes only when its presentation facts change; unrelated shell notifications do not invalidate retained content.
+The floating tab bar wraps the complete `DHistoryTransition` through `foregroundBuilder`.
+It paints above incoming page snapshots during sidebar return gestures and is excluded from those snapshots.
+The header stays in `frameBuilder` so it travels with the page during sidebar reveals.
 The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
 It rebuilds route data through the corresponding `ShellTabContext` instead of keeping earlier permission, account, and busy-state snapshots.
 Retained list lookup stops at a nonsheet page, and every projected route uses its own actual predecessor.
