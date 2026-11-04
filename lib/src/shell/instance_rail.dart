@@ -505,6 +505,7 @@ class _InstanceRailListState extends State<_InstanceRailList> {
           topExtent: 26,
           bottomExtent: 26,
           child: ListView.builder(
+            primary: false,
             padding: EdgeInsets.symmetric(vertical: _railListPadding(context)),
             itemExtent: _itemExtent,
             itemCount: widget.state.instances.length + 1,
