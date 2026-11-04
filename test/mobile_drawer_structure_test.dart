@@ -14,6 +14,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,6 +55,102 @@ void main() {
     () => messenger.setMockMethodCallHandler(notifications, (_) async => null),
   );
   tearDownAll(() => messenger.setMockMethodCallHandler(notifications, null));
+
+  testWidgets(
+    'sidebar buttons finish moving within 200 milliseconds',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      for (final open in [true, false]) {
+        shell.toggleMobileSidebar();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 200));
+        expect(
+          find.byKey(const ValueKey('history-outgoing-navigation')),
+          findsNothing,
+        );
+        expect(shell.mobileNavigation.sidebarOpen, open);
+        await tester.pumpAndSettle();
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets(
+    'sidebar swipe retains its painted controls',
+    (tester) async {
+      await pumpMobileShellFixture(tester);
+      final gesture = await tester.startGesture(const Offset(2, 400));
+      await gesture.moveBy(const Offset(100, 0));
+      await tester.pumpAndSettle();
+      final artwork = find
+          .descendant(
+            of: _panel,
+            matching: find.byWidgetPredicate((w) => w is RenderObjectWidget),
+          )
+          .evaluate()
+          .map((e) => (e as RenderObjectElement).renderObject)
+          .where((object) => !object.isRepaintBoundary)
+          .toSet();
+      expect(artwork, isNotEmpty);
+      final previous = debugOnProfilePaint;
+      var paints = 0;
+      debugOnProfilePaint = (object) {
+        previous?.call(object);
+        if (artwork.contains(object)) paints++;
+      };
+      try {
+        for (var frame = 0; frame < 8; frame++) {
+          await gesture.moveBy(const Offset(8, 0));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(paints, 0);
+        await gesture.cancel();
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+      } finally {
+        debugOnProfilePaint = previous;
+      }
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets(
+    'sidebar motion retains dock controls between frames',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      final previous = debugOnRebuildDirtyWidget;
+      var dockBuilds = 0;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.widget is DMobileDock) dockBuilds++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      for (final open in [true, false]) {
+        shell.toggleMobileSidebar();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 32));
+        dockBuilds = 0;
+        for (var frame = 0; frame < 8; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        expect(dockBuilds, 0);
+        await tester.pumpAndSettle();
+        expect(shell.mobileNavigation.sidebarOpen, open);
+      }
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
+  );
 
   testWidgets(
     'primary drawer links select their mobile place and close navigation',

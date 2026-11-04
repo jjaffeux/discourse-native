@@ -1,0 +1,1010 @@
+{
+  "date": "2026-11-04",
+  "baselineCommit": "a98216e24",
+  "expectedClaim": "Sidebar button transitions settle sooner and swipe frames require less UI-thread work. Physical Android and GPU smoothness are not established.",
+  "environment": {
+    "device": "discourse-native-test Android emulator",
+    "android": "16 / API 36",
+    "architecture": "arm64-v8a",
+    "gpu": "host gfxstream / Vulkan / Apple M5 Pro",
+    "flutter": "3.47.7",
+    "dart": "3.13.5",
+    "profile": true,
+    "physicalSize": [
+      1080,
+      2400
+    ],
+    "pixelRatio": 2.625,
+    "refreshRateHz": 60,
+    "hostCores": 18,
+    "hostLoad": "Desktop/background processes and some focused widget checks ran during alternating trials."
+  },
+  "method": {
+    "runsPerSide": 5,
+    "order": "baseline, optimized, repeated five times",
+    "transitionsPerRun": 24,
+    "warmupTransitionsPerRun": 4,
+    "fixtureTopics": 60,
+    "traceEnabled": false,
+    "elapsed": "Input through pumpAndSettle, including auxiliary control animations. Button-close uses the shell close action because its header button is hidden.",
+    "frameWindows": "Only buildStart timestamps inside each transition. UI and raster percentiles are per-run; aggregate reports median and full range of those run values.",
+    "errors": 0
+  },
+  "deterministicChecks": {
+    "sampledFrames": 8,
+    "dockBuildsBefore": 8,
+    "dockBuildsAfter": 0,
+    "sidebarPaintsBefore": 488,
+    "sidebarPaintsAfter": 0,
+    "newRegressionVariantsPassed": 6,
+    "focusedChecksPassed": 136,
+    "baselineFailuresReproduced": 7
+  },
+  "appCodeSha256": {
+    "baseline": "c998ed0a02379247544fa48587ae3819296f2e6cb501e65a1cc49b3762a70660",
+    "optimized": "bddca8492693645bfa0c066bd902548f1954db65933948201feda1b1212ac7fd"
+  },
+  "aggregate": {
+    "baseline": {
+      "button-open": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 120,
+          "min": 119,
+          "max": 121
+        },
+        "elapsedMedianMs": {
+          "median": 340.43399999999997,
+          "min": 333.163,
+          "max": 347.95000000000005
+        },
+        "settleMedianMs": {
+          "median": 340.43399999999997,
+          "min": 333.163,
+          "max": 347.95000000000005
+        },
+        "buildP50Ms": {
+          "median": 1.243,
+          "min": 1.197,
+          "max": 1.4
+        },
+        "buildP95Ms": {
+          "median": 8.073,
+          "min": 1.959,
+          "max": 12.923
+        },
+        "rasterP50Ms": {
+          "median": 9.787,
+          "min": 2.77,
+          "max": 15.98
+        },
+        "rasterP95Ms": {
+          "median": 16.783,
+          "min": 16.166,
+          "max": 17.16
+        },
+        "overBudgetPercent": {
+          "median": 7.5,
+          "min": 1.6666666666666667,
+          "max": 9.917355371900827
+        }
+      },
+      "button-close": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 170,
+          "min": 169,
+          "max": 172
+        },
+        "elapsedMedianMs": {
+          "median": 481.837,
+          "min": 481.2395,
+          "max": 488.81050000000005
+        },
+        "settleMedianMs": {
+          "median": 481.837,
+          "min": 481.2395,
+          "max": 488.81050000000005
+        },
+        "buildP50Ms": {
+          "median": 3.017,
+          "min": 2.936,
+          "max": 3.119
+        },
+        "buildP95Ms": {
+          "median": 5.851,
+          "min": 5.35,
+          "max": 6.173
+        },
+        "rasterP50Ms": {
+          "median": 3.765,
+          "min": 3.715,
+          "max": 13.79
+        },
+        "rasterP95Ms": {
+          "median": 16.658,
+          "min": 16.58,
+          "max": 17.137
+        },
+        "overBudgetPercent": {
+          "median": 4.651162790697675,
+          "min": 3.5294117647058822,
+          "max": 7.0588235294117645
+        }
+      },
+      "swipe-open": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 143,
+          "min": 140,
+          "max": 144
+        },
+        "elapsedMedianMs": {
+          "median": 398.1725,
+          "min": 397.8995,
+          "max": 399.089
+        },
+        "settleMedianMs": {
+          "median": 163.1275,
+          "min": 163.00799999999998,
+          "max": 163.4395
+        },
+        "buildP50Ms": {
+          "median": 3.192,
+          "min": 3.094,
+          "max": 3.233
+        },
+        "buildP95Ms": {
+          "median": 7.278,
+          "min": 7.023,
+          "max": 7.444
+        },
+        "rasterP50Ms": {
+          "median": 14.131,
+          "min": 14.082,
+          "max": 14.273
+        },
+        "rasterP95Ms": {
+          "median": 18.037,
+          "min": 16.833,
+          "max": 19.476
+        },
+        "overBudgetPercent": {
+          "median": 6.428571428571429,
+          "min": 6.293706293706293,
+          "max": 7.746478873239437
+        }
+      },
+      "swipe-close": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 199,
+          "min": 196,
+          "max": 201
+        },
+        "elapsedMedianMs": {
+          "median": 556.87,
+          "min": 548.4025,
+          "max": 564.1605
+        },
+        "settleMedianMs": {
+          "median": 323.1875,
+          "min": 315.988,
+          "max": 332.081
+        },
+        "buildP50Ms": {
+          "median": 1.065,
+          "min": 1.016,
+          "max": 1.072
+        },
+        "buildP95Ms": {
+          "median": 4.766,
+          "min": 4.3,
+          "max": 4.775
+        },
+        "rasterP50Ms": {
+          "median": 16.003,
+          "min": 15.95,
+          "max": 16.09
+        },
+        "rasterP95Ms": {
+          "median": 17.403,
+          "min": 17.13,
+          "max": 17.465
+        },
+        "overBudgetPercent": {
+          "median": 16.666666666666668,
+          "min": 13.775510204081632,
+          "max": 17.587939698492463
+        }
+      }
+    },
+    "optimized": {
+      "button-open": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 79,
+          "min": 77,
+          "max": 82
+        },
+        "elapsedMedianMs": {
+          "median": 223.9105,
+          "min": 216.73250000000002,
+          "max": 231.42849999999999
+        },
+        "settleMedianMs": {
+          "median": 223.9105,
+          "min": 216.73250000000002,
+          "max": 231.42849999999999
+        },
+        "buildP50Ms": {
+          "median": 0.649,
+          "min": 0.593,
+          "max": 0.663
+        },
+        "buildP95Ms": {
+          "median": 8.89,
+          "min": 7.843,
+          "max": 13.068
+        },
+        "rasterP50Ms": {
+          "median": 16.073,
+          "min": 9.81,
+          "max": 16.251
+        },
+        "rasterP95Ms": {
+          "median": 17.786,
+          "min": 17.024,
+          "max": 18.281
+        },
+        "overBudgetPercent": {
+          "median": 24.050632911392405,
+          "min": 16.666666666666668,
+          "max": 30.48780487804878
+        }
+      },
+      "button-close": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 133,
+          "min": 132,
+          "max": 134
+        },
+        "elapsedMedianMs": {
+          "median": 381.149,
+          "min": 366.31899999999996,
+          "max": 381.477
+        },
+        "settleMedianMs": {
+          "median": 381.149,
+          "min": 366.31899999999996,
+          "max": 381.477
+        },
+        "buildP50Ms": {
+          "median": 2.519,
+          "min": 2.334,
+          "max": 2.561
+        },
+        "buildP95Ms": {
+          "median": 5.98,
+          "min": 5.56,
+          "max": 6.675
+        },
+        "rasterP50Ms": {
+          "median": 13.681,
+          "min": 4.033,
+          "max": 15.091
+        },
+        "rasterP95Ms": {
+          "median": 17.344,
+          "min": 16.894,
+          "max": 17.977
+        },
+        "overBudgetPercent": {
+          "median": 13.533834586466165,
+          "min": 6.818181818181818,
+          "max": 23.484848484848484
+        }
+      },
+      "swipe-open": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 143,
+          "min": 141,
+          "max": 144
+        },
+        "elapsedMedianMs": {
+          "median": 398.966,
+          "min": 398.35900000000004,
+          "max": 399.446
+        },
+        "settleMedianMs": {
+          "median": 163.94,
+          "min": 163.017,
+          "max": 164.1685
+        },
+        "buildP50Ms": {
+          "median": 2.782,
+          "min": 2.626,
+          "max": 2.928
+        },
+        "buildP95Ms": {
+          "median": 7.326,
+          "min": 6.513,
+          "max": 7.339
+        },
+        "rasterP50Ms": {
+          "median": 14.544,
+          "min": 14.533,
+          "max": 14.622
+        },
+        "rasterP95Ms": {
+          "median": 17.491,
+          "min": 16.621,
+          "max": 18.524
+        },
+        "overBudgetPercent": {
+          "median": 7.6923076923076925,
+          "min": 4.861111111111111,
+          "max": 9.929078014184396
+        }
+      },
+      "swipe-close": {
+        "transitions": {
+          "median": 6,
+          "min": 6,
+          "max": 6
+        },
+        "frames": {
+          "median": 200,
+          "min": 197,
+          "max": 202
+        },
+        "elapsedMedianMs": {
+          "median": 556.9005,
+          "min": 551.081,
+          "max": 563.7825
+        },
+        "settleMedianMs": {
+          "median": 324.46299999999997,
+          "min": 317.23699999999997,
+          "max": 332.211
+        },
+        "buildP50Ms": {
+          "median": 0.574,
+          "min": 0.526,
+          "max": 0.638
+        },
+        "buildP95Ms": {
+          "median": 3.826,
+          "min": 1.39,
+          "max": 4.538
+        },
+        "rasterP50Ms": {
+          "median": 16.218,
+          "min": 13.438,
+          "max": 16.522
+        },
+        "rasterP95Ms": {
+          "median": 17.424,
+          "min": 17.218,
+          "max": 17.999
+        },
+        "overBudgetPercent": {
+          "median": 28.0,
+          "min": 22.33502538071066,
+          "max": 37.62376237623762
+        }
+      }
+    }
+  },
+  "runs": [
+    {
+      "label": "baseline",
+      "repeat": 1,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 120,
+          "elapsedMedianMs": 333.163,
+          "settleMedianMs": 333.163,
+          "buildP50Ms": 1.197,
+          "buildP95Ms": 8.03,
+          "rasterP50Ms": 15.98,
+          "rasterP95Ms": 16.783,
+          "overBudgetPercent": 7.5
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 169,
+          "elapsedMedianMs": 481.5765,
+          "settleMedianMs": 481.5765,
+          "buildP50Ms": 3.056,
+          "buildP95Ms": 5.851,
+          "rasterP50Ms": 3.765,
+          "rasterP95Ms": 17.137,
+          "overBudgetPercent": 5.9171597633136095
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 143,
+          "elapsedMedianMs": 398.1725,
+          "settleMedianMs": 163.1275,
+          "buildP50Ms": 3.233,
+          "buildP95Ms": 7.379,
+          "rasterP50Ms": 14.131,
+          "rasterP95Ms": 19.476,
+          "overBudgetPercent": 6.293706293706293
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 196,
+          "elapsedMedianMs": 548.4025,
+          "settleMedianMs": 315.988,
+          "buildP50Ms": 1.021,
+          "buildP95Ms": 4.3,
+          "rasterP50Ms": 16.001,
+          "rasterP95Ms": 17.13,
+          "overBudgetPercent": 13.775510204081632
+        }
+      }
+    },
+    {
+      "label": "optimized",
+      "repeat": 1,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 80,
+          "elapsedMedianMs": 223.067,
+          "settleMedianMs": 223.067,
+          "buildP50Ms": 0.612,
+          "buildP95Ms": 8.409,
+          "rasterP50Ms": 16.182,
+          "rasterP95Ms": 18.281,
+          "overBudgetPercent": 30.0
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 134,
+          "elapsedMedianMs": 381.149,
+          "settleMedianMs": 381.149,
+          "buildP50Ms": 2.519,
+          "buildP95Ms": 5.56,
+          "rasterP50Ms": 13.681,
+          "rasterP95Ms": 17.977,
+          "overBudgetPercent": 11.940298507462687
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 144,
+          "elapsedMedianMs": 398.5085,
+          "settleMedianMs": 163.017,
+          "buildP50Ms": 2.782,
+          "buildP95Ms": 6.513,
+          "rasterP50Ms": 14.541,
+          "rasterP95Ms": 16.621,
+          "overBudgetPercent": 4.861111111111111
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 197,
+          "elapsedMedianMs": 551.081,
+          "settleMedianMs": 317.23699999999997,
+          "buildP50Ms": 0.574,
+          "buildP95Ms": 1.39,
+          "rasterP50Ms": 13.438,
+          "rasterP95Ms": 17.61,
+          "overBudgetPercent": 22.33502538071066
+        }
+      }
+    },
+    {
+      "label": "baseline",
+      "repeat": 2,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 121,
+          "elapsedMedianMs": 340.43399999999997,
+          "settleMedianMs": 340.43399999999997,
+          "buildP50Ms": 1.4,
+          "buildP95Ms": 1.959,
+          "rasterP50Ms": 15.465,
+          "rasterP95Ms": 17.036,
+          "overBudgetPercent": 9.917355371900827
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 170,
+          "elapsedMedianMs": 481.2395,
+          "settleMedianMs": 481.2395,
+          "buildP50Ms": 2.968,
+          "buildP95Ms": 6.142,
+          "rasterP50Ms": 3.715,
+          "rasterP95Ms": 16.58,
+          "overBudgetPercent": 3.5294117647058822
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 144,
+          "elapsedMedianMs": 397.8995,
+          "settleMedianMs": 163.00799999999998,
+          "buildP50Ms": 3.215,
+          "buildP95Ms": 7.444,
+          "rasterP50Ms": 14.082,
+          "rasterP95Ms": 16.833,
+          "overBudgetPercent": 7.638888888888889
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 199,
+          "elapsedMedianMs": 556.87,
+          "settleMedianMs": 323.1875,
+          "buildP50Ms": 1.072,
+          "buildP95Ms": 4.6,
+          "rasterP50Ms": 15.95,
+          "rasterP95Ms": 17.46,
+          "overBudgetPercent": 17.587939698492463
+        }
+      }
+    },
+    {
+      "label": "optimized",
+      "repeat": 2,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 77,
+          "elapsedMedianMs": 216.73250000000002,
+          "settleMedianMs": 216.73250000000002,
+          "buildP50Ms": 0.663,
+          "buildP95Ms": 7.843,
+          "rasterP50Ms": 10.458,
+          "rasterP95Ms": 17.684,
+          "overBudgetPercent": 23.376623376623378
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 133,
+          "elapsedMedianMs": 372.4795,
+          "settleMedianMs": 372.4795,
+          "buildP50Ms": 2.561,
+          "buildP95Ms": 5.98,
+          "rasterP50Ms": 13.499,
+          "rasterP95Ms": 17.344,
+          "overBudgetPercent": 13.533834586466165
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 143,
+          "elapsedMedianMs": 398.35900000000004,
+          "settleMedianMs": 163.626,
+          "buildP50Ms": 2.902,
+          "buildP95Ms": 7.339,
+          "rasterP50Ms": 14.533,
+          "rasterP95Ms": 16.893,
+          "overBudgetPercent": 6.293706293706293
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 200,
+          "elapsedMedianMs": 556.5395,
+          "settleMedianMs": 323.302,
+          "buildP50Ms": 0.594,
+          "buildP95Ms": 1.431,
+          "rasterP50Ms": 16.051,
+          "rasterP95Ms": 17.424,
+          "overBudgetPercent": 28.0
+        }
+      }
+    },
+    {
+      "label": "baseline",
+      "repeat": 3,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 119,
+          "elapsedMedianMs": 333.855,
+          "settleMedianMs": 333.855,
+          "buildP50Ms": 1.215,
+          "buildP95Ms": 8.073,
+          "rasterP50Ms": 9.787,
+          "rasterP95Ms": 16.642,
+          "overBudgetPercent": 4.201680672268908
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 172,
+          "elapsedMedianMs": 488.81050000000005,
+          "settleMedianMs": 488.81050000000005,
+          "buildP50Ms": 3.017,
+          "buildP95Ms": 5.434,
+          "rasterP50Ms": 3.717,
+          "rasterP95Ms": 16.658,
+          "overBudgetPercent": 4.651162790697675
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 140,
+          "elapsedMedianMs": 399.089,
+          "settleMedianMs": 163.0355,
+          "buildP50Ms": 3.135,
+          "buildP95Ms": 7.278,
+          "rasterP50Ms": 14.273,
+          "rasterP95Ms": 18.037,
+          "overBudgetPercent": 6.428571428571429
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 200,
+          "elapsedMedianMs": 564.1605,
+          "settleMedianMs": 332.081,
+          "buildP50Ms": 1.016,
+          "buildP95Ms": 4.775,
+          "rasterP50Ms": 16.029,
+          "rasterP95Ms": 17.358,
+          "overBudgetPercent": 16.5
+        }
+      }
+    },
+    {
+      "label": "optimized",
+      "repeat": 3,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 79,
+          "elapsedMedianMs": 223.9205,
+          "settleMedianMs": 223.9205,
+          "buildP50Ms": 0.655,
+          "buildP95Ms": 8.89,
+          "rasterP50Ms": 16.073,
+          "rasterP95Ms": 17.786,
+          "overBudgetPercent": 24.050632911392405
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 133,
+          "elapsedMedianMs": 381.283,
+          "settleMedianMs": 381.283,
+          "buildP50Ms": 2.477,
+          "buildP95Ms": 5.978,
+          "rasterP50Ms": 14.067,
+          "rasterP95Ms": 17.026,
+          "overBudgetPercent": 15.037593984962406
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 141,
+          "elapsedMedianMs": 398.966,
+          "settleMedianMs": 163.94,
+          "buildP50Ms": 2.626,
+          "buildP95Ms": 7.33,
+          "rasterP50Ms": 14.622,
+          "rasterP95Ms": 17.491,
+          "overBudgetPercent": 9.929078014184396
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 202,
+          "elapsedMedianMs": 563.686,
+          "settleMedianMs": 332.211,
+          "buildP50Ms": 0.556,
+          "buildP95Ms": 4.538,
+          "rasterP50Ms": 16.522,
+          "rasterP95Ms": 17.335,
+          "overBudgetPercent": 32.17821782178218
+        }
+      }
+    },
+    {
+      "label": "baseline",
+      "repeat": 4,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 120,
+          "elapsedMedianMs": 347.95000000000005,
+          "settleMedianMs": 347.95000000000005,
+          "buildP50Ms": 1.253,
+          "buildP95Ms": 12.109,
+          "rasterP50Ms": 2.77,
+          "rasterP95Ms": 16.166,
+          "overBudgetPercent": 1.6666666666666667
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 170,
+          "elapsedMedianMs": 481.837,
+          "settleMedianMs": 481.837,
+          "buildP50Ms": 2.936,
+          "buildP95Ms": 6.173,
+          "rasterP50Ms": 13.79,
+          "rasterP95Ms": 17.02,
+          "overBudgetPercent": 7.0588235294117645
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 142,
+          "elapsedMedianMs": 398.2045,
+          "settleMedianMs": 163.2265,
+          "buildP50Ms": 3.094,
+          "buildP95Ms": 7.081,
+          "rasterP50Ms": 14.248,
+          "rasterP95Ms": 17.014,
+          "overBudgetPercent": 7.746478873239437
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 201,
+          "elapsedMedianMs": 563.9335000000001,
+          "settleMedianMs": 331.24649999999997,
+          "buildP50Ms": 1.065,
+          "buildP95Ms": 4.766,
+          "rasterP50Ms": 16.09,
+          "rasterP95Ms": 17.403,
+          "overBudgetPercent": 16.915422885572138
+        }
+      }
+    },
+    {
+      "label": "optimized",
+      "repeat": 4,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 78,
+          "elapsedMedianMs": 223.9105,
+          "settleMedianMs": 223.9105,
+          "buildP50Ms": 0.593,
+          "buildP95Ms": 13.068,
+          "rasterP50Ms": 9.81,
+          "rasterP95Ms": 17.024,
+          "overBudgetPercent": 16.666666666666668
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 132,
+          "elapsedMedianMs": 381.477,
+          "settleMedianMs": 381.477,
+          "buildP50Ms": 2.334,
+          "buildP95Ms": 6.675,
+          "rasterP50Ms": 4.033,
+          "rasterP95Ms": 16.894,
+          "overBudgetPercent": 6.818181818181818
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 143,
+          "elapsedMedianMs": 399.361,
+          "settleMedianMs": 163.9615,
+          "buildP50Ms": 2.671,
+          "buildP95Ms": 7.326,
+          "rasterP50Ms": 14.594,
+          "rasterP95Ms": 17.592,
+          "overBudgetPercent": 7.6923076923076925
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 202,
+          "elapsedMedianMs": 563.7825,
+          "settleMedianMs": 331.881,
+          "buildP50Ms": 0.526,
+          "buildP95Ms": 4.329,
+          "rasterP50Ms": 16.494,
+          "rasterP95Ms": 17.999,
+          "overBudgetPercent": 37.62376237623762
+        }
+      }
+    },
+    {
+      "label": "baseline",
+      "repeat": 5,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 120,
+          "elapsedMedianMs": 345.1395,
+          "settleMedianMs": 345.1395,
+          "buildP50Ms": 1.243,
+          "buildP95Ms": 12.923,
+          "rasterP50Ms": 3.397,
+          "rasterP95Ms": 17.16,
+          "overBudgetPercent": 8.333333333333334
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 170,
+          "elapsedMedianMs": 482.0985,
+          "settleMedianMs": 482.0985,
+          "buildP50Ms": 3.119,
+          "buildP95Ms": 5.35,
+          "rasterP50Ms": 3.808,
+          "rasterP95Ms": 16.635,
+          "overBudgetPercent": 4.117647058823529
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 143,
+          "elapsedMedianMs": 397.9865,
+          "settleMedianMs": 163.4395,
+          "buildP50Ms": 3.192,
+          "buildP95Ms": 7.023,
+          "rasterP50Ms": 14.096,
+          "rasterP95Ms": 18.286,
+          "overBudgetPercent": 6.293706293706293
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 198,
+          "elapsedMedianMs": 548.5799999999999,
+          "settleMedianMs": 316.4005,
+          "buildP50Ms": 1.072,
+          "buildP95Ms": 4.767,
+          "rasterP50Ms": 16.003,
+          "rasterP95Ms": 17.465,
+          "overBudgetPercent": 16.666666666666668
+        }
+      }
+    },
+    {
+      "label": "optimized",
+      "repeat": 5,
+      "trace": false,
+      "frameBudgetMs": 16.666665607028605,
+      "actions": {
+        "button-open": {
+          "transitions": 6,
+          "frames": 82,
+          "elapsedMedianMs": 231.42849999999999,
+          "settleMedianMs": 231.42849999999999,
+          "buildP50Ms": 0.649,
+          "buildP95Ms": 9.494,
+          "rasterP50Ms": 16.251,
+          "rasterP95Ms": 18.054,
+          "overBudgetPercent": 30.48780487804878
+        },
+        "button-close": {
+          "transitions": 6,
+          "frames": 132,
+          "elapsedMedianMs": 366.31899999999996,
+          "settleMedianMs": 366.31899999999996,
+          "buildP50Ms": 2.546,
+          "buildP95Ms": 6.267,
+          "rasterP50Ms": 15.091,
+          "rasterP95Ms": 17.526,
+          "overBudgetPercent": 23.484848484848484
+        },
+        "swipe-open": {
+          "transitions": 6,
+          "frames": 142,
+          "elapsedMedianMs": 399.446,
+          "settleMedianMs": 164.1685,
+          "buildP50Ms": 2.928,
+          "buildP95Ms": 7.262,
+          "rasterP50Ms": 14.544,
+          "rasterP95Ms": 18.524,
+          "overBudgetPercent": 9.859154929577464
+        },
+        "swipe-close": {
+          "transitions": 6,
+          "frames": 200,
+          "elapsedMedianMs": 556.9005,
+          "settleMedianMs": 324.46299999999997,
+          "buildP50Ms": 0.638,
+          "buildP95Ms": 3.826,
+          "rasterP50Ms": 16.218,
+          "rasterP95Ms": 17.218,
+          "overBudgetPercent": 24.0
+        }
+      }
+    }
+  ],
+  "presentationDiagnostic": {
+    "runsPerSide": 1,
+    "purpose": "Check presentation cadence rather than infer dropped frames from raster duration. Not used for speedup claims.",
+    "source": "Android SurfaceFlinger --latency for the Flutter SurfaceView BLAST layer, polled every 200 ms. Rows filtered to the matching native transition windows.",
+    "sides": {
+      "baseline": {
+        "button-open": {
+          "intervals": 102,
+          "medianMs": 16.63735399997234,
+          "p95Ms": 18.170040999889373,
+          "gapsOver25Ms": 0
+        },
+        "button-close": {
+          "intervals": 156,
+          "medianMs": 16.664978999853133,
+          "p95Ms": 17.972959000110627,
+          "gapsOver25Ms": 0
+        },
+        "swipe-open": {
+          "intervals": 121,
+          "medianMs": 16.692708999872206,
+          "p95Ms": 18.204875,
+          "gapsOver25Ms": 0
+        },
+        "swipe-close": {
+          "intervals": 178,
+          "medianMs": 16.698791500091552,
+          "p95Ms": 18.86675,
+          "gapsOver25Ms": 5
+        }
+      },
+      "optimized": {
+        "button-open": {
+          "intervals": 60,
+          "medianMs": 16.720062499999997,
+          "p95Ms": 17.7855,
+          "gapsOver25Ms": 0
+        },
+        "button-close": {
+          "intervals": 114,
+          "medianMs": 16.672958499908447,
+          "p95Ms": 18.7185,
+          "gapsOver25Ms": 0
+        },
+        "swipe-open": {
+          "intervals": 122,
+          "medianMs": 16.682228999972345,
+          "p95Ms": 18.30075,
+          "gapsOver25Ms": 0
+        },
+        "swipe-close": {
+          "intervals": 175,
+          "medianMs": 16.675875,
+          "p95Ms": 18.42016700005531,
+          "gapsOver25Ms": 6
+        }
+      }
+    }
+  }
+}

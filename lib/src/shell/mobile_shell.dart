@@ -123,51 +123,56 @@ class _MobileForumRootState extends State<MobileForumRoot> {
       final owner = (instance.url, shell.currentAccountIdentity);
       final sidebarOpen = state.sidebarOpen;
       final foot = MediaQuery.paddingOf(context).bottom;
-      return CallbackShortcuts(
+      return DScrollFootScope(
         key: _navigationPageKey,
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape):
-              shell.closeMobileSidebar,
-        },
-        child: Focus(
-          autofocus: sidebarOpen,
-          child: MediaQuery.removePadding(
-            context: context,
-            removeBottom: true,
-            child: Padding(
-              key: const ValueKey('mobile-navigation-page'),
-              padding: EdgeInsets.only(
-                bottom: DMobileDockGeometry(foot: foot).endLift,
-              ),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const SizedBox(
-                          width: _mobileRailWidth,
-                          child: InstanceRail(),
-                        ),
-                        Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 6, right: 6),
-                            child: ForumMobileSurface.sidebar(
-                              key: const ValueKey('mobile-navigation-panel'),
-                              child: InstanceSidebar(
-                                key: ValueKey(('mobile-navigation', owner)),
-                                mobile: true,
-                                onNavigate: shell.closeMobileSidebar,
-                                mobilePlaceOf: _placeOf,
+        // Navigation has its own footer. Its scroll fades must not follow
+        // the page dock as that dock slides away during a reveal.
+        foot: null,
+        child: CallbackShortcuts(
+          bindings: {
+            const SingleActivator(LogicalKeyboardKey.escape):
+                shell.closeMobileSidebar,
+          },
+          child: Focus(
+            autofocus: sidebarOpen,
+            child: MediaQuery.removePadding(
+              context: context,
+              removeBottom: true,
+              child: Padding(
+                key: const ValueKey('mobile-navigation-page'),
+                padding: EdgeInsets.only(
+                  bottom: DMobileDockGeometry(foot: foot).endLift,
+                ),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SizedBox(
+                            width: _mobileRailWidth,
+                            child: InstanceRail(),
+                          ),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(top: 6, right: 6),
+                              child: ForumMobileSurface.sidebar(
+                                key: const ValueKey('mobile-navigation-panel'),
+                                child: InstanceSidebar(
+                                  key: ValueKey(('mobile-navigation', owner)),
+                                  mobile: true,
+                                  onNavigate: shell.closeMobileSidebar,
+                                  mobilePlaceOf: _placeOf,
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const _ProfileFooterSlot(),
-                ],
+                    const _ProfileFooterSlot(),
+                  ],
+                ),
               ),
             ),
           ),
@@ -474,11 +479,56 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         // The page runs under the home indicator; only the floating dock
         // keeps clear of it, and pages pad their last row by its height.
         // A route without a dock keeps an empty footer of that clearance.
-        Widget foreground(BuildContext context, Widget page) =>
-            ListenableBuilder(
-              listenable: _footerAction,
-              child: page,
-              builder: (context, content) {
+        Widget foreground(
+          BuildContext context,
+          Widget page,
+        ) => ListenableBuilder(
+          listenable: _footerAction,
+          child: page,
+          builder: (context, content) {
+            // Retain both dock presentations while navigation moves them.
+            // Progress changes the wrapper, not the controls inside it.
+            final docks = <bool, Widget>{};
+            Widget dockBuilder(bool hidden) => docks.putIfAbsent(hidden, () {
+              if (route?.isGlobalSearch == true && !sidebarOpen) {
+                return const SizedBox.shrink();
+              }
+              // A parked draft waits over the bar, which keeps pages
+              // clear of both.
+              final parked = ComposerDock.parkedDraftRoomOf(context);
+              if (hideDock) {
+                return Padding(
+                  padding: EdgeInsets.only(
+                    bottom: parked + MediaQuery.paddingOf(context).bottom,
+                  ),
+                );
+              }
+              final geometry = DMobileDockGeometry.of(context);
+              return ForumSidebarTheme(
+                child: Padding(
+                  padding: geometry.margin.add(EdgeInsets.only(top: parked)),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => _buildBottomBar(
+                      context,
+                      constraints,
+                      geometry: geometry,
+                      destinations: places,
+                      selected: selected,
+                      instance: instance,
+                      showReply: showReply,
+                      showNewMessage: showNewMessage,
+                      panelAction: panelAction,
+                      showNewTopic: showNewTopic,
+                      shell: shell,
+                      placeOrder: placeOrder,
+                      hideDestinations: hidden,
+                    ),
+                  ),
+                ),
+              );
+            });
+            return Builder(
+              builder: (context) {
                 final hidden = DHistoryTransition.navigationProgressOf(context);
                 final dock = MobileScrollDock(
                   identity: (
@@ -497,46 +547,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     onNotification: (_) => preservePageChrome,
                     child: content!,
                   ),
-                  dockBuilder: (hidden) {
-                    if (route?.isGlobalSearch == true && !sidebarOpen) {
-                      return const SizedBox.shrink();
-                    }
-                    // A parked draft waits over the bar, which keeps pages
-                    // clear of both.
-                    final parked = ComposerDock.parkedDraftRoomOf(context);
-                    if (hideDock) {
-                      return Padding(
-                        padding: EdgeInsets.only(
-                          bottom: parked + MediaQuery.paddingOf(context).bottom,
-                        ),
-                      );
-                    }
-                    final geometry = DMobileDockGeometry.of(context);
-                    return ForumSidebarTheme(
-                      child: Padding(
-                        padding: geometry.margin.add(
-                          EdgeInsets.only(top: parked),
-                        ),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) => _buildBottomBar(
-                            context,
-                            constraints,
-                            geometry: geometry,
-                            destinations: places,
-                            selected: selected,
-                            instance: instance,
-                            showReply: showReply,
-                            showNewMessage: showNewMessage,
-                            panelAction: panelAction,
-                            showNewTopic: showNewTopic,
-                            shell: shell,
-                            placeOrder: placeOrder,
-                            hideDestinations: hidden,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
+                  dockBuilder: dockBuilder,
                 );
                 return DHeaderMotionSettings(
                   tuning: route?.isTopicListFilter == true
@@ -551,6 +562,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 );
               },
             );
+          },
+        );
         Widget frame(BuildContext context, Widget page) => DPageHeaderHost(
           key: ValueKey(('mobile-page-header', owner)),
           identity: (owner, shell.mobileNavigation.entryId, sidebarOpen),

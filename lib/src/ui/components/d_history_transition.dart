@@ -681,8 +681,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       await _progress
           .animateTo(
             1,
-            duration: DMotion.duration(context, _tabDuration),
-            curve: Curves.easeInOutCubic,
+            duration: DMotion.duration(
+              context,
+              _switchingNavigation ? DMotion.change : _tabDuration,
+            ),
+            curve: _switchingNavigation
+                ? Curves.easeOutCubic
+                : Curves.easeInOutCubic,
           )
           .orCancel;
     } on TickerCanceled {
@@ -888,7 +893,10 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                     offstage: !_openingNavigation,
                     child: Opacity(
                       opacity: math.pow(_navigationProgress, 2).toDouble(),
-                      child: preview(navigation.preview, back: true),
+                      child: preview(
+                        RepaintBoundary(child: navigation.preview),
+                        back: true,
+                      ),
                     ),
                   ),
                 if (switching)
