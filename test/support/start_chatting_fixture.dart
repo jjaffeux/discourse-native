@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'bundled_plugins.dart';
 import 'chat_shell.dart';
 import 'fakes.dart';
+import 'native_ui_evidence.dart';
 
 const startChattingSite = 'https://chat-review.invalid';
 final startChattingUser = DiscourseUser(
@@ -280,14 +281,17 @@ class _StartChattingFixtureState extends State<StartChattingFixture> {
   Widget build(BuildContext context) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: theme,
-    builder: (context, child) => DFocusHighlight(
-      child: MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(widget.textScale)),
-        child: Directionality(
-          textDirection: widget.rtl ? TextDirection.rtl : TextDirection.ltr,
-          child: child!,
+    builder: (context, child) => nativeUiEvidenceBuilder(
+      context,
+      DFocusHighlight(
+        child: MediaQuery(
+          data: MediaQuery.of(
+            context,
+          ).copyWith(textScaler: TextScaler.linear(widget.textScale)),
+          child: Directionality(
+            textDirection: widget.rtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
         ),
       ),
     ),

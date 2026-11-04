@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/native_ui_evidence.dart';
 import 'support/start_chatting_fixture.dart';
 
 void main() {
@@ -43,6 +44,7 @@ void main() {
     bool rtl = false,
     bool dark = false,
   }) async {
+    await prepareNativeUiEvidence(tester);
     await tester.pumpWidget(
       StartChattingFixture(shell: shell, textScale: scale, rtl: rtl),
     );
@@ -447,6 +449,44 @@ void main() {
         }
 
         expectUnifiedSurface();
+        void expectPickerSpacing() {
+          final handleBounds = tester.getRect(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+          );
+          final inputBounds = tester.getRect(
+            find.descendant(of: search, matching: find.byType(DInput)),
+          );
+          final groupBounds = tester.getRect(
+            find
+                .ancestor(
+                  of: startGroup,
+                  matching: find.byType(GestureDetector),
+                )
+                .first,
+          );
+          expect(
+            inputBounds.top - handleBounds.bottom,
+            greaterThanOrEqualTo(8),
+          );
+          expect(groupBounds.left, closeTo(inputBounds.left, .01));
+          expect(groupBounds.right, closeTo(inputBounds.right, .01));
+          expect(
+            groupBounds.top - inputBounds.bottom,
+            greaterThanOrEqualTo(12),
+          );
+          expect(
+            tester.getTopLeft(find.text('Recent conversations')).dy -
+                groupBounds.bottom,
+            greaterThanOrEqualTo(8),
+          );
+        }
+
+        final appearance = dark ? 'dark' : 'light';
+        await captureNativeUi(
+          tester,
+          'chat-picker-$appearance-$defaultTargetPlatform',
+        );
+        expectPickerSpacing();
         expect(find.byType(DKbd), findsNothing);
         expect(find.text('↵'), findsNothing);
         expect(find.text('navigate'), findsNothing);
@@ -465,6 +505,11 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         await tester.pumpAndSettle();
+        await captureNativeUi(
+          tester,
+          'chat-picker-keyboard-$appearance-$defaultTargetPlatform',
+        );
+        expectPickerSpacing();
         expect(tester.getTopLeft(sheet).dy, lessThan(844 * .55));
         expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
         final list = find.byKey(
@@ -517,6 +562,9 @@ void main() {
     await tester.tap(startGroup);
     await tester.pumpAndSettle();
     await query(tester, 'maya');
+    await tester.ensureVisible(user('maya'));
+    await tester.pumpAndSettle();
+    await captureNativeUi(tester, 'chat-picker-large-text-rtl');
     await tester.tap(user('maya'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(createGroup);
