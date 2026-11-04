@@ -1159,6 +1159,23 @@ class _MobileFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final reveal = DHistoryTransition.navigationProgressOf(context);
     final hidden = !headerVisible || reveal >= 1;
+    final pageSlot = LayoutId(
+      key: const ValueKey(_MobileFrameSlot.page),
+      id: _MobileFrameSlot.page,
+      child: page,
+    );
+    final headerSlot = LayoutId(
+      key: const ValueKey(_MobileFrameSlot.header),
+      id: _MobileFrameSlot.header,
+      child: Offstage(
+        offstage: hidden,
+        child: Opacity(
+          key: const ValueKey('mobile-header-opacity'),
+          opacity: 1 - reveal,
+          child: ExcludeFocus(excluding: hidden, child: header),
+        ),
+      ),
+    );
     return CustomMultiChildLayout(
       delegate: _MobileFrameLayout(
         raised,
@@ -1166,20 +1183,7 @@ class _MobileFrame extends StatelessWidget {
         reveal,
         (extent) => DSheetDragScope.reportTopBar(context, extent),
       ),
-      children: [
-        LayoutId(id: _MobileFrameSlot.page, child: page),
-        LayoutId(
-          id: _MobileFrameSlot.header,
-          child: Offstage(
-            offstage: hidden,
-            child: Opacity(
-              key: const ValueKey('mobile-header-opacity'),
-              opacity: 1 - reveal,
-              child: ExcludeFocus(excluding: hidden, child: header),
-            ),
-          ),
-        ),
-      ],
+      children: raised ? [headerSlot, pageSlot] : [pageSlot, headerSlot],
     );
   }
 }

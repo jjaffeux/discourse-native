@@ -2136,59 +2136,6 @@ void main() {
   );
 
   group('a page sheet under a band', () {
-    testWidgets(
-      'reader header clears a resizing bar without insetting its source',
-      (tester) async {
-        final barHeight = ValueNotifier(52.0);
-        addTearDown(barHeight.dispose);
-        double? sourceInset;
-        const titleKey = ValueKey('reader-title');
-        await tester.pumpWidget(
-          _host(
-            DSheetDragScope(
-              child: ValueListenableBuilder<double>(
-                valueListenable: barHeight,
-                builder: (context, height, _) {
-                  DSheetDragScope.reportTopBar(context, height);
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: DSheetViewport(
-                      readerStart: DSheetReaderStart.top,
-                      underlay: Builder(
-                        builder: (context) {
-                          sourceInset = DSheetPageBand.headerInsetOf(context);
-                          return const SizedBox.expand();
-                        },
-                      ),
-                      content: DSheetContent(
-                        variant: DSheetVariant.page,
-                        showCloseButton: false,
-                        children: [
-                          Expanded(
-                            child: DPageSurface.scrollable(
-                              header: const Text('Reader title', key: titleKey),
-                              bodyBuilder: (_, _) => const SizedBox.expand(),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-          ),
-        );
-        for (final height in [52.0, 96.0]) {
-          barHeight.value = height;
-          await tester.pumpAndSettle();
-          expect(tester.getRect(find.byKey(titleKey)).top, height + 6);
-          expect(sourceInset, 0);
-          expect(tester.takeException(), isNull);
-        }
-      },
-    );
-
     late DSheetPageBand band;
     Future<void> pump(WidgetTester tester) async {
       await tester.pumpWidget(

@@ -5,8 +5,12 @@
 Reference: `discourse-native-mockups` at `a4c4875`, `App.tsx`'s
 `phonePushed`/`pushedCard` presentation and `app.css`'s `.pushed-sheet` rules,
 plus the supplied October 20 Start-page screenshot.
+The raised sheet's layer order follows `5e65190`: `.pushed-sheet.has-rise`
+covers the phone bar until the sheet edge moves below it.
 
-Mobile topics fill the content area below the persistent header. The Native
+Mobile topics open as raised sheets that cover the app header. As the topic
+scrolls, the sheet's rounded edge moves below the header and reveals it.
+Returning to the top covers the header again. The Native
 `DSheetVariant.page` paints the panel and overlays a 36×5px handle 7px below
 its top. Its top corners are 31, as round as the phone's bar, and its bottom
 corners follow the display radius, with a 55px fallback on screens with a
@@ -35,8 +39,8 @@ of the topic. While earlier posts remain or are loading, the reader keeps touch,
 trackpad, and wheel pulls, including a pull held while the final page arrives.
 Reduced motion completes an accepted dismissal immediately.
 
-The fixed mobile header also pulls the active content sheet down, including
-while its reader is scrolled. `DSheetDragScope` connects that header's
+Once uncovered, the fixed mobile header also pulls the active content sheet
+down, including while its reader is scrolled. `DSheetDragScope` connects that header's
 `DSheetDragRegion` to the page's existing drag handler. The header stays in
 place, and its buttons retain their normal tap actions. A cancelled pull
 restores the sheet. Hidden pages and gestures begun on an earlier visit cannot

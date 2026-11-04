@@ -515,15 +515,6 @@ abstract interface class DSheetPageBand {
   static ValueListenable<double>? edgeOf(BuildContext context) =>
       context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>()?.edge;
 
-  /// Returns the space a reader header reserves beneath the surrounding top bar.
-  static double headerInsetOf(BuildContext context) {
-    if (maybeOf(context) == null) return 0;
-    return context
-            .dependOnInheritedWidgetOfExactType<_DSheetRiseScope>()
-            ?.overlap ??
-        0;
-  }
-
   static Widget followEdge(BuildContext context, {required Widget child}) {
     final edge = edgeOf(context);
     return edge == null
