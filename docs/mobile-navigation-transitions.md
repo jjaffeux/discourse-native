@@ -58,7 +58,10 @@ Search controls and completed horizontal swipes call these same commands.
 The scope changes only when its presentation facts change; unrelated shell notifications do not invalidate retained content.
 The floating tab bar wraps the complete `DHistoryTransition` through `foregroundBuilder`.
 It paints above incoming page snapshots during sidebar return gestures and is excluded from those snapshots.
-The header stays in `frameBuilder` so it travels with the page during sidebar reveals.
+The header stays in `frameBuilder` and remains horizontally fixed during sidebar reveals.
+It slides upward and fades out as the tab bar slides down; both return with the same reveal progress.
+The content expands into the header's space while moving horizontally.
+During return, the outgoing sidebar fades to near transparency before the transition finishes.
 The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
 It rebuilds route data through the corresponding `ShellTabContext` instead of keeping earlier permission, account, and busy-state snapshots.
 Retained list lookup stops at a nonsheet page, and every projected route uses its own actual predecessor.

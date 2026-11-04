@@ -168,7 +168,8 @@ class DHistoryTransition extends StatefulWidget {
   ///
   /// The whole returned frame accepts edge swipes, including its padding and
   /// chrome. Page history moves and captures only the supplied page. Navigation
-  /// reveals cover the whole frame and retain its chrome in their previews.
+  /// previews cover the frame; chrome stays outside their horizontal movement.
+  /// Use [navigationProgressOf] for vertical chrome motion and opacity.
   /// Insert it once with bounded width and height. Without a builder it fills the
   /// gesture surface.
   final Widget Function(BuildContext context, Widget page)? frameBuilder;
@@ -705,105 +706,147 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     BuildContext context,
     Widget page,
   ) => LayoutBuilder(
-    builder: (context, constraints) => AnimatedBuilder(
-      animation: _progress,
-      child: _HistoryBoundary(
-        key: _frameBoundary,
-        child: widget.frameBuilder == null
-            ? page
-            : Builder(
-                builder: (context) => widget.frameBuilder!(context, page),
-              ),
-      ),
-      builder: (context, child) {
-        final reduced = MediaQuery.disableAnimationsOf(context);
-        final p = _navigationTransition && !reduced ? _progress.value : 0.0;
-        final switching = _switchingNavigation && !reduced;
-        final active = !switching && p > 0;
-        final width = constraints.maxWidth;
-        final scrim = DTokens.of(context).colors.scrim;
-        Widget preview(Widget content, {required bool back}) =>
-            Transform.translate(
+    builder: (context, constraints) {
+      final width = constraints.maxWidth;
+      final movingPage = AnimatedBuilder(
+        animation: _progress,
+        child: page,
+        builder: (context, child) {
+          final reduced = MediaQuery.disableAnimationsOf(context);
+          final p = _navigationTransition && !reduced ? _progress.value : 0.0;
+          final switching = _switchingNavigation && !reduced;
+          final returning = !switching && _navigationOpen && p > 0;
+          final clipper = returning
+              ? _HistorySidebarClipper(
+                  progress: p,
+                  scale: _previewScale + (1 - _previewScale) * p,
+                  rtl: _rtl,
+                )
+              : null;
+          return ClipRect(
+            clipBehavior: clipper == null ? Clip.none : Clip.hardEdge,
+            clipper: clipper,
+            child: Transform.translate(
+              key: const ValueKey('history-navigation-frame'),
               offset: Offset(
-                back
-                    ? -_sign * width * _parallax * (1 - p)
-                    : -_sign * width * (1 - p),
+                switching
+                    ? _tabSign * width * (1 - p)
+                    : _sign * width * p * (_back ? 1 : _parallax),
                 0,
               ),
               child: Transform.scale(
-                scale: _previewScale + (1 - _previewScale) * p,
+                scale: switching || !_navigationTransition || _back
+                    ? 1
+                    : 1 - (1 - _previewScale) * p,
                 child: ColorFiltered(
                   colorFilter: ColorFilter.mode(
-                    scrim.withValues(alpha: .40 * (back ? 1 - p : p)),
+                    DTokens.of(
+                      context,
+                    ).colors.scrim.withValues(alpha: returning ? .40 * p : 0),
                     BlendMode.srcATop,
                   ),
-                  child: ExcludeSemantics(
-                    child: IgnorePointer(child: ExcludeFocus(child: content)),
-                  ),
-                ),
-              ),
-            );
-        final snapshot = _preview == null
-            ? ColoredBox(color: DTokens.of(context).background)
-            : CustomPaint(
-                key: const ValueKey('history-frame-preview'),
-                painter: _HistoryFramePainter(
-                  _preview!,
-                  _previewPageTop,
-                  _navigationProgress,
-                ),
-                child: const SizedBox.expand(),
-              );
-        return ClipRect(
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              if (widget.navigation case final navigation?
-                  when !_navigationOpen)
-                Offstage(
-                  offstage: !_openingNavigation,
-                  child: preview(navigation.preview, back: true),
-                ),
-              if (switching)
-                Transform.translate(
-                  key: const ValueKey('history-outgoing-navigation'),
-                  offset: Offset(-_tabSign * width * p, 0),
-                  child: ExcludeSemantics(
-                    child: IgnorePointer(child: snapshot),
-                  ),
-                ),
-              Transform.translate(
-                key: const ValueKey('history-navigation-frame'),
-                offset: Offset(
-                  switching
-                      ? _tabSign * width * (1 - p)
-                      : _sign * width * p * (_back ? 1 : _parallax),
-                  0,
-                ),
-                child: Transform.scale(
-                  scale: switching || !_navigationTransition || _back
-                      ? 1
-                      : 1 - (1 - _previewScale) * p,
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      scrim.withValues(alpha: active && !_back ? .40 * p : 0),
-                      BlendMode.srcATop,
-                    ),
-                    child: IgnorePointer(
-                      ignoring:
-                          _navigationTransition &&
-                          (_dragging || _settling || switching),
+                  child: IgnorePointer(
+                    ignoring:
+                        _navigationTransition &&
+                        (_dragging || _settling || switching),
+                    child: Opacity(
+                      key: const ValueKey('history-sidebar-opacity'),
+                      opacity: returning ? math.pow(1 - p, 2).toDouble() : 1,
                       child: child,
                     ),
                   ),
                 ),
               ),
-              if (active && _navigationOpen) preview(snapshot, back: false),
-            ],
-          ),
-        );
-      },
-    ),
+            ),
+          );
+        },
+      );
+      return AnimatedBuilder(
+        animation: _progress,
+        child: _HistoryBoundary(
+          key: _frameBoundary,
+          child: widget.frameBuilder == null
+              ? movingPage
+              : Builder(
+                  builder: (context) =>
+                      widget.frameBuilder!(context, movingPage),
+                ),
+        ),
+        builder: (context, child) {
+          final reduced = MediaQuery.disableAnimationsOf(context);
+          final p = _navigationTransition && !reduced ? _progress.value : 0.0;
+          final switching = _switchingNavigation && !reduced;
+          final active = !switching && p > 0;
+          Widget preview(Widget content, {required bool back}) =>
+              Transform.translate(
+                offset: Offset(
+                  back
+                      ? -_sign * width * _parallax * (1 - p)
+                      : -_sign * width * (1 - p),
+                  0,
+                ),
+                child: Transform.scale(
+                  scale: _previewScale + (1 - _previewScale) * p,
+                  child: ColorFiltered(
+                    colorFilter: ColorFilter.mode(
+                      DTokens.of(context).colors.scrim.withValues(
+                        alpha: .40 * (back ? 1 - p : p),
+                      ),
+                      BlendMode.srcATop,
+                    ),
+                    child: ExcludeSemantics(
+                      child: IgnorePointer(child: ExcludeFocus(child: content)),
+                    ),
+                  ),
+                ),
+              );
+          final snapshot = _preview == null
+              ? ColoredBox(color: DTokens.of(context).background)
+              : CustomPaint(
+                  key: const ValueKey('history-frame-preview'),
+                  painter: _HistoryFramePainter(
+                    _preview!,
+                    _previewPageTop,
+                    _navigationProgress,
+                  ),
+                  child: const SizedBox.expand(),
+                );
+          return ClipRect(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (widget.navigation case final navigation?
+                    when !_navigationOpen)
+                  Offstage(
+                    offstage: !_openingNavigation,
+                    child: preview(navigation.preview, back: true),
+                  ),
+                if (switching)
+                  Transform.translate(
+                    key: const ValueKey('history-outgoing-navigation'),
+                    offset: Offset(-_tabSign * width * p, 0),
+                    child: ExcludeSemantics(
+                      child: IgnorePointer(
+                        child: Opacity(
+                          key: const ValueKey(
+                            'history-outgoing-sidebar-opacity',
+                          ),
+                          opacity: !_navigationOpen
+                              ? math.pow(1 - p, 2).toDouble()
+                              : 1,
+                          child: snapshot,
+                        ),
+                      ),
+                    ),
+                  ),
+                if (active && _navigationOpen) preview(snapshot, back: false),
+                child!,
+              ],
+            ),
+          );
+        },
+      );
+    },
   );
 
   Widget _buildPage(BuildContext context) {
@@ -976,6 +1019,26 @@ class _HistorySwipeScope extends InheritedWidget {
       navigationProgress != oldWidget.navigationProgress;
 }
 
+class _HistorySidebarClipper extends CustomClipper<Rect> {
+  const _HistorySidebarClipper({
+    required this.progress,
+    required this.scale,
+    required this.rtl,
+  });
+  final double progress, scale;
+  final bool rtl;
+
+  @override
+  Rect getClip(Size size) {
+    final width = size.width * (1 - progress + (1 - scale) / 2);
+    return Rect.fromLTWH(rtl ? size.width - width : 0, 0, width, size.height);
+  }
+
+  @override
+  bool shouldReclip(_HistorySidebarClipper old) =>
+      progress != old.progress || scale != old.scale || rtl != old.rtl;
+}
+
 class _HistoryFrameSnapshot {
   const _HistoryFrameSnapshot(this.image, this.pageTop);
   final ui.Image image;
@@ -997,14 +1060,6 @@ class _HistoryFramePainter extends CustomPainter {
     final sourceTop = (pageTop * ratio).clamp(0.0, image.height.toDouble());
     final top = pageTop * (1 - reveal);
     final paint = Paint()..filterQuality = FilterQuality.low;
-    if (sourceTop > 0) {
-      canvas.drawImageRect(
-        image,
-        Rect.fromLTWH(0, 0, image.width.toDouble(), sourceTop),
-        Rect.fromLTWH(0, -pageTop * reveal, size.width, pageTop),
-        paint,
-      );
-    }
     canvas.drawImageRect(
       image,
       Rect.fromLTRB(

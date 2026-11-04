@@ -125,10 +125,7 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
           Expanded(
             child: DHistoryTransition(
               foregroundBuilder: (context, page) {
-                final swipe = DHistoryTransition.swipeOf(context);
-                final hidden = _open
-                    ? 1.0 - (swipe?.progress ?? 0.0)
-                    : swipe?.progress ?? 0.0;
+                final hidden = DHistoryTransition.navigationProgressOf(context);
                 return DScrollChrome(
                   identity: _history,
                   floatingFooter: true,

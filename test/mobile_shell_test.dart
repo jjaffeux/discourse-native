@@ -2798,7 +2798,17 @@ void main() {
       final direction = open ? -1 : 1;
       expect(incoming.transform.getTranslation().x * direction, greaterThan(0));
       expect(outgoing.transform.getTranslation().x * direction, lessThan(0));
-      expect(_header, open ? findsNothing : findsOneWidget);
+      expect(_header, findsOneWidget);
+      expect(tester.getRect(_header).left, header.left);
+      expect(tester.getRect(_header).top, lessThan(header.top));
+      expect(
+        tester
+            .widget<Opacity>(
+              find.byKey(const ValueKey('mobile-header-opacity')),
+            )
+            .opacity,
+        inExclusiveRange(0, 1),
+      );
       await tester.pumpAndSettle();
       expect(shell.mobileNavigation.entryId, same(visit));
       expect(tester.element(page), same(originalPage));
@@ -5368,6 +5378,16 @@ void main() {
         closeTo(resting.height + header.height * fraction, .01),
       );
       expect(tester.getRect(panel).bottom, closeTo(resting.bottom, .01));
+      expect(tester.getRect(_header).left, header.left);
+      expect(tester.getRect(_header).width, header.width);
+      expect(
+        tester
+            .widget<Opacity>(
+              find.byKey(const ValueKey('mobile-header-opacity')),
+            )
+            .opacity,
+        closeTo(1 - fraction, .001),
+      );
       await _captureChrome(tester, 'sidebar-reveal-$fraction');
       final held = tester.getRect(panel);
       await tester.pump(const Duration(milliseconds: 100));
@@ -5385,10 +5405,23 @@ void main() {
     await _toggleNavigation(tester);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
+    expect(
+      find.descendant(of: _header, matching: find.text('Latest topics')),
+      findsOneWidget,
+    );
     final closingHeader = tester.getRect(_header);
     final closingPanel = tester.getRect(panel);
     expect(closingHeader.top, greaterThan(header.top - header.height));
     expect(closingHeader.top, lessThan(header.top));
+    expect(closingHeader.left, header.left);
+    expect(closingHeader.width, header.width);
+    final reveal = (header.top - closingHeader.top) / header.height;
+    expect(
+      tester
+          .widget<Opacity>(find.byKey(const ValueKey('mobile-header-opacity')))
+          .opacity,
+      closeTo(1 - reveal, .001),
+    );
     expect(closingPanel.top, closeTo(closingHeader.bottom + 6, .01));
     expect(closingPanel.bottom, closeTo(resting.bottom, .01));
     await _captureChrome(tester, 'sidebar-button-closing');
@@ -5442,6 +5475,56 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest('outgoing sidebar fades before a return finishes and reverses', (
+    tester,
+  ) async {
+    final shell = await pumpMobileShellFixture(tester);
+    await _toggleNavigation(tester);
+    await tester.pumpAndSettle();
+    final start = Offset(phone.width - 1, 400);
+    final gesture = await tester.startGesture(start);
+    var step = 0;
+    for (final progress in [.4, .9, .5]) {
+      await gesture.moveTo(
+        start - Offset(phone.width * progress, 0),
+        timeStamp: Duration(milliseconds: ++step * 200),
+      );
+      await tester.pump();
+      final opacity = tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('history-sidebar-opacity')),
+          )
+          .opacity;
+      expect(opacity, closeTo((1 - progress) * (1 - progress), .001));
+      if (progress == .9) expect(opacity, lessThan(.02));
+    }
+    await gesture.cancel();
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isTrue);
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('history-sidebar-opacity')),
+          )
+          .opacity,
+      1,
+    );
+    await _toggleNavigation(tester);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 240));
+    expect(
+      tester
+          .widget<Opacity>(
+            find.byKey(const ValueKey('history-outgoing-sidebar-opacity')),
+          )
+          .opacity,
+      lessThan(.02),
+    );
+    await tester.pumpAndSettle();
+    expect(shell.mobileNavigation.sidebarOpen, isFalse);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest('returning from the sidebar paints the tab bar above the page', (
     tester,
@@ -5533,14 +5616,11 @@ void main() {
               closeTo(bar.top + travel * hidden, .01),
             );
             expect(tester.getRect(_bar).left, bar.left);
-            if (opening) {
-              expect(
-                tester.getRect(_header).left,
-                closeTo(header.left + phone.width * fraction, .01),
-              );
-            } else {
-              expect(_header, findsNothing);
-            }
+            expect(tester.getRect(_header).left, closeTo(header.left, .01));
+            expect(
+              tester.getRect(_header).top,
+              closeTo(header.top - header.height * hidden, .01),
+            );
             if (opening) {
               expect(
                 tester.getSize(
@@ -5630,7 +5710,7 @@ void main() {
       expect(find.byType(InstanceRail), findsOneWidget);
       expect(find.text('Forum'), findsOneWidget);
       expect(tester.element(navigationPage), same(navigationElement));
-      expect(tester.getRect(_header).left, closeTo(header.left + 120, .01));
+      expect(tester.getRect(_header).left, closeTo(header.left, .01));
       await open.up();
       await tester.pump();
       await tester.pump(DMotion.change);
@@ -5656,7 +5736,8 @@ void main() {
       final preview = find.byKey(const ValueKey('history-frame-preview'));
       expect(preview, findsOneWidget);
       expect(tester.getSize(preview).height, phone.height);
-      expect(_header, findsNothing);
+      expect(tester.getRect(_header).left, header.left);
+      expect(tester.getRect(_header).top, lessThan(header.top));
       await close.up();
       await tester.pump();
       await tester.pump(DMotion.change);
@@ -5702,11 +5783,7 @@ void main() {
           expect(left, greaterThanOrEqualTo(-.001));
           expect(right, lessThan(width));
         }
-        if (shell.mobileNavigation.sidebarOpen) {
-          expect(_header, findsNothing);
-        } else {
-          expect(tester.getRect(_header).left, greaterThan(header.left));
-        }
+        expect(tester.getRect(_header).left, header.left);
       }
 
       for (final open in [true, false]) {
