@@ -13,7 +13,7 @@ Pages with less than 120 px of scroll overflow keep their title.
 
 | Routes | Heading policy |
 | --- | --- |
-| Latest, New, Unread, Top, Trending, category feeds, tag feeds | Title retracts. Feed selectors, filters, and actions remain. |
+| Latest, New, Unread, Top, Trending, category feeds, tag feeds | On desktop, the title retracts and controls remain. On phones, controls retract directly with scrolling and the title stays in the top bar. |
 | Messages, personal folders, group inboxes | Title retracts. Folder and inbox selectors remain. |
 | Bookmarks, Activity, Drafts | Title retracts. Filters remain where present. |
 | Groups, Badges, Categories | Title retracts. Directory controls remain. |

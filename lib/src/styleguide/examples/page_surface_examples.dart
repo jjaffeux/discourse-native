@@ -12,6 +12,7 @@ final pageSurfaceExamples = ComponentExamples(
       'The kit owns 22px title typography, platform spacing and the 14px soft scroll edge. '
       'Desktop titles retract on downward input and return on upward input or at the top. '
       'DPageHeaderHost(titlesInBar: true) moves phone page names into the bar from the first frame. '
+      'retractControls lets a headed page retract both control rows. Phone topic lists use it with direct scroll motion while their title stays in the bar. '
       'Reader fadeHeaderOnScroll fades DHeaderMorph parts before posts reach them; '
       'barOpacity carries the topic title into surrounding chrome. holdTitleInBar keeps channel names there. '
       'The first 48px and pages with less than 120px of overflow keep their title. '

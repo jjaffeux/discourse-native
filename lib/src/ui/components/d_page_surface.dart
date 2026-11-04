@@ -38,6 +38,7 @@ class DPageSurface extends StatefulWidget {
   /// An [icon] marks the title the way the page's navigation entry does.
   /// [secondaryControls] adds a persistent second row, 8 pixels below [controls],
   /// with a 2-pixel bottom inset. Both rows keep the page's 16-pixel side inset.
+  /// [retractControls] lets both rows retract with the heading.
   DPageSurface.headed({
     super.key,
     required Widget title,
@@ -46,6 +47,7 @@ class DPageSurface extends StatefulWidget {
     DIconData? icon,
     Widget? controls,
     Widget? secondaryControls,
+    this.retractControls = false,
     this.bodyBuilder,
     this.adaptiveBodyBuilder,
     this.child,
@@ -114,6 +116,7 @@ class DPageSurface extends StatefulWidget {
     required this.child,
     this.identity,
   }) : assert(child != null),
+       retractControls = false,
        foldTitleAtTop = false,
        floatingFooter = false,
        compactHeaderBand = false,
@@ -153,6 +156,7 @@ class DPageSurface extends StatefulWidget {
     this.compactHeaderBand = false,
     required this.bodyBuilder,
   }) : assert(bodyBuilder != null),
+       retractControls = false,
        foldTitleAtTop = false,
        adaptiveBodyBuilder = null,
        child = null;
@@ -160,6 +164,10 @@ class DPageSurface extends StatefulWidget {
   /// Directory indexes keep a compact title away from the top, including
   /// programmatic jumps; ordinary pages reveal their title on upward input.
   final bool foldTitleAtTop;
+
+  /// Retracts a headed page's controls with its title. A title held in the
+  /// surrounding bar stays there while the controls yield to the body.
+  final bool retractControls;
 
   /// Plain heading text for surrounding chrome. Headed pages infer this from
   /// a Text title; composite headings and specialized readers supply it.
@@ -200,7 +208,8 @@ class DPageSurface extends StatefulWidget {
   /// in both layouts. The visible header retains its own element and state.
   final bool measureCompactHeader;
 
-  /// A control bar below the title that remains visible when [header] retracts.
+  /// A control bar below the title that remains visible when [header] retracts,
+  /// unless [retractControls] is enabled on a headed page.
   /// The title's original space remains reserved above the scrolling body, so
   /// retraction moves the bar without moving the content or its scroll anchor.
   final Widget? headerControls;
@@ -334,11 +343,19 @@ class _DPageSurfaceState extends State<DPageSurface>
   final _readerScroll = ValueNotifier(0.0);
   final _readerTitleOpacity = ValueNotifier(1.0);
   bool _readerInitialized = false;
-  Widget? get _header => _titleInBar
-      ? const SizedBox.shrink()
-      : _compact
-      ? widget.compactHeader ?? widget.header
-      : widget.header;
+  Widget? get _header {
+    final title = _titleInBar
+        ? const SizedBox.shrink()
+        : _compact
+        ? widget.compactHeader ?? widget.header
+        : widget.header;
+    if (!widget.retractControls) return title;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [?title, ?widget.headerControls],
+    );
+  }
 
   // Until the edge fade engages, the body is wholly below the header, so the
   // first row's lift and shadow may paint into the controls' empty padding.
@@ -558,6 +575,7 @@ class _DPageSurfaceState extends State<DPageSurface>
       _headerGeometry._updateFooter(0);
     }
     if (oldWidget.identity != widget.identity ||
+        oldWidget.retractControls != widget.retractControls ||
         oldWidget.hideHeaderOnScroll != widget.hideHeaderOnScroll ||
         oldWidget.revealHeaderAtEnd != widget.revealHeaderAtEnd ||
         (oldWidget.header != null && _header == null)) {
@@ -1020,7 +1038,9 @@ class _DPageSurfaceState extends State<DPageSurface>
                     floating: (widget.bodyBuilder != null),
                     releaseSpace: widget.header is _PageTitle,
                     geometry: _headerGeometry,
-                    controls: widget.headerControls,
+                    controls: widget.retractControls
+                        ? null
+                        : widget.headerControls,
                     child: ExcludeSemantics(
                       excluding: _gone,
                       child: ExcludeFocus(

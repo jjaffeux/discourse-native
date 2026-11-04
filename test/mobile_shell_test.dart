@@ -694,6 +694,68 @@ void main() {
     },
   );
 
+  _mobileTest(
+    'phone topic filters follow the finger and stay put during pauses',
+    (tester) async {
+      await pumpMobileShellFixture(
+        tester,
+        topics: [
+          for (var id = 1; id <= 50; id++)
+            Topic(
+              id: id,
+              title: 'Scrollable topic $id',
+              slug: 'scrollable-$id',
+            ),
+        ],
+      );
+      final list = find.byType(TopicListView);
+      final element = tester.element(list);
+      final row = find.byKey(const ValueKey('topic-list-feed-row'));
+      final category = find.byKey(const ValueKey('topic-list-category-filter'));
+      final title = find.byKey(const ValueKey('mobile-page-title'));
+      final scroll = tester
+          .state<ScrollableState>(
+            find.descendant(of: list, matching: find.byType(Scrollable)).first,
+          )
+          .position;
+      scroll.jumpTo(600);
+      await tester.pumpAndSettle();
+      final shownTop = tester.getTopLeft(row).dy;
+      final gesture = await tester.startGesture(tester.getCenter(list));
+      await gesture.moveBy(const Offset(0, -30));
+      await tester.pump();
+      await gesture.moveBy(const Offset(0, -12));
+      await tester.pump();
+      final partialTop = tester.getTopLeft(row).dy;
+      expect(partialTop, lessThan(shownTop));
+
+      await gesture.moveBy(const Offset(0, -12));
+      await tester.pump();
+      expect(tester.getTopLeft(row).dy, closeTo(partialTop - 12, .01));
+      final pausedTop = tester.getTopLeft(row).dy;
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(tester.getTopLeft(row).dy, closeTo(pausedTop, .01));
+
+      await gesture.moveBy(const Offset(0, 8));
+      await tester.pump();
+      expect(tester.getTopLeft(row).dy, closeTo(pausedTop + 8, .01));
+      expect(title.hitTestable(), findsOneWidget);
+
+      await gesture.moveBy(const Offset(0, -200));
+      await tester.pumpAndSettle();
+      expect(category.hitTestable(), findsNothing);
+      expect(title.hitTestable(), findsOneWidget);
+      final hiddenTop = tester.getTopLeft(row).dy;
+      await gesture.moveBy(const Offset(0, 8));
+      await tester.pump();
+      expect(tester.getTopLeft(row).dy, closeTo(hiddenTop + 8, .01));
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+      expect(tester.element(list), same(element));
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('returning from Chat keeps the scrolled topic row stable', (
     tester,
   ) async {

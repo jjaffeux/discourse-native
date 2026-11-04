@@ -13,6 +13,9 @@ On phones, `DPageHeaderHost(titlesInBar: true)` keeps ordinary page names in
 the top bar from the first frame and leaves only controls in the page heading.
 On desktop, the title hides during downward input and returns during upward
 input or at the top. The controls stay visible.
+Phone topic lists use `retractControls: true` to move their filters offscreen
+with the scroll while their title stays in the top bar. Their shared header
+motion uses `DHeaderSettle.stay` with zero smoothing, reversal slack and hold.
 `DPageHeaderScope.maybeOf(context)` exposes the owning page's `DPageHeader`
 inside its heading, controls, and body. Listen to its `value` for retraction
 from zero to one and call `scrollToTop()` to return only that page to its

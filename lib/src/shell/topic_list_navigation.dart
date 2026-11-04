@@ -153,6 +153,7 @@ class TopicListNavigation extends StatelessWidget {
       return ListenableBuilder(
         listenable: category ?? Listenable.merge(const []),
         builder: (context, _) => DPageSurface.headed(
+          retractControls: ShellScope.read(context).mobileNavigationEnabled,
           titleText: category != null
               ? category.value?.name ?? context.l10n.category
               : state.mode == null

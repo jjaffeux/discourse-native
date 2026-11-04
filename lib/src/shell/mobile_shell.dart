@@ -453,7 +453,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                 : swipe?.entry == sidebarEntry
                 ? swipe!.progress
                 : 0.0;
-            return MobileScrollDock(
+            final dock = MobileScrollDock(
               identity: (
                 owner,
                 selected,
@@ -508,6 +508,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ),
                 );
               },
+            );
+            return DHeaderMotionSettings(
+              tuning: route?.isTopicListFilter == true
+                  ? const DHeaderTuning(
+                      settle: DHeaderSettle.stay,
+                      slack: 0,
+                      hold: 0,
+                      smoothing: 0,
+                    )
+                  : DHeaderMotionSettings.of(context),
+              child: dock,
             );
           },
         );
