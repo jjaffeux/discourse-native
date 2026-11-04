@@ -692,14 +692,10 @@ class _TopicViewState extends State<TopicView>
     final position = item.findAncestorStateOfType<ScrollableState>()?.position;
     if (position == null) return _bodyAtOnce;
     return switch (position.userScrollDirection) {
-      ScrollDirection.reverse => (
+      ScrollDirection.reverse || ScrollDirection.forward => (
         followsFrame: true,
         reservedHeight: _reader.measuredExtentFor(postId),
       ),
-      ScrollDirection.forward => switch (_reader.measuredExtentFor(postId)) {
-        final height? => (followsFrame: true, reservedHeight: height),
-        null => _bodyAtOnce,
-      },
       ScrollDirection.idle => _bodyAtOnce,
     };
   }
