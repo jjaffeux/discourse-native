@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/cooked_table.dart';
 import 'package:discourse_native/src/shell/progressive_html_mode.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -235,13 +236,104 @@ void main() {
     );
   }
 
-  for (final towardEnd in [true, false]) {
+  testWidgets('a cached reply can grow into quoted tables during a drag', (
+    tester,
+  ) async {
+    final controller = await topicScrollController();
+    addTearDown(controller.dispose);
+    try {
+      await tester.pumpWidget(
+        TopicScrollFixture(controller: controller, inbox: false),
+      );
+      await _until(tester, () => _paragraphs('Post 1:').evaluate().isNotEmpty);
+      await tester.pumpAndSettle();
+      final list = topicPostList(tester);
+      list.listController!.jumpToItem(
+        index: 80,
+        scrollController: list.controller!,
+        alignment: 0,
+      );
+      await tester.pumpAndSettle();
+      final viewport = topicReadingViewportRect(tester);
+      final preceding = [
+        for (var id = 2; id < 41; id++)
+          if (find
+                  .byKey(ValueKey(id), skipOffstage: false)
+                  .evaluate()
+                  .isNotEmpty &&
+              tester
+                      .getBottomLeft(
+                        find.byKey(ValueKey(id), skipOffstage: false),
+                      )
+                      .dy <
+                  viewport.top)
+            id,
+      ];
+      expect(preceding, isNotEmpty);
+      final anchor = find.byKey(const ValueKey(41));
+      final gesture = await tester.startGesture(
+        tester.getCenter(topicPostListFinder()),
+      );
+      await gesture.moveBy(const Offset(0, -30));
+      await tester.pump();
+      final top = tester.getTopLeft(anchor).dy;
+      final element = tester.element(anchor);
+      String table(int count) =>
+          '<table><tr>'
+          '${List.generate(10, (c) => '<th>Column $c</th>').join()}'
+          '</tr>${List.generate(count, (r) => '<tr>${List.generate(10, (c) => '<td><strong>Cell $r $c</strong></td>').join()}</tr>').join()}</table>';
+      controller.store.update<Post>(
+        controller.currentInstance!.url,
+        preceding.last,
+        (post) => post.copyWith(
+          cooked: '<blockquote>${table(6)}${table(2)}</blockquote>',
+        ),
+      );
+      await _until(tester, () {
+        expect(tester.getTopLeft(anchor).dy, closeTo(top, .5));
+        expect(tester.element(anchor), same(element));
+        return find
+                .byType(CookedTable, skipOffstage: false)
+                .evaluate()
+                .length ==
+            2;
+      });
+      await tester.pump();
+      expect(tester.getTopLeft(anchor).dy, closeTo(top, .5));
+      expect(tester.element(anchor), same(element));
+      await gesture.up();
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  for (final (towardEnd, quoted) in [
+    (true, false),
+    (false, false),
+    (true, true),
+    (false, true),
+  ]) {
     testWidgets(
-      'replies dragged into the cache toward the end build their bodies '
-      'after that frame (towardEnd=$towardEnd)',
+      'replies dragged into the leading or trailing cache build their bodies '
+      'after that frame (towardEnd=$towardEnd, quoted=$quoted)',
       (tester) async {
         final controller = await topicScrollController();
         addTearDown(controller.dispose);
+        if (quoted) {
+          for (var id = 2; id <= 60; id++) {
+            if (id == 20) continue;
+            controller.store.update<Post>(
+              controller.currentInstance!.url,
+              id,
+              (post) => post.copyWith(
+                cooked: '<blockquote>${post.cooked}</blockquote>',
+              ),
+            );
+          }
+        }
         try {
           await tester.pumpWidget(
             TopicScrollFixture(controller: controller, inbox: false),
@@ -289,22 +381,22 @@ void main() {
           for (final id in entered) {
             expect(
               _paragraphs('Post $id:', skipOffstage: false),
-              towardEnd ? findsNothing : findsNWidgets(3),
-              reason: towardEnd
-                  ? 'Reply $id below builds its body after the frame it entered'
-                  : 'Reply $id above builds its body before anything moves',
+              findsNothing,
+              reason: 'Reply $id builds its body after the frame it entered',
             );
           }
           final top = tester.getTopLeft(anchor).dy;
-          await _until(
-            tester,
-            () => entered.every(
+          final anchorElement = tester.element(anchor);
+          await _until(tester, () {
+            expect(tester.getTopLeft(anchor).dy, closeTo(top, 1));
+            expect(tester.element(anchor), same(anchorElement));
+            return entered.every(
               (id) => _paragraphs(
                 'Post $id:',
                 skipOffstage: false,
               ).evaluate().isNotEmpty,
-            ),
-          );
+            );
+          });
           for (final id in entered) {
             expect(
               _paragraphs('Post $id:', skipOffstage: false),

@@ -7,6 +7,24 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 
+/// Carries a reply's latched parsing policy through nested cooked bodies.
+class HtmlBodyTiming extends InheritedWidget {
+  const HtmlBodyTiming({
+    super.key,
+    required this.followsFrame,
+    required super.child,
+  });
+
+  final bool followsFrame;
+
+  static bool followsFrameOf(BuildContext context) =>
+      context.getInheritedWidgetOfExactType<HtmlBodyTiming>()?.followsFrame ??
+      false;
+
+  @override
+  bool updateShouldNotify(HtmlBodyTiming oldWidget) => false;
+}
+
 /// Mounts long HTML bodies across frames without splitting their DOM, selection
 /// owner, or post identity. The completed body has ordinary column layout.
 ///

@@ -334,6 +334,7 @@ class _CookedHtmlBody extends StatefulWidget {
 class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
   CookedHtml get options => widget.options;
   late CookedRenderContext _render;
+  RenderMode? _columnBodyMode;
   CookedDocument? _document;
   (String, String?, bool, PostChecklistDocument?, bool)? _documentKey;
   late final _searchHtml = SearchHtmlPreparation(
@@ -387,6 +388,12 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
       :checklistDocument,
       :mentionedUserStatuses,
     ) = options;
+    final followsFrame =
+        buildAsync == null && HtmlBodyTiming.followsFrameOf(context);
+    final bodyMode = followsFrame && renderMode == RenderMode.column
+        ? const ProgressiveHtmlMode()
+        : renderMode;
+    _columnBodyMode = bodyMode is ProgressiveHtmlMode ? bodyMode : null;
     final transient =
         requestedTransient ||
         (context
@@ -483,11 +490,16 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
           actions: this,
           mentionedUserStatuses: mentionedUserStatuses,
         );
-    final content = document.bind(
-      (context, fragment, nestedStyle) =>
-          CookedHtml._fragment(render, fragment, nestedStyle ?? style),
-      onToggle: render.canToggle ? render.actions.toggleChecklist : null,
-    );
+    final content = document.bind((context, fragment, nestedStyle) {
+      final text = fragment.plainText;
+      return text == null
+          ? CookedHtml._fragment(render, fragment, nestedStyle ?? style)
+          : _CookedPlainText(
+              render: render,
+              text: text,
+              textStyle: nestedStyle ?? style,
+            );
+    }, onToggle: render.canToggle ? render.actions.toggleChecklist : null);
     final searchQuery = SearchWords.of(context);
     final searchColor = DTokens.of(context).primary;
     final CookedRenderInputs inputs = (
@@ -499,7 +511,7 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
       searchWords: searchQuery,
       searchColor: searchColor,
       mutedForeground: DTokens.of(context).mutedForeground,
-      renderMode: renderMode,
+      renderMode: bodyMode,
       compactParagraphs: compactParagraphs,
       contentSized: contentSized,
       horizontalRuleColor: horizontalRuleColor,
@@ -527,20 +539,18 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
         registry: resolvedRegistry,
         child: HtmlWidget(
           highlightedHtml,
-          buildAsync: buildAsync,
+          buildAsync: buildAsync ?? (followsFrame ? true : null),
           baseUrl: resolvedSiteUrl == null
               ? null
               : Uri.tryParse(resolvedSiteUrl),
           textStyle: style,
           // Progressive mounting preserves the column renderer's CSS normalization.
-          renderMode: renderMode is ProgressiveHtmlMode
+          renderMode: bodyMode is ProgressiveHtmlMode
               ? RenderMode.column
-              : renderMode,
+              : bodyMode,
           factoryBuilder: () => SiteImageWidgetFactory(
             configuration: () => (
-              columnBodyMode: options.renderMode is ProgressiveHtmlMode
-                  ? options.renderMode
-                  : null,
+              columnBodyMode: _columnBodyMode,
               siteUrl: _render.siteUrl,
               registry: _render.registry,
               onMiddleClickUrl: (url) =>
@@ -586,6 +596,56 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
     );
   }
 }
+
+// Plain table cells retain plugin hooks and selection without an HTML lifetime.
+class _CookedPlainText extends StatelessWidget {
+  const _CookedPlainText({
+    required this.render,
+    required this.text,
+    required this.textStyle,
+  });
+
+  final CookedRenderContext render;
+  final String text;
+  final TextStyle? textStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final style =
+        Theme.of(context).textTheme.bodyLarge?.merge(textStyle) ?? textStyle;
+    final element = dom.Element.tag('div')..append(dom.Text(text));
+    final custom =
+        CookedHtml._pluginWidget(
+          context,
+          element,
+          render.siteUrl,
+          render.post,
+          render.topic,
+          render.registry,
+        ) ??
+        render.registry.cookedElement(render.siteUrl, element);
+    if (custom != null) return custom;
+    var collapsed = text.replaceAll(_normalHtmlWhitespace, ' ');
+    if (collapsed.startsWith(' ')) collapsed = collapsed.substring(1);
+    if (collapsed.endsWith(' ')) {
+      collapsed = collapsed.substring(0, collapsed.length - 1);
+    }
+    return Text.rich(
+      TextSpan(
+        children: searchTextSpans(
+          collapsed,
+          SearchWords.of(context),
+          searchHitStyle(context),
+        ),
+      ),
+      style: style,
+      softWrap: true,
+      overflow: TextOverflow.clip,
+    );
+  }
+}
+
+final _normalHtmlWhitespace = RegExp(r'[ \t\n\r\f]+');
 
 class _TransientCookedScope extends InheritedWidget {
   const _TransientCookedScope({required this.transient, required super.child});

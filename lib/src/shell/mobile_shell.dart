@@ -61,6 +61,10 @@ class MobileForumRoot extends StatefulWidget {
 
 class _MobileForumRootState extends State<MobileForumRoot> {
   final _navigationPageKey = GlobalKey();
+  late final Widget _navigationPage = Builder(builder: _buildNavigationPage);
+  final _panelRoots = <(Object, String), Widget>{};
+  List<MobileTab> _tabOrder = const [];
+
   final MobileFooterActionController _footerAction =
       MobileFooterActionController();
 
@@ -104,6 +108,83 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         child: _chrome ??= Builder(builder: _buildChrome),
       );
 
+  // Badge changes rebuild the dock. Retained pages keep their widget identity;
+  // their own selectors still receive navigation, account and content updates.
+  Widget _buildNavigationPage(BuildContext context) => ShellSelector(
+    select: (shell) => (
+      owner: (shell.currentInstance?.url, shell.currentAccountIdentity),
+      sidebarOpen: shell.mobileNavigation.sidebarOpen,
+    ),
+    builder: (context, state, _) {
+      final shell = ShellScope.read(context);
+      final instance = shell.currentInstance;
+      if (instance == null) return const SizedBox.shrink();
+      final owner = (instance.url, shell.currentAccountIdentity);
+      final sidebarOpen = state.sidebarOpen;
+      final foot = MediaQuery.paddingOf(context).bottom;
+      return CallbackShortcuts(
+        key: _navigationPageKey,
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape):
+              shell.closeMobileSidebar,
+        },
+        child: Focus(
+          autofocus: sidebarOpen,
+          child: MediaQuery.removePadding(
+            context: context,
+            removeBottom: true,
+            child: Padding(
+              key: const ValueKey('mobile-navigation-page'),
+              padding: EdgeInsets.only(
+                bottom: DMobileDockGeometry(foot: foot).endLift,
+              ),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const SizedBox(
+                          width: _mobileRailWidth,
+                          child: InstanceRail(),
+                        ),
+                        Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 6, right: 6),
+                            child: ForumMobileSurface.sidebar(
+                              key: const ValueKey('mobile-navigation-panel'),
+                              child: InstanceSidebar(
+                                key: ValueKey(('mobile-navigation', owner)),
+                                mobile: true,
+                                onNavigate: shell.closeMobileSidebar,
+                                mobilePlaceOf: _placeOf,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const _ProfileFooterSlot(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    },
+  );
+
+  MobileTab _placeOf(SidebarDestination destination) {
+    final tab = switch (destination.id) {
+      'latest' => MobileTab.topics,
+      'messages' => MobileTab.messages,
+      'users' => MobileTab.users,
+      _ => MobileTab.destination(destination.id),
+    };
+    return _tabOrder.contains(tab) ? tab : MobileTab.topics;
+  }
+
   Widget _buildChrome(BuildContext context) {
     final shell = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
@@ -125,7 +206,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         if (instance == null) return const SizedBox.shrink();
         final owner = (instance.url, shell.currentAccountIdentity);
         final sidebarOpen = shell.mobileNavigation.sidebarOpen;
-        final foot = MediaQuery.paddingOf(context).bottom;
         final panels = registry
             .sidebarPanels(context)
             .where((entry) => entry.panel.showSwitch)
@@ -141,66 +221,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           order: placeOrder?.order ?? const [],
         );
         final tabOrder = [for (final place in places) place.tab];
-        // A drawer page the bar offers no place for belongs to Topics.
-        MobileTab placeOf(SidebarDestination destination) {
-          final tab = switch (destination.id) {
-            'latest' => MobileTab.topics,
-            'messages' => MobileTab.messages,
-            'users' => MobileTab.users,
-            _ => MobileTab.destination(destination.id),
-          };
-          return tabOrder.contains(tab) ? tab : MobileTab.topics;
-        }
-
-        final navigationPage = CallbackShortcuts(
-          key: _navigationPageKey,
-          bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape):
-                shell.closeMobileSidebar,
-          },
-          child: Focus(
-            autofocus: sidebarOpen,
-            child: MediaQuery.removePadding(
-              context: context,
-              removeBottom: true,
-              child: Padding(
-                key: const ValueKey('mobile-navigation-page'),
-                padding: EdgeInsets.only(
-                  bottom: DMobileDockGeometry(foot: foot).endLift,
-                ),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const SizedBox(
-                            width: _mobileRailWidth,
-                            child: InstanceRail(),
-                          ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(top: 6, right: 6),
-                              child: ForumMobileSurface.sidebar(
-                                key: const ValueKey('mobile-navigation-panel'),
-                                child: InstanceSidebar(
-                                  key: ValueKey(('mobile-navigation', owner)),
-                                  mobile: true,
-                                  onNavigate: shell.closeMobileSidebar,
-                                  mobilePlaceOf: placeOf,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const _ProfileFooterSlot(),
-                  ],
-                ),
-              ),
-            ),
-          ),
+        _tabOrder = tabOrder;
+        _panelRoots.removeWhere(
+          (key, _) =>
+              key.$1 != owner ||
+              !panels.any((entry) => entry.owner.value == key.$2),
         );
         if (!tabOrder.contains(selected)) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -494,7 +519,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           presentation: presentation,
           child: MobileHistoryGestures(
             tab: (id: selected, index: tabOrder.indexOf(selected)),
-            navigationPreview: navigationPage,
+            navigationPreview: _navigationPage,
             frameBuilder: frame,
             child: Stack(
               fit: StackFit.expand,
@@ -538,14 +563,17 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                       excluding:
                                           !(panelRoot &&
                                               panelOwner == entry.owner.value),
-                                      child: InstanceSidebar(
-                                        key: ValueKey((
-                                          'mobile-panel',
-                                          entry.owner.value,
-                                          owner,
-                                        )),
-                                        mobile: true,
-                                        panelOwner: entry.owner.value,
+                                      child: _panelRoots.putIfAbsent(
+                                        (owner, entry.owner.value),
+                                        () => InstanceSidebar(
+                                          key: ValueKey((
+                                            'mobile-panel',
+                                            entry.owner.value,
+                                            owner,
+                                          )),
+                                          mobile: true,
+                                          panelOwner: entry.owner.value,
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -558,7 +586,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     ),
                   ),
                 ),
-                if (sidebarOpen) navigationPage,
+                if (sidebarOpen) _navigationPage,
               ],
             ),
           ),

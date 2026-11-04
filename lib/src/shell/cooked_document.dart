@@ -26,7 +26,8 @@ final class CookedDocument {
     _inheritsChecklist ? source : checklist?.annotatedHtml ?? source,
   );
 
-  CookedFragment fragment(String html) => CookedFragment._(this, html);
+  CookedFragment fragment(String html, {String? plainText}) =>
+      CookedFragment._(this, html, plainText);
 
   CookedContent bind(
     Widget Function(BuildContext, CookedFragment, TextStyle?) builder, {
@@ -36,19 +37,21 @@ final class CookedDocument {
 
 @immutable
 final class CookedFragment {
-  const CookedFragment._(this.document, this.html);
+  const CookedFragment._(this.document, this.html, this.plainText);
 
   final CookedDocument document;
   final String html;
+  final String? plainText;
 
   @override
   bool operator ==(Object other) =>
       other is CookedFragment &&
       identical(document, other.document) &&
-      html == other.html;
+      html == other.html &&
+      plainText == other.plainText;
 
   @override
-  int get hashCode => Object.hash(document, html);
+  int get hashCode => Object.hash(document, html, plainText);
 }
 
 /// A bound fragment builder keeps adapters inside their owning document.
@@ -60,8 +63,13 @@ final class CookedContent {
   final Widget Function(BuildContext, CookedFragment, TextStyle?) _builder;
   final void Function(PostChecklistTarget, bool)? onToggle;
 
-  Widget call(BuildContext context, String html, {TextStyle? style}) =>
-      _builder(context, _document.fragment(html), style);
+  Widget call(
+    BuildContext context,
+    String html, {
+    TextStyle? style,
+    String? plainText,
+  }) =>
+      _builder(context, _document.fragment(html, plainText: plainText), style);
 
   String stateKey(dom.Element element) =>
       PostChecklistDocument.contentKey(element.outerHtml);

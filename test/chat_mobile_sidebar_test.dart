@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -157,6 +158,44 @@ void main() {
       'Open Sans',
     )..addFont(rootBundle.load('assets/fonts/OpenSans.ttf'))).load();
   });
+  _mobileTest('channel tracking retains unrelated mobile inbox rows', (
+    tester,
+  ) async {
+    await _pumpChatInbox(tester, phone);
+    final rows = find.byType(ChatInboxRow).evaluate().toSet();
+    expect(rows, isNotEmpty);
+    expect(
+      rows.any((row) => (row.widget as ChatInboxRow).channel.id == 20),
+      isFalse,
+    );
+    final rebuilt = <int>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      if (rows.contains(element)) {
+        rebuilt.add((element.widget as ChatInboxRow).channel.id);
+      }
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+    final tracker = FakeSiteTracker.built.last;
+    tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+      'channel_id': 20,
+      'last_read_message_id': 1,
+      'unread_count': 3,
+    });
+    await tester.pumpAndSettle();
+    expect(rebuilt, isEmpty, reason: 'Only the changed channel needs new rows');
+    tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+      'channel_id': 1,
+      'last_read_message_id': 1,
+      'unread_count': 2,
+    });
+    await tester.pumpAndSettle();
+    expect(rebuilt, {1});
+    expect(find.text('2 messages'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   _mobileTest('scrolling keeps the Chat bar title and activity filter fixed', (
     tester,
   ) async {

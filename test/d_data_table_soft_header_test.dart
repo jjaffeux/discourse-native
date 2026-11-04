@@ -110,26 +110,20 @@ void main() {
           final background = _theme(dark).scaffoldBackgroundColor;
           expect(root.headerBackgroundColor, isNot(background));
           expect(root.borderColor, isNot(background));
-          if (!lazy) {
-            expect(
-              tester.renderObject(find.byType(DTable).first),
-              paints..rect(
-                rect: const Rect.fromLTWH(0, 0, 500, 41),
-                color: root.headerBackgroundColor,
-              ),
-            );
-          }
-          final head = find.byType(DTableHead).first;
-          final backgrounds = tester.widgetList<AnimatedContainer>(
-            find.ancestor(of: head, matching: find.byType(AnimatedContainer)),
-          );
+          final headerTable = find
+              .byWidgetPredicate(
+                (widget) =>
+                    widget is DTable &&
+                    widget.header != null &&
+                    widget.rowBuilder == null,
+              )
+              .first;
           expect(
-            backgrounds.any(
-              (container) =>
-                  (container.decoration as BoxDecoration?)?.color ==
-                  root.headerBackgroundColor,
+            tester.renderObject(headerTable),
+            paints..rect(
+              rect: const Rect.fromLTWH(0, 0, 500, 41),
+              color: root.headerBackgroundColor,
             ),
-            isTrue,
           );
           final frame = tester
               .widgetList<DecoratedBox>(

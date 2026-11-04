@@ -8,6 +8,24 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
 void main() {
+  test('cell text and clipboard snapshots preserve Unicode normalization', () {
+    for (final (source, expected) in [
+      ('  plain value\t\n', 'plain value'),
+      (' A\u00a0 \u202fB\u2003C ', 'A B C'),
+      ('A\u200bB\u2060C', 'A\u200bB\u2060C'),
+      ('  literal <br> & | \\ 🙂 ', 'literal <br> & | \\ 🙂'),
+      ('\t\n', ''),
+    ]) {
+      final element = dom.Element.tag('td')
+        ..attributes['style'] = 'text-align: right'
+        ..text = source;
+      final cell = CookedTableCell(element);
+      element.text = 'Changed source';
+      expect(cell.text, expected);
+      expect(cell.copyText, expected);
+    }
+  });
+
   testWidgets('rich cell projections preserve attributes and the source tree', (
     tester,
   ) async {

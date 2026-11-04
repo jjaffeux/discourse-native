@@ -692,14 +692,10 @@ class _TopicViewState extends State<TopicView>
     final position = item.findAncestorStateOfType<ScrollableState>()?.position;
     if (position == null) return _bodyAtOnce;
     return switch (position.userScrollDirection) {
-      ScrollDirection.reverse => (
+      ScrollDirection.reverse || ScrollDirection.forward => (
         followsFrame: true,
         reservedHeight: _reader.measuredExtentFor(postId),
       ),
-      ScrollDirection.forward => switch (_reader.measuredExtentFor(postId)) {
-        final height? => (followsFrame: true, reservedHeight: height),
-        null => _bodyAtOnce,
-      },
       ScrollDirection.idle => _bodyAtOnce,
     };
   }
@@ -3728,21 +3724,6 @@ const _PostBodyStaging _bodyAtOnce = (
   reservedHeight: null,
 );
 
-/// Carries a reply's latched [_PostBodyStaging.followsFrame] to the tile that
-/// builds its HTML.
-class _PostBodyTiming extends InheritedWidget {
-  const _PostBodyTiming({required this.followsFrame, required super.child});
-
-  final bool followsFrame;
-
-  static bool followsFrameOf(BuildContext context) =>
-      context.getInheritedWidgetOfExactType<_PostBodyTiming>()?.followsFrame ??
-      false;
-
-  @override
-  bool updateShouldNotify(_PostBodyTiming oldWidget) => false;
-}
-
 class _TopicPostItem extends StatefulWidget {
   const _TopicPostItem({
     super.key,
@@ -3953,7 +3934,7 @@ class _TopicPostItemState extends State<_TopicPostItem>
           ),
         ValueListenableBuilder<Set<int>>(
           valueListenable: widget.animatedPostIds,
-          child: _PostBodyTiming(
+          child: HtmlBodyTiming(
             followsFrame: _bodyFollowsFrame,
             child: widget.child,
           ),
@@ -4344,7 +4325,7 @@ class _PostTileState extends State<_PostTile> {
   @override
   void initState() {
     super.initState();
-    _bodyFollowsFrame = _PostBodyTiming.followsFrameOf(context);
+    _bodyFollowsFrame = HtmlBodyTiming.followsFrameOf(context);
   }
 
   @override

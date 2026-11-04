@@ -58,13 +58,31 @@ Widget? cookedTableWidgetBuilder(
 
 class CookedTableCell {
   CookedTableCell(dom.Element element)
-    : text = element.text.trim().replaceAll(RegExp(r'\s+'), ' '),
-      copyText = _copyCellText(element),
+    : text = element.text.trim().replaceAll(_cellWhitespace, ' '),
+      _copyText = element.nodes.length == 1 && element.nodes.single is dom.Text
+          ? null
+          : _copyCellText(element),
+      plainText = _plainCellText(element),
       html = _cellHtml(element);
 
   final String text;
-  final String copyText;
+  final String? _copyText;
+  String get copyText => _copyText ?? text;
+  final String? plainText;
   final String html;
+}
+
+final _cellWhitespace = RegExp(r'\s+');
+final _cellNonWhitespace = RegExp(r'[^ \t\n\r\f]');
+
+String? _plainCellText(dom.Element element) {
+  if (element.attributes.isNotEmpty ||
+      element.nodes.length != 1 ||
+      element.nodes.single is! dom.Text) {
+    return null;
+  }
+  final text = (element.nodes.single as dom.Text).data;
+  return _cellNonWhitespace.hasMatch(text) ? text : null;
 }
 
 final _cellRawText = RegExp(
@@ -111,7 +129,7 @@ String _copyCellText(dom.Element element) {
   }
 
   visit(element);
-  return text.toString().trim().replaceAll(RegExp(r'\s+'), ' ');
+  return text.toString().trim().replaceAll(_cellWhitespace, ' ');
 }
 
 class CookedTable extends StatefulWidget {
@@ -183,9 +201,10 @@ class _CookedTableState extends State<CookedTable> {
       scaler: MediaQuery.textScalerOf(context),
     );
     if (_widthInputs != widthInputs) {
+      final measuredWidths = <String, double>{};
       _initialWidths = [
         for (var index = 0; index < widget.headers.length; index++)
-          _initialWidth(context, index),
+          _initialWidth(context, index, measuredWidths),
       ];
       _widthInputs = widthInputs;
       _columns = null;
@@ -225,6 +244,7 @@ class _CookedTableState extends State<CookedTable> {
                 context,
                 widget.rows[cell.row][index].html,
                 style: DefaultTextStyle.of(context).style,
+                plainText: widget.rows[cell.row][index].plainText,
               ),
             ),
           ),
@@ -293,30 +313,34 @@ class _CookedTableState extends State<CookedTable> {
     );
   }
 
-  double _initialWidth(BuildContext context, int column) {
-    final painter = TextPainter(
-      textDirection: Directionality.of(context),
-      textScaler: MediaQuery.textScalerOf(context),
-      maxLines: 1,
-    );
-    try {
-      var width = 140.0;
-      for (final cell in [
-        widget.headers[column],
-        ...widget.rows.take(_pageSize).map((row) => row[column]),
-      ]) {
-        painter.text = TextSpan(
-          text: cell.text,
+  double _initialWidth(
+    BuildContext context,
+    int column,
+    Map<String, double> measuredWidths,
+  ) {
+    // A hard break ends each cell's shaping context. The widest unwrapped
+    // line has the same intrinsic width as measuring each cell separately.
+    final text = {
+      widget.headers[column].text,
+      for (final row in widget.rows.take(_pageSize)) row[column].text,
+    }.join('\n');
+    final measured = measuredWidths.putIfAbsent(text, () {
+      final painter = TextPainter(
+        text: TextSpan(
+          text: text,
           style: Theme.of(context).textTheme.bodyMedium,
-        );
-        painter.layout(maxWidth: 320);
-        width = math.max(width, painter.width + 48);
-        if (width >= 360) return 360;
+        ),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      );
+      try {
+        painter.layout();
+        return math.min(painter.maxIntrinsicWidth, 320);
+      } finally {
+        painter.dispose();
       }
-      return width;
-    } finally {
-      painter.dispose();
-    }
+    });
+    return math.min(360, math.max(140, measured + 48));
   }
 }
 
