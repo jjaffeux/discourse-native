@@ -62,6 +62,11 @@ The header stays in `frameBuilder` and remains horizontally fixed during sidebar
 It slides upward and fades out as the tab bar slides down; both return with the same reveal progress.
 The content expands into the header's space while moving horizontally.
 The sidebar starts transparent and fades in with the reveal, reversing the same fade during return.
+
+During Back and Forward swipes, the bar crossfades between the visits' retained titles, status icons, categories and tags.
+These inert identities use the same bounded history lifetime as page previews and clear when the journey or account changes.
+A title that arrives after loading fades in over 100 milliseconds.
+
 The content host in [`mobile_content_host.dart`](../lib/src/shell/mobile_content_host.dart) owns the source and search element keys.
 It rebuilds route data through the corresponding `ShellTabContext` instead of keeping earlier permission, account, and busy-state snapshots.
 Retained list lookup stops at a nonsheet page, and every projected route uses its own actual predecessor.
@@ -74,6 +79,14 @@ Android keeps its stable source viewport and separate reader key; the other path
 [`DHistoryTransition`](../lib/src/ui/components/d_history_transition.dart) cancels stale gesture completion when its entry, history, owner, or route changes.
 These guards prevent an old animation from navigating a newer visit.
 
+A committed page swipe keeps its incoming image over the single live renderer while that renderer restores.
+`DHistoryTransition.deferPageRevealOf(context)` returns a release callback during this handoff.
+The topic reader holds it while its initial skeleton covers the viewport, including asynchronous HTML and image layout at the saved post.
+After all holders release and the ready frame has laid out, Native fades the image away over 100 milliseconds.
+Reduced motion makes the final replacement immediate.
+A new history swipe, navigation, owner changes, lifecycle changes and memory pressure cancel pending handoffs; old release callbacks have no effect.
+A failed topic load releases the image so its error and retry control remain accessible.
+
 ## Focused coverage
 
 - [Mobile navigation transitions](../test/mobile_navigation_transitions_test.dart) exercises return paths through Chat, search, and child content.
@@ -82,4 +95,6 @@ These guards prevent an old animation from navigating a newer visit.
 - [Search presentation](../test/search_presentation_test.dart) and [global search presentation](../test/global_search_presentation_test.dart) cover search state and activation.
 - [Mobile topic sheets](../test/mobile_topic_sheet_test.dart), [mobile chat sheets](../test/mobile_chat_sheet_test.dart), and [board sheets](../test/plugins/boards/boards_sheet_test.dart) cover child presentation and dismissal.
 - [History transitions](../test/d_history_transition_test.dart) covers gesture completion, cancellation, and history changes.
+- [History handoff](../test/d_history_handoff_test.dart) checks image continuity, readiness holders, reduced motion and cancellation.
+- [Topic history transitions](../test/mobile_topic_history_transition_test.dart) checks title previews and saved reading positions with synchronous and asynchronous post bodies on iOS and Android.
 - [Voice navigation](../test/voice_navigation_test.dart) covers room links and repeated room activation.

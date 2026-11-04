@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
@@ -67,6 +69,18 @@ final historyTransitionExamples = ComponentExamples(
           'frameBuilder: (context, page) => Column(children: [header, '
           'Expanded(child: page), footer]), child: currentPage)',
       builder: (_) => const _HistoryExample(framed: true),
+    ),
+    StyleguideExample(
+      title: 'Reader handoff',
+      description:
+          'Open Topics, go Back, then swipe Forward. The cached page stays '
+          'visible while the reader takes a second to restore, then fades '
+          'into the live page. Reduced motion removes the fade.',
+      states: const ['Restoring content', 'Same image', 'Reduced motion'],
+      code:
+          'release = DHistoryTransition.deferPageRevealOf(context); '
+          '// Call release after the reader has finished its initial layout.',
+      builder: (_) => const _HistoryExample(deferReveal: true),
     ),
     for (final direction in TextDirection.values)
       StyleguideExample(
@@ -171,9 +185,10 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
 }
 
 class _HistoryExample extends StatefulWidget {
-  const _HistoryExample({this.framed = false});
+  const _HistoryExample({this.framed = false, this.deferReveal = false});
 
   final bool framed;
+  final bool deferReveal;
 
   @override
   State<_HistoryExample> createState() => _HistoryExampleState();
@@ -185,8 +200,24 @@ class _HistoryExampleState extends State<_HistoryExample> {
   int _index = 0;
   int _furthest = 0;
   int _visits = 0;
+  bool _loading = false;
+  Timer? _restore;
+  VoidCallback? _release;
+
+  @override
+  void dispose() {
+    _restore?.cancel();
+    _release?.call();
+    super.dispose();
+  }
 
   void _visit(int index) => setState(() {
+    if (widget.deferReveal && index > _index && index <= _furthest) {
+      _loading = true;
+      _restore = Timer(const Duration(seconds: 1), () {
+        if (mounted) setState(() => _loading = false);
+      });
+    }
     _index = index;
     if (index > _furthest) _furthest = index;
     _visits++;
@@ -219,39 +250,57 @@ class _HistoryExampleState extends State<_HistoryExample> {
       nextEntry: _index < _furthest ? _index + 1 : null,
       onBack: _index > 0 ? () => _visit(_index - 1) : null,
       onForward: _index < _furthest ? () => _visit(_index + 1) : null,
-      child: DCard(
-        child: DCardContent(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            spacing: DSpacing.md,
-            children: [
-              DText(_pages[_index], variant: DTextVariant.h3),
-              Text('$_visits completed navigations'),
-              const Text('Drag inward from an edge to preview another page.'),
-              Wrap(
-                spacing: DSpacing.controlGap,
-                runSpacing: DSpacing.controlGap,
+      child: Builder(
+        builder: (context) {
+          if (_loading) {
+            _release ??= DHistoryTransition.deferPageRevealOf(context);
+          } else {
+            _release?.call();
+            _release = null;
+          }
+          return DCard(
+            child: DCardContent(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                spacing: DSpacing.md,
                 children: [
-                  DButton(
-                    onPressed: _index > 0 ? () => _visit(_index - 1) : null,
-                    label: const Text('Back'),
+                  if (_loading)
+                    const DSkeletonRegion(
+                      semanticsLabel: 'Restoring reader',
+                      child: DSkeleton(height: 80),
+                    )
+                  else
+                    DText(_pages[_index], variant: DTextVariant.h3),
+                  Text('$_visits completed navigations'),
+                  const Text(
+                    'Drag inward from an edge to preview another page.',
                   ),
-                  DButton(
-                    onPressed: _index < _furthest
-                        ? () => _visit(_index + 1)
-                        : null,
-                    label: const Text('Forward'),
+                  Wrap(
+                    spacing: DSpacing.controlGap,
+                    runSpacing: DSpacing.controlGap,
+                    children: [
+                      DButton(
+                        onPressed: _index > 0 ? () => _visit(_index - 1) : null,
+                        label: const Text('Back'),
+                      ),
+                      DButton(
+                        onPressed: _index < _furthest
+                            ? () => _visit(_index + 1)
+                            : null,
+                        label: const Text('Forward'),
+                      ),
+                      if (_index < _pages.length - 1)
+                        DButton(
+                          onPressed: () => _visit(_index + 1),
+                          label: Text('Open ${_pages[_index + 1]}'),
+                        ),
+                    ],
                   ),
-                  if (_index < _pages.length - 1)
-                    DButton(
-                      onPressed: () => _visit(_index + 1),
-                      label: Text('Open ${_pages[_index + 1]}'),
-                    ),
                 ],
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     ),
   );

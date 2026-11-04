@@ -111,6 +111,7 @@ const applicationComponentCatalogue = <ComponentReference>[
       'Live navigation preview',
       'Stationary chrome',
       'Back and forward',
+      'Reader handoff',
       'RTL',
     ],
   ),

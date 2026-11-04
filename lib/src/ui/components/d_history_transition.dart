@@ -127,6 +127,17 @@ class DHistoryTransition extends StatefulWidget {
           ?.animatePageEntrance ??
       true;
 
+  /// Keeps a committed swipe's image visible until the page is ready to paint.
+  ///
+  /// Call while building the page's initial loading frame. Release the returned
+  /// callback when its reading position and content have finished layout, or
+  /// when the page is disposed. All holders must release before the image fades
+  /// away. Returns `null` outside a swipe handoff. Navigation and owner changes
+  /// cancel the handoff and make old release callbacks inert.
+  static VoidCallback? deferPageRevealOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<_HistoryPageScope>()
+      ?.deferReveal();
+
   /// The destination and progress of an edge swipe, including its settle.
   ///
   /// Descendants of [frameBuilder] can use this to move navigation chrome with
@@ -232,11 +243,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         })
       >{};
   final _pointers = <int>{};
+  final _revealHolds = <Object>{};
+  bool _handingOff = false;
+  bool _revealScheduled = false;
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
   double _previewPageTop = 0;
   _HistoryFrameSnapshot? _navigationDeparture;
-  Offset _previewOffset = Offset.zero;
+  Offset? _previewOrigin;
   Object? _environment;
   Object? _committedEntry;
   Size _size = Size.zero;
@@ -329,7 +343,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             !MediaQuery.disableAnimationsOf(context) &&
             _routeIsCurrent) {
       final boundary = _boundary.currentContext?.findRenderObject();
-      final image = boundary is _HistoryRepaintBoundary
+      final image = _handingOff
+          ? _preview?.clone()
+          : boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
           : null;
       final frameImage = navigationChanged
@@ -362,7 +378,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       // The descendant still contains the outgoing page's last painted frame.
       // Capture it before rebuilding that one live renderer for the new entry.
       final boundary = _boundary.currentContext?.findRenderObject();
-      if (boundary is _HistoryRepaintBoundary) {
+      if (!_handingOff && boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
           _remember(
@@ -376,6 +392,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         }
       }
       _resetGesture();
+      if (committed && !navigationChanged) {
+        final destination = _previews[widget.entry];
+        if (destination != null) {
+          _preview = destination.image.clone();
+          _previewOrigin = destination.origin;
+          _handingOff = true;
+          _queuePageReveal();
+        }
+      }
     } else if ((_dragging || _settling) &&
         (_navigate == null ||
             _target !=
@@ -407,6 +432,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   void _resetGesture() {
     _generation++;
+    _handingOff = false;
+    _revealHolds.clear();
+    _revealScheduled = false;
     _dragging = false;
     _settling = false;
     _switchingTab = false;
@@ -421,7 +449,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     _previewPageTop = 0;
     _navigationDeparture?.dispose();
     _navigationDeparture = null;
-    _previewOffset = Offset.zero;
+    _previewOrigin = null;
     // A RawImage from this frame may still own the old handle until rebuild.
     if (preview != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) => preview.dispose());
@@ -534,6 +562,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   void _start(DragStartDetails details, double distance) {
     if (_pointers.length != 1 || !_routeIsCurrent) return;
     setState(() {
+      if (_handingOff) _resetGesture();
       _back = _rtl ? distance < 0 : distance > 0;
       _openingNavigation = _back && _navigationOrigin(details.localPosition);
       if (_openingNavigation) _navigationDeparture = _snapshotFrame();
@@ -543,9 +572,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       _preview = (_navigationOpen ? preview?.frame?.image : preview?.image)
           ?.clone();
       _previewPageTop = _navigationOpen ? preview?.frame?.pageTop ?? 0 : 0;
-      _previewOffset = preview == null || _navigationTransition
-          ? Offset.zero
-          : preview.origin - _pageOrigin();
+      _previewOrigin = _navigationTransition ? null : preview?.origin;
     });
   }
 
@@ -608,6 +635,44 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     setState(_resetGesture);
     _navigationDeparture = departure;
     navigate?.call();
+  }
+
+  VoidCallback? _deferPageReveal() {
+    if (!_handingOff || _progress.isAnimating) return null;
+    final hold = Object();
+    _revealHolds.add(hold);
+    return () {
+      if (!mounted || !_revealHolds.remove(hold)) return;
+      _queuePageReveal();
+    };
+  }
+
+  void _queuePageReveal() {
+    if (!_handingOff || _revealScheduled) return;
+    _revealScheduled = true;
+    final generation = _generation;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || generation != _generation) return;
+      _revealScheduled = false;
+      if (_revealHolds.isEmpty) unawaited(_revealPage());
+    });
+    WidgetsBinding.instance.ensureVisualUpdate();
+  }
+
+  Future<void> _revealPage() async {
+    final generation = _generation;
+    try {
+      await _progress
+          .animateTo(
+            1,
+            duration: DMotion.duration(context, DMotion.close),
+            curve: Curves.easeOutCubic,
+          )
+          .orCancel;
+    } on TickerCanceled {
+      return;
+    }
+    if (mounted && generation == _generation) setState(_resetGesture);
   }
 
   Future<void> _animateTab() async {
@@ -791,9 +856,9 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   scale: _previewScale + (1 - _previewScale) * p,
                   child: ColorFiltered(
                     colorFilter: ColorFilter.mode(
-                      DTokens.of(context).colors.scrim.withValues(
-                        alpha: .40 * (1 - p),
-                      ),
+                      DTokens.of(
+                        context,
+                      ).colors.scrim.withValues(alpha: .40 * (1 - p)),
                       BlendMode.srcATop,
                     ),
                     child: ExcludeSemantics(
@@ -870,12 +935,14 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
               previousPageOffset: () =>
                   (previous?.origin ?? Offset.zero) - _pageOrigin(),
               animatePageEntrance: _animatePageEntrance,
+              handingOff: _handingOff,
+              deferReveal: _deferPageReveal,
               child: _HistoryBoundary(key: _boundary, child: widget.child),
             ),
             builder: (context, child) {
               final switching =
                   _switchingTab && !_switchingNavigation && !reducedMotion;
-              final p = reducedMotion || _navigationTransition
+              final p = reducedMotion || _navigationTransition || _handingOff
                   ? 0.0
                   : _progress.value;
               final active = !switching && p > 0;
@@ -896,13 +963,20 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                 child: IgnorePointer(
                   child: _preview == null
                       ? ColoredBox(color: background)
-                      : Transform.translate(
-                          offset: _previewOffset,
-                          child: RawImage(
-                            image: _preview,
-                            fit: BoxFit.fitWidth,
-                            alignment: Alignment.topCenter,
+                      : Flow(
+                          clipBehavior: Clip.none,
+                          delegate: _HistoryImageAlignment(
+                            () => _previewOrigin == null
+                                ? Offset.zero
+                                : _previewOrigin! - _pageOrigin(),
                           ),
+                          children: [
+                            RawImage(
+                              image: _preview,
+                              fit: BoxFit.fitWidth,
+                              alignment: Alignment.topCenter,
+                            ),
+                          ],
                         ),
                 ),
               );
@@ -982,16 +1056,32 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       child: ColorFiltered(
                         colorFilter: _back ? clear : dim,
                         child: IgnorePointer(
-                          ignoring: _dragging || _settling || switching,
-                          child: Opacity(
-                            opacity: switching ? p : 1,
-                            child: child,
+                          ignoring:
+                              _dragging ||
+                              _settling ||
+                              switching ||
+                              _handingOff,
+                          child: ExcludeFocus(
+                            excluding: _handingOff,
+                            child: ExcludeSemantics(
+                              excluding: _handingOff,
+                              child: Opacity(
+                                opacity: switching ? p : 1,
+                                child: child,
+                              ),
+                            ),
                           ),
                         ),
                       ),
                     ),
                   ),
                   if (active && !_back) previewLayer(preview, back: false),
+                  if (_handingOff)
+                    Opacity(
+                      key: const ValueKey('history-page-handoff'),
+                      opacity: 1 - _progress.value,
+                      child: preview,
+                    ),
                 ],
               );
               final clipper = switching && _clipTab ? widget.tabClipper : null;
@@ -1006,6 +1096,26 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       },
     );
   }
+}
+
+class _HistoryImageAlignment extends FlowDelegate {
+  _HistoryImageAlignment(this.offset);
+  final ValueGetter<Offset> offset;
+
+  @override
+  void paintChildren(FlowPaintingContext context) {
+    // The surrounding frame positions its page after laying it out. Resolve
+    // the capture origin at paint, when the destination's position is final.
+    final position = offset();
+    context.paintChild(
+      0,
+      transform: Matrix4.translationValues(position.dx, position.dy, 0),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_HistoryImageAlignment oldDelegate) =>
+      offset != oldDelegate.offset;
 }
 
 class _HistorySwipeScope extends InheritedWidget {
@@ -1158,18 +1268,23 @@ class _HistoryPageScope extends InheritedWidget {
     required this.previousImage,
     required this.previousPageOffset,
     required this.animatePageEntrance,
+    required this.handingOff,
+    required this.deferReveal,
     required super.child,
   });
 
   final ui.Image? previousImage;
   final ValueGetter<Offset> previousPageOffset;
   final bool animatePageEntrance;
+  final bool handingOff;
+  final VoidCallback? Function() deferReveal;
 
   @override
   bool updateShouldNotify(_HistoryPageScope oldWidget) =>
       previousImage != oldWidget.previousImage ||
       previousPageOffset != oldWidget.previousPageOffset ||
-      animatePageEntrance != oldWidget.animatePageEntrance;
+      animatePageEntrance != oldWidget.animatePageEntrance ||
+      handingOff != oldWidget.handingOff;
 }
 
 class _HistorySnapshotUnderlay extends LeafRenderObjectWidget {

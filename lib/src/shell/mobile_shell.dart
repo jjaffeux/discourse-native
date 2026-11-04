@@ -403,6 +403,11 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                               >(retained.header);
                                         }
                                         return MobilePageTitle(
+                                          entry: entry,
+                                          history: (
+                                            owner,
+                                            shell.mobileNavigation.historyId,
+                                          ),
                                           header: titleHeader,
                                           siteUrl: instance.url,
                                         );

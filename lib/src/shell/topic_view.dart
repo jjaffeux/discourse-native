@@ -286,6 +286,7 @@ class _TopicViewState extends State<TopicView>
   final _topicControlsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
   int? _openingPostId;
+  VoidCallback? _releaseHistoryReveal;
   ({int postId, double viewportOffset})? _openingScrollAnchor;
   int? _visitLastReadPostNumber;
 
@@ -478,6 +479,8 @@ class _TopicViewState extends State<TopicView>
     _topicControlsCovered.value = false;
     _initialBodyChecked = false;
     _openingPostId = null;
+    _releaseHistoryReveal?.call();
+    _releaseHistoryReveal = null;
     _openingScrollAnchor = null;
     _laidOutDayStarts = const [];
     _visibleContextCurrentPostId = null;
@@ -561,6 +564,7 @@ class _TopicViewState extends State<TopicView>
 
   @override
   void dispose() {
+    _releaseHistoryReveal?.call();
     _tickerMode?.removeListener(_tickerModeChanged);
     _postRetention.dispose();
     _animatedPostIds.dispose();
@@ -1432,45 +1436,53 @@ class _TopicViewState extends State<TopicView>
     List<Widget> overlays = const [],
     Widget? footer,
     Widget? overlaySidebar,
-  }) => Stack(
-    children: [
-      Positioned.fill(
-        child: Column(
-          children: [
-            Expanded(
-              child: Stack(
-                clipBehavior: Clip.hardEdge,
-                children: [
-                  if (stream != null)
-                    Positioned.fill(
-                      key: const ValueKey('topic-post-stream-slot'),
-                      child: Offstage(offstage: skeleton, child: stream),
-                    ),
-                  if (skeleton)
-                    Positioned.fill(
-                      key: const ValueKey('topic-loading-skeleton-slot'),
-                      child: TopicLoadingSkeleton(
-                        key: const ValueKey('topic-loading-skeleton'),
-                        header: header,
+  }) {
+    if (skeleton) {
+      _releaseHistoryReveal ??= DHistoryTransition.deferPageRevealOf(context);
+    } else {
+      _releaseHistoryReveal?.call();
+      _releaseHistoryReveal = null;
+    }
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Column(
+            children: [
+              Expanded(
+                child: Stack(
+                  clipBehavior: Clip.hardEdge,
+                  children: [
+                    if (stream != null)
+                      Positioned.fill(
+                        key: const ValueKey('topic-post-stream-slot'),
+                        child: Offstage(offstage: skeleton, child: stream),
                       ),
-                    ),
-                  ...overlays,
-                ],
+                    if (skeleton)
+                      Positioned.fill(
+                        key: const ValueKey('topic-loading-skeleton-slot'),
+                        child: TopicLoadingSkeleton(
+                          key: const ValueKey('topic-loading-skeleton'),
+                          header: header,
+                        ),
+                      ),
+                    ...overlays,
+                  ],
+                ),
               ),
-            ),
-            if (footer != null) Padding(padding: lanePadding, child: footer),
-          ],
+              if (footer != null) Padding(padding: lanePadding, child: footer),
+            ],
+          ),
         ),
-      ),
-      if (overlaySidebar != null)
-        Positioned(
-          top: 0,
-          right: 0,
-          bottom: 0,
-          child: header.inset(overlaySidebar),
-        ),
-    ],
-  );
+        if (overlaySidebar != null)
+          Positioned(
+            top: 0,
+            right: 0,
+            bottom: 0,
+            child: header.inset(overlaySidebar),
+          ),
+      ],
+    );
+  }
 
   // The loading and loaded headers of one reader are the same element, so
   // the topic fills it in place. A topic, tab or account change still replaces
@@ -1686,6 +1698,8 @@ class _TopicViewState extends State<TopicView>
           canPinSidebar: canPinSidebar,
         );
       }
+      _releaseHistoryReveal?.call();
+      _releaseHistoryReveal = null;
       final tab = ForumTabScope.tabOf(context);
       return Column(
         children: [
@@ -1832,7 +1846,9 @@ class _TopicViewState extends State<TopicView>
               viewportOffset: position.viewportOffset,
             );
           }
-          if ((position.itemIndex > 0 || position.viewportOffset != 0) &&
+          if ((position.itemIndex > 0 ||
+                  position.viewportOffset != 0 ||
+                  !DHistoryTransition.shouldAnimatePageEntranceOf(context)) &&
               post != null &&
               (CookedHtml.buildsAsynchronously(post.cooked) ||
                   post.cooked.contains('<img'))) {

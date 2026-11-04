@@ -3,6 +3,7 @@ import 'package:discourse_native/src/shell/mobile_page_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _title = ValueKey('mobile-page-title');
@@ -24,6 +25,8 @@ Widget _app({
             children: [
               Expanded(
                 child: MobilePageTitle(
+                  entry: identity,
+                  history: 'test',
                   header: header,
                   siteUrl: 'https://forum.example',
                 ),
@@ -59,6 +62,32 @@ Widget _page(
 );
 
 void main() {
+  testWidgets('a late page identity fades in quickly', (tester) async {
+    final scroll = ScrollController(initialScrollOffset: 300);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(_app(page: _page(scroll, title: '')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(_title), findsNothing);
+    await tester.pumpWidget(
+      _app(page: _page(scroll, title: 'Loaded identity')),
+    );
+    await tester.pump();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 40));
+    final fade = tester.renderObject<RenderAnimatedOpacity>(
+      find
+          .ancestor(
+            of: find.byKey(_title),
+            matching: find.byType(AnimatedOpacity),
+          )
+          .first,
+    );
+    expect(fade.opacity.value, inExclusiveRange(0, 1));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(fade.opacity.value, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final width in [320.0, 800.0]) {
     testWidgets('bar metadata stays beneath the title at width $width', (
       tester,
