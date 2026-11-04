@@ -50,8 +50,12 @@ Future<void> showChatNewDirectMessageDialog({
         scrollWholeSheet: false,
         showCloseButton: false,
         children: [
-          const DSheetHeader(children: []),
-          Expanded(child: content(sheet, sheet: true)),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: DSpacing.xl),
+              child: content(sheet, sheet: true),
+            ),
+          ),
         ],
       ),
     );
@@ -332,7 +336,15 @@ class _ChatNewDirectMessageDialogState
   );
 
   Widget _buildCommand({required bool fill}) {
-    final results = _buildResults(fill: fill);
+    final results = Padding(
+      padding: const EdgeInsets.fromLTRB(
+        DSpacing.sm,
+        DSpacing.xs,
+        DSpacing.sm,
+        0,
+      ),
+      child: _buildResults(fill: fill),
+    );
     return DCommand<String>(
       key: const ValueKey('chat-destination-command'),
       controller: _command,
@@ -590,7 +602,6 @@ class _ChatNewDirectMessageDialogState
               ),
             ],
           ),
-          if (groups.isNotEmpty) const DCommandSeparator<String>(),
         ],
         for (final group in groups)
           DCommandGroup<String>(
