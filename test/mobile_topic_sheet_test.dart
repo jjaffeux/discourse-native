@@ -116,6 +116,127 @@ void main() {
   tearDownAll(() => messenger.setMockMethodCallHandler(channel, null));
 
   for (final privateMessage in [false, true]) {
+    testWidgets(
+      'topic title clears the app toolbar (private: $privateMessage)',
+      (tester) async {
+        await prepareNativeUiEvidence(tester);
+        tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+        tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+        addTearDown(tester.view.resetPadding);
+        addTearDown(tester.view.resetViewPadding);
+        const titleText =
+            'Topic titles & excerpts of login_required sites are public '
+            '(anthropic scanner GPGS4NF7)';
+        final gate = Completer<void>();
+        final shell = await pumpMobileShellFixture(
+          tester,
+          topicGate: gate,
+          topics: [
+            Topic(
+              id: 7,
+              title: titleText,
+              slug: 'shared',
+              privateMessage: privateMessage,
+            ),
+          ],
+          topic: topicPayload(
+            id: 7,
+            title: titleText,
+            privateMessage: privateMessage,
+            posts: [
+              for (var id = 1; id <= 30; id++)
+                Post(
+                  id: id,
+                  postNumber: id,
+                  username: 'reader',
+                  cooked:
+                      '<p>A discussion post with enough height to scroll.</p>',
+                ),
+            ],
+          ),
+        );
+        await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(shell.currentContent?.topicId, 7);
+        final title = find.byKey(const ValueKey('topic-header-compact-title'));
+        final skeleton = find.descendant(
+          of: _sheet,
+          matching: find.byType(DSkeletonRegion),
+        );
+        expect(skeleton, findsWidgets);
+        expect(
+          tester.getRect(title).top,
+          greaterThanOrEqualTo(tester.getRect(_header).bottom),
+          reason: 'The loading title must clear the app toolbar.',
+        );
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(skeleton, findsNothing);
+        final originalTitleHeight = tester.getSize(title).height;
+        final originalToolbarHeight = tester.getRect(_header).height;
+        for (final scale in [
+          AppTextScale.percent100,
+          AppTextScale.percent200,
+        ]) {
+          await shell.appSettings.setTextScale(scale);
+          await tester.pumpAndSettle();
+          final titleBounds = tester.getRect(title);
+          if (scale == AppTextScale.percent200) {
+            expect(titleBounds.height, greaterThan(originalTitleHeight));
+            expect(
+              tester.getRect(_header).height,
+              greaterThan(originalToolbarHeight),
+            );
+          }
+          expect(
+            titleBounds.top,
+            greaterThanOrEqualTo(tester.getRect(_header).bottom),
+            reason:
+                'The loaded title must clear the toolbar at text scale $scale.',
+          );
+          expect(
+            tester.getRect(find.byKey(const ValueKey(1))).top,
+            greaterThanOrEqualTo(titleBounds.bottom),
+          );
+          await _capture(tester, 'title-toolbar-$privateMessage-$scale');
+          final scroll = topicPostList(tester).controller!;
+          final firstPost = find.byKey(const ValueKey(1));
+          final gap = tester.getRect(firstPost).top - titleBounds.bottom;
+          scroll.jumpTo(gap / 2);
+          await tester.pumpAndSettle();
+          final remaining =
+              tester.getRect(firstPost).top - tester.getRect(title).bottom;
+          if (remaining >= 0) {
+            scroll.jumpTo(scroll.offset + remaining + 1);
+            await tester.pumpAndSettle();
+          }
+          expect(
+            tester.getRect(firstPost).top,
+            lessThanOrEqualTo(tester.getRect(title).bottom),
+          );
+          expect(title.hitTestable(), findsNothing);
+          scroll.jumpTo(800);
+          await tester.pumpAndSettle();
+          expect(
+            topicReadingViewportRect(tester).top,
+            closeTo(tester.getRect(_header).bottom + 6, 1),
+          );
+          final bar = find.byKey(const ValueKey('mobile-page-title'));
+          expect(bar.hitTestable(), findsOneWidget);
+          await tester.tap(bar);
+          await tester.pumpAndSettle();
+          expect(scroll.offset, 0);
+          expect(tester.getRect(title), titleBounds);
+        }
+        expect(tester.takeException(), isNull);
+      },
+      variant: _platforms,
+    );
+  }
+
+  for (final privateMessage in [false, true]) {
     testWidgets('topic bar shows its path and tags (private: $privateMessage)', (
       tester,
     ) async {

@@ -959,12 +959,13 @@ class _DPageSurfaceState extends State<DPageSurface>
   @override
   Widget build(BuildContext context) {
     _syncPageHeader();
+    final sheetHeaderInset = DSheetPageBand.headerInsetOf(context);
     return DPageHeaderScope(
       header: _pageHeader,
       active: widget.header != null,
       child: DHeaderMorph.scrollFade(
         scroll: widget.fadeHeaderOnScroll ? _readerScroll : null,
-        extent: () => _headerGeometry.naturalExtent,
+        extent: () => _headerGeometry.naturalExtent - sheetHeaderInset,
         titleOpacity: _readerTitleOpacity,
         child: widget.header is _PageTitle
             ? LayoutBuilder(
@@ -1054,7 +1055,12 @@ class _DPageSurfaceState extends State<DPageSurface>
                               focusNode: _headerFocus,
                               child: DSheetPageBand.followEdge(
                                 context,
-                                child: RepaintBoundary(child: _header!),
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    top: DSheetPageBand.headerInsetOf(context),
+                                  ),
+                                  child: RepaintBoundary(child: _header!),
+                                ),
                               ),
                             ),
                           ),
