@@ -5578,11 +5578,11 @@ void main() {
   });
 
   _mobileTest(
-    'sidebar return keeps the page surface color through the final frame',
+    'sidebar return keeps page and hamburger colors through the final frame',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       final sample = Offset(phone.width - 40, phone.height - 180);
-      Future<List<int>> surfacePixel() async {
+      Future<List<int>> pixelAt(Offset sample) async {
         late List<int> color;
         await tester.runAsync(() async {
           final builder = ui.SceneBuilder();
@@ -5612,7 +5612,14 @@ void main() {
         await tester.pumpAndSettle();
         for (final tab in ['panel/chat', 'topics']) {
           await _tapDockTab(tester, tab);
-          final resting = await surfacePixel();
+          final menuSample = tester.getCenter(
+            find.descendant(
+              of: find.byKey(const ValueKey('mobile-menu-button')),
+              matching: find.byType(DIcon),
+            ),
+          );
+          final resting = await pixelAt(sample);
+          final restingMenu = await pixelAt(menuSample);
           await _toggleNavigation(tester);
           await tester.pumpAndSettle();
           final gesture = await tester.startGesture(
@@ -5623,26 +5630,35 @@ void main() {
             timeStamp: const Duration(milliseconds: 400),
           );
           await tester.pump();
-          final arriving = await surfacePixel();
+          final arriving = await pixelAt(sample);
+          final arrivingMenu = await pixelAt(menuSample);
           await _captureChrome(
             tester,
             'sidebar-surface-${mode.name}-$tab-arriving'.replaceAll('/', '-'),
           );
           await gesture.up();
           await tester.pumpAndSettle();
-          final arrived = await surfacePixel();
+          final arrived = await pixelAt(sample);
+          final arrivedMenu = await pixelAt(menuSample);
           await _captureChrome(
             tester,
             'sidebar-surface-${mode.name}-$tab-arrived'.replaceAll('/', '-'),
           );
           expect(shell.mobileNavigation.sidebarOpen, isFalse);
           expect(arrived, resting);
+          expect(arrivedMenu, restingMenu);
           for (var channel = 0; channel < 3; channel++) {
             expect(
               arriving[channel],
               closeTo(arrived[channel], 1),
               reason:
                   '$tab ${mode.name} surface changes when the swipe commits',
+            );
+            expect(
+              arrivingMenu[channel],
+              closeTo(arrivedMenu[channel], 1),
+              reason:
+                  '$tab ${mode.name} hamburger changes when the swipe commits',
             );
           }
         }

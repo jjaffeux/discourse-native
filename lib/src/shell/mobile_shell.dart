@@ -325,7 +325,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                                   ? context.l10n.closeNavigation
                                   : context.l10n.openNavigation,
                               variant: DButtonVariant.inline,
-                              expanded: sidebarOpen,
                               onPressed: () {
                                 FocusManager.instance.primaryFocus?.unfocus();
                                 shell.toggleMobileSidebar();
