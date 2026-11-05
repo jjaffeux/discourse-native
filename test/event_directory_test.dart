@@ -196,8 +196,6 @@ void main() {
           '2026-09-30T22:00:00.000Z',
         );
 
-        await tester.tap(find.byType(DSelect<EventCalendarView>));
-        await tester.pumpAndSettle();
         await tester.tap(find.text('Month'));
         await tester.pumpAndSettle();
         expect(currentPage().view, EventCalendarView.month);
@@ -323,8 +321,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('October 2026'), findsOneWidget);
       await tester.tap(find.text('Today'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.byType(DSelect<EventCalendarView>));
       await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
@@ -497,8 +493,6 @@ void main() {
     tester.view.physicalSize = const Size(1000, 844);
     await tester.pumpAndSettle();
     expect(currentPage().view, EventCalendarView.month);
-    await tester.tap(find.byType(DSelect<EventCalendarView>));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Schedule'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
