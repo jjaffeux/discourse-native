@@ -113,151 +113,148 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
     final selected = row.selected || KeyboardSelection.isSelectedOf(context);
     final tokens = DTokens.of(context);
     final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
-    return Opacity(
-      opacity: topic.muted ? .55 : 1,
-      child: Padding(
-        padding:
-            row.outerPadding ??
-            EdgeInsets.symmetric(horizontal: selected ? 4 : 16),
-        child: LinkTarget(
-          key: _prefetchBounds,
-          bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
-          url: resolveSiteRootPath(
-            row.siteUrl,
-            '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
-          ),
-          title: topic.displayTitle,
-          siteUrl: row.siteUrl,
-          contextMenuItems: [
-            if (!context.isTouch &&
-                shell?.instanceFor(siteUrl)?.isConnected == true &&
-                (!topic.visited || topic.hasUnseenActivity) &&
-                topic.highestPostNumber > 0)
-              DContextMenuItem(
-                onPressed: () {
-                  if (lease?.isCurrent != true) return;
-                  final latest = shell!.store.read<Topic>(siteUrl, topic.id);
-                  if (latest == null) return;
-                  unawaited(
-                    shell.markTopicRead(
-                      siteUrl,
-                      topic.id,
-                      latest.highestPostNumber,
-                      caughtUp: true,
-                    ),
-                  );
-                },
-                child: Text(context.l10n.markTopicRead),
-              ),
-          ],
-          child: Semantics(
-            key: ValueKey('inbox-row-${topic.id}'),
-            container: true,
-            selected: selected,
-            child: DItem(
-              key: ValueKey('topic-card-${topic.id}'),
-              shape: selected ? DItemShape.standard : DItemShape.fullWidth,
-              padding:
-                  row.contentPadding ??
-                  EdgeInsets.symmetric(
-                    horizontal: selected ? 12 : 0,
-                    vertical: 12,
+    return Padding(
+      padding:
+          row.outerPadding ??
+          EdgeInsets.symmetric(horizontal: selected ? 4 : 16),
+      child: LinkTarget(
+        key: _prefetchBounds,
+        bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
+        url: resolveSiteRootPath(
+          row.siteUrl,
+          '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+        ),
+        title: topic.displayTitle,
+        siteUrl: row.siteUrl,
+        contextMenuItems: [
+          if (!context.isTouch &&
+              shell?.instanceFor(siteUrl)?.isConnected == true &&
+              (!topic.visited || topic.hasUnseenActivity) &&
+              topic.highestPostNumber > 0)
+            DContextMenuItem(
+              onPressed: () {
+                if (lease?.isCurrent != true) return;
+                final latest = shell!.store.read<Topic>(siteUrl, topic.id);
+                if (latest == null) return;
+                unawaited(
+                  shell.markTopicRead(
+                    siteUrl,
+                    topic.id,
+                    latest.highestPostNumber,
+                    caughtUp: true,
                   ),
-              link: true,
-              onPressed: row.onTap,
-              onHoverChanged: context.isTouch ? null : _hoverChanged,
-              highlightOnInteraction: false,
-              selected: selected,
-              selectionStyle: DItemSelectionStyle.filled,
-              showSelectionIndicator: false,
-              children: [
-                DItemContent(
-                  spacing: 0,
-                  alignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      spacing: 6,
-                      children: [
-                        Expanded(
-                          child: Align(
-                            alignment: AlignmentDirectional.centerStart,
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 760),
-                              child: registry.decorateTopicListTitle(
-                                context,
-                                row.siteUrl,
-                                topic,
-                                _TopicListTitle(row: row),
-                              ),
+                );
+              },
+              child: Text(context.l10n.markTopicRead),
+            ),
+        ],
+        child: Semantics(
+          key: ValueKey('inbox-row-${topic.id}'),
+          container: true,
+          selected: selected,
+          child: DItem(
+            key: ValueKey('topic-card-${topic.id}'),
+            shape: selected ? DItemShape.standard : DItemShape.fullWidth,
+            padding:
+                row.contentPadding ??
+                EdgeInsets.symmetric(
+                  horizontal: selected ? 12 : 0,
+                  vertical: 12,
+                ),
+            link: true,
+            onPressed: row.onTap,
+            onHoverChanged: context.isTouch ? null : _hoverChanged,
+            highlightOnInteraction: false,
+            selected: selected,
+            selectionStyle: DItemSelectionStyle.filled,
+            showSelectionIndicator: false,
+            children: [
+              DItemContent(
+                spacing: 0,
+                alignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    spacing: 6,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 760),
+                            child: registry.decorateTopicListTitle(
+                              context,
+                              row.siteUrl,
+                              topic,
+                              _TopicListTitle(row: row),
                             ),
                           ),
                         ),
-                        _TopicCardStatus(
-                          topic: topic,
-                          titleStyle: row.titleStyle,
+                      ),
+                      _TopicCardStatus(
+                        topic: topic,
+                        titleStyle: row.titleStyle,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  if (topic.excerpt case final excerpt?
+                      when excerpt.isNotEmpty) ...[
+                    Align(
+                      alignment: AlignmentDirectional.centerStart,
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 760),
+                        child: SiteEmojiText.plain(
+                          excerpt,
+                          siteUrl: row.siteUrl,
+                          maxLines: largeText ? null : 2,
+                          overflow: largeText
+                              ? TextOverflow.clip
+                              : TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                fontSize: DiscourseTypography.preview,
+                                fontFamily: Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.fontFamily,
+                                fontFamilyFallback: Theme.of(
+                                  context,
+                                ).textTheme.bodyLarge?.fontFamilyFallback,
+                                color: tokens.mutedForeground,
+                                height: DiscourseTypography.lineHeightPreview,
+                              ),
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 5),
-                    if (topic.excerpt case final excerpt?
-                        when excerpt.isNotEmpty) ...[
-                      Align(
-                        alignment: AlignmentDirectional.centerStart,
-                        child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 760),
-                          child: SiteEmojiText.plain(
-                            excerpt,
-                            siteUrl: row.siteUrl,
-                            maxLines: largeText ? null : 2,
-                            overflow: largeText
-                                ? TextOverflow.clip
-                                : TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  fontSize: DiscourseTypography.preview,
-                                  fontFamily: Theme.of(
-                                    context,
-                                  ).textTheme.bodyLarge?.fontFamily,
-                                  fontFamilyFallback: Theme.of(
-                                    context,
-                                  ).textTheme.bodyLarge?.fontFamilyFallback,
-                                  color: tokens.mutedForeground,
-                                  height: DiscourseTypography.lineHeightPreview,
-                                ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                    ],
-                    _TopicCardFooter(
-                      row: row,
-                      allowSort: !compact,
-                      measurements: context
-                          .findAncestorStateOfType<_TopicListViewState>()
-                          ?._textMeasurements,
-                    ),
-                    if (compactMetadata.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: DSpacing.xs,
-                        runSpacing: DSpacing.xs,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: compactMetadata,
-                      ),
-                    ],
-                    if (metadata.isNotEmpty) ...[
-                      const SizedBox(height: 5),
-                      Wrap(
-                        spacing: DSpacing.sm,
-                        runSpacing: DSpacing.xs,
-                        children: metadata,
-                      ),
-                    ],
+                    const SizedBox(height: 7),
                   ],
-                ),
-              ],
-            ),
+                  _TopicCardFooter(
+                    row: row,
+                    allowSort: !compact,
+                    measurements: context
+                        .findAncestorStateOfType<_TopicListViewState>()
+                        ?._textMeasurements,
+                  ),
+                  if (compactMetadata.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: DSpacing.xs,
+                      runSpacing: DSpacing.xs,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: compactMetadata,
+                    ),
+                  ],
+                  if (metadata.isNotEmpty) ...[
+                    const SizedBox(height: 5),
+                    Wrap(
+                      spacing: DSpacing.sm,
+                      runSpacing: DSpacing.xs,
+                      children: metadata,
+                    ),
+                  ],
+                ],
+              ),
+            ],
           ),
         ),
       ),
