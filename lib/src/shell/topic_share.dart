@@ -6,10 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
+import '../models/discourse_instance.dart';
 import '../models/site_config.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'platform.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
 import 'topic_invite.dart';
@@ -86,37 +88,40 @@ Future<void> Function()? captureShareReplyAsNewTopic({
   required String siteUrl,
   required int topicId,
   required String continuation,
-}) {
-  final controller = ShellScope.read(context);
-  final tabId = controller.activeTabId;
-  final account = controller.currentAccountIdentity;
-  if (controller.currentInstance?.url != siteUrl ||
-      controller.currentContent?.topicId != topicId ||
-      tabId == null) {
-    return null;
-  }
-  final lease = controller.lifecycle.capture(siteUrl);
-
-  // Keep the sheet's delayed action tied to the source that opened it.
-  // The controller owns composer creation and restoration after this check.
-  return () async {
-    if (!context.mounted ||
-        !identical(ShellScope.maybeRead(context), controller) ||
-        !lease.isCurrent ||
-        controller.currentAccountIdentity != account ||
-        controller.currentInstance?.url != siteUrl ||
-        controller.activeTabId != tabId ||
-        controller.currentContent?.topicId != topicId) {
-      return;
-    }
-    await controller.openReplyAsNewTopic(continuation);
-  };
-}
+}) => _captureShareAction(
+  context: context,
+  siteUrl: siteUrl,
+  topicId: topicId,
+  run: (shell, _) => shell.openReplyAsNewTopic(continuation),
+);
 
 Future<void> Function()? captureShareInvite({
   required BuildContext context,
   required String siteUrl,
   required int topicId,
+}) => _captureShareAction(
+  context: context,
+  siteUrl: siteUrl,
+  topicId: topicId,
+  run: (shell, instance) => showTopicInviteSheet(
+    context: context,
+    shell: shell,
+    instance: instance,
+    topicId: topicId,
+  ),
+);
+
+/// Ties a share surface's delayed action to the account, site, tab and topic
+/// that opened it: a choice made after any of them moved on does nothing.
+Future<void> Function()? _captureShareAction({
+  required BuildContext context,
+  required String siteUrl,
+  required int topicId,
+  required Future<void> Function(
+    ShellController shell,
+    DiscourseInstance instance,
+  )
+  run,
 }) {
   final controller = ShellScope.read(context);
   final tabId = controller.activeTabId;
@@ -128,25 +133,19 @@ Future<void> Function()? captureShareInvite({
   }
   final lease = controller.lifecycle.capture(siteUrl);
 
-  // The editor creates invites for the account that opened the share surface,
-  // so a delayed choice must still belong to it.
   return () async {
     final instance = controller.currentInstance;
     if (!context.mounted ||
         !identical(ShellScope.maybeRead(context), controller) ||
         !lease.isCurrent ||
         controller.currentAccountIdentity != account ||
-        instance?.url != siteUrl ||
+        instance == null ||
+        instance.url != siteUrl ||
         controller.activeTabId != tabId ||
         controller.currentContent?.topicId != topicId) {
       return;
     }
-    await showTopicInviteSheet(
-      context: context,
-      shell: controller,
-      instance: instance!,
-      topicId: topicId,
-    );
+    await run(controller, instance);
   };
 }
 
