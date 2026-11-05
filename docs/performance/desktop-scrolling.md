@@ -76,12 +76,98 @@ raster samples before and 1,982 after.
 FrameTiming raster durations are wall time, so they include waiting for the
 GPU and drawables. Raster CPU and frame timing can disagree.
 
+## GPU time
+
+Measured the same day on the same machine, after the hatch fix, with Metal
+System Traces of the warm timing pass of every route.
+
+### What the busy share counts
+
+The 40 to 50% GPU busy share from `ioreg` is system-wide. While these runs
+were recorded, World of Warcraft was also running. It took 21 to 27% of the
+GPU in every window, and up to 84% in a later one. Discourse took 24 to 30%,
+and the window server about 3%. Busy shares also depend on the GPU's clock.
+The GPU spent most windows in its Minimum performance state, and an encoder
+took about 30% longer there than in the Medium state. The driver therefore
+reports each encoder's mean duration for each performance state, and the
+comparisons below hold the state fixed.
+
+### Per pass
+
+A frame of the topic list has these GPU passes, at the Minimum state:
+
+| Pass | Per frame | Fragment µs | Vertex µs |
+| --- | ---: | ---: | ---: |
+| Onscreen pass | 1 | 1,060–1,170 | 210–250 |
+| Edge-fade `ShaderMaskLayer` offscreens | 3 | about 100 each | about 35 each |
+| Blend-filter passes (`PipelineBlend`) | 4 × 3 | 20–60 each | about 8 each |
+| `FramebufferBlendContents` snapshot | 1 (3–6 on topic and chat routes) | 20–50 each | about 6 each |
+
+The three mask offscreens are the 298 by 96 point toggle group, the sidebar,
+and the main panel. Together they cost about 0.3 ms of fragment time and
+0.1 ms of vertex time. The onscreen pass is the largest owner.
+
+### Inside the onscreen pass
+
+A local experiment build, not committed, repeated a topic-list pass with one
+suspect switched off at a time. The onscreen pass's fragment time at the
+Minimum state was:
+
+| Variant | Fragment µs |
+| --- | ---: |
+| Baseline (three passes) | 1,061–1,171 |
+| Edge fades off | 1,061, plus the three mask passes removed |
+| Cast shadows off | 1,113 |
+| Inset rim and catch of light off | 711 |
+| Highlight clipped to its top band | 1,183 |
+| No rounded-rectangle clips in the inset painter | 1,176 |
+
+Removing the rim and the catch of light saved about 430 µs. Shrinking their
+clips and their highlight geometry saved nothing, so the cost is the rim's
+own draw.
+
+On macOS, Impeller always renders with signed distance fields (the engine
+test is `EnableSDFsAlwaysReturnsYes`). `Canvas::DrawRoundRect` renders a
+rounded rectangle with circular corners as one `UberSDFGeometry` quad. That
+quad covers the shape's whole bounds, whether the shape is filled or
+stroked. Every panel's 1px rim therefore shaded and blended a quad the size
+of the panel on every frame. On desktop, the workspace panels and the page
+panels each draw a rim.
+
+### Change
+
+`_InsetEdgePainter` in `surface_depth.dart` now clips the rim's draw with a
+difference `clipRect` before it strokes the rim. The clip removes the middle
+of the shape, which starts 2 pixels inside the largest corner on each side.
+The rim and its antialiasing never reach that rectangle, so no pixel changes.
+On Impeller, a difference clip of a rectangle is one depth-only draw. The
+SDF's fragments in the middle then fail the depth test before they are
+shaded.
+
+`surface_depth_test.dart` compares the painter with a reference that strokes
+the rim the old way. The comparison is byte for byte, for panel, rim and
+block depths in both brightnesses. It covers circular, elliptical, square
+and oversized radii, with and without a border, at fractional offsets and
+scales of 1, 1.5 and 2. A margin of 0.5 or -1 pixels instead of 2 fails it.
+
+### Results
+
+Not measured yet. The first alternating run of baseline and fix failed:
+the baseline app exited during its second pass. In the fix run, World of
+Warcraft took 84% of the GPU, and Discourse got about 50 frames onto the
+GPU in a 4.6 second window. A comparison needs a machine with no other GPU
+workload.
+
 ## Remaining work
 
-- The GPU stays 40 to 50% busy on every route after the fix. The candidates
-  are the full-panel `ShaderMaskLayer` edge fades of the scroll views and the
-  sidebar. Each renders its whole panel offscreen on every frame. Attributing
-  GPU time needs a Metal System Trace.
+- Measure the rim change, alternating baseline and fix, with no other GPU
+  workload running.
+- The edge-fade masks cost about 0.4 ms of GPU time per frame across three
+  offscreen passes. A replacement that leaves pixels unchanged needs the
+  backdrop under each fade to be one opaque color, and the sidebar's is not
+  known to be.
+- The blend-filter and framebuffer-blend passes, four to six a frame, are
+  not attributed to widgets yet.
 - On the slower core tier, a cold chat scroll has about 2% of frames that take
   over 8.33 ms to build. Each one is mounting a new message: paragraph layout,
   paragraph building and its element tree. The topic reader already defers a
@@ -104,5 +190,19 @@ python3 tool/profile_desktop_scroll.py \
 The run takes about four minutes and takes over the screen. It writes
 `run.txt` with every table, a Dart flame graph per pass (`.svg`,
 `.focused.svg`, `.folded`), native flame graphs per thread
-(`.native.<thread>.svg`), and the raw JSON and trace. `--no-trace` skips
+(`.native.<thread>.svg`), and the raw JSON and trace. `--trace none` skips
 Instruments. `--reanalyze` rebuilds the report from a previous run's files.
+
+`--trace metal` records a Metal System Trace instead of a Time Profiler.
+A Metal trace of a whole run is tens of gigabytes, and `xctrace` cannot
+export it. The driver therefore records `--gpu-seconds` (default 4) at the
+start of each pass that matches `--gpu-phases` (default `warmTiming$`). For
+each window, the report gives:
+
+- the GPU busy share of every process,
+- the time in each GPU performance state,
+- the app's encoders per frame, with mean, p90 and per-frame time,
+- the mean encoder time for each performance state,
+- the CPU samples, with the core tier of each thread.
+
+Close other GPU workloads first, such as games.

@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -745,4 +746,181 @@ void main() {
     await tester.pump(const Duration(seconds: 6));
     await tester.pumpAndSettle();
   });
+
+  group('the rim of a large surface', () {
+    // The edges as they were before the rim's draw left the middle out:
+    // the catch of light from the painter itself, then the rim stroked
+    // under the surface's shape alone.
+    void reference(Canvas canvas, Size size, _InsetCase c) {
+      DSurfaceEdges(
+        highlight: c.edges.highlight,
+        highlightBlur: c.edges.highlightBlur,
+      ).insetPainter(c.radius, border: c.border)?.paint(canvas, size);
+      final outer = c.radius.toRRect(Offset.zero & size).scaleRadii();
+      final shape = c.border == EdgeInsets.zero
+          ? outer
+          : _paddingBox(outer, c.border);
+      canvas
+        ..save()
+        ..clipRRect(shape)
+        ..drawRRect(
+          shape.deflate(.5),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = c.edges.rim!,
+        )
+        ..restore();
+    }
+
+    Future<Uint8List> render(
+      WidgetTester tester,
+      _InsetCase c,
+      void Function(Canvas, Size) paint,
+    ) async {
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder)
+        ..drawColor(const Color(0xff404040), BlendMode.src)
+        ..scale(c.scale)
+        ..translate(c.offset.dx, c.offset.dy);
+      paint(canvas, c.size);
+      final picture = recorder.endRecording();
+      late Uint8List bytes;
+      await tester.runAsync(() async {
+        final image = await picture.toImage(
+          ((c.size.width + 2) * c.scale).ceil(),
+          ((c.size.height + 2) * c.scale).ceil(),
+        );
+        bytes = (await image.toByteData(
+          format: ui.ImageByteFormat.rawRgba,
+        ))!.buffer.asUint8List();
+        image.dispose();
+      });
+      picture.dispose();
+      return bytes;
+    }
+
+    final cases = [
+      for (final brightness in Brightness.values)
+        for (final depth in [
+          DSurfaceDepth.panel,
+          DSurfaceDepth.rim,
+          DSurfaceDepth.block,
+        ])
+          for (final (radius, border) in [
+            (BorderRadius.circular(22), EdgeInsets.zero),
+            (BorderRadius.circular(12), const EdgeInsets.all(1)),
+            (
+              const BorderRadius.only(
+                topLeft: Radius.elliptical(18, 9),
+                bottomRight: Radius.circular(4),
+              ),
+              EdgeInsets.zero,
+            ),
+            (BorderRadius.zero, EdgeInsets.zero),
+            (BorderRadius.circular(90), EdgeInsets.zero),
+          ])
+            for (final (offset, scale) in [
+              (Offset.zero, 1.0),
+              (const Offset(.37, .62), 1.0),
+              (const Offset(.5, .25), 2.0),
+              (const Offset(.13, .77), 1.5),
+            ])
+              for (final size in [const Size(180, 120), const Size(30, 9)])
+                _InsetCase(
+                  '$depth $brightness',
+                  DSurfaceEdges.of(depth, brightness),
+                  radius,
+                  border,
+                  offset,
+                  scale,
+                  size,
+                ),
+    ];
+
+    testWidgets('looks exactly as it did before its middle was left out', (
+      tester,
+    ) async {
+      for (final c in cases) {
+        final expected = await render(tester, c, (canvas, size) {
+          reference(canvas, size, c);
+        });
+        final actual = await render(tester, c, (canvas, size) {
+          c.edges.insetPainter(c.radius, border: c.border)!.paint(canvas, size);
+        });
+        final flat = await render(tester, c, (_, _) {});
+        expect(
+          actual,
+          isNot(orderedEquals(flat)),
+          reason: 'the rim must be drawn at all: $c',
+        );
+        expect(actual, orderedEquals(expected), reason: '$c');
+      }
+    });
+
+    test('leaves the middle of the surface out of its draw', () {
+      const size = Size(1800, 800);
+      final radius = BorderRadius.circular(12);
+      final canvas = TestRecordingCanvas();
+      DSurfaceEdges.of(
+        DSurfaceDepth.panel,
+        Brightness.light,
+      ).insetPainter(radius)!.paint(canvas, size);
+      final strokes = [
+        for (final (index, call) in canvas.invocations.indexed)
+          if (call.invocation.memberName == #drawRRect) index,
+      ];
+      expect(strokes, hasLength(1));
+      final cuts = [
+        for (final call in canvas.invocations.take(strokes.single))
+          if (call.invocation.memberName == #clipRect &&
+              call.invocation.namedArguments[#clipOp] == ui.ClipOp.difference)
+            call.invocation.positionalArguments.first as Rect,
+      ];
+      expect(cuts, hasLength(1));
+      // All but a band along the edges a little wider than the corners.
+      expect(cuts.single, const Rect.fromLTRB(14, 14, 1786, 786));
+    });
+  });
+}
+
+class _InsetCase {
+  const _InsetCase(
+    this.name,
+    this.edges,
+    this.radius,
+    this.border,
+    this.offset,
+    this.scale,
+    this.size,
+  );
+
+  final String name;
+  final DSurfaceEdges edges;
+  final BorderRadius radius;
+  final EdgeInsets border;
+  final Offset offset;
+  final double scale;
+  final Size size;
+
+  @override
+  String toString() =>
+      '$name $radius $border at $offset x$scale ${size.width}x${size.height}';
+}
+
+/// The painter's own inset of a bordered surface, so the reference strokes
+/// the rim where the painter does.
+RRect _paddingBox(RRect outer, EdgeInsets border) {
+  Radius less(Radius corner, double x, double y) =>
+      Radius.elliptical(math.max(0, corner.x - x), math.max(0, corner.y - y));
+  return RRect.fromLTRBAndCorners(
+    outer.left + border.left,
+    outer.top + border.top,
+    outer.right - border.right,
+    outer.bottom - border.bottom,
+    topLeft: less(outer.tlRadius, border.left, border.top),
+    topRight: less(outer.trRadius, border.right, border.top),
+    bottomRight: less(outer.brRadius, border.right, border.bottom),
+    bottomLeft: less(outer.blRadius, border.left, border.bottom),
+  );
 }
