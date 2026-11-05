@@ -288,6 +288,15 @@ final class NotificationPreferenceTransactions {
       topicId,
       (topic) => topic.withNotificationLevel(level),
     );
+    if (!lease.isCurrent || _disposed) return;
+    store.update<Topic>(siteUrl, topicId, (row) {
+      final accepted = store.read<TopicDetail>(siteUrl, topicId);
+      return row.copyWith(
+        muted:
+            (accepted?.notificationLevel ?? level) ==
+            TopicNotificationLevel.muted,
+      );
+    });
     if (lease.isCurrent && !_disposed) topicChanged(siteUrl);
   }
 

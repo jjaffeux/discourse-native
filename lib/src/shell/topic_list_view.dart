@@ -19,6 +19,7 @@ import '../models/topic_feed.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
+import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
@@ -1495,27 +1496,37 @@ class TopicListRow extends StatelessWidget {
         outerPadding: outerPadding,
       );
     }
-    return ShellSelector<_TopicCategoryPresentation>(
-      select: (controller) =>
-          _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
-      builder: (context, categoryPresentation, _) => _TopicRowBody(
-        topic: topic,
-        category: categoryPresentation.category,
-        categoryAncestors: categoryPresentation.ancestors,
-        showCategoryBreadcrumb: showCategoryBreadcrumb,
-        siteUrl: siteUrl,
-        forum: owningForum,
-        onTap:
-            onTap ??
-            () => handleTabOpenResult(context, controller.openTopic(topic)),
-        titleStyle: titleStyle,
-        showViews: showViews,
-        onSort: onSort,
-        order: order,
-        ascending: ascending,
-        contentPadding: contentPadding,
-        outerPadding: outerPadding,
-      ),
+    return ValueListenableBuilder<Topic?>(
+      valueListenable: controller.topicRef(siteUrl, topic.id),
+      builder: (context, stored, _) {
+        final current = stored ?? topic;
+        return ShellSelector<_TopicCategoryPresentation>(
+          select: (controller) => _topicCategoryPresentation(
+            controller,
+            current.categoryId,
+            siteUrl,
+          ),
+          builder: (context, categoryPresentation, _) => _TopicRowBody(
+            topic: current,
+            category: categoryPresentation.category,
+            categoryAncestors: categoryPresentation.ancestors,
+            showCategoryBreadcrumb: showCategoryBreadcrumb,
+            siteUrl: siteUrl,
+            forum: owningForum,
+            onTap:
+                onTap ??
+                () =>
+                    handleTabOpenResult(context, controller.openTopic(current)),
+            titleStyle: titleStyle,
+            showViews: showViews,
+            onSort: onSort,
+            order: order,
+            ascending: ascending,
+            contentPadding: contentPadding,
+            outerPadding: outerPadding,
+          ),
+        );
+      },
     );
   }
 }

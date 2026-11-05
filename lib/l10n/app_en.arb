@@ -1540,6 +1540,10 @@
   "@closed": {
     "description": "English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact."
   },
+  "unlisted": "Unlisted",
+  "@unlisted": {
+    "description": "Accessible topic row status for a topic hidden from public listings."
+  },
   "archived": "Archived",
   "@archived": {
     "description": "English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact."

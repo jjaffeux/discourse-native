@@ -629,6 +629,109 @@ void main() {
     );
   }
 
+  for (final status in [
+    TopicStatusProperty.archived,
+    TopicStatusProperty.visible,
+  ]) {
+    test(
+      '$status updates rows and survives older list and detail responses',
+      () async {
+        final f = _Fixture()..seed();
+        f.store.put(_site, const Topic(id: 7, title: 'Topic', slug: 'topic'));
+        final data = f.data;
+        final before = data.actionEpoch;
+        final reading = data.refresh(7);
+        await f.api.waitTopics(1);
+        final enabled = status == TopicStatusProperty.archived;
+        data.projectAcceptedStatus(7, status, enabled);
+        final row = f.store.read<Topic>(_site, 7)!;
+        expect(
+          status == TopicStatusProperty.archived ? row.archived : row.visible,
+          enabled,
+        );
+        final stale = data.actionRowFromRead(
+          before,
+          const Topic(id: 7, title: 'Fresh title', slug: 'topic'),
+        );
+        expect(
+          status == TopicStatusProperty.archived
+              ? stale.archived
+              : stale.visible,
+          enabled,
+        );
+        expect(stale.title, 'Fresh title');
+        f.api.topicReads.single.result.complete(_payload([]));
+        await reading;
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.statusValue(status),
+          enabled,
+        );
+        final current = f.store.read<Topic>(_site, 7)!;
+        expect(
+          status == TopicStatusProperty.archived
+              ? current.archived
+              : current.visible,
+          enabled,
+        );
+      },
+    );
+  }
+
+  for (final deleted in [true, false]) {
+    test(
+      'staff ${deleted ? 'deletion' : 'recovery'} updates every row and fences stale reads',
+      () async {
+        final f = _Fixture()..seed();
+        final date = DateTime.utc(2026, 11, 5);
+        final initial = TopicDetail(
+          id: 7,
+          title: 'Topic',
+          stream: const [1],
+          canCloseTopic: true,
+          canDeleteTopic: deleted,
+          canRecoverTopic: !deleted,
+          deletedAt: deleted ? null : date,
+        );
+        f.store.put(_site, initial);
+        f.store.put(
+          _site,
+          Topic(
+            id: 7,
+            title: 'Topic',
+            slug: 'topic',
+            deletedAt: initial.deletedAt,
+          ),
+        );
+        final data = f.data;
+        final before = data.actionEpoch;
+        final reading = data.refresh(7);
+        await f.api.waitTopics(1);
+        expect(data.projectAcceptedDeletion(7, deleted, date), isTrue);
+        expect(f.store.read<Topic>(_site, 7)!.deletedAt, deleted ? date : null);
+        final stale = data.actionRowFromRead(
+          before,
+          Topic(
+            id: 7,
+            title: 'Topic',
+            slug: 'topic',
+            deletedAt: initial.deletedAt,
+          ),
+        );
+        expect(stale.deletedAt, deleted ? date : null);
+        f.api.topicReads.single.result.complete((
+          detail: initial,
+          posts: const <Post>[],
+        ));
+        await reading;
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.deletedAt,
+          deleted ? date : null,
+        );
+        expect(f.store.read<Topic>(_site, 7)!.deletedAt, deleted ? date : null);
+      },
+    );
+  }
+
   test('status and pin fencing preserve only the changed fields', () async {
     final f = _Fixture()..seed();
     final data = f.data;
@@ -830,6 +933,8 @@ void main() {
         if (changed) return;
         changed = true;
         data.projectAcceptedStatus(7, TopicStatusProperty.closed, true);
+        data.projectAcceptedStatus(7, TopicStatusProperty.archived, true);
+        data.projectAcceptedStatus(7, TopicStatusProperty.visible, false);
       }
 
       ref.addListener(acceptStatus);
@@ -842,6 +947,8 @@ void main() {
       ));
       await reading;
       expect(changed, isTrue);
+      expect(f.store.read<Topic>(_site, 7)!.archived, isTrue);
+      expect(f.store.read<Topic>(_site, 7)!.visible, isFalse);
       expect(f.store.read<TopicDetail>(_site, 7)!.closed, isTrue);
       expect(f.store.read<Topic>(_site, 7)!.closed, isTrue);
     },
