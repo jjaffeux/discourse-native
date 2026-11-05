@@ -152,16 +152,38 @@ scales of 1, 1.5 and 2. A margin of 0.5 or -1 pixels instead of 2 fails it.
 
 ### Results
 
-Not measured yet. The first alternating run of baseline and fix failed:
-the baseline app exited during its second pass. In the fix run, World of
-Warcraft took 84% of the GPU, and Discourse got about 50 frames onto the
-GPU in a 4.6 second window. A comparison needs a machine with no other GPU
-workload.
+Four runs alternated baseline and fix (A, B, B, A), with a Metal window in
+the warm timing pass of every route. In the last baseline run, a game took
+74 to 92% of the GPU in every window except the side-by-side channel. The
+channel window was not recorded. Those windows are left out. An earlier
+attempt was discarded for the same reason, with World of Warcraft at up to
+84%.
+
+The table shows the onscreen pass's mean fragment time in the Minimum
+performance state, where the GPU spent 88 to 100% of each kept window.
+
+| Route | Baseline µs | Fix µs |
+| --- | ---: | ---: |
+| Topic list | 3,017 | 2,734 / 1,849 |
+| Topic | 3,031 | 1,520 / 1,880 |
+| Channel | 1,517 | 933 / 939 |
+| Side by side, topic | 1,420 | 1,315 / 1,380 |
+| Side by side, channel | 1,645 / 1,834 | 1,150 / 896 |
+
+The fix is lower on every route. In the cleanest comparison, side by side
+with the channel and two runs of each, the cut is 41%. The spread is wide.
+The topic list's baseline here is three times the earlier windows' value in
+the same state, because the Minimum state still covers a range of clocks.
+The mask passes and the vertex time did not change. Discourse's own busy
+share went from 44 to 51% in the baseline run to 30 to 45% with the fix.
+Frame timings did not change: raster and build stay under 2 ms on average,
+and the raster thread stayed on the fast core tier in every kept window.
 
 ## Remaining work
 
-- Measure the rim change, alternating baseline and fix, with no other GPU
-  workload running.
+- Repeat the rim measurement with no other GPU workload, and with the GPU
+  held at one clock if a tool allows it. The Minimum state still covers a
+  wide range of clocks.
 - The edge-fade masks cost about 0.4 ms of GPU time per frame across three
   offscreen passes. A replacement that leaves pixels unchanged needs the
   backdrop under each fade to be one opaque color, and the sidebar's is not
