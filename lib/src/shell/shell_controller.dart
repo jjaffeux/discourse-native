@@ -1059,13 +1059,13 @@ class ShellController extends FrameSafeNotifier
           (instance, apiKey, categories, categoryIds, isCurrent) async {
             if (!isCurrent()) return;
             if (categories.isNotEmpty) {
-              _taxonomy.mergeCategories(
+              final changed = _taxonomy.mergeCategories(
                 instance.url,
                 categories,
                 isCurrent: isCurrent,
               );
               if (!isCurrent()) return;
-              _notify();
+              if (changed) _notify();
             }
             if (!isCurrent()) return;
             unawaited(

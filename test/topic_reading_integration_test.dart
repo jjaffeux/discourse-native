@@ -1039,7 +1039,11 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, desktop, api: api);
-        final firstTopic = contentText('Welcome to the forum');
+        // The desktop's secondary panel shows its own Latest list.
+        final firstTopic = find.descendant(
+          of: primaryMainContent,
+          matching: contentText('Welcome to the forum'),
+        );
         final initialTop = tester.getTopLeft(firstTopic).dy;
         final topicsRow = find.descendant(
           of: find.byType(InstanceSidebar),

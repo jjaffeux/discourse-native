@@ -28,6 +28,7 @@ import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
@@ -305,6 +306,11 @@ void main() {
           '/latest.json': _topics(1, 40),
           '/latest.json?page=1': _topics(41, 1),
         },
+        categoryList: _sideloaded.currentValue!,
+        feedCategoriesByPath: {
+          '/latest.json': _sideloaded.currentValue!,
+          '/latest.json?page=1': _sideloaded.currentValue!,
+        },
         nextPages: const {'/latest.json': '/latest?page=1'},
         creatableFeedPaths: const {'/latest.json'},
         feedGates: {'/latest.json?page=1': pageGate},
@@ -351,13 +357,32 @@ void main() {
       shellNotifications = 0;
       expect(find.byType(TopicCreateButton), findsOneWidget);
 
+      // The desktop's secondary panel shows its own Latest list.
+      final primaryList = find.descendant(
+        of: primaryMainContent,
+        matching: find.byType(TopicListView),
+      );
       final rail = tester.element(find.byType(InstanceRail));
       final sidebar = tester.element(find.byType(InstanceSidebar));
       final content = tester.element(primaryMainContent);
       final contentSelector = _onlyChild(content);
       final tabBar = tester.element(_forumTabsBar);
       final createAction = tester.element(find.byType(TopicCreateButton));
-      final list = tester.element(find.byType(TopicListView));
+      final listNavigation = tester.element(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byType(TopicFeedMenu),
+        ),
+      );
+      final sidebarSection = tester.element(
+        find
+            .descendant(
+              of: find.byType(InstanceSidebar),
+              matching: find.byType(DSidebarGroup),
+            )
+            .first,
+      );
+      final list = tester.element(primaryList);
       final rebuilds = <Element, int>{};
       final previousRebuildCallback = debugOnRebuildDirtyWidget;
       debugOnRebuildDirtyWidget = (element, builtOnce) {
@@ -383,10 +408,7 @@ void main() {
       expect(api.feedPaths, contains('/latest.json?page=1'));
       expect(controller.currentFeed?.loadingMore, isTrue);
       expect(
-        tester
-            .widget<TopicListView>(find.byType(TopicListView))
-            .feed
-            .loadingMore,
+        tester.widget<TopicListView>(primaryList).feed.loadingMore,
         isTrue,
       );
       expect(shellNotifications, 0);
@@ -397,6 +419,8 @@ void main() {
         contentSelector,
         tabBar,
         createAction,
+        listNavigation,
+        sidebarSection,
       ]) {
         expect(rebuilds[chrome] ?? 0, 0, reason: chrome.toString());
       }
@@ -415,9 +439,7 @@ void main() {
       await tester.pump();
 
       expect(controller.currentFeed?.topicIds.last, 41);
-      final renderedFeed = tester
-          .widget<TopicListView>(find.byType(TopicListView))
-          .feed;
+      final renderedFeed = tester.widget<TopicListView>(primaryList).feed;
       expect(renderedFeed.topicIds.last, 41);
       expect(renderedFeed.loadingMore, isFalse);
       expect(shellNotifications, 0);
@@ -428,11 +450,14 @@ void main() {
         contentSelector,
         tabBar,
         createAction,
+        listNavigation,
+        sidebarSection,
       ]) {
         expect(rebuilds[chrome] ?? 0, 0, reason: chrome.toString());
       }
       expect(rebuilds[list] ?? 0, greaterThan(0));
     },
+    variant: _sideloaded,
   );
 
   testWidgets('reader bounds reports do not notify the shell facade', (
@@ -1124,8 +1149,25 @@ final class _PreviewApi extends FakeDiscourseApi {
 
 List<Topic> _topics(int first, int count) => [
   for (var id = first; id < first + count; id++)
-    Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+    Topic(
+      id: id,
+      title: 'Topic $id',
+      slug: 'topic-$id',
+      categoryId: _knownCategories[id % 2].id,
+    ),
 ];
+
+const _knownCategories = [
+  TopicCategory(id: 5, name: 'Support', color: '0088CC', slug: 'support'),
+  TopicCategory(id: 6, name: 'Features', color: 'BF1E2E', slug: 'features'),
+];
+
+/// A site that lazy-loads categories sideloads the categories of every
+/// page's topics, though the shell already holds them.
+final _sideloaded = ValueVariant<List<TopicCategory>>({
+  const [],
+  _knownCategories,
+});
 
 Finder get _realTopicTitle => find.descendant(
   of: find.byType(TopicListView),

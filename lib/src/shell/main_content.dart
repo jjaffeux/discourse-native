@@ -1043,41 +1043,40 @@ class _FeedBackedContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    return _TopicFeedSelector<TopicFeed?>(
+    // Every page a feed appends publishes a new feed. The navigation above
+    // the list depends only on the route, so it stays outside the selector
+    // instead of rebuilding its tabs, filters and tooltips with each page.
+    final content = _TopicFeedSelector<TopicFeed?>(
       controller: controller,
       select: (controller, tab) => tab.currentFeed,
       builder: (context, feed, _) {
-        final Widget content;
         if (route.isMessages) {
-          content = MessageInboxPage(
+          return MessageInboxPage(
             feed: feed ?? const TopicFeed(),
             actions: topicListActions,
             keepTopicOpen: keepTopicOpen,
           );
-        } else if (feed == null &&
-            route.feedPath == null &&
-            !route.isTopicList) {
-          content = const _ContentNotFound();
-        } else {
-          // Forum settings and tab hydration can resolve the route before its
-          // first feed request starts. A missing feed is still loading here.
-          content = TopicListView(
-            feed: feed ?? const TopicFeed.loading(),
-            inbox: inbox,
-          );
         }
-
-        if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
-          return TopicListNavigation(
-            keepTopicOpen: keepTopicOpen,
-            trailing: topicListActions,
-            headingBuilder: topicListHeadingBuilder,
-            child: content,
-          );
+        if (feed == null && route.feedPath == null && !route.isTopicList) {
+          return const _ContentNotFound();
         }
-        return content;
+        // Forum settings and tab hydration can resolve the route before its
+        // first feed request starts. A missing feed is still loading here.
+        return TopicListView(
+          feed: feed ?? const TopicFeed.loading(),
+          inbox: inbox,
+        );
       },
     );
+    if (TopicListMode.fromRoute(route) != null || route.isTopicListFilter) {
+      return TopicListNavigation(
+        keepTopicOpen: keepTopicOpen,
+        trailing: topicListActions,
+        headingBuilder: topicListHeadingBuilder,
+        child: content,
+      );
+    }
+    return content;
   }
 }
 
