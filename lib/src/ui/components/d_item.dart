@@ -1199,33 +1199,39 @@ class _ClosedHatch extends CustomPainter {
   final BorderRadius radius;
   final TextDirection direction;
 
+  /// How far from the trailing edge the hatch fades out completely.
+  static const _reach = .55;
+
   @override
   void paint(Canvas canvas, Size size) {
     final rect = Offset.zero & size;
+    final ltr = direction == TextDirection.ltr;
     final paint = Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1
       ..shader = LinearGradient(
-        begin: direction == TextDirection.ltr
-            ? Alignment.centerRight
-            : Alignment.centerLeft,
-        end: direction == TextDirection.ltr
-            ? Alignment.centerLeft
-            : Alignment.centerRight,
+        begin: ltr ? Alignment.centerRight : Alignment.centerLeft,
+        end: ltr ? Alignment.centerLeft : Alignment.centerRight,
         colors: [color.withValues(alpha: .16), color.withValues(alpha: 0)],
-        stops: const [0, .55],
+        stops: const [0, _reach],
       ).createShader(rect);
-    canvas.save();
-    canvas.clipRRect(radius.toRRect(rect));
     // CSS -45deg: parallel strokes one pixel wide, six pixels apart along
     // their normal. Keep the angle in RTL; only the directional fade mirrors.
-    for (double x = 0; x < size.width + size.height; x += 6 * math.sqrt2) {
-      canvas.drawLine(
-        Offset(x, 0),
-        Offset(x - size.height, size.height),
-        paint,
-      );
+    // Only strokes that cross the inked band are drawn, on the same lattice.
+    // One path keeps Impeller from shading every stroke in its own subpass,
+    // which cost whole milliseconds of raster time per visible closed row.
+    const step = 6 * math.sqrt2;
+    final start = ltr ? size.width * (1 - _reach) : 0.0;
+    final end = (ltr ? size.width : size.width * _reach) + size.height;
+    final strokes = Path();
+    for (var x = (start / step).ceil() * step; x < end; x += step) {
+      strokes
+        ..moveTo(x, 0)
+        ..lineTo(x - size.height, size.height);
     }
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(rect));
+    canvas.drawPath(strokes, paint);
     canvas.restore();
   }
 

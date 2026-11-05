@@ -129,6 +129,49 @@ void main() {
     }
   });
 
+  // Impeller shades each gradient-stroked line in its own offscreen pass, so
+  // per-stroke draws made one visible closed row cost milliseconds of raster
+  // time every frame on a wide desktop panel.
+  testWidgets('closed hatch is one draw however wide the row', (tester) async {
+    tester.view.physicalSize = const Size(2400, 400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (final direction in TextDirection.values) {
+      for (final width in [360.0, 2200.0]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Directionality(
+              textDirection: direction,
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: width,
+                  child: const DItem(
+                    closed: true,
+                    padding: EdgeInsets.all(12),
+                    children: [SizedBox(height: 96)],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final hatch = find.descendant(
+          of: find.byType(DItem),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is CustomPaint &&
+                widget.painter.runtimeType.toString() == '_ClosedHatch',
+          ),
+        );
+        final box = tester.renderObject<RenderCustomPaint>(hatch);
+        expect(box, paintsExactlyCountTimes(#drawLine, 0));
+        expect(box, paintsExactlyCountTimes(#drawPath, 1));
+      }
+    }
+  });
+
   testWidgets('closed lock flows on the title first line and follows its ink', (
     tester,
   ) async {
