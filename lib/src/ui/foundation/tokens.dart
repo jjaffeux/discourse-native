@@ -12,6 +12,8 @@ import 'oklab.dart';
 class DTokens extends ThemeExtension<DTokens> {
   static final _controlThemes = Expando<DControlTheme>();
   static final _buttonThemes = Expando<DControlTheme>();
+  static final _readTitleColors = Expando<Color>();
+  static final _selectionTints = Expando<Color>();
 
   const DTokens({
     required this.colors,
@@ -71,6 +73,60 @@ class DTokens extends ThemeExtension<DTokens> {
   double get controlRadius => controlTheme.radius;
 
   Color get foreground => colors.onSurface;
+
+  /// A read topic's title, the mockup's `--title-read`: the least ink from
+  /// 30% upward that keeps text contrast on the palette's surfaces.
+  Color get titleRead => _readTitleColors[this] ??= _resolveTitleRead();
+
+  /// An Item selection wash that preserves the palette's text contrast.
+  ///
+  /// Matches the mockup's `--accent-tint`, reduced only when needed.
+  Color get selectionTint => _selectionTints[this] ??= _resolveSelectionTint();
+
+  Color _resolveSelectionTint() {
+    var share = .12;
+    while (share > 0 &&
+        contrastRatio(foreground, mixInto(panelBackground, primary, share)) <
+            textContrast + contrastMargin) {
+      share = math.max(0, share - .005);
+    }
+    return primary.withValues(alpha: share);
+  }
+
+  Color _resolveTitleRead() {
+    Color at(double share) => mixInto(background, foreground, share);
+    bool reads(Color under) =>
+        contrastRatio(foreground, under) >= textContrast + contrastMargin;
+    var raised = .10;
+    while (raised > 0 &&
+        !(reads(at(raised)) && reads(mixInto(at(raised), foreground, .08)))) {
+      raised = math.max(0, raised - .005);
+    }
+    return at(
+      shareFor(
+        foreground,
+        background,
+        [
+          panelBackground,
+          at(raised),
+          mixInto(at(raised), foreground, .08),
+          Color.alphaBlend(selectionTint, panelBackground),
+          // Native hosts can supply additional surfaces, including translucent
+          // selection fills. The title must also read on those actual grounds.
+          for (final under in [
+            background,
+            surface,
+            muted,
+            selected,
+            selectionTint,
+          ])
+            Color.alphaBlend(under, background),
+        ],
+        textContrast + contrastMargin,
+        .30,
+      ),
+    );
+  }
 
   /// The ground a phone's chrome stands on: the background one step down its
   /// own lightness in Oklch, keeping its chroma and hue, as the mockup's

@@ -25,9 +25,11 @@ class _TopicListTitle extends StatelessWidget {
                     ))
                 ?.copyWith(
                   color: read
-                      ? Color.lerp(tokens.background, tokens.foreground, .9)
+                      ? tokens.titleRead
+                      : topic.muted
+                      ? tokens.mutedForeground
                       : tokens.foreground,
-                  fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+                  fontWeight: read ? FontWeight.w400 : FontWeight.w700,
                 ),
         trailing: [
           if (topic.showNewTopicDot || topic.showNewRepliesDot)

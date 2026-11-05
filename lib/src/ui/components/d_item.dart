@@ -472,7 +472,7 @@ class _DItemState extends State<DItem> {
               ? tokens.foreground.withValues(
                   alpha: strongNeutralSelection ? .13 : .05,
                 )
-              : tokens.primary.withValues(alpha: .12)
+              : tokens.selectionTint
         : !preview &&
               widget.highlightOnInteraction &&
               _active &&
