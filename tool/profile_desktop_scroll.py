@@ -12,8 +12,14 @@ DESKTOP_SCROLL_PHASE lines:
   - frame timings and the UI isolate's Dart CPU samples (from the test),
   - the Dart, Embedder and GC timeline (from the test),
   - an Instruments Time Profiler trace of the whole process, so native
-    frames on the raster and platform threads are attributed per pass,
+    frames on the raster and platform threads are attributed per pass, with
+    the core tier each sample ran on,
   - the system-wide GPU busy share, which includes the window server.
+
+--trace metal records a Metal System Trace instead. It holds the same CPU
+samples, and adds every GPU encoder of every process, so GPU time is
+attributed per pass to the app's own render passes, the window server and
+anything else on the GPU.
 
 It writes <output>.txt (all tables), <output>.<pass>.svg / .focused.svg /
 .folded for Dart CPU, <output>.<pass>.native.<thread>.svg / .folded for
@@ -21,6 +27,7 @@ native threads, and keeps the raw JSON and trace beside them.
 """
 
 import argparse
+import bisect
 import collections
 import importlib.util
 import json
@@ -58,7 +65,24 @@ def gpu_utilization():
     return int(match.group(1)) if match else None
 
 
-def run(app, output, timeout, trace):
+TEMPLATES = {"time": "Time Profiler", "metal": "Metal System Trace"}
+
+
+def record(pid, template, path, seconds=None):
+    subprocess.run(["rm", "-rf", str(path)])
+    return subprocess.Popen(
+        ["xcrun", "xctrace", "record", "--template", template,
+         "--attach", str(pid), "--output", str(path), "--no-prompt"]
+        + ([f"--time-limit", f"{seconds}s"] if seconds else []),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+    )
+
+
+def phase_trace(output, name):
+    return output.with_name(f"{output.name}.{name}.trace")
+
+
+def run(app, output, timeout, trace, gpu_phases, gpu_seconds):
     binary = app / "Contents/MacOS/Discourse"
     process = subprocess.Popen(
         [str(binary)], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
@@ -81,16 +105,12 @@ def run(app, output, timeout, trace):
 
     threading.Thread(target=sample_gpu, daemon=True).start()
 
-    recorder = None
-    if trace:
-        trace_path = output.with_suffix(".trace")
-        subprocess.run(["rm", "-rf", str(trace_path)])
-        recorder = subprocess.Popen(
-            ["xcrun", "xctrace", "record", "--template", "Time Profiler",
-             "--attach", str(process.pid), "--output", str(trace_path),
-             "--no-prompt"],
-            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        )
+    # A Metal System Trace of a whole run is tens of gigabytes, more than
+    # xctrace can export, so it records a window at the start of each
+    # selected pass instead.
+    recorders = []
+    if trace == "time":
+        recorders.append(record(process.pid, TEMPLATES[trace], output.with_suffix(".trace")))
     log, phases, starts = [], {}, {}
     result_path = None
     passed = False
@@ -108,6 +128,11 @@ def run(app, output, timeout, trace):
                 kind, name, us = match.groups()
                 if kind == "start":
                     starts[name] = int(us)
+                    if (trace == "metal" and re.search(gpu_phases, name)
+                            and all(r.poll() is not None for r in recorders)):
+                        recorders.append(record(
+                            process.pid, TEMPLATES[trace],
+                            phase_trace(output, name), gpu_seconds))
                 else:
                     phases[name] = (starts.pop(name), int(us))
                 print(line.rstrip(), flush=True)
@@ -120,10 +145,11 @@ def run(app, output, timeout, trace):
                 print(line.rstrip(), flush=True)
     finally:
         stop.set()
-        if recorder:
-            recorder.send_signal(signal.SIGINT)
+        for recorder in recorders:
+            if recorder.poll() is None:
+                recorder.send_signal(signal.SIGINT)
             try:
-                recorder.wait(timeout=120)
+                recorder.wait(timeout=300)
             except subprocess.TimeoutExpired:
                 recorder.kill()
             log.append("\n[xctrace]\n" + (recorder.stdout.read() or ""))
@@ -153,15 +179,19 @@ def gpu_tables(phases, gpu):
     return lines
 
 
-def native_samples(trace_path):
-    """Yields (wall_us, thread, frames root-first) from a Time Profiler trace."""
+def trace_origin_us(trace_path):
     toc = subprocess.run(
         ["xcrun", "xctrace", "export", "--input", str(trace_path), "--toc"],
         capture_output=True, text=True, check=True,
     ).stdout
     start = ET.fromstring(toc).find(".//start-date").text
     from datetime import datetime
-    origin = datetime.fromisoformat(start.replace("Z", "+00:00")).timestamp() * 1e6
+    return datetime.fromisoformat(start.replace("Z", "+00:00")).timestamp() * 1e6
+
+
+def native_samples(trace_path):
+    """Yields (wall_us, thread, core, frames root-first) from a trace's CPU samples."""
+    origin = trace_origin_us(trace_path)
     xml = subprocess.run(
         ["xcrun", "xctrace", "export", "--input", str(trace_path), "--xpath",
          '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]'],
@@ -190,6 +220,9 @@ def native_samples(trace_path):
         if time_el is None or backtrace is None:
             continue
         thread = thread_el.get("fmt", "?") if thread_el is not None else "?"
+        core_el = resolve(row.find("core"))
+        core = core_el.get("fmt", "?") if core_el is not None else "?"
+        core = m.group(1) if (m := re.search(r"\((\w+) Core\)", core)) else "?"
         frames = []
         for frame in backtrace.iter("frame"):
             frame = resolve(frame)
@@ -198,7 +231,7 @@ def native_samples(trace_path):
             binary = resolve(binary) if binary is not None else None
             lib = binary.get("name") if binary is not None else ""
             frames.append(f"{name} [{lib}]".replace(";", ":"))
-        yield origin + int(time_el.text) / 1000, thread, list(reversed(frames))
+        yield origin + int(time_el.text) / 1000, thread, core, list(reversed(frames))
 
 
 def thread_key(thread):
@@ -210,16 +243,23 @@ def thread_key(thread):
 def native_tables(trace_path, phases, output, top):
     lines = ["", "=== Native time profile (Instruments) ==="]
     per_phase = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
-    for wall, thread, frames in native_samples(trace_path):
+    cores = collections.defaultdict(lambda: collections.defaultdict(collections.Counter))
+    for wall, thread, core, frames in native_samples(trace_path):
         for name, (start, end) in phases.items():
             if start <= wall <= end:
                 per_phase[name][thread_key(thread)][";".join(frames)] += 1
+                cores[name][thread_key(thread)][core] += 1
     for name in phases:
         threads = per_phase.get(name, {})
         seconds = (phases[name][1] - phases[name][0]) / 1e6
-        lines += ["", f"--- {name} ({seconds:.1f}s): samples per thread ---"]
+        lines += ["", f"--- {name} ({seconds:.1f}s): samples per thread, share by core tier ---"]
         for thread, stacks in sorted(threads.items(), key=lambda kv: -sum(kv[1].values())):
-            lines.append(f"  {sum(stacks.values()):7d}  {thread}")
+            total = sum(stacks.values())
+            tiers = "  ".join(
+                f"{tier} {count / total:4.0%}"
+                for tier, count in cores[name][thread].most_common()
+            )
+            lines.append(f"  {total:7d}  {thread:32} {tiers}")
         for thread, stacks in sorted(threads.items(), key=lambda kv: -sum(kv[1].values()))[:3]:
             parsed = [(s.split(";"), c) for s, c in stacks.items()]
             prefix = f"{output}.{name}.native.{thread}"
@@ -231,13 +271,145 @@ def native_tables(trace_path, phases, output, top):
     return lines
 
 
+def table_rows(trace_path, schema):
+    """Streams a trace table as {column mnemonic: (fmt, text)} dicts."""
+    export = subprocess.Popen(
+        ["xcrun", "xctrace", "export", "--input", str(trace_path), "--xpath",
+         f'/trace-toc/run[@number="1"]/data/table[@schema="{schema}"]'],
+        stdout=subprocess.PIPE,
+    )
+    columns, values = [], {}
+    for event, element in ET.iterparse(export.stdout, events=("end",)):
+        if element.tag == "mnemonic":
+            columns.append(element.text)
+        elif element.tag == "row":
+            row = {}
+            for column, cell in zip(columns, element):
+                ref = cell.get("ref")
+                if ref is not None:
+                    row[column] = values[ref]
+                    continue
+                value = (cell.get("fmt") or "", cell.text or "")
+                if cell.get("id") is not None:
+                    values[cell.get("id")] = value
+                row[column] = value
+                for nested in cell.iter():
+                    if nested is not cell and nested.get("id") is not None:
+                        values[nested.get("id")] = (nested.get("fmt") or "", nested.text or "")
+            element.clear()
+            yield row
+    export.wait()
+
+
+def pass_label(label):
+    """The encoder label without its process suffix or surface ids."""
+    label = re.sub(r"\s+\([^()]*\(\d+\)\)\s+0x[0-9a-f]+$", "", label).strip()
+    return re.sub(r"Surface: [\d\u202f ]+", "Surface: N ", label).strip()
+
+
+def union_us(intervals):
+    total, reach = 0, None
+    for start, end in sorted(intervals):
+        if reach is None or start > reach:
+            total += end - start
+            reach = end
+        elif end > reach:
+            total += end - reach
+            reach = end
+    return total
+
+
+def gpu_pass_tables(trace_path, phases, summary):
+    """Attributes GPU time per pass from a Metal System Trace."""
+    origin = trace_origin_us(trace_path)
+    # Durations stretch as the GPU lowers its clock, so each encoder is also
+    # attributed to the performance state it started in.
+    timeline = []
+    for row in table_rows(trace_path, "gpu-performance-state-intervals"):
+        start = origin + int(row["start"][1]) / 1000
+        timeline.append((start, start + int(row["duration"][1]) / 1000,
+                         row["gpu-performance-state"][0]))
+    timeline.sort()
+    starts = [start for start, _, _ in timeline]
+
+    def state_at(us):
+        index = bisect.bisect_right(starts, us) - 1
+        return timeline[index][2] if index >= 0 and us <= timeline[index][1] else "?"
+
+    per_phase = {name: collections.defaultdict(list) for name in phases}
+    by_state = {name: collections.defaultdict(lambda: collections.defaultdict(list)) for name in phases}
+    busy = {name: collections.defaultdict(list) for name in phases}
+    for row in table_rows(trace_path, "metal-gpu-intervals"):
+        start = origin + int(row["start"][1]) / 1000
+        duration = int(row["duration"][1]) / 1000
+        process = row.get("process", ("?", ""))[0].split(" (")[0] or "?"
+        for name, (begin, end) in phases.items():
+            if begin <= start <= end:
+                busy[name][process].append((start, start + duration))
+                if process == "Discourse":
+                    key = (row["channel-name"][0], pass_label(row["event-label"][0]))
+                    per_phase[name][key].append(duration)
+                    by_state[name][key][state_at(start)].append(duration)
+                break
+    states = {name: collections.Counter() for name in phases}
+    for start, end, state in timeline:
+        for name, (begin, finish) in phases.items():
+            if begin <= start <= finish:
+                states[name][state] += end - start
+    lines = []
+    for name, (begin, end) in phases.items():
+        # The recording covers only part of the pass: scale to what it saw.
+        seen = [start for intervals in busy[name].values() for start, _ in intervals]
+        if not seen:
+            continue
+        span = max(seen) - min(seen)
+        frames = summary.get("phases", {}).get(name, {}).get("frames")
+        frames = frames * span / (end - begin) if frames else None
+        lines += ["", f"--- {name} ({span / 1e6:.1f}s traced, {frames or 0:.0f} frames) ---",
+                  "  GPU busy share by process (union of vertex and fragment work):"]
+        for process, intervals in sorted(busy[name].items(), key=lambda kv: -union_us(kv[1]))[:6]:
+            lines.append(f"    {union_us(intervals) / span:6.1%}  {process}")
+        # Busy shares are at whatever clock the GPU chose: it lowers its
+        # performance state until the work fills the frame.
+        total = sum(states[name].values()) or 1
+        lines.append("  GPU performance state: " + "  ".join(
+            f"{state} {us / total:4.0%}" for state, us in states[name].most_common()))
+        lines.append("  Discourse encoders:      count  per frame   mean us    p90 us  ms/frame  busy")
+        rows = sorted(per_phase[name].items(), key=lambda kv: -sum(kv[1]))
+        for (channel, label), durations in rows[:20]:
+            durations.sort()
+            per_frame = f"{sum(durations) / frames / 1000:8.3f}" if frames else "       ?"
+            count = f"{len(durations) / frames:9.2f}" if frames else "        ?"
+            lines.append(
+                f"    {channel[:4]:4} {len(durations):7d} {count} {statistics.mean(durations):9.1f} "
+                f"{durations[int(len(durations) * .9)]:9.1f} {per_frame} {sum(durations) / span:5.1%}  {label}"
+            )
+        lines.append("  Mean us by GPU performance state (n):")
+        for (channel, label), _ in rows[:4]:
+            cells = "  ".join(
+                f"{state} {statistics.mean(values):7.1f} ({len(values)})"
+                for state, values in sorted(by_state[name][(channel, label)].items())
+            )
+            lines.append(f"    {channel[:4]:4} {cells}  {label[-40:]}")
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("app", type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--timeout", type=int, default=900)
     parser.add_argument("--top", type=int, default=40)
-    parser.add_argument("--no-trace", action="store_true")
+    parser.add_argument(
+        "--trace", choices=["time", "metal", "none"], default="time",
+        help="Instruments recording: Time Profiler, Metal System Trace "
+        "(CPU samples and per-pass GPU time), or none")
+    parser.add_argument(
+        "--gpu-phases", default=r"warmTiming$",
+        help="with --trace metal: regex of the passes to record")
+    parser.add_argument(
+        "--gpu-seconds", type=int, default=4,
+        help="with --trace metal: length of each pass's recording")
     parser.add_argument("--reanalyze", action="store_true",
                         help="reuse <output>.json/.trace/.phases.json")
     args = parser.parse_args()
@@ -250,7 +422,8 @@ def main():
         gpu = saved["gpu"]
     else:
         data, phases, gpu = run(args.app.resolve(), args.output, args.timeout,
-                                not args.no_trace)
+                                None if args.trace == "none" else args.trace,
+                                args.gpu_phases, args.gpu_seconds)
         phases_path.write_text(json.dumps({"phases": phases, "gpu": gpu}))
 
     summary = data.get("summary", {})
@@ -291,6 +464,18 @@ def main():
             lines += native_tables(trace_path, phases, args.output, args.top)
         except Exception as error:  # noqa: BLE001 - the Dart report still stands
             lines += ["", f"Native trace export failed: {error!r}"]
+    gpu_lines = []
+    for name, window in phases.items():
+        path = phase_trace(args.output, name)
+        if not path.exists():
+            continue
+        try:
+            gpu_lines += gpu_pass_tables(path, {name: window}, summary)
+            gpu_lines += native_tables(path, {name: window}, f"{args.output}.gpu", args.top)[2:]
+        except Exception as error:  # noqa: BLE001 - the other reports still stand
+            gpu_lines += ["", f"GPU trace export of {name} failed: {error!r}"]
+    if gpu_lines:
+        lines += ["", "=== GPU passes (Metal System Trace) ==="] + gpu_lines
     args.output.with_suffix(".txt").write_text("\n".join(lines) + "\n")
     print("\n".join(lines[:60]))
 
