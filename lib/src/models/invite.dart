@@ -189,6 +189,7 @@ final class InviteDraft {
     required this.maxRedemptions,
     required this.expiresAt,
     this.sendEmail = false,
+    this.topicId,
   });
 
   final String email;
@@ -198,6 +199,9 @@ final class InviteDraft {
   final DateTime expiresAt;
   final bool sendEmail;
 
+  /// The topic the invitee lands in; null for a plain forum invite.
+  final int? topicId;
+
   Map<String, Object?> toWire() => {
     if (email.trim().isNotEmpty) 'email': email.trim(),
     'description': description.trim(),
@@ -206,5 +210,9 @@ final class InviteDraft {
     'expires_at': expiresAt.toUtc().toIso8601String(),
     if (email.trim().isNotEmpty && sendEmail) 'send_email': true,
     if (!sendEmail) 'skip_email': true,
+    if (topicId != null) 'topic_id': topicId,
+    // The server only mails the topic to an address it was told to email.
+    if (topicId != null && email.trim().isNotEmpty && sendEmail)
+      'invite_to_topic': true,
   };
 }
