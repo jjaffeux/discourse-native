@@ -38,12 +38,16 @@ class _TopicListTitle extends StatelessWidget {
                 end:
                     (titleStyle?.fontSize ?? DiscourseTypography.rowTitle) * .4,
               ),
-              child: DIcon(
-                DIcons.lock,
-                key: ValueKey('topic-row-lock-${topic.id}'),
-                size: 11,
-                color: titleStyle?.color,
-                semanticLabel: context.l10n.closed,
+              child: DTooltip(
+                message: context.l10n.closed,
+                excludeFromSemantics: true,
+                child: DIcon(
+                  DIcons.lock,
+                  key: ValueKey('topic-row-lock-${topic.id}'),
+                  size: 11,
+                  color: titleStyle?.color,
+                  semanticLabel: context.l10n.closed,
+                ),
               ),
             ),
         ],

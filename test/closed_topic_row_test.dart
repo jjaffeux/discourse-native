@@ -181,6 +181,16 @@ void main() {
             final style = tester.widget<TopicTitle>(title).style!;
             expect(tester.widget<DIcon>(lock).color, style.color);
             expect(tester.widget<DIcon>(lock).size, 11);
+            expect(
+              tester
+                  .widget<DTooltip>(
+                    find
+                        .ancestor(of: lock, matching: find.byType(DTooltip))
+                        .first,
+                  )
+                  .message,
+              'Closed',
+            );
             final paragraph = tester.renderObject<RenderParagraph>(
               find.descendant(of: title, matching: find.byType(RichText)).first,
             );
