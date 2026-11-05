@@ -9,7 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('lock aligns with the timestamp at the trailing row edge', (
+  testWidgets('status aligns with the timestamp at the trailing row edge', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1400, 1000);
@@ -39,7 +39,7 @@ void main() {
                                 'A closed topic with a title that can wrap ' *
                                 3,
                             slug: 'closed-topic',
-                            closed: true,
+                            pinned: true,
                             bumpedAt: DateTime.now().subtract(
                               const Duration(hours: 4),
                             ),
@@ -58,7 +58,7 @@ void main() {
             of: find.byKey(const ValueKey('topic-card-status-1')),
             matching: find.byType(DIcon),
           );
-          expect(tester.widget<DIcon>(icon).icon, DIcons.lock);
+          expect(tester.widget<DIcon>(icon).icon, DIcons.thumbtack);
           final time = find.byKey(const ValueKey('inbox-row-time-1'));
           final card = find.byKey(const ValueKey('topic-card-1'));
           double trailing(Finder finder) => direction == TextDirection.ltr
@@ -148,7 +148,7 @@ void main() {
             expect(tester.widget<DIcon>(icon).icon, DIcons.thumbtack);
             expect(
               tester.widget<DIcon>(icon).semanticLabel,
-              'Pinned, Closed, Bookmarked',
+              'Pinned, Bookmarked',
             );
             expect(
               tester
@@ -159,7 +159,7 @@ void main() {
                     ),
                   )
                   .message,
-              'Pinned, Closed, Bookmarked',
+              'Pinned, Bookmarked',
             );
             expect(
               tester.getCenter(icon).dy,

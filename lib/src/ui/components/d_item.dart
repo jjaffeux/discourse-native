@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -81,6 +83,9 @@ class DItem extends StatefulWidget {
     this.link = false,
     this.enabled = true,
     this.selected = false,
+    this.closed = false,
+    this.closedRuleAbove = false,
+    this.closedRuleBelow = false,
     this.selectionStyle = DItemSelectionStyle.tinted,
     this.showSelectionIndicator = true,
     this.focusNode,
@@ -117,6 +122,9 @@ class DItem extends StatefulWidget {
        link = false,
        enabled = true,
        selected = false,
+       closed = false,
+       closedRuleAbove = false,
+       closedRuleBelow = false,
        selectionStyle = DItemSelectionStyle.tinted,
        showSelectionIndicator = true,
        mouseCursor = null,
@@ -167,6 +175,16 @@ class DItem extends StatefulWidget {
   /// Highlights the current item using [selectionStyle] and a checkmark.
   /// The caller owns selection changes; activation only calls [onPressed].
   final bool selected;
+
+  /// Shades a closed row with a trailing hatch, leaving the reading area clear.
+  /// Resting corners are square; selection keeps the item's selected shape.
+  final bool closed;
+
+  /// Closed rows own their inset, fading boundary rules. The list suppresses
+  /// the neighboring separator and omits a rule beside a selected neighbor,
+  /// at the list edge, or below a consecutive closed row.
+  final bool closedRuleAbove;
+  final bool closedRuleBelow;
 
   /// Leading-accent selection uses an accent tint and a directional 3px edge,
   /// with a fainter accent tint on hover. Combine with fullWidth for flush rows.
@@ -455,14 +473,16 @@ class _DItemState extends State<DItem> {
         widget.selectionStyle == DItemSelectionStyle.strongNeutral;
     final leadingSelection =
         widget.selectionStyle == DItemSelectionStyle.leadingAccent;
-    final radius = switch (widget.shape) {
-      DItemShape.fullWidth => 0.0,
-      DItemShape.calendarEvent => 3.0,
-      DItemShape.pill => DRadius.pill,
-      DItemShape.card => DRadius.panel,
-      DItemShape.menu => 8.0,
-      DItemShape.standard => DRadius.popover,
-    };
+    final radius = widget.closed && !widget.selected
+        ? 0.0
+        : switch (widget.shape) {
+            DItemShape.fullWidth => 0.0,
+            DItemShape.calendarEvent => 3.0,
+            DItemShape.pill => DRadius.pill,
+            DItemShape.card => DRadius.panel,
+            DItemShape.menu => 8.0,
+            DItemShape.standard => DRadius.popover,
+          };
     final borderRadius = BorderRadius.circular(radius);
     final background =
         widget.variant == DItemVariant.picker && _active && _focused
@@ -493,6 +513,87 @@ class _DItemState extends State<DItem> {
         : widget.variant == DItemVariant.outline
         ? tokens.surface
         : Colors.transparent;
+    final contentPadding =
+        widget.padding ??
+        (drawer
+            ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
+            : artwork
+            ? EdgeInsets.zero
+            : EdgeInsets.symmetric(
+                horizontal: xs
+                    ? 10
+                    : widget.size == DItemSize.sm
+                    ? 12
+                    : 16,
+                vertical: xs
+                    ? 8
+                    : widget.size == DItemSize.sm
+                    ? 10
+                    : 12,
+              ));
+    Widget content =
+        artwork &&
+            widget.header == null &&
+            widget.footer == null &&
+            children.length == 1 &&
+            !(widget.selected && widget.showSelectionIndicator)
+        ? ClipRRect(
+            borderRadius: borderRadius,
+            clipBehavior: widget.clipBehavior,
+            child: children.single,
+          )
+        : Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: widget.fitContent
+                ? CrossAxisAlignment.start
+                : CrossAxisAlignment.stretch,
+            children: [
+              if (widget.header != null) ...[
+                widget.header!,
+                if (children.isNotEmpty || widget.footer != null)
+                  SizedBox(height: gap),
+              ],
+              if (children.isNotEmpty)
+                _ItemBody(
+                  gap: gap,
+                  described: described,
+                  fitContent: widget.fitContent,
+                  children: [
+                    ...children,
+                    if (widget.selected && widget.showSelectionIndicator)
+                      DItemMedia(
+                        child: ExcludeSemantics(
+                          child: DIcon(
+                            DIcons.check,
+                            size: 16,
+                            color: tokens.primary,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              if (widget.footer != null) ...[
+                if (children.isNotEmpty) SizedBox(height: gap),
+                widget.footer!,
+              ],
+            ],
+          );
+    content = widget.closed
+        ? CustomPaint(
+            painter: _ClosedHatch(
+              tokens.foreground,
+              borderRadius,
+              Directionality.of(context),
+            ),
+            foregroundPainter: _ClosedRules(
+              tokens.footerBorder,
+              Directionality.of(context),
+              above: widget.closedRuleAbove,
+              below: widget.closedRuleBelow,
+            ),
+            child: Padding(padding: contentPadding, child: content),
+          )
+        : Padding(padding: contentPadding, child: content);
     Widget result = _ItemScope(
       size: widget.size,
       described: described,
@@ -544,77 +645,12 @@ class _DItemState extends State<DItem> {
                           !leadingSelection &&
                           widget.selectionStyle != DItemSelectionStyle.filled
                     ? tokens.primary
-                    : widget.variant == DItemVariant.outline
+                    : widget.variant == DItemVariant.outline && !widget.closed
                     ? widget.borderColor ?? tokens.border
                     : Colors.transparent,
               ),
             ),
-            padding:
-                widget.padding ??
-                (drawer
-                    ? const EdgeInsets.symmetric(horizontal: 8, vertical: 6)
-                    : artwork
-                    ? EdgeInsets.zero
-                    : EdgeInsets.symmetric(
-                        horizontal: xs
-                            ? 10
-                            : widget.size == DItemSize.sm
-                            ? 12
-                            : 16,
-                        vertical: xs
-                            ? 8
-                            : widget.size == DItemSize.sm
-                            ? 10
-                            : 12,
-                      )),
-            child:
-                artwork &&
-                    widget.header == null &&
-                    widget.footer == null &&
-                    children.length == 1 &&
-                    !(widget.selected && widget.showSelectionIndicator)
-                ? ClipRRect(
-                    borderRadius: borderRadius,
-                    clipBehavior: widget.clipBehavior,
-                    child: children.single,
-                  )
-                : Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: widget.fitContent
-                        ? CrossAxisAlignment.start
-                        : CrossAxisAlignment.stretch,
-                    children: [
-                      if (widget.header != null) ...[
-                        widget.header!,
-                        if (children.isNotEmpty || widget.footer != null)
-                          SizedBox(height: gap),
-                      ],
-                      if (children.isNotEmpty)
-                        _ItemBody(
-                          gap: gap,
-                          described: described,
-                          fitContent: widget.fitContent,
-                          children: [
-                            ...children,
-                            if (widget.selected &&
-                                widget.showSelectionIndicator)
-                              DItemMedia(
-                                child: ExcludeSemantics(
-                                  child: DIcon(
-                                    DIcons.check,
-                                    size: 16,
-                                    color: tokens.primary,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      if (widget.footer != null) ...[
-                        if (children.isNotEmpty) SizedBox(height: gap),
-                        widget.footer!,
-                      ],
-                    ],
-                  ),
+            child: content,
           ),
         ),
       ),
@@ -1155,4 +1191,93 @@ class _ItemRing extends CustomPainter {
   @override
   bool shouldRepaint(_ItemRing oldDelegate) =>
       color != oldDelegate.color || radius != oldDelegate.radius;
+}
+
+class _ClosedHatch extends CustomPainter {
+  const _ClosedHatch(this.color, this.radius, this.direction);
+  final Color color;
+  final BorderRadius radius;
+  final TextDirection direction;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = Offset.zero & size;
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..shader = LinearGradient(
+        begin: direction == TextDirection.ltr
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        end: direction == TextDirection.ltr
+            ? Alignment.centerLeft
+            : Alignment.centerRight,
+        colors: [color.withValues(alpha: .16), color.withValues(alpha: 0)],
+        stops: const [0, .55],
+      ).createShader(rect);
+    canvas.save();
+    canvas.clipRRect(radius.toRRect(rect));
+    // CSS -45deg: parallel strokes one pixel wide, six pixels apart along
+    // their normal. Keep the angle in RTL; only the directional fade mirrors.
+    for (double x = 0; x < size.width + size.height; x += 6 * math.sqrt2) {
+      canvas.drawLine(
+        Offset(x, 0),
+        Offset(x - size.height, size.height),
+        paint,
+      );
+    }
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_ClosedHatch oldDelegate) =>
+      color != oldDelegate.color ||
+      radius != oldDelegate.radius ||
+      direction != oldDelegate.direction;
+}
+
+class _ClosedRules extends CustomPainter {
+  const _ClosedRules(
+    this.color,
+    this.direction, {
+    required this.above,
+    required this.below,
+  });
+  final Color color;
+  final TextDirection direction;
+  final bool above;
+  final bool below;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if ((!above && !below) || size.width <= 24) return;
+    final rect = Rect.fromLTWH(12, 0, size.width - 24, size.height);
+    final paint = Paint()
+      ..shader = LinearGradient(
+        begin: direction == TextDirection.ltr
+            ? Alignment.centerLeft
+            : Alignment.centerRight,
+        end: direction == TextDirection.ltr
+            ? Alignment.centerRight
+            : Alignment.centerLeft,
+        colors: [color, color.withValues(alpha: 0)],
+        stops: const [.45, 1],
+      ).createShader(rect);
+    if (above) {
+      canvas.drawRect(Rect.fromLTWH(rect.left, 0, rect.width, 1), paint);
+    }
+    if (below) {
+      canvas.drawRect(
+        Rect.fromLTWH(rect.left, size.height - 1, rect.width, 1),
+        paint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ClosedRules oldDelegate) =>
+      color != oldDelegate.color ||
+      direction != oldDelegate.direction ||
+      above != oldDelegate.above ||
+      below != oldDelegate.below;
 }

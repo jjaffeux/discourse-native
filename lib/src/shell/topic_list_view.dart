@@ -954,7 +954,10 @@ class _TopicListViewState extends State<TopicListView> {
                               final selectedId = widget.inbox
                                   ? readingTopicId
                                   : null;
-                              return TopicListSeparator(
+                              return _StoredTopicListSeparator(
+                                siteUrl: feedIdentity.$1,
+                                topicId: current,
+                                nextTopicId: next,
                                 besideSelection:
                                     current == keyboardId ||
                                     next != null && next == keyboardId ||
@@ -1022,6 +1025,12 @@ class _TopicListViewState extends State<TopicListView> {
                               ),
                           child: _TopicRow(
                             topicId: topicId,
+                            previousTopicId: index > 0
+                                ? feed.topicIdAt(index - 1)
+                                : null,
+                            nextTopicId: feed.topicIdAt(index + 1),
+                            hasRowAbove: index > 0,
+                            hasRowBelow: index < feed.rowCount - 1,
                             compact: lane.width < 600,
                             inbox: widget.inbox,
                             onOpen: _openRow,
@@ -1321,6 +1330,10 @@ class _FeedErrorBanner extends StatelessWidget {
 class _TopicRow extends StatefulWidget {
   const _TopicRow({
     required this.topicId,
+    required this.previousTopicId,
+    required this.nextTopicId,
+    required this.hasRowAbove,
+    required this.hasRowBelow,
     required this.compact,
     required this.hiddenCategoryId,
     required this.onOpen,
@@ -1328,6 +1341,10 @@ class _TopicRow extends StatefulWidget {
   });
 
   final int topicId;
+  final int? previousTopicId;
+  final int? nextTopicId;
+  final bool hasRowAbove;
+  final bool hasRowBelow;
   final bool compact;
   final int? hiddenCategoryId;
   final bool inbox;
@@ -1344,6 +1361,10 @@ class _TopicRowState extends State<_TopicRow> {
   void didUpdateWidget(_TopicRow oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.topicId != widget.topicId ||
+        oldWidget.previousTopicId != widget.previousTopicId ||
+        oldWidget.nextTopicId != widget.nextTopicId ||
+        oldWidget.hasRowAbove != widget.hasRowAbove ||
+        oldWidget.hasRowBelow != widget.hasRowBelow ||
         oldWidget.compact != widget.compact ||
         oldWidget.hiddenCategoryId != widget.hiddenCategoryId ||
         oldWidget.onOpen != widget.onOpen ||
@@ -1359,59 +1380,185 @@ class _TopicRowState extends State<_TopicRow> {
   Widget build(BuildContext context) => _content ??= _buildContent();
 
   Widget _buildContent() {
-    return ForumTabSelector<({String? siteUrl, bool selected})>(
+    return ForumTabSelector<
+      ({
+        String? siteUrl,
+        bool selected,
+        bool previousSelected,
+        bool nextSelected,
+      })
+    >(
       select: (controller, tab) => (
         siteUrl: controller.currentInstance?.url,
         selected: widget.inbox && tab.readingTopicId == widget.topicId,
+        previousSelected:
+            widget.inbox &&
+            widget.previousTopicId != null &&
+            tab.readingTopicId == widget.previousTopicId,
+        nextSelected:
+            widget.inbox &&
+            widget.nextTopicId != null &&
+            tab.readingTopicId == widget.nextTopicId,
       ),
       builder: (context, state, _) {
         final siteUrl = state.siteUrl;
         if (siteUrl == null) return const SizedBox.shrink();
         final controller = ShellScope.read(context);
+        final nextTopic = widget.nextTopicId == null
+            ? null
+            : controller.topicRef(siteUrl, widget.nextTopicId!);
+        final cursor = context
+            .findAncestorStateOfType<_TopicListViewState>()
+            ?._cursor;
 
         return ValueListenableBuilder<Topic?>(
           valueListenable: controller.topicRef(siteUrl, widget.topicId),
-          builder: (context, topic, _) => topic == null
-              ? _restoringRow(context)
-              : ShellSelector<_TopicCategoryPresentation>(
-                  select: (controller) => _topicCategoryPresentation(
-                    controller,
-                    topic.categoryId,
-                    siteUrl,
-                    hiddenCategoryId: widget.hiddenCategoryId,
-                  ),
-                  builder: (context, categoryPresentation, _) => _TopicRowBody(
-                    topic: topic,
-                    compact: widget.compact,
-                    category: categoryPresentation.category,
-                    categoryAncestors: categoryPresentation.ancestors,
-                    showCategoryBreadcrumb: true,
-                    hiddenCategoryId: widget.hiddenCategoryId,
-                    siteUrl: siteUrl,
-                    selected: state.selected,
-                    onTap: () => widget.onOpen(topic),
-                  ),
+          builder: (context, topic, _) {
+            if (topic == null) return _restoringRow(context);
+            Widget content(BuildContext context, Widget? _) {
+              final position = cursor?.value;
+              final keyboardId = position != null && position.keyboard
+                  ? position.topicId
+                  : null;
+              return ShellSelector<_TopicCategoryPresentation>(
+                select: (controller) => _topicCategoryPresentation(
+                  controller,
+                  topic.categoryId,
+                  siteUrl,
+                  hiddenCategoryId: widget.hiddenCategoryId,
                 ),
+                builder: (context, categoryPresentation, _) => _TopicRowBody(
+                  topic: topic,
+                  compact: widget.compact,
+                  category: categoryPresentation.category,
+                  categoryAncestors: categoryPresentation.ancestors,
+                  showCategoryBreadcrumb: true,
+                  hiddenCategoryId: widget.hiddenCategoryId,
+                  siteUrl: siteUrl,
+                  selected: state.selected,
+                  closedRuleAbove:
+                      widget.hasRowAbove &&
+                      !state.previousSelected &&
+                      (keyboardId == null ||
+                          widget.previousTopicId != keyboardId),
+                  closedRuleBelow:
+                      widget.hasRowBelow &&
+                      !state.nextSelected &&
+                      (keyboardId == null ||
+                          widget.nextTopicId != keyboardId) &&
+                      nextTopic?.value?.closed != true,
+                  onTap: () => widget.onOpen(topic),
+                ),
+              );
+            }
+
+            return topic.closed
+                ? ListenableBuilder(
+                    listenable: Listenable.merge([?nextTopic, ?cursor]),
+                    builder: content,
+                  )
+                : content(context, null);
+          },
         );
       },
     );
   }
 }
 
-/// Inset row dividers keep their height when hidden beside a selection.
-class TopicListSeparator extends StatelessWidget {
-  const TopicListSeparator({super.key, this.besideSelection = false});
-
+class _StoredTopicListSeparator extends StatelessWidget {
+  const _StoredTopicListSeparator({
+    required this.siteUrl,
+    required this.topicId,
+    required this.nextTopicId,
+    required this.besideSelection,
+  });
+  final String? siteUrl;
+  final int? topicId;
+  final int? nextTopicId;
   final bool besideSelection;
 
   @override
-  Widget build(BuildContext context) => DSeparator(
-    indent: 16,
-    endIndent: 16,
-    color: besideSelection
-        ? Colors.transparent
-        : DTokens.of(context).footerBorder,
-  );
+  Widget build(BuildContext context) {
+    final controller = ShellScope.read(context);
+    final site = siteUrl;
+    if (site == null) {
+      return TopicListSeparator._line(context, besideSelection, null, null);
+    }
+    final current = topicId == null
+        ? null
+        : controller.topicRef(site, topicId!);
+    final next = nextTopicId == null
+        ? null
+        : controller.topicRef(site, nextTopicId!);
+    return ListenableBuilder(
+      listenable: Listenable.merge([?current, ?next]),
+      builder: (context, _) => TopicListSeparator._line(
+        context,
+        besideSelection,
+        current?.value,
+        next?.value,
+      ),
+    );
+  }
+}
+
+/// Inset row dividers keep their height beside a selection. Closed rows own
+/// the shared rule instead; no extra gap interrupts their hatch.
+class TopicListSeparator extends StatelessWidget {
+  const TopicListSeparator({
+    super.key,
+    this.besideSelection = false,
+    this.topic,
+    this.nextTopic,
+    this.siteUrl,
+  });
+
+  final bool besideSelection;
+  final Topic? topic;
+  final Topic? nextTopic;
+  final String? siteUrl;
+
+  static Widget _line(
+    BuildContext context,
+    bool besideSelection,
+    Topic? current,
+    Topic? next,
+  ) => current?.closed == true || next?.closed == true
+      ? const SizedBox.shrink()
+      : DSeparator(
+          indent: 16,
+          endIndent: 16,
+          color: besideSelection
+              ? Colors.transparent
+              : DTokens.of(context).footerBorder,
+        );
+
+  @override
+  Widget build(BuildContext context) {
+    if (topic == null && nextTopic == null) {
+      return _line(context, besideSelection, null, null);
+    }
+    final controller = ShellScope.maybeRead(context);
+    final site = siteUrl ?? controller?.currentInstance?.url;
+    if (controller == null || site == null) {
+      return _line(context, besideSelection, topic, nextTopic);
+    }
+    final currentRef = topic == null
+        ? null
+        : controller.topicRef(site, topic!.id);
+    final nextRef = nextTopic == null
+        ? null
+        : controller.topicRef(site, nextTopic!.id);
+    return ListenableBuilder(
+      listenable: Listenable.merge([?currentRef, ?nextRef]),
+      builder: (context, _) => _line(
+        context,
+        besideSelection,
+        currentRef?.value ?? topic,
+        nextRef?.value ?? nextTopic,
+      ),
+    );
+  }
 }
 
 class TopicListRow extends StatelessWidget {
@@ -1422,6 +1569,9 @@ class TopicListRow extends StatelessWidget {
     this.siteUrl,
     this.onTap,
     this.titleStyle,
+    this.nextTopic,
+    this.closedRuleAbove = false,
+    this.closedRuleBelow = false,
     this.showViews = false,
     this.onSort,
     this.order,
@@ -1445,6 +1595,13 @@ class TopicListRow extends StatelessWidget {
   final VoidCallback? onTap;
 
   final TextStyle? titleStyle;
+
+  /// Boundary ownership for closed rows in a list composed outside TopicListView.
+  /// Omit the ordinary separator beside a closed row, and leave the shared
+  /// rule to the lower row when both neighbors are closed.
+  final Topic? nextTopic;
+  final bool closedRuleAbove;
+  final bool closedRuleBelow;
   final bool showCategoryBreadcrumb;
   final DItemVariant itemVariant;
   final EdgeInsetsGeometry? contentPadding;
@@ -1487,6 +1644,8 @@ class TopicListRow extends StatelessWidget {
         forum: owningForum,
         onTap: onTap ?? () {},
         titleStyle: titleStyle,
+        closedRuleAbove: closedRuleAbove,
+        closedRuleBelow: closedRuleBelow && nextTopic?.closed != true,
         showViews: showViews,
         onSort: onSort,
         order: order,
@@ -1495,27 +1654,44 @@ class TopicListRow extends StatelessWidget {
         outerPadding: outerPadding,
       );
     }
-    return ShellSelector<_TopicCategoryPresentation>(
-      select: (controller) =>
-          _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
-      builder: (context, categoryPresentation, _) => _TopicRowBody(
-        topic: topic,
-        category: categoryPresentation.category,
-        categoryAncestors: categoryPresentation.ancestors,
-        showCategoryBreadcrumb: showCategoryBreadcrumb,
-        siteUrl: siteUrl,
-        forum: owningForum,
-        onTap:
-            onTap ??
-            () => handleTabOpenResult(context, controller.openTopic(topic)),
-        titleStyle: titleStyle,
-        showViews: showViews,
-        onSort: onSort,
-        order: order,
-        ascending: ascending,
-        contentPadding: contentPadding,
-        outerPadding: outerPadding,
-      ),
+    final currentRef = controller.topicRef(siteUrl, topic.id);
+    final nextRef = nextTopic == null
+        ? null
+        : controller.topicRef(siteUrl, nextTopic!.id);
+    return ListenableBuilder(
+      listenable: Listenable.merge([currentRef, ?nextRef]),
+      builder: (context, _) {
+        final current = currentRef.value ?? topic;
+        final next = nextRef?.value ?? nextTopic;
+        return ShellSelector<_TopicCategoryPresentation>(
+          select: (controller) => _topicCategoryPresentation(
+            controller,
+            current.categoryId,
+            siteUrl,
+          ),
+          builder: (context, categoryPresentation, _) => _TopicRowBody(
+            topic: current,
+            category: categoryPresentation.category,
+            categoryAncestors: categoryPresentation.ancestors,
+            showCategoryBreadcrumb: showCategoryBreadcrumb,
+            siteUrl: siteUrl,
+            forum: owningForum,
+            onTap:
+                onTap ??
+                () =>
+                    handleTabOpenResult(context, controller.openTopic(current)),
+            titleStyle: titleStyle,
+            closedRuleAbove: closedRuleAbove,
+            closedRuleBelow: closedRuleBelow && next?.closed != true,
+            showViews: showViews,
+            onSort: onSort,
+            order: order,
+            ascending: ascending,
+            contentPadding: contentPadding,
+            outerPadding: outerPadding,
+          ),
+        );
+      },
     );
   }
 }
@@ -1600,6 +1776,8 @@ class _TopicRowBody extends StatelessWidget {
     this.forum,
     this.titleStyle,
     this.selected = false,
+    this.closedRuleAbove = false,
+    this.closedRuleBelow = false,
     this.contentPadding,
     this.outerPadding,
     this.showViews = false,
@@ -1624,6 +1802,8 @@ class _TopicRowBody extends StatelessWidget {
   final DiscourseInstance? forum;
   final TextStyle? titleStyle;
   final bool selected;
+  final bool closedRuleAbove;
+  final bool closedRuleBelow;
   final EdgeInsetsGeometry? contentPadding;
   final EdgeInsetsGeometry? outerPadding;
 

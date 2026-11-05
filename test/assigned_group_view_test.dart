@@ -10,10 +10,13 @@ import 'package:discourse_native/src/plugins/assign/assigned_group_api.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_controller.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_presentation.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_view.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
 import 'support/page_scrollbar.dart';
 
 const _siteUrl = 'https://forum.example.com';
@@ -262,6 +265,65 @@ void main() {
   });
 
   group('AssignedGroupView', () {
+    testWidgets(
+      'closed assignments observe shared store boundaries with retained arrays',
+      (tester) async {
+        final topics = [
+          for (var id = 41; id <= 44; id++)
+            Topic(
+              id: id,
+              title: 'Assignment $id',
+              slug: 'assignment-$id',
+              closed: id == 42 || id == 43,
+            ),
+        ];
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore([instance('forum.example.com')]),
+          api: FakeDiscourseApi(),
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+        );
+        addTearDown(shell.dispose);
+        await shell.load();
+        shell.store.putAll(_siteUrl, topics);
+        const feed = TopicFeed(loaded: true, topicIds: [41, 42, 43, 44]);
+        final presentation = _FakeAssignedGroupPresentation(
+          _state(feed: feed, topics: topics),
+        );
+        await _pumpFactoryView(
+          tester,
+          (_, _, _) => presentation,
+          controller: shell,
+        );
+        await tester.pumpAndSettle();
+        DItem row(int id) =>
+            tester.widget<DItem>(find.byKey(ValueKey('topic-card-$id')));
+        Finder rules() => find.descendant(
+          of: find.byType(TopicListSeparator),
+          matching: find.byType(DSeparator),
+        );
+        expect(row(42).closed, isTrue);
+        expect(row(42).closedRuleAbove, isTrue);
+        expect(row(42).closedRuleBelow, isFalse);
+        expect(row(43).closedRuleAbove, isTrue);
+        expect(row(43).closedRuleBelow, isTrue);
+        expect(rules(), findsNothing);
+        shell.store.put(_siteUrl, topics[2].copyWith(closed: false));
+        await tester.pumpAndSettle();
+        expect(row(43).closed, isFalse);
+        expect(row(42).closedRuleBelow, isTrue);
+        expect(rules(), findsOneWidget);
+        shell.store.put(_siteUrl, topics[1].copyWith(closed: false));
+        await tester.pumpAndSettle();
+        expect(row(42).closed, isFalse);
+        expect(rules(), findsNWidgets(3));
+        expect(topics[1].closed, isTrue);
+        expect(topics[2].closed, isTrue);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
     for (final width in [390.0, 1200.0]) {
       for (final empty in [false, true]) {
         testWidgets(
@@ -816,21 +878,23 @@ Future<void> _pumpFactoryView(
   WidgetTester tester,
   AssignedGroupPresentationFactory factory, {
   String groupName = 'support',
+  ShellController? controller,
 }) async {
   await tester.binding.setSurfaceSize(const Size(1200, 900));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  await tester.pumpWidget(
-    MaterialApp(
-      theme: AppTheme.light,
-      home: Scaffold(
-        body: AssignedGroupView(
-          siteUrl: _siteUrl,
-          groupName: groupName,
-          subsection: 'everyone',
-          presentationFactory: factory,
-        ),
+  final app = MaterialApp(
+    theme: AppTheme.light,
+    home: Scaffold(
+      body: AssignedGroupView(
+        siteUrl: _siteUrl,
+        groupName: groupName,
+        subsection: 'everyone',
+        presentationFactory: factory,
       ),
     ),
+  );
+  await tester.pumpWidget(
+    controller == null ? app : ShellScope(controller: controller, child: app),
   );
   await tester.pump();
 }

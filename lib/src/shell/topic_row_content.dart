@@ -10,25 +10,45 @@ class _TopicListTitle extends StatelessWidget {
     final tokens = DTokens.of(context);
     final textTheme = Theme.of(context).textTheme;
     final read = topic.visited && !topic.hasUnseenActivity;
+    final titleStyle =
+        (row.titleStyle ??
+                textTheme.titleSmall?.copyWith(
+                  fontFamily: textTheme.bodyLarge?.fontFamily,
+                  fontFamilyFallback: textTheme.bodyLarge?.fontFamilyFallback,
+                ))
+            ?.copyWith(
+              color: read
+                  ? Color.lerp(tokens.background, tokens.foreground, .9)
+                  : tokens.foreground,
+              fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+            );
     return DItemTitle(
       maxLines: null,
       child: TopicTitle(
         topic.displayTitle,
         siteUrl: row.siteUrl,
         keepTrailingWithLastWord: topic.showUnreadCount,
-        style:
-            (row.titleStyle ??
-                    textTheme.titleSmall?.copyWith(
-                      fontFamily: textTheme.bodyLarge?.fontFamily,
-                      fontFamilyFallback:
-                          textTheme.bodyLarge?.fontFamilyFallback,
-                    ))
-                ?.copyWith(
-                  color: read
-                      ? Color.lerp(tokens.background, tokens.foreground, .9)
-                      : tokens.foreground,
-                  fontWeight: read ? FontWeight.w500 : FontWeight.w700,
+        style: titleStyle,
+        leading: [
+          if (topic.closed)
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                end:
+                    (titleStyle?.fontSize ?? DiscourseTypography.rowTitle) * .4,
+              ),
+              child: DTooltip(
+                message: context.l10n.closed,
+                excludeFromSemantics: true,
+                child: DIcon(
+                  DIcons.lock,
+                  key: ValueKey('topic-row-lock-${topic.id}'),
+                  size: 11,
+                  color: titleStyle?.color,
+                  semanticLabel: context.l10n.closed,
                 ),
+              ),
+            ),
+        ],
         trailing: [
           if (topic.showNewTopicDot || topic.showNewRepliesDot)
             Padding(

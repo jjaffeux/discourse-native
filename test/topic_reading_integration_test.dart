@@ -1099,7 +1099,9 @@ void _registerTopicReadingTests() {
       expect(contentText('3'), findsOneWidget);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('closed topics carry a lock in their metadata', (tester) async {
+    testWidgets('closed topics carry a lock before their title', (
+      tester,
+    ) async {
       final api = FakeDiscourseApi(
         feeds: {
           '/latest.json': const [
@@ -1119,8 +1121,8 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final title = contentText('Closed topic');
-      final row = find.byKey(const ValueKey('topic-card-9'));
+      final row = find.byKey(const ValueKey('topic-card-9')).first;
+      final title = find.descendant(of: row, matching: find.byType(TopicTitle));
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
       final lockGlyph = find.descendant(
         of: lock,
@@ -1131,9 +1133,13 @@ void _registerTopicReadingTests() {
       expect(lockGlyph, findsOneWidget);
       expect(
         tester.getRect(lock).left,
-        greaterThan(tester.getRect(title).right),
+        closeTo(tester.getRect(title).left, .01),
       );
-      expect(find.bySemanticsLabel('Closed'), findsOneWidget);
+      expect(tester.getRect(lock).right, lessThan(tester.getRect(title).right));
+      expect(
+        find.descendant(of: row, matching: find.bySemanticsLabel('Closed')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('mirrored unread fields produce one undoubled count', (
@@ -4875,7 +4881,15 @@ void _registerTopicReadingTests() {
                   id: 8,
                   title: 'A compact suggested topic',
                   slug: 'a-compact-suggested-topic',
+                  closed: true,
                 ),
+                Topic(
+                  id: 9,
+                  title: 'Another closed suggestion',
+                  slug: 'closed',
+                  closed: true,
+                ),
+                Topic(id: 10, title: 'Open suggestion', slug: 'open'),
               ],
             ),
             TopicRecommendationSource(
@@ -4889,7 +4903,7 @@ void _registerTopicReadingTests() {
         );
 
         await pumpShell(tester, desktop, api: api);
-        await tester.tap(topicListTitle('A real topic'));
+        await tester.tap(topicListTitle('A real topic').first);
         await tester.pumpAndSettle();
 
         expect(
@@ -4908,6 +4922,59 @@ void _registerTopicReadingTests() {
         );
         expect(compactTitle.style?.fontSize, DiscourseTypography.rowTitle);
         expect(compactTitle.style?.fontSize, lessThan(DiscourseTypography.lg));
+        final first = tester.widget<DItem>(
+          find.byKey(const ValueKey('topic-card-8')),
+        );
+        final second = tester.widget<DItem>(
+          find.byKey(const ValueKey('topic-card-9')),
+        );
+        expect(first.closed, isTrue);
+        expect(first.closedRuleAbove, isFalse);
+        expect(first.closedRuleBelow, isFalse);
+        expect(second.closed, isTrue);
+        expect(second.closedRuleAbove, isTrue);
+        expect(second.closedRuleBelow, isTrue);
+        final shell = ShellScope.read(
+          tester.element(find.byKey(const ValueKey('topic-card-8'))),
+        );
+        final original = recommendations.sources.first.topics;
+        Finder rules() => find.descendant(
+          of: find.byKey(const ValueKey('topic-end-more-topics-panel')),
+          matching: find.byType(DSeparator),
+        );
+        expect(rules(), findsNothing);
+        shell.store.put(
+          'https://meta.discourse.org',
+          original[1].copyWith(closed: false),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('topic-card-9')))
+              .closed,
+          isFalse,
+        );
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('topic-card-8')))
+              .closedRuleBelow,
+          isTrue,
+        );
+        expect(rules(), findsOneWidget);
+        shell.store.put(
+          'https://meta.discourse.org',
+          original[0].copyWith(closed: false),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('topic-card-8')))
+              .closed,
+          isFalse,
+        );
+        expect(rules(), findsNWidgets(2));
+        expect(original[0].closed, isTrue);
+        expect(original[1].closed, isTrue);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
