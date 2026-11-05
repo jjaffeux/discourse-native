@@ -196,6 +196,9 @@ class Topic with Storable<Topic> {
     this.bumpedAt,
     this.pinned = false,
     this.closed = false,
+    this.archived = false,
+    this.visible = true,
+    this.deletedAt,
     this.bookmarked = false,
     this.unreadPosts = 0,
     this.newPosts = 0,
@@ -272,6 +275,9 @@ class Topic with Storable<Topic> {
       bumpedAt: jsonDate(json['bumped_at']),
       pinned: json['pinned'] == true,
       closed: json['closed'] == true,
+      archived: json['archived'] == true,
+      visible: json['visible'] != false,
+      deletedAt: jsonDate(json['deleted_at']),
       bookmarked: json['bookmarked'] == true,
       unreadPosts: jsonInt(json['unread_posts']),
       newPosts: jsonInt(json['new_posts']),
@@ -356,6 +362,9 @@ class Topic with Storable<Topic> {
   final DateTime? bumpedAt;
   final bool pinned;
   final bool closed;
+  final bool archived;
+  final bool visible;
+  final DateTime? deletedAt;
   final bool bookmarked;
 
   final int unreadPosts;
@@ -435,6 +444,11 @@ class Topic with Storable<Topic> {
     bool? bookmarked,
     bool? pinned,
     bool? closed,
+    bool? archived,
+    bool? visible,
+    DateTime? deletedAt,
+    bool clearDeletedAt = false,
+    bool? muted,
     bool? privateMessage,
     int? unreadPosts,
     int? newPosts,
@@ -458,6 +472,9 @@ class Topic with Storable<Topic> {
     bumpedAt: bumpedAt,
     pinned: pinned ?? this.pinned,
     closed: closed ?? this.closed,
+    archived: archived ?? this.archived,
+    visible: visible ?? this.visible,
+    deletedAt: clearDeletedAt ? null : deletedAt ?? this.deletedAt,
     bookmarked: bookmarked ?? this.bookmarked,
     unreadPosts: markRead ? 0 : unreadPosts ?? this.unreadPosts,
     newPosts: markRead ? 0 : newPosts ?? this.newPosts,
@@ -473,7 +490,7 @@ class Topic with Storable<Topic> {
         ? this.posterAvatars
         : List.unmodifiable(posterAvatars),
     posters: posters == null ? this.posters : List.unmodifiable(posters),
-    muted: muted,
+    muted: muted ?? this.muted,
     plugins: markRead
         ? (plugins ?? this.plugins).markTopicRead()
         : plugins ?? this.plugins,
@@ -495,6 +512,9 @@ class Topic with Storable<Topic> {
     bumpedAt: bumpedAt,
     pinned: pinned,
     closed: closed,
+    archived: archived,
+    visible: visible,
+    deletedAt: deletedAt,
     bookmarked: bookmarked,
     unreadPosts: unreadPosts,
     newPosts: newPosts,
@@ -529,6 +549,9 @@ class Topic with Storable<Topic> {
           other.bumpedAt == bumpedAt &&
           other.pinned == pinned &&
           other.closed == closed &&
+          other.archived == archived &&
+          other.visible == visible &&
+          other.deletedAt == deletedAt &&
           other.bookmarked == bookmarked &&
           other.unreadPosts == unreadPosts &&
           other.newPosts == newPosts &&
@@ -560,6 +583,9 @@ class Topic with Storable<Topic> {
     bumpedAt,
     pinned,
     closed,
+    archived,
+    visible,
+    deletedAt,
     bookmarked,
     unreadPosts,
     newPosts,

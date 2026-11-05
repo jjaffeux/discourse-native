@@ -1,15 +1,75 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_title.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
+
 void main() {
-  testWidgets('lock aligns with the timestamp at the trailing row edge', (
+  testWidgets('a shared row observes canonical status and bookmark changes', (
+    tester,
+  ) async {
+    const site = 'https://example.com';
+    const topic = Topic(id: 7, title: 'Topic', slug: 'topic');
+    final shell = ShellController(
+      instanceStore: FakeInstanceStore([instance('example.com')]),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [topic],
+        },
+      ),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+    );
+    await tester.runAsync(shell.load);
+    addTearDown(shell.dispose);
+    shell.store.put(site, topic);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: TopicListRow(siteUrl: site, topic: topic, onTap: () {}),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final status = find.byKey(const ValueKey('topic-card-status-7'));
+    final marks = find.descendant(of: status, matching: find.byType(DIcon));
+    expect(marks, findsNothing);
+    shell.store.update<Topic>(
+      site,
+      7,
+      (row) => row.copyWith(archived: true, bookmarked: true),
+    );
+    await tester.pump();
+    expect(tester.widgetList<DIcon>(marks).map((icon) => icon.semanticLabel), [
+      'Archived',
+      'Bookmarked',
+    ]);
+    shell.store.update<Topic>(
+      site,
+      7,
+      (row) => row.copyWith(archived: false, bookmarked: false),
+    );
+    await tester.pump();
+    expect(marks, findsNothing);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  testWidgets('bookmark aligns with the timestamp at the trailing row edge', (
     tester,
   ) async {
     tester.view.physicalSize = const Size(1400, 1000);
@@ -39,7 +99,7 @@ void main() {
                                 'A closed topic with a title that can wrap ' *
                                 3,
                             slug: 'closed-topic',
-                            closed: true,
+                            bookmarked: true,
                             bumpedAt: DateTime.now().subtract(
                               const Duration(hours: 4),
                             ),
@@ -58,7 +118,7 @@ void main() {
             of: find.byKey(const ValueKey('topic-card-status-1')),
             matching: find.byType(DIcon),
           );
-          expect(tester.widget<DIcon>(icon).icon, DIcons.lock);
+          expect(tester.widget<DIcon>(icon).icon, DIcons.bookmark);
           final time = find.byKey(const ValueKey('inbox-row-time-1'));
           final card = find.byKey(const ValueKey('topic-card-1'));
           double trailing(Finder finder) => direction == TextDirection.ltr
@@ -107,14 +167,17 @@ void main() {
                           child: TopicListRow(
                             siteUrl: 'https://example.com',
                             titleStyle: titleStyle,
-                            topic: const Topic(
+                            topic: Topic(
                               id: 1,
                               title:
                                   'Fix broken workflow broke on Ask that errors at data explorer node',
                               slug: 'workflow',
-                              closed: true,
                               pinned: true,
+                              archived: true,
+                              visible: false,
+                              deletedAt: DateTime.utc(2026),
                               bookmarked: true,
+                              muted: true,
                               unreadPosts: 3,
                             ),
                             onTap: () {},
@@ -144,35 +207,57 @@ void main() {
               of: status,
               matching: find.byType(DIcon),
             );
-            expect(icon, findsOneWidget);
-            expect(tester.widget<DIcon>(icon).icon, DIcons.thumbtack);
-            expect(
-              tester.widget<DIcon>(icon).semanticLabel,
-              'Pinned, Closed, Bookmarked',
-            );
+            final icons = tester.widgetList<DIcon>(icon).toList();
+            expect(icons.map((icon) => icon.icon), [
+              DIcons.thumbtack,
+              DNativeIcons.boxArchive,
+              DNativeIcons.eyeSlash,
+              DIcons.trashCan,
+              DIcons.bookmark,
+              DNativeIcons.bellSlash,
+            ]);
+            expect(icons.map((icon) => icon.semanticLabel), [
+              'Pinned',
+              'Archived',
+              'Unlisted',
+              'Deleted',
+              'Bookmarked',
+              'Muted',
+            ]);
             expect(
               tester
-                  .widget<DTooltip>(
+                  .widgetList<DTooltip>(
                     find.descendant(
                       of: status,
                       matching: find.byType(DTooltip),
                     ),
                   )
-                  .message,
-              'Pinned, Closed, Bookmarked',
+                  .map((tooltip) => tooltip.message),
+              [
+                'Pinned',
+                'Archived',
+                'Unlisted',
+                'Deleted',
+                'Bookmarked',
+                'Muted',
+              ],
             );
-            expect(
-              tester.getCenter(icon).dy,
-              closeTo(center, 2),
-              reason:
-                  'text scale $scale at width $width with style $titleStyle',
-            );
+            for (var i = 0; i < icons.length; i++) {
+              final mark = icon.at(i);
+              expect(tester.getCenter(mark).dy, closeTo(center, 2));
+              expect(tester.getSize(mark), const Size(11, 11));
+              if (i > 0) {
+                expect(
+                  tester.getRect(mark).left -
+                      tester.getRect(icon.at(i - 1)).right,
+                  6,
+                );
+              }
+            }
             expect(
               tester.getTopLeft(status).dx,
               greaterThan(tester.getTopRight(title).dx),
             );
-            expect(tester.getSize(icon).height, 11);
-            expect(tester.getSize(icon).width, greaterThan(0));
             expect(find.text('Pinned'), findsNothing);
             expect(tester.takeException(), isNull);
           }

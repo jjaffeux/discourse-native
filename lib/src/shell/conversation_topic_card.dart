@@ -277,8 +277,11 @@ class _TopicCardStatus extends StatelessWidget {
         (style?.height ?? DiscourseTypography.lineHeightRowTitle);
     final states = [
       if (topic.pinned) (DIcons.thumbtack, context.l10n.pinned),
-      if (topic.closed) (DIcons.lock, context.l10n.closed),
+      if (topic.archived) (DNativeIcons.boxArchive, context.l10n.archived),
+      if (!topic.visible) (DNativeIcons.eyeSlash, context.l10n.unlisted),
+      if (topic.deletedAt != null) (DIcons.trashCan, context.l10n.deleted),
       if (topic.bookmarked) (DIcons.bookmark, context.l10n.bookmarked),
+      if (topic.muted) (DNativeIcons.bellSlash, context.l10n.muted),
     ];
     return Padding(
       padding: EdgeInsets.only(
@@ -286,23 +289,27 @@ class _TopicCardStatus extends StatelessWidget {
       ),
       child: SizedBox(
         key: ValueKey('topic-card-status-${topic.id}'),
-        width: 13,
-        child: states.isEmpty
-            ? null
-            : DTooltip(
-                message: states.map((s) => s.$2).join(', '),
-                excludeFromSemantics: true,
-                child: DIcon(
-                  states.first.$1,
-                  size: 11,
-                  color: Color.lerp(
-                    DTokens.of(context).background,
-                    DTokens.of(context).foreground,
-                    .4,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(minWidth: 13),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.end,
+            spacing: 6,
+            children: [
+              for (final (icon, label) in states)
+                DTooltip(
+                  message: label,
+                  excludeFromSemantics: true,
+                  child: DIcon(
+                    icon,
+                    size: 11,
+                    color: DTokens.of(context).mutedForeground,
+                    semanticLabel: label,
                   ),
-                  semanticLabel: states.map((s) => s.$2).join(', '),
                 ),
-              ),
+            ],
+          ),
+        ),
       ),
     );
   }

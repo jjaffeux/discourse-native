@@ -2503,6 +2503,12 @@ abstract class AppLocalizations {
   /// **'Closed'**
   String get closed;
 
+  /// Accessible topic row status for a topic hidden from public listings.
+  ///
+  /// In en, this message translates to:
+  /// **'Unlisted'**
+  String get unlisted;
+
   /// English UI message used by plugins/chat/chat_browse_channels_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

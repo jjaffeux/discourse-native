@@ -85,3 +85,7 @@ List<String> replaceTopicFilterScopeTokens(Iterable<String> tokens) {
   }
   return result;
 }
+
+bool topicFilterRequiresBookmark(String query) => splitTopicFilterQuery(
+  query,
+).any((clause) => clause.toLowerCase() == 'in:bookmarked');

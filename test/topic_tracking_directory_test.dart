@@ -79,6 +79,26 @@ final class _Fixture {
 }
 
 void main() {
+  test(
+    'late list rows follow current notification choices, including unmute',
+    () {
+      final fixture = _Fixture();
+      addTearDown(fixture.directory.dispose);
+      final account = fixture.account;
+      account.reconciler.observeNotificationLevel(
+        7,
+        TopicNotificationLevel.muted,
+      );
+      expect(account.project(_topic(7)).muted, isTrue);
+      account.reconciler.observeNotificationLevel(
+        7,
+        TopicNotificationLevel.normal,
+      );
+      expect(account.project(_topic(7).copyWith(muted: true)).muted, isFalse);
+      expect(account.project(_topic(8).copyWith(muted: true)).muted, isTrue);
+    },
+  );
+
   test('lease retirement removes its owner and stale capture stays closed', () {
     final fixture = _Fixture();
     addTearDown(fixture.directory.dispose);

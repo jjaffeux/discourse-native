@@ -433,6 +433,51 @@ void main() {
     });
   });
 
+  test(
+    'bookmark action, page, filtered feed and row share current state',
+    () async {
+      final api = _BookmarkFakeApi();
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      await shell.loadBookmarkList(_site);
+      await shell.applyTopicListFilterQuery('in:bookmarked');
+      expect(shell.currentFeed!.topicIds, isEmpty);
+      final created = await shell.createBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        targetType: BookmarkTargetType.topic,
+        targetId: 7,
+      );
+      await pumpEventQueue();
+      expect(created.saved, isTrue);
+      expect(
+        shell.store.read<TopicDetail>(_site, 7)!.topicBookmark?.id,
+        created.bookmark!.id,
+      );
+      expect(shell.store.read<Topic>(_site, 7)!.bookmarked, isTrue);
+      expect(
+        shell.accountActivity.bookmarkListFor(_site).bookmarks.map((b) => b.id),
+        [created.bookmark!.id],
+      );
+      expect(shell.currentFeed!.topicIds, [7]);
+      final refresh = Completer<void>();
+      api.bookmarkFilterGate = refresh;
+      final deleted = await shell.deleteBookmark(
+        siteUrl: _site,
+        topicId: 7,
+        bookmark: shell.accountActivity.bookmarkListFor(_site).bookmarks.single,
+      );
+      expect(deleted.saved, isTrue);
+      expect(shell.currentFeed!.topicIds, isEmpty);
+      refresh.complete();
+      await pumpEventQueue();
+      expect(shell.store.read<TopicDetail>(_site, 7)!.topicBookmark, isNull);
+      expect(shell.store.read<Topic>(_site, 7)!.bookmarked, isFalse);
+      expect(shell.accountActivity.bookmarkListFor(_site).bookmarks, isEmpty);
+      expect(shell.currentFeed!.topicIds, isEmpty);
+    },
+  );
+
   group('bookmarks page list', () {
     test('opening or refreshing the page reads it from the start', () async {
       final api = _BookmarkFakeApi();
@@ -1372,8 +1417,53 @@ final class _BookmarkFakeApi extends FakeDiscourseApi {
       );
 
   Bookmark? _bookmark;
+  Completer<void>? bookmarkFilterGate;
   Future<void> Function()? beforeReply;
   final List<int> deletedTopics = [];
+
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    if (uri.path == '/filter.json' &&
+        uri.queryParameters['q'] == 'in:bookmarked') {
+      await bookmarkFilterGate?.future;
+      return TopicList(
+        topics: [
+          if (_bookmark != null)
+            const Topic(id: 7, title: 'Topic', slug: 'topic', bookmarked: true),
+        ],
+      );
+    }
+    return super.topicList(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<BookmarkListPage> bookmarkListPage({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    int page = 0,
+    String? clientId,
+  }) async {
+    await super.bookmarkListPage(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      username: username,
+      page: page,
+      clientId: clientId,
+    );
+    return BookmarkListPage(bookmarks: [?_bookmark]);
+  }
 
   @override
   Future<int> createBookmark({

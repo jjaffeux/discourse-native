@@ -62,6 +62,10 @@ void main() {
     'reentrant topic selection owns admission before Store publication',
     () async {
       final fixture = _Fixture();
+      fixture.store.put(
+        _site,
+        const Topic(id: 7, title: 'Topic', slug: 'topic'),
+      );
       Future<bool>? replacement;
       final ref = fixture.store.ref<TopicDetail>(_site, 7);
       ref.addListener(() {
@@ -87,6 +91,37 @@ void main() {
         TopicNotificationLevel.watching,
       );
       expect(ref.value!.notificationLevel, TopicNotificationLevel.watching);
+      expect(fixture.store.read<Topic>(_site, 7)!.muted, isFalse);
+    },
+  );
+
+  test(
+    'topic mute updates rows optimistically, rolls back, and follows live changes',
+    () async {
+      final f = _Fixture();
+      f.store.put(_site, const Topic(id: 7, title: 'Topic', slug: 'topic'));
+      final gate = Completer<void>();
+      f.api.topicGates.add(gate);
+      f.api.topicFailure = StateError('unreachable');
+      final writing = f.owner.updateTopic(
+        _site,
+        7,
+        TopicNotificationLevel.muted,
+      );
+      expect(f.store.read<Topic>(_site, 7)!.muted, isTrue);
+      await pumpEventQueue();
+      gate.complete();
+      expect(await writing, isFalse);
+      expect(f.store.read<Topic>(_site, 7)!.muted, isFalse);
+      final lease = f.lifecycle.capture(_site);
+      f.owner.observeTopicMessage(_site, 7, {
+        'notification_level_change': 0,
+      }, lease);
+      expect(f.store.read<Topic>(_site, 7)!.muted, isTrue);
+      f.owner.observeTopicMessage(_site, 7, {
+        'notification_level_change': 3,
+      }, lease);
+      expect(f.store.read<Topic>(_site, 7)!.muted, isFalse);
     },
   );
 

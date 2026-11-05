@@ -127,8 +127,21 @@ final class ShellTabContext {
     final instance = _instance;
     final feedId = currentFeedId;
     if (instance == null || feedId == null) return null;
-    final feed = shell.topicFeeds.feedFor(instance.url, feedId);
-    if (feed == null || !currentFeedIsUnread) return feed;
+    var feed = shell.topicFeeds.feedFor(instance.url, feedId);
+    if (feed == null) return null;
+    final route = topicListContent ?? currentContent;
+    if (route?.isAdvancedTopicFilter == true &&
+        topicFilterRequiresBookmark(route!.topicFilterQuery)) {
+      final ids = [
+        for (final id in feed.topicIds)
+          if (shell.store.read<Topic>(instance.url, id)?.bookmarked != false)
+            id,
+      ];
+      if (ids.length != feed.topicIds.length) {
+        feed = feed.withVisibleTopics(ids);
+      }
+    }
+    if (!currentFeedIsUnread) return feed;
     // The topic being read may sit in the other desktop panel.
     return shell._unreadTopicFeed.project(
       feed,

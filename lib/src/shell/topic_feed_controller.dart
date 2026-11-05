@@ -779,11 +779,14 @@ final class TopicFeedController extends FrameSafeNotifier {
     required DiscourseInstance instance,
     required SiteLease lease,
     IncomingTopics? incoming,
+    bool Function(String path)? wherePath,
   }) async {
     if (isDisposed || !lease.isCurrent) return false;
     final retained = [
       for (final session in _sessions.values)
-        if (session.key.$1 == instance.url && session.requestedPath != null)
+        if (session.key.$1 == instance.url &&
+            session.requestedPath != null &&
+            (wherePath == null || wherePath(session.requestedPath!)))
           (session: session, path: session.requestedPath!),
     ];
     for (final entry in retained) {

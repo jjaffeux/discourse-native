@@ -166,6 +166,7 @@ final class _TopicState {
   final Map<(int, bool), Object> gaps = {};
   final Map<TopicStatusProperty, int> statuses = {};
   final Map<_MetadataField, int> metadata = {};
+  int deletion = 0;
   int pin = 0;
   bool pinPending = false;
   int archive = 0;
@@ -340,15 +341,25 @@ final class TopicDataSession implements BookmarkTopicData {
       }
       _put(incoming);
       if (!_readIsCurrent(stamp) || !sourceCurrent()) return null;
-      _update<Topic>(
-        topicId,
-        (row) => actionRowFromRead(
+      _update<Topic>(topicId, (row) {
+        final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? incoming;
+        return actionRowFromRead(
           stamp.actions,
           row
-              .copyWith(title: incoming.title, postsCount: incoming.postsCount)
-              .withPlugins(incoming.plugins),
-        ),
-      );
+              .copyWith(
+                title: accepted.title,
+                postsCount: accepted.postsCount,
+                closed: accepted.closed,
+                archived: accepted.archived,
+                visible: accepted.visible,
+                deletedAt: accepted.deletedAt,
+                clearDeletedAt: accepted.deletedAt == null,
+                muted:
+                    accepted.notificationLevel == TopicNotificationLevel.muted,
+              )
+              .withPlugins(accepted.plugins),
+        );
+      });
     }
     if (!_readIsCurrent(stamp) || !sourceCurrent()) return null;
     _changed();
@@ -433,14 +444,20 @@ final class TopicDataSession implements BookmarkTopicData {
       topicId,
       (detail) => detail.withStatus(status, enabled),
     );
-    if (status == TopicStatusProperty.closed) {
-      _update<Topic>(
-        topicId,
-        (row) => row.copyWith(
-          closed: _store.read<TopicDetail>(siteUrl, topicId)?.closed ?? enabled,
-        ),
+    _update<Topic>(topicId, (row) {
+      final accepted = _store.read<TopicDetail>(siteUrl, topicId);
+      return row.copyWith(
+        closed: status == TopicStatusProperty.closed
+            ? accepted?.closed ?? enabled
+            : null,
+        archived: status == TopicStatusProperty.archived
+            ? accepted?.archived ?? enabled
+            : null,
+        visible: status == TopicStatusProperty.visible
+            ? accepted?.visible ?? enabled
+            : null,
       );
-    }
+    });
   }
 
   void projectAcceptedMetadata(
@@ -488,16 +505,16 @@ final class TopicDataSession implements BookmarkTopicData {
     if (next.closed != held.closed) {
       _topic(topicId).statuses[TopicStatusProperty.closed] = ++_actionEpoch;
     }
+    _topic(topicId).deletion = ++_actionEpoch;
     _update<TopicDetail>(topicId, (_) => next);
-    if (next.closed != held.closed) {
-      _update<Topic>(
-        topicId,
-        (row) => row.copyWith(
-          closed:
-              _store.read<TopicDetail>(siteUrl, topicId)?.closed ?? next.closed,
-        ),
+    _update<Topic>(topicId, (row) {
+      final accepted = _store.read<TopicDetail>(siteUrl, topicId) ?? next;
+      return row.copyWith(
+        closed: accepted.closed,
+        deletedAt: accepted.deletedAt,
+        clearDeletedAt: accepted.deletedAt == null,
       );
-    }
+    });
     return isCurrent;
   }
 
@@ -573,6 +590,14 @@ final class TopicDataSession implements BookmarkTopicData {
         incoming = incoming.withStatus(entry.key, held.statusValue(entry.key));
       }
     }
+    if (state.deletion > atDispatch) {
+      incoming = incoming.copyWith(
+        deletedAt: held.deletedAt,
+        clearDeletedAt: held.deletedAt == null,
+        canDeleteTopic: held.canDeleteTopic,
+        canRecoverTopic: held.canRecoverTopic,
+      );
+    }
     if (incoming.hasPinPreference &&
         (state.pinPending || state.pin > atDispatch)) {
       incoming = incoming.copyWith(
@@ -604,6 +629,19 @@ final class TopicDataSession implements BookmarkTopicData {
     }
     if ((state.statuses[TopicStatusProperty.closed] ?? 0) > atDispatch) {
       incoming = incoming.copyWith(closed: row?.closed ?? held?.closed);
+    }
+    if ((state.statuses[TopicStatusProperty.archived] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(archived: row?.archived ?? held?.archived);
+    }
+    if ((state.statuses[TopicStatusProperty.visible] ?? 0) > atDispatch) {
+      incoming = incoming.copyWith(visible: row?.visible ?? held?.visible);
+    }
+    if (state.deletion > atDispatch) {
+      final deletedAt = row == null ? held?.deletedAt : row.deletedAt;
+      incoming = incoming.copyWith(
+        deletedAt: deletedAt,
+        clearDeletedAt: deletedAt == null,
+      );
     }
     if (state.pinPending || state.pin > atDispatch) {
       incoming = incoming.copyWith(pinned: row?.pinned ?? held?.pinned);
@@ -753,6 +791,12 @@ final class TopicDataSession implements BookmarkTopicData {
                 tags: accepted.tags,
                 postsCount: accepted.postsCount,
                 closed: accepted.closed,
+                archived: accepted.archived,
+                visible: accepted.visible,
+                deletedAt: accepted.deletedAt,
+                clearDeletedAt: accepted.deletedAt == null,
+                muted:
+                    accepted.notificationLevel == TopicNotificationLevel.muted,
                 pinned: accepted.pinned,
               )
               .withPlugins(accepted.plugins),

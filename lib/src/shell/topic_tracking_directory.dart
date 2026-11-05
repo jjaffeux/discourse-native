@@ -196,8 +196,14 @@ final class TopicTrackingAccount implements TopicTrackingAdmission {
 
   Topic project(Topic incoming) {
     final tracked = isCurrent ? reconciler.topic(incoming.id) : null;
-    if (tracked == null) return incoming;
-    var row = incoming;
+    final level = isCurrent ? reconciler.notificationLevel(incoming.id) : null;
+    final muted = level == null
+        ? incoming.muted
+        : level == TopicNotificationLevel.muted;
+    var row = incoming.muted == muted
+        ? incoming
+        : incoming.copyWith(muted: muted);
+    if (tracked == null) return row;
     if (!row.listReadStateKnown &&
         row.lastReadPostNumber == null &&
         tracked.isNew &&

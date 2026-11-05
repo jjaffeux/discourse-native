@@ -1371,6 +1371,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get closed => 'Closed';
 
   @override
+  String get unlisted => 'Unlisted';
+
+  @override
   String get archived => 'Archived';
 
   @override

@@ -166,6 +166,7 @@ import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
+import 'topic_filter_scope.dart';
 import 'topic_list_transitions.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_read_controller.dart';
@@ -4376,8 +4377,21 @@ class ShellController extends FrameSafeNotifier
     changed: _notify,
     refreshMenu: (instance) =>
         accountActivity.loadBookmarks(instance, force: true),
-    refreshList: (instance) =>
+    refreshList: (instance) async {
+      final lease = lifecycle.capture(instance.url);
+      await Future.wait([
         accountActivity.refreshLoadedBookmarkList(instance),
+        topicFeeds.refreshRetained(
+          instance: instance,
+          lease: lease,
+          wherePath: (path) {
+            final uri = Uri.tryParse(path);
+            return uri?.path == '/filter.json' &&
+                topicFilterRequiresBookmark(uri?.queryParameters['q'] ?? '');
+          },
+        ),
+      ]);
+    },
   );
 
   late final BookmarkLinkResolver _bookmarkLinks = BookmarkLinkResolver(
