@@ -116,7 +116,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
     return Padding(
       padding:
           row.outerPadding ??
-          EdgeInsets.symmetric(horizontal: selected ? 4 : 16),
+          EdgeInsets.symmetric(horizontal: selected || topic.closed ? 4 : 16),
       child: LinkTarget(
         key: _prefetchBounds,
         bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
@@ -158,7 +158,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             padding:
                 row.contentPadding ??
                 EdgeInsets.symmetric(
-                  horizontal: selected ? 12 : 0,
+                  horizontal: selected || topic.closed ? 12 : 0,
                   vertical: 12,
                 ),
             link: true,
@@ -166,6 +166,9 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
             onHoverChanged: context.isTouch ? null : _hoverChanged,
             highlightOnInteraction: false,
             selected: selected,
+            closed: topic.closed,
+            closedRuleAbove: row.closedRuleAbove,
+            closedRuleBelow: row.closedRuleBelow,
             selectionStyle: DItemSelectionStyle.filled,
             showSelectionIndicator: false,
             children: [

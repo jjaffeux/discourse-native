@@ -19,6 +19,7 @@ class TopicTitle extends StatelessWidget {
     this.maxLines,
     this.overflow,
     this.style,
+    this.leading = const [],
     this.trailing = const [],
     this.keepTrailingWithLastWord = false,
   });
@@ -28,6 +29,7 @@ class TopicTitle extends StatelessWidget {
   final int? maxLines;
   final TextOverflow? overflow;
   final TextStyle? style;
+  final List<Widget> leading;
   final List<Widget> trailing;
   final bool keepTrailingWithLastWord;
 
@@ -46,6 +48,7 @@ class TopicTitle extends StatelessWidget {
         maxLines: maxLines,
         overflow: overflow,
         style: style,
+        leading: leading,
         trailing: [
           // The outer WidgetSpan scales this entire group with the title.
           // Its nested text must not apply the MediaQuery scaler again.
@@ -73,6 +76,7 @@ class TopicTitle extends StatelessWidget {
       maxLines: maxLines,
       overflow: overflow,
       style: style,
+      leading: leading,
       trailing: trailing,
     );
   }

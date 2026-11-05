@@ -304,10 +304,18 @@ class AssignedGroupPresentationView extends StatelessWidget {
                   ),
                   sliver: SliverList.separated(
                     itemCount: topics.length,
-                    separatorBuilder: (context, _) =>
-                        const TopicListSeparator(),
+                    separatorBuilder: (context, index) => TopicListSeparator(
+                      topic: topics[index],
+                      nextTopic: topics[index + 1],
+                      siteUrl: siteUrl,
+                    ),
                     itemBuilder: (context, index) => TopicListRow(
                       topic: topics[index],
+                      nextTopic: index + 1 < topics.length
+                          ? topics[index + 1]
+                          : null,
+                      closedRuleAbove: index > 0,
+                      closedRuleBelow: index + 1 < topics.length,
                       showViews: true,
                       onSort: _sortTopics,
                       order: state.query.order?.wireName,

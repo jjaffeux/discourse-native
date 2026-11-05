@@ -3661,7 +3661,6 @@ class _MoreTopics extends StatelessWidget {
     ];
     if (available.isEmpty) return const SizedBox.shrink();
     final selection = _effectiveSelection(available);
-    final theme = Theme.of(context);
 
     return Padding(
       padding: EdgeInsets.only(top: topPadding, bottom: showTitle ? 8 : 16),
@@ -3703,6 +3702,11 @@ class _MoreTopics extends StatelessWidget {
               for (var index = 0; index < selection.topics.length; index++) ...[
                 TopicListRow(
                   topic: selection.topics[index],
+                  nextTopic: index + 1 < selection.topics.length
+                      ? selection.topics[index + 1]
+                      : null,
+                  closedRuleAbove: index > 0,
+                  closedRuleBelow: index + 1 < selection.topics.length,
                   siteUrl: siteUrl,
                   onTap: inbox
                       ? () => ShellScope.read(
@@ -3711,16 +3715,10 @@ class _MoreTopics extends StatelessWidget {
                       : null,
                 ),
                 if (index < selection.topics.length - 1)
-                  LayoutBuilder(
-                    builder: (context, constraints) =>
-                        constraints.maxWidth < 600
-                        ? const TopicListSeparator()
-                        : DSeparator(
-                            space: 1,
-                            indent: inbox ? 16 : 0,
-                            endIndent: inbox ? 16 : 0,
-                            color: theme.shell.divider,
-                          ),
+                  TopicListSeparator(
+                    topic: selection.topics[index],
+                    nextTopic: selection.topics[index + 1],
+                    siteUrl: siteUrl,
                   ),
               ],
             ],
