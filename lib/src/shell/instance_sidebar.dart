@@ -22,6 +22,7 @@ import 'forum_theme_surfaces.dart';
 import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
+import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'sidebar_taxonomy_editor.dart';
 import 'site_url.dart';
@@ -570,127 +571,121 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                     sliver: SliverMainAxisGroup(
                       slivers: [
                         if (showCoreSections)
-                          ListenableBuilder(
-                            listenable: Listenable.merge([
-                              _linkEdit,
-                              controller.accountActivity.totalsListenable,
-                              controller.draftList,
-                              controller.topicFeeds,
-                              ...registry.communitySidebarListenables(
-                                context,
-                                includeOwner: includePluginOwner,
-                              ),
-                            ]),
-                            builder: (context, _) => SliverMainAxisGroup(
-                              slivers: [
-                                for (final (sections, loading) in [
-                                  (
-                                    showShortcuts
-                                        ? customSections
-                                        : forumSections,
-                                    false,
-                                  ),
-                                  (
-                                    showShortcuts
-                                        ? <SidebarSection>[]
-                                        : sidebar.navigationSections,
-                                    sidebar.navigationLoading,
-                                  ),
-                                ])
-                                  _RestoredSidebarSections(
-                                    siteUrl: sidebar.siteUrl!,
-                                    sections: sections,
-                                    store: sectionStore,
-                                    loading: loading,
-                                    child: SliverMainAxisGroup(
-                                      slivers: [
-                                        for (final section in sections)
-                                          _Section(
-                                            key: ValueKey((
-                                              sidebar.siteUrl,
-                                              section.id,
-                                            )),
-                                            siteUrl: sidebar.siteUrl!,
-                                            section: section,
-                                            linkEdit: _linkEdit,
-                                            appendedDestinations:
-                                                section.id == 'community'
-                                                ? [
-                                                    ...registry
-                                                        .communitySidebarDestinations(
-                                                          context,
-                                                          includeOwner:
-                                                              includePluginOwner,
-                                                        ),
-                                                  ]
-                                                : const [],
-                                            store: sectionStore,
-                                            selectedId: sidebar.destinationId,
-                                            loadingDestinationId:
-                                                switch (controller
-                                                    .currentFeed) {
-                                                  final feed?
-                                                      when feed.loading &&
-                                                          feed
-                                                              .topicIds
-                                                              .isNotEmpty =>
-                                                    controller.currentFeedId,
-                                                  _ => null,
-                                                },
-                                            badgeFor:
-                                                controller.sidebarBadgeFor,
-                                            onNavigate: widget.onNavigate,
-                                            onSelect: (destination) {
-                                              if (destination.id == 'admin') {
-                                                unawaited(
-                                                  openExternalLink(
-                                                    resolveSitePath(
-                                                      sidebar.siteUrl!,
-                                                      'admin',
+                          _LoadingDestinationSelector(
+                            controller: controller,
+                            builder: (context, loadingDestinationId) => ListenableBuilder(
+                              listenable: Listenable.merge([
+                                _linkEdit,
+                                controller.accountActivity.totalsListenable,
+                                controller.draftList,
+                                ...registry.communitySidebarListenables(
+                                  context,
+                                  includeOwner: includePluginOwner,
+                                ),
+                              ]),
+                              builder: (context, _) => SliverMainAxisGroup(
+                                slivers: [
+                                  for (final (sections, loading) in [
+                                    (
+                                      showShortcuts
+                                          ? customSections
+                                          : forumSections,
+                                      false,
+                                    ),
+                                    (
+                                      showShortcuts
+                                          ? <SidebarSection>[]
+                                          : sidebar.navigationSections,
+                                      sidebar.navigationLoading,
+                                    ),
+                                  ])
+                                    _RestoredSidebarSections(
+                                      siteUrl: sidebar.siteUrl!,
+                                      sections: sections,
+                                      store: sectionStore,
+                                      loading: loading,
+                                      child: SliverMainAxisGroup(
+                                        slivers: [
+                                          for (final section in sections)
+                                            _Section(
+                                              key: ValueKey((
+                                                sidebar.siteUrl,
+                                                section.id,
+                                              )),
+                                              siteUrl: sidebar.siteUrl!,
+                                              section: section,
+                                              linkEdit: _linkEdit,
+                                              appendedDestinations:
+                                                  section.id == 'community'
+                                                  ? [
+                                                      ...registry
+                                                          .communitySidebarDestinations(
+                                                            context,
+                                                            includeOwner:
+                                                                includePluginOwner,
+                                                          ),
+                                                    ]
+                                                  : const [],
+                                              store: sectionStore,
+                                              selectedId: sidebar.destinationId,
+                                              loadingDestinationId:
+                                                  loadingDestinationId,
+                                              badgeFor:
+                                                  controller.sidebarBadgeFor,
+                                              onNavigate: widget.onNavigate,
+                                              onSelect: (destination) {
+                                                if (destination.id == 'admin') {
+                                                  unawaited(
+                                                    openExternalLink(
+                                                      resolveSitePath(
+                                                        sidebar.siteUrl!,
+                                                        'admin',
+                                                      ),
                                                     ),
-                                                  ),
-                                                );
-                                                return;
-                                              }
-                                              if (controller
-                                                  .selectSidebarScopeDestination(
-                                                    destination,
-                                                  )) {
-                                                return;
-                                              }
-                                              final url = destination.url;
-                                              if (url == null) {
-                                                if (widget.mobile) {
-                                                  controller
-                                                      .selectMobileDestination(
-                                                        widget.mobilePlaceOf
-                                                                ?.call(
-                                                                  destination,
-                                                                ) ??
-                                                            MobileTab.topics,
-                                                        destination,
-                                                      );
+                                                  );
+                                                  return;
+                                                }
+                                                if (controller
+                                                    .selectSidebarScopeDestination(
+                                                      destination,
+                                                    )) {
+                                                  return;
+                                                }
+                                                final url = destination.url;
+                                                if (url == null) {
+                                                  if (widget.mobile) {
+                                                    controller
+                                                        .selectMobileDestination(
+                                                          widget.mobilePlaceOf
+                                                                  ?.call(
+                                                                    destination,
+                                                                  ) ??
+                                                              MobileTab.topics,
+                                                          destination,
+                                                        );
+                                                  } else {
+                                                    controller
+                                                        .selectDestination(
+                                                          destination,
+                                                        );
+                                                  }
                                                 } else {
-                                                  controller.selectDestination(
-                                                    destination,
+                                                  unawaited(
+                                                    openLink(
+                                                      context,
+                                                      url,
+                                                      title: destination.label,
+                                                      siteUrl: sidebar.siteUrl,
+                                                    ),
                                                   );
                                                 }
-                                              } else {
-                                                unawaited(
-                                                  openLink(
-                                                    context,
-                                                    url,
-                                                    title: destination.label,
-                                                    siteUrl: sidebar.siteUrl,
-                                                  ),
-                                                );
-                                              }
-                                            },
-                                          ),
-                                      ],
+                                              },
+                                            ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         if ((!widget.mobile || !showCoreSections) &&
@@ -748,6 +743,66 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         ],
       ),
     );
+  }
+}
+
+/// Rebuilds [builder] only when the destination refreshing over topics it
+/// already shows changes. The feeds also publish every page they append and
+/// every viewport they track, which leave that destination as it was.
+class _LoadingDestinationSelector extends StatefulWidget {
+  const _LoadingDestinationSelector({
+    required this.controller,
+    required this.builder,
+  });
+
+  final ShellController controller;
+  final Widget Function(BuildContext context, String? loadingDestinationId)
+  builder;
+
+  @override
+  State<_LoadingDestinationSelector> createState() =>
+      _LoadingDestinationSelectorState();
+}
+
+class _LoadingDestinationSelectorState
+    extends State<_LoadingDestinationSelector> {
+  String? _destinationId;
+
+  String? _read() => switch (widget.controller.currentFeed) {
+    final feed? when feed.loading && feed.topicIds.isNotEmpty =>
+      widget.controller.currentFeedId,
+    _ => null,
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.topicFeeds.addListener(_changed);
+  }
+
+  @override
+  void didUpdateWidget(_LoadingDestinationSelector oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.controller, widget.controller)) {
+      oldWidget.controller.topicFeeds.removeListener(_changed);
+      widget.controller.topicFeeds.addListener(_changed);
+    }
+  }
+
+  void _changed() {
+    if (_read() != _destinationId) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    _destinationId = _read();
+    return widget.builder(context, _destinationId);
+  }
+
+  @override
+  void dispose() {
+    widget.controller.topicFeeds.removeListener(_changed);
+    super.dispose();
   }
 }
 

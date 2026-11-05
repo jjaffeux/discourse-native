@@ -889,13 +889,17 @@ final class _TaxonomyDirectoryController
         mergeCategories(siteUrl, categories, notificationRead: read);
   }
 
-  void mergeCategories(
+  /// Whether the site's categories changed. Every page of a site that
+  /// lazy-loads categories sideloads ones the site already holds.
+  bool mergeCategories(
     String siteUrl,
     Iterable<TopicCategory> incoming, {
     bool Function()? isCurrent,
     _CategoryRead? notificationRead,
   }) {
-    if (_shell.accountSessionDisposed || isCurrent?.call() == false) return;
+    if (_shell.accountSessionDisposed || isCurrent?.call() == false) {
+      return false;
+    }
     final site = _site(siteUrl);
     bool canMerge() =>
         !_shell.accountSessionDisposed &&
@@ -903,10 +907,10 @@ final class _TaxonomyDirectoryController
         identical(_sites[siteUrl], site) &&
         (notificationRead == null || identical(notificationRead.site, site)) &&
         (isCurrent?.call() ?? true);
-    if (!canMerge()) return;
+    if (!canMerge()) return false;
     final stored = <TopicCategory>[];
     for (final category in incoming) {
-      if (!canMerge()) return;
+      if (!canMerge()) return false;
       final held =
           _shell.store.read<TopicCategory>(siteUrl, category.id) ??
           site.categories?.where((held) => held.id == category.id).firstOrNull;
@@ -920,21 +924,28 @@ final class _TaxonomyDirectoryController
           ? category.withNotificationLevel(held.notificationLevel)
           : category;
       stored.add(_shell.store.put(siteUrl, incoming));
-      if (!canMerge()) return;
+      if (!canMerge()) return false;
     }
+    final held = site.categories;
     final byId = <int, TopicCategory>{
-      for (final category in site.categories ?? const <TopicCategory>[])
+      for (final category in held ?? const <TopicCategory>[])
         category.id: category,
       for (final category in stored)
         category.id:
             _shell.store.read<TopicCategory>(siteUrl, category.id) ?? category,
     };
+    if (held != null &&
+        byId.length == held.length &&
+        held.every((category) => identical(byId[category.id], category))) {
+      return false;
+    }
     site.categories = List.unmodifiable(byId.values);
     site.categorySidebarCache = null;
     _shell._rewriteContentRoutes(
       siteUrl,
       (route) => route.resolveCategoryLink(byId.values),
     );
+    return true;
   }
 
   Future<void> loadMoreCategories(String siteUrl) async {
