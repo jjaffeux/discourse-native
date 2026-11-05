@@ -21,7 +21,7 @@ final buttonExamples = ComponentExamples(
       'Buttons use the theme’s control radius and no shadows. Regular controls use 30px surfaces and 12.5px labels on every platform; small/large desktop controls use 24/40px and mobile uses 40/48px '
       'with hit areas matching their surfaces. Application presets retain the exact mockup artwork on every platform. Hover and popup state remain visible, '
       'with a separate keyboard focus ring. All colors follow the forum palette. '
-      'The header density uses 28px controls, 32px icon-only targets, 12.5px labels, '
+      'The header density uses 36px circles from 713px desktop window width; compact windows and touch keep 28px controls with 32px icon-only bounds. It uses 12.5px labels, '
       '8px content gaps and 10px counted-button insets. Header shortcuts sit 6px apart on desktop. '
       'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',

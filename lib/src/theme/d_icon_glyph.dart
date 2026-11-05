@@ -173,8 +173,7 @@ final class TintableGlyph {
     canvas
       ..save()
       ..translate(destination.left, destination.top)
-      ..scale(destination.width / size.width, destination.height / size.height)
-      ..clipRect(Offset.zero & size);
+      ..scale(destination.width / size.width, destination.height / size.height);
     for (final draw in _draws) {
       canvas.drawPath(draw.path, draw.paint..color = draw.color(tint));
     }

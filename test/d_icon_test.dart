@@ -91,6 +91,66 @@ void main() {
       );
     });
 
+    for (final preserveColors in [false, true]) {
+      testWidgets(
+        'edge strokes remain whole at fractional sizes, preserveColors=$preserveColors',
+        (tester) async {
+          const boundaryKey = ValueKey('fractional-icon');
+          final icon = DIconData(
+            'edge-stroke',
+            '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+                '<path d="M0 0H16V16H0Z" fill="none" '
+                'stroke="white" stroke-width="2"/></svg>',
+            preserveColors: preserveColors,
+          );
+          for (final scale in [0.9, 1.1, 1.25, 1.5]) {
+            final size = 16 * scale;
+            await tester.pumpWidget(
+              MaterialApp(
+                home: Center(
+                  child: RepaintBoundary(
+                    key: boundaryKey,
+                    child: SizedBox.square(
+                      dimension: 48,
+                      child: Center(
+                        child: Transform.translate(
+                          offset: const Offset(.3, .2),
+                          child: DIconGlyphTheme(
+                            scale: 1,
+                            naturalWidth: true,
+                            child: DIcon(icon, size: size, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+            await tester.pumpAndSettle();
+            final bounds = tester
+                .getRect(find.byType(DIcon))
+                .shift(-tester.getTopLeft(find.byKey(boundaryKey)));
+            expect(bounds.width, closeTo(size.roundToDouble(), .001));
+            expect(bounds.height, closeTo(size, .001));
+            final pixels = await samplePixels(tester, find.byKey(boundaryKey), [
+              bounds.centerLeft - Offset(.4 * scale, 0),
+              bounds.topCenter - Offset(0, .4 * scale),
+              bounds.centerRight + Offset(.4 * scale, 0),
+              bounds.bottomCenter + Offset(0, .4 * scale),
+            ]);
+            for (var edge = 0; edge < pixels.length; edge++) {
+              expect(
+                pixels[edge].a,
+                greaterThan(.7),
+                reason: 'scale=$scale edge=$edge must retain the outer stroke',
+              );
+            }
+          }
+        },
+      );
+    }
+
     testWidgets('plus fills the reference arm extents', (tester) async {
       const key = ValueKey('reference-plus');
       await tester.pumpWidget(

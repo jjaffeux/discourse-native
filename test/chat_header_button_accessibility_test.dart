@@ -173,7 +173,7 @@ void main() {
       expect(control.variant, DButtonVariant.ghost);
       expect(control.backgroundColor, isNull);
       expect(control.foregroundColor, isNotNull);
-      expect(tester.getSize(button).height, 28);
+      expect(tester.getSize(button).height, 36);
       expect(tester.getSize(button).width, greaterThan(34));
       expect(
         tester.getSemantics(button),

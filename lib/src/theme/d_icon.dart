@@ -199,6 +199,10 @@ class DIcon extends StatelessWidget {
                     width * glyphScale * (replacement == null ? 1 : set.scale),
                 height: glyphHeight,
                 fit: BoxFit.contain,
+                // Edge strokes and fractional scaling may paint past the
+                // viewBox, as they do in the monochrome glyph renderer.
+                allowDrawingOutsideViewBox: true,
+                clipBehavior: Clip.none,
                 theme: SvgTheme(
                   currentColor: resolvedIcon.preserveColors
                       ? tint

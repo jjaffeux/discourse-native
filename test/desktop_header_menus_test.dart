@@ -166,8 +166,8 @@ void main() {
           expect(search.height, 36);
           expect(create.width, 36);
           expect(drafts.width, 32);
-          expect(chat.height, 28);
-          expect(bell.height, 28);
+          expect(chat.height, 36);
+          expect(bell.height, 36);
           expect(search.top - header.top, 8.5);
         }
         await _capture(tester, 'shell-$width-$dark-$scale');

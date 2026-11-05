@@ -49,11 +49,12 @@ class ContentNavigationControls extends StatelessWidget {
               children: [
                 DButton.iconOnly(
                   key: homeKey,
-                  icon: const DIcon(DIcons.house),
+                  icon: const DIcon(DIcons.house, size: 15),
                   tooltip: context.l10n.latest,
                   semanticLabel: context.l10n.latest,
                   variant: DButtonVariant.ghost,
-                  density: DButtonDensity.chrome,
+                  density: DButtonDensity.header,
+                  shape: DButtonShape.pill,
                   onPressed: () {
                     if (ShellScope.read(context).openDesktopHome()) {
                       final header =

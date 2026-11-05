@@ -134,13 +134,13 @@ void main() {
                   ),
                 );
                 final text = tester.getRect(count);
-                expect(bounds.height, 28);
+                expect(bounds.height, 36);
                 expect(glyph.left - bounds.left, 10);
                 expect(separator.left - glyph.right, 8);
                 expect(text.left - separator.right, 8);
                 expect(bounds.right - text.right, 10);
               } else {
-                expect(tester.getSize(button), const Size(32, 28));
+                expect(tester.getSize(button), const Size.square(36));
               }
               expect(
                 tester.getSemantics(button).label,

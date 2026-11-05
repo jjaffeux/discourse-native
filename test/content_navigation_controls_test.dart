@@ -143,6 +143,11 @@ void main() {
         expect(refreshRect.left - separatorRect.right, 2);
         final groupRect = tester.getRect(group);
         expect(groupRect.size, const Size(123, 36));
+        final home = tester.getRect(
+          find.byKey(ContentNavigationControls.homeKey),
+        );
+        expect(home.size, const Size.square(36));
+        expect(home.center.dy, groupRect.center.dy);
         expect(backRect.left - groupRect.left, 5);
         expect(groupRect.right - refreshRect.right, 5);
         expect(backRect.top - groupRect.top, 4);

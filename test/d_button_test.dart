@@ -272,97 +272,116 @@ void main() {
     }
   }
   for (final rtl in [false, true]) {
-    for (final scale in [1.0, 2.0]) {
-      testWidgets(
-        'header preset has exact visible bounds rtl=$rtl scale=$scale',
-        (tester) async {
-          var presses = 0;
-          await tester.pumpWidget(
-            MaterialApp(
-              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-              home: MediaQuery(
-                data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-                child: Directionality(
-                  textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
-                  child: Scaffold(
-                    body: Center(
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        spacing: DSpacing.xs,
-                        children: [
-                          DButton(
-                            key: const ValueKey('header-count'),
-                            density: DButtonDensity.header,
-                            variant: DButtonVariant.ghost,
-                            icon: const Icon(Icons.chat, size: 16),
-                            label: const Text('49'),
-                            onPressed: () => presses++,
-                          ),
-                          DButton.iconOnly(
-                            key: const ValueKey('header-bell'),
-                            density: DButtonDensity.header,
-                            variant: DButtonVariant.ghost,
-                            icon: const Icon(Icons.notifications, size: 17),
-                            tooltip: 'Notifications',
-                            onPressed: () => presses++,
-                          ),
-                        ],
+    for (final scale in [1.0, 1.25, 2.0]) {
+      for (final (width, platform, wide) in [
+        (712.0, TargetPlatform.macOS, false),
+        (713.0, TargetPlatform.macOS, true),
+        (1024.0, TargetPlatform.iOS, false),
+      ]) {
+        testWidgets(
+          'header preset has exact visible bounds width=$width platform=$platform rtl=$rtl scale=$scale',
+          (tester) async {
+            var presses = 0;
+            await tester.pumpWidget(
+              MaterialApp(
+                theme: AppTheme.light.copyWith(platform: platform),
+                home: MediaQuery(
+                  data: MediaQueryData(
+                    size: Size(width, 900),
+                    textScaler: TextScaler.linear(scale),
+                  ),
+                  child: Directionality(
+                    textDirection: rtl ? TextDirection.rtl : TextDirection.ltr,
+                    child: Scaffold(
+                      body: Center(
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          spacing: DSpacing.xs,
+                          children: [
+                            DButton(
+                              key: const ValueKey('header-count'),
+                              density: DButtonDensity.header,
+                              variant: DButtonVariant.ghost,
+                              icon: const Icon(Icons.chat, size: 16),
+                              label: const Text('49'),
+                              onPressed: () => presses++,
+                            ),
+                            DButton.iconOnly(
+                              key: const ValueKey('header-bell'),
+                              density: DButtonDensity.header,
+                              variant: DButtonVariant.ghost,
+                              icon: const Icon(Icons.notifications, size: 17),
+                              tooltip: 'Notifications',
+                              onPressed: () => presses++,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          );
-          await tester.pumpAndSettle();
-          final button = find.byKey(const ValueKey('header-count'));
-          final bell = find.byKey(const ValueKey('header-bell'));
-          final bounds = tester.getRect(button);
-          final glyph = tester.getRect(
-            find.descendant(of: button, matching: find.byType(Icon)),
-          );
-          final label = tester.getRect(find.text('49'));
-          final height = 28 + (12.5 * scale - 12.5) * 1.5;
-          expect(bounds.height, height);
-          expect(tester.getSize(bell), Size(height + 4, height));
-          expect(rtl ? glyph.left - label.right : label.left - glyph.right, 8);
-          expect(
-            rtl ? bounds.right - glyph.right : glyph.left - bounds.left,
-            10,
-          );
-          expect(
-            rtl ? label.left - bounds.left : bounds.right - label.right,
-            10,
-          );
-          expect(
-            rtl
-                ? bounds.left - tester.getRect(bell).right
-                : tester.getRect(bell).left - bounds.right,
-            4,
-          );
-          final style = tester
-              .widget<FilledButton>(
-                find.descendant(
-                  of: button,
-                  matching: find.byType(FilledButton),
-                ),
-              )
-              .style!;
-          expect(style.textStyle!.resolve({})!.fontSize, 12.5);
-          expect(
-            tester.getRect(
-              find.descendant(of: button, matching: find.byType(Material)),
-            ),
-            bounds,
-          );
-          await tester.tapAt(bounds.centerLeft - const Offset(1, 0));
-          await tester.tapAt(bounds.centerRight + const Offset(1, 0));
-          expect(presses, 0);
-          await tester.tap(button);
-          expect(presses, 1);
-          expect(tester.takeException(), isNull);
-        },
-      );
+            );
+            await tester.pumpAndSettle();
+            final button = find.byKey(const ValueKey('header-count'));
+            final bell = find.byKey(const ValueKey('header-bell'));
+            final bounds = tester.getRect(button);
+            final glyph = tester.getRect(
+              find.descendant(of: button, matching: find.byType(Icon)),
+            );
+            final label = tester.getRect(find.text('49'));
+            final height = (wide ? 36 : 28) + (12.5 * scale - 12.5) * 1.5;
+            expect(bounds.height, height);
+            expect(
+              tester.getSize(bell),
+              Size(wide ? height : height + 4, height),
+            );
+            expect(
+              buttonSurface(tester, of: bell).borderRadius,
+              BorderRadius.circular(height / 2),
+            );
+            expect(
+              rtl ? glyph.left - label.right : label.left - glyph.right,
+              8,
+            );
+            expect(
+              rtl ? bounds.right - glyph.right : glyph.left - bounds.left,
+              10,
+            );
+            expect(
+              rtl ? label.left - bounds.left : bounds.right - label.right,
+              10,
+            );
+            expect(
+              rtl
+                  ? bounds.left - tester.getRect(bell).right
+                  : tester.getRect(bell).left - bounds.right,
+              4,
+            );
+            final style = tester
+                .widget<FilledButton>(
+                  find.descendant(
+                    of: button,
+                    matching: find.byType(FilledButton),
+                  ),
+                )
+                .style!;
+            expect(style.textStyle!.resolve({})!.fontSize, 12.5);
+            expect(
+              tester.getRect(
+                find.descendant(of: button, matching: find.byType(Material)),
+              ),
+              bounds,
+            );
+            await tester.tapAt(bounds.centerLeft - const Offset(1, 0));
+            await tester.tapAt(bounds.centerRight + const Offset(1, 0));
+            expect(presses, 0);
+            await tester.tap(button);
+            expect(presses, 1);
+            expect(tester.takeException(), isNull);
+          },
+        );
+      }
     }
   }
 

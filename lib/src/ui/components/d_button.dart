@@ -93,8 +93,9 @@ enum DButtonDensity {
   /// Bare 30px post actions with 13px icons, 8px corners and a hover fill.
   postAction,
 
-  /// Compact header shortcuts: 28px high, 32px icon-only targets, 12.5px
-  /// count labels, 8px content gaps and 10px horizontal label insets.
+  /// Bare header shortcuts: 36px circles on wide desktops (at least 713px),
+  /// 28px high with 32px icon-only bounds on compact windows and touch.
+  /// Count labels use 12.5px text, 8px gaps and 10px horizontal insets.
   /// Geometry grows with text; popup, hover and focus use the chosen variant
   /// as a flat fill.
   header,
@@ -571,6 +572,12 @@ class DButton extends StatelessWidget {
     final expandedChrome =
         primaryChrome && expanded && onPressed != null && !loading;
     final header = density == DButtonDensity.header;
+    // The mockup keeps its rail, sidebar and list together from 53 + 240 +
+    // 420px. Use the window width, independent of the bar's available space.
+    final wideHeader =
+        header &&
+        !DControlStyle.isTouch(context) &&
+        MediaQuery.sizeOf(context).width >= 713;
     final menuAction = density == DButtonDensity.menuAction;
     final variantStyle = _referenceStyle(tokens, dark);
     final quiet =
@@ -685,7 +692,7 @@ class DButton extends StatelessWidget {
         : postReaction
         ? DPostReactionStyle.height(MediaQuery.textScalerOf(context))
         : header
-        ? 28 +
+        ? (wideHeader ? 36 : 28) +
               (MediaQuery.textScalerOf(context).scale(fontSize) - fontSize) *
                   1.5
         : menuAction
@@ -736,6 +743,7 @@ class DButton extends StatelessWidget {
               : floatingCall ||
                     timelineEnd ||
                     postReaction ||
+                    header ||
                     chrome ||
                     avatar ||
                     rail ||
@@ -756,7 +764,9 @@ class DButton extends StatelessWidget {
         );
     final direction = Directionality.of(context);
     final joined = DJoinedControlScope.maybeOf(context);
-    final surfaceWidth = header || chrome
+    final surfaceWidth = wideHeader
+        ? visualDimension
+        : header || chrome
         ? visualDimension + 4
         : composerBlock
         ? composerBlockWidth(context)
