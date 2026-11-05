@@ -1,5 +1,5 @@
 import 'dart:math' as math;
-import 'dart:ui' show lerpDouble;
+import 'dart:ui' show ClipOp, lerpDouble;
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -265,6 +265,14 @@ class _InsetEdgePainter extends CustomPainter {
     }
     // The rim is listed first, so it is drawn over the catch of light.
     if (rim case final rim?) {
+      // Impeller shades a stroked rounded rectangle as one distance-field
+      // quad over its whole bounds, a panel's width and height for a 1px
+      // line. Clipping out a middle the rim never reaches leaves its pixels
+      // as they were and lets the GPU drop the middle's fragments early.
+      final middle = _middle(shape);
+      if (!middle.isEmpty) {
+        canvas.clipRect(middle, clipOp: ClipOp.difference);
+      }
       canvas.drawRRect(
         shape.deflate(.5),
         Paint()
@@ -320,6 +328,15 @@ class _InsetEdgePainter extends CustomPainter {
 
 /// CSS's padding box: the border box less its border, each corner's curve
 /// less the border widths that meet there.
+/// The part of [shape] that a 1px rim along its edge cannot touch, even
+/// through antialiasing: clear of every corner by 2px.
+Rect _middle(RRect shape) => Rect.fromLTRB(
+  shape.left + math.max(shape.tlRadiusX, shape.blRadiusX) + 2,
+  shape.top + math.max(shape.tlRadiusY, shape.trRadiusY) + 2,
+  shape.right - math.max(shape.trRadiusX, shape.brRadiusX) - 2,
+  shape.bottom - math.max(shape.blRadiusY, shape.brRadiusY) - 2,
+);
+
 RRect _paddingBox(RRect outer, EdgeInsets border) {
   Radius less(Radius corner, double x, double y) =>
       Radius.elliptical(math.max(0, corner.x - x), math.max(0, corner.y - y));
