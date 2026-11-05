@@ -539,6 +539,17 @@ final class _EventCalendarState extends State<EventCalendar> {
                 EventCalendarSkeleton(
                   view: _view,
                   dayCount: _days.duration.inDays,
+                  month: EventMonthMetrics(
+                    layout: compact
+                        ? EventMonthLayout.compact
+                        : split
+                        ? EventMonthLayout.split
+                        : EventMonthLayout.grid,
+                    dayHeaderHeight: _dayHeaderHeight,
+                    laneHeight: _monthTileHeight,
+                    panelWidth: _dayPanelWidth,
+                    panelGap: _dayPanelGap,
+                  ),
                 ),
             ],
           ),
@@ -557,10 +568,7 @@ final class _EventCalendarState extends State<EventCalendar> {
           10,
     );
     // Month lanes are a dense summary; the day popover is the full list.
-    final monthTileHeight = math.max(
-      _touch ? kMinInteractiveDimension : 20.0,
-      scaler.scale(DiscourseTypography.xs) * 1.3 + 4,
-    );
+    final monthTileHeight = _monthTileHeight;
     final tiles = kalender.TileComponents(tileBuilder: _tile);
     final overlays = kalender.OverlayBuilders(
       multiDayOverlayPortalBuilder:
@@ -852,6 +860,11 @@ final class _EventCalendarState extends State<EventCalendar> {
   }
 
   double get _dayHeaderHeight => _touch ? 36 : 28;
+
+  double get _monthTileHeight => math.max(
+    _touch ? kMinInteractiveDimension : 20.0,
+    MediaQuery.textScalerOf(context).scale(DiscourseTypography.xs) * 1.3 + 4,
+  );
 
   Widget _dayHeader(BuildContext context, DateTime date) {
     final tokens = DTokens.of(context);
