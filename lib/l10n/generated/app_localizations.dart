@@ -18285,6 +18285,18 @@ abstract class AppLocalizations {
   /// **'Share this topic'**
   String get shareThisTopic;
 
+  /// English UI message used by shell/topic_share.dart. Label of the share surface's entry that opens the invite editor for the shared topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite people'**
+  String get inviteToTopicEntry;
+
+  /// English UI message used by shell/topic_invite.dart. Title of the sheet that creates an invite landing in the shared topic.
+  ///
+  /// In en, this message translates to:
+  /// **'Invite to this topic'**
+  String get inviteToTopicTitle;
+
   /// English UI message used by shell/topic_share.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

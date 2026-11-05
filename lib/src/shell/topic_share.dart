@@ -12,6 +12,7 @@ import '../theme/d_icons.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 import 'shell_sheet.dart';
+import 'topic_invite.dart';
 
 String topicShareUrl({
   required String siteUrl,
@@ -112,6 +113,43 @@ Future<void> Function()? captureShareReplyAsNewTopic({
   };
 }
 
+Future<void> Function()? captureShareInvite({
+  required BuildContext context,
+  required String siteUrl,
+  required int topicId,
+}) {
+  final controller = ShellScope.read(context);
+  final tabId = controller.activeTabId;
+  final account = controller.currentAccountIdentity;
+  if (controller.currentInstance?.url != siteUrl ||
+      controller.currentContent?.topicId != topicId ||
+      tabId == null) {
+    return null;
+  }
+  final lease = controller.lifecycle.capture(siteUrl);
+
+  // The editor creates invites for the account that opened the share surface,
+  // so a delayed choice must still belong to it.
+  return () async {
+    final instance = controller.currentInstance;
+    if (!context.mounted ||
+        !identical(ShellScope.maybeRead(context), controller) ||
+        !lease.isCurrent ||
+        controller.currentAccountIdentity != account ||
+        instance?.url != siteUrl ||
+        controller.activeTabId != tabId ||
+        controller.currentContent?.topicId != topicId) {
+      return;
+    }
+    await showTopicInviteSheet(
+      context: context,
+      shell: controller,
+      instance: instance!,
+      topicId: topicId,
+    );
+  };
+}
+
 /// What a share surface is about: both the sheet and the anchored menu render
 /// from one of these, so they cannot disagree on what is being shared.
 class _ShareSubject {
@@ -121,6 +159,7 @@ class _ShareSubject {
     required this.url,
     required this.privateMessage,
     required this.onReplyAsNewTopic,
+    this.onInvite,
   });
 
   final String heading;
@@ -128,6 +167,7 @@ class _ShareSubject {
   final String url;
   final bool privateMessage;
   final Future<void> Function()? onReplyAsNewTopic;
+  final Future<void> Function()? onInvite;
 
   String get replyLabel =>
       privateMessage ? appL10n.replyAsNewMessage : appL10n.replyAsNewTopic;
@@ -164,6 +204,7 @@ Future<void> showTopicShareSheet({
   required String title,
   required String url,
   Future<void> Function()? onReplyAsNewTopic,
+  Future<void> Function()? onInvite,
   bool privateMessage = false,
   Rect? anchor,
 }) => _showShare(
@@ -174,6 +215,7 @@ Future<void> showTopicShareSheet({
     url: url,
     privateMessage: privateMessage,
     onReplyAsNewTopic: onReplyAsNewTopic,
+    onInvite: onInvite,
   ),
   anchor,
 );
@@ -216,7 +258,7 @@ Future<void> _showShare(
   return _showShareMenu(context, subject, anchor);
 }
 
-enum _ShareMenuChoice { copy, system, reply }
+enum _ShareMenuChoice { copy, system, invite, reply }
 
 Future<void> _showShareMenu(
   BuildContext context,
@@ -267,6 +309,14 @@ Future<void> _showShareMenu(
             onPressed: () => choice = _ShareMenuChoice.system,
             child: Text(appL10n.shareToAnotherApp),
           ),
+          if (subject.onInvite != null)
+            DDropdownMenuItem(
+              key: const ValueKey('topic-share-invite'),
+              leading: icon(DIcons.userPlus),
+              leadingGap: 9,
+              onPressed: () => choice = _ShareMenuChoice.invite,
+              child: Text(appL10n.inviteToTopicEntry),
+            ),
           if (subject.onReplyAsNewTopic != null) ...[
             const DDropdownMenuSeparator(),
             DDropdownMenuItem(
@@ -295,6 +345,8 @@ Future<void> _showShareMenu(
     case _ShareMenuChoice.system:
       if (await _shareSystem(subject, anchor) || !context.mounted) return;
       DToast.show(context, appL10n.couldnTOpenSharing);
+    case _ShareMenuChoice.invite:
+      await subject.onInvite!();
     case _ShareMenuChoice.reply:
       await subject.onReplyAsNewTopic!();
   }
@@ -346,6 +398,7 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
   Widget build(BuildContext context) {
     final subject = widget.subject;
     final reply = subject.onReplyAsNewTopic;
+    final invite = subject.onInvite;
     final copy = DButton(
       key: const ValueKey('topic-share-copy'),
       label: Semantics(
@@ -409,6 +462,28 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
                   ],
                 ),
         ),
+        if (invite != null) ...[
+          const SizedBox(height: 8),
+          DItem(
+            key: const ValueKey('topic-share-invite'),
+            variant: DItemVariant.outline,
+            onPressed: () {
+              DDialogClose.close<void>(context);
+              unawaited(invite());
+            },
+            children: [
+              const DItemMedia(
+                variant: DItemMediaVariant.icon,
+                child: DIcon(DIcons.userPlus),
+              ),
+              DItemContent(
+                children: [
+                  DItemTitle(child: Text(context.l10n.inviteToTopicEntry)),
+                ],
+              ),
+            ],
+          ),
+        ],
         if (reply != null) ...[
           const SizedBox(height: 8),
           DItem(

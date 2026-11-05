@@ -6415,6 +6415,15 @@ class ShellController extends FrameSafeNotifier
       (!topic.privateMessage ||
           currentInstance?.user?.canSendPrivateMessages == true);
 
+  /// Whether the signed-in user may invite someone to [topic]. The server
+  /// re-checks; a closed, archived or deleted topic is not offered.
+  bool canInviteToTopic(TopicDetail topic) =>
+      currentInstance?.user?.canInviteToForum == true &&
+      topic.canInviteTo &&
+      !topic.closed &&
+      !topic.archived &&
+      topic.deletedAt == null;
+
   Future<void> openReplyAsNewTopic(String continuation) async {
     final instance = currentInstance;
     final route = currentContent;

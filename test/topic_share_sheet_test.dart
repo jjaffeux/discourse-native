@@ -13,6 +13,7 @@ const _url =
 const _copyKey = ValueKey('topic-share-copy');
 const _shareKey = ValueKey('topic-share-system');
 const _replyKey = ValueKey('topic-share-reply-as-new-topic');
+const _inviteKey = ValueKey('topic-share-invite');
 const _cardKey = ValueKey('topic-share-url');
 const _anchor = Rect.fromLTWH(300, 100, 36, 32);
 
@@ -142,7 +143,81 @@ void main() {
     expect(find.byKey(_replyKey), findsNothing);
   });
 
+  testWidgets('a phone sheet offers invite above the reply row, only when '
+      'given a callback', (tester) async {
+    await _openShare(
+      tester,
+      platform: TargetPlatform.iOS,
+      size: const Size(390, 844),
+      onReplyAsNewTopic: () async {},
+    );
+    expect(find.byKey(_inviteKey), findsNothing);
+    expect(find.text('Invite people'), findsNothing);
+
+    var invites = 0;
+    await tester.pumpWidget(const SizedBox());
+    await _openShare(
+      tester,
+      platform: TargetPlatform.iOS,
+      size: const Size(390, 844),
+      onReplyAsNewTopic: () async {},
+      onInvite: () async => invites++,
+    );
+
+    final invite = tester.getRect(find.byKey(_inviteKey));
+    expect(find.text('Invite people'), findsOneWidget);
+    expect(
+      invite.top,
+      greaterThan(tester.getRect(find.byKey(_shareKey)).bottom),
+    );
+    expect(invite.bottom, lessThan(tester.getRect(find.byKey(_replyKey)).top));
+    expect(
+      invite.left,
+      closeTo(tester.getRect(find.byKey(_cardKey)).left, .01),
+    );
+
+    await tester.tap(find.byKey(_inviteKey));
+    await tester.pumpAndSettle();
+
+    expect(invites, 1);
+    expect(find.byKey(_inviteKey), findsNothing);
+    expect(find.byKey(_copyKey), findsNothing);
+  });
+
   group('anchored desktop menu', () {
+    testWidgets('lists invite after system share and before the reply '
+        'separator, only when given a callback', (tester) async {
+      await _openShare(tester, anchor: _anchor, onReplyAsNewTopic: () async {});
+      expect(find.byKey(_inviteKey), findsNothing);
+
+      await tester.pumpWidget(const SizedBox());
+      var invites = 0;
+      await _openShare(
+        tester,
+        anchor: _anchor,
+        onReplyAsNewTopic: () async {},
+        onInvite: () async => invites++,
+      );
+
+      final system = tester.getRect(find.byKey(_shareKey));
+      final invite = tester.getRect(find.byKey(_inviteKey));
+      final reply = tester.getRect(find.byKey(_replyKey));
+      expect(find.text('Invite people'), findsOneWidget);
+      expect(invite.top, greaterThanOrEqualTo(system.bottom));
+      expect(invite.bottom, lessThan(reply.top));
+      expect(find.byType(DDropdownMenuSeparator), findsOneWidget);
+      expect(
+        tester.getRect(find.byType(DDropdownMenuSeparator)).top,
+        greaterThanOrEqualTo(invite.bottom),
+      );
+
+      await tester.tap(find.byKey(_inviteKey));
+      await tester.pumpAndSettle();
+
+      expect(invites, 1);
+      expect(find.byKey(_inviteKey), findsNothing);
+    });
+
     testWidgets('lists copy with the full link, system share and reply', (
       tester,
     ) async {
@@ -405,6 +480,7 @@ Future<void> _openShare(
   bool privateMessage = false,
   Rect? anchor,
   Future<void> Function()? onReplyAsNewTopic,
+  Future<void> Function()? onInvite,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -430,6 +506,7 @@ Future<void> _openShare(
                       title: _title,
                       url: _url,
                       onReplyAsNewTopic: onReplyAsNewTopic,
+                      onInvite: onInvite,
                       privateMessage: privateMessage,
                       anchor: anchor,
                     )

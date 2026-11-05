@@ -119,6 +119,58 @@ void main() {
     },
   );
 
+  test('sends the topic id, and invite_to_topic only when emailing', () async {
+    final transport = InviteTransport();
+    final api = InvitesApi(transport);
+    final expires = DateTime.utc(2026, 12, 1);
+    for (final draft in [
+      InviteDraft(maxRedemptions: 5, expiresAt: expires, topicId: 7),
+      InviteDraft(
+        email: 'sam@example.com',
+        maxRedemptions: 1,
+        expiresAt: expires,
+        topicId: 7,
+      ),
+      InviteDraft(
+        email: 'sam@example.com',
+        maxRedemptions: 1,
+        expiresAt: expires,
+        sendEmail: true,
+        topicId: 7,
+      ),
+    ]) {
+      await api.create(siteUrl: inviteSite.url, apiKey: 'key', draft: draft);
+    }
+    expect(transport.requests.map((request) => request.body), [
+      {
+        'description': '',
+        'max_redemptions_allowed': 5,
+        'expires_at': '2026-12-01T00:00:00.000Z',
+        'skip_email': true,
+        'topic_id': 7,
+      },
+      {
+        'email': 'sam@example.com',
+        'description': '',
+        'custom_message': '',
+        'max_redemptions_allowed': 1,
+        'expires_at': '2026-12-01T00:00:00.000Z',
+        'skip_email': true,
+        'topic_id': 7,
+      },
+      {
+        'email': 'sam@example.com',
+        'description': '',
+        'custom_message': '',
+        'max_redemptions_allowed': 1,
+        'expires_at': '2026-12-01T00:00:00.000Z',
+        'send_email': true,
+        'topic_id': 7,
+        'invite_to_topic': true,
+      },
+    ]);
+  });
+
   test('resends by email and deletes by invitation ID', () async {
     final transport = InviteTransport();
     final api = InvitesApi(transport);

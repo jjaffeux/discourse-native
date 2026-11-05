@@ -176,6 +176,13 @@ class TopicShareButton extends StatelessWidget {
           username: instance.user?.username,
         ),
         privateMessage: topic.privateMessage,
+        onInvite: controller.canInviteToTopic(topic)
+            ? captureShareInvite(
+                context: context,
+                siteUrl: siteUrl,
+                topicId: topic.id,
+              )
+            : null,
         onReplyAsNewTopic: controller.canReplyAsNewTopic(topic)
             ? captureShareReplyAsNewTopic(
                 context: context,

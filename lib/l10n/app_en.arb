@@ -14143,6 +14143,14 @@
   "@shareThisTopic": {
     "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact."
   },
+  "inviteToTopicEntry": "Invite people",
+  "@inviteToTopicEntry": {
+    "description": "English UI message used by shell/topic_share.dart. Label of the share surface's entry that opens the invite editor for the shared topic."
+  },
+  "inviteToTopicTitle": "Invite to this topic",
+  "@inviteToTopicTitle": {
+    "description": "English UI message used by shell/topic_invite.dart. Title of the sheet that creates an invite landing in the shared topic."
+  },
   "sharePost": "Share post #{postNumber}",
   "@sharePost": {
     "description": "English UI message used by shell/topic_share.dart. Keep placeholders intact.",
