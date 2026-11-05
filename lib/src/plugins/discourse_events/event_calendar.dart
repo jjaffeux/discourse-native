@@ -558,10 +558,8 @@ final class _EventCalendarState extends State<EventCalendar> {
     );
     // Month lanes are a dense summary; the day popover is the full list.
     final monthTileHeight = math.max(
-      _touch ? kMinInteractiveDimension : 22.0,
-      scaler.scale(DiscourseTypography.preview) *
-              DiscourseTypography.lineHeightSmall +
-          6,
+      _touch ? kMinInteractiveDimension : 20.0,
+      scaler.scale(DiscourseTypography.xs) * 1.3 + 4,
     );
     final tiles = kalender.TileComponents(tileBuilder: _tile);
     final overlays = kalender.OverlayBuilders(
@@ -651,13 +649,13 @@ final class _EventCalendarState extends State<EventCalendar> {
           monthComponents: kalender.MonthComponents(
             headerComponents: kalender.MonthHeaderComponents(
               weekDayHeaderBuilder: (context, date) =>
-                  DCalendarWeekdayHeader(date: date),
+                  DCalendarWeekdayHeader(date: date, start: !compact && !split),
             ),
             bodyComponents: kalender.MonthBodyComponents(
               monthGridBuilder: (context, rows) => kalender.MonthGrid(
                 numberOfRows: rows,
                 style: kalender.MonthGridStyle(
-                  color: Theme.of(context).colorScheme.outlineVariant,
+                  color: tokens.border.withValues(alpha: .55),
                   thickness: 1,
                 ),
               ),
@@ -1191,8 +1189,9 @@ final class _EventCalendarState extends State<EventCalendar> {
             overflow: timeline ? TextOverflow.clip : TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: foreground,
-              fontSize: timeline ? null : DiscourseTypography.preview,
-              fontWeight: timeline ? FontWeight.normal : FontWeight.w500,
+              fontSize: timeline ? null : DiscourseTypography.xs,
+              height: timeline ? null : 1.3,
+              fontWeight: FontWeight.normal,
             ),
           );
           final action = DCalendarEventAction(

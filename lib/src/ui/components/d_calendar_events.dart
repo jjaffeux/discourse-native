@@ -57,9 +57,16 @@ class DCalendarEventAction extends StatelessWidget {
 
 /// A localized event-calendar weekday label that fits narrow, scaled columns.
 class DCalendarWeekdayHeader extends StatelessWidget {
-  const DCalendarWeekdayHeader({super.key, required this.date});
+  const DCalendarWeekdayHeader({
+    super.key,
+    required this.date,
+    this.start = false,
+  });
 
   final DateTime date;
+
+  /// Aligns the label with day numbers drawn at the start of each cell.
+  final bool start;
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +75,11 @@ class DCalendarWeekdayHeader extends StatelessWidget {
     return SizedBox(
       height: math.max(32, scaler.scale(12) * 1.3 + 8),
       child: LayoutBuilder(
-        builder: (context, constraints) => Center(
+        builder: (context, constraints) => Container(
+          alignment: start
+              ? AlignmentDirectional.centerStart
+              : AlignmentDirectional.center,
+          padding: EdgeInsetsDirectional.only(start: start ? 9 : 0),
           child: Text(
             DateFormat(
               constraints.maxWidth < scaler.scale(28) + 8 ? 'EEEEE' : 'EEE',
