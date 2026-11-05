@@ -13,6 +13,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/d_icons.dart';
 import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
+import 'anchored_layout.dart';
 import 'bookmark_ui.dart';
 import 'dsa_notice_form.dart';
 import 'post_flag_editor.dart';
@@ -153,9 +154,19 @@ class TopicShareButton extends StatelessWidget {
     final instance = controller.currentInstance;
     if (instance == null || instance.url != siteUrl) return;
     final slug = route?.slug;
+    final anchor = anchorRect(
+      anchor: context.findRenderObject() as RenderBox?,
+      overlay:
+          Navigator.of(
+                context,
+                rootNavigator: true,
+              ).overlay?.context.findRenderObject()
+              as RenderBox?,
+    );
     unawaited(
       showTopicShareSheet(
         context: context,
+        anchor: anchor,
         title: topic.title,
         url: topicShareUrl(
           siteUrl: siteUrl,
@@ -165,6 +176,13 @@ class TopicShareButton extends StatelessWidget {
           username: instance.user?.username,
         ),
         privateMessage: topic.privateMessage,
+        onInvite: controller.canInviteToTopic(topic)
+            ? captureShareInvite(
+                context: context,
+                siteUrl: siteUrl,
+                topicId: topic.id,
+              )
+            : null,
         onReplyAsNewTopic: controller.canReplyAsNewTopic(topic)
             ? captureShareReplyAsNewTopic(
                 context: context,
@@ -669,8 +687,9 @@ Widget _withTopicMenuChanges(
   TopicDetail topic,
   WidgetBuilder builder,
 ) {
-  final changes = ShellScope.read(context).plugins.registry
-      .topicPropertiesRebuildOn(context, siteUrl, topic);
+  final changes = ShellScope.read(
+    context,
+  ).plugins.registry.topicPropertiesRebuildOn(context, siteUrl, topic);
   return changes == null
       ? builder(context)
       : ListenableBuilder(
@@ -707,11 +726,9 @@ List<Widget> _pluginTopicMenuItems(
   bool Function() current,
 ) => _topicMenuItems(
   context,
-  ShellScope.read(context).plugins.registry.topicMenuActions(
+  ShellScope.read(
     context,
-    siteUrl,
-    topic,
-  ),
+  ).plugins.registry.topicMenuActions(context, siteUrl, topic),
   current,
 );
 

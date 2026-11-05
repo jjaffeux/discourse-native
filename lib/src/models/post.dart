@@ -662,6 +662,7 @@ class TopicDetail with Storable<TopicDetail> {
     this.canPermanentlyDelete = false,
     this.canFlagTopic = false,
     this.canReplyAsNewTopic = false,
+    this.canInviteTo = false,
     this.canEditStaffNotes = false,
     this.canMovePosts = false,
     this.canSplitMergeTopic = false,
@@ -782,6 +783,7 @@ class TopicDetail with Storable<TopicDetail> {
         canPermanentlyDelete: details['can_permanently_delete'] == true,
         canFlagTopic: details['can_flag_topic'] == true,
         canReplyAsNewTopic: details['can_reply_as_new_topic'] == true,
+        canInviteTo: details['can_invite_to'] == true,
         canEditStaffNotes: details['can_edit_staff_notes'] == true,
         canMovePosts: details['can_move_posts'] == true,
         canSplitMergeTopic: details['can_split_merge_topic'] == true,
@@ -924,6 +926,7 @@ class TopicDetail with Storable<TopicDetail> {
   final bool canPermanentlyDelete;
   final bool canFlagTopic;
   final bool canReplyAsNewTopic;
+  final bool canInviteTo;
   final bool canEditStaffNotes;
   final bool canMovePosts;
   final bool canSplitMergeTopic;
@@ -1229,6 +1232,7 @@ class TopicDetail with Storable<TopicDetail> {
     canPermanentlyDelete: canPermanentlyDelete,
     canFlagTopic: canFlagTopic,
     canReplyAsNewTopic: canReplyAsNewTopic,
+    canInviteTo: canInviteTo,
     canEditStaffNotes: canEditStaffNotes,
     canMovePosts: canMovePosts,
     canSplitMergeTopic: canSplitMergeTopic,
@@ -1386,6 +1390,7 @@ class TopicDetail with Storable<TopicDetail> {
     canPermanentlyDelete: canPermanentlyDelete,
     canFlagTopic: canFlagTopic,
     canReplyAsNewTopic: canReplyAsNewTopic,
+    canInviteTo: canInviteTo,
     canEditStaffNotes: canEditStaffNotes,
     canMovePosts: canMovePosts,
     canSplitMergeTopic: canSplitMergeTopic,
@@ -1452,6 +1457,7 @@ class TopicDetail with Storable<TopicDetail> {
           other.canPermanentlyDelete == canPermanentlyDelete &&
           other.canFlagTopic == canFlagTopic &&
           other.canReplyAsNewTopic == canReplyAsNewTopic &&
+          other.canInviteTo == canInviteTo &&
           other.canEditStaffNotes == canEditStaffNotes &&
           other.canMovePosts == canMovePosts &&
           other.canSplitMergeTopic == canSplitMergeTopic &&
@@ -1511,6 +1517,7 @@ class TopicDetail with Storable<TopicDetail> {
     canPermanentlyDelete,
     canFlagTopic,
     canReplyAsNewTopic,
+    canInviteTo,
     canEditStaffNotes,
     canMovePosts,
     canSplitMergeTopic,

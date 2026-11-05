@@ -197,6 +197,47 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+  testWidgets('Share topic on desktop leaves the share menu open at More', (
+    tester,
+  ) async {
+    await _openTopic(tester, size: desktop);
+    await _openMore(tester);
+    final more = tester.getRect(_more);
+
+    await tester.tap(find.byKey(const ValueKey('topic-share-action')));
+    await tester.pumpAndSettle();
+
+    final copy = find.byKey(const ValueKey('topic-share-copy'));
+    expect(find.byKey(const ValueKey('topic-share-action')), findsNothing);
+    expect(copy, findsOneWidget);
+    expect(find.text('Share this topic'), findsOneWidget);
+    expect(tester.getRect(copy).top, greaterThan(more.bottom));
+
+    final copied = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          copied.add((call.arguments as Map)['text'] as String);
+        }
+        return null;
+      },
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        null,
+      ),
+    );
+    await tester.tap(copy);
+    await tester.pumpAndSettle();
+
+    expect(copied, hasLength(1));
+    expect(copy, findsNothing);
+    expect(find.text('Link copied!'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets('mobile More supports large text, reduced motion, and Escape', (
     tester,
   ) async {
@@ -318,7 +359,7 @@ Future<(ShellController, FakeDiscourseApi)> _openTopic(
     );
     await tester.pumpAndSettle();
   }
-  await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+  await tester.tap(find.byKey(const ValueKey('topic-card-7')).first);
   await tester.pumpAndSettle();
   return (ShellScope.read(tester.element(_more)), api);
 }

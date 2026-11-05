@@ -255,6 +255,17 @@ void main() {
       expect(payload.detail.canReplyAsNewTopic, isTrue);
     });
 
+    test('reads the guardian invite capability, absent meaning no', () {
+      TopicDetail parse(Map<String, Object?> details) => TopicDetail.parse({
+        'id': 7,
+        'title': 'A real topic',
+        'details': details,
+      }, site).detail;
+
+      expect(parse(const {'can_invite_to': true}).canInviteTo, isTrue);
+      expect(parse(const {}).canInviteTo, isFalse);
+    });
+
     test('reads and preserves the selected-post guardian capabilities', () {
       final payload = TopicDetail.parse(const {
         'id': 7,
