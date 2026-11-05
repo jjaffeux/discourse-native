@@ -13,10 +13,15 @@ class InviteEditor extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onClose,
+    this.topicId,
   });
 
   final InvitesController controller;
   final VoidCallback onClose;
+
+  /// The topic invitees land in. A hosting sheet then names the action, so the
+  /// editor drops its own heading and finishes with Done.
+  final int? topicId;
 
   @override
   State<InviteEditor> createState() => _InviteEditorState();
@@ -68,6 +73,7 @@ class _InviteEditorState extends State<InviteEditor> {
         maxRedemptions: _hasEmail ? 1 : int.parse(_uses.text),
         expiresAt: DateTime.now().add(Duration(days: int.parse(_days.text))),
         sendEmail: _sendsEmail,
+        topicId: widget.topicId,
       ),
     );
     if (!mounted || !widget.controller.isCurrent) return;
@@ -136,15 +142,21 @@ class _InviteEditorState extends State<InviteEditor> {
                 ),
               ],
               DButton(
-                label: Text(context.l10n.backToInvites),
+                label: Text(
+                  widget.topicId == null
+                      ? context.l10n.backToInvites
+                      : context.l10n.done,
+                ),
                 onPressed: widget.onClose,
               ),
             ] else ...[
-              Text(
-                context.l10n.createInvite,
-                style: Theme.of(context).textTheme.titleSmall,
-              ),
-              const SizedBox(height: 12),
+              if (widget.topicId == null) ...[
+                Text(
+                  context.l10n.createInvite,
+                  style: Theme.of(context).textTheme.titleSmall,
+                ),
+                const SizedBox(height: 12),
+              ],
               DInput(
                 controller: _email,
                 enabled: !_saving,

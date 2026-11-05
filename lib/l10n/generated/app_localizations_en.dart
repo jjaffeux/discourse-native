@@ -10655,6 +10655,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get shareThisTopic => 'Share this topic';
 
   @override
+  String get inviteToTopicEntry => 'Invite people';
+
+  @override
+  String get inviteToTopicTitle => 'Invite to this topic';
+
+  @override
   String sharePost(String postNumber) {
     return 'Share post #$postNumber';
   }
