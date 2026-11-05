@@ -89,19 +89,25 @@ class DCalendarWeekdayHeader extends StatelessWidget {
 /// A compact, read-only month body for [kalender.KalenderView].
 ///
 /// Kalender owns paging, timezone conversion and event lane placement. Weeks
-/// grow with their content, showing at most four lanes. Each whole day is an
-/// accessible action; the thin bars and overflow counts are passive summaries.
+/// grow with their content, showing at most four lanes, and with [fillHeight]
+/// share any remaining height. Each whole day is an accessible action; the
+/// thin bars and overflow counts are passive summaries. [selectedDate] is
+/// outlined for layouts that show the chosen day beside the month.
 class DKalenderCompactMonthBody extends StatelessWidget {
   const DKalenderCompactMonthBody({
     super.key,
     required this.onDayPressed,
     required this.eventColor,
     this.layoutStrategy = const kalender.MultiDayLayoutStrategy.byDuration(),
+    this.selectedDate,
+    this.fillHeight = false,
   });
 
   final ValueChanged<DateTime> onDayPressed;
   final Color? Function(kalender.KalenderEvent) eventColor;
   final kalender.MultiDayLayoutStrategy layoutStrategy;
+  final DateTime? selectedDate;
+  final bool fillHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -129,39 +135,48 @@ class DKalenderCompactMonthBody extends StatelessWidget {
           final now =
               view.viewConfiguration.nowCallback?.call() ??
               (location == null ? DateTime.now() : tz.TZDateTime.now(location));
-          return SingleChildScrollView(
+          final weeks = range.dates().length ~/ 7;
+          return LayoutBuilder(
             key: ValueKey(month),
-            child: Column(
-              children: [
-                for (var week = 0; week < range.dates().length ~/ 7; week++)
-                  _CompactWeek(
-                    month: month,
-                    today: DateTime.utc(now.year, now.month, now.day),
-                    onDayPressed: onDayPressed,
-                    eventColor: eventColor,
-                    frame: layoutStrategy.generateFrame(
-                      visibleRange: kalender.FloatingDateTimeRange(
-                        start: range.start.add(Duration(days: week * 7)),
-                        end: range.start.add(Duration(days: (week + 1) * 7)),
-                      ),
-                      events: events
-                          .eventsInRange(
-                            kalender.FloatingDateTimeRange(
-                              start: range.start.add(Duration(days: week * 7)),
-                              end: range.start.add(
-                                Duration(days: (week + 1) * 7),
+            builder: (context, constraints) => SingleChildScrollView(
+              child: Column(
+                children: [
+                  for (var week = 0; week < weeks; week++)
+                    _CompactWeek(
+                      month: month,
+                      today: DateTime.utc(now.year, now.month, now.day),
+                      selected: selectedDate,
+                      minHeight: fillHeight && constraints.hasBoundedHeight
+                          ? constraints.maxHeight / weeks
+                          : 0,
+                      onDayPressed: onDayPressed,
+                      eventColor: eventColor,
+                      frame: layoutStrategy.generateFrame(
+                        visibleRange: kalender.FloatingDateTimeRange(
+                          start: range.start.add(Duration(days: week * 7)),
+                          end: range.start.add(Duration(days: (week + 1) * 7)),
+                        ),
+                        events: events
+                            .eventsInRange(
+                              kalender.FloatingDateTimeRange(
+                                start: range.start.add(
+                                  Duration(days: week * 7),
+                                ),
+                                end: range.start.add(
+                                  Duration(days: (week + 1) * 7),
+                                ),
                               ),
-                            ),
-                            multiDayRule: view.viewConfiguration.multiDayRule,
-                            location: location,
-                          )
-                          .toList(),
-                      textDirection: Directionality.of(context),
-                      location: location,
-                      cache: null,
+                              multiDayRule: view.viewConfiguration.multiDayRule,
+                              location: location,
+                            )
+                            .toList(),
+                        textDirection: Directionality.of(context),
+                        location: location,
+                        cache: null,
+                      ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           );
         },
@@ -177,10 +192,14 @@ class _CompactWeek extends StatelessWidget {
     required this.frame,
     required this.onDayPressed,
     required this.eventColor,
+    this.selected,
+    this.minHeight = 0,
   });
 
   final kalender.FloatingDateTime month;
   final DateTime today;
+  final DateTime? selected;
+  final double minHeight;
   final kalender.MultiDayLayoutFrame frame;
   final ValueChanged<DateTime> onDayPressed;
   final Color? Function(kalender.KalenderEvent) eventColor;
@@ -197,7 +216,7 @@ class _CompactWeek extends StatelessWidget {
     final lanes = frame.totalNumberOfRows.clamp(1, 4);
     final overflow = frame.totalNumberOfRows > 4;
     final height = math.max(
-      48.0,
+      math.max(48.0, minHeight),
       headerHeight + lanes * laneHeight + (overflow ? countHeight : 0) + 6,
     );
     final visible = frame.visibleEvents(4);
@@ -246,8 +265,9 @@ class _CompactWeek extends StatelessWidget {
                                   )
                                   .length;
                               final isToday = date == today;
+                              final isSelected = date == selected;
                               void open() => onDayPressed(date);
-                              return DCalendarDayButton(
+                              final button = DCalendarDayButton(
                                 details: DCalendarDayDetails(
                                   date: DCalendarDate.fromDateTime(date),
                                   outside: false,
@@ -255,6 +275,8 @@ class _CompactWeek extends StatelessWidget {
                                   disabled: false,
                                   hidden: false,
                                   booked: false,
+                                  // The outline marks the pick; a selected
+                                  // fill would hide the day's bars.
                                   selected: false,
                                   rangeStart: false,
                                   rangeMiddle: false,
@@ -331,6 +353,23 @@ class _CompactWeek extends StatelessWidget {
                                         ),
                                       ),
                                   ],
+                                ),
+                              );
+                              if (!isSelected) return button;
+                              return Semantics(
+                                selected: true,
+                                child: DecoratedBox(
+                                  position: DecorationPosition.foreground,
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                      color: tokens.primary,
+                                      width: 2,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      tokens.radius * .8,
+                                    ),
+                                  ),
+                                  child: button,
                                 ),
                               );
                             },

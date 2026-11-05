@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_directory.da
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
 
@@ -196,8 +197,6 @@ void main() {
           '2026-09-30T22:00:00.000Z',
         );
 
-        await tester.tap(find.byType(DSelect<EventCalendarView>));
-        await tester.pumpAndSettle();
         await tester.tap(find.text('Month'));
         await tester.pumpAndSettle();
         expect(currentPage().view, EventCalendarView.month);
@@ -324,8 +323,6 @@ void main() {
       expect(find.text('October 2026'), findsOneWidget);
       await tester.tap(find.text('Today'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byType(DSelect<EventCalendarView>));
-      await tester.pumpAndSettle();
       await tester.tap(find.text('Schedule'));
       await tester.pumpAndSettle();
       expect(transport.queries.map((uri) => uri.queryParameters), [
@@ -401,7 +398,7 @@ void main() {
     });
   }
 
-  testWidgets('the day dialog offers no view the directory cannot show', (
+  testWidgets('the day popover offers no view the directory cannot show', (
     tester,
   ) async {
     transport.respond = (_) => {
@@ -423,11 +420,11 @@ void main() {
       await tester.ensureVisible(find.bySemanticsLabel(day));
       await tester.tap(find.bySemanticsLabel(day));
       await tester.pumpAndSettle();
-      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.byType(DPopoverContent), findsOneWidget);
       expect(find.text('Day view'), findsNothing);
-      await tester.tap(find.text('Close'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byType(DDialogContent), findsNothing);
+      expect(find.byType(DPopoverContent), findsNothing);
     }
     expect(
       tester.widget<EventCalendar>(find.byType(EventCalendar)).page,
@@ -497,8 +494,6 @@ void main() {
     tester.view.physicalSize = const Size(1000, 844);
     await tester.pumpAndSettle();
     expect(currentPage().view, EventCalendarView.month);
-    await tester.tap(find.byType(DSelect<EventCalendarView>));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Schedule'));
     await tester.pumpAndSettle();
     tester.view.physicalSize = const Size(390, 844);
