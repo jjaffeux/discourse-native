@@ -116,6 +116,27 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('tag filter glyph follows desktop text scaling', (tester) async {
+    for (final scale in [1.0, 1.5, 2.0]) {
+      await pumpBar(
+        tester,
+        platform: TargetPlatform.macOS,
+        textScale: scale,
+        size: const Size(1000, 300),
+      );
+      final button = find.byKey(const ValueKey('topic-list-tag-filter'));
+      final icon = find.descendant(
+        of: button,
+        matching: find.byWidgetPredicate(
+          (widget) => widget is DIcon && widget.icon == DIcons.tag,
+        ),
+      );
+      expect(tester.getSize(icon).height, 12 * scale);
+      expect(tester.getRect(button).contains(tester.getCenter(icon)), isTrue);
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('filter gaps show the desktop page background', (tester) async {
     const imageKey = ValueKey('filter-background');
     for (final brightness in Brightness.values) {

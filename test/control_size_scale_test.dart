@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,7 +87,7 @@ void main() {
                         DButton.iconOnly(
                           key: const Key('icon'),
                           size: size,
-                          icon: const Icon(Icons.add),
+                          icon: const DIcon(DIcons.tag),
                           tooltip: 'Icon',
                           onPressed: () => presses++,
                         ),
@@ -119,6 +120,7 @@ void main() {
                         DToggle(
                           key: const Key('toggle'),
                           size: size,
+                          icon: const DIcon(DIcons.tag),
                           child: const Text('Toggle'),
                         ),
                         DInputGroupButton(
@@ -230,6 +232,16 @@ void main() {
               controlFontSize,
               reason: '$label inherits the ${size.name} typography preset',
             );
+          }
+          if (size == DControlSize.filter) {
+            final iconSize = (phoneFilter ? 16.0 : 12.0) * scale;
+            for (final key in ['icon', 'toggle']) {
+              final icon = find.descendant(
+                of: find.byKey(Key(key)),
+                matching: find.byType(DIcon),
+              );
+              expect(tester.getSize(icon).height, iconSize);
+            }
           }
           if (drawerRows) {
             expect(
