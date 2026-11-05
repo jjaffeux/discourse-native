@@ -287,6 +287,28 @@ class _PostActionsState extends State<PostActions> {
     final postUrl = _postShareUrl(controller);
     final canonicalUrl = _postCanonicalUrl(controller);
     final topicTitle = topic?.title;
+    Future<void> share(String url, [Rect? anchor]) => showPostShareSheet(
+      context: context,
+      topicTitle: topicTitle!,
+      url: url,
+      anchor: anchor,
+      postNumber: post.postNumber,
+      privateMessage: topic?.privateMessage == true,
+      onReplyAsNewTopic:
+          topic != null &&
+              controller.canReplyAsNewTopic(topic) &&
+              canonicalUrl != null
+          ? captureShareReplyAsNewTopic(
+              context: context,
+              siteUrl: widget.siteUrl,
+              topicId: topic.id,
+              continuation: topicContinuationMarkdown(
+                title: topic.title,
+                url: canonicalUrl,
+              ),
+            )
+          : null,
+    );
 
     return (
       actions: [
@@ -334,29 +356,8 @@ class _PostActionsState extends State<PostActions> {
             group: PostActionGroup.share,
             label: appL10n.share,
             tooltip: appL10n.shareThisPost,
-            onInvoke: () => unawaited(
-              showPostShareSheet(
-                context: context,
-                topicTitle: topicTitle!,
-                url: url,
-                postNumber: post.postNumber,
-                privateMessage: topic?.privateMessage == true,
-                onReplyAsNewTopic:
-                    topic != null &&
-                        controller.canReplyAsNewTopic(topic) &&
-                        canonicalUrl != null
-                    ? captureShareReplyAsNewTopic(
-                        context: context,
-                        siteUrl: widget.siteUrl,
-                        topicId: topic.id,
-                        continuation: topicContinuationMarkdown(
-                          title: topic.title,
-                          url: canonicalUrl,
-                        ),
-                      )
-                    : null,
-              ),
-            ),
+            onInvokeAnchored: (anchor) => unawaited(share(url, anchor)),
+            onInvoke: () => unawaited(share(url)),
           ),
         if (tab.canReplyHere &&
             topic != null &&
