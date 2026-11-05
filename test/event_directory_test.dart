@@ -10,6 +10,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_directory.da
 import 'package:discourse_native/src/plugins/discourse_events/event_navigation.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
 
@@ -397,7 +398,7 @@ void main() {
     });
   }
 
-  testWidgets('the day dialog offers no view the directory cannot show', (
+  testWidgets('the day popover offers no view the directory cannot show', (
     tester,
   ) async {
     transport.respond = (_) => {
@@ -419,11 +420,11 @@ void main() {
       await tester.ensureVisible(find.bySemanticsLabel(day));
       await tester.tap(find.bySemanticsLabel(day));
       await tester.pumpAndSettle();
-      expect(find.byType(DDialogContent), findsOneWidget);
+      expect(find.byType(DPopoverContent), findsOneWidget);
       expect(find.text('Day view'), findsNothing);
-      await tester.tap(find.text('Close'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.byType(DDialogContent), findsNothing);
+      expect(find.byType(DPopoverContent), findsNothing);
     }
     expect(
       tester.widget<EventCalendar>(find.byType(EventCalendar)).page,
