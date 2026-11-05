@@ -17,6 +17,7 @@ import 'chat_channel_header.dart';
 import 'chat_composer.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
+import 'chat_message_body_staging.dart';
 import 'chat_message_tile.dart';
 import 'chat_pinned_bar.dart';
 import 'chat_preview.dart';
@@ -1354,6 +1355,18 @@ class _StreamState extends State<ChatMessageStream>
     return widget.items[widget.items.length - 1 - index];
   }
 
+  ChatBodyStaging _bodyStaging(int row) {
+    if (!_list.isAttached || _scroll.positions.length != 1) {
+      return chatBodyAtOnce;
+    }
+    return chatBodyStagingFor(
+      row: row,
+      direction: _scroll.position.userScrollDirection,
+      visibleRange: _list.visibleRange,
+      extentForIndex: _list.extentForIndex,
+    );
+  }
+
   int? _previousMessageId(int messageId) {
     final ids = widget.stream.messageIds;
     final index = ids.indexOf(messageId);
@@ -1769,37 +1782,41 @@ class _StreamState extends State<ChatMessageStream>
                       recent: _recentMessages,
                       index: row,
                       messages: [chat.messageRef(siteUrl, id)],
-                      child: ConstrainedBox(
-                        // Reserve hover overflow only when the live-edge row is short.
-                        constraints: BoxConstraints(
-                          minHeight: row == 0
-                              ? ChatMessageTile.hoverActionsHeight(context)
-                              : 0,
-                        ),
-                        child: _HighlightedChatMessage(
-                          highlighted: id == _highlightMessageId,
-                          child: ChatMessageTile(
-                            siteUrl: siteUrl,
-                            messageId: id,
-                            chained: chained,
-                            previousMessageId: _previousMessageId(id),
-                            endsGroup: switch (_itemAt(row - 1)) {
-                              ChatStreamMessage(:final chained) => !chained,
-                              _ => true,
-                            },
-                            contextThreadId: widget.target.threadId,
-                            onOpenThread: widget.onOpenThread,
-                            onJumpToMessage: widget.onJumpToMessage,
-                            onReply: widget.onReply,
-                            onEdit: widget.onEdit,
-                            showThreadSummary: widget.showThreadSummaries,
-                            onSelect: id > 0 && widget.onStartSelecting != null
-                                ? () => widget.onStartSelecting!(id)
-                                : null,
-                            selecting: widget.selectingMessages,
-                            selected: widget.selectedMessageIds.contains(id),
-                            onSelectedChanged: (selected) =>
-                                widget.onSelectionChanged?.call(id, selected),
+                      child: ChatMessageBodyStaging(
+                        staging: _bodyStaging(row),
+                        child: ConstrainedBox(
+                          // Reserve hover overflow only when the live-edge row is short.
+                          constraints: BoxConstraints(
+                            minHeight: row == 0
+                                ? ChatMessageTile.hoverActionsHeight(context)
+                                : 0,
+                          ),
+                          child: _HighlightedChatMessage(
+                            highlighted: id == _highlightMessageId,
+                            child: ChatMessageTile(
+                              siteUrl: siteUrl,
+                              messageId: id,
+                              chained: chained,
+                              previousMessageId: _previousMessageId(id),
+                              endsGroup: switch (_itemAt(row - 1)) {
+                                ChatStreamMessage(:final chained) => !chained,
+                                _ => true,
+                              },
+                              contextThreadId: widget.target.threadId,
+                              onOpenThread: widget.onOpenThread,
+                              onJumpToMessage: widget.onJumpToMessage,
+                              onReply: widget.onReply,
+                              onEdit: widget.onEdit,
+                              showThreadSummary: widget.showThreadSummaries,
+                              onSelect:
+                                  id > 0 && widget.onStartSelecting != null
+                                  ? () => widget.onStartSelecting!(id)
+                                  : null,
+                              selecting: widget.selectingMessages,
+                              selected: widget.selectedMessageIds.contains(id),
+                              onSelectedChanged: (selected) =>
+                                  widget.onSelectionChanged?.call(id, selected),
+                            ),
                           ),
                         ),
                       ),

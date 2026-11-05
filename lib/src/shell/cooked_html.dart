@@ -335,6 +335,7 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
   CookedHtml get options => widget.options;
   late CookedRenderContext _render;
   RenderMode? _columnBodyMode;
+  bool _deferredShortParse = false;
   CookedDocument? _document;
   (String, String?, bool, PostChecklistDocument?, bool)? _documentKey;
   late final _searchHtml = SearchHtmlPreparation(
@@ -394,6 +395,8 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
         ? const ProgressiveHtmlMode()
         : renderMode;
     _columnBodyMode = bodyMode is ProgressiveHtmlMode ? bodyMode : null;
+    _deferredShortParse =
+        followsFrame && !CookedHtml.buildsAsynchronously(html);
     final transient =
         requestedTransient ||
         (context
@@ -551,6 +554,7 @@ class _CookedHtmlState extends State<_CookedHtmlBody> implements CookedActions {
           factoryBuilder: () => SiteImageWidgetFactory(
             configuration: () => (
               columnBodyMode: _columnBodyMode,
+              deferredShortParse: _deferredShortParse,
               siteUrl: _render.siteUrl,
               registry: _render.registry,
               onMiddleClickUrl: (url) =>
