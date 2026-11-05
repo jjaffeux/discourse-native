@@ -413,13 +413,16 @@ class _ShareSheetBodyState extends State<_ShareSheetBody> {
           const SizedBox(height: 8),
           DItem(
             key: const ValueKey('topic-share-reply-as-new-topic'),
-            padding: EdgeInsets.zero,
+            variant: DItemVariant.outline,
             onPressed: () {
               DDialogClose.close<void>(context);
               unawaited(reply());
             },
             children: [
-              const DItemMedia(child: DIcon(DIcons.plus)),
+              const DItemMedia(
+                variant: DItemMediaVariant.icon,
+                child: DIcon(DIcons.plus),
+              ),
               DItemContent(
                 children: [DItemTitle(child: Text(subject.replyLabel))],
               ),
