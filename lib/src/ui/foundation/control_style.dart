@@ -147,7 +147,12 @@ abstract final class DControlStyle {
       fontSize(size, context: context) * DiscourseTypography.lineHeightSmall;
   static double iconDimension(DControlSize size, {BuildContext? context}) =>
       switch (size) {
-        DControlSize.filter => usesTouchGeometry(context) ? 16 : 12,
+        DControlSize.filter =>
+          context == null
+              ? 12
+              : MediaQuery.textScalerOf(
+                  context,
+                ).scale(usesTouchGeometry(context) ? 16 : 12),
         DControlSize.floating => 15,
         DControlSize.small ||
         DControlSize.regular ||
