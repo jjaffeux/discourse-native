@@ -191,6 +191,19 @@ final itemExamples = ComponentExamples(
       ),
     ),
     StyleguideExample(
+      title: 'Closed rows',
+      description:
+          'Square closed rows hatch from the trailing edge and own fading inset rules. '
+          'Selection keeps its rounded accent fill under the hatch. Choose a row; '
+          'the hatch and rules follow the reading direction.',
+      code:
+          'DItem(closed: true, closedRuleAbove: true, closedRuleBelow: true, '
+          'selected: selected, selectionStyle: DItemSelectionStyle.filled, '
+          'showSelectionIndicator: false, padding: EdgeInsets.all(12), '
+          'onPressed: select, children: [DItemContent(children: [Text("Closed topic")])])',
+      builder: (_) => const _ClosedRowsExample(),
+    ),
+    StyleguideExample(
       title: 'Forum rail',
       description:
           'Phone marks are 44px in 52px rows; desktop marks remain 36px in '
@@ -1061,5 +1074,43 @@ class _FitContentExampleState extends State<_FitContentExample> {
         child: DCard(child: Text(_status)),
       ),
     ],
+  );
+}
+
+class _ClosedRowsExample extends StatefulWidget {
+  const _ClosedRowsExample();
+
+  @override
+  State<_ClosedRowsExample> createState() => _ClosedRowsExampleState();
+}
+
+class _ClosedRowsExampleState extends State<_ClosedRowsExample> {
+  int? _selected;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(horizontal: 4),
+    child: DItemGroup(
+      spacing: 0,
+      children: [
+        for (var i = 0; i < 3; i++)
+          DItem(
+            closed: true,
+            closedRuleAbove: i > 0 && _selected != i - 1,
+            closedRuleBelow: false,
+            selected: _selected == i,
+            selectionStyle: DItemSelectionStyle.filled,
+            showSelectionIndicator: false,
+            highlightOnInteraction: false,
+            padding: const EdgeInsets.all(12),
+            onPressed: () => setState(() => _selected = i),
+            children: [
+              DItemContent(
+                children: [DItemTitle(child: Text('Closed topic ${i + 1}'))],
+              ),
+            ],
+          ),
+      ],
+    ),
   );
 }

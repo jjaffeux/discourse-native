@@ -197,7 +197,7 @@ void main() {
         final status = within(
           find.byKey(const ValueKey('topic-card-status-1')),
         );
-        expect(tester.getRect(status).right, width < 811 ? width - 16 : 795);
+        expect(tester.getRect(status).right, width - 16);
         expect(tester.takeException(), isNull);
       });
     }
@@ -240,13 +240,9 @@ void main() {
         tester.widget<DItem>(card).selectionStyle,
         DItemSelectionStyle.filled,
       );
-      expect(find.byType(DSeparator), findsNWidgets(2));
-      expect(
-        tester
-            .widgetList<DSeparator>(find.byType(DSeparator))
-            .map((separator) => separator.color!.a),
-        everyElement(0),
-      );
+      expect(find.byType(DSeparator), findsNothing);
+      expect(tester.widget<DItem>(card).closedRuleAbove, isTrue);
+      expect(tester.widget<DItem>(card).closedRuleBelow, isTrue);
       await _pump(tester, width: width);
       for (final (index, topic) in _topics.indexed) {
         expect(
@@ -463,7 +459,7 @@ void main() {
       expect(opacity.opacity, .55);
       expect(find.text('1.5k'), findsOneWidget);
       expect(find.text('18k'), findsOneWidget);
-      expect(find.byTooltip('Pinned, Closed, Bookmarked'), findsOneWidget);
+      expect(find.byTooltip('Pinned, Bookmarked'), findsOneWidget);
       final avatars = tester.widgetList<DAvatar>(find.byType(DAvatar)).toList();
       expect(avatars.first.ring, isTrue);
       expect(avatars.last.ring, isFalse);
@@ -651,11 +647,22 @@ Future<ShellController> _pump(
                           selected: topics[i].id == selected,
                           child: TopicListRow(
                             topic: topics[i],
+                            nextTopic: i + 1 < topics.length
+                                ? topics[i + 1]
+                                : null,
+                            closedRuleAbove:
+                                i > 0 && topics[i - 1].id != selected,
+                            closedRuleBelow:
+                                i + 1 < topics.length &&
+                                topics[i + 1].id != selected,
                             siteUrl: site.url,
                           ),
                         ),
                         if (i + 1 < topics.length)
                           TopicListSeparator(
+                            topic: topics[i],
+                            nextTopic: topics[i + 1],
+                            siteUrl: site.url,
                             besideSelection:
                                 topics[i].id == selected ||
                                 topics[i + 1].id == selected,

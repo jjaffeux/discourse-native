@@ -44,6 +44,43 @@ import 'support/fakes.dart';
 void main() {
   final sites = [instance('one.example'), instance('two.example')];
 
+  testWidgets(
+    'restoring closed row models updates an already mounted separator',
+    (tester) async {
+      final api = _ControlledPagingApi();
+      final controller = await _controlledShell(api, sites.first);
+      addTearDown(controller.dispose);
+      api.requests.single.response.complete(const TopicList(topics: []));
+      await tester.pump();
+      const feed = TopicFeed(topicIds: [91, 92], loaded: true);
+      await tester.pumpWidget(_TestList(controller: controller, feed: feed));
+      await tester.pump();
+      expect(find.byType(DSeparator), findsOneWidget);
+      controller.store.put(
+        sites.first.url,
+        const Topic(
+          id: 91,
+          title: 'Restored closed row',
+          slug: 'closed',
+          closed: true,
+        ),
+      );
+      controller.store.put(
+        sites.first.url,
+        const Topic(id: 92, title: 'Restored open row', slug: 'open'),
+      );
+      await tester.pump();
+      expect(find.byType(DSeparator), findsNothing);
+      controller.store.put(
+        sites.first.url,
+        const Topic(id: 91, title: 'Restored open row', slug: 'open'),
+      );
+      await tester.pump();
+      expect(find.byType(DSeparator), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final change in ['focus', 'tab', 'route', 'account', 'controller']) {
     testWidgets(
       'delayed adjacent topic command preserves ownership across $change changes',
