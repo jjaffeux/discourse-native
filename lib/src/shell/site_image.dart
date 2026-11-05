@@ -644,6 +644,9 @@ typedef SiteImageFactoryConfiguration = ({
   PluginRegistry registry,
   ValueChanged<String>? onMiddleClickUrl,
   RenderMode? columnBodyMode,
+  // The body parses in a microtask after the frame that built it, so its
+  // loading state lasts one frame and must not take up room or draw.
+  bool deferredShortParse,
 });
 
 final class SiteImageWidgetFactory extends WidgetFactory {
@@ -882,6 +885,9 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     dynamic data,
   ]) {
     if (data is ImageSource && _isAvatar(tree)) return _avatarFallback;
+    if (data == null && configuration().deferredShortParse) {
+      return const HtmlBodyLoading(child: SizedBox.shrink());
+    }
     final child = super.onLoadingBuilder(context, tree, loadingProgress, data);
     final needsLayout =
         data == null || (data is ImageSource && !_hasImageDimensions(data));

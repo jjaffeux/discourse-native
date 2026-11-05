@@ -82,10 +82,66 @@ GPU and drawables. Raster CPU and frame timing can disagree.
   are the full-panel `ShaderMaskLayer` edge fades of the scroll views and the
   sidebar. Each renders its whole panel offscreen on every frame. Attributing
   GPU time needs a Metal System Trace.
-- On the slower core tier, a cold chat scroll has about 2% of frames that take
-  over 8.33 ms to build. Each one is mounting a new message: paragraph layout,
-  paragraph building and its element tree. The topic reader already defers a
-  new reply's HTML to a later frame. The chat transcript does not.
+- Chat message bodies now mount a frame after their row while the reader
+  scrolls; see [Chat history](#chat-history). The slower core tier was not
+  reproduced faithfully for that change.
+
+## Chat history
+
+Measured the same day on the same machine, on top of the hatch fix.
+
+On the slower core tier, a cold chat scroll had about 2% of frames over
+8.33 ms of build, up to 21 ms. Each one mounted a new message: paragraph
+layout, paragraph building and the HTML body's element tree. The chat list
+has no cache extent, so a row is built in the frame it enters the viewport.
+
+Chat rows now follow the topic reader's policy (see
+[topic-media-scrolling.md](topic-media-scrolling.md)). A row first built
+during a user scroll builds its `CookedHtml` in a later frame.
+`ChatMessageBodyStaging` latches that choice when the row is first built. The
+transcript is reversed, so the edge a row enters from decides:
+
+- A row entering from history lies beyond the visible rows, and a body
+  landing late grows away from them.
+- A row entering from the present lies below them. It is staged only when the
+  list has measured it before, and it keeps that height until its body lands.
+
+Jumps, programmatic positioning and live arrivals build at once. A deferred
+short body used to show the HTML package's loading spinner for one frame. The
+spinner was taller than a one-line message, so the row shrank when the body
+landed. It now loads as an empty box.
+
+Runs alternated baseline and change. The first baseline run was discarded:
+another application held most of the GPU, and its cold pass produced 176
+frames. Build times in milliseconds, cold chat pass, about 1,545 frames each:
+
+| Run | p99 | Max | Over 8.33 ms | Frames over 4 ms | UI-thread samples on the fast tier |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Change, 1 | 1.56 | 2.55 | 0 | 0 | 100% |
+| Change, 2 | 1.57 | 2.37 | 0 | 0 | 100% |
+| Baseline | 2.67 | 6.49 | 0 | 3 | 97% |
+
+The core tier is from the Instruments samples of the main thread, which runs
+the UI isolate. All three runs stayed on the fast tier, where the baseline was
+already within budget. Every chat pass, including the warm and side-by-side
+passes, lowered its build p99 by about 40%. The other routes did not change.
+The HTML parser and build tree took the same 1.5% of cold-pass samples before
+and after. That work now runs in a later frame instead of in the frame that
+mounts the row.
+
+To reach the slower tier, a second round launched both builds under
+`taskpolicy -c background`. That kept the main thread on the slower tier for
+every sample, but it also cut each cold pass to about 170 frames, so each
+frame carried about ten times the scroll distance. Both sides then had 7 to 13
+frames over budget. Those frames held one or two CPU samples where 4 kHz
+sampling takes about 40, so the thread was mostly descheduled. Of the samples
+taken inside frames that built for more than 4 ms, 3 to 8% were HTML parsing
+and building in the baseline and none with the change. That round shows
+where the work went. It does not answer whether a natural slower-tier run
+stays under budget.
+
+`chat_message_body_staging_test.dart` pins the deferral in both directions.
+It also pins that the visible rows keep their place when a body lands.
 
 ## Reproduce
 
