@@ -262,9 +262,7 @@ void main() {
   testWidgets(
     'crowded months fit the window and list every hidden event in a popover',
     (tester) async {
-      await pump(tester, [
-        for (var id = 1; id <= 30; id++) event(id),
-      ], size: const Size(800, 750));
+      await pump(tester, [for (var id = 1; id <= 30; id++) event(id)]);
       final calendar = tester.getRect(find.byType(kalender.KalenderView));
       final lastWeek = tester.getRect(
         find.bySemanticsLabel('Sunday, October 4, 2026'),
@@ -279,6 +277,7 @@ void main() {
         find.textContaining('Event ', findRichText: true),
         findsNWidgets(30 - hidden),
       );
+      expect(30 - hidden, greaterThanOrEqualTo(4));
       await tester.tap(more);
       await tester.pumpAndSettle();
       expect(find.byType(DPopoverContent), findsOneWidget);
