@@ -126,6 +126,37 @@ void main() {
     expect(cache.cachedEntryCount, TopicTextMeasurements.maximumEntries);
   });
 
+  test('a bound measurer keeps measuring correctly across clears', () {
+    final cache = TopicTextMeasurements();
+    final measurer = cache.measurer(
+      style: style,
+      textScaler: TextScaler.noScaling,
+      textDirection: TextDirection.ltr,
+    );
+    final expected = width(cache, 'Support');
+    expect(measurer.measure('Support'), expected);
+    expect(cache.measurementCount, 1);
+    cache.clear();
+    expect(measurer.measure('Support'), expected);
+    expect(width(cache, 'Support'), expected);
+    expect(cache.measurementCount, 2);
+    expect(cache.cachedEntryCount, 1);
+  });
+
+  test('too many typography configurations start the cache over', () {
+    final cache = TopicTextMeasurements();
+    final base = width(cache, 'metadata');
+    for (var i = 1; i < TopicTextMeasurements.maximumConfigurations; i++) {
+      width(cache, 'metadata', scaler: TextScaler.linear(1 + i / 100));
+    }
+    expect(cache.cachedEntryCount, TopicTextMeasurements.maximumConfigurations);
+    final larger = width(cache, 'metadata', scaler: const TextScaler.linear(2));
+    expect(larger, greaterThan(base));
+    expect(cache.cachedEntryCount, 1);
+    expect(width(cache, 'metadata'), base);
+    expect(cache.cachedEntryCount, 2);
+  });
+
   test('clear discards text after font or owner invalidation', () {
     final cache = TopicTextMeasurements();
     final before = width(cache, 'private category');

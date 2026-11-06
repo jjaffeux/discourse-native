@@ -134,20 +134,20 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
       context,
     );
     final ambientWordSpacing = MediaQuery.maybeWordSpacingOverrideOf(context);
+    final measurer = _measurements.measurer(
+      style: style,
+      textScaler: textScaler,
+      textDirection: textDirection,
+      ambientLocale: ambientLocale,
+      ambientDefaultTextStyle: ambientDefaultTextStyle,
+      ambientLineHeightScaleFactor: ambientLineHeightScaleFactor,
+      ambientLetterSpacing: ambientLetterSpacing,
+      ambientWordSpacing: ambientWordSpacing,
+    );
     return (text) {
       final retired = lease != null && !lease.isCurrent;
       if (retired) _measurements.clear();
-      final width = _measurements.measure(
-        text,
-        style: style,
-        textScaler: textScaler,
-        textDirection: textDirection,
-        ambientLocale: ambientLocale,
-        ambientDefaultTextStyle: ambientDefaultTextStyle,
-        ambientLineHeightScaleFactor: ambientLineHeightScaleFactor,
-        ambientLetterSpacing: ambientLetterSpacing,
-        ambientWordSpacing: ambientWordSpacing,
-      );
+      final width = measurer.measure(text);
       if (retired) _measurements.clear();
       return width;
     };
