@@ -732,6 +732,46 @@ void main() {
     expect(ancestorEscapes, 0);
   });
 
+  testWidgets('reopened popover accepts keyboard focus and text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        DPopover(
+          content: DPopoverContent(
+            child: DInput(semanticLabel: 'Popover query'),
+          ),
+          child: DPopoverTrigger(
+            builder: (context, trigger) => DButton(
+              label: const Text('Open'),
+              focusNode: trigger.focusNode,
+              onPressed: trigger.toggle,
+            ),
+          ),
+        ),
+      ),
+    );
+    final trigger = tester.widget<DButton>(
+      find.widgetWithText(DButton, 'Open'),
+    );
+    trigger.focusNode!.requestFocus();
+    await tester.pump();
+
+    for (final query in ['first', 'second']) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final editor = tester.widget<EditableText>(find.byType(EditableText));
+      expect(editor.focusNode.hasFocus, isTrue);
+      await tester.enterText(find.byType(DInput), query);
+      expect(editor.controller.text, query);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(DInput), findsNothing);
+      expect(trigger.focusNode!.hasFocus, isTrue);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('touch opening does not summon the nested text editor', (
     tester,
   ) async {
