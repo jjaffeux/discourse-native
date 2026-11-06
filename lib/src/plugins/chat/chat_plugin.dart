@@ -448,43 +448,26 @@ class ChatPlugin
             user.chatCurrentUser?.headerIndicatorPreference ??
                 ChatHeaderIndicatorPreference.allNew,
           );
+    // What is urgent is the one unread chip, in the bar of places and on the
+    // sidebar's switch alike; ordinary unread activity keeps its dot.
     Widget? badge({required bool mobile}) {
       if (!indicator.isVisible) return null;
       final key = ValueKey(
         mobile ? 'chat-mobile-unread-badge' : 'chat-sidebar-unread-badge',
       );
       final count = indicator.urgentCount;
-      final colors = Theme.of(context).discourse;
       if (count == null) {
         return DNotificationDot(
           key: key,
-          color: colors.notificationIndicator,
+          color: Theme.of(context).discourse.notificationIndicator,
           semanticLabel: appL10n.chatUnreadMessages,
         );
       }
-      return mobile
-          ? DBadge.overlay(
-              key: key,
-              backgroundColor: colors.success,
-              foregroundColor: colors.notificationForeground,
-              ringColor: Colors.transparent,
-              semanticLabel: appL10n.chatUrgent(count),
-              child: Text(indicator.label!),
-            )
-          : Semantics(
-              key: key,
-              label: appL10n.chatUrgent(count),
-              excludeSemantics: true,
-              child: Text(
-                indicator.label!,
-                style: TextStyle(
-                  color: colors.success,
-                  fontSize: DiscourseTypography.xs,
-                  fontWeight: FontWeight.w700,
-                  fontFeatures: const [FontFeature.tabularFigures()],
-                ),
-              ),
-            );
+      return DBadge.unreadChip(
+        key: key,
+        count: count,
+        semanticLabel: appL10n.chatUrgent(count),
+      );
     }
 
     final actions = _panelActions(shell, siteUrl);

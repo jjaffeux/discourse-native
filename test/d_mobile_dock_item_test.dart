@@ -75,6 +75,59 @@ void main() {
     });
   }
 
+  for (final direction in TextDirection.values) {
+    testWidgets('a bare item is its glyph alone, its count on the glyph\'s '
+        'corner ($direction)', (tester) async {
+      var presses = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 72,
+                  child: DMobileDockItem(
+                    bare: true,
+                    icon: const Icon(Icons.chat_bubble),
+                    label: 'Chat',
+                    badge: DBadge.unreadChip(count: 32),
+                    onPressed: () => presses++,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      final item = tester.getRect(find.byType(DMobileDockItem));
+      final count = tester.getRect(find.byType(DBadge));
+      final glyph = tester.getRect(
+        find.byKey(const ValueKey('mobile-dock-glyph')),
+      );
+      expect(find.text('Chat'), findsNothing);
+      expect(item.height, 50);
+      expect(glyph.center.dy, item.center.dy);
+      expect(count.top, item.top + 6);
+      expect(count.height, 20);
+      expect(count.width, tester.getSize(find.text('32')).width + 14);
+      if (direction == TextDirection.ltr) {
+        expect(count.left, item.center.dx + 6);
+      } else {
+        expect(count.right, item.center.dx - 6);
+      }
+      // The count is drawn over the item's own target: pressed, the item is.
+      await tester.tapAt(count.center);
+      await tester.pump();
+      expect(presses, 1);
+      final semantics = tester.ensureSemantics();
+      expect(find.bySemanticsLabel(RegExp('Chat')), findsOneWidget);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets('dock item keeps one target and an inline count on $platform', (
       tester,

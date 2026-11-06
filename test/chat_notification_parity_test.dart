@@ -78,10 +78,7 @@ void main() {
         );
         if (label != null) {
           expect(badge, findsOneWidget);
-          expect(
-            tester.widget(badge),
-            mobile ? isA<DBadge>() : isA<Semantics>(),
-          );
+          expect(tester.widget(badge), isA<DBadge>());
           expect(
             find.descendant(of: badge, matching: find.text(label)),
             findsOneWidget,

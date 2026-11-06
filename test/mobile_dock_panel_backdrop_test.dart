@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' as fixture;
+import 'support/dock_panel.dart';
 
 void mobileDockPanelBackdropTests({bool native = false}) {
   for (final mode in [AppThemeMode.light, AppThemeMode.dark]) {
@@ -67,10 +68,16 @@ void mobileDockPanelBackdropTests({bool native = false}) {
           samples.add(pixels!);
         }
 
+        // On Inbox, a page the bar has no column for, the page is added to
+        // the bar and pressing it opens the panel: every sampled frame is
+        // then the settle's, rather than a finger's.
+        await openDockPanel(tester);
+        await tester.tap(dockPanelTile('Inbox'));
+        await tester.pumpAndSettle();
         for (; opening < 2; opening++) {
           samples.clear();
           await sample(0);
-          await tester.tap(find.byKey(DMobileDock.moreKey));
+          await tester.tap(find.byKey(const ValueKey('mobile-mode-messages')));
           await tester.pump();
           for (var frame = 1; frame <= 32; frame++) {
             await tester.pump(const Duration(milliseconds: 16));

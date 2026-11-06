@@ -72,6 +72,72 @@ void main() {
   });
 
   testWidgets(
+    'the unread chip is one chip at a desktop\'s size and a phone\'s',
+    (tester) async {
+      for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+        final touch = platform == TargetPlatform.iOS;
+        final theme = AppTheme.dark.copyWith(platform: platform);
+        await _pump(tester, DBadge.unreadChip(count: 17), theme: theme);
+        final bounds = tester.getRect(find.byType(DBadge));
+        final label = tester.getRect(find.text('17'));
+        final style = _styleOf(tester, '17');
+        final tokens = DTokens.of(tester.element(find.byType(DBadge)));
+        expect(style.fontSize, touch ? 12.5 : 11, reason: '$platform');
+        expect(style.height, touch ? 20 / 12.5 : 16 / 11);
+        expect(style.fontWeight, touch ? FontWeight.w600 : FontWeight.w700);
+        expect(style.fontFeatures, const [FontFeature.tabularFigures()]);
+        expect(style.color, Color.lerp(tokens.foreground, tokens.success, .5));
+        final decoration = _decoration(tester);
+        expect(
+          decoration.color,
+          Color.lerp(tokens.background, tokens.success, .25),
+        );
+        expect(decoration.border, isNull);
+        expect(decoration.borderRadius, BorderRadius.circular(DRadius.pill));
+        expect(bounds.height, touch ? 20 : 16);
+        expect(bounds.width, closeTo(label.width + (touch ? 14 : 8), .001));
+        expect(label.center.dx, closeTo(bounds.center.dx, .001));
+        // Nothing in it is no narrower than the chip's least width, and the
+        // count is cut short past 99.
+        await _pump(
+          tester,
+          const DBadge(size: DBadgeSize.unreadChip, child: Text('')),
+          theme: theme,
+        );
+        expect(tester.getSize(find.byType(DBadge)).width, touch ? 20 : 17);
+        await _pump(tester, DBadge.unreadChip(count: 100), theme: theme);
+        expect(find.text('99+'), findsOneWidget);
+        // The reading-text uplift leaves it the list's counts' size.
+        await _pump(
+          tester,
+          MediaQuery(
+            data: const MediaQueryData(
+              textScaler: AppTextScaler(
+                platformScaler: TextScaler.linear(1),
+                appScale: 1,
+                baselineScale: 1.2,
+              ),
+            ),
+            child: DBadge.unreadChip(count: 17),
+          ),
+          theme: theme,
+        );
+        expect(tester.getSize(find.byType(DBadge)).height, touch ? 20 : 16);
+        expect(tester.takeException(), isNull);
+      }
+      final semantics = tester.ensureSemantics();
+      await _pump(
+        tester,
+        DBadge.unreadChip(count: 3, semanticLabel: 'Chat, 3 urgent messages'),
+      );
+      expect(find.bySemanticsLabel('Chat, 3 urgent messages'), findsOneWidget);
+      expect(find.bySemanticsLabel('3'), findsNothing);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'feed counts exclude reading uplift and retain accessible names',
     (tester) async {
       final semantics = tester.ensureSemantics();
@@ -842,6 +908,7 @@ void main() {
           DBadgeSize.unread => 19,
           DBadgeSize.count => 20,
           DBadgeSize.menuCount => 18,
+          DBadgeSize.unreadChip => 20,
         },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));

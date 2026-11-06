@@ -72,10 +72,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   // The drawer's profile menu, also opened by the dock's profile tile.
   final _accountMenu = DPopoverController();
 
+  // The notifications menu, which a phone opens from the bar's own place
+  // for it; the header hosts the menu and draws no bell.
+  final _notificationsMenu = DPopoverController();
+
   @override
   void dispose() {
     _footerAction.dispose();
     _accountMenu.dispose();
+    _notificationsMenu.dispose();
     super.dispose();
   }
 
@@ -436,9 +441,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        const UserMenuButton(
+                        UserMenuButton(
                           compact: true,
-                          presentation: UserMenuPresentation.notifications,
+                          presentation: UserMenuPresentation.dockNotifications,
+                          menuController: _notificationsMenu,
                         ),
                       ];
                       final largeText =
@@ -727,9 +733,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     // Found now: the dock also tells it as it is disposed, when this context
     // is no longer one to look up from.
     final panelOut = MobileDockPanelScope.of(context);
-    // Notifications paused rings the you tile, and nothing else here.
+    // Notifications paused rings the you tile; what has arrived, and the
+    // menu opening, count on the notifications place. Nothing else here.
     return ListenableBuilder(
-      listenable: shell.doNotDisturb,
+      listenable: Listenable.merge([
+        shell.doNotDisturb,
+        shell.accountActivity.totalsListenable,
+        _notificationsMenu,
+      ]),
       builder: (context, _) {
         final places = <String, DMobileDockPlace>{
           for (final item in destinations)
@@ -768,9 +779,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
           ),
           places: [for (final name in order) places[name]!],
-          more: (
-            icon: const DIcon(DIcons.ellipsisVertical),
-            label: context.l10n.more,
+          notifications: _notificationsPlace(
+            context,
+            shell: shell,
+            instance: instance,
           ),
           onPanelChanged: panelOut == null
               ? null
@@ -796,6 +808,41 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ),
                 ),
         );
+      },
+    );
+  }
+
+  /// Notifications, fixed in the bar before the action once signed in: its
+  /// count is what has arrived since the menu was last open, said as the
+  /// header's bell said it, and hidden while the menu is open; pressing it
+  /// toggles the menu, which the header hosts.
+  DMobileDockPlace? _notificationsPlace(
+    BuildContext context, {
+    required ShellController shell,
+    required DiscourseInstance instance,
+  }) {
+    if (!instance.isConnected || instance.user == null) return null;
+    final open = _notificationsMenu.isOpen;
+    final count = UserMenuButton.unreadCountOf(shell, instance.url);
+    return DMobileDockPlace(
+      key: const ValueKey('mobile-mode-notifications'),
+      icon: const DIcon(DIcons.inbox),
+      label: context.l10n.notifications,
+      badge: count > 0 && !open
+          ? DBadge.unreadChip(
+              key: UserMenuButton.unreadDotKey,
+              count: count,
+              semanticLabel: context.l10n.notificationsUnread(count),
+            )
+          : null,
+      selected: open,
+      onPressed: () {
+        if (open) {
+          _notificationsMenu.close();
+          return;
+        }
+        AccountMenuScope.activate(context, _notificationsMenu);
+        _notificationsMenu.open();
       },
     );
   }
