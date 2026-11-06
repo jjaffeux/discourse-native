@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_style.dart';
+import 'package:discourse_native/src/ui/foundation/implicit_transition.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,13 +26,13 @@ CustomPaint fieldPaint(WidgetTester tester, Type type) => tester
     .singleWhere((widget) => widget.child is AnimatedContainer);
 
 double buttonRing(WidgetTester tester) => tester
-    .widgetList<AnimatedContainer>(
+    .widgetList<DImplicitTransition<Decoration>>(
       find.descendant(
         of: find.byType(DButton),
-        matching: find.byType(AnimatedContainer),
+        matching: find.byType(DImplicitTransition<Decoration>),
       ),
     )
-    .map((widget) => widget.decoration)
+    .map((widget) => widget.value)
     .whereType<DControlDecoration>()
     .single
     .ringWidth;

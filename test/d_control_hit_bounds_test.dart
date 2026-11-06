@@ -74,7 +74,14 @@ void main() {
                               height: 16,
                             ),
                   )
-                : find.byType(AnimatedContainer).first;
+                : find
+                      .byWidgetPredicate(
+                        (widget) =>
+                            widget is AnimatedContainer ||
+                            widget is Container &&
+                                widget.decoration is DButtonDecoration,
+                      )
+                      .first;
             final bounds = tester.getRect(artwork);
             final node = tester.getSemantics(
               find.bySemanticsLabel(entry.key).last,

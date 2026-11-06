@@ -58,7 +58,7 @@ void main() {
                 of: button,
                 matching: find.byWidgetPredicate(
                   (widget) =>
-                      widget is AnimatedContainer &&
+                      widget is Container &&
                       widget.decoration is DButtonDecoration,
                 ),
               ),
@@ -132,8 +132,7 @@ void main() {
             final artwork = find.descendant(
               of: button,
               matching: find.byWidgetPredicate(
-                (w) =>
-                    w is AnimatedContainer && w.decoration is DButtonDecoration,
+                (w) => w is Container && w.decoration is DButtonDecoration,
               ),
             );
             expect(rect, tester.getRect(artwork));
@@ -493,8 +492,7 @@ void main() {
         );
         final surface = find.byWidgetPredicate(
           (widget) =>
-              widget is AnimatedContainer &&
-              widget.decoration is DButtonDecoration,
+              widget is Container && widget.decoration is DButtonDecoration,
         );
         expect(tester.getSize(surface).height, (19.5 * scale).ceilToDouble());
         expect(buttonSurface(tester).color, Colors.transparent);
@@ -537,8 +535,7 @@ void main() {
       ),
     );
     final surface = find.byWidgetPredicate(
-      (widget) =>
-          widget is AnimatedContainer && widget.decoration is DButtonDecoration,
+      (widget) => widget is Container && widget.decoration is DButtonDecoration,
     );
     expect(tester.getSize(surface), const Size.square(26));
     expect(
@@ -735,15 +732,13 @@ void main() {
       ),
     );
     final surface = find.byWidgetPredicate(
-      (widget) =>
-          widget is AnimatedContainer && widget.decoration is DButtonDecoration,
+      (widget) => widget is Container && widget.decoration is DButtonDecoration,
     );
     final icon = find.byIcon(Icons.add);
     expect(tester.getSize(surface), const Size(50, 50));
     expect(tester.getSize(find.byType(DButton)), tester.getSize(surface));
     final decoration =
-        tester.widget<AnimatedContainer>(surface).decoration!
-            as DButtonDecoration;
+        tester.widget<Container>(surface).decoration! as DButtonDecoration;
     expect(decoration.borderRadius, BorderRadius.circular(25));
     expect(tester.getSize(icon), const Size(20, 20));
     expect(tester.getCenter(icon), tester.getCenter(surface));

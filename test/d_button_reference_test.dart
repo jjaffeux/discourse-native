@@ -2,6 +2,7 @@ import 'dart:ui' show ImageByteFormat, SemanticsValidationResult;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/implicit_transition.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -661,16 +662,17 @@ void main() {
   testWidgets('focus transitions animate while hover fills are immediate', (
     tester,
   ) async {
-    AnimatedContainer container() => tester.widget<AnimatedContainer>(
-      find.descendant(
-        of: find.byType(FilledButton),
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is AnimatedContainer &&
-              widget.decoration is DButtonDecoration,
-        ),
-      ),
-    );
+    DImplicitTransition<Decoration> container() =>
+        tester.widget<DImplicitTransition<Decoration>>(
+          find.descendant(
+            of: find.byType(FilledButton),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is DImplicitTransition<Decoration> &&
+                  widget.value is DButtonDecoration,
+            ),
+          ),
+        );
     DButtonDecoration painted() =>
         tester
                 .widget<DecoratedBox>(
