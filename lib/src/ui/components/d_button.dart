@@ -1619,6 +1619,14 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
       widget.focusNode ?? (_ownedFocus ??= FocusNode(debugLabel: 'DButton'));
   Timer? _keyboardPress;
   bool get _enabled => widget.onPressed != null;
+  late final Map<Type, Action<Intent>> _actions = {
+    ActivateIntent: CallbackAction<ActivateIntent>(
+      onInvoke: (_) => _activateFromKeyboard(),
+    ),
+    ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+      onInvoke: (_) => _activateFromKeyboard(),
+    ),
+  };
 
   void _update(WidgetState state, bool value) {
     if (value ? _states.add(state) : _states.remove(state)) setState(() {});
@@ -1681,56 +1689,76 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
         child: widget.child,
       ),
     );
+    // The pieces of a FocusableActionDetector this button uses. Its hover and
+    // focus highlight bookkeeping (a global key, a highlight mode listener and
+    // a post-frame callback per mount) has no callback here, and metadata rows
+    // mount these buttons by the dozen. The actions stay in the tree while
+    // disabled so that toggling keeps its shape.
     return Semantics(
       container: true,
       enabled: _enabled,
       onTap: _enabled ? _activate : null,
-      child: FocusableActionDetector(
-        enabled: _enabled,
-        focusNode: _focus,
-        autofocus: widget.autofocus,
-        onFocusChange: (value) => _update(WidgetState.focused, value),
-        mouseCursor: style.mouseCursor!.resolve(_states)!,
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) => _activateFromKeyboard(),
-          ),
-          ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
-            onInvoke: (_) => _activateFromKeyboard(),
-          ),
-        },
-        child: MouseRegion(
-          onEnter: _enabled ? (_) => _update(WidgetState.hovered, true) : null,
-          onExit: (_) => _update(WidgetState.hovered, false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapDown: _enabled
-                ? (_) => _update(WidgetState.pressed, true)
+      child: Actions(
+        actions: _enabled ? _actions : const <Type, Action<Intent>>{},
+        child: Focus(
+          focusNode: _focus,
+          autofocus: widget.autofocus,
+          canRequestFocus: switch (MediaQuery.maybeNavigationModeOf(context)) {
+            NavigationMode.directional => true,
+            NavigationMode.traditional || null => _enabled,
+          },
+          onFocusChange: (value) => _update(WidgetState.focused, value),
+          child: MouseRegion(
+            cursor: style.mouseCursor!.resolve(_states)!,
+            onEnter: _enabled
+                ? (_) => _update(WidgetState.hovered, true)
                 : null,
-            onTapUp: _enabled
-                ? (_) => _update(WidgetState.pressed, false)
-                : null,
-            onTapCancel: _enabled
-                ? () => _update(WidgetState.pressed, false)
-                : null,
-            onTap: _enabled ? _activate : null,
-            child: ConstrainedBox(
-              constraints: constraints,
-              child: IconTheme.merge(
-                data: IconThemeData(
-                  color: style.iconColor!.resolve(_states),
-                  size: style.iconSize!.resolve(_states),
-                ),
-                child: DImplicitTransition<TextStyle>(
-                  value: style.textStyle!
-                      .resolve(_states)!
-                      .copyWith(color: style.foregroundColor!.resolve(_states)),
-                  duration: style.animationDuration!,
-                  lerp: _lerpTextStyle,
-                  builder: (context, textStyle) => DefaultTextStyle(
-                    style: textStyle,
-                    child: style.backgroundBuilder!(context, _states, content),
+            onExit: (_) => _update(WidgetState.hovered, false),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapDown: _enabled
+                  ? (_) => _update(WidgetState.pressed, true)
+                  : null,
+              onTapUp: _enabled
+                  ? (_) => _update(WidgetState.pressed, false)
+                  : null,
+              onTapCancel: _enabled
+                  ? () => _update(WidgetState.pressed, false)
+                  : null,
+              onTap: _enabled ? _activate : null,
+              child: ConstrainedBox(
+                constraints: constraints,
+                child: IconTheme(
+                  data:
+                      (context
+                                  .dependOnInheritedWidgetOfExactType<
+                                    IconTheme
+                                  >()
+                                  ?.data ??
+                              const IconThemeData.fallback())
+                          .merge(
+                            IconThemeData(
+                              color: style.iconColor!.resolve(_states),
+                              size: style.iconSize!.resolve(_states),
+                            ),
+                          ),
+                  child: DImplicitTransition<TextStyle>(
+                    value: style.textStyle!
+                        .resolve(_states)!
+                        .copyWith(
+                          color: style.foregroundColor!.resolve(_states),
+                        ),
+                    duration: style.animationDuration!,
+                    lerp: _lerpTextStyle,
+                    builder: (context, textStyle) => DefaultTextStyle(
+                      style: textStyle,
+                      child: style.backgroundBuilder!(
+                        context,
+                        _states,
+                        content,
+                      ),
+                    ),
                   ),
                 ),
               ),
