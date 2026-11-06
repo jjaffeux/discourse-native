@@ -13,6 +13,7 @@ import 'package:flutter/services.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/overlay_observers.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_sheet.dart';
@@ -418,7 +419,7 @@ class _DPopoverState extends State<DPopover>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    DOverlayObservers.add(this);
     _controller._attach(this);
   }
 
@@ -1014,7 +1015,7 @@ class _DPopoverState extends State<DPopover>
     _controller._detach(this);
     _open = false;
     _syncGlobalListeners();
-    WidgetsBinding.instance.removeObserver(this);
+    DOverlayObservers.remove(this);
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
     _allocatedSurfaceFocus?.dispose();

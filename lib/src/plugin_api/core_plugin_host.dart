@@ -86,6 +86,7 @@ final class PluginRequestCredentials {
 abstract interface class PluginSiteLease {
   bool get isCurrent;
   bool commit(VoidCallback mutation);
+
   /// Notifies synchronously on retirement, or immediately when already retired.
   /// The returned callback removes this observation.
   VoidCallback onRetire(VoidCallback observer);

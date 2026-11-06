@@ -777,7 +777,7 @@ class _DItemState extends State<DItem> {
         onTap: _active ? linkActivation.onPressed : null,
         // Toggling enabled keeps the tree shape: a remount would recreate child
         // state and dispose the tap recognizer of a pointer still down.
-        child: Opacity(opacity: widget.enabled ? 1 : .5, child: result),
+        child: _ItemOpacity(dimmed: !widget.enabled, child: result),
       ),
     );
     if (widget.dragData == null) return linkActivation.wrap(item);
@@ -951,6 +951,59 @@ class _ItemLayout extends RenderBox
   @override
   bool hitTestChildren(BoxHitTestResult result, {required Offset position}) =>
       defaultHitTestChildren(result, position: position);
+}
+
+/// Dims a disabled item to half opacity. Flutter's [RenderOpacity] makes a
+/// fully opaque child a repaint boundary with its own layer as well, and
+/// every row of a list is an item, so an enabled item paints inline here.
+class _ItemOpacity extends SingleChildRenderObjectWidget {
+  const _ItemOpacity({required this.dimmed, required super.child});
+
+  final bool dimmed;
+
+  @override
+  _RenderItemOpacity createRenderObject(BuildContext context) =>
+      _RenderItemOpacity(dimmed);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderItemOpacity renderObject,
+  ) => renderObject.dimmed = dimmed;
+}
+
+class _RenderItemOpacity extends RenderProxyBox {
+  _RenderItemOpacity(this._dimmed);
+
+  static final _dimmedAlpha = Color.getAlphaFromOpacity(.5);
+
+  bool _dimmed;
+  set dimmed(bool value) {
+    if (value == _dimmed) return;
+    _dimmed = value;
+    markNeedsCompositingBitsUpdate();
+    markNeedsPaint();
+  }
+
+  @override
+  bool get alwaysNeedsCompositing => child != null && _dimmed;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final child = this.child;
+    if (child == null) return;
+    if (!_dimmed) {
+      layer = null;
+      context.paintChild(child, offset);
+      return;
+    }
+    layer = context.pushOpacity(
+      offset,
+      _dimmedAlpha,
+      super.paint,
+      oldLayer: layer as OpacityLayer?,
+    );
+  }
 }
 
 class _ItemScope extends InheritedWidget {

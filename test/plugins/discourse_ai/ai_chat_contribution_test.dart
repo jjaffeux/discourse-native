@@ -16,7 +16,9 @@ void main() {
   test(
     'Chat receives one AI-owned decoder only when that plugin is installed',
     () async {
-      final chatOnly = PluginInstaller.install(const PluginManifest([chatModule]));
+      final chatOnly = PluginInstaller.install(
+        const PluginManifest([chatModule]),
+      );
       final withAi = PluginInstaller.install(
         const PluginManifest([chatModule, discourseAiModule]),
       );

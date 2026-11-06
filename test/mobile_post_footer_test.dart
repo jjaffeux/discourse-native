@@ -47,17 +47,26 @@ void main() {
           expect(tester.getCenter(control).dy, closeTo(y, .1));
           final surface = find.descendant(
             of: control,
-            matching: find.byType(AnimatedContainer),
+            matching: find.byWidgetPredicate(
+              (widget) =>
+                  widget is Container && widget.decoration is DButtonDecoration,
+            ),
           );
           expect(tester.getRect(control), tester.getRect(surface));
         }
         final replySurface = find.descendant(
           of: reply,
-          matching: find.byType(AnimatedContainer),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is DButtonDecoration,
+          ),
         );
         final moreSurface = find.descendant(
           of: more,
-          matching: find.byType(AnimatedContainer),
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Container && widget.decoration is DButtonDecoration,
+          ),
         );
         expect(
           tester.getRect(replySurface).left - tester.getRect(moreSurface).right,

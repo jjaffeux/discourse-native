@@ -1,6 +1,6 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart' show ValueListenable;
+import 'package:flutter/foundation.dart' show ValueListenable, listEquals;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -402,32 +402,60 @@ class _RenderScrollFadeMask extends RenderProxyBox {
     final topFade = top ? math.min(_topExtent, room / 2) : 0.0;
     final bottomFade = bottom ? math.min(_bottomExtent, room / 2) : 0.0;
     final footStart = math.max(inset + topFade, extent - foot);
+    final colors = [
+      if (top) ...[Colors.transparent, Colors.transparent],
+      Colors.white,
+      Colors.white,
+      if (bottom) ...[Colors.transparent, Colors.transparent],
+      if (foot > 0) Colors.white.withValues(alpha: DScrollFoot.opacity),
+    ];
+    final stops = <double>[
+      if (top) ...[0, inset / extent],
+      top ? (inset + topFade) / extent : 0,
+      foot > 0
+          ? footStart / extent
+          : bottom
+          ? (end - bottomFade) / extent
+          : 1,
+      if (bottom) ...[end / extent, 1],
+      if (foot > 0) 1,
+    ];
+    // A scrolling list repaints this mask every frame with the same fades;
+    // building the gradient's shader each time showed up in frame profiles.
+    final cached = _shader;
+    final shader =
+        cached != null &&
+            cached.size == size &&
+            cached.horizontal == horizontal &&
+            listEquals(cached.colors, colors) &&
+            listEquals(cached.stops, stops)
+        ? cached.shader
+        : (_shader = (
+            size: size,
+            horizontal: horizontal,
+            colors: colors,
+            stops: stops,
+            shader: LinearGradient(
+              begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
+              end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
+              colors: colors,
+              stops: stops,
+            ).createShader(Offset.zero & size),
+          )).shader;
     layer ??= ShaderMaskLayer();
     layer!
-      ..shader = LinearGradient(
-        begin: horizontal ? Alignment.centerLeft : Alignment.topCenter,
-        end: horizontal ? Alignment.centerRight : Alignment.bottomCenter,
-        colors: [
-          if (top) ...[Colors.transparent, Colors.transparent],
-          Colors.white,
-          Colors.white,
-          if (bottom) ...[Colors.transparent, Colors.transparent],
-          if (foot > 0) Colors.white.withValues(alpha: DScrollFoot.opacity),
-        ],
-        stops: [
-          if (top) ...[0, inset / extent],
-          top ? (inset + topFade) / extent : 0,
-          foot > 0
-              ? footStart / extent
-              : bottom
-              ? (end - bottomFade) / extent
-              : 1,
-          if (bottom) ...[end / extent, 1],
-          if (foot > 0) 1,
-        ],
-      ).createShader(Offset.zero & size)
+      ..shader = shader
       ..maskRect = offset & size
       ..blendMode = BlendMode.dstIn;
     context.pushLayer(layer!, super.paint, offset);
   }
+
+  ({
+    Size size,
+    bool horizontal,
+    List<Color> colors,
+    List<double> stops,
+    Shader shader,
+  })?
+  _shader;
 }

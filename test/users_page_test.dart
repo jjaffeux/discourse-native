@@ -1144,8 +1144,7 @@ void main() {
             of: columns,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is AnimatedContainer &&
-                  widget.decoration is DButtonDecoration,
+                  widget is Container && widget.decoration is DButtonDecoration,
             ),
           ),
           platform == TargetPlatform.macOS ? 30 : 44,

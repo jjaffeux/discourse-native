@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/implicit_transition.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 
@@ -262,37 +263,45 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
               behavior: HitTestBehavior.opaque,
               excludeFromSemantics: true,
               onTap: enabled ? _activate : null,
-              child: AnimatedContainer(
+              child: DImplicitTransition<Decoration>(
                 duration: duration,
                 curve: Curves.easeOut,
                 // Painted over the label inside its own bounds: a decoration
                 // border would inset the label and resize the trail on focus,
                 // and an outside stroke would be clipped by scroll overflow.
-                foregroundDecoration: BoxDecoration(
+                value: BoxDecoration(
                   borderRadius: BorderRadius.circular(tokens.radius * .6),
                   border: _focused
                       ? Border.all(color: tokens.focusRing, width: 1)
                       : null,
                 ),
-                child: Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  widthFactor: 1,
-                  heightFactor: 1,
-                  child: AnimatedDefaultTextStyle(
-                    duration: duration,
-                    curve: Curves.easeOut,
-                    style: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                      color: color,
-                      fontSize: widget.compact
-                          ? DiscourseTypography.micro
-                          : DiscourseTypography.sm,
-                      height: DiscourseTypography.lineHeightSmall,
-                      fontWeight: FontWeight.w400,
-                      letterSpacing: 0,
-                    ),
-                    child: IconTheme.merge(
-                      data: IconThemeData(color: color, size: 14),
-                      child: widget.child,
+                lerp: (a, b, t) => Decoration.lerp(a, b, t)!,
+                builder: (context, foreground) => Container(
+                  foregroundDecoration: foreground,
+                  child: Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: 1,
+                    heightFactor: 1,
+                    child: DImplicitTransition<TextStyle>(
+                      duration: duration,
+                      curve: Curves.easeOut,
+                      value: Theme.of(context).textTheme.bodyMedium!.copyWith(
+                        color: color,
+                        fontSize: widget.compact
+                            ? DiscourseTypography.micro
+                            : DiscourseTypography.sm,
+                        height: DiscourseTypography.lineHeightSmall,
+                        fontWeight: FontWeight.w400,
+                        letterSpacing: 0,
+                      ),
+                      lerp: (a, b, t) => TextStyle.lerp(a, b, t)!,
+                      builder: (context, style) => DefaultTextStyle(
+                        style: style,
+                        child: IconTheme.merge(
+                          data: IconThemeData(color: color, size: 14),
+                          child: widget.child,
+                        ),
+                      ),
                     ),
                   ),
                 ),

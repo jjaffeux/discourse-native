@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/overlay_observers.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
@@ -249,7 +250,7 @@ class DTooltipState extends State<DTooltip>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    DOverlayObservers.add(this);
   }
 
   @override
@@ -379,16 +380,20 @@ class DTooltipState extends State<DTooltip>
     }
   }
 
+  // Rows sliding under a resting pointer enter a trigger on most frames of a
+  // scroll, so the enclosing scrollables are found through their scopes
+  // rather than by walking every ancestor element.
   void _startScrollTracking() {
     _stopScrollTracking();
-    context.visitAncestorElements((element) {
-      if (element is StatefulElement && element.state is ScrollableState) {
-        final position = (element.state as ScrollableState).position;
-        _scrollPositions.add(position);
-        position.addListener(_scrollChanged);
-      }
-      return true;
-    });
+    for (
+      var scrollable = Scrollable.maybeOf(context);
+      scrollable != null;
+      scrollable = Scrollable.maybeOf(scrollable.context)
+    ) {
+      final position = scrollable.position;
+      _scrollPositions.add(position);
+      position.addListener(_scrollChanged);
+    }
   }
 
   void _stopScrollTracking() {
@@ -769,7 +774,7 @@ class DTooltipState extends State<DTooltip>
     _open = false;
     _tapPointer = null;
     _syncGlobalListeners();
-    WidgetsBinding.instance.removeObserver(this);
+    DOverlayObservers.remove(this);
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
     super.dispose();

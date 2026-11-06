@@ -127,8 +127,7 @@ void main() {
             of: button,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is AnimatedContainer &&
-                  widget.decoration is DButtonDecoration,
+                  widget is Container && widget.decoration is DButtonDecoration,
             ),
           );
           final style = DefaultTextStyle.of(

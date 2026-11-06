@@ -11,6 +11,7 @@ import '../foundation/control_artwork.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/implicit_transition.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
@@ -1565,13 +1566,21 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedContainer(
+  Widget build(BuildContext context) => DImplicitTransition<Decoration>(
+    value: widget.decoration,
     duration: _skipTransition ? Duration.zero : widget.duration,
     curve: Curves.ease,
-    decoration: widget.decoration,
-    child: widget.child,
+    lerp: _lerpDecoration,
+    builder: (context, decoration) =>
+        Container(decoration: decoration, child: widget.child),
   );
 }
+
+Decoration _lerpDecoration(Decoration a, Decoration b, double t) =>
+    Decoration.lerp(a, b, t)!;
+
+TextStyle _lerpTextStyle(TextStyle a, TextStyle b, double t) =>
+    TextStyle.lerp(a, b, t)!;
 
 /// The painted button surface: a fill clipped to the padding box, a one-pixel
 /// border and exterior focus or invalid ring.
@@ -1713,12 +1722,16 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
                   color: style.iconColor!.resolve(_states),
                   size: style.iconSize!.resolve(_states),
                 ),
-                child: AnimatedDefaultTextStyle(
-                  style: style.textStyle!
+                child: DImplicitTransition<TextStyle>(
+                  value: style.textStyle!
                       .resolve(_states)!
                       .copyWith(color: style.foregroundColor!.resolve(_states)),
                   duration: style.animationDuration!,
-                  child: style.backgroundBuilder!(context, _states, content),
+                  lerp: _lerpTextStyle,
+                  builder: (context, textStyle) => DefaultTextStyle(
+                    style: textStyle,
+                    child: style.backgroundBuilder!(context, _states, content),
+                  ),
                 ),
               ),
             ),

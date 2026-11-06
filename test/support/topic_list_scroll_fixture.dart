@@ -29,6 +29,7 @@ Future<ShellController> topicListScrollController({
   TopicListDisplayMode mode = TopicListDisplayMode.card,
   bool events = false,
   bool assignments = false,
+  int posters = 0,
   void Function(String path)? onPageRequest,
 }) async {
   assert(count > 0);
@@ -61,6 +62,19 @@ Future<ShellController> topicListScrollController({
         postsCount: id % 30 + 1,
         replyCount: id % 30,
         lastPosterUsername: 'sam',
+        posters: [
+          for (var poster = 0; poster < posters; poster++)
+            TopicPoster(
+              userId: 100 + poster,
+              username: 'poster$poster',
+              description: poster == 0 ? 'Original Poster' : 'Frequent Poster',
+              latest: poster == posters - 1,
+            ),
+        ],
+        excerpt: posters > 0
+            ? 'An excerpt long enough to wrap across the row, as most '
+                  'forum topics carry one under their title.'
+            : null,
         bumpedAt: DateTime.utc(2026, 9, 1),
         closed: id % 7 == 0,
         bookmarked: id % 11 == 0,

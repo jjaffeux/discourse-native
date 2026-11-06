@@ -1370,8 +1370,7 @@ void main() {
         of: control,
         matching: find.byWidgetPredicate(
           (widget) =>
-              widget is AnimatedContainer &&
-              widget.decoration is DButtonDecoration,
+              widget is Container && widget.decoration is DButtonDecoration,
         ),
       );
       final context = tester.element(control);
@@ -3839,8 +3838,7 @@ void main() {
             of: action,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is AnimatedContainer &&
-                  widget.decoration is DButtonDecoration,
+                  widget is Container && widget.decoration is DButtonDecoration,
             ),
           );
           expect(tester.getRect(surface), tester.getRect(action));

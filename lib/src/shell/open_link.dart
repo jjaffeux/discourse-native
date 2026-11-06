@@ -177,9 +177,17 @@ class _LinkTargetState extends State<LinkTarget> {
   final _menu = LinkContextMenuSession();
   BookmarkLinkAction? _bookmarkAction;
   int _bookmarkGeneration = 0;
+  // The popover reports opening before it builds its content, so the route
+  // is resolved in the rebuild that shows it, and kept while it fades out.
+  bool _menuOpened = false;
+  ContentRoute? _menuRoute;
 
   void _onOpenChange(bool open, DPopoverChangeReason reason) {
     _menu.onOpenChange(open, reason);
+    if (open) {
+      _menuOpened = true;
+      _menuRoute = null;
+    }
     final generation = ++_bookmarkGeneration;
     if (!open) return;
     setState(() => _bookmarkAction = null);
@@ -234,6 +242,7 @@ class _LinkTargetState extends State<LinkTarget> {
   @override
   void didUpdateWidget(LinkTarget oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _menuRoute = null;
     if (oldWidget.url != widget.url ||
         oldWidget.bookmarkUrl != widget.bookmarkUrl ||
         oldWidget.content != widget.content ||
@@ -267,15 +276,19 @@ class _LinkTargetState extends State<LinkTarget> {
         ? null
         : shell?.lifecycle.capture(ownerSite);
     final ownerAccount = shell?.currentAccountIdentity;
-    final localRoute =
-        widget.content ??
-        (widget.targetBookmark == null && widget.url != null
-            ? shell?.destinationBookmarkRouteForUrl(
-                widget.url!,
-                siteUrl: widget.siteUrl,
-                title: widget.title,
-              )
-            : null);
+    // Only the open context menu shows the route. Matching a URL against the
+    // forum's routes on every build cost each topic row that entered a list.
+    final localRoute = !_menuOpened
+        ? null
+        : widget.content ??
+              (_menuRoute ??=
+                  widget.targetBookmark == null && widget.url != null
+                  ? shell?.destinationBookmarkRouteForUrl(
+                      widget.url!,
+                      siteUrl: widget.siteUrl,
+                      title: widget.title,
+                    )
+                  : null);
     void activate({required bool newTab, ForumPanel? panel}) {
       if (ownerLease?.isCurrent == false ||
           shell?.currentAccountIdentity != ownerAccount) {

@@ -312,7 +312,7 @@ void main() {
                 of: button,
                 matching: find.byWidgetPredicate(
                   (widget) =>
-                      widget is AnimatedContainer &&
+                      widget is Container &&
                       widget.decoration is DButtonDecoration,
                 ),
               );
