@@ -22,7 +22,7 @@ final _config = <String, DChartConfigEntry>{
   ),
   'mobile': DChartConfigEntry(
     label: 'Mobile',
-    color: (context) => DChartColors.series(context, 1),
+    color: (context) => DChartTone.mid.resolve(context),
   ),
   'views': const DChartConfigEntry(label: 'Page Views'),
 };
@@ -206,7 +206,7 @@ final chartExamples = ComponentExamples(
             ),
             'mobile': DChartConfigEntry(
               label: 'الجوال',
-              color: (context) => DChartColors.series(context, 1),
+              color: (context) => DChartTone.mid.resolve(context),
             ),
           },
           child: Column(
@@ -282,7 +282,7 @@ DChartContainer(config: {
   'desktop': DChartConfigEntry(label: 'Desktop',
     color: (context) => DTokens.of(context).primary),
   'mobile': DChartConfigEntry(label: 'Mobile',
-    color: (context) => DChartColors.series(context, 1)),
+    color: (context) => DChartTone.mid.resolve(context)),
 }, child: Column(mainAxisSize: MainAxisSize.min, children: [
   LayoutBuilder(builder: (context, constraints) =>
     DCartesianChart<({String month, int desktop, int mobile})>(
@@ -543,7 +543,7 @@ class _CustomChart extends StatelessWidget {
       ),
       'safari': DChartConfigEntry(
         label: 'Safari',
-        color: (context) => DChartColors.series(context, 1),
+        color: (context) => DChartTone.mid.resolve(context),
       ),
     },
     child: Builder(
@@ -559,7 +559,7 @@ class _CustomChart extends StatelessWidget {
             key: 'visitors',
             value: 200,
             payload: const {'browser': 'safari'},
-            color: DChartColors.series(context, 1),
+            color: DChartTone.mid.resolve(context),
           ),
         ];
         return Column(
@@ -680,7 +680,7 @@ class _ControlledChartState extends State<_ControlledChart> {
 
 const _tooltipCode = '''DChartContainer(config: {
   'desktop': DChartConfigEntry(label: 'Desktop', color: (c) => DTokens.of(c).primary),
-  'mobile': DChartConfigEntry(label: 'Mobile', color: (c) => DChartColors.series(c, 1)),
+  'mobile': DChartConfigEntry(label: 'Mobile', color: (c) => DChartTone.mid.resolve(c)),
 }, child: Wrap(spacing: 24, runSpacing: 24, children: [
   for (final indicator in DChartIndicator.values)
     SizedBox(width: MediaQuery.textScalerOf(context).scale(128),
@@ -704,7 +704,7 @@ DChartContainer(config: {
   'visitors': DChartConfigEntry(label: 'Total Visitors'),
   'chrome': DChartConfigEntry(label: 'Chrome', color: (c) => DTokens.of(c).primary,
     icon: (_) => Icon(Icons.public)),
-  'safari': DChartConfigEntry(label: 'Safari', color: (c) => DChartColors.series(c, 1)),
+  'safari': DChartConfigEntry(label: 'Safari', color: (c) => DChartTone.mid.resolve(c)),
 }, child: Column(mainAxisSize: MainAxisSize.min, children: [
   DChartLegendContent(items: items, nameKey: 'browser', atTop: true),
   SizedBox(width: 240, child: DChartTooltipContent(items: items,
@@ -757,7 +757,7 @@ final _config = <String, DChartConfigEntry>{
   ),
   'mobile': DChartConfigEntry(
     label: 'Mobile',
-    color: (context) => DChartColors.series(context, 1),
+    color: (context) => DChartTone.mid.resolve(context),
   ),
   'views': const DChartConfigEntry(label: 'Page Views'),
 };

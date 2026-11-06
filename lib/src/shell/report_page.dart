@@ -322,7 +322,7 @@ class _ReportPageState extends State<ReportPage> {
         for (var i = 0; i < series.length; i++)
           series[i].id: DChartConfigEntry(
             label: series[i].label,
-            color: (context) => DChartColors.series(context, i),
+            color: (context) => DChartTone.at(i).resolve(context),
           ),
       },
       child: Column(
