@@ -1625,15 +1625,14 @@ void _registerConnectionSessionTests() {
           expect(data.flagsCollection.isButton, isTrue);
           expect(data.hasAction(SemanticsAction.tap), isTrue);
 
-          final focusTarget = find
-              .descendant(
-                of: row,
-                matching: find.byType(FocusableActionDetector),
-              )
-              .first;
-          final focus = tester
-              .widget<FocusableActionDetector>(focusTarget)
-              .focusNode!;
+          // The row's own focus, the nearest one around its content.
+          final focus = Focus.of(
+            tester.element(
+              find
+                  .descendant(of: row, matching: find.byType(DItemContent))
+                  .first,
+            ),
+          );
           focus.requestFocus();
           await tester.pumpAndSettle();
           expect(focus.hasPrimaryFocus, isTrue);

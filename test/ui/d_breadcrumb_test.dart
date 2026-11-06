@@ -172,6 +172,74 @@ void main() {
     expect(link, paints..drrect(color: ring));
   });
 
+  testWidgets('focus ring follows the highlight mode without global keys', (
+    tester,
+  ) async {
+    Future<int> keysWith(int links) async {
+      await pumpBreadcrumb(
+        tester,
+        Wrap(
+          children: [
+            for (var i = 0; i < links; i++)
+              DBreadcrumbLink(
+                key: ValueKey(i),
+                onPressed: () {},
+                child: Text('Link $i'),
+              ),
+          ],
+        ),
+      );
+      return tester.binding.buildOwner!.globalKeyCount;
+    }
+
+    final empty = await keysWith(0);
+    expect(await keysWith(10), empty);
+
+    final strategy = FocusManager.instance.highlightStrategy;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    await pumpBreadcrumb(
+      tester,
+      basicBreadcrumb(onHome: () {}, onComponents: () {}),
+    );
+    final link = find.byType(DBreadcrumbLink).first;
+    final ring = DTokens.of(tester.element(link)).focusRing;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+    expect(link, paints..drrect(color: ring));
+
+    // A touch while focused hides the ring, and keyboard use brings it back.
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTouch;
+    await tester.pumpAndSettle();
+    expect(link, isNot(paints..drrect(color: ring)));
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    await tester.pumpAndSettle();
+    expect(link, paints..drrect(color: ring));
+
+    // Enter on the focused link is the link's own, ahead of any ancestor.
+    var opened = 0;
+    var ancestor = 0;
+    await pumpBreadcrumb(
+      tester,
+      Focus(
+        onKeyEvent: (_, event) {
+          if (event is KeyDownEvent) ancestor++;
+          return KeyEventResult.handled;
+        },
+        child: basicBreadcrumb(onHome: () => opened++, onComponents: () {}),
+      ),
+    );
+    Focus.of(tester.element(find.text('Home'))).requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect((opened, ancestor), (1, 0));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('typed route callback and adapter preserve destination type', (
     tester,
   ) async {

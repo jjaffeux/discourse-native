@@ -413,16 +413,17 @@ void main() {
       expect(type, 'my');
       await tester.tap(find.byKey(const ValueKey('create-group')));
       expect(created, 1);
-      final rowFocus = tester
-          .widget<FocusableActionDetector>(
-            find
-                .descendant(
-                  of: find.byKey(const ValueKey('group-row-support')),
-                  matching: find.byType(FocusableActionDetector),
-                )
-                .first,
-          )
-          .focusNode!;
+      // The row's own focus, the nearest one around its content.
+      final rowFocus = Focus.of(
+        tester.element(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('group-row-support')),
+                matching: find.byType(DItemContent),
+              )
+              .first,
+        ),
+      );
       rowFocus.requestFocus();
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);

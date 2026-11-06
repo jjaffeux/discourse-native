@@ -11,6 +11,7 @@ import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_hit_test.dart';
 import '../foundation/control_style.dart';
+import '../foundation/highlight_mode_tracking.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/tokens.dart';
@@ -361,13 +362,19 @@ class DItemInteraction extends InheritedWidget {
       pressed != oldWidget.pressed;
 }
 
-class _DItemState extends State<DItem> {
+class _DItemState extends State<DItem> with DHighlightModeTracking {
   FocusNode? _ownedFocus;
   FocusNode get _focus => widget.focusNode ?? (_ownedFocus ??= FocusNode());
   bool _hover = false;
   bool _pressed = false;
-  bool _focusVisible = false;
   bool _focused = false;
+  bool get _canRequestFocus =>
+      switch (MediaQuery.maybeNavigationModeOf(context)) {
+        NavigationMode.directional => true,
+        NavigationMode.traditional || null => _active,
+      };
+  bool get _focusVisible =>
+      _focused && _canRequestFocus && highlightModeShowsHighlight;
   bool _focusWithin = false;
   bool _pointerOnChildControl = false;
   bool get _active => widget.enabled && widget.onPressed != null;
@@ -690,8 +697,14 @@ class _DItemState extends State<DItem> {
         widget.link ||
         widget.cornerAction != null) {
       // Pointer hover remains visible while the app suppresses keyboard focus
-      // rings. FocusableActionDetector's hover highlight follows that policy.
+      // rings, which follow the focus highlight mode as
+      // FocusableActionDetector's do. A list mounts an item per row, so the
+      // item builds the detector's focus and cursor itself rather than paying
+      // its per-mount global key, listener and post-frame callback.
       result = MouseRegion(
+        cursor: _active
+            ? widget.mouseCursor ?? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
         onEnter: (_) {
           setState(() => _hover = true);
           if (_active) widget.onHoverChanged?.call(true);
@@ -700,16 +713,13 @@ class _DItemState extends State<DItem> {
           setState(() => _hover = false);
           if (_active) widget.onHoverChanged?.call(false);
         },
-        child: FocusableActionDetector(
-          enabled: _active,
+        child: Focus(
           focusNode: _focus,
-          autofocus: false,
-          mouseCursor: _active
-              ? widget.mouseCursor ?? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          onShowFocusHighlight: (value) =>
-              setState(() => _focusVisible = value),
-          onFocusChange: (value) => setState(() => _focused = value),
+          canRequestFocus: _canRequestFocus,
+          onFocusChange: (value) {
+            setState(() => _focused = value);
+            trackHighlightMode(engaged: value);
+          },
           child: DTouchTarget(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
