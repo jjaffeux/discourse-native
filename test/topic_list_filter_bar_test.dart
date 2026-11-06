@@ -514,7 +514,7 @@ void main() {
             find.descendant(of: indicator, matching: find.byType(DecoratedBox)),
           );
           expect(
-            (swatch.decoration! as BoxDecoration).color,
+            (swatch.decoration as BoxDecoration).color,
             kind == 'category'
                 ? const Color(0xFF3BBF7B)
                 : const Color(0xFF3188CC),
