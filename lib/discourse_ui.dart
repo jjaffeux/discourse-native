@@ -69,6 +69,7 @@ export 'src/ui/components/d_layout_glyph.dart';
 export 'src/ui/components/d_link_interaction.dart'
     show DLinkActivation, DLinkInteraction;
 export 'src/ui/components/d_marker.dart';
+export 'src/ui/components/d_math.dart';
 export 'src/ui/components/d_menu_feed_row.dart';
 export 'src/ui/components/d_menubar.dart';
 export 'src/ui/components/d_mermaid.dart';
@@ -139,5 +140,3 @@ export 'src/ui/foundation/oklab.dart';
 export 'src/ui/foundation/surface_depth.dart';
 export 'src/ui/foundation/tokens.dart';
 export 'src/ui/foundation/touch_target.dart';
-
-export 'src/ui/components/d_math.dart';

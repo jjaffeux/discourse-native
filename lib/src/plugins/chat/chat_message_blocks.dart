@@ -6,8 +6,7 @@ sealed class ChatBlock {
   final List<ChatBlockElement> elements;
 
   static List<ChatBlock> parse(Object? value) => List.unmodifiable([
-    for (final entry in jsonObjects(value).take(20))
-      ?_parse(entry),
+    for (final entry in jsonObjects(value).take(20)) ?_parse(entry),
   ]);
 
   static ChatBlock? _parse(Map<String, dynamic> json) {
@@ -129,8 +128,7 @@ typedef ChatBlockParameter = ({String label, String value, String? color});
 sealed class ChatBlockElement {
   const ChatBlockElement();
   static List<ChatBlockElement> parse(Object? value) => List.unmodifiable([
-    for (final json in jsonObjects(value).take(20))
-      ?_parse(json),
+    for (final json in jsonObjects(value).take(20)) ?_parse(json),
   ]);
   static ChatBlockElement? _parse(Map<String, dynamic> json) =>
       switch (json['type']) {

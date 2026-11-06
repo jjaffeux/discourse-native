@@ -87,6 +87,7 @@ final class PluginCookingHost {
   })
   request;
   final Future<CookingResult> Function(CookingRequest request) cook;
+
   /// Bypasses shared caches and request coalescing. Aborted or stale work
   /// returns no source-derived HTML; runtime admission stays bounded.
   final Future<CookingResult> Function(

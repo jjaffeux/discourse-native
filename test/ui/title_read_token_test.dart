@@ -75,7 +75,8 @@ void main() {
                 Color.alphaBlend(under, tokens.background),
               ),
               greaterThanOrEqualTo(4.5),
-              reason: '${preset.id}, $brightness, tint=$tint, muted unread title',
+              reason:
+                  '${preset.id}, $brightness, tint=$tint, muted unread title',
             );
           }
         }
