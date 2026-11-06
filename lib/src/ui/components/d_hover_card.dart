@@ -9,6 +9,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../foundation/overlay_observers.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import 'd_popover.dart';
@@ -388,7 +389,7 @@ class _DHoverCardState extends State<DHoverCard>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    DOverlayObservers.add(this);
     _focus.addListener(_focusListener);
     _controller._attach(this);
     _DHoverCardLayers.register(this);
@@ -840,7 +841,7 @@ class _DHoverCardState extends State<DHoverCard>
     _focus.removeListener(_focusListener);
     _open = false;
     _syncGlobalListeners();
-    WidgetsBinding.instance.removeObserver(this);
+    DOverlayObservers.remove(this);
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
     _allocatedFocus?.dispose();

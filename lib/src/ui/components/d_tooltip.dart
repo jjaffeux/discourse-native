@@ -10,6 +10,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
+import '../foundation/overlay_observers.dart';
 import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
@@ -249,7 +250,7 @@ class DTooltipState extends State<DTooltip>
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
+    DOverlayObservers.add(this);
   }
 
   @override
@@ -769,7 +770,7 @@ class DTooltipState extends State<DTooltip>
     _open = false;
     _tapPointer = null;
     _syncGlobalListeners();
-    WidgetsBinding.instance.removeObserver(this);
+    DOverlayObservers.remove(this);
     _allocatedCurve?.dispose();
     _allocatedAnimation?.dispose();
     super.dispose();
