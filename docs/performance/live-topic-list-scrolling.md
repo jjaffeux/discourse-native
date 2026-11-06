@@ -17,8 +17,8 @@ semantics configuration even with semantics off; see
 [the frames that remain](#the-frames-that-remain-garbage-collection). A
 desktop widget-test row now attaches 15% fewer render objects and keeps
 12% less memory, and live a pass promotes about 10% less. On an idle machine
-the list already fits every frame; the remaining drops come when it is
-busy.
+the list fits every frame of a scroll; a pulled refresh, which dropped one,
+no longer rebuilds rows whose topics did not change.
 
 The first round of changes, measured on its own while the machine was
 otherwise idle, on the pass that mounts the most rows (19,200 px back up the
@@ -349,6 +349,27 @@ less, which is what such a scavenge has to copy.
 Dart CPU inside frames did not change measurably: 225–242 µs per frame
 before and 237–250 µs after, over ranges that overlap. The two runs whose
 background load matched took 242 and 241 µs.
+
+### Pull-to-refresh
+
+The one frame left over budget on an idle machine was the frame that
+applies a pulled refresh: 14.6–16.2 ms of build in four of six runs, all of
+it rows updating their whole subtrees. A refreshed page decodes topics the
+store already holds, and `Topic.merge` keeps the held topic only when the
+fresh one is equal. None were: post voting attaches a record to every topic,
+which had no value equality, and its decoder filled in fields for a disabled
+topic that merging then discards. Board memberships had no value equality
+either. Every refresh therefore replaced every topic and rebuilt every row
+showing one, and so did page reloads and live updates of topics already
+held.
+
+With value equality, and a disabled record decoded the way merging leaves
+it, the refresh frame took 6.9, 3.3 and 3.9 ms over three runs, while the
+machine was busier than in the runs before (107–175% of a core in other
+processes, against 48–99%). What remains is the list laying out its rows
+again as the feed shrinks back to its first page.
+`test/topic_record_equality_test.dart` decodes topics twice through every
+bundled plugin and fails on a record that does not compare by value.
 
 ## Measurement
 

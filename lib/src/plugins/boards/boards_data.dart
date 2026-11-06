@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 const boardsPluginId = PluginId('boards');
 const boardsSettingsKey = PluginDataKey<BoardsSettings>(
@@ -393,6 +394,15 @@ final class BoardMemberships {
           }),
     ]),
   );
+
+  // A topic decoded again from the same payload is unchanged only if its
+  // records compare by value; see Topic.merge.
+  @override
+  bool operator ==(Object other) =>
+      other is BoardMemberships && listEquals(other.values, values);
+
+  @override
+  int get hashCode => Object.hashAll(values);
 }
 
 final class BoardMembership {
@@ -422,6 +432,18 @@ final class BoardMembership {
       boardText(first['unicode_column_title'] ?? first['column_title']),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is BoardMembership &&
+      other.boardId == boardId &&
+      other.name == name &&
+      other.slug == slug &&
+      other.cardId == cardId &&
+      other.columnTitle == columnTitle;
+
+  @override
+  int get hashCode => Object.hash(boardId, name, slug, cardId, columnTitle);
 }
 
 final class BoardMembershipCodec

@@ -168,6 +168,17 @@ final class PostVotingUser {
   final String username;
   final String? name;
   final String? avatarTemplate;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingUser &&
+      other.id == id &&
+      other.username == username &&
+      other.name == name &&
+      other.avatarTemplate == avatarTemplate;
+
+  @override
+  int get hashCode => Object.hash(id, username, name, avatarTemplate);
 }
 
 final class PostVotingTopicData
@@ -200,6 +211,9 @@ final class PostVotingTopicData
             nested
         ? json['is_post_voting'] == true && !privateMessage && !nested
         : null;
+    // The record merge keeps for a disabled topic, so a topic decoded again
+    // from the same payload stays equal to the one the store holds.
+    if (active == false) return const PostVotingTopicData(enabled: false);
     final lastRead = _nonnegative(json['last_read_post_number']);
     final highest = _positive(json['highest_post_number']);
     final unread = _nonnegative(json['unread_posts']);
@@ -262,15 +276,44 @@ final class PostVotingTopicData
   @override
   bool get repliesToTopic => enabled == true;
   @override
-  PostVotingTopicData markTopicRead() => PostVotingTopicData(
-    enabled: enabled,
-    answerCount: answerCount,
-    lastAnsweredAt: lastAnsweredAt,
-    lastCommentedOn: lastCommentedOn,
-    lastAnswerPostNumber: lastAnswerPostNumber,
-    lastAnswerer: lastAnswerer,
-    serverReadState: true,
-    detailMetadata: detailMetadata,
+  PostVotingTopicData markTopicRead() => enabled == false
+      ? this
+      : PostVotingTopicData(
+          enabled: enabled,
+          answerCount: answerCount,
+          lastAnsweredAt: lastAnsweredAt,
+          lastCommentedOn: lastCommentedOn,
+          lastAnswerPostNumber: lastAnswerPostNumber,
+          lastAnswerer: lastAnswerer,
+          serverReadState: true,
+          detailMetadata: detailMetadata,
+        );
+
+  // Every topic carries this record, so a topic decoded again from the same
+  // payload is unchanged only if the record compares by value: the store
+  // otherwise replaces the topic and every list row showing it rebuilds.
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingTopicData &&
+      other.enabled == enabled &&
+      other.answerCount == answerCount &&
+      other.lastAnsweredAt == lastAnsweredAt &&
+      other.lastCommentedOn == lastCommentedOn &&
+      other.lastAnswerPostNumber == lastAnswerPostNumber &&
+      other.lastAnswerer == lastAnswerer &&
+      other.serverReadState == serverReadState &&
+      other.detailMetadata == detailMetadata;
+
+  @override
+  int get hashCode => Object.hash(
+    enabled,
+    answerCount,
+    lastAnsweredAt,
+    lastCommentedOn,
+    lastAnswerPostNumber,
+    lastAnswerer,
+    serverReadState,
+    detailMetadata,
   );
 }
 
