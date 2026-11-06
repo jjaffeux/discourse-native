@@ -87,7 +87,7 @@ void main() {
       final buttons = find.byType(DButton);
       final surfaces = find.byWidgetPredicate(
         (widget) =>
-            widget is Container && widget.decoration is DButtonDecoration,
+            widget is DecoratedBox && widget.decoration is DButtonDecoration,
       );
       expect(
         tester.getRect(surfaces.last).left -
@@ -128,7 +128,7 @@ void main() {
         );
         final surfaces = find.byWidgetPredicate(
           (widget) =>
-              widget is Container && widget.decoration is DButtonDecoration,
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
         );
         final first = tester.getRect(surfaces.first);
         final second = tester.getRect(surfaces.last);
@@ -658,7 +658,8 @@ void main() {
           of: target,
           matching: find.byWidgetPredicate(
             (widget) =>
-                widget is Container && widget.decoration is DButtonDecoration,
+                widget is DecoratedBox &&
+                widget.decoration is DButtonDecoration,
           ),
         );
         expect(tester.getSize(target).height, height, reason: '$platform');

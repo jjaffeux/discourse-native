@@ -158,7 +158,8 @@ void main() {
             of: button,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is Container && widget.decoration is DButtonDecoration,
+                  widget is DecoratedBox &&
+                  widget.decoration is DButtonDecoration,
             ),
           );
           final style = DefaultTextStyle.of(

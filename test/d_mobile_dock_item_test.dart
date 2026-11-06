@@ -63,7 +63,8 @@ void main() {
           of: action,
           matching: find.byWidgetPredicate(
             (widget) =>
-                widget is Container && widget.decoration is DButtonDecoration,
+                widget is DecoratedBox &&
+                widget.decoration is DButtonDecoration,
           ),
         );
         expect(tester.getRect(action), tester.getRect(surface));
@@ -214,7 +215,7 @@ void main() {
         of: item,
         matching: find.byWidgetPredicate(
           (widget) =>
-              widget is Container && widget.decoration is DButtonDecoration,
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
         ),
       );
       expect(tester.getSize(item).width, 72);
@@ -237,7 +238,7 @@ void main() {
       // The bar marks the current place on its own edge; the item keeps no
       // fill and says it by weight and colour.
       final decoration =
-          tester.widget<Container>(capsule).decoration as DButtonDecoration;
+          tester.widget<DecoratedBox>(capsule).decoration as DButtonDecoration;
       expect(decoration.color, Colors.transparent);
       expect(tester.widget<Text>(label).style?.fontWeight, FontWeight.w600);
 

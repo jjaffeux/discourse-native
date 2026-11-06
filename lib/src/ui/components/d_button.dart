@@ -1570,8 +1570,10 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
     duration: _skipTransition ? Duration.zero : widget.duration,
     curve: Curves.ease,
     lerp: _lerpDecoration,
+    // A Container would add a Padding of the decoration's padding, which a
+    // control decoration never has: one render object per button for nothing.
     builder: (context, decoration) =>
-        Container(decoration: decoration, child: widget.child),
+        DecoratedBox(decoration: decoration, child: widget.child),
   );
 }
 
@@ -1715,15 +1717,18 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
         maxHeight: size.height.isFinite ? size.height : null,
       );
     }
-    final content = Padding(
-      padding: style.padding!.resolve(_states)!,
-      child: Align(
-        alignment: style.alignment!,
-        widthFactor: 1,
-        heightFactor: 1,
-        child: widget.child,
-      ),
+    final padding = style.padding!.resolve(_states)!;
+    final aligned = Align(
+      alignment: style.alignment!,
+      widthFactor: 1,
+      heightFactor: 1,
+      child: widget.child,
     );
+    // Inline metadata has no padding in any state, so leaving the Padding out
+    // never changes the tree's shape between builds.
+    final content = padding == EdgeInsets.zero
+        ? aligned
+        : Padding(padding: padding, child: aligned);
     // The pieces of a FocusableActionDetector this button uses. Its hover and
     // focus highlight bookkeeping (a global key, a highlight mode listener and
     // a post-frame callback per mount) has no callback here, and metadata rows
