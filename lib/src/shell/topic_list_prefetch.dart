@@ -36,10 +36,17 @@ final class _TopicListPrefetch {
 
   void register(_ConversationTopicCardState row) => _rows.add(row);
 
+  // Rows leave and lose the pointer by the dozen while the list scrolls. A
+  // row's key reads its reading policy from plugin data, and it can only
+  // match while something is prefetched, so it is built only then.
   void unregister(_ConversationTopicCardState row) {
     _rows.remove(row);
     _bounds.remove(row);
-    invalidate(_rowKey(row));
+    if (_key == null) {
+      _predictor.reset();
+    } else {
+      invalidate(_rowKey(row));
+    }
   }
 
   void invalidate((String, int, int?) key) {
@@ -61,7 +68,9 @@ final class _TopicListPrefetch {
       // usability check walks ancestors, so the cheap test goes first.
       if (_scrolling || !_usable) return;
       _select(row.row.siteUrl, row.row.topic, TopicPrefetchIntent.hover);
-    } else if (_key == _rowKey(row) && _intent == TopicPrefetchIntent.hover) {
+    } else if (_key != null &&
+        _intent == TopicPrefetchIntent.hover &&
+        _key == _rowKey(row)) {
       _releaseCurrent();
     }
   }
