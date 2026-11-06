@@ -10,6 +10,14 @@ app-level costs it paid on mount are gone or cut by an order of magnitude.
 The slowest frame of a first pass, where a page brings categories the site
 had not loaded, went from 5–9 ms to 2–4 ms.
 
+Most frames still over budget wait for the garbage collector rather than
+for row work. What a mounted row keeps alive is what each scavenge copies
+and then promotes, and in this Flutter build every render object keeps a
+semantics configuration even with semantics off; see
+[the frames that remain](#the-frames-that-remain-garbage-collection). A
+desktop widget-test row now attaches 18% fewer render objects and keeps
+13% less memory.
+
 The first round of changes, measured on its own while the machine was
 otherwise idle, on the pass that mounts the most rows (19,200 px back up the
 list, about 2,420 frames per run):
@@ -231,6 +239,83 @@ a trackpad scroll at the cursor, so a user cannot reach that state; the
 harness now pans where the mouse rests. Tooltips open only when hovered, as
 the trace confirmed.
 
+## The frames that remain: garbage collection
+
+After the changes above, the frames still over 8.33 ms of build in a warm
+pass carry much less sampled Dart CPU than their wall time: 4–6 ms of
+samples in frames of 9–21 ms. The profiled passes record the Dart, Embedder
+and GC timeline streams together, so the VM's ring buffer keeps only their
+last two seconds. In those two seconds, across four runs, nine of the ten
+frames over budget overlapped a collection on the UI thread: scavenges of
+9–17 ms, and once an old-generation finish of about 20 ms (incremental
+marking steps, then compaction and the final pause).
+
+The timing pass now records the GC stream alone, which covers the whole
+pass, and `tool/dart_gc_pauses.py` lines its collections up with frame
+builds. The two runs taken that way had to share the machine with a game:
+the app reached about 14 frames a second, so their frame counts are not
+comparable with the tables above. Their collections depend far less on
+frame timing than their frame times do, because they follow what the list
+allocates and keeps:
+
+| Timing pass | Run 1 | Run 2 |
+| --- | ---: | ---: |
+| Frames over 8.33 ms that overlapped a collection | 11 of 17 | 16 of 18 |
+| Scavenges, of them inside frames | 19, 11 | 22, 17 |
+| Frame time spent in collections, ms | 91 | 160 |
+| Scavenge pause, ms | 164 | 198 |
+| Promoted to the old generation, MB | 191 | 208 |
+
+New space holds 16 MB, and a scavenge copies its survivors. In these runs
+most scavenges left new space empty and promoted a median of 11 MB, up to
+16 MB. Rows mount faster than new space fills and stay mounted for a second
+or more, so much of what survives is likely mounted rows: they are
+promoted, die in the old generation when they scroll away, and are
+reclaimed by the next old-generation collection. The cost is the memory a
+mounted row keeps, so the measure of a fix is retained heap per row, not
+CPU per frame.
+
+### What a row keeps
+
+`flutter test --enable-vmservice` lets a test read its own live heap by
+class. Showing the desktop widget-test list a second time, after warming
+every path, and dividing the heap delta by the rows mounted gives the
+retained heap per row. Two runs agree to 0.01%.
+
+A bare `Padding` retains 2.9 KB with semantics off. 1.3 KB of that is
+semantics state, because `RenderObject.attach` reads
+`_semantics.configProvider.effective.isSemanticBoundary` before anything
+checks whether semantics is on. The read creates the render object's
+semantics fragment and a `SemanticsConfiguration` with five
+`AttributedString`s, three maps, four lists and two hash sets, and they live
+as long as the render object. This holds in Flutter 3.47.7 and on master.
+Guarding the read with `owner._semanticsOwner != null` in a copy of the SDK
+cut a row's retained heap from 1,702 KB to 1,186 KB, or 30%. The app cannot
+ship that guard; it belongs upstream.
+
+The app can attach fewer render objects. Each one it drops saves about
+2.3 KB: its share of semantics state, the render object, its element and
+its widget. A row carried tooltip plumbing, wrappers that lay out nothing,
+and two render objects where one describes a button's semantics:
+
+| Desktop widget-test row | Render objects | Elements | Retained heap |
+| --- | ---: | ---: | ---: |
+| Before | 400 | 909 | 1,754 KB |
+| Tooltip triggers take presses and paint their ring | 378 | 887 | 1,702 KB |
+| No-op paddings, wrappers and exclusions removed | 350 | 848 | 1,634 KB |
+| One render object for a button's merged semantics | 340 | 838 | — |
+| Inline buttons take presses in their hover region | 330 | 808 | 1,522 KB |
+
+The merged semantics were measured for heap together with the last step.
+Overall that is 13% less memory per row and 18% fewer render objects. The
+semantics trees of the list on macOS and iOS are identical after each step,
+including while a row is hovered and through a keyboard walk of a row's
+controls.
+
+These changes have not been measured live yet. The machine was in use by a
+game for the rest of the session, and a run would open the app over it.
+`tool/topic_row_cost.py` reruns the widget-test measurement.
+
 ## Measurement
 
 `integration_test/live_topic_list_scroll_profile_test.dart` boots the
@@ -268,9 +353,14 @@ rows.
   owner: an offscreen pass and blend per masked scrollable per frame. A
   replacement that leaves pixels unchanged still needs the backdrop under
   each fade to be one opaque colour.
-- A row still mounts about 680 elements. Each inline button is about 40 of
-  them and each tooltip about 10, most of them semantics, focus and
-  overlay plumbing that a resting row never uses.
+- Every attached render object builds its semantics configuration in
+  `RenderObject.attach`, semantics on or not: 30% of a row's retained
+  heap. The guard belongs upstream, in Flutter.
+- A closed `OverlayPortal` is two render objects and three elements, and a
+  row has nineteen: its tooltips, hover cards and context menus. Mounting
+  the portal only when it first shows would remove them, but a tooltip's
+  portal anchors its popup's traversal order in the semantics tree, so the
+  change needs the same semantics comparison as the ones above.
 - The list's separators are list children of their own, so the separated
   delegate gives each one a `RepaintBoundary`, a keep-alive wrapper and an
   offset layer. With eight rows on screen, seven of the list's fifteen
@@ -314,6 +404,10 @@ render objects and the other processes' CPU for every pass; the runner now
 samples that background load, so runs that shared the machine can be
 discarded.
 
+`python3 tool/topic_row_cost.py` mounts the desktop widget-test list and
+reports a row's render objects and elements, by type and by the widget that
+made them, and the heap it keeps alive by class.
+
 `--dart-define=PROFILE_CPU=false` builds a timing-only harness;
 `LIVE_CENSUS=false` skips the census passes; `LIVE_SITE` names another
 saved forum. `--trace time` adds an Instruments Time Profiler recording of
@@ -334,6 +428,14 @@ every thread.
   the middle of a list and replaces it at an edge.
 - `test/overlay_observers_test.dart` covers forwarding and removal during
   dispatch.
-- Tests that located the button surface through `AnimatedContainer` now
-  find the `Container` the transition builds. Every other failure in the
-  touched files also fails on `main`.
+- Tests that located the button surface through `AnimatedContainer`, and
+  then through the `Container` the transition built, find the
+  `DecoratedBox` that paints it.
+- `test/ui_tooltip_test.dart` pins that a press withdraws a nested
+  trigger's pending hint, and finds a focusable trigger's ring in what the
+  tooltip paints.
+- `test/d_button_inline_metadata_test.dart` pins that an inline button
+  that loses its action during a press ignores it, which disposes its
+  recognizer while the press is followed.
+
+Every other failure in the touched files also fails on `main`.
