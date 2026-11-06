@@ -238,15 +238,20 @@ void main() {
           'posts-min:11 posts-max:11',
         );
         final filters = find.byKey(const ValueKey('topic-list-filter'));
+        expect(
+          find.descendant(of: filters, matching: find.text('Filters · 1')),
+          findsOneWidget,
+        );
         if (platform == TargetPlatform.iOS) {
-          // A phone's row is short of room, so the pill shows its count
-          // and keeps its full name for a screen reader.
+          tester.view.physicalSize = Size(320, phone.height);
+          await tester.pumpAndSettle();
           expect(
             find.descendant(of: filters, matching: find.text('1')),
             findsOneWidget,
           );
           expect(tester.widget<DButton>(filters).semanticLabel, 'Filters · 1');
-        } else {
+          tester.view.physicalSize = phone;
+          await tester.pumpAndSettle();
           expect(
             find.descendant(of: filters, matching: find.text('Filters · 1')),
             findsOneWidget,

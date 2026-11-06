@@ -47,9 +47,10 @@ selection with pending requests under macOS, iOS, and Android layouts.
 
 ## Validation
 
-The five directly related filter test files passed 93 checks. Two existing
-failures reproduced identically with the unchanged controller from `6fb3561a4`.
-The iOS named-filter test expects a count-only button label, and the tag menu's
-feed-replacement test receives an empty search term after reopening. Both
-remain outside this category-typing change. Static analysis of the changed
-controller and test files reported no issues.
+The initial five-file validation passed 93 checks and exposed two existing
+failures, both reproduced with the unchanged controller from `6fb3561a4`.
+A follow-up corrects the responsive-label assertions and restores keyboard
+focus when a cached popover reopens. The responsive tests cover full labels,
+shortened labels under width pressure, and refitting after widening. The
+popover regression covers keyboard input before and after closing the menu.
+The category-typing latency measurement above remains unchanged.

@@ -813,6 +813,7 @@ class _DPopoverState extends State<DPopover>
               child: FocusScope(
                 node: _surfaceFocus,
                 canRequestFocus: _open,
+                descendantsAreFocusable: _open,
                 child: KeyedSubtree(key: _surfaceKey, child: widget.content),
               ),
             ),

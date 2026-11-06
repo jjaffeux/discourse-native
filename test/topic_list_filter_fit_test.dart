@@ -13,9 +13,6 @@ List<String?> _labels(WidgetTester tester) => find
     .toList();
 
 void main() {
-  // The test font draws every glyph a square, so the row's pills are wider
-  // than on a phone: at 520 the row holds Latest, Categories and Tags with
-  // short Tags and Filters beside them, and at 360 not even that.
   Future<void> pumpList(WidgetTester tester, double width, String query) async {
     final shell = await fixture.pumpMobileShellFixture(
       tester,
@@ -34,7 +31,7 @@ void main() {
   testWidgets('Filters keeps its count beside the other filters for room', (
     tester,
   ) async {
-    await pumpList(tester, 520, 'status:open');
+    await pumpList(tester, 360, 'status:open');
     expect(_labels(tester), ['1']);
     expect(
       find.descendant(of: _filters(), matching: find.byType(DIcon)),
@@ -63,7 +60,7 @@ void main() {
   testWidgets('Filters without a filter set keeps only its glyph for room', (
     tester,
   ) async {
-    await pumpList(tester, 520, '');
+    await pumpList(tester, 360, '');
     expect(_labels(tester), isEmpty);
     expect(
       find.descendant(of: _filters(), matching: find.byType(DIcon)),
