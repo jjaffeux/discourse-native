@@ -14,7 +14,9 @@ directory cards stand off the window's ground as the mockup's look A draws
 them. They take a 1px inset rim, a 1px catch of light along the top and
 painted drop shadows. [Surface depth parity](surface-depth-mockup-parity.md)
 maps each one to its mockup selector. There are still no glass tints, backdrop
-lenses, or blur layers.
+lenses, or blur layers, but for the frost a see-through palette gives phone
+menu sheets and the drawer's held headings
+([frost](phone-feet-and-sheets-mockup-parity.md#frost-under-a-see-through-palette)).
 
 Appearance JSON versions 1, 2, and 3 remain readable. Legacy `material` values
 are ignored. Saving appearance preferences omits that key and preserves the

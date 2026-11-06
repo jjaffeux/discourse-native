@@ -103,6 +103,10 @@ class ForumBackground {
   /// own [color], on a stronger [strength] scale; see [toAccentTint].
   final bool useAccentTint;
 
+  /// The share of a panel's fill the window shows through, in percent, up to
+  /// 30. Zero is an opaque palette, whose floating surfaces do not frost.
+  int get sheer => (transparency / maxTransparency * 30).round();
+
   /// Whether this draws nothing over the colours it is applied to.
   bool get isPlain =>
       strength == 0 &&

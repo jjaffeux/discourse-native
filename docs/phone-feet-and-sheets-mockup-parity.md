@@ -103,6 +103,35 @@ The poll, date, event, emoji, GIF and status sheets keep their standard
 inset sheet rather than the menu sheet; moving them is not part of this
 change.
 
+## Frost under a see-through palette
+
+Reference: `test-mobile-layout` at `9b59748`, `cd5cd18`'s `.menu-sheet` and
+`.side-nav--cards .side-section > .side-section__head` rules. The mockup sets
+`data-sheer` when `round((1 - paletteOpacity) * 30) > 0`.
+
+`DFrost` (`lib/src/ui/foundation/frost.dart`) is the one owner of that
+predicate. `ForumBackground.sheer` is `transparency / maxTransparency * 30`
+rounded, the theme carries it as a `DFrost` extension beside
+`ForumThemeEffects`, and the kit reads it from `Theme`, so sheets in the
+overlay see it with no shell wiring. Zero means nothing frosts and nothing
+builds a `BackdropFilter`. The frost is `blur(26px) saturate(1.3)`: a sigma of
+26 composed with a 1.3 saturation matrix.
+
+| Surface | Opaque palette | See-through palette |
+| --- | --- | --- |
+| Phone menu sheet (`DSheetContent` menu and adaptive menu, no caller fill) | `panelBackground`, no blur | Fill thinned by `round(sheer / 3)`% (the mockup's `--surface-menu`), backdrop frosted within the sheet's rounded outline |
+| Sheet to write on (`extendBehindKeyboard`, the mockup's `.is-full`) | Solid | Solid, never frosted |
+| Drawer card heading | Opaque `panelBackground` | Fill thinned by `sheer`%; while held (pinned) the rows under it are frosted over its full width |
+
+The frost sits behind the fill, so the fill is not itself blurred. The OS
+Reduce Transparency channel is gone from the app
+([appearance](material-mockup-parity.md)), so there is no flag to honour;
+`DFrost` follows the appearance opacity alone.
+
+Covered by `test/frost_test.dart` (sheet frost iff sheer, writing sheet solid,
+`ForumBackground.sheer`, the theme extension) and `test/d_sidebar_cards_test.dart`
+(held headings frost iff sheer).
+
 ## Validation
 
 `test/d_mobile_dock_geometry_test.dart`, `test/ui/d_sheet_adaptive_menu_test.dart`,

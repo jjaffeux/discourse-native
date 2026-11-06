@@ -12,6 +12,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/d_overlay_route.dart';
+import '../foundation/frost.dart';
 import '../foundation/menu_content_scale.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
 import '../foundation/surface_depth.dart';
@@ -2672,10 +2673,16 @@ class DSheetContent extends StatelessWidget {
       bottomLeft: menuFootCorners?.bottomLeft,
       bottomRight: menuFootCorners?.bottomRight,
     );
+    // A sheet to write on is solid; any other menu thins with the palette and
+    // frosts what it covers.
+    final frost = DFrost.of(context);
+    final frosted = menu && !writing && backgroundColor == null;
     final surfaceColor =
         backgroundColor ??
         (menu
-            ? tokens.panelBackground
+            ? (writing
+                  ? tokens.panelBackground
+                  : frost.menu(tokens.panelBackground))
             : fillAvailableHeight
             ? tokens.background.withValues(alpha: 1)
             : tokens.surface);
@@ -2698,104 +2705,110 @@ class DSheetContent extends StatelessWidget {
       child: DecoratedBox(
         position: DecorationPosition.foreground,
         decoration: BoxDecoration(border: border, borderRadius: radius),
-        child: Material(
-          animationDuration: Duration.zero,
+        child: DFrost.backdrop(
+          context,
+          enabled: frosted,
           borderRadius: radius,
-          clipBehavior:
-              inset || extendBehindKeyboard || menu || menuFootCorners != null
-              ? Clip.antiAlias
-              : Clip.none,
-          color: surfaceColor,
-          textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            fontSize: scaleContents
-                ? DControlStyle.labelFontSize
-                : DiscourseTypography.sm,
-            height: scaleContents ? 1.5 : 20 / 14,
-            fontWeight: FontWeight.w400,
-            letterSpacing: 0,
-            color: tokens.foreground,
-          ),
-          child: SafeArea(
-            top: resolved != DSheetSide.bottom,
-            bottom: !extendBehindKeyboard,
-            minimum: EdgeInsets.only(
-              bottom: extendBehindKeyboard
-                  ? 0
-                  : MediaQuery.viewInsetsOf(context).bottom,
+          child: Material(
+            animationDuration: Duration.zero,
+            borderRadius: radius,
+            clipBehavior:
+                inset || extendBehindKeyboard || menu || menuFootCorners != null
+                ? Clip.antiAlias
+                : Clip.none,
+            color: surfaceColor,
+            textStyle: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontSize: scaleContents
+                  ? DControlStyle.labelFontSize
+                  : DiscourseTypography.sm,
+              height: scaleContents ? 1.5 : 20 / 14,
+              fontWeight: FontWeight.w400,
+              letterSpacing: 0,
+              color: tokens.foreground,
             ),
-            child: Builder(
-              builder: (context) => MediaQuery.removeViewInsets(
-                context: context,
-                removeBottom: !extendBehindKeyboard,
-                child: Stack(
-                  children: [
-                    if (headerImage != null)
-                      Positioned(
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        height: 132,
-                        child: IgnorePointer(
-                          child: ExcludeSemantics(
-                            child: Stack(
-                              fit: StackFit.expand,
-                              children: [
-                                Image(
-                                  image: headerImage!,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, _, _) =>
-                                      const SizedBox.shrink(),
-                                ),
-                                DecoratedBox(
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        surfaceColor.withValues(alpha: .45),
-                                        surfaceColor.withValues(alpha: .84),
-                                        surfaceColor,
-                                      ],
-                                      stops: const [0, .55, 1],
+            child: SafeArea(
+              top: resolved != DSheetSide.bottom,
+              bottom: !extendBehindKeyboard,
+              minimum: EdgeInsets.only(
+                bottom: extendBehindKeyboard
+                    ? 0
+                    : MediaQuery.viewInsetsOf(context).bottom,
+              ),
+              child: Builder(
+                builder: (context) => MediaQuery.removeViewInsets(
+                  context: context,
+                  removeBottom: !extendBehindKeyboard,
+                  child: Stack(
+                    children: [
+                      if (headerImage != null)
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 132,
+                          child: IgnorePointer(
+                            child: ExcludeSemantics(
+                              child: Stack(
+                                fit: StackFit.expand,
+                                children: [
+                                  Image(
+                                    image: headerImage!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, _, _) =>
+                                        const SizedBox.shrink(),
+                                  ),
+                                  DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          surfaceColor.withValues(alpha: .45),
+                                          surfaceColor.withValues(alpha: .84),
+                                          surfaceColor,
+                                        ],
+                                        stops: const [0, .55, 1],
+                                      ),
                                     ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                    if (scrollWholeSheet)
-                      SingleChildScrollView(
-                        primary: false,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
+                      if (scrollWholeSheet)
+                        SingleChildScrollView(
+                          primary: false,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: parts,
+                          ),
+                        )
+                      else
+                        Column(
+                          mainAxisSize: fillsHeight
+                              ? MainAxisSize.max
+                              : MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: parts,
                         ),
-                      )
-                    else
-                      Column(
-                        mainAxisSize: fillsHeight
-                            ? MainAxisSize.max
-                            : MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: parts,
-                      ),
-                    if (resolved == DSheetSide.bottom)
-                      Positioned(top: 0, left: 0, right: 0, child: handle),
-                    if (showCloseButton)
-                      Positioned(
-                        top: DSpacing.md,
-                        right: DSpacing.md,
-                        child: (DSheetClose<void>(
-                          builder: (context, close) => DSheetHeaderAction.close(
-                            onPressed: close,
-                            tooltip: closeSemanticLabel,
-                          ),
-                        )),
-                      ),
-                  ],
+                      if (resolved == DSheetSide.bottom)
+                        Positioned(top: 0, left: 0, right: 0, child: handle),
+                      if (showCloseButton)
+                        Positioned(
+                          top: DSpacing.md,
+                          right: DSpacing.md,
+                          child: (DSheetClose<void>(
+                            builder: (context, close) =>
+                                DSheetHeaderAction.close(
+                                  onPressed: close,
+                                  tooltip: closeSemanticLabel,
+                                ),
+                          )),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

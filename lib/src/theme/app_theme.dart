@@ -469,6 +469,7 @@ abstract final class AppTheme {
       extensions: [
         ...theme.extensions.values,
         ForumThemeEffects(background: background),
+        DFrost(sheer: background.sheer),
       ],
     );
   }
@@ -682,6 +683,7 @@ abstract final class AppTheme {
               : null,
           sidebarTheme: sidebarTheme,
         ),
+        DFrost(sheer: palette.background?.sheer ?? 0),
       ],
     );
   }
