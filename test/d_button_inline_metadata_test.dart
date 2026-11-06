@@ -8,6 +8,37 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('a row of inline metadata buttons registers no global keys', (
+    tester,
+  ) async {
+    Future<int> keysWith(int buttons) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: Wrap(
+              children: [
+                for (var i = 0; i < buttons; i++)
+                  DButton(
+                    key: ValueKey(i),
+                    label: Text('Metadata $i'),
+                    variant: DButtonVariant.inline,
+                    density: DButtonDensity.inlineMetadata,
+                    onPressed: () {},
+                  ),
+              ],
+            ),
+          ),
+        ),
+      );
+      return tester.binding.buildOwner!.globalKeyCount;
+    }
+
+    final empty = await keysWith(0);
+    expect(await keysWith(10), empty);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final link in [false, true]) {
     testWidgets(
       'inline metadata retains activation and semantics (link=$link)',
