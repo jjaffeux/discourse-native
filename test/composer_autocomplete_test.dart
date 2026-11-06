@@ -541,6 +541,33 @@ void main() {
       ]);
     });
 
+    testWidgets('emoji results bypass occupied remote search slots', (
+      tester,
+    ) async {
+      gate = Completer<void>();
+      for (final query in ['s', 'sa']) {
+        popup.update(typed('hey @$query'));
+        await tester.pump(ComposerAutocomplete.debounce);
+      }
+      expect(asked, ['s', 'sa']);
+
+      popup.update(typed('a :sm'));
+      await tester.pump(ComposerAutocomplete.debounce);
+      expect(askedEmojis, ['sm']);
+      expect(popup.suggestions.map((suggestion) => suggestion.value), [
+        'smile',
+        'smirk',
+      ]);
+      expect(popup.canAccept(popup.suggestions.first), isTrue);
+
+      gate!.complete();
+      await tester.pump();
+      expect(popup.suggestions.map((suggestion) => suggestion.value), [
+        'smile',
+        'smirk',
+      ]);
+    });
+
     testWidgets('bounds slow searches and retains only the newest query', (
       tester,
     ) async {
