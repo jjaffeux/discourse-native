@@ -17,13 +17,28 @@ extension AppLocalizationContext on BuildContext {
 
 final _catalogues = <String, AppLocalizations>{};
 
+// Rows ask for messages per count and label as they build, and resolving a
+// locale against the catalogues scans them, so the catalogue last resolved is
+// kept for the locale it was resolved for. Resolution depends on that alone.
+String? _resolvedLocale;
+AppLocalizations? _resolvedCatalogue;
+
 /// Messages for presenters, models and services outside the widget tree.
 ///
 /// The application sets [Intl.defaultLocale] when Flutter resolves its locale.
 /// A standalone component, test or background isolate falls back to English.
 /// Zone overrides via [Intl.withLocale] are respected without mutating the app.
 AppLocalizations get appL10n {
-  final parts = Intl.canonicalizedLocale(Intl.getCurrentLocale()).split('_');
+  final current = Intl.getCurrentLocale();
+  if (current == _resolvedLocale) return _resolvedCatalogue!;
+  final catalogue = _resolve(current);
+  _resolvedLocale = current;
+  _resolvedCatalogue = catalogue;
+  return catalogue;
+}
+
+AppLocalizations _resolve(String current) {
+  final parts = Intl.canonicalizedLocale(current).split('_');
   final requested = Locale.fromSubtags(
     languageCode: parts.first,
     scriptCode: parts.length > 1 && parts[1].length == 4 ? parts[1] : null,
