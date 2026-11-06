@@ -223,9 +223,14 @@ rows.
   offset layer. With eight rows on screen, seven of the list's fifteen
   child boundaries are separators, and their offset and picture layers are
   14 of the widget-test scene's 43. `compositeFrame` takes about a
-  quarter of in-frame CPU in the warm pass. Drawing the rule inside the row
-  it follows would halve those layers, but it changes the list's index
-  mapping, extent estimation and keyboard selection.
+  quarter of in-frame CPU in the warm pass. Turning the delegate's
+  boundaries off and keeping one per row was measured and made scrolling
+  worse. Composite time fell 23 ms per warm pass, but the viewport's paint
+  rose 113 ms, because it then re-records every separator in every
+  scrolled frame: in-frame CPU 1,101–1,228 against 1,025–1,054 ms over
+  three alternating runs each. Drawing the rule inside the row it follows
+  would remove the layers without that repaint, but it changes the list's
+  index mapping, extent estimation and keyboard selection.
 - `super_sliver_list` 0.4.1 builds its `_log.fine` messages eagerly on
   every layout of the sliver, formatting six doubles each time: about
   5 ms per warm pass, 0.5% of in-frame CPU. That is for upstream to fix.
