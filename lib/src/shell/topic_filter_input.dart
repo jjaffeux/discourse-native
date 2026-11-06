@@ -85,6 +85,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
   final _sheetCommandKey = GlobalKey();
 
   ShellController? _shell;
+  Object? _engineInputs;
   TopicFilterController? _filter;
   List<String> _tokens = const [];
   bool _updatingTokenDraft = false;
@@ -148,7 +149,6 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     if (oldWidget.categoryParentId != widget.categoryParentId) {
       _categoryParentId = widget.categoryParentId;
     }
-    filter.updateEngine(_engine(_shell!));
     if (oldWidget.initialQuery != widget.initialQuery) {
       if (widget.tokenized) {
         final previous = splitTopicFilterQuery(
@@ -161,6 +161,9 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
       } else if (filter.text.text == oldWidget.initialQuery) {
         filter.text.text = widget.initialQuery;
       }
+    }
+    if (_engineKey(_shell!) != _engineInputs) {
+      filter.updateEngine(_engine(_shell!));
     }
   }
 
@@ -205,67 +208,82 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
     }
   }
 
-  TopicFilterSuggestions _engine(ShellController shell) =>
-      TopicFilterSuggestions(
-        options: [
-          if (widget.tokenized &&
-              !widget.options.any((item) => item.type == 'category'))
-            const TopicFilterOption(
-              name: 'category:',
-              type: 'category',
-              priority: 1,
-            ),
-          if (widget.tokenized &&
-              shell.siteConfigFor(widget.siteUrl).taggingEnabled &&
-              !widget.options.any((item) => item.type == 'tag'))
-            const TopicFilterOption(name: 'tag:', type: 'tag', priority: 1),
-          ...widget.options,
-        ],
-        hierarchicalCategories: widget.tokenized,
-        categoryParentId: _categoryParentId,
-        allOptions: widget.embedded,
-        menuField:
-            _activeMenuField ??
-            (widget.onlyKey == 'tag'
-                ? 'tags'
-                : widget.onlyKey == 'category'
-                ? 'category'
-                : null),
-        menuDateSelected: _menuDateSelected,
-        scopedKey: widget.onlyKey,
-        categories: widget.categories,
-        categoryLookup: (term) =>
-            shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
-        tags: (term) async {
-          final categoryId =
-              parseTopicFilterScope(
-                _tokens.join(' '),
-                widget.categories,
-              ).categoryId ??
-              widget.categoryContextId;
-          final remote = await shell.searchFilterTags(
-            siteUrl: widget.siteUrl,
-            term: term,
-            categoryId: categoryId,
-          );
-          if (!widget.embedded || categoryId != null) return remote;
-          return {
-            for (final tag in shell.topicListFilterTagsFor(widget.siteUrl))
-              if (tag.name.toLowerCase().contains(term.toLowerCase()))
-                tag.name: TopicFilterLookupValue(
+  int? get _tagCategoryId =>
+      parseTopicFilterScope(_tokens.join(' '), widget.categories).categoryId ??
+      widget.categoryContextId;
+
+  Object _engineKey(ShellController shell) => (
+    session: shell.lifecycle.capture(widget.siteUrl).session,
+    options: widget.options,
+    categories: widget.categories,
+    taggingEnabled: shell.siteConfigFor(widget.siteUrl).taggingEnabled,
+    embedded: widget.embedded,
+    scopedKey: widget.onlyKey,
+    categoryParentId: _categoryParentId,
+    categoryId: _tagCategoryId,
+    tagSource: _tagCategoryId == null
+        ? shell.topicListFilterTagsFor(widget.siteUrl)
+        : null,
+    menuField: _activeMenuField,
+    menuDateSelected: _menuDateSelected,
+  );
+
+  TopicFilterSuggestions _engine(ShellController shell) {
+    _engineInputs = _engineKey(shell);
+    return TopicFilterSuggestions(
+      options: [
+        if (widget.tokenized &&
+            !widget.options.any((item) => item.type == 'category'))
+          const TopicFilterOption(
+            name: 'category:',
+            type: 'category',
+            priority: 1,
+          ),
+        if (widget.tokenized &&
+            shell.siteConfigFor(widget.siteUrl).taggingEnabled &&
+            !widget.options.any((item) => item.type == 'tag'))
+          const TopicFilterOption(name: 'tag:', type: 'tag', priority: 1),
+        ...widget.options,
+      ],
+      hierarchicalCategories: widget.tokenized,
+      categoryParentId: _categoryParentId,
+      allOptions: widget.embedded,
+      menuField:
+          _activeMenuField ??
+          (widget.onlyKey == 'tag'
+              ? 'tags'
+              : widget.onlyKey == 'category'
+              ? 'category'
+              : null),
+      menuDateSelected: _menuDateSelected,
+      scopedKey: widget.onlyKey,
+      categories: widget.categories,
+      knownTags: _tagCategoryId == null
+          ? [
+              for (final tag in shell.topicListFilterTagsFor(widget.siteUrl))
+                TopicFilterLookupValue(
                   name: tag.name,
                   description: '${tag.count}',
                 ),
-            for (final tag in remote) tag.name: tag,
-          }.values.toList();
-        },
-        tagGroups: (term) =>
-            shell.searchFilterTagGroups(siteUrl: widget.siteUrl, term: term),
-        users: (term) =>
-            shell.searchFilterUsers(siteUrl: widget.siteUrl, term: term),
-        groups: (term) =>
-            shell.searchFilterGroups(siteUrl: widget.siteUrl, term: term),
-      );
+            ]
+          : null,
+      categoryLookup: (term) =>
+          shell.searchFilterCategories(siteUrl: widget.siteUrl, term: term),
+      tags: (term) async {
+        return shell.searchFilterTags(
+          siteUrl: widget.siteUrl,
+          term: term,
+          categoryId: _tagCategoryId,
+        );
+      },
+      tagGroups: (term) =>
+          shell.searchFilterTagGroups(siteUrl: widget.siteUrl, term: term),
+      users: (term) =>
+          shell.searchFilterUsers(siteUrl: widget.siteUrl, term: term),
+      groups: (term) =>
+          shell.searchFilterGroups(siteUrl: widget.siteUrl, term: term),
+    );
+  }
 
   void _onTextChanged() {
     if (widget.tokenized && !_updatingTokenDraft) {
@@ -457,7 +475,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           up: true,
         );
         return KeyEventResult.handled;
-      case LogicalKeyboardKey.escape when filter.isOpen:
+      case LogicalKeyboardKey.escape when filter.menuRequested:
         if (widget.controller != null) return KeyEventResult.ignored;
         final lead = widget.onlyKey == null ? '' : '${widget.onlyKey}:';
         if (widget.tokenized && filter.text.text != lead) {
@@ -468,7 +486,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           widget.onDismiss?.call();
         }
         return KeyEventResult.handled;
-      case LogicalKeyboardKey.tab when filter.isOpen:
+      case LogicalKeyboardKey.tab when filter.menuRequested:
         unawaited(_acceptSelectedOrFallback(allowFallback: false));
         return KeyEventResult.handled;
       case LogicalKeyboardKey.backspace
@@ -510,7 +528,7 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
             filter.text.text.isEmpty &&
             _tokens.isNotEmpty) {
           unawaited(widget.onSubmitted(_composeTokenQuery()));
-        } else if (filter.isOpen) {
+        } else if (filter.menuRequested) {
           unawaited(_acceptSelectedOrFallback());
         } else if (widget.tokenized) {
           _commitTokenDraft();

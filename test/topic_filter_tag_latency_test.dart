@@ -136,6 +136,40 @@ void main() {
     );
   });
 
+  testWidgets('empty group results retain local tags while tag search waits', (
+    tester,
+  ) async {
+    final remote = Completer<List<TopicFilterLookupValue>>();
+    final controller = TopicFilterController(
+      initialQuery: 'tag:known',
+      submitQuery: (_) async {},
+      engine: TopicFilterSuggestions(
+        options: const [
+          _tagOption,
+          TopicFilterOption(name: 'tag_group:', type: 'tag_group'),
+        ],
+        categories: const [],
+        categoryLookup: (_) async => const [],
+        knownTags: const [TopicFilterLookupValue(name: 'known-tag')],
+        tags: (_) => remote.future,
+        tagGroups: (_) async => const [],
+        users: (_) async => const [],
+        groups: (_) async => const [],
+        allOptions: true,
+        menuField: 'tags',
+      ),
+    );
+    addTearDown(controller.dispose);
+    final pending = controller.refreshSuggestions();
+    await tester.pump();
+    expect(controller.selected?.displayName, 'known-tag');
+    expect(await controller.ensureFreshSuggestions(), isTrue);
+    expect(remote.isCompleted, isFalse);
+    remote.complete(const []);
+    await pending;
+    expect(controller.selected?.displayName, 'known-tag');
+  });
+
   testWidgets('failed tag-group enrichment keeps ready tags', (tester) async {
     final remote = Completer<List<TopicFilterLookupValue>>();
     final controller = TopicFilterController(
@@ -215,6 +249,87 @@ void main() {
     groups.complete(const []);
     await tester.pumpAndSettle();
     expect(find.text('ready-tag', findRichText: true), findsOneWidget);
+  });
+
+  testWidgets('tag enrichment preserves the highlighted local choice', (
+    tester,
+  ) async {
+    final remote = Completer<List<TopicFilterLookupValue>>();
+    final groups = Completer<List<TopicFilterLookupValue>>();
+    final controller = TopicFilterController(
+      initialQuery: 'tag:',
+      submitQuery: (_) async {},
+      engine: TopicFilterSuggestions(
+        options: const [
+          _tagOption,
+          TopicFilterOption(name: 'tag_group:', type: 'tag_group'),
+        ],
+        categories: const [],
+        categoryLookup: (_) async => const [],
+        knownTags: const [
+          TopicFilterLookupValue(name: 'alpha', description: '1'),
+          TopicFilterLookupValue(name: 'beta', description: '2'),
+        ],
+        tags: (_) => remote.future,
+        tagGroups: (_) => groups.future,
+        users: (_) async => const [],
+        groups: (_) async => const [],
+        allOptions: true,
+        menuField: 'tags',
+      ),
+    );
+    addTearDown(controller.dispose);
+    final pending = controller.refreshSuggestions();
+    controller.select(1);
+    expect(controller.selected?.displayName, 'alpha');
+    groups.complete(const [TopicFilterLookupValue(name: 'Group')]);
+    await tester.pump();
+    expect(controller.selected?.displayName, 'alpha');
+    remote.complete(const [
+      TopicFilterLookupValue(name: 'gamma', description: '100'),
+    ]);
+    await pending;
+    expect(controller.suggestions.first.displayName, 'gamma');
+    expect(controller.selected?.displayName, 'alpha');
+  });
+
+  testWidgets('obsolete partial tag results cannot replace the current query', (
+    tester,
+  ) async {
+    final old = Completer<List<TopicFilterLookupValue>>();
+    final groups = Completer<List<TopicFilterLookupValue>>();
+    final controller = TopicFilterController(
+      initialQuery: 'tag:old',
+      submitQuery: (_) async {},
+      engine: TopicFilterSuggestions(
+        options: const [
+          _tagOption,
+          TopicFilterOption(name: 'tag_group:', type: 'tag_group'),
+        ],
+        categories: const [],
+        categoryLookup: (_) async => const [],
+        knownTags: const [TopicFilterLookupValue(name: 'current')],
+        tags: (term) => term == 'old' ? old.future : Future.value(const []),
+        tagGroups: (term) =>
+            term == 'old' ? groups.future : Future.value(const []),
+        users: (_) async => const [],
+        groups: (_) async => const [],
+        allOptions: true,
+        menuField: 'tags',
+      ),
+    );
+    addTearDown(controller.dispose);
+    final first = controller.refreshSuggestions();
+    controller.text.text = 'tag:current';
+    controller.inputChanged(controller.text.text);
+    final current = controller.refreshSuggestions();
+    old.complete(const [TopicFilterLookupValue(name: 'old')]);
+    await tester.pump();
+    expect(controller.selected?.displayName, 'current');
+    groups.complete(const [TopicFilterLookupValue(name: 'Old group')]);
+    await first;
+    await current;
+    expect(controller.suggestions.map((item) => item.displayName), ['current']);
   });
 
   testWidgets('server-advertised tag shortcuts do not wait for scoped search', (

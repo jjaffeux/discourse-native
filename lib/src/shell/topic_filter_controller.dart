@@ -57,6 +57,7 @@ class TopicFilterSuggestions {
     required this.tagGroups,
     required this.users,
     required this.groups,
+    this.knownTags,
     this.hierarchicalCategories = false,
     this.categoryParentId,
     this.allOptions = false,
@@ -80,6 +81,23 @@ class TopicFilterSuggestions {
   final TopicFilterLookup tagGroups;
   final TopicFilterLookup users;
   final TopicFilterLookup groups;
+  final List<TopicFilterLookupValue>? knownTags;
+
+  List<TopicFilterLookupValue> _tagMatches(
+    String term,
+    Iterable<TopicFilterLookupValue> remote,
+  ) {
+    final byName = {for (final tag in remote) tag.name.toLowerCase(): tag};
+    for (final tag in knownTags ?? const <TopicFilterLookupValue>[]) {
+      if (tag.name.toLowerCase().contains(term.toLowerCase())) {
+        byName.putIfAbsent(tag.name.toLowerCase(), () => tag);
+      }
+    }
+    return byName.values.toList();
+  }
+
+  Future<List<TopicFilterLookupValue>> _tagValues(String term) async =>
+      _tagMatches(term, await tags(term));
 
   _FilterSegment _segment(String text) => scopedKey == null
       ? _FilterInput(text).lastSegment
@@ -93,12 +111,36 @@ class TopicFilterSuggestions {
           hasColon: true,
         );
 
-  List<TopicFilterSuggestion>? _localCategorySuggestions(String text) {
+  List<TopicFilterSuggestion>? _immediateSuggestions(String text) {
     final segment = _segment(text);
     if (!segment.hasColon || segment.filterName == null) return null;
     final option = _findOption(segment.filterName!);
-    if (option?.type != 'category') return null;
-    return _categorySuggestions(segment, option!, const []);
+    if (option?.type == 'category') {
+      return _categorySuggestions(segment, option!, const []);
+    }
+    if (option?.type != 'tag') return null;
+    final values = _values(option!, segment);
+    final matches = (knownTags ?? const <TopicFilterLookupValue>[]).where(
+      (tag) => tag.name.toLowerCase().contains(values.searchTerm.toLowerCase()),
+    );
+    final field = allOptions
+        ? topicFilterMenuFields(options)
+              .where(
+                (field) =>
+                    field.id == menuField &&
+                    field.keys.contains('${segment.filterName}:'),
+              )
+              .firstOrNull
+        : null;
+    if (field?.id == 'tags') {
+      return _tagMenuSuggestions(segment, field!, matches);
+    }
+    if (knownTags == null) return null;
+    return values.lookupValues(
+      matches,
+      delimiterAware: true,
+      quoteWhitespace: true,
+    );
   }
 
   _ValueSuggester _values(TopicFilterOption option, _FilterSegment segment) =>
@@ -106,16 +148,22 @@ class TopicFilterSuggestions {
         option: option,
         segment: segment,
         categories: categories,
-        tags: tags,
+        tags: _tagValues,
         tagGroups: tagGroups,
         users: users,
         groups: groups,
       );
 
-  Future<List<TopicFilterSuggestion>> suggestions(String text) async {
+  Future<List<TopicFilterSuggestion>> suggestions(
+    String text, {
+    ValueChanged<List<TopicFilterSuggestion>>? onPartialResults,
+  }) async {
     final segment = _segment(text);
     if (allOptions) {
-      final menu = await _menuSuggestions(segment);
+      final menu = await _menuSuggestions(
+        segment,
+        onPartialResults: onPartialResults,
+      );
       if (menu != null) return menu;
     }
     if (segment.word.isEmpty) {
@@ -326,7 +374,7 @@ class TopicFilterController extends ChangeNotifier {
   _QueuedTopicFilterSuggestions? _queuedSuggestions;
   bool _disposed = false;
   String? _lastSuggestionInput;
-  ({String input, int session})? _localSuggestionsFor;
+  ({String input, int session})? _immediateSuggestionsFor;
   List<TopicFilterSuggestion> _suggestions = const [];
   int _selectedIndex = -1;
   bool _open = false;
@@ -349,8 +397,9 @@ class TopicFilterController extends ChangeNotifier {
 
   void inputChanged(String value) {
     _suggestionSession++;
+    _lastSuggestionInput = null;
     _open = true;
-    _publishLocalCategories();
+    _publishImmediateSuggestions();
     _selectedIndex = _suggestions.isEmpty ? -1 : 0;
     _timer?.cancel();
     _timer = Timer(debounce, refreshSuggestions);
@@ -366,12 +415,14 @@ class TopicFilterController extends ChangeNotifier {
     if (_disposed) return false;
     final input = text.text;
     final session = _suggestionSession;
-    if (_lastSuggestionInput == input || _hasUsableLocalCategories) return true;
+    if (_lastSuggestionInput == input || _hasUsableImmediateSuggestions) {
+      return true;
+    }
     _timer?.cancel();
     _timer = null;
     final refresh = refreshSuggestions();
     final request = _request;
-    if (_hasUsableLocalCategories) return true;
+    if (_hasUsableImmediateSuggestions) return true;
     await refresh;
     // A keyboard action waiting on this lookup belongs to the input and menu
     // session that started it, even when the user later returns to that text.
@@ -383,9 +434,11 @@ class TopicFilterController extends ChangeNotifier {
 
   Future<void> refreshSuggestions() {
     if (_disposed) return Future<void>.value();
+    _timer?.cancel();
+    _timer = null;
     final input = text.text;
     final request = ++_request;
-    if (_publishLocalCategories()) notifyListeners();
+    if (_publishImmediateSuggestions()) notifyListeners();
     final queued = _QueuedTopicFilterSuggestions(
       input,
       request,
@@ -401,18 +454,19 @@ class TopicFilterController extends ChangeNotifier {
     return queued.done.future;
   }
 
-  bool get _hasUsableLocalCategories =>
-      _localSuggestionsFor == (input: text.text, session: _suggestionSession) &&
+  bool get _hasUsableImmediateSuggestions =>
+      _immediateSuggestionsFor ==
+          (input: text.text, session: _suggestionSession) &&
       _suggestions.isNotEmpty;
 
-  bool _publishLocalCategories() {
+  bool _publishImmediateSuggestions() {
     final snapshot = (input: text.text, session: _suggestionSession);
-    if (_localSuggestionsFor == snapshot) return false;
-    final local = engine._localCategorySuggestions(text.text);
-    final selectedName = _localSuggestionsFor?.input == snapshot.input
+    if (_immediateSuggestionsFor == snapshot) return false;
+    final local = engine._immediateSuggestions(text.text);
+    final selectedName = _immediateSuggestionsFor?.input == snapshot.input
         ? selected?.name
         : null;
-    _localSuggestionsFor = local == null ? null : snapshot;
+    _immediateSuggestionsFor = local == null ? null : snapshot;
     if (local == null) return false;
     _suggestions = local;
     final retained = local.indexWhere((item) => item.name == selectedName);
@@ -441,7 +495,28 @@ class TopicFilterController extends ChangeNotifier {
     List<TopicFilterSuggestion> result;
     var failed = false;
     try {
-      result = await queued.engine.suggestions(queued.input);
+      result = await queued.engine.suggestions(
+        queued.input,
+        onPartialResults: (values) {
+          if (!_isCurrent(queued)) return;
+          final selectedName = selected?.name;
+          _immediateSuggestionsFor = (
+            input: queued.input,
+            session: queued.session,
+          );
+          _suggestions = values;
+          final retained = values.indexWhere(
+            (item) => item.name == selectedName,
+          );
+          _selectedIndex = retained >= 0
+              ? retained
+              : values.isEmpty
+              ? -1
+              : 0;
+          notifyListeners();
+          onSuggestionsReady?.call();
+        },
+      );
     } catch (_) {
       failed = true;
       result = const [];
@@ -450,8 +525,10 @@ class TopicFilterController extends ChangeNotifier {
       // A thrown lookup is not an answer for this input: recording it would
       // make ensureFreshSuggestions treat the failure as final and never retry.
       if (!failed) _lastSuggestionInput = queued.input;
-      if (!failed || !_hasUsableLocalCategories) {
-        final selectedName = _hasUsableLocalCategories ? selected?.name : null;
+      if (!failed || !_hasUsableImmediateSuggestions) {
+        final selectedName = _hasUsableImmediateSuggestions
+            ? selected?.name
+            : null;
         _suggestions = result;
         final retained = result.indexWhere((item) => item.name == selectedName);
         _selectedIndex = retained >= 0
@@ -696,11 +773,27 @@ class _ValueSuggester {
     bool quoteWhitespace = false,
     bool displayTermOnly = false,
   }) async {
+    return lookupValues(
+      await lookup(searchTerm),
+      delimiterAware: delimiterAware,
+      quote: quote,
+      quoteWhitespace: quoteWhitespace,
+      displayTermOnly: displayTermOnly,
+    );
+  }
+
+  List<TopicFilterSuggestion> lookupValues(
+    Iterable<TopicFilterLookupValue> values, {
+    bool delimiterAware = false,
+    bool quote = false,
+    bool quoteWhitespace = false,
+    bool displayTermOnly = false,
+  }) {
     final used = delimiterAware
         ? previousValues.map((item) => item.toLowerCase()).toSet()
         : const <String>{};
     var result = <TopicFilterSuggestion>[];
-    for (final value in await lookup(searchTerm)) {
+    for (final value in values) {
       if (used.contains(value.name.toLowerCase())) continue;
       final term =
           quote || quoteWhitespace && value.name.contains(RegExp(r'\s'))

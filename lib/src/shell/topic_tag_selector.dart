@@ -85,6 +85,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
   Future<TopicTagSearch> _search(String query) async {
     final known = _knownMatches(query);
     final result = await widget.search(query.trim());
+    if (result.isForbidden || result.explanation != null) return result;
     final byName = <String, TopicTag>{};
     for (final tag
         in widget.includeAll
@@ -113,10 +114,16 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       _result = result;
       _loading = false;
     });
+    _highlight();
+  }
+
+  void _highlight() {
+    final query = _query;
+    final result = _result;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted &&
           _combobox.isOpen &&
-          !_loading &&
+          _query == query &&
           identical(_result, result)) {
         _combobox.highlight(
           _newTag ?? _visibleResults.where(_enabled).firstOrNull,
@@ -136,6 +143,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       _result = const TopicTagSearch();
       _loading = true;
     });
+    _highlight();
     _lookup.request('');
   }
 
@@ -149,6 +157,7 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       _result = const TopicTagSearch();
       _loading = true;
     });
+    _highlight();
     _debounce = Timer(
       const Duration(milliseconds: 250),
       () => _lookup.request(query),
@@ -172,7 +181,6 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       !tag.disabled && (_selected(tag) || !_atMaximum);
 
   List<TopicTag> get _visibleResults {
-    if (_loading) return const [];
     final seen = <String>{};
     return [
       for (final tag in [
@@ -182,7 +190,8 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
               (tag.slug?.toLowerCase().contains(_query.trim().toLowerCase()) ??
                   false),
         ),
-        ..._result.results,
+        if (_loading && widget.includeAll) ..._knownMatches(_query),
+        if (!_loading) ..._result.results,
       ])
         if (seen.add(tag.name.toLowerCase())) tag,
     ];
@@ -344,7 +353,21 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
         onOpenChanged: _openChanged,
         onValuesChanged: (tags, _) {
           final clear = tags.contains(_all) && selected.isNotEmpty;
-          if (_loading && !clear) return;
+          if (_loading && !clear) {
+            final changes = [
+              ...selected.where(
+                (tag) => !tags.any((value) => _sameTag(tag, value)),
+              ),
+              ...tags.where((tag) => tag != _all && !_selected(tag)),
+            ];
+            if (changes.any(
+              (tag) =>
+                  !_enabled(tag) ||
+                  !_visibleResults.any((value) => _sameTag(tag, value)),
+            )) {
+              return;
+            }
+          }
           widget.onChanged?.call(
             clear ? const [] : tags.where((tag) => tag != _all).toList(),
           );
@@ -364,7 +387,13 @@ class _TopicTagSelectorState extends State<TopicTagSelector> {
       onQueryChanged: _queryChanged,
       onOpenChanged: _openChanged,
       onChanged: (tag, _) {
-        if (_loading && tag != _all) return;
+        if (_loading &&
+            tag != null &&
+            tag != _all &&
+            (!_enabled(tag) ||
+                !_visibleResults.any((value) => _sameTag(tag, value)))) {
+          return;
+        }
         if (tag == _all || tag == null) {
           if (selected.isNotEmpty) widget.onChanged?.call(const []);
         } else if (!_selected(tag)) {

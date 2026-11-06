@@ -373,7 +373,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   void _choose(TopicTag tag, {int? generation}) {
-    if (_loading ||
+    if ((_loading && !_selected(tag)) ||
         (generation != null && generation != _searchGeneration) ||
         tag.disabled) {
       return;
@@ -391,7 +391,9 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   TopicTag? get _newTag {
-    if (_result.isForbidden || _result.explanation != null) return null;
+    if (_result.isForbidden || _result.explanation != null) {
+      return null;
+    }
     final name = _query.text.trim();
     if (!widget.capabilities.canCreateTagNamed(name) ||
         widget.selectedTags.any(
@@ -407,9 +409,8 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   void _submitQuery() {
-    if (_loading) return;
     final newTag = _newTag;
-    if (newTag != null) {
+    if (newTag != null && !_loading) {
       _choose(newTag);
       return;
     }
@@ -420,7 +421,6 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
   }
 
   List<TopicTag> get _visibleResults {
-    if (_loading) return const [];
     final seen = <String>{};
     final term = _query.text.trim().toLowerCase();
     return [
@@ -428,7 +428,7 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
         ...widget.selectedTags.where(
           (tag) => tag.name.toLowerCase().contains(term),
         ),
-        ..._result.results,
+        if (!_loading) ..._result.results,
       ])
         if (seen.add(_tagIdentity(tag))) tag,
     ];
@@ -460,92 +460,90 @@ class _TopicTagPickerState extends State<TopicTagPicker> {
                 ? null
                 : () => _choose(newTag, generation: generation),
           ),
-        if (_loading)
-          const TopicTaxonomyPickerProgress()
-        else ...[
-          if (_result.explanation case final message?)
-            TopicTaxonomyPickerMessage(message, error: true),
-          for (final tag in _visibleResults)
-            GestureDetector(
-              behavior: HitTestBehavior.deferToChild,
-              excludeFromSemantics: true,
-              onTertiaryTapUp: widget.onTagNavigate == null
-                  ? null
-                  : (_) => widget.onTagNavigate!(tag, newTab: true),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 2),
-                child: DItem(
-                  size: DItemSize.xs,
-                  focusNode: _rowFocusNodes.putIfAbsent(
-                    _tagIdentity(tag),
-                    () => FocusNode(skipTraversal: true),
-                  ),
-                  onPressed: tag.disabled || (!_selected(tag) && _atMaximum)
-                      ? null
-                      : () => _choose(tag, generation: generation),
-                  padding: EdgeInsets.zero,
-                  children: [
-                    DItemContent(
-                      children: [
-                        DCheckbox(
-                          key: ValueKey(('topic-tag-picker-option', tag.name)),
-                          enabled:
-                              !tag.disabled && (_selected(tag) || !_atMaximum),
-                          value: _selected(tag),
-                          title: DLabel(
-                            style: const TextStyle(
-                              height: 1.375,
-                              fontWeight: FontWeight.w400,
-                            ),
-                            child: Text(tag.name),
-                          ),
-                          subtitle: tag.disabledReason == null
-                              ? null
-                              : Text(tag.disabledReason!),
-                          secondary: widget.onTagNavigate == null
-                              ? null
-                              : LinkTarget.action(
-                                  action: ({required newTab, panel}) =>
-                                      widget.onTagNavigate!(
-                                        tag,
-                                        newTab: newTab,
-                                        panel: panel,
-                                      ),
-                                  child: DButton.iconOnly(
-                                    key: ValueKey((
-                                      'topic-tag-picker-open',
-                                      tag.name,
-                                    )),
-                                    icon: const DIcon(DIcons.upRightFromSquare),
-                                    tooltip: context.l10n.openTag(
-                                      (tag.name).toString(),
-                                    ),
-                                    onPressed: () => widget.onTagNavigate!(tag),
-                                    isLink: true,
-                                    variant: DButtonVariant.ghost,
-                                    size: DButtonSize.small,
-                                  ),
-                                ),
-                          onChanged:
-                              tag.disabled || (!_selected(tag) && _atMaximum)
-                              ? null
-                              : (_) => _choose(tag, generation: generation),
-                        ),
-                      ],
-                    ),
-                  ],
+        if (_loading) const TopicTaxonomyPickerProgress(),
+        if (_result.explanation case final message? when !_loading)
+          TopicTaxonomyPickerMessage(message, error: true),
+        for (final tag in _visibleResults)
+          GestureDetector(
+            behavior: HitTestBehavior.deferToChild,
+            excludeFromSemantics: true,
+            onTertiaryTapUp: widget.onTagNavigate == null
+                ? null
+                : (_) => widget.onTagNavigate!(tag, newTab: true),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: DItem(
+                size: DItemSize.xs,
+                focusNode: _rowFocusNodes.putIfAbsent(
+                  _tagIdentity(tag),
+                  () => FocusNode(skipTraversal: true),
                 ),
+                onPressed: tag.disabled || (!_selected(tag) && _atMaximum)
+                    ? null
+                    : () => _choose(tag, generation: generation),
+                padding: EdgeInsets.zero,
+                children: [
+                  DItemContent(
+                    children: [
+                      DCheckbox(
+                        key: ValueKey(('topic-tag-picker-option', tag.name)),
+                        enabled:
+                            !tag.disabled && (_selected(tag) || !_atMaximum),
+                        value: _selected(tag),
+                        title: DLabel(
+                          style: const TextStyle(
+                            height: 1.375,
+                            fontWeight: FontWeight.w400,
+                          ),
+                          child: Text(tag.name),
+                        ),
+                        subtitle: tag.disabledReason == null
+                            ? null
+                            : Text(tag.disabledReason!),
+                        secondary: widget.onTagNavigate == null
+                            ? null
+                            : LinkTarget.action(
+                                action: ({required newTab, panel}) =>
+                                    widget.onTagNavigate!(
+                                      tag,
+                                      newTab: newTab,
+                                      panel: panel,
+                                    ),
+                                child: DButton.iconOnly(
+                                  key: ValueKey((
+                                    'topic-tag-picker-open',
+                                    tag.name,
+                                  )),
+                                  icon: const DIcon(DIcons.upRightFromSquare),
+                                  tooltip: context.l10n.openTag(
+                                    (tag.name).toString(),
+                                  ),
+                                  onPressed: () => widget.onTagNavigate!(tag),
+                                  isLink: true,
+                                  variant: DButtonVariant.ghost,
+                                  size: DButtonSize.small,
+                                ),
+                              ),
+                        onChanged:
+                            tag.disabled || (!_selected(tag) && _atMaximum)
+                            ? null
+                            : (_) => _choose(tag, generation: generation),
+                      ),
+                    ],
+                  ),
+                ],
               ),
             ),
-          if (newTag == null &&
-              _visibleResults.isEmpty &&
-              _result.explanation == null)
-            TopicTaxonomyPickerMessage(
-              _query.text.trim().isEmpty
-                  ? context.l10n.noTagsAvailable
-                  : context.l10n.noMatchingTags,
-            ),
-        ],
+          ),
+        if (!_loading &&
+            newTag == null &&
+            _visibleResults.isEmpty &&
+            _result.explanation == null)
+          TopicTaxonomyPickerMessage(
+            _query.text.trim().isEmpty
+                ? context.l10n.noTagsAvailable
+                : context.l10n.noMatchingTags,
+          ),
       ],
     );
   }

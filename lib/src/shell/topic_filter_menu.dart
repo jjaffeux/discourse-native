@@ -158,8 +158,9 @@ String _menuWords(String value) {
 
 extension _TopicFilterMenuSuggestions on TopicFilterSuggestions {
   Future<List<TopicFilterSuggestion>?> _menuSuggestions(
-    _FilterSegment segment,
-  ) async {
+    _FilterSegment segment, {
+    ValueChanged<List<TopicFilterSuggestion>>? onPartialResults,
+  }) async {
     final fields = topicFilterMenuFields(options);
     final current = fields.where((f) => f.id == menuField).firstOrNull;
     final key = segment.filterName;
@@ -189,52 +190,26 @@ extension _TopicFilterMenuSuggestions on TopicFilterSuggestions {
     if (field == null) return null;
     final value = segment.value ?? '';
     if (field.id == 'tags' && const {'tag', 'tags'}.contains(key)) {
-      final groupOption = field.options
-          .where((o) => o.type == 'tag_group')
-          .firstOrNull;
-      final result = <TopicFilterSuggestion>[
-        for (final tag
-            in (await tags(value)).toList()..sort((a, b) {
-              final usage = (int.tryParse(b.description ?? '') ?? 0).compareTo(
-                int.tryParse(a.description ?? '') ?? 0,
-              );
-              return usage != 0
-                  ? usage
-                  : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-            }))
-          TopicFilterSuggestion(
-            name: '$key:${_ValueSuggester._quoteIfNeeded(tag.name)}',
-            displayName: tag.name,
-            description: tag.description,
-            term: _ValueSuggester._quoteIfNeeded(tag.name),
-            menuGroup: appL10n.tags,
-          ),
-        if (groupOption != null)
-          for (final group in await tagGroups(value))
-            TopicFilterSuggestion(
-              name:
-                  '${groupOption.name}${_ValueSuggester._quoteIfNeeded(group.name)}',
-              displayName: group.name,
-              term: _ValueSuggester._quoteIfNeeded(group.name),
-              menuGroup: appL10n.filterTagGroups,
-              menuIcon: 'tags',
-            ),
-        if (value.isEmpty && options.any((o) => o.name == 'in:tagged'))
-          TopicFilterSuggestion(
-            name: 'in:tagged',
-            displayName: appL10n.filterTagged,
-            term: 'tagged',
-            menuGroup: appL10n.other,
-          ),
-        if (value.isEmpty && options.any((o) => o.name == 'in:untagged'))
-          TopicFilterSuggestion(
-            name: 'in:untagged',
-            displayName: appL10n.filterUntagged,
-            term: 'untagged',
-            menuGroup: appL10n.other,
-          ),
-      ];
-      return result;
+      List<TopicFilterLookupValue> tagValues = _tagMatches(value, const []);
+      List<TopicFilterLookupValue> groupValues = const [];
+      List<TopicFilterSuggestion> project() => _tagMenuSuggestions(
+        segment,
+        field,
+        tagValues,
+        groupValues: groupValues,
+      );
+      await Future.wait([
+        () async {
+          tagValues = await _tagValues(value);
+          onPartialResults?.call(project());
+        }(),
+        if (field.options.any((option) => option.type == 'tag_group'))
+          () async {
+            groupValues = await tagGroups(value);
+            onPartialResults?.call(project());
+          }(),
+      ]);
+      return project();
     }
     if (field.number) {
       final typed = int.tryParse(value);
@@ -326,6 +301,61 @@ extension _TopicFilterMenuSuggestions on TopicFilterSuggestions {
             term: option.name.substring(option.name.indexOf(':') + 1),
             replaceKeys: field.keys,
           ),
+    ];
+  }
+
+  List<TopicFilterSuggestion> _tagMenuSuggestions(
+    _FilterSegment segment,
+    TopicFilterMenuField field,
+    Iterable<TopicFilterLookupValue> tagValues, {
+    Iterable<TopicFilterLookupValue> groupValues = const [],
+  }) {
+    final key = segment.filterName!;
+    final value = segment.value ?? '';
+    final groupOption = field.options
+        .where((option) => option.type == 'tag_group')
+        .firstOrNull;
+    return <TopicFilterSuggestion>[
+      for (final tag
+          in tagValues.toList()..sort((a, b) {
+            final usage = (int.tryParse(b.description ?? '') ?? 0).compareTo(
+              int.tryParse(a.description ?? '') ?? 0,
+            );
+            return usage != 0
+                ? usage
+                : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+          }))
+        TopicFilterSuggestion(
+          name: '$key:${_ValueSuggester._quoteIfNeeded(tag.name)}',
+          displayName: tag.name,
+          description: tag.description,
+          term: _ValueSuggester._quoteIfNeeded(tag.name),
+          menuGroup: appL10n.tags,
+        ),
+      if (groupOption != null)
+        for (final group in groupValues)
+          TopicFilterSuggestion(
+            name:
+                '${groupOption.name}${_ValueSuggester._quoteIfNeeded(group.name)}',
+            displayName: group.name,
+            term: _ValueSuggester._quoteIfNeeded(group.name),
+            menuGroup: appL10n.filterTagGroups,
+            menuIcon: 'tags',
+          ),
+      if (value.isEmpty && options.any((o) => o.name == 'in:tagged'))
+        TopicFilterSuggestion(
+          name: 'in:tagged',
+          displayName: appL10n.filterTagged,
+          term: 'tagged',
+          menuGroup: appL10n.other,
+        ),
+      if (value.isEmpty && options.any((o) => o.name == 'in:untagged'))
+        TopicFilterSuggestion(
+          name: 'in:untagged',
+          displayName: appL10n.filterUntagged,
+          term: 'untagged',
+          menuGroup: appL10n.other,
+        ),
     ];
   }
 }
