@@ -128,7 +128,21 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
       key: ObjectKey(generation),
       keyPrefix: 'topic-category-picker',
       siteUrl: target.siteUrl,
-      categories: const [],
+      categories: shell
+          .topicComposerCategories(target.siteUrl)
+          .where(
+            (category) =>
+                category.canCreateTopic &&
+                (!category.isUncategorized ||
+                    shell
+                        .siteConfigFor(target.siteUrl)
+                        .allowUncategorizedTopics) &&
+                (target.rootOnly
+                    ? category.parentCategoryId == null
+                    : target.parentCategoryId == null ||
+                          category.parentCategoryId == target.parentCategoryId),
+          )
+          .toList(),
       selected:
           target.parentCategoryId == null ||
               selected?.parentCategoryId == target.parentCategoryId

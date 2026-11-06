@@ -392,7 +392,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     );
     if (_lookupKey == key) return;
     _lookupKey = key;
-    _choices = const [];
+    _choices = filter.id == 'category'
+        ? controller.cachedCategoryChoices(term)
+        : const [];
     _hasMoreChoices = false;
     _categoryPage = 0;
     _choiceError = null;

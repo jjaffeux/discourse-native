@@ -63,7 +63,10 @@ class _GlobalSearchCategoryEditorState
       _loading = true;
       _loadError = null;
       if (!append) {
-        _choices = const [];
+        _choices = widget.controller.cachedCategoryChoices(term);
+        for (final choice in _choices) {
+          _known[choice.value] = choice;
+        }
         _total = null;
         _hasMore = false;
         _page = 0;
@@ -81,7 +84,10 @@ class _GlobalSearchCategoryEditorState
       );
       if (!mounted || generation != _generation) return;
       setState(() {
-        final values = {for (final choice in _choices) choice.value: choice};
+        final values = {
+          if (append)
+            for (final choice in _choices) choice.value: choice,
+        };
         final previousCount = values.length;
         for (final choice in result.choices) {
           values[choice.value] = choice;
@@ -155,6 +161,10 @@ class _GlobalSearchCategoryEditorState
     );
     final count = _loadError != null && _choices.isEmpty
         ? context.l10n.categoriesUnavailable
+        : _loading || _loadError != null
+        ? context.l10n.loaded(
+            (countLabel(_choices.length, CountNoun.category)).toString(),
+          )
         : _hasMore
         ? _total == null
               ? context.l10n.loaded(

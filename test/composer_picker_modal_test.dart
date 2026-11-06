@@ -285,6 +285,35 @@ void main() {
     await tester.pump(const Duration(seconds: 2));
   });
 
+  testWidgets('composer local category choices keep authoring permissions', (
+    tester,
+  ) async {
+    await pumpComposer(
+      tester,
+      platform: TargetPlatform.macOS,
+      categories: const [
+        TopicCategory(id: 5, name: 'Support', color: '0088CC', permission: 1),
+        TopicCategory(id: 6, name: 'Read only', color: '0088CC', permission: 2),
+        TopicCategory(id: 7, name: 'Unknown permission', color: '0088CC'),
+      ],
+      categorySearches: const {},
+    );
+    await open(tester, const ValueKey('composer-category-action'));
+    expect(
+      find.byKey(const ValueKey(('category-selector-option', 5))),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey(('category-selector-option', 6))),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey(('category-selector-option', 7))),
+      findsNothing,
+    );
+    await tester.pump(const Duration(seconds: 2));
+  });
+
   testWidgets('uses the configured icon in the category value and picker', (
     tester,
   ) async {

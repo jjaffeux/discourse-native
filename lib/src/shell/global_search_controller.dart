@@ -123,6 +123,21 @@ class GlobalSearchController extends ChangeNotifier {
     );
   }
 
+  /// Category choices returned in the current site/account session.
+  List<GlobalSearchFilterChoice> cachedCategoryChoices(String query) {
+    if (_disposed || _lease?.isCurrent != true) return const [];
+    final term = query.trim().toLowerCase();
+    return List.unmodifiable([
+      for (final choice
+          in _choiceLabels['category']?.values ??
+              const <GlobalSearchFilterChoice>[])
+        if (choice.label.toLowerCase().contains(term) ||
+            (choice.category?.slug.toLowerCase().contains(term) ?? false) ||
+            (choice.parentLabel?.toLowerCase().contains(term) ?? false))
+          choice,
+    ]);
+  }
+
   /// Display text for a stable filter value returned in this site session.
   String? choiceLabel(String filterId, String value) =>
       choice(filterId, value)?.label;

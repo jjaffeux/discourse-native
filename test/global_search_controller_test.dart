@@ -1339,6 +1339,7 @@ void main() {
     addTearDown(search.dispose);
     await search.lookupCategoryChoices('');
     final oldSession = search.categoryLookupSession;
+    expect(search.cachedCategoryChoices('old'), [selected]);
     api.categoryGate = Completer<GlobalSearchCategoryPage>();
     api.categoryStarted = Completer<void>();
     final pending = search.lookupCategoryChoices('', page: 2);
@@ -1347,12 +1348,14 @@ void main() {
     search.configure(siteUrl: _site, capabilities: _caps);
     expect(search.categoryLookupSession, isNot(same(oldSession)));
     expect(search.choice('category', '1'), isNull);
+    expect(search.cachedCategoryChoices('old'), isEmpty);
 
     api.categoryGate!.complete(
       const GlobalSearchCategoryPage(choices: [selected], total: 1),
     );
     expect((await pending).choices, isEmpty);
     expect(search.choice('category', '1'), isNull);
+    expect(search.cachedCategoryChoices('old'), isEmpty);
   });
 
   for (final historicalQuery in ['design category:ux', 'design']) {

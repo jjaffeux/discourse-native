@@ -13,8 +13,8 @@ import 'topic_taxonomy_button.dart';
 
 /// The category button and searchable dropdown shared by filters and editors.
 ///
-/// A null [search] filters [categories] locally. An asynchronous search owns its
-/// permissions and data source; obsolete results are ignored on close/disposal.
+/// [categories] supplies eligible local choices. An asynchronous [search]
+/// enriches those choices; obsolete results are ignored on close/disposal.
 /// [includeAll] exposes a null selection for list filtering.
 /// [clearSelectionLabel] exposes the same null selection with authoring copy,
 /// such as "No subcategory" when the caller restores the parent category.
@@ -84,32 +84,40 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
   List<TopicCategory> _results = const [];
   bool _loading = false;
   String? _error;
+  int? _highlighted;
 
   String _label(TopicCategory category) =>
       widget.labelFor?.call(category) ?? category.name;
 
   bool get _canClear => widget.includeAll || widget.clearSelectionLabel != null;
 
-  List<TopicCategory> get _matches => widget.search != null
-      ? _results
-      : widget.categories
-            .where(
-              (category) => _label(
-                category,
-              ).toLowerCase().contains(_query.trim().toLowerCase()),
-            )
-            .toList(growable: false);
+  List<TopicCategory> get _matches {
+    final query = _query.trim().toLowerCase();
+    final byId = {
+      for (final category in widget.categories)
+        if (_label(category).toLowerCase().contains(query) ||
+            category.slug.toLowerCase().contains(query))
+          category.id: category,
+      for (final category in _results) category.id: category,
+    };
+    return byId.values.toList(growable: false);
+  }
 
   void _highlight() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_combobox.isOpen || _loading) return;
+      if (!mounted || !_combobox.isOpen) return;
+      final matches = _matches;
+      if (_highlighted != null &&
+          matches.any((item) => item.id == _highlighted)) {
+        return;
+      }
       final selected = widget.selected?.id;
       _combobox.highlight(
         _query.trim().isEmpty &&
                 (selected == null && _canClear ||
-                    _matches.any((category) => category.id == selected))
+                    matches.any((category) => category.id == selected))
             ? selected ?? 0
-            : _matches.firstOrNull?.id,
+            : matches.firstOrNull?.id,
       );
     });
   }
@@ -130,15 +138,15 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
     if (!open) return;
     setState(() {
       _query = '';
+      _highlighted = null;
       _results = const [];
       _error = null;
       _loading = widget.search != null;
     });
     if (widget.search != null) {
       _lookup.request('');
-    } else {
-      _highlight();
     }
+    _highlight();
   }
 
   void _queryChanged(String query, DComboboxChangeReason reason) {
@@ -157,9 +165,8 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
         const Duration(milliseconds: 250),
         () => _lookup.request(query),
       );
-    } else {
-      _highlight();
     }
+    _highlight();
   }
 
   @override
@@ -186,6 +193,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
       filterLocally: false,
       onQueryChanged: _queryChanged,
       onOpenChanged: _openChanged,
+      onHighlightChanged: (value, _) => _highlighted = value,
       options: [
         if (_canClear)
           DComboboxOption(
@@ -205,7 +213,7 @@ class _TopicCategorySelectorState extends State<TopicCategorySelector> {
       onChanged: (id, _) {
         if (id == 0 && _canClear) {
           widget.onSelected?.call(null);
-        } else if (!_loading && id != null) {
+        } else if (id != null) {
           final category = _matches.where((item) => item.id == id).firstOrNull;
           if (category != null) widget.onSelected?.call(category);
         }

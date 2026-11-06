@@ -1162,7 +1162,18 @@ class _TopicTaxonomy extends StatelessWidget {
                         key: ObjectKey(composer),
                         valueKey: const ValueKey('composer-category'),
                         siteUrl: composer.target.siteUrl,
-                        categories: state.categories,
+                        categories: state.categories
+                            .where(
+                              (item) =>
+                                  item.canCreateTopic &&
+                                  (!item.isUncategorized ||
+                                      shell
+                                          .siteConfigFor(
+                                            composer.target.siteUrl,
+                                          )
+                                          .allowUncategorizedTopics),
+                            )
+                            .toList(),
                         selected: rootCategory,
                         placeholder: context.l10n.category,
                         labelFor: (category) => shell.topicCategoryPathLabel(

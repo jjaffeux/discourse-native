@@ -26,6 +26,43 @@ const _categories = [
 ];
 
 void main() {
+  testWidgets(
+    'category editor offers only eligible cached categories before search completes',
+    (tester) async {
+      final harness = _Harness(tags: false);
+      final pending = Completer<void>();
+      harness.shell.searchGate = pending.future;
+      harness.shell.localCategories = const [
+        TopicCategory(id: 2, name: 'Support', color: '888888', permission: 1),
+        TopicCategory(id: 6, name: 'Read only', color: '888888', permission: 2),
+        TopicCategory(id: 7, name: 'Unknown', color: '888888'),
+      ];
+      await harness.pump(tester);
+      await harness.open(tester);
+      expect(
+        find.byKey(const ValueKey(('topic-category-picker-option', 2))),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey(('topic-category-picker-option', 6))),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey(('topic-category-picker-option', 7))),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-category-picker-option', 2))),
+      );
+      await tester.pumpAndSettle();
+      expect(harness.shell.saves.single.categoryId, 2);
+      expect(pending.isCompleted, isFalse);
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(harness.shell.saves, hasLength(1));
+    },
+  );
+
   for (final tags in [false, true]) {
     final kind = tags ? 'tag' : 'category';
     for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
@@ -684,6 +721,7 @@ final class _PickerShell extends ShellController {
   final preparations = <String>[];
   final searches = <_Search>[];
   final saves = <_Save>[];
+  List<TopicCategory> localCategories = const [];
   Future<TopicComposerCapabilities>? preparation;
   Future<void>? searchGate;
   Future<String?>? saveResult;
@@ -693,6 +731,10 @@ final class _PickerShell extends ShellController {
     lifecycle.capture(siteUrl);
     notifyListeners();
   }
+
+  @override
+  List<TopicCategory> topicComposerCategories(String siteUrl) =>
+      localCategories;
 
   @override
   TopicCategory? categoryFor(int? id, {String? siteUrl}) =>
