@@ -16,10 +16,15 @@ Future<void> _pump(
   int rowCount = 12,
   Color? border,
   Brightness brightness = Brightness.light,
+  int sheer = 0,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final theme = ThemeData(platform: TargetPlatform.iOS, brightness: brightness);
+  final theme = ThemeData(
+    platform: TargetPlatform.iOS,
+    brightness: brightness,
+    extensions: [if (sheer > 0) DFrost(sheer: sheer)],
+  );
   await tester.pumpWidget(
     RepaintBoundary(
       key: const ValueKey('sidebar-card-capture'),
@@ -27,7 +32,10 @@ Future<void> _pump(
         theme: border == null
             ? theme
             : theme.copyWith(
-                extensions: [DTokens.fromTheme(theme).copyWith(border: border)],
+                extensions: [
+                  ...theme.extensions.values,
+                  DTokens.fromTheme(theme).copyWith(border: border),
+                ],
               ),
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -99,6 +107,44 @@ Future<void> _pump(
 }
 
 void main() {
+  group('held headings under a see-through palette', () {
+    Finder frosts() => find.descendant(
+      of: find.byType(DSidebar),
+      matching: find.byType(BackdropFilter),
+    );
+
+    Future<void> hold(WidgetTester tester) async {
+      tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!
+          .jumpTo(80);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('frost the rows passing under them, only while held', (
+      tester,
+    ) async {
+      await _pump(tester, sheer: 10);
+      expect(frosts(), findsNothing, reason: 'nothing is held at rest');
+      await hold(tester);
+      expect(frosts(), findsOneWidget);
+      final heading = tester.getRect(_heading('Forum'));
+      final frost = tester.getRect(frosts());
+      expect(frost.width, 390);
+      expect(frost.top, lessThanOrEqualTo(heading.top));
+      expect(
+        tester.widget<BackdropFilter>(frosts()).filter.toString(),
+        contains('blur(26.0, 26.0'),
+      );
+    });
+
+    testWidgets('are not frosted when the palette is opaque', (tester) async {
+      await _pump(tester);
+      await hold(tester);
+      expect(frosts(), findsNothing);
+    });
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'section rims match the container in ${brightness.name} before and after pinning',

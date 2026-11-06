@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/control_style.dart';
+import '../foundation/frost.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
@@ -820,13 +821,12 @@ class _SidebarCardHeading extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => CustomPaint(
-    painter: _SidebarCardPaint(
-      DTokens.of(context).panelBackground,
-      _sidebarSheetBorder(context),
-      pinned,
-    ),
-    child: ClipRRect(
+  Widget build(BuildContext context) {
+    // Held over the rows passing under it, a see-through heading frosts them
+    // rather than letting them read through. The pinned fill is a plain
+    // rectangle, so that is the frost's shape.
+    final frost = DFrost.of(context);
+    final heading = ClipRRect(
       borderRadius: const BorderRadius.vertical(top: Radius.circular(18)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(
@@ -834,8 +834,30 @@ class _SidebarCardHeading extends StatelessWidget {
         ),
         child: child,
       ),
-    ),
-  );
+    );
+    final card = CustomPaint(
+      painter: _SidebarCardPaint(
+        frost.panel(DTokens.of(context).panelBackground),
+        _sidebarSheetBorder(context),
+        pinned,
+      ),
+      child: heading,
+    );
+    if (!pinned || !frost.isSheer) return card;
+    // Behind the fill, so the fill is not itself blurred.
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: DFrost.backdrop(
+            context,
+            borderRadius: BorderRadius.zero,
+            child: const SizedBox.expand(),
+          ),
+        ),
+        card,
+      ],
+    );
+  }
 }
 
 class _SidebarCardPaint extends CustomPainter {
