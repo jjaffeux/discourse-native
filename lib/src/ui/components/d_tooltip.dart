@@ -709,45 +709,40 @@ class DTooltipState extends State<DTooltip>
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    // Keep the decoration owner in place when focusability changes so the
-    // trigger's focus and state survive. Its ring paints outside the target.
-    final child = DecoratedBox(
-      decoration: BoxDecoration(
-        borderRadius: tokens.borderRadius,
-        border:
-            widget.focusable &&
-                _focusVisible &&
-                DFocusHighlight.visibleOf(context)
-            ? Border.all(
-                color: tokens.focusRing.withValues(alpha: .5),
-                width: 3,
-                strokeAlign: BorderSide.strokeAlignOutside,
-              )
-            : null,
-      ),
-      child: Focus(
-        focusNode: null,
-        includeSemantics: widget.focusable,
-        canRequestFocus: widget.focusable,
-        skipTraversal: !widget.focusable,
-        onFocusChange: (value) {
-          _focusChanged(value);
-          if (mounted) setState(() => _focusVisible = _focused);
-        },
-        child: widget.child,
-      ),
-    );
     Widget result = OverlayPortal.overlayChildLayoutBuilder(
       controller: _portal,
       overlayChildBuilder: (context, info) => _overlay(context, info),
-      child: _TooltipMouseRegion(
+      child: _TooltipTrigger(
         onEnter: _enter,
         onExit: _exit,
         onHover: (event) {},
-        child: Listener(
-          behavior: HitTestBehavior.translucent,
-          onPointerDown: _pointerDown,
-          child: child,
+        onPointerDown: _pointerDown,
+        // The trigger keeps the same tree when focusability changes, so its
+        // focus and state survive. The ring paints outside the target.
+        decoration: BoxDecoration(
+          borderRadius: tokens.borderRadius,
+          border:
+              widget.focusable &&
+                  _focusVisible &&
+                  DFocusHighlight.visibleOf(context)
+              ? Border.all(
+                  color: tokens.focusRing.withValues(alpha: .5),
+                  width: 3,
+                  strokeAlign: BorderSide.strokeAlignOutside,
+                )
+              : null,
+        ),
+        textDirection: Directionality.maybeOf(context),
+        child: Focus(
+          focusNode: null,
+          includeSemantics: widget.focusable,
+          canRequestFocus: widget.focusable,
+          skipTraversal: !widget.focusable,
+          onFocusChange: (value) {
+            _focusChanged(value);
+            if (mounted) setState(() => _focusVisible = _focused);
+          },
+          child: widget.child,
         ),
       ),
     );
@@ -1099,35 +1094,135 @@ class _RenderTooltip extends RenderShiftedBox {
 
 // Only the innermost tooltip trigger receives hover when tooltips are composed.
 // Ordinary MouseRegions (for example the child's button) still receive events.
-class _TooltipMouseRegion extends MouseRegion {
-  const _TooltipMouseRegion({
+/// A tooltip's trigger: the region whose hover shows the hint, the press
+/// that withdraws or starts it, and the focus ring of a focusable trigger.
+///
+/// Each of these used to be its own render object, and every attached render
+/// object keeps a semantics configuration whether or not semantics is on, so
+/// a row of tooltips paid for three per trigger. Hit testing is unchanged:
+/// presses reach every trigger under the pointer, as a translucent listener
+/// would, while hover belongs to the innermost one.
+class _TooltipTrigger extends MouseRegion {
+  const _TooltipTrigger({
     super.onEnter,
     super.onExit,
     super.onHover,
+    required this.onPointerDown,
+    required this.decoration,
+    required this.textDirection,
     super.child,
   });
 
+  final PointerDownEventListener onPointerDown;
+  final BoxDecoration decoration;
+  final TextDirection? textDirection;
+
   @override
   RenderMouseRegion createRenderObject(BuildContext context) =>
-      _TooltipMouseRegionBox(
+      _TooltipTriggerBox(
         onEnter: onEnter,
         onExit: onExit,
         onHover: onHover,
+        onPointerDown: onPointerDown,
+        decoration: decoration,
+        textDirection: textDirection,
       );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _TooltipTriggerBox renderObject,
+  ) {
+    super.updateRenderObject(context, renderObject);
+    renderObject
+      ..onPointerDown = onPointerDown
+      ..decoration = decoration
+      ..textDirection = textDirection;
+  }
 }
 
-class _TooltipMouseRegionBox extends RenderMouseRegion {
-  _TooltipMouseRegionBox({super.onEnter, super.onExit, super.onHover});
+class _TooltipTriggerBox extends RenderMouseRegion {
+  _TooltipTriggerBox({
+    super.onEnter,
+    super.onExit,
+    super.onHover,
+    required PointerDownEventListener onPointerDown,
+    required this._decoration,
+    required this._textDirection,
+  }) : _presses = _TriggerPresses(onPointerDown);
+
+  final _TriggerPresses _presses;
+
+  set onPointerDown(PointerDownEventListener value) =>
+      _presses.onPointerDown = value;
+
+  BoxDecoration _decoration;
+  set decoration(BoxDecoration value) {
+    if (value == _decoration) return;
+    _painter?.dispose();
+    _painter = null;
+    _decoration = value;
+    markNeedsPaint();
+  }
+
+  TextDirection? _textDirection;
+  set textDirection(TextDirection? value) {
+    if (value == _textDirection) return;
+    _textDirection = value;
+    if (_decoration.border != null) markNeedsPaint();
+  }
+
+  BoxPainter? _painter;
 
   @override
   bool hitTest(BoxHitTestResult result, {required Offset position}) {
     if (!size.contains(position)) return false;
-    final hit =
-        hitTestChildren(result, position: position) || hitTestSelf(position);
-    if (hit &&
-        !result.path.any((entry) => entry.target is _TooltipMouseRegionBox)) {
+    hitTestChildren(result, position: position);
+    result.add(HitTestEntry(_presses));
+    if (!result.path.any((entry) => entry.target is _TooltipTriggerBox)) {
       result.add(BoxHitTestEntry(this, position));
     }
-    return hit;
+    return true;
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    // Only the focus ring paints; the decoration otherwise holds the radius.
+    if (_decoration.border != null) {
+      _painter ??= _decoration.createBoxPainter(markNeedsPaint);
+      _painter!.paint(
+        context.canvas,
+        offset,
+        ImageConfiguration(size: size, textDirection: _textDirection),
+      );
+    }
+    super.paint(context, offset);
+  }
+
+  @override
+  void detach() {
+    _painter?.dispose();
+    _painter = null;
+    super.detach();
+  }
+
+  @override
+  void dispose() {
+    _painter?.dispose();
+    _painter = null;
+    super.dispose();
+  }
+}
+
+/// Receives the presses on a trigger without being a render object of its
+/// own, so a trigger nested in another still reaches both.
+class _TriggerPresses implements HitTestTarget {
+  _TriggerPresses(this.onPointerDown);
+
+  PointerDownEventListener onPointerDown;
+
+  @override
+  void handleEvent(PointerEvent event, HitTestEntry entry) {
+    if (event is PointerDownEvent) onPointerDown(event);
   }
 }
