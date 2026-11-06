@@ -67,6 +67,28 @@ Widget _list(ScrollController scroll, {bool reverse = false, int count = 30}) =>
     );
 
 void main() {
+  testWidgets('scrolling between the edges keeps the fade shader', (
+    tester,
+  ) async {
+    final key = GlobalKey();
+    final scroll = ScrollController(initialScrollOffset: 100);
+    addTearDown(scroll.dispose);
+    await tester.pumpWidget(_host(key, _list(scroll)));
+    Shader shader() =>
+        tester.layers.whereType<ShaderMaskLayer>().single.shader!;
+    final both = shader();
+    scroll.jumpTo(160);
+    await tester.pump();
+    expect(shader(), same(both));
+    scroll.jumpTo(0);
+    await tester.pump();
+    final bottomOnly = shader();
+    expect(bottomOnly, isNot(same(both)));
+    scroll.jumpTo(100);
+    await tester.pump();
+    expect(shader(), isNot(same(bottomOnly)));
+  });
+
   testWidgets('bottom inset moves the fade without rebuilding its viewport', (
     tester,
   ) async {
