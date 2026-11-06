@@ -34,6 +34,7 @@ Future<void> _mount(
   bool loading = false,
   bool hasMoreBefore = false,
   bool loadingBefore = false,
+  bool revealOnlyAtEnd = false,
   Object identity = 'topics',
   int count = 100,
   bool dock = true,
@@ -55,6 +56,7 @@ Future<void> _mount(
               loading: loading,
               hasMoreBefore: hasMoreBefore,
               loadingBefore: loadingBefore,
+              revealOnlyAtEnd: revealOnlyAtEnd,
               child:
                   body ??
                   _list(controller: controller, reverse: reverse, count: count),
@@ -90,6 +92,93 @@ Future<void> _wheel(WidgetTester tester, double delta, {Finder? target}) async {
 }
 
 void main() {
+  for (final reverse in [false, true]) {
+    for (final reducedMotion in [false, true]) {
+      testWidgets('end-only chrome stays folded through reversals and the top '
+          '(reverse: $reverse, reduced motion: $reducedMotion)', (
+        tester,
+      ) async {
+        final controller = ScrollController(initialScrollOffset: 2000);
+        addTearDown(controller.dispose);
+        await _mount(
+          tester,
+          controller: controller,
+          reverse: reverse,
+          floating: true,
+          reducedMotion: reducedMotion,
+          revealOnlyAtEnd: true,
+        );
+        double fraction() => DScrollChrome.maybeOf(
+          tester.element(find.byKey(_body)),
+        )!.hiddenFraction;
+        expect(fraction(), 1);
+        for (final delta in [100.0, -100.0]) {
+          await _wheel(tester, delta);
+          expect(fraction(), 1);
+        }
+        for (final delta in [120.0, -120.0]) {
+          await tester.drag(find.byKey(_body), Offset(0, delta));
+          await tester.pumpAndSettle();
+          expect(fraction(), 1);
+        }
+        controller.jumpTo(
+          reverse
+              ? controller.position.maxScrollExtent
+              : controller.position.minScrollExtent,
+        );
+        await tester.pumpAndSettle();
+        expect(fraction(), 1);
+        await _wheel(tester, 10000);
+        expect(fraction(), 0);
+        await _wheel(tester, -80);
+        expect(fraction(), 1);
+        controller.jumpTo(
+          reverse
+              ? controller.position.minScrollExtent
+              : controller.position.maxScrollExtent,
+        );
+        await tester.pumpAndSettle();
+        expect(fraction(), 0);
+        controller.jumpTo(controller.position.maxScrollExtent / 2);
+        await tester.pumpAndSettle();
+        expect(fraction(), 1);
+        expect(tester.takeException(), isNull);
+      });
+    }
+  }
+
+  testWidgets(
+    'end-only chrome waits for the final page on a short transcript',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 10);
+      addTearDown(controller.dispose);
+      Future<void> mount({bool more = false, bool loading = false}) => _mount(
+        tester,
+        controller: controller,
+        count: 13,
+        floating: true,
+        revealOnlyAtEnd: true,
+        hasMore: more,
+        loading: loading,
+      );
+      double fraction() => DScrollChrome.maybeOf(
+        tester.element(find.byKey(_body)),
+      )!.hiddenFraction;
+      await mount(more: true);
+      expect(fraction(), 1);
+      await _wheel(tester, 10000);
+      expect(fraction(), 1);
+      await mount(loading: true);
+      expect(fraction(), 1);
+      await mount();
+      expect(fraction(), 0);
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(fraction(), 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('interactive footer travel is immediate and keeps the viewport', (
     tester,
   ) async {

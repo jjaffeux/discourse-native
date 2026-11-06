@@ -1932,6 +1932,7 @@ class _StreamState extends State<ChatMessageStream>
       loading: stream.loadingNewer,
       hasMoreBefore: stream.canLoadMorePast,
       loadingBefore: stream.loadingOlder,
+      revealOnlyAtEnd: true,
       child: DScrollFadeScope(
         bottomExtent: context.isTouch ? _composerFadeExtent : 0,
         topInset: header == null ? null : () => header.visibleExtent,

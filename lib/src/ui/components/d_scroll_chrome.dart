@@ -23,6 +23,7 @@ class DScrollChromePagination extends StatefulWidget {
     required this.child,
     this.hasMoreBefore = false,
     this.loadingBefore = false,
+    this.revealOnlyAtEnd = false,
   });
 
   /// Whether more content is available below the currently loaded rows.
@@ -33,6 +34,10 @@ class DScrollChromePagination extends StatefulWidget {
   /// Whether the visual top is a temporary boundary, including reversed lists.
   final bool hasMoreBefore;
   final bool loadingBefore;
+
+  /// Keeps chrome folded away from the final visual bottom, in either scroll
+  /// direction. Focus and explicit navigation actions can still reveal it.
+  final bool revealOnlyAtEnd;
   final Widget child;
 
   @override
@@ -64,7 +69,8 @@ class _DScrollChromePaginationState extends State<DScrollChromePagination> {
     if ((oldWidget.hasMore || oldWidget.loading) !=
             (widget.hasMore || widget.loading) ||
         (oldWidget.hasMoreBefore || oldWidget.loadingBefore) !=
-            (widget.hasMoreBefore || widget.loadingBefore)) {
+            (widget.hasMoreBefore || widget.loadingBefore) ||
+        oldWidget.revealOnlyAtEnd != widget.revealOnlyAtEnd) {
       // Check after layout: a final response may also append more rows, in
       // which case the reader has not reached the new bottom yet.
       _reportBoundary();
@@ -78,6 +84,7 @@ class _DScrollChromePaginationState extends State<DScrollChromePagination> {
     loading: widget.loading,
     hasMoreBefore: widget.hasMoreBefore,
     loadingBefore: widget.loadingBefore,
+    revealOnlyAtEnd: widget.revealOnlyAtEnd,
     child: SheetContentGestureRegion(
       enabled: widget.hasMoreBefore || widget.loadingBefore,
       child: widget.child,
@@ -92,6 +99,7 @@ class _ScrollPaginationScope extends InheritedWidget {
     required this.loading,
     required this.hasMoreBefore,
     required this.loadingBefore,
+    required this.revealOnlyAtEnd,
     required super.child,
   });
 
@@ -100,13 +108,15 @@ class _ScrollPaginationScope extends InheritedWidget {
   final bool loading;
   final bool hasMoreBefore;
   final bool loadingBefore;
+  final bool revealOnlyAtEnd;
 
   @override
   bool updateShouldNotify(_ScrollPaginationScope oldWidget) =>
       hasMore != oldWidget.hasMore ||
       loading != oldWidget.loading ||
       hasMoreBefore != oldWidget.hasMoreBefore ||
-      loadingBefore != oldWidget.loadingBefore;
+      loadingBefore != oldWidget.loadingBefore ||
+      revealOnlyAtEnd != oldWidget.revealOnlyAtEnd;
 }
 
 /// Coordinates a page's retracting headers and navigation footer. Slow reading
@@ -426,7 +436,11 @@ class _DScrollChromeState extends State<DScrollChrome>
 
   void _setHidden(bool hidden) {
     if (hidden && (_footerFocus.hasFocus || _controller._hasFocus)) return;
-    if (!hidden) _animation.reveal(fresh: true);
+    if (hidden) {
+      _animation.hide();
+    } else {
+      _animation.reveal(fresh: true);
+    }
   }
 
   ScrollableState? _pageScroll(BuildContext? context, Axis axis) {
@@ -488,6 +502,13 @@ class _DScrollChromeState extends State<DScrollChrome>
     final source = _pageScroll(notification.context, notification.metrics.axis);
     if (source != null) {
       _releaseEndHold(source, notification.context, notification.metrics);
+      if (_syncEndVisibility(
+        source,
+        notification.context,
+        notification.metrics,
+      )) {
+        return false;
+      }
     }
     if (source != null &&
         identical(source, _activeSource) &&
@@ -508,6 +529,31 @@ class _DScrollChromeState extends State<DScrollChrome>
             : pagination.hasMore || pagination.loading);
   }
 
+  bool _revealOnlyAtEnd(BuildContext? context) =>
+      context
+          ?.getInheritedWidgetOfExactType<_ScrollPaginationScope>()
+          ?.revealOnlyAtEnd ??
+      false;
+
+  bool _syncEndVisibility(
+    ScrollableState source,
+    BuildContext? context,
+    ScrollMetrics metrics,
+  ) {
+    if (!_revealOnlyAtEnd(context)) return false;
+    if (!widget.visible || !widget.enabled) return true;
+    _activeSource = source;
+    final intent = _intents[source] ??= _ScrollIntent();
+    final bottom = metrics.axisDirection == AxisDirection.up
+        ? metrics.extentBefore
+        : metrics.extentAfter;
+    if (bottom <= 4 && !_canContinue(context)) {
+      intent.endContentExtent = _contentExtent(metrics);
+    }
+    _setHidden(!intent.holdAtEnd);
+    return true;
+  }
+
   void _paginationChanged(Object owner) {
     final source = _activeSource;
     if (!widget.visible ||
@@ -523,6 +569,7 @@ class _DScrollChromeState extends State<DScrollChrome>
     if (pagination?.owner != owner) return;
     final metrics = source.position;
     _releaseEndHold(source, context, metrics);
+    if (_syncEndVisibility(source, context, metrics)) return;
     final bottom = metrics.axisDirection == AxisDirection.up
         ? metrics.extentBefore
         : metrics.extentAfter;
@@ -585,9 +632,19 @@ class _DScrollChromeState extends State<DScrollChrome>
         intent.direction = notification.direction;
       }
     }
-    if (notification is! ScrollUpdateNotification || !intent.userScrolling) {
+    if (notification is! ScrollUpdateNotification) return false;
+    if (_revealOnlyAtEnd(notification.context)) {
+      final delta = notification.scrollDelta ?? 0;
+      final awayFromEnd = metrics.axisDirection == AxisDirection.up
+          ? delta > 0 && intent.direction == ScrollDirection.reverse
+          : delta < 0 && intent.direction == ScrollDirection.forward;
+      if (intent.userScrolling && awayFromEnd) {
+        intent.endContentExtent = null;
+      }
+      _syncEndVisibility(source, notification.context, metrics);
       return false;
     }
+    if (!intent.userScrolling) return false;
     _activeSource = source;
     final delta = notification.scrollDelta ?? 0;
     // Layout corrections and elastic rebound are not a change of intent.

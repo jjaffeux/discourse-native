@@ -1115,10 +1115,10 @@ void _registerChatShellTests() {
                 .descendant(of: viewport, matching: find.byType(Scrollable))
                 .first;
             final scroll = tester.state<ScrollableState>(scrollable).position;
+            final openRect = tester.getRect(composer);
             // Leave the confirmed end without interpreting restoration as input.
             scroll.jumpTo(scroll.maxScrollExtent / 2);
             await tester.pumpAndSettle();
-            final openRect = tester.getRect(composer);
             final location = tester.getCenter(viewport);
             await tester.sendEventToBinding(
               PointerScrollEvent(
@@ -1165,6 +1165,21 @@ void _registerChatShellTests() {
               ),
             );
             await tester.pumpAndSettle();
+            expect(tester.widget<DInputGroup>(composer).compact, isTrue);
+            expect(
+              tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
+              isTrue,
+            );
+            await tester.drag(viewport, const Offset(0, 120));
+            await tester.pumpAndSettle();
+            expect(tester.widget<DInputGroup>(composer).compact, isTrue);
+            expect(
+              tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
+              isTrue,
+            );
+            // Returning to the newest message also reveals after a jump.
+            scroll.jumpTo(scroll.minScrollExtent);
+            await tester.pumpAndSettle();
             expect(tester.widget<DInputGroup>(composer).compact, isFalse);
             expect(
               tester.widget<DMobileDock>(find.byType(DMobileDock)).collapsed,
@@ -1184,12 +1199,12 @@ void _registerChatShellTests() {
             // Large text must keep the folded navigation and Send apart.
             await shell.appSettings.setTextScale(AppTextScale.percent200);
             await tester.pumpAndSettle();
+            await capture('large-expanded');
             final enlargedScroll = tester
                 .state<ScrollableState>(scrollable)
                 .position;
             enlargedScroll.jumpTo(enlargedScroll.maxScrollExtent / 2);
             await tester.pumpAndSettle();
-            await capture('large-expanded');
             // The enlarged channel identity needs more travel to retract.
             // Send input below its overlay into the transcript's new bounds.
             await tester.sendEventToBinding(

@@ -146,6 +146,13 @@ class HeaderMotion extends ChangeNotifier implements ValueListenable<double> {
     _wake();
   }
 
+  void hide() {
+    target = 1;
+    _settleTimer?.cancel();
+    _settleTimer = null;
+    _wake();
+  }
+
   void configure(DHeaderTuning value, {required bool disableAnimations}) {
     tuning = value;
     reducedMotion = disableAnimations;

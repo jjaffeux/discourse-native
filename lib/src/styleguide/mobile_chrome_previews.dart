@@ -248,36 +248,41 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   ],
                 ),
               ),
-              bodyBuilder: (context, header) => ListView(
-                padding: EdgeInsets.only(
-                  bottom: DScrollChrome.bottomInsetOf(context),
+              bodyBuilder: (context, header) => DScrollChromePagination(
+                hasMore: false,
+                loading: false,
+                revealOnlyAtEnd: widget.chatComposer,
+                child: ListView(
+                  padding: EdgeInsets.only(
+                    bottom: DScrollChrome.bottomInsetOf(context),
+                  ),
+                  children: [
+                    header.spacer,
+                    for (var i = 1; i <= 30; i++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 16,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Community discussion $i',
+                              style: Theme.of(context).textTheme.titleMedium,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              'A topic preview on the shared mobile canvas.',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                            const SizedBox(height: 16),
+                            const DSeparator(),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-                children: [
-                  header.spacer,
-                  for (var i = 1; i <= 30; i++)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Community discussion $i',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'A topic preview on the shared mobile canvas.',
-                            style: Theme.of(context).textTheme.bodyMedium,
-                          ),
-                          const SizedBox(height: 16),
-                          const DSeparator(),
-                        ],
-                      ),
-                    ),
-                ],
               ),
             ),
           ),
