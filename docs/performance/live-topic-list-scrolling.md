@@ -99,8 +99,41 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   render objects, states, global keys, listeners and callbacks; the
   semantics data is identical on macOS, iOS and Android.
 
+- **Pages that bring new categories.** These were the slowest frames of a
+  first pass, 4–10 ms against about 3 ms for the slowest row frames. When a
+  page sideloads categories the site had not loaded, `prepareFeed` notifies
+  the whole shell facade. In the desktop widget-test shell, that frame
+  rebuilt 3,221 elements and marked 142 dirty; a page of known categories
+  rebuilds 552 and marks 4. Three amplifiers are gone:
+  - The filter bar's `DFitRow` fitted again from its first step on every
+    rebuild. A row settled shortened was built at full length and then
+    shortened again, and the view switch beside it moved views into its
+    overflow menu and back, reparenting GlobalKey'd menus, popovers and
+    focus nodes twice. `DFitRow` now takes a `watch`, as the mockup's
+    FitRow does, and the filter bar watches what its shortened controls
+    hide. A category list that grows off the path keeps the step, while
+    room and width changes still fit the row again.
+  - The view switch rebuilt its toggles, menus and measured copies (480
+    elements) with unchanged inputs. It now returns its previous build.
+  - The sidebar's category section was cleared on every merge, and its
+    community header read the whole facade. The section is now kept while
+    the categories it lists and their ancestors are equal, and the header
+    selects only the forums it draws.
+
+  That frame now rebuilds 1,530 elements and marks 16 dirty in the
+  anonymous widget-test shell. For a signed-in reader whose sidebar lists
+  its own categories, nothing under the sidebar or the view switch
+  rebuilds, which `shell_rebuild_isolation_test.dart` pins. The rest is
+  the list itself, the filter menus that receive the new categories and
+  page scaffolding. Live, each first pass has one or two such frames
+  among 2,270, mixed with the page's own row work, so three alternating
+  runs per side could not separate them: 4.3, 5.5, 10.1 and 5.5 ms on the
+  previous build, 4.6, 3.9, 6.0 and 8.5 ms after the `DFitRow` change.
+  Steady scrolling was unchanged, as expected (warm pass in-frame CPU
+  1,012–1,033 against 1,019–1,053 ms).
+
 The CPU comparison at the top covers the first four changes; the final
-comparison below covers all of them.
+comparison below covers all but the last.
 
 ## Final comparison
 
@@ -174,21 +207,10 @@ rows.
 
 ## Remaining work
 
-- The slowest frames of the first pass (5–14 ms) are not rows. When a page
-  brings categories the site had not loaded, `prepareFeed` notifies the
-  whole shell facade. In the desktop widget-test shell, a page with one new
-  category rebuilds 3,221 elements where a page of known categories
-  rebuilds 552: the header and toolbar buttons with their Material, theme
-  and focus subtrees, the sidebar's destination tiles, the filter menus and
-  the page scaffolding. With `debugPrintScheduleBuildForStacks`, 142
-  elements are marked dirty against 4 for known categories. Most of the
-  cascade starts in `TopicListFilterBar`: it rebuilds because its category
-  list changed, and under its `LayoutBuilder` the category menus and their
-  popovers are reactivated, which marks every descendant with dependencies
-  dirty (`_OverlayPortalElement.visitChildren` in the stacks; the live
-  slow frame shows the same `_activateRecursively`). Keeping those menus in
-  place across a category change, or category state on its own notifier,
-  would leave those frames to the rows.
+- A page that brings new categories still notifies the whole shell
+  facade, because category data is read through it in about two dozen
+  files. Category state on its own notifier would leave that frame to the
+  list and the filter menus.
 - On the raster thread, the edge-fade `ShaderMaskLayer`s remain the largest
   owner: an offscreen pass and blend per masked scrollable per frame. A
   replacement that leaves pixels unchanged still needs the backdrop under
@@ -196,6 +218,21 @@ rows.
 - A row still mounts about 680 elements. Each inline button is about 40 of
   them and each tooltip about 10, most of them semantics, focus and
   overlay plumbing that a resting row never uses.
+- The list's separators are list children of their own, so the separated
+  delegate gives each one a `RepaintBoundary`, a keep-alive wrapper and an
+  offset layer. With eight rows on screen, seven of the list's fifteen
+  child boundaries are separators, and their offset and picture layers are
+  14 of the widget-test scene's 43. `compositeFrame` takes about a
+  quarter of in-frame CPU in the warm pass. Drawing the rule inside the row
+  it follows would halve those layers, but it changes the list's index
+  mapping, extent estimation and keyboard selection.
+- `super_sliver_list` 0.4.1 builds its `_log.fine` messages eagerly on
+  every layout of the sliver, formatting six doubles each time: about
+  5 ms per warm pass, 0.5% of in-frame CPU. That is for upstream to fix.
+- Rows subscribe to the shell facade and their tab through `ShellSelector`
+  and `ForumTabSelector`, and `ChangeNotifier.removeListener` scans every
+  listener, so unmounting a row costs time proportional to everything
+  else listening: about 10 ms per warm pass.
 
 ## Reproduce
 
