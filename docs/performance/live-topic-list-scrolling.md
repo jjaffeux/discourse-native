@@ -180,9 +180,15 @@ rows.
   category rebuilds 3,221 elements where a page of known categories
   rebuilds 552: the header and toolbar buttons with their Material, theme
   and focus subtrees, the sidebar's destination tiles, the filter menus and
-  the page scaffolding. Category state on its own notifier, or selectors
-  that ignore categories they do not show, would leave those frames to the
-  rows.
+  the page scaffolding. With `debugPrintScheduleBuildForStacks`, 142
+  elements are marked dirty against 4 for known categories. Most of the
+  cascade starts in `TopicListFilterBar`: it rebuilds because its category
+  list changed, and under its `LayoutBuilder` the category menus and their
+  popovers are reactivated, which marks every descendant with dependencies
+  dirty (`_OverlayPortalElement.visitChildren` in the stacks; the live
+  slow frame shows the same `_activateRecursively`). Keeping those menus in
+  place across a category change, or category state on its own notifier,
+  would leave those frames to the rows.
 - On the raster thread, the edge-fade `ShaderMaskLayer`s remain the largest
   owner: an offscreen pass and blend per masked scrollable per frame. A
   replacement that leaves pixels unchanged still needs the backdrop under
