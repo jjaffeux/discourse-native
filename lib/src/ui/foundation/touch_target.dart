@@ -183,19 +183,29 @@ class _RenderTouchTarget extends RenderProxyBox {
   final List<_RenderTouchTarget> _holders = [];
   int _held = 0;
 
+  // The scope sits near the root and a row mounts a dozen targets inside its
+  // own, so a target finds its holders and scope before its children attach:
+  // a nested target then stops at the nearest target above it and takes that
+  // one's holders and scope instead of walking every ancestor to the scope.
   @override
   void attach(PipelineOwner owner) {
-    super.attach(owner);
     for (var node = parent; node != null; node = node.parent) {
       if (node is _RenderTouchTarget) {
-        node._held++;
-        _holders.add(node);
+        _holders
+          ..add(node)
+          ..addAll(node._holders);
+        _scope = node._scope;
+        break;
       } else if (node is _RenderTouchTargetScope) {
         _scope = node;
-        node._targets++;
         break;
       }
     }
+    for (final holder in _holders) {
+      holder._held++;
+    }
+    _scope?._targets++;
+    super.attach(owner);
   }
 
   @override
