@@ -83,9 +83,38 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   paints inline; only a dimmed one composites. With seven rows on screen the
   widget-test scene drops from 47 to 40 layers, one per row.
 
-The CPU comparison above predates the tooltip, fade shader, text style and
-item layer changes; their effect is shown by the profile shares in the
-table above and by the tests below.
+- **Inline buttons.** A row has about ten inline metadata buttons. Each
+  wrapped its gesture detector in a `FocusableActionDetector`, whose hover
+  and focus highlight bookkeeping it never used: a `GlobalKey`, a
+  highlight-mode listener and a post-frame callback per mount, plus a
+  second `MouseRegion`. The button now builds `Actions`, `Focus` and one
+  `MouseRegion` itself, describes its focus in its own semantics node, and
+  merges its icon theme and its surface's foreground colours without
+  `Builder`s. Scrolling 3,600 px of the widget-test list creates 900 fewer
+  elements for the first change alone (29,871 to 28,971) and 300 fewer
+  render objects, states, global keys, listeners and callbacks; the
+  semantics data is identical on macOS, iOS and Android.
+
+The CPU comparison at the top covers the first four changes; the final
+comparison below counts all of them.
+
+## Final comparison
+
+What the app mounts does not depend on CPU speed or machine load. Across
+ten live runs, five of each build, the rows mounted at the end of the
+census passes measured:
+
+| Per topic row | Baseline | After |
+| --- | ---: | ---: |
+| Elements mounted | 703–722 | 669–694 |
+| Render objects | 316–323 | 302–312 |
+
+A final CPU comparison of all the changes could not be measured cleanly:
+other work on the machine kept 15 to 17 cores busy during most of those
+runs, which changes both frame counts and sampling. The CPU table at the
+top covers the first four changes and was taken while the machine was
+otherwise idle; the later changes are evidenced by the counts here and by
+the tests below.
 
 ## A false lead: scrolls that did not move the list
 
@@ -124,6 +153,21 @@ screen's animated wallpaper shared the GPU doubled raster times on both
 sides. Those timing runs are not used. The cold pass is paced by page
 loads, so its CPU varies with the network; the warm passes repeat the same
 rows.
+
+## Remaining work
+
+- The slowest frames of the first pass (5–14 ms) are not rows. When a page
+  brings categories the site had not loaded, `prepareFeed` notifies the
+  whole shell facade, and the sidebar, page header, filter bar and plugin
+  panels rebuild, including a `GlobalKey` subtree that is reactivated.
+  Category state on its own notifier would leave those frames to the rows.
+- On the raster thread, the edge-fade `ShaderMaskLayer`s remain the largest
+  owner: an offscreen pass and blend per masked scrollable per frame. A
+  replacement that leaves pixels unchanged still needs the backdrop under
+  each fade to be one opaque colour.
+- A row still mounts about 680 elements. Each inline button is about 40 of
+  them and each tooltip about 10, most of them semantics, focus and
+  overlay plumbing that a resting row never uses.
 
 ## Reproduce
 

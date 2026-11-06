@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
@@ -1176,12 +1177,10 @@ class DButton extends StatelessWidget {
                 ? joined!.axis
                 : null,
           ),
-          child: IconTheme.merge(
-            data: IconThemeData(color: state.iconColor),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(color: state.foregroundColor),
-              child: child ?? const SizedBox.shrink(),
-            ),
+          child: _SurfaceForeground(
+            iconColor: state.iconColor,
+            textColor: state.foregroundColor,
+            child: child ?? const SizedBox.shrink(),
           ),
         );
         final artwork = DControlArtwork(child: flatSurface);
@@ -1576,6 +1575,42 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   );
 }
 
+/// Merges a surface's foreground colours into the ambient icon theme and
+/// text style, as IconTheme.merge and DefaultTextStyle.merge would, in one
+/// element instead of two builders: every button has a surface.
+class _SurfaceForeground extends StatelessWidget {
+  const _SurfaceForeground({
+    required this.iconColor,
+    required this.textColor,
+    required this.child,
+  });
+
+  final Color? iconColor;
+  final Color? textColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final icons =
+        context.dependOnInheritedWidgetOfExactType<IconTheme>()?.data ??
+        const IconThemeData.fallback();
+    final text = DefaultTextStyle.of(context);
+    return IconTheme(
+      data: icons.merge(IconThemeData(color: iconColor)),
+      child: DefaultTextStyle(
+        style: text.style.merge(TextStyle(color: textColor)),
+        textAlign: text.textAlign,
+        softWrap: text.softWrap,
+        overflow: text.overflow,
+        maxLines: text.maxLines,
+        textWidthBasis: text.textWidthBasis,
+        textHeightBehavior: text.textHeightBehavior,
+        child: child,
+      ),
+    );
+  }
+}
+
 Decoration _lerpDecoration(Decoration a, Decoration b, double t) =>
     Decoration.lerp(a, b, t)!;
 
@@ -1619,6 +1654,14 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
       widget.focusNode ?? (_ownedFocus ??= FocusNode(debugLabel: 'DButton'));
   Timer? _keyboardPress;
   bool get _enabled => widget.onPressed != null;
+  late final Map<Type, Action<Intent>> _actions = {
+    ActivateIntent: CallbackAction<ActivateIntent>(
+      onInvoke: (_) => _activateFromKeyboard(),
+    ),
+    ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
+      onInvoke: (_) => _activateFromKeyboard(),
+    ),
+  };
 
   void _update(WidgetState state, bool value) {
     if (value ? _states.add(state) : _states.remove(state)) setState(() {});
@@ -1681,56 +1724,85 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
         child: widget.child,
       ),
     );
+    // The pieces of a FocusableActionDetector this button uses. Its hover and
+    // focus highlight bookkeeping (a global key, a highlight mode listener and
+    // a post-frame callback per mount) has no callback here, and metadata rows
+    // mount these buttons by the dozen. The actions stay in the tree while
+    // disabled so that toggling keeps its shape.
+    final canRequestFocus = switch (MediaQuery.maybeNavigationModeOf(context)) {
+      NavigationMode.directional => true,
+      NavigationMode.traditional || null => _enabled,
+    };
+    // The node Focus would describe in a Semantics of its own: this widget
+    // rebuilds whenever focus arrives or leaves.
     return Semantics(
       container: true,
       enabled: _enabled,
       onTap: _enabled ? _activate : null,
-      child: FocusableActionDetector(
-        enabled: _enabled,
-        focusNode: _focus,
-        autofocus: widget.autofocus,
-        onFocusChange: (value) => _update(WidgetState.focused, value),
-        mouseCursor: style.mouseCursor!.resolve(_states)!,
-        actions: {
-          ActivateIntent: CallbackAction<ActivateIntent>(
-            onInvoke: (_) => _activateFromKeyboard(),
-          ),
-          ButtonActivateIntent: CallbackAction<ButtonActivateIntent>(
-            onInvoke: (_) => _activateFromKeyboard(),
-          ),
-        },
-        child: MouseRegion(
-          onEnter: _enabled ? (_) => _update(WidgetState.hovered, true) : null,
-          onExit: (_) => _update(WidgetState.hovered, false),
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            excludeFromSemantics: true,
-            onTapDown: _enabled
-                ? (_) => _update(WidgetState.pressed, true)
+      onFocus: defaultTargetPlatform != TargetPlatform.iOS && canRequestFocus
+          ? _focus.requestFocus
+          : null,
+      focusable: canRequestFocus,
+      focused: canRequestFocus ? _focus.hasPrimaryFocus : null,
+      child: Actions(
+        actions: _enabled ? _actions : const <Type, Action<Intent>>{},
+        child: Focus(
+          focusNode: _focus,
+          autofocus: widget.autofocus,
+          canRequestFocus: canRequestFocus,
+          includeSemantics: false,
+          onFocusChange: (value) => _update(WidgetState.focused, value),
+          child: MouseRegion(
+            cursor: style.mouseCursor!.resolve(_states)!,
+            onEnter: _enabled
+                ? (_) => _update(WidgetState.hovered, true)
                 : null,
-            onTapUp: _enabled
-                ? (_) => _update(WidgetState.pressed, false)
-                : null,
-            onTapCancel: _enabled
-                ? () => _update(WidgetState.pressed, false)
-                : null,
-            onTap: _enabled ? _activate : null,
-            child: ConstrainedBox(
-              constraints: constraints,
-              child: IconTheme.merge(
-                data: IconThemeData(
-                  color: style.iconColor!.resolve(_states),
-                  size: style.iconSize!.resolve(_states),
-                ),
-                child: DImplicitTransition<TextStyle>(
-                  value: style.textStyle!
-                      .resolve(_states)!
-                      .copyWith(color: style.foregroundColor!.resolve(_states)),
-                  duration: style.animationDuration!,
-                  lerp: _lerpTextStyle,
-                  builder: (context, textStyle) => DefaultTextStyle(
-                    style: textStyle,
-                    child: style.backgroundBuilder!(context, _states, content),
+            onExit: (_) => _update(WidgetState.hovered, false),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              excludeFromSemantics: true,
+              onTapDown: _enabled
+                  ? (_) => _update(WidgetState.pressed, true)
+                  : null,
+              onTapUp: _enabled
+                  ? (_) => _update(WidgetState.pressed, false)
+                  : null,
+              onTapCancel: _enabled
+                  ? () => _update(WidgetState.pressed, false)
+                  : null,
+              onTap: _enabled ? _activate : null,
+              child: ConstrainedBox(
+                constraints: constraints,
+                child: IconTheme(
+                  data:
+                      (context
+                                  .dependOnInheritedWidgetOfExactType<
+                                    IconTheme
+                                  >()
+                                  ?.data ??
+                              const IconThemeData.fallback())
+                          .merge(
+                            IconThemeData(
+                              color: style.iconColor!.resolve(_states),
+                              size: style.iconSize!.resolve(_states),
+                            ),
+                          ),
+                  child: DImplicitTransition<TextStyle>(
+                    value: style.textStyle!
+                        .resolve(_states)!
+                        .copyWith(
+                          color: style.foregroundColor!.resolve(_states),
+                        ),
+                    duration: style.animationDuration!,
+                    lerp: _lerpTextStyle,
+                    builder: (context, textStyle) => DefaultTextStyle(
+                      style: textStyle,
+                      child: style.backgroundBuilder!(
+                        context,
+                        _states,
+                        content,
+                      ),
+                    ),
                   ),
                 ),
               ),
