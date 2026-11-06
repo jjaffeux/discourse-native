@@ -3,18 +3,23 @@ part of 'topic_list_view.dart';
 const _topicTailGap = 14.0;
 const _topicTagGap = 5.0;
 
-TextStyle _topicMetadataStyle(BuildContext context) =>
-    Theme.of(context).textTheme.labelSmall!.copyWith(
+// A row asks for this style about a dozen times as it mounts; deriving it
+// looked the theme up three times and allocated a new style each time.
+final _topicMetadataStyles = Expando<TextStyle>('topic metadata style');
+
+TextStyle _topicMetadataStyle(BuildContext context) {
+  final theme = Theme.of(context);
+  return _topicMetadataStyles[theme] ??= () {
+    final tokens = theme.extension<DTokens>() ?? DTokens.fromTheme(theme);
+    return theme.textTheme.labelSmall!.copyWith(
       fontSize: DiscourseTypography.xs,
       height: 1.5,
       fontWeight: FontWeight.w400,
-      color: Color.lerp(
-        DTokens.of(context).background,
-        DTokens.of(context).foreground,
-        .4,
-      ),
+      color: Color.lerp(tokens.background, tokens.foreground, .4),
       fontFeatures: const [FontFeature.tabularFigures()],
     );
+  }();
+}
 
 String _topicCompactCount(int count) => count >= 10000
     ? '${(count / 1000).round()}k'
