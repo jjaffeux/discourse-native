@@ -1,20 +1,21 @@
 # Live topic-list scrolling (dev.discourse.org)
 
-Scrolling the Latest list of a live forum costs **5–7% less UI-thread CPU
-inside frames** after removing work that every row repeated as it mounted.
-On the pass that mounts the most rows, scrolling 19,200 px back up the list,
-two alternating runs per side measured, for the same rows, distance and
-about 2,420 frames:
+Scrolling the Latest list of a live forum costs **about 11% less UI-thread
+CPU inside frames, 22% less building and 15% less layout** after removing
+work that every row repeated as it mounted; see the
+[final comparison](#final-comparison). A row mounts about 5% fewer elements
+and render objects, and the largest app-level costs it paid on mount are
+gone or cut by an order of magnitude.
 
-| Dart CPU in the pass | Baseline, ms | After, ms |
+The first round of changes, measured on its own while the machine was
+otherwise idle, on the pass that mounts the most rows (19,200 px back up the
+list, about 2,420 frames per run):
+
+| Dart CPU in the pass | Baseline, ms | First round, ms |
 | --- | ---: | ---: |
 | Inside frames | 1,127 / 1,144 | 1,068 / 1,064 |
 | Building (`BuildOwner.buildScope`, including layout-time builds) | 418 / 435 | 347 / 327 |
 | Layout (`PipelineOwner.flushLayout`) | 422 / 443 | 385 / 379 |
-
-The largest app-level costs a row paid on mount are gone or cut by an
-order of magnitude. The first pass down, which waits on page loads from the
-forum, is paced by the network and did not change measurably.
 
 Earlier reports cover the synthetic workload:
 [topic-list scrolling](topic-list-scrolling.md),
@@ -99,25 +100,39 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   semantics data is identical on macOS, iOS and Android.
 
 The CPU comparison at the top covers the first four changes; the final
-comparison below counts all of them.
+comparison below covers all of them.
 
 ## Final comparison
 
-What the app mounts does not depend on CPU speed or machine load. Across
-ten live runs, five of each build, the rows mounted at the end of the
-census passes measured:
+The baseline and the final build, with every change, alternated three times
+each on dev.discourse.org while the rest of the machine used about 30% of
+one core. On the warm pass back up the list, 19,300 px and about 2,580
+frames per run:
+
+| Dart CPU in the pass, ms | Baseline | After |
+| --- | ---: | ---: |
+| Inside frames | 1,294 / 1,284 / 1,266 | 1,147 / 1,017 / 1,145 |
+| Building | 478 / 465 / 475 | 370 / 337 / 371 |
+| Layout | 487 / 490 / 490 | 415 / 377 / 423 |
+
+That is about 11% less in-frame CPU, 22% less building and 15% less layout.
+The first pass down, paced by page loads, built 20% less (83–90 to 66–70
+ms) for 2–3% less in-frame CPU.
+
+The screen was locked during these runs, which keeps the CPU in a slower
+state: build times were about three times those of the unlocked runs, close
+to a slower machine's. In the timing pass, run without sampling, frames
+whose build exceeded 8.33 ms went from 42, 51 and 49 to 31, 24 and 33, and
+mean build time from 1.28–1.30 ms to 1.16–1.20 ms. Raster times are not
+compared, because the lock screen shares the GPU.
+
+What the app mounts does not depend on CPU state. At the end of the census
+passes:
 
 | Per topic row | Baseline | After |
 | --- | ---: | ---: |
-| Elements mounted | 703–722 | 669–694 |
-| Render objects | 316–323 | 302–312 |
-
-A final CPU comparison of all the changes could not be measured cleanly:
-other work on the machine kept 15 to 17 cores busy during most of those
-runs, which changes both frame counts and sampling. The CPU table at the
-top covers the first four changes and was taken while the machine was
-otherwise idle; the later changes are evidenced by the counts here and by
-the tests below.
+| Elements mounted | 705–732 | 665–692 |
+| Render objects | 315–327 | 299–311 |
 
 ## A false lead: scrolls that did not move the list
 
