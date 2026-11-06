@@ -81,18 +81,39 @@ class TopicFilterSuggestions {
   final TopicFilterLookup users;
   final TopicFilterLookup groups;
 
+  _FilterSegment _segment(String text) => scopedKey == null
+      ? _FilterInput(text).lastSegment
+      : _FilterSegment(
+          word: text,
+          prefix: '',
+          filterName: scopedKey,
+          value: text.startsWith('$scopedKey:')
+              ? text.substring(scopedKey!.length + 1)
+              : '',
+          hasColon: true,
+        );
+
+  List<TopicFilterSuggestion>? _localCategorySuggestions(String text) {
+    final segment = _segment(text);
+    if (!segment.hasColon || segment.filterName == null) return null;
+    final option = _findOption(segment.filterName!);
+    if (option?.type != 'category') return null;
+    return _categorySuggestions(segment, option!, const []);
+  }
+
+  _ValueSuggester _values(TopicFilterOption option, _FilterSegment segment) =>
+      _ValueSuggester(
+        option: option,
+        segment: segment,
+        categories: categories,
+        tags: tags,
+        tagGroups: tagGroups,
+        users: users,
+        groups: groups,
+      );
+
   Future<List<TopicFilterSuggestion>> suggestions(String text) async {
-    final segment = scopedKey == null
-        ? _FilterInput(text).lastSegment
-        : _FilterSegment(
-            word: text,
-            prefix: '',
-            filterName: scopedKey,
-            value: text.startsWith('$scopedKey:')
-                ? text.substring(scopedKey!.length + 1)
-                : '',
-            hasColon: true,
-          );
+    final segment = _segment(text);
     if (allOptions) {
       final menu = await _menuSuggestions(segment);
       if (menu != null) return menu;
@@ -110,95 +131,95 @@ class TopicFilterSuggestions {
     if (segment.filterName != null && segment.hasColon) {
       final option = _findOption(segment.filterName!);
       if (option?.type != null) {
-        if (hierarchicalCategories &&
-            segment.prefix.isEmpty &&
-            option!.type == 'category' &&
-            (segment.value?.trim().isEmpty ?? true)) {
-          final byId = {
-            for (final category in categories) category.id: category,
-          };
-          final parent = byId[categoryParentId];
-          final siblings =
-              categories
-                  .where(
-                    (category) =>
-                        (byId.containsKey(category.parentCategoryId)
-                            ? category.parentCategoryId
-                            : null) ==
-                        parent?.id,
-                  )
-                  .toList()
-                ..sort((a, b) {
-                  final position = (a.position ?? 0).compareTo(b.position ?? 0);
-                  return position != 0
-                      ? position
-                      : a.name.toLowerCase().compareTo(b.name.toLowerCase());
-                });
-          return [
-            if (parent != null)
-              TopicFilterSuggestion(
-                name: 'category-up',
-                displayName: parent.name,
-                category: parent,
-                categoryUp: true,
-              ),
-            if (parent != null && allOptions)
-              TopicFilterSuggestion(
-                name: '=category:${parent.id}',
-                displayName: appL10n.filterCategoryOnly(parent.name),
-                category: parent,
-                isSuggestion: true,
-              ),
-            for (final category in siblings)
-              TopicFilterSuggestion(
-                name: 'category:${category.id}',
-                displayName: category.name,
-                category: category,
-                parentCategory: parent,
-                isSuggestion: true,
-                hasChildren: categories.any(
-                  (item) => item.parentCategoryId == category.id,
-                ),
-              ),
-          ];
+        if (option!.type == 'category') {
+          final values = _values(option, segment);
+          final remote = values.searchTerm.isEmpty
+              ? const <TopicCategory>[]
+              : await categoryLookup(values.searchTerm.split(':').last);
+          return _categorySuggestions(segment, option, remote);
         }
-        final values = await _ValueSuggester(
-          option: option!,
-          segment: segment,
-          categories: categories,
-          categoryLookup: categoryLookup,
-          tags: tags,
-          tagGroups: tagGroups,
-          users: users,
-          groups: groups,
-        ).suggestions();
-        if (allOptions &&
-            hierarchicalCategories &&
-            option.type == 'category' &&
-            segment.prefix.isEmpty) {
-          return [
-            for (final value in values) ...[
-              value,
-              if (value.category case final category?
-                  when category.topicCount > 0 &&
-                      categories.any(
-                        (child) => child.parentCategoryId == category.id,
-                      ))
-                TopicFilterSuggestion(
-                  name: '=${value.name}',
-                  displayName: appL10n.filterCategoryOnly(category.name),
-                  description: value.description,
-                  category: category,
-                  isSuggestion: true,
-                ),
-            ],
-          ];
-        }
-        return values;
+        return _values(option, segment).suggestions();
       }
     }
 
     return _filterOptions(segment.word, segment.prefix);
+  }
+
+  List<TopicFilterSuggestion> _categorySuggestions(
+    _FilterSegment segment,
+    TopicFilterOption option,
+    List<TopicCategory> remote,
+  ) {
+    if (hierarchicalCategories &&
+        segment.prefix.isEmpty &&
+        (segment.value?.trim().isEmpty ?? true)) {
+      final byId = {for (final category in categories) category.id: category};
+      final parent = byId[categoryParentId];
+      final siblings =
+          categories
+              .where(
+                (category) =>
+                    (byId.containsKey(category.parentCategoryId)
+                        ? category.parentCategoryId
+                        : null) ==
+                    parent?.id,
+              )
+              .toList()
+            ..sort((a, b) {
+              final position = (a.position ?? 0).compareTo(b.position ?? 0);
+              return position != 0
+                  ? position
+                  : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            });
+      return [
+        if (parent != null)
+          TopicFilterSuggestion(
+            name: 'category-up',
+            displayName: parent.name,
+            category: parent,
+            categoryUp: true,
+          ),
+        if (parent != null && allOptions)
+          TopicFilterSuggestion(
+            name: '=category:${parent.id}',
+            displayName: appL10n.filterCategoryOnly(parent.name),
+            category: parent,
+            isSuggestion: true,
+          ),
+        for (final category in siblings)
+          TopicFilterSuggestion(
+            name: 'category:${category.id}',
+            displayName: category.name,
+            category: category,
+            parentCategory: parent,
+            isSuggestion: true,
+            hasChildren: categories.any(
+              (item) => item.parentCategoryId == category.id,
+            ),
+          ),
+      ];
+    }
+    final values = _values(option, segment).categoryMatches(remote);
+    if (allOptions && hierarchicalCategories && segment.prefix.isEmpty) {
+      return [
+        for (final value in values) ...[
+          value,
+          if (value.category case final category?
+              when category.topicCount > 0 &&
+                  categories.any(
+                    (child) => child.parentCategoryId == category.id,
+                  ))
+            TopicFilterSuggestion(
+              name: '=${value.name}',
+              displayName: appL10n.filterCategoryOnly(category.name),
+              description: value.description,
+              category: category,
+              isSuggestion: true,
+            ),
+        ],
+      ];
+    }
+    return values;
   }
 
   TopicFilterOption? _findOption(String name) {
@@ -305,6 +326,7 @@ class TopicFilterController extends ChangeNotifier {
   _QueuedTopicFilterSuggestions? _queuedSuggestions;
   bool _disposed = false;
   String? _lastSuggestionInput;
+  ({String input, int session})? _localSuggestionsFor;
   List<TopicFilterSuggestion> _suggestions = const [];
   int _selectedIndex = -1;
   bool _open = false;
@@ -328,6 +350,7 @@ class TopicFilterController extends ChangeNotifier {
   void inputChanged(String value) {
     _suggestionSession++;
     _open = true;
+    _publishLocalCategories();
     _selectedIndex = _suggestions.isEmpty ? -1 : 0;
     _timer?.cancel();
     _timer = Timer(debounce, refreshSuggestions);
@@ -343,11 +366,12 @@ class TopicFilterController extends ChangeNotifier {
     if (_disposed) return false;
     final input = text.text;
     final session = _suggestionSession;
-    if (_lastSuggestionInput == input) return true;
+    if (_lastSuggestionInput == input || _hasUsableLocalCategories) return true;
     _timer?.cancel();
     _timer = null;
     final refresh = refreshSuggestions();
     final request = _request;
+    if (_hasUsableLocalCategories) return true;
     await refresh;
     // A keyboard action waiting on this lookup belongs to the input and menu
     // session that started it, even when the user later returns to that text.
@@ -361,7 +385,13 @@ class TopicFilterController extends ChangeNotifier {
     if (_disposed) return Future<void>.value();
     final input = text.text;
     final request = ++_request;
-    final queued = _QueuedTopicFilterSuggestions(input, request);
+    if (_publishLocalCategories()) notifyListeners();
+    final queued = _QueuedTopicFilterSuggestions(
+      input,
+      request,
+      _suggestionSession,
+      engine,
+    );
     if (_suggestionRunning) {
       _queuedSuggestions?.complete();
       _queuedSuggestions = queued;
@@ -370,6 +400,36 @@ class TopicFilterController extends ChangeNotifier {
     }
     return queued.done.future;
   }
+
+  bool get _hasUsableLocalCategories =>
+      _localSuggestionsFor == (input: text.text, session: _suggestionSession) &&
+      _suggestions.isNotEmpty;
+
+  bool _publishLocalCategories() {
+    final snapshot = (input: text.text, session: _suggestionSession);
+    if (_localSuggestionsFor == snapshot) return false;
+    final local = engine._localCategorySuggestions(text.text);
+    final selectedName = _localSuggestionsFor?.input == snapshot.input
+        ? selected?.name
+        : null;
+    _localSuggestionsFor = local == null ? null : snapshot;
+    if (local == null) return false;
+    _suggestions = local;
+    final retained = local.indexWhere((item) => item.name == selectedName);
+    _selectedIndex = retained >= 0
+        ? retained
+        : local.isEmpty
+        ? -1
+        : 0;
+    return true;
+  }
+
+  bool _isCurrent(_QueuedTopicFilterSuggestions queued) =>
+      !_disposed &&
+      queued.request == _request &&
+      queued.session == _suggestionSession &&
+      identical(queued.engine, engine) &&
+      queued.input == text.text;
 
   void _startSuggestions(_QueuedTopicFilterSuggestions queued) {
     _suggestionRunning = true;
@@ -381,17 +441,25 @@ class TopicFilterController extends ChangeNotifier {
     List<TopicFilterSuggestion> result;
     var failed = false;
     try {
-      result = await engine.suggestions(queued.input);
+      result = await queued.engine.suggestions(queued.input);
     } catch (_) {
       failed = true;
       result = const [];
     }
-    if (!_disposed && queued.request == _request && queued.input == text.text) {
+    if (_isCurrent(queued)) {
       // A thrown lookup is not an answer for this input: recording it would
       // make ensureFreshSuggestions treat the failure as final and never retry.
       if (!failed) _lastSuggestionInput = queued.input;
-      _suggestions = result;
-      _selectedIndex = result.isEmpty ? -1 : 0;
+      if (!failed || !_hasUsableLocalCategories) {
+        final selectedName = _hasUsableLocalCategories ? selected?.name : null;
+        _suggestions = result;
+        final retained = result.indexWhere((item) => item.name == selectedName);
+        _selectedIndex = retained >= 0
+            ? retained
+            : result.isEmpty
+            ? -1
+            : 0;
+      }
       notifyListeners();
       onSuggestionsReady?.call();
     }
@@ -404,7 +472,7 @@ class TopicFilterController extends ChangeNotifier {
     final next = _queuedSuggestions;
     _queuedSuggestions = null;
     if (next == null) return;
-    if (_disposed || next.request != _request || next.input != text.text) {
+    if (!_isCurrent(next)) {
       next.complete();
       return;
     }
@@ -489,10 +557,17 @@ class TopicFilterController extends ChangeNotifier {
 }
 
 final class _QueuedTopicFilterSuggestions {
-  _QueuedTopicFilterSuggestions(this.input, this.request);
+  _QueuedTopicFilterSuggestions(
+    this.input,
+    this.request,
+    this.session,
+    this.engine,
+  );
 
   final String input;
   final int request;
+  final int session;
+  final TopicFilterSuggestions engine;
   final Completer<void> done = Completer();
 
   void complete() {
@@ -505,7 +580,6 @@ class _ValueSuggester {
     required this.option,
     required this.segment,
     required this.categories,
-    required this.categoryLookup,
     required this.tags,
     required this.tagGroups,
     required this.users,
@@ -517,7 +591,6 @@ class _ValueSuggester {
   final TopicFilterOption option;
   final _FilterSegment segment;
   final List<TopicCategory> categories;
-  final TopicFilterCategoryLookup categoryLookup;
   final TopicFilterLookup tags;
   final TopicFilterLookup tagGroups;
   final TopicFilterLookup users;
@@ -553,7 +626,6 @@ class _ValueSuggester {
       '${segment.prefix}${segment.filterName}:$valuePrefix$term';
 
   Future<List<TopicFilterSuggestion>> suggestions() => switch (option.type) {
-    'category' => _categories(),
     'tag' => _remote(tags, delimiterAware: true, quoteWhitespace: true),
     'tag_group' => _remote(tagGroups, quote: true),
     'username' => _remote(users, delimiterAware: true),
@@ -564,11 +636,8 @@ class _ValueSuggester {
     _ => Future.value(const []),
   };
 
-  Future<List<TopicFilterSuggestion>> _categories() async {
+  List<TopicFilterSuggestion> categoryMatches(List<TopicCategory> remote) {
     final query = searchTerm.toLowerCase();
-    final remote = searchTerm.isEmpty
-        ? const <TopicCategory>[]
-        : await categoryLookup(searchTerm.split(':').last);
     final byId = <int, TopicCategory>{
       for (final category in remote) category.id: category,
     };

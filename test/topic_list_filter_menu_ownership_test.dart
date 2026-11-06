@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
@@ -14,6 +16,7 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -50,6 +53,110 @@ const _otherChild = TopicCategory(
 const _tag = SidebarTag(id: 3, name: 'Original tag', slug: 'original-tag');
 
 void main() {
+  testWidgets('category filter local result latency trace', (tester) async {
+    final samples = <int>[];
+    for (var trial = 0; trial < 5; trial++) {
+      final fixture = await _fixture(tester);
+      final oldLookup = Completer<List<TopicCategory>>();
+      final newLookup = Completer<List<TopicCategory>>();
+      fixture.api.pendingCategories['Original'] = oldLookup;
+      fixture.api.pendingCategories['child'] = newLookup;
+      await _open(tester, 'category');
+      await _query(tester, 'Original');
+      expect(fixture.api.categorySearchTerms, ['Original']);
+      await tester.enterText(
+        find.byKey(const ValueKey('topic-filter-input')),
+        'child',
+      );
+      int? firstMatchMs;
+      for (var elapsed = 0; elapsed < 4500; elapsed += 25) {
+        if (elapsed == 2000) oldLookup.complete(const []);
+        if (elapsed == 4000) newLookup.complete(const []);
+        await tester.pump(const Duration(milliseconds: 25));
+        if (firstMatchMs == null &&
+            find
+                .textContaining(_child.name, findRichText: true)
+                .evaluate()
+                .isNotEmpty) {
+          firstMatchMs = elapsed + 25;
+        }
+      }
+      expect(fixture.api.categorySearchTerms, ['Original', 'child']);
+      expect(firstMatchMs, isNotNull);
+      expect(
+        find.textContaining(_child.name, findRichText: true),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+      samples.add(firstMatchMs!);
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpAndSettle();
+    }
+    final report = {
+      'runtime': 'Flutter widget test, virtual clock, real Native filter menu',
+      'remote_response_release_ms': [2000, 4000],
+      'sampling_interval_ms': 25,
+      'input_to_rendered_local_match_ms': samples,
+      'trials': samples.length,
+      'failures': 0,
+    };
+    File(
+      Platform.environment['CATEGORY_FILTER_TRACE_OUTPUT']!,
+    ).writeAsStringSync(jsonEncode(report));
+    debugPrint('CATEGORY_FILTER_TRACE ${jsonEncode(report)}');
+  }, skip: Platform.environment['CATEGORY_FILTER_TRACE_OUTPUT'] == null);
+
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'category typing selects local matches while lookups wait on $platform',
+      (tester) async {
+        final fixture = await _fixture(tester, platform: platform);
+        final oldLookup = Completer<List<TopicCategory>>();
+        final newLookup = Completer<List<TopicCategory>>();
+        fixture.api.pendingCategories['Original'] = oldLookup;
+        fixture.api.pendingCategories['child'] = newLookup;
+        addTearDown(() {
+          if (!oldLookup.isCompleted) oldLookup.complete(const []);
+          if (!newLookup.isCompleted) newLookup.complete(const []);
+        });
+        await _open(tester, 'category');
+        await _query(tester, 'Original');
+        expect(fixture.api.categorySearchTerms, ['Original']);
+        await _query(tester, 'child');
+
+        expect(
+          find.textContaining(_child.name, findRichText: true),
+          findsOneWidget,
+        );
+        expect(fixture.api.categorySearchTerms, ['Original']);
+        expect(
+          tester
+              .widget<EditableText>(find.byType(EditableText))
+              .controller
+              .text,
+          'child',
+        );
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await tester.pumpAndSettle();
+        expect(fixture.shell.topicListContent?.categoryId, _child.id);
+        expect(find.byType(DCommandList<String>), findsNothing);
+        expect(oldLookup.isCompleted, isFalse);
+        expect(newLookup.isCompleted, isFalse);
+
+        oldLookup.complete(const [_parent]);
+        newLookup.complete(const []);
+        await tester.pumpAndSettle();
+        expect(fixture.shell.topicListContent?.categoryId, _child.id);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final menu in ['category', 'tag']) {
       testWidgets(
@@ -532,6 +639,20 @@ class _FilterApi extends FakeDiscourseApi {
   DiscourseUser reader = _user;
   final searches = <({String siteUrl, String term, String? apiKey})>[];
   final pending = <String, Completer<List<TopicFilterLookupValue>>>{};
+  final pendingCategories = <String, Completer<List<TopicCategory>>>{};
+
+  @override
+  Future<List<TopicCategory>> searchCategories({
+    required String siteUrl,
+    required String term,
+    required String apiKey,
+    bool includeUncategorized = true,
+    bool includeAncestors = false,
+    String? clientId,
+  }) {
+    categorySearchTerms.add(term);
+    return pendingCategories[term]?.future ?? Future.value(const []);
+  }
 
   @override
   Future<DiscourseUser> currentUser({
