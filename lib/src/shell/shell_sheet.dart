@@ -185,7 +185,7 @@ class _SheetBody extends StatelessWidget {
                   icon: const DIcon(DIcons.arrowLeft),
                 )
               : null,
-          trailing: nested
+          trailing: nested || grabbed
               ? null
               : DSheetHeaderAction.close(
                   onPressed: () => DDialogClose.close<void>(context),
