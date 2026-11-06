@@ -226,11 +226,12 @@ void main() {
       await _pump(tester);
       await _capture(tester, 'phone-expanded');
       final filters = find.byKey(const ValueKey('topic-list-filter'));
-      final latest = find.byKey(const ValueKey('topic-list-view-latest'));
+      final view = find.byKey(const ValueKey('topic-list-feed-menu'));
       expect(
-        find.descendant(of: latest, matching: find.text('Latest')),
+        find.descendant(of: view, matching: find.text('Latest')),
         findsOneWidget,
       );
+      final viewSize = tester.getSize(view);
       final initialTop = tester.getTopLeft(filters).dy;
       expect(tester.getSize(filters).height, 36);
       await tester.drag(
@@ -239,10 +240,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(
-        find.descendant(of: latest, matching: find.text('Latest')),
-        findsNothing,
+        find.descendant(of: view, matching: find.text('Latest')),
+        findsOneWidget,
       );
-      expect(tester.getSize(latest), const Size.square(32));
+      expect(tester.getSize(view), viewSize);
       expect(tester.getTopLeft(filters).dy, lessThan(initialTop));
       expect(tester.getRect(filters).bottom, lessThan(200));
       expect(
@@ -279,9 +280,9 @@ void main() {
     tester,
   ) async {
     await _pump(tester, width: 430, query: 'category:3 status:open');
-    final latest = find.byKey(const ValueKey('topic-list-view-latest'));
+    final view = find.byKey(const ValueKey('topic-list-feed-menu'));
     expect(
-      find.descendant(of: latest, matching: find.text('Latest')),
+      find.descendant(of: view, matching: find.text('Latest')),
       findsOneWidget,
     );
     final tag = tester.getRect(
@@ -310,6 +311,71 @@ void main() {
     for (final separator in separators) {
       expect(separator.padding, const EdgeInsets.symmetric(horizontal: 5));
     }
+    expect(tester.takeException(), isNull);
+  });
+
+  // What a retracted phone header draws in, with a category path of levels to
+  // keep on the line and without one: only a path brings the row closer.
+  for (final path in [false, true]) {
+    testWidgets('a retracted row stands closer only with a path ($path)', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        query: path ? '=category:3 status:open' : 'status:open',
+      );
+      final view = find.byKey(const ValueKey('topic-list-feed-menu'));
+      final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
+      final filters = find.byKey(const ValueKey('topic-list-filter'));
+      double gap() => tester.getRect(filters).left - tester.getRect(tag).right;
+      double inset(Finder control, Finder content) =>
+          tester.getRect(content).left - tester.getRect(control).left;
+      final name = find.descendant(of: view, matching: find.text('Latest'));
+      final glyph = find.descendant(of: filters, matching: find.byType(DIcon));
+      expect(gap(), 8);
+      expect(inset(view, name), 12);
+      final viewSize = tester.getSize(view);
+
+      await tester.drag(
+        find.byKey(const ValueKey('responsive-filter-topics')),
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      await _capture(tester, 'phone-retracted-path-$path');
+      expect(gap(), path ? 6 : 8);
+      // Filters keeps its count beside its glyph, so its insets show.
+      expect(
+        find.descendant(of: filters, matching: find.text(path ? '2' : '1')),
+        findsOneWidget,
+      );
+      expect(inset(filters, glyph), path ? 10 : 12);
+      // The view keeps its name and its insets either way.
+      expect(name, findsOneWidget);
+      expect(inset(view, name), 12);
+      expect(tester.getSize(view), viewSize);
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets('the phone Categories pill is its mark until one is chosen', (
+    tester,
+  ) async {
+    final shell = await _pump(tester);
+    final category = find.byKey(const ValueKey('topic-list-category-filter'));
+    final bar = find.byKey(const ValueKey('topic-list-filter-bar'));
+    final size = tester.getSize(category);
+    expect(size.width, size.height);
+    expect(
+      find.descendant(of: bar, matching: find.text('Categories')),
+      findsNothing,
+    );
+    expect(tester.widget<DButton>(category).semanticLabel, 'Categories');
+    await shell.applyTopicListFilterQuery('category:1 status:open');
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: bar, matching: find.text('Product')),
+      findsOneWidget,
+    );
     expect(tester.takeException(), isNull);
   });
 

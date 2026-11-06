@@ -26,6 +26,7 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
     this.spacing = DSpacing.sm,
     this.runSpacing = DSpacing.sm,
     this.compact = false,
+    this.closeUp = false,
   });
 
   final List<Widget> children;
@@ -35,6 +36,13 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
   /// Requests meaningful glyphs while retaining state, counts and semantics.
   /// The owning page supplies this from its shared header state.
   final bool compact;
+
+  /// Lets a [compact] touch row stand closer: a 6-point gap, and quiet filter
+  /// pills 10 points in from their sides. Set it only while the row holds
+  /// something that room keeps to one line, such as a category path with
+  /// levels, so a row with nothing to shorten does not shift as it compacts.
+  /// The leading [DFitRowItem], the view switch, keeps its own insets.
+  final bool closeUp;
 
   static bool tightOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<_DFitRowScope>();
@@ -51,6 +59,11 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
       context.dependOnInheritedWidgetOfExactType<_DFitRowScope>()?.compact ??
       false;
 
+  /// Whether the row is [compact] and [closeUp], outside its leading item.
+  static bool closedUpOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<_DFitRowScope>()?.closedUp ??
+      false;
+
   /// Measured room beside the other controls in this item's run. Use it to
   /// choose content, while retaining real minimum control bounds for layout.
   static double? availableWidthOf(BuildContext context) =>
@@ -61,12 +74,13 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
       (context, info) => _DFitRowScope(
         step: info.step,
         compact: compact,
+        closedUp: compact && closeUp,
         child: DControlMotionScope(
           child: DReferenceTextScale(
             child: Builder(
               builder: (context) => DControlWrap(
                 wrap: info.step.index >= DFitRowStep.wrapped.index,
-                spacing: DControlStyle.isTouch(context) && compact
+                spacing: DControlStyle.isTouch(context) && compact && closeUp
                     ? 6
                     : spacing,
                 runSpacing: runSpacing,
@@ -89,7 +103,14 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
                               info.step == DFitRowStep.isolated
                           ? 1
                           : 0,
-                      child: child,
+                      child: child is DFitRowItem && child.leading
+                          ? _DFitRowScope(
+                              step: info.step,
+                              compact: compact,
+                              closedUp: false,
+                              child: child,
+                            )
+                          : child,
                     ),
                 ],
               ),
@@ -178,14 +199,18 @@ class _DFitRowScope extends InheritedWidget {
   const _DFitRowScope({
     required this.step,
     required this.compact,
+    required this.closedUp,
     required super.child,
   });
   final DFitRowStep step;
   final bool compact;
+  final bool closedUp;
 
   @override
   bool updateShouldNotify(_DFitRowScope oldWidget) =>
-      step != oldWidget.step || compact != oldWidget.compact;
+      step != oldWidget.step ||
+      compact != oldWidget.compact ||
+      closedUp != oldWidget.closedUp;
 }
 
 class _RenderDFitRow extends RenderProxyBox

@@ -186,7 +186,13 @@ void main() {
       );
       await tester.pumpAndSettle();
       final header = find.byKey(const ValueKey('topic-list-navigation'));
-      final views = find.byKey(const ValueKey('topic-list-view-switch'));
+      final views = find.byKey(
+        ValueKey(
+          platform == TargetPlatform.macOS
+              ? 'topic-list-view-switch'
+              : 'topic-list-feed-menu',
+        ),
+      );
       final headerRect = tester.getRect(header);
       final viewsRect = tester.getRect(views);
       final labels = find.descendant(of: views, matching: find.byType(Text));
@@ -444,7 +450,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       final bar = find.byType(TopicListFilterBar);
-      final switcher = find.byKey(const ValueKey('topic-list-view-switch'));
+      // A phone's view is its one pill.
+      final switcher = find.byKey(
+        ValueKey(mobile ? 'topic-list-feed-menu' : 'topic-list-view-switch'),
+      );
       final category = find.byKey(const ValueKey('topic-list-category-filter'));
       final tag = find.byKey(const ValueKey('topic-list-tag-filter'));
       final switches = tester.getRect(switcher);
@@ -453,14 +462,16 @@ void main() {
       final row = tester.renderObject<RenderBox>(
         find.descendant(of: bar, matching: find.byType(DFitRow)).first,
       );
-      final layout = tester.renderObject<RenderBox>(
-        find
-            .descendant(
-              of: find.byType(TopicFeedMenu),
-              matching: find.byType(LayoutBuilder),
-            )
-            .first,
-      );
+      final layout = mobile
+          ? null
+          : tester.renderObject<RenderBox>(
+              find
+                  .descendant(
+                    of: find.byType(TopicFeedMenu),
+                    matching: find.byType(LayoutBuilder),
+                  )
+                  .first,
+            );
       final toggles = find
           .descendant(of: switcher, matching: find.byType(DToggle))
           .evaluate()
@@ -481,17 +492,19 @@ void main() {
         expect(switches.width, lessThanOrEqualTo(remaining! + 1));
       }
       measurements.add(
-        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout.constraints.maxWidth},$remaining,${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
+        '${scenario.platform.name},${scenario.width},${row.constraints.maxWidth},${layout?.constraints.maxWidth},$remaining,${switches.width},$toggles,${categoryBounds.top},${tagBounds.top},${switches.top},$oneRow',
       );
       for (final rect in [switches, categoryBounds, tagBounds]) {
         expect(rect.left, greaterThanOrEqualTo(0));
         expect(rect.right, lessThanOrEqualTo(size.width));
       }
       expect(
-        find.byKey(const ValueKey('topic-list-view-latest')),
+        mobile
+            ? find.descendant(of: switcher, matching: find.text('Latest'))
+            : find.byKey(const ValueKey('topic-list-view-latest')),
         findsOneWidget,
       );
-      if (toggles == 1) {
+      if (toggles <= 1) {
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('topic-list-feed-menu')),
@@ -1883,12 +1896,11 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(
-      tester
-          .widget<DToggle>(
-            find.byKey(const ValueKey('topic-list-view-newActivity')),
-          )
-          .semanticLabel,
-      startsWith('New · Replies'),
+      find.descendant(
+        of: find.byKey(const ValueKey('topic-list-feed-menu')),
+        matching: find.text('New · Replies'),
+      ),
+      findsOneWidget,
     );
     expect(controller.sidebarBadgeFor('latest').count, 3);
     expect(
@@ -2135,8 +2147,9 @@ void main() {
     expect(find.text('Top this year'), findsOneWidget);
     expect(find.byKey(const ValueKey('topic-list-top-period')), findsNothing);
 
-    await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
-    await tester.pumpAndSettle();
+    // The phone's pill opens every view, Top's periods among them.
+    await _openFeed(tester);
+    await tester.ensureVisible(find.text('Week'));
     await tester.tap(find.text('Week'));
     await tester.pumpAndSettle();
 
@@ -2346,14 +2359,11 @@ void main() {
           );
           await setup.controller.selectTopicListMode(TopicListMode.topWeekly);
           await tester.pumpAndSettle();
-          final currentTop = find.byKey(const ValueKey('topic-list-view-top'));
-          expect(currentTop, findsOneWidget);
-          expect(
-            tester.widget<DToggle>(currentTop).semanticLabel,
-            'Top · Week',
-          );
-          expect(tester.widget<DToggle>(currentTop).pressed, isTrue);
           final trigger = find.byKey(const ValueKey('topic-list-feed-menu'));
+          expect(
+            find.descendant(of: trigger, matching: find.text('Top · Week')),
+            findsOneWidget,
+          );
           await tester.tap(trigger);
           await tester.pumpAndSettle();
           await tester.sendKeyEvent(LogicalKeyboardKey.end);
@@ -2406,12 +2416,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(setup.controller.currentTopicListMode, TopicListMode.newTopics);
         expect(
-          tester
-              .widget<DToggle>(
-                find.byKey(const ValueKey('topic-list-view-newActivity')),
-              )
-              .semanticLabel,
-          startsWith('New · Topics'),
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-list-feed-menu')),
+            matching: find.text('New · Topics'),
+          ),
+          findsOneWidget,
         );
         await _openFeed(tester);
         expect(
@@ -2426,12 +2435,11 @@ void main() {
         await tester.pumpAndSettle();
         expect(setup.controller.currentTopicListMode, TopicListMode.newReplies);
         expect(
-          tester
-              .widget<DToggle>(
-                find.byKey(const ValueKey('topic-list-view-newActivity')),
-              )
-              .semanticLabel,
-          startsWith('New · Replies'),
+          find.descendant(
+            of: find.byKey(const ValueKey('topic-list-feed-menu')),
+            matching: find.text('New · Replies'),
+          ),
+          findsOneWidget,
         );
         await _openFeed(tester);
         expect(
@@ -2511,12 +2519,17 @@ void main() {
           expect(controller.currentInstance?.user, isNull);
           final primary = find.byKey(const ValueKey('topic-list-primary-row'));
           expect(primary, findsOneWidget);
+          // A phone's view is one pill, a desktop's a switch of segments.
+          final phone = scenario.platform == TargetPlatform.iOS;
+          final pill = find.byKey(const ValueKey('topic-list-feed-menu'));
           expect(
-            find.byKey(const ValueKey('topic-list-view-switch')),
+            phone ? pill : find.byKey(const ValueKey('topic-list-view-switch')),
             findsOneWidget,
           );
           expect(
-            find.byKey(const ValueKey('topic-list-view-latest')),
+            phone
+                ? find.descendant(of: pill, matching: find.text('Latest'))
+                : find.byKey(const ValueKey('topic-list-view-latest')),
             findsOneWidget,
           );
           expect(find.text('More'), findsNothing);
@@ -2532,8 +2545,11 @@ void main() {
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topYearly);
           expect(find.text('Top this year'), findsOneWidget);
-          await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
+          await tester.tap(
+            phone ? pill : find.byKey(const ValueKey('topic-list-view-top')),
+          );
           await tester.pumpAndSettle();
+          await tester.ensureVisible(find.text('Week'));
           await tester.tap(find.text('Week'));
           await tester.pumpAndSettle();
           expect(controller.currentTopicListMode, TopicListMode.topWeekly);

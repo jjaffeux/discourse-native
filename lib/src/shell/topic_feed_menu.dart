@@ -9,7 +9,6 @@ import 'package:flutter/rendering.dart' show OverflowBoxFit;
 import '../foundation/count_label.dart';
 import '../models/content_route.dart';
 import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'platform.dart';
 
 enum _View { latest, unread, newActivity, unseen, top, trending }
@@ -27,9 +26,11 @@ _View _viewOf(TopicListMode mode) => switch (mode) {
 
 /// The adaptive topic views, using the same feed routes as the full menu.
 ///
-/// A bounded parent controls the available room. [maxVisibleViews] can reserve
-/// room for adjacent filters; [compact] uses icons while retaining counts and
-/// accessible names. The current view always remains visible.
+/// On desktop, a switch of as many views as fit beside an ellipsis holding the
+/// rest. A bounded parent controls the available room, and [maxVisibleViews]
+/// can reserve room for adjacent filters. The current view always remains
+/// visible. On touch platforms, one quiet pill names the current view and
+/// opens every view.
 class TopicFeedMenu extends StatefulWidget {
   const TopicFeedMenu({
     super.key,
@@ -42,7 +43,6 @@ class TopicFeedMenu extends StatefulWidget {
     this.topicCount = 0,
     this.replyCount = 0,
     this.maxVisibleViews = 3,
-    this.compact = false,
   }) : assert(maxVisibleViews >= 1 && maxVisibleViews <= 3);
 
   final TopicListMode mode;
@@ -51,7 +51,6 @@ class TopicFeedMenu extends StatefulWidget {
   final bool unifiedNew;
   final int unreadCount, newCount, topicCount, replyCount;
   final int maxVisibleViews;
-  final bool compact;
 
   static String label(TopicListMode mode) => switch (mode) {
     TopicListMode.latest => appL10n.latest,
@@ -68,23 +67,15 @@ class TopicFeedMenu extends StatefulWidget {
   State<TopicFeedMenu> createState() => _TopicFeedMenuState();
 }
 
-typedef _FeedMenuMeasurements = ({
-  Object identity,
-  Map<bool, Map<Object, double>> widths,
-});
+typedef _FeedMenuMeasurements = ({Object identity, Map<Object, double> widths});
 
 class _TopicFeedMenuState extends State<TopicFeedMenu> {
   final _measureKeys = <Object, GlobalKey>{};
   final _measurementFrameKey = GlobalKey();
   final _menuKeys = <Object, GlobalKey>{};
   final _toggleKeys = <_View, GlobalKey>{};
-  final _widthsByCompact = <bool, Map<Object, double>>{};
+  Map<Object, double> _widths = const {};
   Object? _measurementIdentity;
-
-  bool get _compact =>
-      widget.compact || (context.isTouch && DFitRow.compactOf(context));
-
-  Map<Object, double> get _widths => _widthsByCompact[_compact] ?? const {};
 
   _View get _current => _viewOf(widget.mode);
   List<_View> get _views => [
@@ -145,45 +136,63 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
   Widget _toggle(_View view, {FocusNode? focusNode, VoidCallback? activate}) {
     final label = _segmentLabel(view);
     final count = _count(_mode(view));
-    final icon = DIcon(switch (view) {
-      _View.latest => DNativeIcons.clock,
-      _View.unread => DIcons.envelope,
-      _View.newActivity => DIcons.certificate,
-      _View.unseen => DNativeIcons.eyeSlash,
-      _View.top => DNativeIcons.trophy,
-      _View.trending => DIcons.fire,
-    }, size: 14);
-    final toggle = _compact && count == 0
-        ? DToggle.iconOnly(
-            key: ValueKey('topic-list-view-${view.name}'),
-            pressed: view == _current,
-            size: DToggleSize.segment,
-            variant: DToggleVariant.segmented,
-            semanticLabel: label,
-            focusNode: focusNode,
-            onPressedChanged: activate == null ? null : (_) => activate(),
-            icon: icon,
-          )
-        : DToggle(
-            key: ValueKey('topic-list-view-${view.name}'),
-            pressed: view == _current,
-            size: DToggleSize.segment,
-            variant: DToggleVariant.segmented,
-            semanticLabel: _semantics(label, count),
-            focusNode: focusNode,
-            onPressedChanged: activate == null ? null : (_) => activate(),
-            child: _countedLabel(_compact ? icon : Text(label), count),
+    final toggle = DToggle(
+      key: ValueKey('topic-list-view-${view.name}'),
+      pressed: view == _current,
+      size: DToggleSize.segment,
+      variant: DToggleVariant.segmented,
+      semanticLabel: _semantics(label, count),
+      focusNode: focusNode,
+      onPressedChanged: activate == null ? null : (_) => activate(),
+      child: _countedLabel(Text(label), count),
+    );
+    return activate == null
+        ? toggle
+        : KeyedSubtree(
+            key: _toggleKeys.putIfAbsent(view, GlobalKey.new),
+            child: toggle,
           );
-    return DTooltip(
-      message: label,
-      disabled: !_compact || activate == null,
-      excludeFromSemantics: true,
-      child: activate == null
-          ? toggle
-          : KeyedSubtree(
-              key: _toggleKeys.putIfAbsent(view, GlobalKey.new),
-              child: toggle,
+  }
+
+  // A phone's view is a pill as the filters beside it are: the current view's
+  // name, beside it its own count or else what waits in the other views, and
+  // every view in its menu. It keeps its name and insets as the header draws
+  // in, so the row does not shift around it.
+  Widget _pill() {
+    final name = TopicFeedMenu.label(widget.mode);
+    final own = _count(widget.mode);
+    final waiting = _hiddenCount(_views.where((view) => view != _current));
+    final count = own > 0 ? own : waiting;
+    return _menu(
+      'more',
+      _views,
+      (trigger) => DButton(
+        key: const ValueKey('topic-list-feed-menu'),
+        size: DButtonSize.filter,
+        variant: DButtonVariant.quiet,
+        semanticLabel: own == 0 && waiting > 0
+            ? context.l10n.topicFeedViewPillWithMore(name, waiting)
+            : context.l10n.topicFeedViewPill(name),
+        focusNode: trigger.focusNode,
+        hasPopup: true,
+        expanded: trigger.open,
+        onPressed: trigger.toggle,
+        // One baseline, so the figures stand level with the letters.
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            Flexible(
+              child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis),
             ),
+            if (count > 0) ...[
+              const SizedBox(width: 7),
+              DBadge(size: DBadgeSize.count, child: Text('$count')),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
@@ -366,12 +375,11 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
       widths['edges'] =
           frame.size.width - (bounds.last.right - bounds.first.left);
       widths['gap'] = bounds[1].left - bounds[0].right;
-      final compact = _compact;
-      if (!mapEquals(widths, _widthsByCompact[compact])) {
-        setState(() => _widthsByCompact[compact] = widths);
+      if (!mapEquals(widths, _widths)) {
+        setState(() => _widths = widths);
         PageStorage.maybeOf(context)?.writeState(context, (
           identity: _measurementIdentity!,
-          widths: Map<bool, Map<Object, double>>.of(_widthsByCompact),
+          widths: widths,
         ), identifier: _TopicFeedMenuState);
       }
     });
@@ -379,6 +387,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
 
   @override
   Widget build(BuildContext context) {
+    if (context.isTouch) return _pill();
     final identity = (
       widget.mode,
       widget.unreadCount,
@@ -394,13 +403,12 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     );
     if (identity != _measurementIdentity) {
       _measurementIdentity = identity;
-      _widthsByCompact.clear();
       final stored = PageStorage.maybeOf(
         context,
       )?.readState(context, identifier: _TopicFeedMenuState);
-      if (stored is _FeedMenuMeasurements && stored.identity == identity) {
-        _widthsByCompact.addAll(stored.widths);
-      }
+      _widths = stored is _FeedMenuMeasurements && stored.identity == identity
+          ? stored.widths
+          : const {};
     }
     _measure();
     return LayoutBuilder(
@@ -470,7 +478,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
                       offstage: _widths.isEmpty,
                       child: _menu(
                         'more',
-                        context.isTouch ? _views : hidden,
+                        hidden,
                         (trigger) => _overflow(overflowCount, trigger: trigger),
                       ),
                     ),

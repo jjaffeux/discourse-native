@@ -8501,6 +8501,27 @@
   "@chooseTopicFeed": {
     "description": "English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact."
   },
+  "topicFeedViewPill": "View: {view}",
+  "@topicFeedViewPill": {
+    "description": "Accessible name of the phone's topic view pill, which opens every topic view. view is the current view's name.",
+    "placeholders": {
+      "view": {
+        "type": "String"
+      }
+    }
+  },
+  "topicFeedViewPillWithMore": "View: {view}, {count} more in other views",
+  "@topicFeedViewPillWithMore": {
+    "description": "Accessible name of the phone's topic view pill when the current view has no count of its own and the other views hold count topics between them. view is the current view's name.",
+    "placeholders": {
+      "view": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "newActivity": "New activity",
   "@newActivity": {
     "description": "English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact."

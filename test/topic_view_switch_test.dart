@@ -24,49 +24,121 @@ void main() {
         .load();
   });
 
-  for (final platform in [
-    TargetPlatform.macOS,
-    TargetPlatform.iOS,
-    TargetPlatform.android,
-  ]) {
-    for (final dark in [false, true]) {
-      testWidgets(
-        'feed consumes Native inset segment geometry ($platform, dark $dark)',
-        (tester) async {
-          final fixture = _Fixture(
-            platform: platform,
-            dark: dark,
-            mode: TopicListMode.newTopics,
-          );
-          await fixture.pump(tester);
-          final touch = platform != TargetPlatform.macOS;
-          final selected = _segment('newActivity');
-          expect(tester.widget<DButtonGroup>(_switch).inset, isTrue);
-          expect(tester.getSize(_switch).height, touch ? 36 : 30);
-          expect(tester.getSize(selected).height, touch ? 32 : 26);
-          expect(
-            tester.getTopLeft(selected).dy - tester.getTopLeft(_switch).dy,
-            2,
-          );
-          final artwork = tester.widget<AnimatedContainer>(
-            find
-                .descendant(
-                  of: selected,
-                  matching: find.byType(AnimatedContainer),
-                )
-                .first,
-          );
-          final surface = artwork.decoration! as BoxDecoration;
-          expect(surface.borderRadius, BorderRadius.circular(999));
-          expect(
-            surface.color,
-            DTokens.of(tester.element(selected)).raisedBackground,
-          );
-          expect(tester.takeException(), isNull);
-        },
+  for (final dark in [false, true]) {
+    testWidgets('desktop feed consumes Native inset segment geometry ($dark)', (
+      tester,
+    ) async {
+      final fixture = _Fixture(dark: dark, mode: TopicListMode.newTopics);
+      await fixture.pump(tester);
+      final selected = _segment('newActivity');
+      expect(tester.widget<DButtonGroup>(_switch).inset, isTrue);
+      expect(tester.getSize(_switch).height, 30);
+      expect(tester.getSize(selected).height, 26);
+      expect(tester.getTopLeft(selected).dy - tester.getTopLeft(_switch).dy, 2);
+      final artwork = tester.widget<AnimatedContainer>(
+        find
+            .descendant(of: selected, matching: find.byType(AnimatedContainer))
+            .first,
       );
+      final surface = artwork.decoration! as BoxDecoration;
+      expect(surface.borderRadius, BorderRadius.circular(999));
+      expect(
+        surface.color,
+        DTokens.of(tester.element(selected)).raisedBackground,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    for (final dark in [false, true]) {
+      testWidgets('a phone view is one quiet pill ($platform, dark $dark)', (
+        tester,
+      ) async {
+        final fixture = _Fixture(
+          platform: platform,
+          dark: dark,
+          mode: TopicListMode.newTopics,
+        );
+        await fixture.pump(tester);
+        await _capture(tester, '${platform.name}-${dark ? 'dark' : 'light'}');
+        expect(_switch, findsNothing);
+        expect(find.byType(DToggle), findsNothing);
+        final pill = tester.widget<DButton>(_more);
+        expect(pill.variant, DButtonVariant.quiet);
+        expect(pill.size, DButtonSize.filter);
+        final bounds = tester.getRect(_more);
+        // As tall as the filter pills beside it.
+        expect(
+          bounds.height,
+          tester
+              .getSize(
+                find.ancestor(
+                  of: find.text('General'),
+                  matching: find.byType(DButton),
+                ),
+              )
+              .height,
+        );
+        final name = find.descendant(
+          of: _more,
+          matching: find.text('New · Topics'),
+        );
+        final count = find.descendant(of: _more, matching: find.text('3'));
+        expect(tester.getRect(name).left - bounds.left, 12);
+        final badge = find.ancestor(of: count, matching: find.byType(DBadge));
+        expect(tester.getRect(badge).left - tester.getRect(name).right, 7);
+        expect(bounds.right - tester.getRect(badge).right, 12);
+        expect(_baseline(tester, count), _baseline(tester, name));
+        expect(tester.takeException(), isNull);
+      });
     }
   }
+
+  testWidgets('a phone pill counts its own view, else what waits elsewhere', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final fixture = _Fixture(platform: TargetPlatform.iOS);
+    await fixture.pump(tester);
+    Iterable<String> drawn() => tester
+        .widgetList<Text>(
+          find.descendant(of: _more, matching: find.byType(Text)),
+        )
+        .map((text) => text.data!);
+    // Unified New's seven already include Unread's four replies.
+    expect(drawn(), ['Latest', '7']);
+    expect(
+      find.bySemanticsLabel('View: Latest, 7 more in other views'),
+      findsOneWidget,
+    );
+    for (final (mode, name, count) in [
+      (TopicListMode.unread, 'Unread', '4'),
+      (TopicListMode.newTopics, 'New · Topics', '3'),
+      (TopicListMode.newActivity, 'New', '7'),
+    ]) {
+      fixture.rebuild(() => fixture.mode = mode);
+      await tester.pumpAndSettle();
+      expect(drawn(), [name, count]);
+      expect(find.bySemanticsLabel('View: $name'), findsOneWidget);
+    }
+    fixture.rebuild(() {
+      fixture.mode = TopicListMode.topYearly;
+      fixture.unified = false;
+    });
+    await tester.pumpAndSettle();
+    // Legacy New's three topics are disjoint from Unread's four replies.
+    expect(drawn(), ['Top · Year', '7']);
+    fixture.rebuild(() {
+      fixture.mode = TopicListMode.latest;
+      fixture.signedIn = false;
+    });
+    await tester.pumpAndSettle();
+    expect(drawn(), ['Latest']);
+    expect(find.bySemanticsLabel('View: Latest'), findsOneWidget);
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('New, Top and overflow keep independent keyboard menu focus', (
     tester,
@@ -213,7 +285,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final dark in [false, true]) {
       testWidgets(
-        'phone overflow opens with every view reachable ($platform $dark)',
+        'the phone pill opens every view as a sheet ($platform $dark)',
         (tester) async {
           final fixture = _Fixture(
             platform: platform,
@@ -223,10 +295,6 @@ void main() {
             mode: TopicListMode.newTopics,
           );
           await fixture.pump(tester);
-          await _capture(
-            tester,
-            '${platform.name}-${dark ? 'dark' : 'light'}-switch',
-          );
           await tester.tap(_more);
           await tester.pumpAndSettle();
           expect(find.byType(DSheetContent), findsOneWidget);
@@ -274,17 +342,9 @@ void main() {
           await tester.pumpAndSettle();
           expect(fixture.mode, TopicListMode.popular);
           expect(find.byType(DSheetContent), findsNothing);
-          fixture.mode = TopicListMode.topYearly;
-          fixture.width = 150;
-          fixture.rebuild(() {});
-          await tester.pumpAndSettle();
           expect(
-            find.descendant(of: _more, matching: find.text('7')),
+            find.descendant(of: _more, matching: find.text('Trending')),
             findsOneWidget,
-          );
-          await _capture(
-            tester,
-            '${platform.name}-${dark ? 'dark' : 'light'}-hidden-counts',
           );
           expect(tester.takeException(), isNull);
         },
@@ -292,9 +352,7 @@ void main() {
     }
   }
 
-  testWidgets('large text and compact labels keep the current view in bounds', (
-    tester,
-  ) async {
+  testWidgets('large text keeps the current view in bounds', (tester) async {
     final fixture = _Fixture(
       width: 280,
       mode: TopicListMode.newReplies,
@@ -303,10 +361,6 @@ void main() {
     await fixture.pump(tester);
     expect(_segment('newActivity'), findsOneWidget);
     expect(tester.getRect(_switch).width, lessThanOrEqualTo(280));
-    expect(tester.takeException(), isNull);
-    fixture.compact = true;
-    fixture.rebuild(() {});
-    await tester.pumpAndSettle();
     final semantics = tester.ensureSemantics();
     await tester.pump();
     expect(find.bySemanticsLabel('New · Replies, 4 topics'), findsOneWidget);
@@ -358,7 +412,6 @@ class _Fixture {
   TopicListMode mode;
   double width;
   bool unified, signedIn;
-  bool compact = false;
   late StateSetter rebuild;
 
   Future<void> pump(WidgetTester tester) async {
@@ -410,7 +463,6 @@ class _Fixture {
                                 newCount: unified ? 7 : 3,
                                 topicCount: 3,
                                 replyCount: 4,
-                                compact: compact,
                                 onSelected: (value) =>
                                     rebuild(() => mode = value),
                               ),
@@ -465,6 +517,15 @@ class _Fixture {
     );
     await tester.pumpAndSettle();
   }
+}
+
+double _baseline(WidgetTester tester, Finder text) {
+  final paragraph = tester.renderObject<RenderBox>(text);
+  final ascent = paragraph.getDryBaseline(
+    BoxConstraints.loose(paragraph.size),
+    TextBaseline.alphabetic,
+  )!;
+  return paragraph.localToGlobal(Offset(0, ascent)).dy;
 }
 
 Future<void> _capture(WidgetTester tester, String name) async {
