@@ -186,6 +186,26 @@ void main() {
         expect(drawn[i], closeTo(expected[i], 2), reason: 'channel $i');
       }
     });
+
+    testWidgets('keep a focused heading focused as they are held and let go', (
+      tester,
+    ) async {
+      await _pump(tester, sheer: 10);
+      final focus = Focus.of(tester.element(find.text('Forum')));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasPrimaryFocus, isTrue);
+      await hold(tester);
+      expect(frosts(), findsOneWidget);
+      expect(focus.hasPrimaryFocus, isTrue, reason: 'held');
+      tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(frosts(), findsNothing);
+      expect(focus.hasPrimaryFocus, isTrue, reason: 'let go');
+    });
   });
 
   for (final brightness in Brightness.values) {

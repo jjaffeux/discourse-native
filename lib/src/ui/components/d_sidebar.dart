@@ -843,17 +843,19 @@ class _SidebarCardHeading extends StatelessWidget {
       ),
       child: heading,
     );
-    if (!pinned || !frost.isSheer) return card;
-    // Behind the fill, so the fill is not itself blurred.
+    // One structure held or not, so holding keeps the heading's controls and
+    // their focus. The frost is behind the fill, so the fill is not blurred.
     return Stack(
+      fit: StackFit.passthrough,
       children: [
-        Positioned.fill(
-          child: DFrost.backdrop(
-            context,
-            borderRadius: BorderRadius.zero,
-            child: const SizedBox.expand(),
+        if (pinned && frost.isSheer)
+          Positioned.fill(
+            child: DFrost.backdrop(
+              context,
+              borderRadius: BorderRadius.zero,
+              child: const SizedBox.expand(),
+            ),
           ),
-        ),
         card,
       ],
     );
