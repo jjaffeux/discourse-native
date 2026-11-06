@@ -11,6 +11,10 @@ import re
 
 UI_THREAD = re.compile(r"io\.flutter\.(ui|platform)")
 BUDGET_US = 8333
+# The engine's idle notification after each frame is recorded on the GC
+# stream; the VM runs idle-time collections inside it. It is the window,
+# not a collection, so the collections inside it are the outermost spans.
+NOT_COLLECTIONS = {"NotifyIdle"}
 
 
 def _ui_tid(events):
@@ -34,18 +38,27 @@ def pauses(events):
     """Outermost GC spans on the UI thread as (start, end, name, args)."""
     tid = _ui_tid(events)
     spans, stack = [], []
+    # A stable sort keeps the trace's own order for events that share a
+    # timestamp, which is the order they began and ended in.
     timed = sorted(
         (e for e in events if e.get("tid") == tid and e.get("cat") == "GC"
-         and e.get("ph") in ("B", "E", "X")),
-        key=lambda e: (e["ts"], e["ph"] != "E"))
+         and e.get("ph") in ("B", "E", "X") and e.get("name") not in NOT_COLLECTIONS),
+        key=lambda e: e["ts"])
     for e in timed:
         if e["ph"] == "X":
             if not stack:
                 spans.append((e["ts"], e["ts"] + e.get("dur", 0), e["name"], e.get("args", {})))
         elif e["ph"] == "B":
             stack.append(e)
-        elif stack:
-            begin = stack.pop()
+        else:
+            # An end closes the latest begin of its name; begins above it
+            # were never closed and are dropped with it.
+            names = [b["name"] for b in stack]
+            if e["name"] not in names:
+                continue
+            index = len(names) - 1 - names[::-1].index(e["name"])
+            begin = stack[index]
+            del stack[index:]
             if not stack:
                 args = {**begin.get("args", {}), **e.get("args", {})}
                 spans.append((begin["ts"], e["ts"], begin["name"], args))
