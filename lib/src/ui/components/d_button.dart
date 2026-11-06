@@ -4,6 +4,7 @@ import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -1712,6 +1713,43 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
     widget.onPressed!();
   }
 
+  // Created on the first press: a resting row of these buttons allocates no
+  // recognizers, as a GestureDetector would for each one when it mounts.
+  TapGestureRecognizer? _tap;
+
+  void _pointerDown(PointerDownEvent event) {
+    if (!_enabled) return;
+    (_tap ??= TapGestureRecognizer(debugOwner: this)
+        ..onTapDown = _pressDown
+        ..onTapUp = _pressUp
+        ..onTapCancel = _pressCancel
+        ..onTap = _activate)
+      ..gestureSettings = MediaQuery.maybeGestureSettingsOf(context)
+      ..addPointer(event);
+  }
+
+  void _pressDown(TapDownDetails _) => _update(WidgetState.pressed, true);
+  void _pressUp(TapUpDetails _) => _update(WidgetState.pressed, false);
+  void _pressCancel() => _update(WidgetState.pressed, false);
+
+  @override
+  void didUpdateWidget(_DInlineButtonPrimitive oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A disabled button stops following a press, as a detector that loses
+    // its tap callbacks drops its recognizer.
+    if (!_enabled) _dropTap();
+  }
+
+  // Disposing a recognizer that follows a press cancels it, and this state's
+  // cancel callback must not run while it is being disposed. A build drops
+  // the pressed state of a disabled button.
+  void _dropTap() {
+    _tap
+      ?..onTapCancel = null
+      ..dispose();
+    _tap = null;
+  }
+
   void _activateFromKeyboard() {
     if (!_enabled) return;
     _keyboardPress?.cancel();
@@ -1792,57 +1830,36 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
           canRequestFocus: canRequestFocus,
           includeSemantics: false,
           onFocusChange: (value) => _update(WidgetState.focused, value),
-          child: MouseRegion(
+          child: _PressRegion(
             cursor: style.mouseCursor!.resolve(_states)!,
             onEnter: _enabled
                 ? (_) => _update(WidgetState.hovered, true)
                 : null,
             onExit: (_) => _update(WidgetState.hovered, false),
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTapDown: _enabled
-                  ? (_) => _update(WidgetState.pressed, true)
-                  : null,
-              onTapUp: _enabled
-                  ? (_) => _update(WidgetState.pressed, false)
-                  : null,
-              onTapCancel: _enabled
-                  ? () => _update(WidgetState.pressed, false)
-                  : null,
-              onTap: _enabled ? _activate : null,
-              child: ConstrainedBox(
-                constraints: constraints,
-                child: IconTheme(
-                  data:
-                      (context
-                                  .dependOnInheritedWidgetOfExactType<
-                                    IconTheme
-                                  >()
-                                  ?.data ??
-                              const IconThemeData.fallback())
-                          .merge(
-                            IconThemeData(
-                              color: style.iconColor!.resolve(_states),
-                              size: style.iconSize!.resolve(_states),
-                            ),
+            onPointerDown: _pointerDown,
+            child: ConstrainedBox(
+              constraints: constraints,
+              child: IconTheme(
+                data:
+                    (context
+                                .dependOnInheritedWidgetOfExactType<IconTheme>()
+                                ?.data ??
+                            const IconThemeData.fallback())
+                        .merge(
+                          IconThemeData(
+                            color: style.iconColor!.resolve(_states),
+                            size: style.iconSize!.resolve(_states),
                           ),
-                  child: DImplicitTransition<TextStyle>(
-                    value: style.textStyle!
-                        .resolve(_states)!
-                        .copyWith(
-                          color: style.foregroundColor!.resolve(_states),
                         ),
-                    duration: style.animationDuration!,
-                    lerp: _lerpTextStyle,
-                    builder: (context, textStyle) => DefaultTextStyle(
-                      style: textStyle,
-                      child: style.backgroundBuilder!(
-                        context,
-                        _states,
-                        content,
-                      ),
-                    ),
+                child: DImplicitTransition<TextStyle>(
+                  value: style.textStyle!
+                      .resolve(_states)!
+                      .copyWith(color: style.foregroundColor!.resolve(_states)),
+                  duration: style.animationDuration!,
+                  lerp: _lerpTextStyle,
+                  builder: (context, textStyle) => DefaultTextStyle(
+                    style: textStyle,
+                    child: style.backgroundBuilder!(context, _states, content),
                   ),
                 ),
               ),
@@ -1856,8 +1873,58 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
   @override
   void dispose() {
     _keyboardPress?.cancel();
+    _dropTap();
     _ownedFocus?.dispose();
     super.dispose();
+  }
+}
+
+/// An inline button's hover region that also takes its presses, so the
+/// button needs no GestureDetector of its own: one render object instead of
+/// two, and no listener or detector elements.
+class _PressRegion extends MouseRegion {
+  const _PressRegion({
+    super.onEnter,
+    super.onExit,
+    super.cursor,
+    required this.onPointerDown,
+    super.child,
+  });
+
+  final PointerDownEventListener onPointerDown;
+
+  @override
+  RenderMouseRegion createRenderObject(BuildContext context) => _PressRegionBox(
+    onEnter: onEnter,
+    onExit: onExit,
+    cursor: cursor,
+    onPointerDown: onPointerDown,
+  );
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    covariant _PressRegionBox renderObject,
+  ) {
+    super.updateRenderObject(context, renderObject);
+    renderObject.onPointerDown = onPointerDown;
+  }
+}
+
+class _PressRegionBox extends RenderMouseRegion {
+  _PressRegionBox({
+    super.onEnter,
+    super.onExit,
+    super.cursor,
+    required this.onPointerDown,
+  });
+
+  PointerDownEventListener onPointerDown;
+
+  @override
+  void handleEvent(PointerEvent event, HitTestEntry entry) {
+    super.handleEvent(event, entry);
+    if (event is PointerDownEvent) onPointerDown(event);
   }
 }
 
