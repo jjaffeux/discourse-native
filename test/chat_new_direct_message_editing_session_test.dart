@@ -192,7 +192,12 @@ void main() {
       editor.changeQuery(' maya ');
       expect(editor.searchText, ' maya ');
       expect(editor.searching, isTrue);
-      expect(editor.results, isEmpty);
+      expect(
+        editor.results.whereType<ChatDirectMessageChannel>().map(
+          (item) => item.channel.id,
+        ),
+        [55, 56],
+      );
       expect(await editor.select(recent, oldRevision), isNull);
       expect(editor.startGroup(oldRevision), isFalse);
       expect(api.chatDirectMessageSearchRequests, isEmpty);
@@ -209,12 +214,18 @@ void main() {
       );
       editor.changeQuery('theo');
       await Future<void>.delayed(const Duration(milliseconds: 350));
-      expect(editor.results.single, startChattingPeople[1]);
+      expect(editor.results.first, startChattingPeople[1]);
+      expect(
+        editor.results.whereType<ChatDirectMessageChannel>().map(
+          (item) => item.channel.id,
+        ),
+        [56, 57],
+      );
       api.pendingSearches['maya']!.complete(
         ChatDirectMessageSearchResults([startChattingPeople.first]),
       );
       await pumpEventQueue();
-      expect(editor.results.single, startChattingPeople[1]);
+      expect(editor.results.first, startChattingPeople[1]);
       expect(api.directMessageChannelRequests, isEmpty);
     },
   );
@@ -257,6 +268,32 @@ void main() {
       expect(selected, [startChattingGroup]);
     },
   );
+
+  test('server channel denial overrides a retained local choice', () async {
+    final (editor, _, api) = await _fixture();
+    final response = Completer<ChatDirectMessageSearchResults>();
+    api.pendingSearches['maya'] = response;
+    editor.changeQuery('maya');
+    final local = editor.results.first;
+    final revision = editor.revision;
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    response.complete(
+      ChatDirectMessageSearchResults([
+        ChatDirectMessageChannel(
+          identifier: 'c-55',
+          matchQuality: 1,
+          enabled: false,
+          channel: startChattingChannels.first,
+        ),
+      ]),
+    );
+    await pumpEventQueue();
+    expect(
+      editor.results.where((item) => item.identifier == 'c-55').single.enabled,
+      isFalse,
+    );
+    expect(await editor.select(local, revision), isNull);
+  });
 
   test(
     'group opening snapshots recipients and navigation failure retains published creation',
@@ -307,13 +344,13 @@ void main() {
     editor.changeQuery('maya');
     await Future<void>.delayed(const Duration(milliseconds: 350));
     api.failCreation = true;
-    expect(await editor.select(editor.results.single, editor.revision), isNull);
+    expect(await editor.select(editor.results.first, editor.revision), isNull);
     expect(editor.opening, isFalse);
     expect(editor.error, 'Could not start this chat.');
-    expect(editor.results.single, startChattingPeople.first);
+    expect(editor.results.first, startChattingPeople.first);
     api.failCreation = false;
     final destination = await editor.select(
-      editor.results.single,
+      editor.results.first,
       editor.revision,
     );
     expect(destination, isNotNull);

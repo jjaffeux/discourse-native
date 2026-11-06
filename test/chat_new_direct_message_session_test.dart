@@ -113,11 +113,11 @@ void main() {
             await tester.pumpAndSettle();
             expect(tester.state(_form()), same(state));
           }
-          await tester.tap(
-            action == _Action.user ? _user('maya') : _createGroup,
-          );
-          await tester.pumpAndSettle();
           if (operation == _Operation.unchanged) {
+            await tester.tap(
+              action == _Action.user ? _user('maya') : _createGroup,
+            );
+            await tester.pumpAndSettle();
             expect(fixture.api.creationKeys, ['fixture-key']);
             expect(
               fixture.api.directMessageChannelRequests.single.usernames,
@@ -125,6 +125,9 @@ void main() {
             );
             expect(_form(), findsNothing);
           } else {
+            if (action == _Action.user) {
+              expect(_user('maya'), findsNothing);
+            }
             oldSelection?.call('u-2');
             oldSave?.call();
             await tester.pumpAndSettle();

@@ -75,6 +75,39 @@ void main() {
   }
 
   testWidgets(
+    'loaded conversations remain selectable during remote search',
+    (tester) async {
+      final response = Completer<ChatDirectMessageSearchResults>();
+      api.pendingSearches['maya'] = response;
+      await pump(tester);
+      await tester.enterText(search, 'maya');
+      await tester.pump();
+      final channel = find.byKey(
+        const ValueKey('chat-new-direct-message-channel-55'),
+      );
+      expect(channel, findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('chat-new-direct-message-channel-57')),
+        findsNothing,
+      );
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(response.isCompleted, isFalse);
+      expect(channel, findsOneWidget);
+      await tester.tap(channel);
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.id, 'chat-c-55');
+      expect(api.directMessageChannelsRequested, isEmpty);
+      response.complete(ChatDirectMessageSearchResults(const []));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.iOS,
+    }),
+  );
+
+  testWidgets(
     'group creation comes first, then recent chats and followed channels '
     'interleaved by activity',
     (tester) async {
