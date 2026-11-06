@@ -270,6 +270,25 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
             // Retracted, the row stands closer only while a category path has
             // separators to keep on its line; otherwise nothing shifts.
             closeUp: lastLevel > 0,
+            // What a shorter step hides: the names of a path's earlier levels,
+            // and the tag and Filters labels, which the trailing Filters menu
+            // reads from the same query. The leading view switch follows the
+            // room rather than the step. A page that brings categories off
+            // the path keeps the row at its step, so its menus are not built
+            // at full length and moved back within that frame.
+            watch: (
+              widget.filterQuery,
+              displayedCategoryId,
+              exact,
+              lastLevel,
+              categoryMarkOnly,
+              [for (final category in path) category.name].join('\u0000'),
+              [for (final tag in selectedTags) tag.name].join('\u0000'),
+              widget.taggingEnabled,
+              widget.maxCategoryNesting,
+              Localizations.localeOf(context),
+              MediaQuery.textScalerOf(context),
+            ),
             runSpacing: 8,
             children: [
               if (widget.leading != null)

@@ -359,6 +359,38 @@ void main() {
     }
   }
 
+  testWidgets('a rebuild that changes no view leaves the views as built', (
+    tester,
+  ) async {
+    final fixture = _Fixture();
+    await fixture.pump(tester);
+    var rebuilt = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, _) {
+      if (element.widget is DToggle) rebuilt++;
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    fixture.rebuild(() => fixture.generation++);
+    await tester.pump();
+    expect(rebuilt, 0);
+
+    // A tap reaches the callback of the latest build.
+    await tester.tap(_segment('unread'));
+    await tester.pumpAndSettle();
+    expect(fixture.picks, [(1, TopicListMode.unread)]);
+
+    // A count the views show builds them again.
+    fixture.rebuild(() => fixture.unread = 9);
+    await tester.pump();
+    expect(rebuilt, greaterThan(0));
+    expect(
+      find.descendant(of: _segment('unread'), matching: find.text('9')),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('large text keeps the current view in bounds', (tester) async {
     final fixture = _Fixture(
       width: 280,
@@ -419,6 +451,9 @@ class _Fixture {
   TopicListMode mode;
   double width;
   bool unified, signedIn;
+  int unread = 4;
+  int generation = 0;
+  final picks = <(int, TopicListMode)>[];
   late StateSetter rebuild;
 
   Future<void> pump(WidgetTester tester) async {
@@ -454,6 +489,7 @@ class _Fixture {
                   child: StatefulBuilder(
                     builder: (context, setState) {
                       rebuild = setState;
+                      final generation = this.generation;
                       return DPageSurface.headed(
                         title: const Text('Topics'),
                         controls: Wrap(
@@ -466,12 +502,14 @@ class _Fixture {
                                 mode: mode,
                                 unifiedNew: unified,
                                 signedIn: signedIn,
-                                unreadCount: 4,
+                                unreadCount: unread,
                                 newCount: unified ? 7 : 3,
                                 topicCount: 3,
                                 replyCount: 4,
-                                onSelected: (value) =>
-                                    rebuild(() => mode = value),
+                                onSelected: (value) {
+                                  picks.add((generation, value));
+                                  rebuild(() => mode = value);
+                                },
                               ),
                             ),
                             DButton(

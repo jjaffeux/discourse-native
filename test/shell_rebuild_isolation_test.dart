@@ -28,6 +28,7 @@ import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
+import 'package:discourse_native/src/shell/topic_feed_menu.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
@@ -108,6 +109,111 @@ void main() {
     await tester.pumpAndSettle();
     expect(controller.newReplyCount, 1);
   });
+
+  testWidgets(
+    'a page bringing an unlisted category leaves sidebar and views as built',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const support = TopicCategory(
+        id: 5,
+        name: 'Support',
+        color: '0088CC',
+        slug: 'support',
+      );
+      const fresh = TopicCategory(
+        id: 7,
+        name: 'Fresh',
+        color: '00AA88',
+        slug: 'fresh',
+      );
+      List<Topic> topics(int first, int count, int categoryId) => [
+        for (var id = first; id < first + count; id++)
+          Topic(
+            id: id,
+            title: 'Topic $id',
+            slug: 'topic-$id',
+            categoryId: categoryId,
+            bumpedAt: DateTime.utc(2026, 9, 1),
+          ),
+      ];
+      // A reader whose sidebar lists Support, as a signed-in sidebar does,
+      // rather than the site's busiest categories, which a new one can join.
+      const siteUrl = 'https://meta.discourse.org';
+      const user = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        sidebarCategoryIds: [5],
+      );
+      final page = Completer<void>();
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: {
+          '/latest.json': topics(1, 40, support.id),
+          '/latest.json?page=1': topics(41, 5, fresh.id),
+        },
+        categoryList: const [support],
+        feedCategoriesByPath: const {
+          '/latest.json': [support],
+          '/latest.json?page=1': [fresh],
+        },
+        nextPages: const {'/latest.json': '/latest?page=1'},
+        feedGates: {'/latest.json?page=1': page},
+      );
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: user),
+        ]),
+        api: api,
+        authenticator: FakeAuthenticator()..keys[siteUrl] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final section = controller.categorySidebarSectionFor(siteUrl);
+      expect(section, isNotNull);
+      expect(find.byType(TopicFeedMenu), findsWidgets);
+      final paging = controller.loadMoreFeed('latest');
+      await tester.pump();
+
+      final rebuilt = <String>[];
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        if (element.findAncestorWidgetOfExactType<InstanceSidebar>() != null) {
+          rebuilt.add('sidebar ${element.widget.runtimeType}');
+        }
+        if (element.widget is! TopicFeedMenu &&
+            element.findAncestorWidgetOfExactType<TopicFeedMenu>() != null) {
+          rebuilt.add('views ${element.widget.runtimeType}');
+        }
+        previous?.call(element, builtOnce);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      page.complete();
+      await paging;
+      await tester.pump();
+      debugOnRebuildDirtyWidget = previous;
+
+      expect(
+        controller.filterCategoriesFor(siteUrl).map((category) => category.id),
+        containsAll([support.id, fresh.id]),
+      );
+      expect(controller.categorySidebarSectionFor(siteUrl), same(section));
+      expect(rebuilt, isEmpty);
+    },
+  );
 
   testWidgets('navigation does not rebuild account and sidebar chrome', (
     tester,

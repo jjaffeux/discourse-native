@@ -66,6 +66,72 @@ void main() {
     },
   );
 
+  test('sources change with a listed category or its ancestors alone', () {
+    const product = TopicCategory(
+      id: 1,
+      name: 'Product',
+      color: '123456',
+      position: 0,
+    );
+    const design = TopicCategory(
+      id: 2,
+      name: 'Design',
+      color: '123456',
+      parentCategoryId: 1,
+      position: 0,
+    );
+    const support = TopicCategory(
+      id: 4,
+      name: 'Support',
+      color: '123456',
+      position: 1,
+    );
+    List<Object> sources(List<TopicCategory> categories) =>
+        categorySidebarSources(
+          buildCategorySidebarSection(
+            categories: categories,
+            connected: true,
+            preferredCategoryIds: [2],
+            fixedCategoryPositions: true,
+          ),
+          {for (final category in categories) category.id: category},
+        );
+
+    final listed = sources(const [product, design, support]);
+    expect(
+      sources(const [
+        product,
+        design,
+        support,
+        TopicCategory(id: 9, name: 'Fresh', color: '00AA88', position: 2),
+      ]),
+      listed,
+    );
+    expect(
+      sources(const [
+        product,
+        TopicCategory(
+          id: 2,
+          name: 'Designs',
+          color: '123456',
+          parentCategoryId: 1,
+          position: 0,
+        ),
+        support,
+      ]),
+      isNot(listed),
+    );
+    // The row draws its parent's colour beside its own.
+    expect(
+      sources(const [
+        TopicCategory(id: 1, name: 'Product', color: 'FF0000', position: 0),
+        design,
+        support,
+      ]),
+      isNot(listed),
+    );
+  });
+
   for (final slug in ['100%', '%ZZ', '%C', '%FF']) {
     test(
       'unreadable escapes in a category slug remain a literal path segment: $slug',
