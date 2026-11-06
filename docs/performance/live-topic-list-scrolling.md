@@ -142,8 +142,10 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   they listen to the highlight mode only while hovered or focused. Ten
   links or ten items mount ten fewer global keys, and their focus rings
   follow the highlight mode as before. This came after the final
-  comparison and was not measured live; it is a small fraction of the
-  inline-button change above.
+  comparison. Over three alternating live runs each against the build
+  before it, a row mounted three fewer elements (715 to 712 on the warm
+  pass) and in-frame CPU did not move beyond noise (medians 1,030 and
+  1,026 ms).
 
 The CPU comparison at the top covers the first four changes; the final
 comparison below covers all of them except the last.
