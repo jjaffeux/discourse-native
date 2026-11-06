@@ -130,6 +130,37 @@ void main() {
     );
   }
 
+  testWidgets('a link offers its destination from the menu\'s first frame', (
+    tester,
+  ) async {
+    final shell = await tester.runAsync(() => _shell());
+    addTearDown(shell!.dispose);
+    await _pump(
+      tester,
+      shell,
+      LinkTarget(
+        url: '$_site/c/support/12',
+        title: 'Community support',
+        child: DButton(label: const Text('Support link'), onPressed: () {}),
+      ),
+    );
+    await tester.tap(
+      find.text('Support link'),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pump();
+    expect(find.text('Bookmark'), findsOneWidget);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bookmark'));
+    await tester.pumpAndSettle();
+    expect(
+      shell.destinationBookmarksFor(_site).single.route.destination,
+      isA<FeedDestination>(),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'content contexts add and remove every local destination without server mutation',
     (tester) async {
