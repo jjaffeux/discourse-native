@@ -14083,6 +14083,10 @@
   "@yourAccount": {
     "description": "English UI message used by shell/mobile_shell.dart: what the panel's tile for the signed-in account is called to assistive technology. Keep placeholders intact."
   },
+  "morePlaces": "More places",
+  "@morePlaces": {
+    "description": "English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action on each place of a phone's closed bar that grows the bar into its panel of more places, for whoever cannot pull the bar up. Keep placeholders intact."
+  },
   "fewerPlaces": "Fewer places",
   "@fewerPlaces": {
     "description": "English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact."

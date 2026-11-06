@@ -4,10 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Grows a phone's bar into its panel of places as a person does: a pull up
 /// on the bar's first place, let go as a flick, and settled open before it
-/// returns. A phone's bar has no ⋮; this is the one way in, besides pressing
-/// the page added to the bar. A bar that cannot grow, with nothing past its
-/// columns or something over it, is pulled all the same and found still a
-/// bar when [settlesOpen] is false.
+/// returns. A phone's bar has no ⋮; this is a finger's way in, besides
+/// pressing the page added to the bar. A bar that cannot grow, with nothing
+/// past its columns or something over it, is pulled all the same and found
+/// still a bar when [settlesOpen] is false.
 Future<void> openDockPanel(
   WidgetTester tester, {
   bool settlesOpen = true,
