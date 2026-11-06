@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
@@ -1694,19 +1695,28 @@ class _DInlineButtonPrimitiveState extends State<_DInlineButtonPrimitive> {
     // a post-frame callback per mount) has no callback here, and metadata rows
     // mount these buttons by the dozen. The actions stay in the tree while
     // disabled so that toggling keeps its shape.
+    final canRequestFocus = switch (MediaQuery.maybeNavigationModeOf(context)) {
+      NavigationMode.directional => true,
+      NavigationMode.traditional || null => _enabled,
+    };
+    // The node Focus would describe in a Semantics of its own: this widget
+    // rebuilds whenever focus arrives or leaves.
     return Semantics(
       container: true,
       enabled: _enabled,
       onTap: _enabled ? _activate : null,
+      onFocus: defaultTargetPlatform != TargetPlatform.iOS && canRequestFocus
+          ? _focus.requestFocus
+          : null,
+      focusable: canRequestFocus,
+      focused: canRequestFocus ? _focus.hasPrimaryFocus : null,
       child: Actions(
         actions: _enabled ? _actions : const <Type, Action<Intent>>{},
         child: Focus(
           focusNode: _focus,
           autofocus: widget.autofocus,
-          canRequestFocus: switch (MediaQuery.maybeNavigationModeOf(context)) {
-            NavigationMode.directional => true,
-            NavigationMode.traditional || null => _enabled,
-          },
+          canRequestFocus: canRequestFocus,
+          includeSemantics: false,
           onFocusChange: (value) => _update(WidgetState.focused, value),
           child: MouseRegion(
             cursor: style.mouseCursor!.resolve(_states)!,
