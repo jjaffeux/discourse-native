@@ -97,6 +97,72 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets(
+    'categories arriving off the path keep the row at its step for the menu',
+    (tester) async {
+      const fresh = TopicCategory(
+        id: 4,
+        name: 'Fresh',
+        color: '00AA88',
+        slug: 'fresh',
+        position: 3,
+      );
+      final tight = <bool>[];
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      Future<void> pump(List<TopicCategory> categories) => tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: Align(
+              alignment: Alignment.topLeft,
+              child: TopicListFilterBar(
+                wrap: true,
+                leading: Builder(
+                  builder: (context) {
+                    tight.add(DFitRow.tightOf(context));
+                    return const SizedBox(width: 40, height: 30);
+                  },
+                ),
+                siteUrl: 'https://example.com',
+                categories: categories,
+                knownTags: knownTags,
+                selectedCategoryId: child.id,
+                selectedTagName: null,
+                taggingEnabled: true,
+                searchTags: (_) async => const [],
+                onCategorySelected: (_) {},
+                onTagSelected: (_) {},
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await pump(const [parent, child, other]);
+      await tester.pumpAndSettle();
+      expect(tight.last, isTrue);
+
+      // Built at the step the row settled on alone, rather than at full
+      // length and back within the frame, moving every menu twice.
+      tight.clear();
+      await pump(const [parent, child, other, fresh]);
+      expect(tight, [true]);
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey(('topic-list-category-option', 4))),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('shows category and tag selectors without a result count', (
     tester,
   ) async {

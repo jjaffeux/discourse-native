@@ -515,6 +515,56 @@ void main() {
     expect(pill(tester, 'filters'), const Rect.fromLTWH(216, 0, 70, 30));
   });
 
+  // 100 + 8 + 100 + 8 + Filters + 8 + a 10-point probe that logs the step
+  // it is built at: 330 at full length and 265 tight in 300.
+  _desktopTest('a rebuild with the same watch keeps the step it settled on', (
+    tester,
+  ) async {
+    final tight = <bool>[];
+    Future<void> pump(Object watch, {double filters = 96}) => tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 300,
+            child: DFitRow(
+              watch: watch,
+              children: [
+                const _Pill('sort', full: 100),
+                const _Pill('category', full: 100),
+                _Pill('filters', full: filters, tight: 31),
+                Builder(
+                  builder: (context) {
+                    tight.add(DFitRow.tightOf(context));
+                    return const SizedBox(width: 10, height: 30);
+                  },
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await pump('a');
+    expect(tight, [false, true]);
+    expect(find.text('filters-tight'), findsOneWidget);
+
+    // Its controls are built at that step alone, not at full length first.
+    tight.clear();
+    await pump('a');
+    expect(tight, [true]);
+    expect(find.text('filters-tight'), findsOneWidget);
+
+    // A Filters label that fits at full length again comes with a new watch.
+    tight.clear();
+    await pump('b', filters: 60);
+    expect(tight, [false]);
+    expect(pill(tester, 'filters'), const Rect.fromLTWH(216, 0, 60, 30));
+    expect(tester.takeException(), isNull);
+  });
+
   _desktopTest('a child is measured at its own width, not what hangs past it', (
     tester,
   ) async {

@@ -18,7 +18,8 @@ enum DFitRowStep { full, tight, wrapped, wrappedTight, isolated }
 /// [DFitRowItem.last] on the final row. Controls keep their elements and menus
 /// throughout these layout changes. Overflowing popup content needs no room.
 /// A change in the row's room or in any control's width fits it again from
-/// the first step within the same layout, so no intermediate step is painted.
+/// the first step within the same layout, so no intermediate step is painted;
+/// so does a rebuild, unless its [watch] is unchanged.
 class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
   const DFitRow({
     super.key,
@@ -27,6 +28,7 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
     this.runSpacing = DSpacing.sm,
     this.compact = false,
     this.closeUp = false,
+    this.watch,
   });
 
   final List<Widget> children;
@@ -43,6 +45,14 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
   /// levels, so a row with nothing to shorten does not shift as it compacts.
   /// The leading [DFitRowItem], the view switch, keeps its own insets.
   final bool closeUp;
+
+  /// What the controls say at the steps before the one the row settles on,
+  /// as one value compared with `==`. A rebuild with an equal value keeps
+  /// that step, since a change in the row's room or in a control's width at
+  /// that step still fits it again from the first. Without it every rebuild
+  /// fits it again: a shorter step can hide a label whose change would let
+  /// an earlier step fit, and only the owner knows its controls' labels.
+  final Object? watch;
 
   static bool tightOf(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<_DFitRowScope>();
@@ -121,7 +131,7 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
 
   @override
   RenderAbstractLayoutBuilderMixin<DFitRowLayout, RenderObject>
-  createRenderObject(BuildContext context) => _RenderDFitRow(compact);
+  createRenderObject(BuildContext context) => _RenderDFitRow(compact, watch);
 
   @override
   void updateRenderObject(BuildContext context, RenderObject renderObject) =>
@@ -129,6 +139,7 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
         compact,
         TickerMode.valuesOf(context).enabled &&
             !(MediaQuery.maybeOf(context)?.disableAnimations ?? false),
+        watch,
       );
 }
 
@@ -217,8 +228,9 @@ class _RenderDFitRow extends RenderProxyBox
     with
         RenderObjectWithLayoutCallbackMixin,
         RenderAbstractLayoutBuilderMixin<DFitRowLayout, RenderBox> {
-  _RenderDFitRow(this._compact);
+  _RenderDFitRow(this._compact, this._watch);
   bool _compact;
+  Object? _watch;
   Map<RenderBox, Rect>? _fromRects;
   Map<RenderBox, Map<RenderDControlMotion, Rect>>? _fromControls;
   Size? _fromSize;
@@ -239,7 +251,9 @@ class _RenderDFitRow extends RenderProxyBox
     markNeedsLayout();
   });
 
-  void update(bool compact, bool animate) {
+  void update(bool compact, bool animate, Object? watch) {
+    final refit = _compact != compact || watch == null || watch != _watch;
+    _watch = watch;
     if (_compact != compact && animate && hasSize) {
       _fromRects = _controls?.paintedRects;
       _fromControls = _controls?.controlRects;
@@ -254,7 +268,7 @@ class _RenderDFitRow extends RenderProxyBox
       _ticker.stop();
     }
     _compact = compact;
-    reset();
+    if (refit) reset();
   }
 
   @override
