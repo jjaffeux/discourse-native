@@ -73,6 +73,8 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
 
   late bool _initialFold = widget.initiallyCollapsed;
   bool _notificationsOpen = false;
+  // The example's own session: its bar peeks once as it is first shown.
+  final _peek = DMobileDockPeek();
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Color.lerp(
@@ -95,6 +97,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   child: DMobileDock(
                     geometry: geometry,
                     collapsed: hidden || _initialFold,
+                    peek: _peek,
                     places: [
                       for (final (index, name) in [
                         'Start',

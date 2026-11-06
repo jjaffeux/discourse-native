@@ -26,6 +26,14 @@ void main() {
       expect(opens(.5, .7, 0), isFalse);
     });
 
+    test('a slow release from short of halfway, as from where the peek had '
+        'lifted the bar, opens past a quarter', () {
+      expect(opens(.3, .26, 0), isTrue);
+      expect(opens(.3, .24, 0), isFalse);
+      expect(opens(.49, .3, 0), isTrue);
+      expect(opens(.5, .3, 0), isFalse);
+    });
+
     test('at the flick speed, upward is still and downward is a flick', () {
       expect(opens(0, .1, .1), isFalse);
       expect(opens(0, .3, .1), isTrue);

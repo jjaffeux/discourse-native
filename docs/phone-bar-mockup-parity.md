@@ -101,7 +101,7 @@ six tiles:
 | Tiles | 56 tall, radius 16, hover `foreground` at 8%, the current one `foreground` at 10% (the mockup's `--primary` is its text colour), icon 18, name 11.5 in `mutedForeground`, 600 and `foreground` when current. |
 | Head | The bar's fill goes transparent and its places are tiles like the grid's, named again, the current one lit `10% g`, icons scaled `1 - .1 g`. The mark fades at `1 - 2 g`; the page added to the bar eases away and the rest return to their columns. The action moves to the centre of the fifth column, its circle fading, its icon risen 8 and in `primary`, its name 11.5 under it, 39 below its top, at most `72.4 - 8` wide on one line, cut short. |
 | You | A 22 face with a 1.5 ring set 1.5 outside it: `success` when present, `subtleMark` when notifications are paused, none otherwise. Named as the account menu names you; opens the header's account menu. |
-| Drag | Slop 8; a touch starting within 20 of the screen's bottom edge is the home gesture's. `g = start + dy / 174`. Released, a flick past .1 px/ms goes its way; still, it opens past .25 from closed and past .75 from open. The velocity is read over the last 100 ms of samples. |
+| Drag | Slop 8; a touch starting within 20 of the screen's bottom edge is the home gesture's. `g = start + dy / 174`. Released, a flick past .1 px/ms goes its way; still, from a start short of halfway (closed, or where the peek had lifted the bar) it opens past .25, and from past halfway past .75. The velocity is read over the last 100 ms of samples. |
 | Trackpad | A swipe moves `g` by its travel over 174 and settles 180 ms after it stops, opening if it moved up past .02 and closing on a push down unless it stayed past .98; momentum within 160 ms of settling is ignored. |
 
 The panel is an `OverlayPortal` from the dock, so it paints above the
@@ -117,6 +117,39 @@ on closing it goes back to what had it, or else to the page added to the
 bar, which opened it, or else to the bar's first place. The keyboard goes
 round the grabber, the head's places, Notifications, the action, the grid
 and you, with the page added out of the round while the panel is out.
+
+### The peek
+
+Nothing in the bar itself says it can be pulled up, so on opening it says
+so once: `DOCK_PEEK_AFTER`, `DOCK_PEEK_FOR`, `endPeek` and the peek effect in
+`App.tsx`, and the `.dock-float[data-peek]`, `.dock-panel__hint` and
+`@keyframes dock-hint-shine` rules in `app.css`. The once is the mockup's
+`peeked` ref: a `DMobileDockPeek` the phone shell keeps for as long as it
+stands (`_MobileShellState`, handed down through `MobileDockPanelScope`), so
+a bar built again, as the sidebar gives it back, does not peek again. The
+first `DMobileDock` given it with places past its columns takes it, and is
+the one to peek or not. `DMobileDock` draws the peek in the overlay the
+panel uses, the panel and the bar alone, with no dim, no modal semantics and
+nothing catching the page's touches; the slot keeps the bar's room and the
+page's lists still thin under it. At width 390 and a foot of 34:
+
+| Part | Value |
+| --- | --- |
+| When | `DMobileDock.peekAfter`, 900 ms after the bar first has a panel to grow into, unless by then it cannot grow (folded, its places hidden, covered, the footer away) or is out under a finger, a swipe or open. Taken either way: it never comes again in that session. |
+| Up | The bar lifts `DMobileDockGeometry.peek`, `30 + foot / 2` = 47, on the settle spring, `Cubic(.3, 1.36, .5, 1)` over 460 ms, passing its lift and coming back. Its fill is left to the panel's. The panel shows under it from the screen's foot to the bar's lifted top, `wellFill`, top corners 31, on the same spring; no grabber, no grid, no dim. The bar stays a closed bar: glyphs alone, its mark on its top edge. |
+| Hint | "Swipe up for more", 13 / 500, centred in a box the screen's width whose bottom is `foot / 2` = 17 above the screen's bottom and whose height is `peekUnder + peek - foot / 2` = 75, where `DMobileDockGeometry.peekUnder`, 45, is how far the bar's glyphs' bottom stood above the foot before the lift: the box runs from half the foot to the lifted glyphs. In 150 ms after up: its opacity over 200 ms and a rise of 6 over 300 ms, both `ease`. Out with no wait: 200 ms and 300 ms, `ease`. Not read to assistive technology. |
+| Light | A gradient at 100° over three times the text's width, `mutedForeground` to 34%, `foreground` at 50%, `mutedForeground` from 66%, slid from its end to its start over the text in 1.6 s, linear, from 300 ms after up and again each 1.6 s while up. Mirrored for a right-to-left reader. Back to its start, all muted, as the bar goes down. |
+| Hold and down | Up for `DMobileDock.peekFor`, `300 + 2 × 1600 + 200` = 3700 ms: two passes of the light and the start of a third. Then down on the same spring, the hint going, and the peek is over once the bar is back down. The mockup clears its `data-peek` 480 ms after down, just past its 460 ms transition, as its `growTo` clears `data-easing`; the app ends both on the animation's own end instead, so nothing of the peek is left once nothing moves. |
+| Taken over | A pull past the slop, a trackpad swipe, or a press growing the bar ends the peek and carries on from where the bar is: the growth starts at `lift / max(1, travel)`, 47 / 88 with three tiles and 47 / 158 with six, so the bar does not jump. The hint goes as it would have, in the grown panel's foot, and is gone 300 ms later. |
+| Taps | A place pressed during the peek is pressed as ever, where it has been lifted to; the panel under the bar takes a pull and nothing else. |
+| Reduced motion | The same steps at the same times, at once, with no light. |
+
+`DMobileDock` owns the peek as one of none, up and down beside its growth,
+on its own lift controller and a clock for the light; a step of the peek
+rebuilds the dock alone and a frame of it repaints the layer alone. Where
+the mockup leaves a docked or grown bar's panel clipped to the peek until
+its timer runs out, the app ends the peek at once: a bar put away, or grown
+by a press on the page added to it, takes the peek with it.
 
 ### Moving a place
 
@@ -146,7 +179,8 @@ through the place list.
 
 `test/d_mobile_dock_geometry_test.dart`, `test/d_mobile_dock_growth_test.dart`,
 `test/d_mobile_dock_reorder_test.dart`, `test/mobile_place_order_test.dart`,
-`test/d_mobile_dock_test.dart`, `test/d_mobile_dock_item_test.dart`,
+`test/d_mobile_dock_test.dart` (the peek among it),
+`test/d_mobile_dock_item_test.dart`,
 `test/d_badge_test.dart` (the unread chip), `test/d_composer_dock_test.dart`,
 `test/oklab_test.dart`, `test/topic_progress_motion_test.dart`,
 `test/mobile_shell_test.dart`, `test/mobile_dock_panel_test.dart`,

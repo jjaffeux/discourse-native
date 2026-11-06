@@ -173,6 +173,51 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('the bar peeks once while the phone shell stands, leaving the '
+      'shell and the page alone, and not again as the sidebar gives it back', (
+    tester,
+  ) async {
+    final shell = await fixture.pumpMobileShellFixture(tester);
+    final hint = find.text('Swipe up for more');
+    final root = tester.element(find.byType(MobileForumRoot));
+    final page = tester.element(find.byType(TopicListView));
+    final header = tester.element(find.byKey(const ValueKey('mobile-header')));
+    var notifications = 0;
+    void count() => notifications++;
+    shell.addListener(count);
+    addTearDown(() => shell.removeListener(count));
+    final rebuilt = <Element>{};
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt.add(element);
+      previous?.call(element, builtOnce);
+    };
+    addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+    var peeked = false;
+    for (var step = 0; step < 60; step++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      peeked |= hint.evaluate().isNotEmpty;
+    }
+    expect(peeked, isTrue);
+    expect(hint, findsNothing);
+    expect(rebuilt, isNotEmpty);
+    expect(rebuilt, isNot(contains(root)));
+    expect(rebuilt, isNot(contains(page)));
+    expect(rebuilt, isNot(contains(header)));
+    expect(notifications, 0);
+
+    shell.toggleMobileSidebar();
+    await tester.pumpAndSettle();
+    shell.closeMobileSidebar();
+    await tester.pumpAndSettle();
+    for (var step = 0; step < 60; step++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(hint, findsNothing);
+    }
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('notifications paused recolours the you tile\'s ring without '
       'rebuilding the shell\'s chrome', (tester) async {
     final shell = await fixture.pumpMobileShellFixture(tester);

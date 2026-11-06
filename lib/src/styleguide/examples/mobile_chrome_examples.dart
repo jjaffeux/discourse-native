@@ -11,7 +11,11 @@ final mobileDockExamples = ComponentExamples(
   notes:
       'Three places take a column each, then notifications, then the action; '
       'a pull grows the bar into a panel of the rest, risen from the foot over '
-      'a dim, and the panel\'s grabber puts it away. The profile is a regular place '
+      'a dim, and the panel\'s grabber puts it away. Given a DMobileDockPeek, '
+      'the first bar of a session that can grow lifts once, 900 ms after, to '
+      'show the panel under it, a "Swipe up for more" hint shining in the '
+      'room it leaves; a pull or a swipe meanwhile carries on from there. '
+      'The profile is a regular place '
       'that can be reordered with the others. '
       'Compose with DScrollChrome(floatingFooter: true) and add bottomInsetOf '
       'to the primary viewport. The open dock extent stays reserved at the end '
@@ -27,6 +31,7 @@ final mobileDockExamples = ComponentExamples(
             'Scroll to fold the dock, then press its destination to reveal the header.',
         states: const [
           'Expanded',
+          'Peeking',
           'Collapsed',
           'Large text',
           'RTL',
@@ -34,7 +39,7 @@ final mobileDockExamples = ComponentExamples(
         ],
         code:
             'DMobileDock(geometry: geometry, places: places, '
-            'notifications: notifications, action: action, '
+            'notifications: notifications, action: action, peek: peek, '
             'collapsed: hidden, collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,

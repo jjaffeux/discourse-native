@@ -874,6 +874,9 @@ class _MobileShell extends StatefulWidget {
 
 class _MobileShellState extends State<_MobileShell> {
   final _dockPanelOut = ValueNotifier(false);
+  // Once for as long as the phone shell stands, however often its bar is
+  // built again.
+  final _dockPeek = DMobileDockPeek();
 
   @override
   void dispose() {
@@ -896,6 +899,7 @@ class _MobileShellState extends State<_MobileShell> {
     },
     child: MobileDockPanelScope(
       out: _dockPanelOut,
+      peek: _dockPeek,
       child: ForumWindowBackground(
         mobile: true,
         child: SafeArea(

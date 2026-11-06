@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui show Gradient;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -136,6 +137,16 @@ class DMobileDockGrowthScope extends InheritedWidget {
       closePanel != oldWidget.closePanel;
 }
 
+/// A phone bar's one peek on opening, taken by the first [DMobileDock] given
+/// it that has a panel to grow into: [DMobileDock.peekAfter] later, if the
+/// bar can still grow and nothing has grown it, it lifts to show there is
+/// more under it. No dock given it after that peeks, so whoever keeps one
+/// for a session has a bar built again, as the sidebar gives it back, stay
+/// put.
+final class DMobileDockPeek {
+  bool _taken = false;
+}
+
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
 /// column each of the row's five: the first three of the places a person
 /// orders, then [DMobileDock.notifications] fixed before the action, and the
@@ -156,6 +167,11 @@ class DMobileDockGrowthScope extends InheritedWidget {
 /// the panel or the panel's grabber closes it. The panel paints above the
 /// app's chrome as a sheet does, and below the sheets and menus opened after
 /// it.
+///
+/// Nothing in the bar itself says it can be pulled up, so given the
+/// session's [peek] it says so once: it lifts a little off the panel under
+/// it, a hint shining in the room it leaves, and settles back. A pull or a
+/// swipe meanwhile carries on from where it has lifted to.
 class DMobileDock extends StatefulWidget {
   const DMobileDock({
     super.key,
@@ -167,6 +183,7 @@ class DMobileDock extends StatefulWidget {
     this.collapsed = false,
     this.destinationsHidden = false,
     this.covered = false,
+    this.peek,
     this.onPanelChanged,
     this.onMoved,
   });
@@ -193,6 +210,10 @@ class DMobileDock extends StatefulWidget {
   /// with the bar.
   final bool covered;
 
+  /// The session's one peek, this dock's if it is the first given it with a
+  /// panel to grow into. Without it the bar never peeks.
+  final DMobileDockPeek? peek;
+
   /// Told once as the panel comes out and once as it goes, never during a
   /// build. A dock taken out of the tree while the panel is out, as when
   /// the sidebar takes the bar, tells as it is disposed that the panel is
@@ -214,6 +235,11 @@ class DMobileDock extends StatefulWidget {
   static const dimDuration = Duration(milliseconds: 200);
 
   static const panelKey = ValueKey('mobile-dock-panel');
+
+  /// The panel as it shows under the bar while the bar peeks, and the hint
+  /// in it.
+  static const peekKey = ValueKey('mobile-dock-peek');
+  static const hintKey = ValueKey('mobile-dock-peek-hint');
   static const dimKey = ValueKey('mobile-dock-dim');
   static const grabberKey = ValueKey('mobile-dock-grabber');
 
@@ -239,9 +265,22 @@ class DMobileDock extends StatefulWidget {
   static const swipeRest = Duration(milliseconds: 180);
   static const swipeSpent = Duration(milliseconds: 160);
 
+  /// The peek waits [peekAfter] from the first build that could grow, lifts
+  /// by [DMobileDockGeometry.peek] on the settle spring, stays up [peekFor],
+  /// two passes of its hint's [peekShine] after [peekShineDelay] and a
+  /// moment more, and is over once it is back down on the same spring.
+  static const peekAfter = Duration(milliseconds: 900);
+  static const peekShineDelay = Duration(milliseconds: 300);
+  static const peekShine = Duration(milliseconds: 1600);
+  static const peekFor = Duration(milliseconds: 300 + 2 * 1600 + 200);
+
   @override
   State<DMobileDock> createState() => _DMobileDockState();
 }
+
+/// The bar's peek on opening as it is drawn: not at all, lifted with its
+/// hint coming in, or on its way back down with the hint going.
+enum _Peek { none, up, down }
 
 /// How far the bar has grown into its panel, and what is moving it.
 sealed class _Growth {
@@ -397,12 +436,32 @@ class _DMobileDockState extends State<DMobileDock>
   Timer? _swipeRest;
   Duration? _swipeSpentUntil;
 
+  // The peek: what is drawn, the wait for its next step, how far up it has
+  // lifted the bar as a share of [DMobileDockGeometry.peek], and the time
+  // since it went up, which its hint's light runs on. The hint keeps its
+  // own easing across a pull taking the peek over. A lowering cut short
+  // must not end the peek that took its place.
+  _Peek _peek = _Peek.none;
+  Timer? _peekNext;
+  int _peekStep = 0;
+  late final _peekLift = AnimationController.unbounded(vsync: this);
+  late final _peekClock = AnimationController(
+    vsync: this,
+    duration: DMobileDock.peekFor,
+  );
+  final _hintKey = GlobalKey(debugLabel: 'mobile-dock-peek-hint');
+
   bool get _out => _phase is! _Closed;
+
+  /// The bar stands in the overlay while the panel is out or it peeks.
+  bool get _layered => _out || _peek != _Peek.none;
+
+  bool get _hasPanel => widget.places.length > DMobileDockGeometry.placeColumns;
 
   /// With nothing past the bar's columns, or the bar put away, there is
   /// nothing to grow into.
   bool get _grows =>
-      widget.places.length > DMobileDockGeometry.placeColumns &&
+      _hasPanel &&
       !widget.collapsed &&
       !widget.destinationsHidden &&
       !widget.covered;
@@ -413,9 +472,19 @@ class _DMobileDockState extends State<DMobileDock>
   int get _tiles => _rest.length;
 
   @override
+  void initState() {
+    super.initState();
+    _takePeek();
+  }
+
+  @override
   void didUpdateWidget(DMobileDock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_out && !_grows) _putAway();
+    _takePeek();
+    if (!_grows) {
+      _dropPeek();
+      if (_out) _putAway();
+    }
     // A move is of the places as they stood at the lift, and a place let go
     // lands among them in their new order. Any other order under it, a
     // place come or gone or the same places put otherwise, as a stored
@@ -436,7 +505,10 @@ class _DMobileDockState extends State<DMobileDock>
     super.didChangeDependencies();
     // Read first, so the chrome's change is a dependency from the start.
     final away = DScrollChrome.footerAwayOf(context);
-    if (away && _out) _putAway();
+    if (away) {
+      _dropPeek();
+      if (_out) _putAway();
+    }
   }
 
   @override
@@ -448,6 +520,9 @@ class _DMobileDockState extends State<DMobileDock>
       widget.onPanelChanged?.call(false);
     }
     _swipeRest?.cancel();
+    _peekNext?.cancel();
+    _peekLift.dispose();
+    _peekClock.dispose();
     _growth.dispose();
     _fade.dispose();
     _land.dispose();
@@ -459,8 +534,98 @@ class _DMobileDockState extends State<DMobileDock>
     super.dispose();
   }
 
-  /// A finger takes the growth over from a trackpad swipe, and never from
-  /// another finger. A place lifted to be moved has the drag suspended.
+  void _showLayer() {
+    if (!_portal.isShowing) _portal.show();
+  }
+
+  /// The session's peek is this dock's once it has a panel to grow into,
+  /// and taken then, whatever stands in its way when it is due. A dock
+  /// already peeking, or waiting to, leaves another session's to the next.
+  void _takePeek() {
+    final peek = widget.peek;
+    if (peek == null || peek._taken || !_hasPanel) return;
+    if (_peekNext != null || _peek != _Peek.none) return;
+    peek._taken = true;
+    _peekNext = Timer(DMobileDock.peekAfter, _peekUp);
+  }
+
+  /// Due, the bar lifts unless it cannot grow, the footer is away, or it is
+  /// already growing under a finger or out.
+  void _peekUp() {
+    _peekNext = null;
+    if (!_grows || DScrollChrome.footerAwayOf(context) || _out) return;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() => _peek = _Peek.up);
+    _showLayer();
+    _peekLift.animateTo(
+      1,
+      duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+      curve: DMobileDock.settleCurve,
+    );
+    if (!reduced) _peekClock.forward(from: 0);
+    _peekNext = Timer(DMobileDock.peekFor, _peekDown);
+  }
+
+  /// Down, the peek is over once the bar is back: the hint, quicker, has
+  /// gone by then.
+  void _peekDown() {
+    _peekNext = null;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() => _peek = _Peek.down);
+    _peekClock.value = 0;
+    final step = ++_peekStep;
+    _peekLift
+        .animateTo(
+          0,
+          duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+          curve: DMobileDock.settleCurve,
+        )
+        .whenCompleteOrCancel(() {
+          if (mounted && step == _peekStep) _peekOver();
+        });
+  }
+
+  void _peekOver() {
+    _peekNext = null;
+    setState(() => _peek = _Peek.none);
+    if (!_layered) _portal.hide();
+  }
+
+  /// A pull, a swipe or a press growing the bar takes the peek over: the
+  /// growth that stands the bar as high as the peek had lifted it, or none
+  /// with no peek under way. The hint goes as the peek's would.
+  double? _takeOverPeek() {
+    if (_peek == _Peek.none || _out) return null;
+    final lift = widget.geometry.peek * _peekLift.value;
+    final travel = widget.geometry.panel(tiles: _tiles).travel;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    _peekNext?.cancel();
+    _peekStep++;
+    _peekLift.value = 0;
+    _peekClock.value = 0;
+    setState(() => _peek = _Peek.down);
+    _peekNext = Timer(reduced ? Duration.zero : _PeekHint.goneAfter, _peekOver);
+    return lift / math.max(1.0, travel);
+  }
+
+  /// The bar unable to grow, or put away, takes its peek with it at once.
+  /// Called where a build follows, so the overlay leaves once it is drawn.
+  void _dropPeek() {
+    if (_peek == _Peek.none) return;
+    _peekNext?.cancel();
+    _peekNext = null;
+    _peekStep++;
+    _peekLift.value = 0;
+    _peekClock.value = 0;
+    _peek = _Peek.none;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_layered) _portal.hide();
+    });
+  }
+
+  /// A finger takes the growth over from a trackpad swipe or the peek, and
+  /// never from another finger. A place lifted to be moved has the drag
+  /// suspended.
   void _dragStart(_GrowDragRecognizer finger) {
     if (!_grows || _reorder is! _Still) return;
     if (_phase case _Dragging(finger: _?)) return;
@@ -470,10 +635,13 @@ class _DMobileDockState extends State<DMobileDock>
     _swipePushed = 0;
     _growth.stop();
     _fade.stop();
+    if (_takeOverPeek() case final lifted?) {
+      _growth.value = lifted;
+      _fade.value = lifted;
+    }
     final start = _growth.value.clamp(0.0, 1.0);
-    final wasOut = _out;
     setState(() => _phase = _Dragging(start: start, finger: finger));
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
   }
 
@@ -555,7 +723,7 @@ class _DMobileDockState extends State<DMobileDock>
     }
     final panel = widget.geometry.panel(tiles: _tiles);
     final travel = math.max(1.0, panel.reveal);
-    final start = _growth.value.clamp(0.0, 1.0);
+    final start = _takeOverPeek() ?? _growth.value.clamp(0.0, 1.0);
     final growth = (start + push / travel).clamp(0.0, 1.0);
     final wasOut = _out;
     if (!wasOut && growth == 0) return;
@@ -565,7 +733,7 @@ class _DMobileDockState extends State<DMobileDock>
     _swipePushed += push;
     _growth.value = growth;
     _fade.value = growth;
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
     _swipeRest?.cancel();
     _swipeRest = Timer(DMobileDock.swipeRest, () {
@@ -600,13 +768,16 @@ class _DMobileDockState extends State<DMobileDock>
     _swipeRest?.cancel();
     _swipeRest = null;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    final wasOut = _out;
+    if (_takeOverPeek() case final lifted?) {
+      _growth.value = lifted;
+      _fade.value = lifted;
+    }
     final token = ++_settle;
     setState(() {
       _cancelMove();
       _phase = _Settling(opening: opening);
     });
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
     if (opening) _takeFocus();
     _fade.animateTo(
@@ -664,7 +835,7 @@ class _DMobileDockState extends State<DMobileDock>
     }
     final hadFocus = _panelFocus.hasFocus;
     setState(() => _phase = const _Closed());
-    _portal.hide();
+    if (!_layered) _portal.hide();
     _reportOut();
     if (hadFocus) _giveFocusBack();
   }
@@ -688,7 +859,7 @@ class _DMobileDockState extends State<DMobileDock>
     // Whatever took the bar away has the focus to give.
     _focusBefore = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_out) _portal.hide();
+      if (mounted && !_layered) _portal.hide();
     });
     _reportOut();
   }
@@ -825,10 +996,13 @@ class _DMobileDockState extends State<DMobileDock>
             : Align(
                 alignment: AlignmentDirectional.bottomStart,
                 // The page's lists thin under the bar from its top margin's
-                // edge to the foot, as far as it reaches open or folded.
+                // edge to the foot, as far as it reaches open or folded,
+                // and under its room while it peeks.
                 child: DScrollFootCover(
                   margin: widget.geometry.margin.vertical,
-                  child: bar,
+                  child: _peek == _Peek.none
+                      ? bar
+                      : SizedBox(height: widget.geometry.barHeight),
                 ),
               ),
       ),
@@ -837,13 +1011,15 @@ class _DMobileDockState extends State<DMobileDock>
 
   /// The layer over the whole app while the panel is out: the dim, the
   /// panel risen from the screen's foot, and the bar over both, in the
-  /// slot's own place and lifted as far as it has grown.
+  /// slot's own place and lifted as far as it has grown. While the bar
+  /// peeks, the panel and the bar alone.
   Widget _grown(BuildContext context, OverlayChildLayoutInfo info) {
-    if (!_out) return const SizedBox.shrink();
+    if (!_layered) return const SizedBox.shrink();
     final slot = MatrixUtils.transformRect(
       info.childPaintTransform,
       Offset.zero & info.childSize,
     );
+    if (!_out) return _peeking(context, slot);
     final panel = widget.geometry.panel(tiles: _tiles);
     return PopScope(
       // The system back closes the panel, as Escape does.
@@ -855,6 +1031,76 @@ class _DMobileDockState extends State<DMobileDock>
         animation: Listenable.merge([_growth, _fade]),
         builder: (context, _) => _layer(context, slot, panel),
       ),
+    );
+  }
+
+  /// The bar lifted off the panel under it as it peeks, with nothing over
+  /// the page but the two: the panel shown from the screen's foot to the
+  /// bar's top edge, the hint in it, and the bar, its fill left to the
+  /// panel's. Neither stands in the page's way beyond itself, and a pull on
+  /// either takes the peek over.
+  Widget _peeking(BuildContext context, Rect slot) {
+    final geometry = widget.geometry;
+    final margin = geometry.margin;
+    final foot = slot.bottom + margin.bottom;
+    final bar = KeyedSubtree(
+      key: _barKey,
+      child: AnimatedBuilder(
+        animation: _growth,
+        builder: (context, _) => _bar(context),
+      ),
+    );
+    final panel = ClipRRect(
+      key: DMobileDock.peekKey,
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(geometry.topRadius),
+      ),
+      child: _draggable(
+        context,
+        DecoratedBox(
+          decoration: BoxDecoration(color: DTokens.of(context).wellFill),
+          child: Stack(children: [_hint(context)]),
+        ),
+      ),
+    );
+    return AnimatedBuilder(
+      animation: _peekLift,
+      builder: (context, _) {
+        final lift = geometry.peek * _peekLift.value;
+        return Stack(
+          children: [
+            Positioned(
+              left: slot.left - margin.start,
+              width: slot.width + margin.horizontal,
+              top: slot.top - lift,
+              height: foot - (slot.top - lift),
+              child: panel,
+            ),
+            Positioned(
+              left: slot.left,
+              top: slot.top - lift,
+              width: slot.width,
+              height: slot.height,
+              child: bar,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The hint the bar shows as it peeks, in the panel's foot: between where
+  /// the peek lifts the bar's glyphs to and half the screen's foot, full
+  /// width. It keeps its easing out across a pull taking the peek over.
+  Widget _hint(BuildContext context) {
+    final geometry = widget.geometry;
+    return Positioned(
+      key: DMobileDock.hintKey,
+      left: 0,
+      right: 0,
+      bottom: geometry.foot / 2,
+      height: geometry.peekUnder + geometry.peek - geometry.foot / 2,
+      child: _PeekHint(key: _hintKey, up: _peek == _Peek.up, clock: _peekClock),
     );
   }
 
@@ -931,6 +1177,8 @@ class _DMobileDockState extends State<DMobileDock>
               child: _Grabber(key: DMobileDock.grabberKey, onPressed: _close),
             ),
           ),
+          // A peek taken over by a pull: its hint going.
+          if (_peek != _Peek.none) _hint(context),
           Positioned.fill(
             child: Opacity(
               opacity: DMobileDockPanelGeometry.gridOpacity(fade),
@@ -1489,10 +1737,10 @@ class _DMobileDockState extends State<DMobileDock>
             curve: const Cubic(.32, .72, 0, 1),
             width: collapsed ? round : constraints.maxWidth,
             height: collapsed ? round : geometry.barHeight,
-            // The panel owns the head's fill while out. Remove the
-            // decoration so returning to the bar restores its fill
+            // The panel owns the head's fill while out or peeking. Remove
+            // the decoration so returning to the bar restores its fill
             // immediately, without tweening from transparent.
-            decoration: out
+            decoration: out || _peek != _Peek.none
                 ? null
                 : BoxDecoration(
                     color: well,
@@ -1730,6 +1978,128 @@ class _Grabber extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// What the bar says as it peeks: faded in and risen a little once [up],
+/// faded and lowered with no wait as it goes, with a light passing over its
+/// text on [clock], the time since the bar went up. A reader is not told
+/// it: it says in words what the bar's lift shows.
+class _PeekHint extends StatelessWidget {
+  const _PeekHint({super.key, required this.up, required this.clock});
+
+  final bool up;
+  final Animation<double> clock;
+
+  /// In after [delay], fading over [fade] and rising [rise] over [risen];
+  /// out with no wait, over the same.
+  static const delay = 150;
+  static const fade = 200;
+  static const risen = 300;
+  static const rise = 6.0;
+
+  /// Gone, faded and lowered, this long after it starts to go.
+  static const goneAfter = Duration(milliseconds: risen);
+
+  /// The light: a band at [angle] degrees, muted at its ends and strong at
+  /// its middle, over a gradient three times the text's width, slid from
+  /// the gradient's end over the text to its start once a pass.
+  static const angle = 100.0;
+  static const stops = [.34, .5, .66];
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    Duration over(int milliseconds) => reduced
+        ? Duration.zero
+        : Duration(milliseconds: up ? delay + milliseconds : milliseconds);
+    Curve eased(int milliseconds) => up
+        ? Interval(delay / (delay + milliseconds), 1, curve: Curves.ease)
+        : Curves.ease;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final text = Text(
+      context.l10n.swipeUpForMore,
+      maxLines: 1,
+      softWrap: false,
+      style: TextStyle(
+        fontSize: DiscourseTypography.control,
+        fontWeight: FontWeight.w500,
+        color: tokens.mutedForeground,
+      ),
+    );
+    return ExcludeSemantics(
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: up ? 1 : 0),
+          duration: over(fade),
+          curve: eased(fade),
+          builder: (context, opacity, child) =>
+              Opacity(opacity: opacity, child: child),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: rise, end: up ? 0 : rise),
+            duration: over(risen),
+            curve: eased(risen),
+            builder: (context, y, child) =>
+                Transform.translate(offset: Offset(0, y), child: child),
+            child: Center(
+              child: AnimatedBuilder(
+                animation: clock,
+                builder: (context, child) => ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) => _light(
+                    bounds,
+                    pass: _pass(clock.value),
+                    muted: tokens.mutedForeground,
+                    strong: tokens.foreground,
+                    rtl: rtl,
+                  ),
+                  child: child,
+                ),
+                child: text,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// How far through its pass the light is, [time] through the hold: none
+  /// before the first pass begins.
+  static double _pass(double time) {
+    final elapsed = time * DMobileDock.peekFor.inMilliseconds;
+    final wait = DMobileDock.peekShineDelay.inMilliseconds;
+    final pass = DMobileDock.peekShine.inMilliseconds;
+    return elapsed < wait ? 0 : (elapsed - wait) % pass / pass;
+  }
+
+  /// The gradient over [bounds], the text, [pass] through a pass: three of
+  /// its widths across, from two widths before its start at the beginning
+  /// of a pass to level with it at the end, at [angle] as a page's gradient
+  /// is drawn, and the other way across for a right-to-left reader.
+  static Shader _light(
+    Rect bounds, {
+    required double pass,
+    required Color muted,
+    required Color strong,
+    required bool rtl,
+  }) {
+    final width = bounds.width;
+    final height = bounds.height;
+    final centre = Offset(-2 * width * (1 - pass) + 1.5 * width, height / 2);
+    const radians = angle * math.pi / 180;
+    final along = Offset(math.sin(radians), -math.cos(radians));
+    final length =
+        3 * width * math.sin(radians).abs() + height * math.cos(radians).abs();
+    Offset placed(Offset at) =>
+        bounds.topLeft + (rtl ? Offset(width - at.dx, at.dy) : at);
+    return ui.Gradient.linear(
+      placed(centre - along * (length / 2)),
+      placed(centre + along * (length / 2)),
+      [muted, strong, muted],
+      stops,
     );
   }
 }
