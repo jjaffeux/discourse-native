@@ -151,10 +151,12 @@ void main() {
           tester.getTopLeft(find.byType(DSheetContent)).dy,
           closeTo(844 * .11, .1),
         );
+        expect(tester.getBottomLeft(find.byType(DSheetContent)).dy, 844);
         expect(
-          tester.getBottomLeft(find.byType(DSheetContent)).dy,
+          tester.getRect(find.byType(DComboboxList<TopicTag>)).bottom,
           lessThanOrEqualTo(544),
         );
+        expect(tester.getRect(input).bottom, lessThanOrEqualTo(544));
         for (final expected in [
           [design],
           <TopicTag>[],

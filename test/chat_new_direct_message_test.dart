@@ -544,14 +544,15 @@ void main() {
         );
         expectPickerSpacing();
         expect(tester.getTopLeft(sheet).dy, lessThan(844 * .55));
-        expect(tester.getBottomLeft(sheet).dy, lessThanOrEqualTo(544));
+        expect(tester.getBottomLeft(sheet).dy, 844);
+        expect(tester.getRect(search).bottom, lessThanOrEqualTo(544));
         final list = find.byKey(
           const ValueKey('chat-new-direct-message-results'),
         );
         expect(tester.getBottomLeft(list).dy, lessThanOrEqualTo(544));
         expect(
           tester.getSize(list).height,
-          greaterThan(tester.getSize(sheet).height / 2),
+          greaterThan((544 - tester.getTopLeft(sheet).dy) / 2),
           reason: 'results take the space the keyboard leaves',
         );
 

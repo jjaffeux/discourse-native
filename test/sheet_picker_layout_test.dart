@@ -79,7 +79,7 @@ void main() {
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final variant in [DSheetVariant.standard, DSheetVariant.menu]) {
       testWidgets(
-        '$variant clears the keyboard on $platform without an inset',
+        '$variant keeps its surface at the foot and content above the keyboard on $platform',
         (tester) async {
           tester.view.physicalSize = const Size(390, 844);
           tester.view.devicePixelRatio = 1;
@@ -108,7 +108,8 @@ void main() {
           expect(tester.getRect(sheet).bottom, 844);
           tester.view.viewInsets = const FakeViewPadding(bottom: 300);
           await tester.pumpAndSettle();
-          expect(tester.getRect(sheet).bottom, 543);
+          expect(tester.getRect(sheet).bottom, 844);
+          expect(tester.getRect(find.byType(DSheetBody)).bottom, 544);
           tester.view.viewInsets = FakeViewPadding.zero;
           await tester.pumpAndSettle();
           expect(tester.getRect(sheet).bottom, 844);
@@ -120,7 +121,7 @@ void main() {
 
   for (final tags in [false, true]) {
     testWidgets('${tags ? 'tag' : 'category'} sheet field aligns with rows '
-        'and clears the keyboard by one pixel', (tester) async {
+        'while its content stays above the keyboard', (tester) async {
       tester.view.physicalSize = const Size(390, 844) * 3;
       tester.view.devicePixelRatio = 3;
       tester.view.viewPadding = const FakeViewPadding(top: 141, bottom: 102);
@@ -137,16 +138,25 @@ void main() {
             body: tags
                 ? TopicTagSelector(
                     selectedTags: const [],
-                    search: (_) async => const TopicTagSearch(
-                      tags: [TopicTag(id: 1, name: 'dev')],
+                    search: (_) async => TopicTagSearch(
+                      tags: [
+                        const TopicTag(id: 1, name: 'dev'),
+                        for (var id = 2; id <= 24; id++)
+                          TopicTag(id: id, name: 'tag-$id'),
+                      ],
                     ),
                     onChanged: (_) {},
                   )
                 : TopicCategorySelector(
                     siteUrl: 'https://example.invalid',
-                    categories: const [
-                      TopicCategory(id: 1, name: 'dev', color: '333333'),
-                      TopicCategory(id: 2, name: 'todo', color: 'CC44AA'),
+                    categories: [
+                      const TopicCategory(id: 1, name: 'dev', color: '333333'),
+                      for (var id = 2; id <= 24; id++)
+                        TopicCategory(
+                          id: id,
+                          name: 'category-$id',
+                          color: 'CC44AA',
+                        ),
                     ],
                     selected: null,
                     onSelected: (_) {},
@@ -160,8 +170,12 @@ void main() {
       tester.view.padding = const FakeViewPadding(top: 141);
       await tester.pumpAndSettle();
       await capture(tester, tags ? 'tags' : 'categories');
-      final sheet = tester.getRect(find.byType(DSheetContent));
-      expect(844 - 300 - sheet.bottom, closeTo(1, .01));
+      final sheet = find.byType(DSheetContent);
+      expect(tester.getRect(sheet).bottom, 844);
+      final list = tags
+          ? find.byType(DComboboxList<TopicTag>)
+          : find.byType(DComboboxList<int>);
+      expect(tester.getRect(list).bottom, lessThanOrEqualTo(544));
       final field = tester.getRect(find.byType(DInputGroup));
       final row = tester.getRect(
         find.byKey(
@@ -170,12 +184,14 @@ void main() {
               : const ValueKey(('category-selector-option', 1)),
         ),
       );
+      expect(field.bottom, lessThanOrEqualTo(544));
+      expect(row.bottom, lessThanOrEqualTo(544));
       expect(field.left, row.left);
       expect(field.right, row.right);
-      expect(field.height, 44);
+      expect(field.height, 36);
       expect(
         tester.widget<EditableText>(find.byType(EditableText)).style.fontSize,
-        16,
+        14,
       );
       final header = tester.getRect(find.byType(DSheetHeader));
       expect(field.top - header.bottom, 6);
