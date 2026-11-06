@@ -299,6 +299,26 @@ DBadge(
       ),
     ),
     StyleguideExample(
+      title: 'Unread chip',
+      description:
+          'What is unread in a place, as one chip: a place\'s count in a '
+          'phone\'s bar, notifications\' among them, and chat\'s on the '
+          'sidebar\'s switch. Struck from the success colour; 17 by 16 on a '
+          'desktop, 20 by 20 on a phone, 99+ past 99.',
+      states: const ['1', '17', '99+', 'Phone'],
+      code:
+          r'''DBadge.unreadChip(count: 17, semanticLabel: 'Chat, 17 urgent messages')''',
+      builder: (_) => Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final count in [1, 17, 128])
+            DBadge.unreadChip(count: count, semanticLabel: '$count unread'),
+        ],
+      ),
+    ),
+    StyleguideExample(
       title: 'Overlay counts',
       description:
           'Small count pills on 32px icons. The right edge stays fixed as the '

@@ -24,6 +24,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/dock_panel.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -480,9 +481,7 @@ void main() {
     );
     await shell.openDestinationRoute(ContentRoute.allCategories());
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
-    expect(find.byKey(DMobileDock.panelKey), findsOneWidget);
+    await openDockPanel(tester);
     expect(
       find.byKey(const ValueKey('destination-bookmark-all-categories')),
       findsNothing,

@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/dock_panel.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -100,14 +101,13 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
     ),
   );
   await tester.pumpAndSettle();
-  // Enlarged text on a narrow phone moves Chat into the dock's More menu.
+  // Enlarged text on a narrow phone moves Chat into the bar's panel.
   final dockTab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
   if (dockTab.evaluate().isEmpty) {
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     await tester.tap(
       find.descendant(
-        of: find.byType(DDropdownMenuItem),
+        of: find.byKey(DMobileDock.panelKey),
         matching: find.text('Chat'),
       ),
     );

@@ -9,15 +9,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
+import 'support/dock_panel.dart';
 import 'support/fakes.dart';
 
 final _bar = find.byKey(const ValueKey('mobile-bottom-bar'));
-final _moreTrigger = find.descendant(
-  of: _bar,
-  matching: find.byWidgetPredicate(
-    (widget) => widget is DMobileDockItem && widget.hasPopup,
-  ),
-);
 
 void main() {
   for (final (filter, option) in [('activity', 'Unread'), ('sort', 'Newest')]) {
@@ -128,8 +123,7 @@ void main() {
         }
         final page = find.byType(pageType);
         expect(page, findsOneWidget);
-        await tester.tap(_moreTrigger);
-        await tester.pumpAndSettle();
+        await openDockPanel(tester);
         await tester.tapAt(
           tester.getTopLeft(find.byKey(DMobileDock.dimKey)) +
               const Offset(10, 10),

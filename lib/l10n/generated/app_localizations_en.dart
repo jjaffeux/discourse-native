@@ -10610,6 +10610,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get yourAccount => 'Your account';
 
   @override
+  String get fewerPlaces => 'Fewer places';
+
+  @override
   String get moveEarlier => 'Move earlier';
 
   @override

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -241,10 +242,25 @@ void main() {
         find.descendant(of: badge, matching: find.text('17')),
         findsOneWidget,
       );
-      expect(
-        tester.widget<Semantics>(badge).properties.label,
-        'Chat, 17 urgent messages',
-      );
+      // The one unread chip, as the bar of places counts with: the success
+      // colour struck into the ground, the figures in it struck into the
+      // text, 11/700 on a 16 line at a desktop.
+      final chip = tester.widget<DBadge>(badge);
+      expect(chip.semanticLabel, 'Chat, 17 urgent messages');
+      expect(chip.size, DBadgeSize.unreadChip);
+      expect(tester.getSize(badge).height, 16);
+      final tokens = DTokens.of(tester.element(badge));
+      final style =
+          (tester
+                      .renderObject<RenderParagraph>(
+                        find.descendant(of: badge, matching: find.text('17')),
+                      )
+                      .text
+                  as TextSpan)
+              .style!;
+      expect(style.fontSize, 11);
+      expect(style.fontWeight, FontWeight.w700);
+      expect(style.color, Color.lerp(tokens.foreground, tokens.success, .5));
       final route = shell.currentContent;
 
       channels[site] = ChatChannels(

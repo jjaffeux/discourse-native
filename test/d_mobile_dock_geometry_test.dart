@@ -62,75 +62,99 @@ void main() {
     expect(square.endRadius(24), 24, reason: 'no curve to follow');
   });
 
-  test('the row is four columns, the ⋮ and action sharing the fourth', () {
+  test('the row is five columns: three places, the fixed place, and the action '
+      '37 in from the screen\'s edge', () {
     final slots = const DMobileDockGeometry(
       foot: 34,
-    ).rowSlots(390, places: 3, tail: DMobileDockTail.more, action: true);
+    ).rowSlots(390, places: 3, fixed: true, action: true);
+    // 378 inside: columns of 72.4 and four gaps of 4.
     expect(slots.places, [
-      (start: 0.0, width: 91.5),
-      (start: 95.5, width: 91.5),
-      (start: 191.0, width: 91.5),
+      (start: 0.0, width: 72.4),
+      (start: 76.4, width: 72.4),
+      (start: 152.8, width: 72.4),
     ]);
-    expect(slots.tail, (start: 286.5, width: 40.0));
-    expect(slots.action, (start: 328.0, width: 50.0));
+    expect(slots.here, isNull);
+    expect(slots.fixed!.start, closeTo(229.2, 1e-9));
+    expect(slots.fixed!.width, 72.4);
+    // Its middle 37 in from the screen's edge: 353 from the bar's start,
+    // 347 from the row's, 25 to its start.
+    expect(slots.action, (start: 322.0, width: 50.0));
+    expect(const DMobileDockGeometry(foot: 34).gridColumn(390), 72.4);
+    expect(const DMobileDockGeometry(foot: 34).actionNameWidth(390), 64.4);
   });
 
-  test('a narrow bar widens the fourth column so the ⋮ and action fit', () {
+  test('a capsule keeps the action at its row\'s end, 37 from the screen', () {
     final capsule = const DMobileDockGeometry(
       foot: 0,
-    ).rowSlots(378, places: 3, tail: DMobileDockTail.more, action: true);
-    expect(capsule.places.map((slot) => slot.width), [88.0, 88.0, 88.0]);
-    expect(capsule.tail, (start: 276.0, width: 40.0));
+    ).rowSlots(378, places: 3, fixed: true, action: true);
+    expect(capsule.places.map((slot) => slot.width), [70.0, 70.0, 70.0]);
+    expect(capsule.fixed, (start: 222.0, width: 70.0));
     expect(capsule.action, (start: 316.0, width: 50.0));
+  });
+
+  test('a narrow bar widens the last column so the action fits, the rest '
+      'sharing what is left', () {
     final largeText = const DMobileDockGeometry(
       foot: 34,
       growth: 11,
-    ).rowSlots(320, places: 3, tail: DMobileDockTail.more, action: true);
-    expect(largeText.places.map((slot) => slot.width), [65.0, 65.0, 65.0]);
-    expect(largeText.tail, (start: 207.0, width: 40.0));
-    expect(largeText.action, (start: 247.0, width: 61.0));
+    ).rowSlots(320, places: 3, fixed: true, action: true);
+    // The action is 61 across and reaches 61.5 back from the row's end.
+    expect(largeText.places.map((slot) => slot.width), [
+      57.625,
+      57.625,
+      57.625,
+    ]);
+    expect(largeText.fixed, (start: 184.875, width: 57.625));
+    expect(largeText.action, (start: 246.5, width: 61.0));
+    expect(largeText.action!.start, greaterThanOrEqualTo(184.875 + 57.625));
   });
 
-  test('without an action or a ⋮ the columns stay the grid\'s', () {
+  test('without an action or a fixed place the columns stay the grid\'s', () {
     final noAction = const DMobileDockGeometry(
       foot: 0,
-    ).rowSlots(378, places: 3, tail: DMobileDockTail.more, action: false);
-    expect(noAction.places.map((slot) => slot.width), [88.5, 88.5, 88.5]);
-    expect(noAction.tail, (start: 277.5, width: 40.0));
+    ).rowSlots(378, places: 3, fixed: true, action: false);
+    expect(noAction.places.map((slot) => slot.width), [70.0, 70.0, 70.0]);
+    expect(noAction.fixed, (start: 222.0, width: 70.0));
     expect(noAction.action, isNull);
     final few = const DMobileDockGeometry(
       foot: 34,
-    ).rowSlots(390, places: 2, tail: DMobileDockTail.none, action: true);
-    expect(few.places, [(start: 0.0, width: 91.5), (start: 95.5, width: 91.5)]);
-    expect(few.tail, isNull);
-    expect(few.action, (start: 328.0, width: 50.0));
+    ).rowSlots(390, places: 2, fixed: true, action: true);
+    expect(few.places, [(start: 0.0, width: 72.4), (start: 76.4, width: 72.4)]);
+    expect(few.fixed, (start: 152.8, width: 72.4), reason: 'after the places');
+    expect(few.action, (start: 322.0, width: 50.0));
+    final unfixed = const DMobileDockGeometry(
+      foot: 34,
+    ).rowSlots(390, places: 3, action: true);
+    expect(unfixed.fixed, isNull);
+    expect(unfixed.places.last, (start: 152.8, width: 72.4));
   });
 
-  test('an overflowed page shares the three places\' and the ⋮\'s room', () {
+  test('the current page added shares the four columns\' room before the '
+      'action, the action standing where it stood', () {
     final slots = const DMobileDockGeometry(
       foot: 34,
-    ).rowSlots(390, places: 3, tail: DMobileDockTail.page, action: true);
-    // (3 * 91.5 + 40) / 4, with the three gaps kept.
-    expect(slots.places, [
-      (start: 0.0, width: 78.625),
-      (start: 82.625, width: 78.625),
-      (start: 165.25, width: 78.625),
-    ]);
-    expect(slots.tail, (start: 247.875, width: 78.625));
-    expect(slots.action, (start: 328.0, width: 50.0));
-    final capsule = const DMobileDockGeometry(
-      foot: 0,
-    ).rowSlots(378, places: 3, tail: DMobileDockTail.page, action: true);
-    expect(capsule.places.map((slot) => slot.width), [76.0, 76.0, 76.0]);
-    expect(capsule.tail, (start: 240.0, width: 76.0));
-    expect(capsule.action, (start: 316.0, width: 50.0));
+    ).rowSlots(390, places: 3, here: true, fixed: true, action: true);
+    // (4 * 72.4 + 3 * 4 - 4 * 4) / 5, with the gaps kept.
+    final shared = [...slots.places, slots.here!, slots.fixed!];
+    for (final (index, slot) in shared.indexed) {
+      expect(slot.start, closeTo(index * 61.12, 1e-9), reason: '$index');
+      expect(slot.width, closeTo(57.12, 1e-9), reason: '$index');
+    }
+    expect(slots.action, (start: 322.0, width: 50.0));
+    // With no fixed place, four share the four columns: each is a column.
+    final unfixed = const DMobileDockGeometry(
+      foot: 34,
+    ).rowSlots(390, places: 3, here: true, action: true);
+    expect(unfixed.here!.start, closeTo(229.2, 1e-9));
+    expect(unfixed.here!.width, 72.4);
+    expect(unfixed.fixed, isNull);
   });
 
   group('the panel the bar grows into', () {
     const round = DMobileDockGeometry(foot: 34);
 
     test('is laid out from the screen\'s foot on the bar\'s columns', () {
-      final panel = round.panel(tiles: 5);
+      final panel = round.panel(tiles: 6);
       expect(round.tileHeight, 56);
       expect(round.headOverflow, 3);
       expect(panel.tileHeight, 56);
@@ -142,21 +166,21 @@ void main() {
       expect(panel.barTop, 86);
       expect(panel.reveal, 174);
       expect(panel.travel, 158);
-      expect(round.gridColumn(390), 91.5);
-      expect(panel.tileRect(0, 390), const Rect.fromLTWH(6, 92, 91.5, 56));
-      expect(panel.tileRect(3, 390), const Rect.fromLTWH(292.5, 92, 91.5, 56));
-      expect(panel.tileRect(4, 390), const Rect.fromLTWH(6, 162, 91.5, 56));
+      expect(round.gridColumn(390), 72.4);
+      expect(panel.tileRect(0, 390), const Rect.fromLTWH(6, 92, 72.4, 56));
+      expect(panel.tileRect(4, 390), const Rect.fromLTWH(311.6, 92, 72.4, 56));
+      expect(panel.tileRect(5, 390), const Rect.fromLTWH(6, 162, 72.4, 56));
     });
 
-    test('measures what it holds, a row at a time', () {
+    test('measures what it holds, a row of five at a time', () {
       expect(round.panel(tiles: 1).height, 190);
-      expect(round.panel(tiles: 4).height, 190);
-      expect(round.panel(tiles: 9).rows, 3);
-      expect(round.panel(tiles: 9).height, 330);
+      expect(round.panel(tiles: 5).height, 190);
+      expect(round.panel(tiles: 11).rows, 3);
+      expect(round.panel(tiles: 11).height, 330);
     });
 
     test('shows from the bar\'s top edge up as the bar rises', () {
-      final panel = round.panel(tiles: 5);
+      final panel = round.panel(tiles: 6);
       expect(panel.clipInset(0), 174);
       expect(panel.clipInset(.5), 87);
       expect(panel.clipInset(1), 0);
@@ -168,7 +192,7 @@ void main() {
     });
 
     test('a spring past open moves the bar alone', () {
-      final panel = round.panel(tiles: 5);
+      final panel = round.panel(tiles: 6);
       expect(panel.clipInset(1.1), 0);
       expect(panel.clipInset(-.1), 174);
       expect(panel.barRise(1.1), closeTo(173.8, 1e-9));
@@ -184,7 +208,7 @@ void main() {
     });
 
     test('a capsule has less of the panel above it', () {
-      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 5);
+      final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 6);
       expect(capsule.barTop, 68);
       expect(capsule.height, 226);
       expect(capsule.reveal, 158);
@@ -195,35 +219,34 @@ void main() {
       final panel = const DMobileDockGeometry(
         foot: 34,
         growth: 11,
-      ).panel(tiles: 5);
+      ).panel(tiles: 6);
       expect(panel.tileHeight, 67);
       expect(panel.bar.headOverflow, 3);
       expect(panel.topPadding, 103);
       expect(panel.height, 293);
-      expect(panel.tileRect(4, 390).top, 184);
+      expect(panel.tileRect(5, 390).top, 184);
     });
 
     test('its places\' slots are the head\'s tiles, then the grid\'s', () {
       final full = const DMobileDockGeometry(foot: 34).panel(tiles: 4);
       expect(full.placeRects(places: 6, width: 390, action: true), const [
-        Rect.fromLTWH(6, 19, 91.5, 56),
-        Rect.fromLTWH(101.5, 19, 91.5, 56),
-        Rect.fromLTWH(197, 19, 91.5, 56),
-        Rect.fromLTWH(6, 92, 91.5, 56),
-        Rect.fromLTWH(101.5, 92, 91.5, 56),
-        Rect.fromLTWH(197, 92, 91.5, 56),
+        Rect.fromLTWH(6, 19, 72.4, 56),
+        Rect.fromLTWH(82.4, 19, 72.4, 56),
+        Rect.fromLTWH(158.8, 19, 72.4, 56),
+        Rect.fromLTWH(6, 92, 72.4, 56),
+        Rect.fromLTWH(82.4, 92, 72.4, 56),
+        Rect.fromLTWH(158.8, 92, 72.4, 56),
       ]);
-      // A capsule stands in from the panel's edges by its own margin, and its
-      // fourth column grows to hold the ⋮ and the action, so the head's
-      // tiles are set in and narrower than the grid's.
+      // A capsule stands in from the panel's edges by its own margin, so the
+      // head's tiles are set in and narrower than the grid's.
       final capsule = const DMobileDockGeometry(foot: 0).panel(tiles: 4);
       final slots = capsule.placeRects(places: 6, width: 390, action: true);
       expect(slots.take(3), const [
-        Rect.fromLTWH(12, 19, 88, 56),
-        Rect.fromLTWH(104, 19, 88, 56),
-        Rect.fromLTWH(196, 19, 88, 56),
+        Rect.fromLTWH(12, 19, 70, 56),
+        Rect.fromLTWH(86, 19, 70, 56),
+        Rect.fromLTWH(160, 19, 70, 56),
       ]);
-      expect(slots[3], const Rect.fromLTWH(6, 92, 91.5, 56));
+      expect(slots[3], const Rect.fromLTWH(6, 92, 72.4, 56));
       expect(slots, hasLength(6));
     });
 

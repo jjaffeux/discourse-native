@@ -12,7 +12,9 @@ import 'd_mobile_dock_geometry.dart';
 ///
 /// The entire icon and label share a single button target. [badge] is a
 /// non-interactive compact count, placed beside the label rather than over the
-/// icon. The destination owner decides which items are visible and owns routing.
+/// icon; a [bare] item, its glyph alone, carries its count on the glyph's
+/// corner instead, as a phone's closed bar shows its places. The destination
+/// owner decides which items are visible and owns routing.
 ///
 /// As the bar grows into its panel, [growth] from 0 to 1 makes the item one
 /// of the panel's tiles: taller and square-cornered, with a hover fill, its
@@ -108,84 +110,125 @@ class DMobileDockItem extends StatelessWidget {
         onPressed: onPressed,
       );
     }
+    Widget button = DButton(
+      density: tile ? DButtonDensity.mobileDockTile : DButtonDensity.mobileDock,
+      variant: DButtonVariant.ghost,
+      shape: DButtonShape.pill,
+      borderRadius: tile
+          ? BorderRadius.circular(DMobileDockPanelGeometry.tileRadius)
+          : null,
+      tooltip: label,
+      semanticLabel: semanticLabel ?? (bare ? label : null),
+      focusNode: focusNode,
+      autofocus: autofocus,
+      expanded: expanded,
+      hasPopup: hasPopup,
+      onPressed: onPressed,
+      // The bar marks the current place on its own edge; the item says
+      // it only by its colour and weight, until it is a tile.
+      foregroundColor: selected ? tokens.foreground : tokens.mutedForeground,
+      backgroundColor: tile && selected
+          ? currentFill(tokens, grown)
+          : Colors.transparent,
+      interactiveBackgroundColor: tile ? hoverFill(tokens) : null,
+      label: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(
+            key: const ValueKey('mobile-dock-glyph'),
+            height: (26) + scaleDelta,
+            child: Center(
+              child: ExcludeSemantics(
+                child: tile
+                    ? Transform.scale(scale: 1 - .1 * grown, child: icon)
+                    : icon,
+              ),
+            ),
+          ),
+          if (!bare) ...[
+            const SizedBox(height: 2),
+            SizedBox(
+              height: labelHeight,
+              child: CustomMultiChildLayout(
+                delegate: _LabelAndCount(
+                  textDirection: Directionality.of(context),
+                  height: labelHeight,
+                  labelWidth: labelWidth,
+                ),
+                children: [
+                  LayoutId(
+                    id: _LabelAndCount.label,
+                    child: Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: fontSize,
+                        fontWeight: fontWeight,
+                      ),
+                    ),
+                  ),
+                  if (badge case final count?)
+                    LayoutId(id: _LabelAndCount.count, child: count),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+    if (bare && badge != null) {
+      button = Stack(
+        clipBehavior: Clip.none,
+        children: [
+          button,
+          Positioned.fill(
+            child: IgnorePointer(
+              child: CustomSingleChildLayout(
+                delegate: _CornerCount(Directionality.of(context)),
+                child: badge,
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     return MergeSemantics(
       child: Semantics(
         selected: selected,
         customSemanticsActions: customSemanticsActions,
-        child: DButton(
-          density: tile
-              ? DButtonDensity.mobileDockTile
-              : DButtonDensity.mobileDock,
-          variant: DButtonVariant.ghost,
-          shape: DButtonShape.pill,
-          borderRadius: tile
-              ? BorderRadius.circular(DMobileDockPanelGeometry.tileRadius)
-              : null,
-          tooltip: label,
-          semanticLabel: semanticLabel ?? (bare ? label : null),
-          focusNode: focusNode,
-          autofocus: autofocus,
-          expanded: expanded,
-          hasPopup: hasPopup,
-          onPressed: onPressed,
-          // The bar marks the current place on its own edge; the item says
-          // it only by its colour and weight, until it is a tile.
-          foregroundColor: selected
-              ? tokens.foreground
-              : tokens.mutedForeground,
-          backgroundColor: tile && selected
-              ? currentFill(tokens, grown)
-              : Colors.transparent,
-          interactiveBackgroundColor: tile ? hoverFill(tokens) : null,
-          label: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                key: const ValueKey('mobile-dock-glyph'),
-                height: (26) + scaleDelta,
-                child: Center(
-                  child: ExcludeSemantics(
-                    child: tile
-                        ? Transform.scale(scale: 1 - .1 * grown, child: icon)
-                        : icon,
-                  ),
-                ),
-              ),
-              if (!bare) ...[
-                const SizedBox(height: 2),
-                SizedBox(
-                  height: labelHeight,
-                  child: CustomMultiChildLayout(
-                    delegate: _LabelAndCount(
-                      textDirection: Directionality.of(context),
-                      height: labelHeight,
-                      labelWidth: labelWidth,
-                    ),
-                    children: [
-                      LayoutId(
-                        id: _LabelAndCount.label,
-                        child: Text(
-                          label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: TextStyle(
-                            fontSize: fontSize,
-                            fontWeight: fontWeight,
-                          ),
-                        ),
-                      ),
-                      if (badge case final count?)
-                        LayoutId(id: _LabelAndCount.count, child: count),
-                    ],
-                  ),
-                ),
-              ],
-            ],
-          ),
-        ),
+        child: button,
       ),
     );
   }
+}
+
+/// A bare item's count on its glyph's corner: [DMobileDockGeometry.countTop]
+/// below the item's top, its start edge [DMobileDockGeometry.countPastMiddle]
+/// past the item's middle, at its own size whatever the column's.
+class _CornerCount extends SingleChildLayoutDelegate {
+  _CornerCount(this.textDirection);
+
+  final TextDirection textDirection;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) =>
+      const BoxConstraints();
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final past = size.width / 2 + DMobileDockGeometry.countPastMiddle;
+    return Offset(
+      textDirection == TextDirection.ltr
+          ? past
+          : size.width - past - childSize.width,
+      DMobileDockGeometry.countTop,
+    );
+  }
+
+  @override
+  bool shouldRelayout(_CornerCount oldDelegate) =>
+      textDirection != oldDelegate.textDirection;
 }
 
 /// The label and its count side by side, centred in the column. The label

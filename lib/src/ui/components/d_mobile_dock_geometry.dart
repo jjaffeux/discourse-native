@@ -2,19 +2,16 @@ import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
 
-/// What the bar's row holds past its places: nothing, when every place has a
-/// column; the ⋮ that opens the rest; or the page a person is on when it is
-/// one of the rest, standing where the ⋮ would be.
-enum DMobileDockTail { none, more, page }
-
 /// Where one item of the row sits, from the row's start.
 typedef DMobileDockSlot = ({double start, double width});
 
-/// The open row from its start: each shown place's column, the fourth
-/// column's ⋮, and the action at the row's end.
+/// The open row from its start: each shown place's column; the page a person
+/// is on when the bar has no column for it, added after them; the fixed
+/// place after those; and the action at the row's end.
 typedef DMobileDockRowSlots = ({
   List<DMobileDockSlot> places,
-  DMobileDockSlot? tail,
+  DMobileDockSlot? here,
+  DMobileDockSlot? fixed,
   DMobileDockSlot? action,
 });
 
@@ -60,19 +57,28 @@ class DMobileDockGeometry {
   /// and larger text does not push the row down into the foot.
   static const capsuleRadius = 31.0;
 
-  /// The row is a grid of four columns with [columnGap] between them. The
-  /// places take one column each, so at most [placeColumns] show; the fourth
-  /// holds the ⋮, [moreWidth] wide at its start, and the action at its end.
-  static const columns = 4;
+  /// The row is a grid of five columns with [columnGap] between them. The
+  /// places a person orders take one column each, so at most [placeColumns]
+  /// show; the fourth holds the place fixed before the action, and the fifth
+  /// the action.
+  static const columns = 5;
   static const placeColumns = 3;
   static const columnGap = 4.0;
-  static const moreWidth = 40.0;
+
+  /// On the closed bar the action's middle stands this far in from the
+  /// screen's end edge; grown, it travels to the last column's middle.
+  static const actionInset = 37.0;
 
   /// The current place's mark on the bar's top edge: as the rail marks its
   /// forum, the same bar of the text's colour, with its bottom corners round.
   static const markWidth = 28.0;
   static const markHeight = 4.0;
   static const markRadius = 3.0;
+
+  /// A place's count on the closed bar rides its glyph's corner: this far
+  /// below the place's top, its start edge this far past the column's middle.
+  static const countTop = 6.0;
+  static const countPastMiddle = 6.0;
 
   double get rowHeight => 50 + growth;
 
@@ -83,9 +89,13 @@ class DMobileDockGeometry {
   /// How far a tile in the bar's row stands past the row's edges.
   double get headOverflow => (tileHeight - rowHeight) / 2;
 
-  /// One column of the four the bar and its panel share, across [width].
+  /// One column of the five the bar and its panel share, across [width].
   double gridColumn(double width) =>
       (width - 2 * inset - (columns - 1) * columnGap) / columns;
+
+  /// The room a grown action's name may take: its column, less a little
+  /// either side so it never runs into the place beside it.
+  double actionNameWidth(double width) => gridColumn(width) - 8;
 
   /// The folded bar.
   double get circle => 48 + growth;
@@ -122,40 +132,56 @@ class DMobileDockGeometry {
   /// the bar and its margins.
   double get footerExtent => margin.vertical + barHeight;
 
-  /// Lays the open row out across a bar [barWidth] wide. The ⋮ and the
-  /// action share the fourth column; on a bar too narrow for both side by
-  /// side, that column grows to hold them and the places share what is left.
-  /// A page standing where the ⋮ would be shares the room the three places
-  /// and the ⋮ had equally with them, its name cut short like theirs.
+  /// Lays the open row out across a bar [barWidth] wide. The places take the
+  /// first columns and the [fixed] place the one after them; the action
+  /// stands [actionInset] in from the screen's end edge, in the last column,
+  /// which grows to hold it on a bar too narrow, the others sharing what is
+  /// left. With the current page added ([here]), it and the places before
+  /// the action share the room their columns had equally, each name cut
+  /// short like the others', the action standing where it stood.
   DMobileDockRowSlots rowSlots(
     double barWidth, {
     required int places,
-    required DMobileDockTail tail,
+    bool here = false,
+    bool fixed = false,
     required bool action,
   }) {
     assert(places <= placeColumns);
-    assert(tail == DMobileDockTail.none || places == placeColumns);
     final inner = barWidth - padding.horizontal;
     final actionWidth = action ? rowHeight : 0.0;
     const gaps = (columns - 1) * columnGap;
     var column = (inner - gaps) / columns;
-    final fourth = tail != DMobileDockTail.none && action
-        ? math.max(column, moreWidth + actionWidth)
-        : column;
-    if (fourth > column) column = (inner - gaps - fourth) / placeColumns;
-    if (tail == DMobileDockTail.page) {
-      column = (placeColumns * column + moreWidth) / columns;
-    }
+    // The row's end is the bar's inset in from the bar's edge, which is the
+    // screen's edge or the bar's own margin in from it.
+    final actionStart = action
+        ? math.min(
+            inner + padding.end + margin.end - actionInset - actionWidth / 2,
+            inner - actionWidth,
+          )
+        : inner;
+    final last = action ? math.max(column, inner - actionStart) : column;
+    if (last > column) column = (inner - gaps - last) / (columns - 1);
     DMobileDockSlot at(int index, double width) =>
-        (start: index * (column + columnGap), width: width);
+        (start: index * (width + columnGap), width: width);
+    if (!here) {
+      return (
+        places: [
+          for (var index = 0; index < places; index++) at(index, column),
+        ],
+        here: null,
+        fixed: fixed ? at(places, column) : null,
+        action: action ? (start: actionStart, width: actionWidth) : null,
+      );
+    }
+    // The room the four columns before the action's had, shared by one more.
+    final room = (columns - 1) * column + (columns - 2) * columnGap;
+    final shared = places + 1 + (fixed ? 1 : 0);
+    final width = (room - (shared - 1) * columnGap) / shared;
     return (
-      places: [for (var index = 0; index < places; index++) at(index, column)],
-      tail: switch (tail) {
-        DMobileDockTail.none => null,
-        DMobileDockTail.more => at(placeColumns, moreWidth),
-        DMobileDockTail.page => at(placeColumns, column),
-      },
-      action: action ? (start: inner - actionWidth, width: actionWidth) : null,
+      places: [for (var index = 0; index < places; index++) at(index, width)],
+      here: at(places, width),
+      fixed: fixed ? at(places + 1, width) : null,
+      action: action ? (start: actionStart, width: actionWidth) : null,
     );
   }
 
@@ -198,7 +224,7 @@ class DMobileDockGeometry {
 }
 
 /// The panel a bar grows into: the places it has no room for, as tiles on
-/// the bar's own four columns, anchored at the screen's foot and shown from
+/// the bar's own five columns, anchored at the screen's foot and shown from
 /// the bar's top edge upward as far as the bar has grown. The bar rides that
 /// edge up to be the panel's head, keeping the grabber's room over it. One
 /// value per count of tiles, from [DMobileDockGeometry.panel].
@@ -272,7 +298,7 @@ class DMobileDockPanelGeometry {
   /// [DMobileDockGeometry.placeColumns] as the tiles of its head, risen to
   /// leave [grabberRoom] under the panel's top edge, with an [action] beside
   /// them or not, then the rest on the grid. These are the slots a place
-  /// lifted to be moved is set down in.
+  /// lifted to be moved is set down in; the place fixed in the head has none.
   List<Rect> placeRects({
     required int places,
     required double width,
@@ -282,7 +308,6 @@ class DMobileDockPanelGeometry {
     final head = bar.rowSlots(
       width - bar.margin.horizontal,
       places: math.min(places, columns),
-      tail: places > columns ? DMobileDockTail.more : DMobileDockTail.none,
       action: action,
     );
     final headTop = reveal - barRise(1) + bar.padding.top - bar.headOverflow;

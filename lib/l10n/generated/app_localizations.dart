@@ -18204,6 +18204,12 @@ abstract class AppLocalizations {
   /// **'Your account'**
   String get yourAccount;
 
+  /// English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Fewer places'**
+  String get fewerPlaces;
+
   /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot earlier among a phone's places. Keep placeholders intact.
   ///
   /// In en, this message translates to:

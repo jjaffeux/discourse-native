@@ -9,17 +9,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' as fixture;
+import 'support/dock_panel.dart';
 
 /// The phone bar's panel of places inside the shell: what it must leave
 /// alone while it moves, and what the shell leaves to it.
 void main() {
   final panel = find.byKey(DMobileDock.panelKey);
 
-  testWidgets('the profile tile opens the profile menu and the bell opens '
-      'notifications', (tester) async {
+  testWidgets('the profile tile opens the profile menu and the notifications '
+      'place opens notifications, marked current and its count put away '
+      'while they are open', (tester) async {
     await fixture.pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     await tester.tap(
       find.byKey(DMobileDock.tileKey(const ValueKey('mobile-mode-profile'))),
     );
@@ -29,12 +30,42 @@ void main() {
     expect(find.byKey(const ValueKey('user-menu-own-card')), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(UserMenuButton.bellKey));
+    // The top bar has no bell on a phone: notifications is the bar's place.
+    expect(find.byKey(UserMenuButton.bellKey), findsNothing);
+    final notifications = find.byKey(
+      const ValueKey('mobile-mode-notifications'),
+    );
+    expect(notifications, findsOneWidget);
+    expect(
+      tester.widget<DMobileDockItem>(notifications).label,
+      'Notifications',
+    );
+    expect(tester.widget<DMobileDockItem>(notifications).selected, isFalse);
+    // In the fourth column, a gap after the third place, before the action.
+    final third = tester.getRect(
+      find.byKey(const ValueKey('mobile-mode-destination/user-bookmarks')),
+    );
+    final place = tester.getRect(notifications);
+    expect(place.left - third.right, closeTo(4, .01));
+    expect(place.width, closeTo(third.width, .01));
+    expect(
+      place.right,
+      lessThan(
+        tester.getRect(find.byKey(const ValueKey('mobile-new-topic'))).left,
+      ),
+    );
+    await tester.tap(notifications);
     await tester.pumpAndSettle();
     expect(
       tester.widget<UserMenuPanel>(find.byType(UserMenuPanel)).view,
       UserMenuView.notifications,
     );
+    expect(tester.widget<DMobileDockItem>(notifications).selected, isTrue);
+    expect(tester.widget<DMobileDockItem>(notifications).badge, isNull);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(UserMenuPanel), findsNothing);
+    expect(tester.widget<DMobileDockItem>(notifications).selected, isFalse);
     expect(tester.takeException(), isNull);
   });
 
@@ -50,10 +81,10 @@ void main() {
         for (final item in tester.widgetList<DMobileDockItem>(
           find.descendant(of: surface, matching: find.byType(DMobileDockItem)),
         ))
-          if (item.key != DMobileDock.moreKey) item.label,
+          if (item.key != const ValueKey('mobile-mode-notifications'))
+            item.label,
       ];
-      await tester.tap(find.byKey(DMobileDock.moreKey));
-      await tester.pumpAndSettle();
+      await openDockPanel(tester);
       final destination = tester.getCenter(
         find.byKey(const ValueKey('mobile-mode-topics')),
       );
@@ -145,8 +176,7 @@ void main() {
   testWidgets('notifications paused recolours the you tile\'s ring without '
       'rebuilding the shell\'s chrome', (tester) async {
     final shell = await fixture.pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     final you = find.byKey(
       DMobileDock.tileKey(const ValueKey('mobile-mode-profile')),
     );
@@ -207,8 +237,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('topic-card-7')));
     await tester.pumpAndSettle();
     expect(shell.currentContent?.isTopic, isTrue);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     expect(panel, findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -241,8 +270,7 @@ void main() {
           .first,
     );
     final offset = list.position.pixels;
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     expect(panel, findsOneWidget);
     // A scroll over the page meets the dim: the press closes the panel and
     // the page never moves.
@@ -265,8 +293,7 @@ void main() {
   testWidgets('the panel is put away with the bar, by the sidebar or a '
       'composer', (tester) async {
     final shell = await fixture.pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     expect(panel, findsOneWidget);
     shell.toggleMobileSidebar();
     await tester.pump();
@@ -274,14 +301,9 @@ void main() {
     shell.closeMobileSidebar();
     await tester.pumpAndSettle();
     expect(panel, findsNothing);
-    expect(
-      tester.widget<DMobileDockItem>(find.byKey(DMobileDock.moreKey)).expanded,
-      isFalse,
-    );
     // The action in the panel's head does what it does, and the composer it
     // opens puts the bar, and the panel with it, away the frame it arrives.
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-new-topic')));
     final composer = find.byKey(const ValueKey('composer-topic-title'));
     for (var frame = 0; composer.evaluate().isEmpty && frame < 60; frame++) {
@@ -297,8 +319,7 @@ void main() {
   testWidgets('the back is the shell\'s again once the sidebar has taken the '
       'bar away with the panel out', (tester) async {
     final shell = await fixture.pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     expect(panel, findsOneWidget);
     shell.toggleMobileSidebar();
     await tester.pump();
@@ -324,7 +345,7 @@ void main() {
       for (final item in tester.widgetList<DMobileDockItem>(
         find.descendant(of: surface, matching: find.byType(DMobileDockItem)),
       ))
-        if (item.key != DMobileDock.moreKey) item.label,
+        if (item.key != const ValueKey('mobile-mode-notifications')) item.label,
     ];
     List<String> panelLabels() => [
       for (final item in tester.widgetList<DMobileDockItem>(
@@ -335,8 +356,7 @@ void main() {
           item.label,
     ];
     expect(barLabels(), ['Topics', 'Chat', 'Bookmarks']);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     final root = tester.element(find.byType(MobileForumRoot));
     final chrome = tester.element(
       find
@@ -409,8 +429,7 @@ void main() {
 
     await fixture.pumpMobileShellFixture(tester);
     expect(barLabels(), ['Topics', 'Chat', 'Interface']);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     expect(panelLabels().take(3), ['Bookmarks', 'Inbox', 'Users']);
     expect(tester.takeException(), isNull);
   });
@@ -419,8 +438,7 @@ void main() {
     tester,
   ) async {
     final shell = await fixture.pumpMobileShellFixture(tester);
-    await tester.tap(find.byKey(DMobileDock.moreKey));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     await tester.tap(find.byKey(const ValueKey('mobile-mode-panel/chat')));
     await tester.pumpAndSettle();
     expect(panel, findsNothing);

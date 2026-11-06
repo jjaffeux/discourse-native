@@ -32,9 +32,9 @@ final mobileDockExamples = ComponentExamples(
           'Reduced motion',
         ],
         code:
-            'DMobileDock(geometry: geometry, places: places, more: more, '
-            'action: action, collapsed: hidden, '
-            'collapsedDestination: reveal)',
+            'DMobileDock(geometry: geometry, places: places, '
+            'notifications: notifications, action: action, '
+            'collapsed: hidden, collapsedDestination: reveal)',
         builder: (_) => SizedBox(
           width: 390,
           height: 560,
