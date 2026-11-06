@@ -197,14 +197,13 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   final _noteFocus = FocusNode();
   final _errorKey = GlobalKey();
   AssignmentSuggestions? _suggestions;
+  final Map<String, AssignmentAssignee> _knownAssignees = {};
   List<AssignmentAssignee> _results = const [];
   AssignmentAssignee? _selected;
   String? _status;
   String? _error;
   Timer? _searchTimer;
   int _searchEpoch = 0;
-  bool _searchRunning = false;
-  ({int epoch, String term})? _queuedSearch;
   bool _loadingSuggestions = true;
   bool _searching = false;
   bool _saving = false;
@@ -238,7 +237,6 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
   @override
   void dispose() {
     _searchTimer?.cancel();
-    _queuedSearch = null;
     _searchController.dispose();
     _noteController.dispose();
     _assigneesList.dispose();
@@ -257,6 +255,8 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         _loadingSuggestions = false;
         _error = null;
         _results = _withSelected(suggestions.initialAssignees);
+        _knownAssignees.clear();
+        _rememberAssignees(_results);
       });
       final term = _searchController.text.trim();
       if (term.isNotEmpty) _scheduleSearch(term, immediate: true);
@@ -278,6 +278,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
       _searching = false;
       _error = null;
       _results = const [];
+      _knownAssignees.clear();
     });
     unawaited(_loadSuggestions());
   }
@@ -288,7 +289,6 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     if (term.isEmpty) {
       _searchTimer?.cancel();
       ++_searchEpoch;
-      _queuedSearch = null;
       setState(() {
         _searching = false;
         _error = null;
@@ -308,35 +308,30 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
     setState(() {
       _searching = true;
       _error = null;
+      _results = _knownMatches(term);
     });
     if (immediate || widget.searchDebounce == Duration.zero) {
-      _enqueueSearch(epoch, term);
+      unawaited(_runSearch(epoch, term));
       return;
     }
     _searchTimer = Timer(
       widget.searchDebounce,
-      () => _enqueueSearch(epoch, term),
+      () => unawaited(_runSearch(epoch, term)),
     );
-  }
-
-  void _enqueueSearch(int epoch, String term) {
-    if (!mounted || epoch != _searchEpoch) return;
-    if (_searchRunning) {
-      _queuedSearch = (epoch: epoch, term: term);
-      return;
-    }
-    _searchRunning = true;
-    unawaited(_runSearch(epoch, term));
   }
 
   Future<void> _runSearch(int epoch, String term) async {
     final suggestions = _suggestions;
-    if (suggestions == null) return;
+    if (suggestions == null || !mounted || epoch != _searchEpoch) return;
     try {
       final results = await widget.searchAssignees(suggestions, term);
       if (!mounted || epoch != _searchEpoch) return;
       setState(() {
-        _results = _withSelected(results, includeSelected: false);
+        _rememberAssignees(results);
+        _results = _withSelected([
+          ...results,
+          ..._knownMatches(term),
+        ], includeSelected: false);
         _searching = false;
         _error = null;
       });
@@ -347,14 +342,23 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
         _searchFailed = true;
         _error = _errorText(error);
       });
-    } finally {
-      _searchRunning = false;
-      final queued = _queuedSearch;
-      _queuedSearch = null;
-      if (queued != null && mounted && queued.epoch == _searchEpoch) {
-        _enqueueSearch(queued.epoch, queued.term);
-      }
     }
+  }
+
+  void _rememberAssignees(Iterable<AssignmentAssignee> assignees) {
+    for (final assignee in assignees) {
+      _knownAssignees[_assigneeKey(assignee)] = assignee;
+    }
+  }
+
+  List<AssignmentAssignee> _knownMatches(String term) {
+    final query = term.toLowerCase();
+    return [
+      for (final assignee in _knownAssignees.values)
+        if (assignee.identifier.toLowerCase().contains(query) ||
+            assignee.displayName.toLowerCase().contains(query))
+          assignee,
+    ];
   }
 
   List<AssignmentAssignee> _withSelected(
@@ -374,10 +378,13 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
 
   Future<void> _save() async {
     final selected = _selected;
-    if (_saving || _searching || selected == null) return;
+    if (_saving || selected == null) return;
+    _searchTimer?.cancel();
+    ++_searchEpoch;
     final note = _noteController.text;
     setState(() {
       _saving = true;
+      _searching = false;
       _error = null;
     });
     String? error;
@@ -519,7 +526,7 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
           : context.l10n.assignTo((_selected!.identifier).toString()),
       maxLines: null,
     ),
-    onPressed: _saving || _searching || _selected == null ? null : _save,
+    onPressed: _saving || _selected == null ? null : _save,
     icon: const DIcon(DIcons.check),
     variant: DButtonVariant.primary,
     size: _controlSize,
@@ -753,10 +760,10 @@ class _AssignmentEditorState extends State<AssignmentEditor> {
                     await WidgetsBinding.instance.endOfFrame;
                   },
                 ),
-                enabled: !_saving && !_searching,
+                enabled: !_saving,
                 onChanged: (value) {
                   // A mounted row can retain its enabled state until repaint.
-                  if (_saving || _searching || searchEpoch != _searchEpoch) {
+                  if (_saving || searchEpoch != _searchEpoch) {
                     return;
                   }
                   final assignee = _results
