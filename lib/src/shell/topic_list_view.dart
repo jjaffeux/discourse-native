@@ -1036,6 +1036,7 @@ class _TopicListViewState extends State<TopicListView> {
                             inbox: widget.inbox,
                             onOpen: _openRow,
                             hiddenCategoryId: hiddenCategoryId,
+                            cursor: _cursor,
                           ),
                         );
                       },
@@ -1338,6 +1339,7 @@ class _TopicRow extends StatefulWidget {
     required this.compact,
     required this.hiddenCategoryId,
     required this.onOpen,
+    required this.cursor,
     this.inbox = false,
   });
 
@@ -1350,6 +1352,10 @@ class _TopicRow extends StatefulWidget {
   final int? hiddenCategoryId;
   final bool inbox;
   final ValueChanged<Topic> onOpen;
+
+  /// The list's keyboard cursor, handed down rather than found by walking
+  /// up from every row as it builds.
+  final ValueListenable<TopicListCursor?>? cursor;
 
   @override
   State<_TopicRow> createState() => _TopicRowState();
@@ -1369,6 +1375,7 @@ class _TopicRowState extends State<_TopicRow> {
         oldWidget.compact != widget.compact ||
         oldWidget.hiddenCategoryId != widget.hiddenCategoryId ||
         oldWidget.onOpen != widget.onOpen ||
+        oldWidget.cursor != widget.cursor ||
         oldWidget.inbox != widget.inbox) {
       _content = null;
     }
@@ -1408,9 +1415,7 @@ class _TopicRowState extends State<_TopicRow> {
         final nextTopic = widget.nextTopicId == null
             ? null
             : controller.topicRef(siteUrl, widget.nextTopicId!);
-        final cursor = context
-            .findAncestorStateOfType<_TopicListViewState>()
-            ?._cursor;
+        final cursor = widget.cursor;
 
         return ValueListenableBuilder<Topic?>(
           valueListenable: controller.topicRef(siteUrl, widget.topicId),
