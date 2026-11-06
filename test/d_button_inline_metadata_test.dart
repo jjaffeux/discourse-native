@@ -158,7 +158,8 @@ void main() {
             of: button,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is Container && widget.decoration is DButtonDecoration,
+                  widget is DecoratedBox &&
+                  widget.decoration is DButtonDecoration,
             ),
           );
           final style = DefaultTextStyle.of(
@@ -173,6 +174,40 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'an inline metadata button that loses its action ignores the press',
+    (tester) async {
+      var activations = 0;
+      Widget button({required bool enabled}) => MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+        home: Scaffold(
+          body: Center(
+            child: DButton(
+              label: const Text('Metadata'),
+              variant: DButtonVariant.inline,
+              density: DButtonDensity.inlineMetadata,
+              onPressed: enabled ? () => activations++ : null,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(button(enabled: true));
+      final center = tester.getCenter(find.byType(DButton));
+      final press = await tester.startGesture(center);
+      await tester.pump();
+      await tester.pumpWidget(button(enabled: false));
+      await press.up();
+      await tester.pumpAndSettle();
+      expect(activations, 0);
+
+      await tester.pumpWidget(button(enabled: true));
+      await tester.tapAt(center);
+      await tester.pump();
+      expect(activations, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'inline metadata hover is immediate and cancelled presses do not activate',

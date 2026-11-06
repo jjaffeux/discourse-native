@@ -78,7 +78,7 @@ void main() {
                       .byWidgetPredicate(
                         (widget) =>
                             widget is AnimatedContainer ||
-                            widget is Container &&
+                            widget is DecoratedBox &&
                                 widget.decoration is DButtonDecoration,
                       )
                       .first;

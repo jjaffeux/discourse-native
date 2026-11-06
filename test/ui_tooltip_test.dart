@@ -682,15 +682,10 @@ void main() {
         ),
         still: true,
       );
-      final ring = find
-          .ancestor(
-            of: find.byType(DButton),
-            matching: find.byType(DecoratedBox),
-          )
-          .first;
+      final ring = find.byType(DTooltip);
       final tokens = DTokens.of(tester.element(ring));
       final inner = tokens.borderRadius.toRRect(
-        Offset.zero & tester.getSize(ring),
+        Offset.zero & tester.getSize(find.byType(DButton)),
       );
       final ringPaint = paints
         ..drrect(
@@ -722,6 +717,32 @@ void main() {
     );
     await _mouse(tester, find.text('Target'));
     expect(_hint, findsOneWidget);
+    expect(find.text('Outer'), findsNothing);
+  });
+
+  testWidgets('pressing a nested trigger withdraws its pending hint', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      const DTooltip(
+        message: 'Outer',
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: DTooltip(message: 'Information', child: _target),
+        ),
+      ),
+      still: true,
+    );
+    final mouse = await _mouse(
+      tester,
+      find.text('Target'),
+      wait: Duration.zero,
+    );
+    await mouse.down(tester.getCenter(find.text('Target')));
+    await mouse.up();
+    await tester.pump(DTooltip.defaultHoverDelay * 2);
+    expect(_hint, findsNothing);
     expect(find.text('Outer'), findsNothing);
   });
 

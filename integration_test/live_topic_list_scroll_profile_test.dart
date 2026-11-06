@@ -321,6 +321,16 @@ void main() {
         FlutterTimeline.debugCollectionEnabled = true;
       }
       final requestsBefore = http.log.length;
+      // A timing pass records only garbage collection, which stays inside
+      // the timeline's ring buffer for the whole pass, and what was
+      // allocated, so a frame over budget can be told apart from a frame
+      // that waited for a collection.
+      final timingOnly = !profile && !countBlocks;
+      if (timingOnly) {
+        await service.setVMTimelineFlags(['GC']);
+        await service.clearVMTimeline();
+        await service.getAllocationProfile(isolateId, reset: true);
+      }
       if (profile) {
         await service.setFlag('profile_period', '250');
         await service.clearCpuSamples(isolateId);
@@ -399,6 +409,17 @@ void main() {
           .length;
       if (countBlocks) {
         data['census.$name'] = _censusReport(census, frames);
+      }
+      if (timingOnly) {
+        await service.setVMTimelineFlags([]);
+        final timeline = await service.getVMTimeline(
+          timeOriginMicros: startUs,
+          timeExtentMicros: endUs - startUs,
+        );
+        data['gcTimeline.$name'] = timeline.json?['traceEvents'];
+        data['allocations.$name'] = _allocationReport(
+          await service.getAllocationProfile(isolateId),
+        );
       }
       if (!profile) return;
       await service.setVMTimelineFlags([]);
@@ -528,6 +549,9 @@ void main() {
       'updates': updates,
       'hover': const bool.fromEnvironment('LIVE_HOVER', defaultValue: true),
       'profileBuilds': debugProfileBuildsEnabled,
+      // An assistive client of the platform turns semantics on, and every
+      // mounted render object then builds its semantics configuration.
+      'semanticsEnabled': SemanticsBinding.instance.semanticsEnabled,
       'errors': errors,
       'requests': http.log.length,
       'refused': [
@@ -569,6 +593,37 @@ Map<String, Object> _summary(Iterable<Duration> durations) {
     'maxMs': values.last,
     'over8ms': values.where((v) => v > 8.333).length,
     'over16ms': values.where((v) => v > 16.667).length,
+  };
+}
+
+/// The classes that allocated the most since the pass reset the profile,
+/// and the largest live ones at its end, as
+/// `[class, library, bytes, instances]`.
+Map<String, Object?> _allocationReport(vm.AllocationProfile profile) {
+  final members = profile.members ?? const <vm.ClassHeapStats>[];
+  List<List<Object?>> top(
+    int Function(vm.ClassHeapStats) bytes,
+    int Function(vm.ClassHeapStats) instances,
+  ) => [
+    for (final stats in [
+      ...members,
+    ]..sort((a, b) => bytes(b).compareTo(bytes(a))))
+      [
+        stats.classRef?.name,
+        _library(stats.classRef?.library?.uri ?? ''),
+        bytes(stats),
+        instances(stats),
+      ],
+  ].take(80).toList();
+  return {
+    'heapUsage': profile.memoryUsage?.heapUsage,
+    'heapCapacity': profile.memoryUsage?.heapCapacity,
+    'externalUsage': profile.memoryUsage?.externalUsage,
+    'accumulated': top(
+      (s) => s.accumulatedSize ?? 0,
+      (s) => s.instancesAccumulated ?? 0,
+    ),
+    'current': top((s) => s.bytesCurrent ?? 0, (s) => s.instancesCurrent ?? 0),
   };
 }
 

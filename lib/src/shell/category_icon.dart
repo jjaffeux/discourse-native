@@ -118,20 +118,22 @@ class CategorySquare extends StatelessWidget {
     final fill = color ?? theme.colorScheme.onSurfaceVariant;
     final parent = parentColor;
 
-    return Container(
-      width: size,
-      height: size,
-      decoration: BoxDecoration(
-        color: parent == null ? fill : null,
-        gradient: parent == null
-            ? null
-            : LinearGradient(
-                begin: Alignment.centerLeft,
-                end: Alignment.centerRight,
-                colors: [parent, parent, fill, fill],
-                stops: const [0, 0.5, 0.5, 1],
-              ),
-        borderRadius: BorderRadius.circular(size * 0.15),
+    // A Container here would add a Padding of the decoration's zero padding.
+    return SizedBox.square(
+      dimension: size,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: parent == null ? fill : null,
+          gradient: parent == null
+              ? null
+              : LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: [parent, parent, fill, fill],
+                  stops: const [0, 0.5, 0.5, 1],
+                ),
+          borderRadius: BorderRadius.circular(size * 0.15),
+        ),
       ),
     );
   }

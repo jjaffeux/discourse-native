@@ -63,10 +63,10 @@ void main() {
     expect(find.byType(DIcon), findsNothing);
     final decoration =
         tester
-                .widget<Container>(
+                .widget<DecoratedBox>(
                   find.descendant(
                     of: find.byType(CategorySquare),
-                    matching: find.byType(Container),
+                    matching: find.byType(DecoratedBox),
                   ),
                 )
                 .decoration

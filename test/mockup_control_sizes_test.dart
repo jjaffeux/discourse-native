@@ -227,7 +227,7 @@ void main() {
 Finder _surface(Key key) => find.descendant(
   of: find.byKey(key),
   matching: find.byWidgetPredicate(
-    (w) => w is Container && w.decoration is DButtonDecoration,
+    (w) => w is DecoratedBox && w.decoration is DButtonDecoration,
   ),
 );
 

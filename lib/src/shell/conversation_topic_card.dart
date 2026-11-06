@@ -290,7 +290,7 @@ class _TopicCardStatus extends StatelessWidget {
       padding: EdgeInsets.only(
         top: ((lineHeight - 11) / 2).clamp(0, double.infinity),
       ),
-      child: SizedBox(
+      child: KeyedSubtree(
         key: ValueKey('topic-card-status-${topic.id}'),
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: 13),

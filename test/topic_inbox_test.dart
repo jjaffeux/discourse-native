@@ -933,7 +933,7 @@ void main() {
         of: taxonomy,
         matching: find.byWidgetPredicate(
           (widget) =>
-              widget is Container && widget.decoration is DButtonDecoration,
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
         ),
       );
       final paintedBottom = paintedActions
@@ -1447,7 +1447,8 @@ void main() {
           of: control,
           matching: find.byWidgetPredicate(
             (widget) =>
-                widget is Container && widget.decoration is DButtonDecoration,
+                widget is DecoratedBox &&
+                widget.decoration is DButtonDecoration,
           ),
         );
         expect(tester.getSize(surface).height, height);
@@ -2902,7 +2903,7 @@ void main() {
                     of: control,
                     matching: find.byWidgetPredicate(
                       (widget) =>
-                          widget is Container &&
+                          widget is DecoratedBox &&
                           widget.decoration is DButtonDecoration,
                     ),
                   ),
@@ -3650,7 +3651,7 @@ void main() {
     final more = find.byKey(const ValueKey('post-more-actions-2'));
     expect(more.hitTestable(), findsOneWidget);
     bool isSurface(Widget widget) =>
-        widget is Container && widget.decoration is DButtonDecoration;
+        widget is DecoratedBox && widget.decoration is DButtonDecoration;
     final replySurface = find.descendant(
       of: reply,
       matching: find.byWidgetPredicate(isSurface),
@@ -3812,7 +3813,7 @@ void _expectFloatingProgressFits(WidgetTester tester, String reason) {
         of: progress,
         matching: find.byWidgetPredicate(
           (widget) =>
-              widget is Container && widget.decoration is DButtonDecoration,
+              widget is DecoratedBox && widget.decoration is DButtonDecoration,
         ),
       ),
     ),

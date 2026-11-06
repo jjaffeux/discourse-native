@@ -49,7 +49,8 @@ void main() {
             of: control,
             matching: find.byWidgetPredicate(
               (widget) =>
-                  widget is Container && widget.decoration is DButtonDecoration,
+                  widget is DecoratedBox &&
+                  widget.decoration is DButtonDecoration,
             ),
           );
           expect(tester.getRect(control), tester.getRect(surface));
@@ -58,14 +59,16 @@ void main() {
           of: reply,
           matching: find.byWidgetPredicate(
             (widget) =>
-                widget is Container && widget.decoration is DButtonDecoration,
+                widget is DecoratedBox &&
+                widget.decoration is DButtonDecoration,
           ),
         );
         final moreSurface = find.descendant(
           of: more,
           matching: find.byWidgetPredicate(
             (widget) =>
-                widget is Container && widget.decoration is DButtonDecoration,
+                widget is DecoratedBox &&
+                widget.decoration is DButtonDecoration,
           ),
         );
         expect(

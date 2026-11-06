@@ -86,9 +86,10 @@ class UserCardTarget extends StatelessWidget {
           semanticLabel:
               semanticLabel ??
               context.l10n.viewProfileForUsercard((username).toString()),
+          // The button speaks its semantic label and excludes the label's own.
           label: DefaultTextStyle(
             style: DefaultTextStyle.of(context).style,
-            child: ExcludeSemantics(child: child),
+            child: child,
           ),
         ),
       ),

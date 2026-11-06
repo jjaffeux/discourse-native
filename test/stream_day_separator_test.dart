@@ -66,7 +66,7 @@ void main() {
                 of: button,
                 matching: find.byWidgetPredicate(
                   (widget) =>
-                      widget is Container &&
+                      widget is DecoratedBox &&
                       widget.decoration is DButtonDecoration,
                 ),
               ),
