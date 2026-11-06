@@ -208,6 +208,13 @@ An earlier comparison of the row changes alone, before the new-category
 work, measured 11% less in-frame CPU, 22% less building and 15% less
 layout on the same pass.
 
+The changes after this comparison (links and items, count labels and the
+smaller row costs) were checked against it in two alternating runs each.
+In-frame CPU per frame stayed within noise (0.44–0.46 ms before,
+0.44 ms after) and rows mounted about five fewer elements (746 to 740 on
+the warm pass). One run of each build still showed a single new-category
+frame near 8 ms, so that frame varies widely from run to run.
+
 ## A false lead: scrolls that did not move the list
 
 Two early runs looked like the list ignoring trackpad scrolls: up to 35 of
