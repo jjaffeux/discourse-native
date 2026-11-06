@@ -6556,6 +6556,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseTopicFeed => 'Choose topic feed';
 
   @override
+  String topicFeedViewPill(String view) {
+    return 'View: $view';
+  }
+
+  @override
+  String topicFeedViewPillWithMore(String view, int count) {
+    return 'View: $view, $count more in other views';
+  }
+
+  @override
   String get newActivity => 'New activity';
 
   @override
@@ -10598,6 +10608,15 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get yourAccount => 'Your account';
+
+  @override
+  String get morePlaces => 'More places';
+
+  @override
+  String get fewerPlaces => 'Fewer places';
+
+  @override
+  String get swipeUpForMore => 'Swipe up for more';
 
   @override
   String get moveEarlier => 'Move earlier';

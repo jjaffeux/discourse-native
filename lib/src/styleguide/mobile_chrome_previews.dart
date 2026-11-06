@@ -72,6 +72,9 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
   }
 
   late bool _initialFold = widget.initiallyCollapsed;
+  bool _notificationsOpen = false;
+  // The example's own session: its bar peeks once as it is first shown.
+  final _peek = DMobileDockPeek();
   @override
   Widget build(BuildContext context) => Scaffold(
     backgroundColor: Color.lerp(
@@ -94,6 +97,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                   child: DMobileDock(
                     geometry: geometry,
                     collapsed: hidden || _initialFold,
+                    peek: _peek,
                     places: [
                       for (final (index, name) in [
                         'Start',
@@ -118,7 +122,10 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                           ),
                           selected: _selected == index,
                           badge: index == 2
-                              ? const DBadge.overlay(child: Text('12'))
+                              ? DBadge.unreadChip(
+                                  count: 12,
+                                  semanticLabel: '12 urgent messages',
+                                )
                               : null,
                           onPressed: () => setState(() => _selected = index),
                         ),
@@ -131,9 +138,20 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                         onPressed: () {},
                       ),
                     ],
-                    more: (
-                      icon: const DIcon(DIcons.ellipsisVertical),
-                      label: 'More',
+                    notifications: DMobileDockPlace(
+                      key: const ValueKey('notifications'),
+                      icon: const DIcon(DIcons.inbox),
+                      label: 'Notifications',
+                      badge: _notificationsOpen
+                          ? null
+                          : DBadge.unreadChip(
+                              count: 3,
+                              semanticLabel: '3 unread items',
+                            ),
+                      selected: _notificationsOpen,
+                      onPressed: () => setState(
+                        () => _notificationsOpen = !_notificationsOpen,
+                      ),
                     ),
                     collapsedDestination: DMobileDockItem(
                       icon: const DIcon(DIcons.layerGroup),

@@ -16,10 +16,16 @@ Future<void> _pump(
   int rowCount = 12,
   Color? border,
   Brightness brightness = Brightness.light,
+  int sheer = 0,
+  Color? groundUnderHeadings,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
-  final theme = ThemeData(platform: TargetPlatform.iOS, brightness: brightness);
+  final theme = ThemeData(
+    platform: TargetPlatform.iOS,
+    brightness: brightness,
+    extensions: [if (sheer > 0) DFrost(sheer: sheer)],
+  );
   await tester.pumpWidget(
     RepaintBoundary(
       key: const ValueKey('sidebar-card-capture'),
@@ -27,7 +33,10 @@ Future<void> _pump(
         theme: border == null
             ? theme
             : theme.copyWith(
-                extensions: [DTokens.fromTheme(theme).copyWith(border: border)],
+                extensions: [
+                  ...theme.extensions.values,
+                  DTokens.fromTheme(theme).copyWith(border: border),
+                ],
               ),
         home: MediaQuery(
           data: MediaQueryData(textScaler: TextScaler.linear(scale)),
@@ -76,14 +85,22 @@ Future<void> _pump(
                           ),
                         ),
                         sliver: DCollapsibleContent.sliver(
-                          sliver: DSidebarMenu.sliverBuilder(
-                            itemCount: rowCount,
-                            itemBuilder: (context, index) => DSidebarMenuButton(
-                              key: ValueKey('$name-$index'),
-                              onPressed: () {},
-                              child: Text('$name destination $index'),
-                            ),
-                          ),
+                          sliver: groundUnderHeadings != null
+                              ? SliverToBoxAdapter(
+                                  child: ColoredBox(
+                                    color: groundUnderHeadings,
+                                    child: const SizedBox(height: 600),
+                                  ),
+                                )
+                              : DSidebarMenu.sliverBuilder(
+                                  itemCount: rowCount,
+                                  itemBuilder: (context, index) =>
+                                      DSidebarMenuButton(
+                                        key: ValueKey('$name-$index'),
+                                        onPressed: () {},
+                                        child: Text('$name destination $index'),
+                                      ),
+                                ),
                         ),
                       ),
                     ),
@@ -99,6 +116,98 @@ Future<void> _pump(
 }
 
 void main() {
+  group('held headings under a see-through palette', () {
+    Finder frosts() => find.descendant(
+      of: find.byType(DSidebar),
+      matching: find.byType(BackdropFilter),
+    );
+
+    Future<void> hold(WidgetTester tester) async {
+      tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!
+          .jumpTo(80);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('frost the rows passing under them, only while held', (
+      tester,
+    ) async {
+      await _pump(tester, sheer: 10);
+      expect(frosts(), findsNothing, reason: 'nothing is held at rest');
+      await hold(tester);
+      expect(frosts(), findsOneWidget);
+      final heading = tester.getRect(_heading('Forum'));
+      final frost = tester.getRect(frosts());
+      expect(frost.width, 390);
+      expect(frost.top, lessThanOrEqualTo(heading.top));
+      expect(
+        tester.widget<BackdropFilter>(frosts()).filter.toString(),
+        contains('blur(26.0, 26.0'),
+      );
+    });
+
+    testWidgets('are not frosted when the palette is opaque', (tester) async {
+      await _pump(tester);
+      await hold(tester);
+      expect(frosts(), findsNothing);
+    });
+
+    testWidgets('lay their see-through fill once over what passes under', (
+      tester,
+    ) async {
+      // A grey, which the frost's blur and saturation leave as it is.
+      const ground = Color(0xFF000000);
+      await _pump(tester, sheer: 30, groundUnderHeadings: ground);
+      await hold(tester);
+      final heading = tester.getRect(_heading('Forum'));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('sidebar-card-capture')),
+      );
+      final data = await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        } finally {
+          image.dispose();
+        }
+      });
+      final offset =
+          (heading.center.dy.floor() * 390 + heading.center.dx.floor()) * 4;
+      final drawn = [for (var i = 0; i < 3; i++) data!.getUint8(offset + i)];
+      final fill = const DFrost(
+        sheer: 30,
+      ).panel(DTokens.of(tester.element(_heading('Forum'))).panelBackground);
+      final once = Color.alphaBlend(fill, ground);
+      final expected = [
+        for (final channel in [once.r, once.g, once.b]) (channel * 255).round(),
+      ];
+      for (var i = 0; i < 3; i++) {
+        expect(drawn[i], closeTo(expected[i], 2), reason: 'channel $i');
+      }
+    });
+
+    testWidgets('keep a focused heading focused as they are held and let go', (
+      tester,
+    ) async {
+      await _pump(tester, sheer: 10);
+      final focus = Focus.of(tester.element(find.text('Forum')));
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasPrimaryFocus, isTrue);
+      await hold(tester);
+      expect(frosts(), findsOneWidget);
+      expect(focus.hasPrimaryFocus, isTrue, reason: 'held');
+      tester
+          .widget<CustomScrollView>(find.byType(CustomScrollView))
+          .controller!
+          .jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(frosts(), findsNothing);
+      expect(focus.hasPrimaryFocus, isTrue, reason: 'let go');
+    });
+  });
+
   for (final brightness in Brightness.values) {
     testWidgets(
       'section rims match the container in ${brightness.name} before and after pinning',

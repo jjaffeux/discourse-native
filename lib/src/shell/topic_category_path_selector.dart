@@ -21,6 +21,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
     this.maxCategoryNesting = SiteConfig.defaultMaxCategoryNesting,
     this.segmentBuilder,
     this.exact = false,
+    this.iconOnly = false,
   }) : assert(maxCategoryNesting > 0);
 
   final String siteUrl;
@@ -30,6 +31,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
   final String keyPrefix;
   final bool sheetOnMobile;
   final bool exact;
+
+  /// Shows every level as its mark alone, named in its tooltip and aloud.
+  final bool iconOnly;
 
   /// The site's maximum depth, counting the root as level one.
   /// An existing deeper selection remains visible if cached settings change.
@@ -80,6 +84,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
               ? context.l10n.filterNoSubcategories
               : context.l10n.subcategoryTopiccategoryselector);
       final iconOnly =
+          this.iconOnly ||
           DFitRow.compactOf(context) ||
           short && path.isNotEmpty && level != path.length - 1;
       final icon = category != null

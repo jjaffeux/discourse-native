@@ -9,12 +9,12 @@ import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
-import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/notifications_menu.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -68,7 +68,7 @@ void main() {
           api: api,
           authenticator: auth,
         );
-        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.tap(notificationsMenuTrigger());
         await tester.pumpAndSettle();
         Future<void> selectChat() async {
           final menu = find.byType(UserMenuPanel);
@@ -123,7 +123,7 @@ void main() {
           expect(section, findsNothing);
           expect(loaded(), isFalse);
           expect(api.chatNotificationCalls, 1);
-          await tester.tap(find.byKey(UserMenuButton.bellKey));
+          await tester.tap(notificationsMenuTrigger());
           // Other restored shell content can still animate while Chat loads.
           await tester.pump();
           await tester.pump();

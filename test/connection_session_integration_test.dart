@@ -50,7 +50,7 @@ import 'support/badge_fixtures.dart';
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
-
+import 'support/notifications_menu.dart';
 import 'support/shell_test_harness.dart';
 
 // The page behind the menu reports its own unreachable feed.
@@ -423,7 +423,7 @@ void _registerConnectionSessionTests() {
     });
 
     Future<void> openMenu(WidgetTester tester) async {
-      await tester.tap(find.byKey(UserMenuButton.bellKey));
+      await tester.tap(notificationsMenuTrigger());
       await tester.pumpAndSettle();
     }
 

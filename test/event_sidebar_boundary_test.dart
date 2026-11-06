@@ -22,6 +22,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/dock_panel.dart';
 import 'support/event_fixtures.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
@@ -180,10 +181,11 @@ void main() {
             .byKey(const ValueKey('mobile-mode-destination/events-upcoming'))
             .hitTestable();
         final eventsInDock = mobile && dockEvents.evaluate().isNotEmpty;
+        // On a phone, Events is a place in the bar or a tile of its panel.
         final upcoming = mobile
             ? eventsInDock
                   ? dockEvents
-                  : find.byKey(const ValueKey('mobile-mode-more'))
+                  : find.byKey(const ValueKey('mobile-bottom-bar'))
             : sidebarDestination('Events');
         expect(upcoming, findsOneWidget);
         expect(sidebarDestination('My events'), findsNothing);
@@ -205,10 +207,12 @@ void main() {
           );
         }
 
-        await tester.tap(upcoming);
-        await tester.pumpAndSettle();
         if (mobile && !eventsInDock) {
-          await tester.tap(_dockMenuItem('Events'));
+          await openDockPanel(tester);
+          await tester.tap(dockPanelTile('Events'));
+          await tester.pumpAndSettle();
+        } else {
+          await tester.tap(upcoming);
           await tester.pumpAndSettle();
         }
 
@@ -260,9 +264,8 @@ void main() {
           controller.handleBack(canReturnToSidebar: true);
           await tester.pumpAndSettle();
           if (dockEvents.evaluate().isEmpty) {
-            await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-            await tester.pumpAndSettle();
-            expect(_dockMenuItem('Events'), findsOneWidget);
+            await openDockPanel(tester);
+            expect(dockPanelTile('Events'), findsOneWidget);
           } else {
             expect(dockEvents, findsOneWidget);
           }
@@ -384,11 +387,6 @@ void main() {
     expect(rebuilds, 0);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
-
-Finder _dockMenuItem(String label) => find.descendant(
-  of: find.byType(DDropdownMenuItem),
-  matching: find.text(label),
-);
 
 Map<String, Object> _query({bool mine = false}) => {
   'include_ongoing': 'true',

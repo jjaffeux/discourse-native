@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/palette_contrast.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/tokens.dart';
 
@@ -18,34 +19,41 @@ class DChartConfigEntry {
   final WidgetBuilder? icon;
 }
 
-/// Resolves chart-series colors from the live host palette.
-///
-/// Discourse palettes may intentionally map Material's primary, secondary and
-/// tertiary roles to the same site accent. In that case the second series uses
-/// a palette-relative tone so adjacent data remains distinguishable without a
-/// fixed light/dark swatch.
-abstract final class DChartColors {
-  static Color series(BuildContext context, int index) {
+/// The five steps of a palette's own chart scale, the mockup's `--chart-1`
+/// to `--chart-5`: the accent at full, then faded toward the opaque panel it
+/// is drawn on, and for what matters least the palette's quieter text faded
+/// the same way. On a dark palette the third step goes toward the text
+/// instead, where fading toward the panel would lose it.
+enum DChartTone {
+  strong,
+  mid,
+  pale,
+  muted,
+  faint;
+
+  /// Series without a meaning of their own take the steps in order, the
+  /// scale starting over past its last step.
+  static DChartTone at(int index) {
     if (index < 0) throw RangeError.range(index, 0, null, 'index');
-    final tokens = DTokens.of(context);
-    final primary = tokens.primary;
-    if (index == 0) return primary;
-    if (index >= 3) {
-      return Color.lerp(
-        primary,
-        tokens.background,
-        .5 + (index - 3).clamp(0, 3) * .1,
-      )!;
-    }
-    final candidate = switch (index % 3) {
-      1 => tokens.colors.tertiary,
-      2 => tokens.colors.secondary,
-      _ => primary,
-    };
-    if (candidate.toARGB32() != primary.toARGB32()) return candidate;
-    final target = index.isOdd ? tokens.background : tokens.foreground;
-    return Color.lerp(primary, target, .38)!;
+    return values[index % values.length];
   }
+
+  Color of(DTokens tokens) {
+    final panel = tokens.panelBackground;
+    final dark = tokens.colors.brightness == Brightness.dark;
+    return switch (this) {
+      strong => tokens.primary,
+      mid => mixInto(panel, tokens.primary, .62),
+      pale =>
+        dark
+            ? mixInto(tokens.foreground, tokens.primary, .30)
+            : mixInto(panel, tokens.primary, .32),
+      muted => mixInto(panel, tokens.mutedForeground, .62),
+      faint => mixInto(panel, tokens.mutedForeground, .34),
+    };
+  }
+
+  Color resolve(BuildContext context) => of(DTokens.of(context));
 }
 
 /// A local chart configuration scope. Compose any drawing widget inside it;

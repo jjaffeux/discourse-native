@@ -68,7 +68,9 @@ border and not under it. A blurred catch of light (`block` only) is drawn as
 bands along the edges. A mask blur reruns over its path's bounds on every
 frame, so a band costs much less than one path the size of the surface.
 
-Nothing adds a blur layer, a `BackdropFilter` or a `saveLayer`.
+Edges add no blur layer, `BackdropFilter` or `saveLayer`. The one exception
+is [frost](phone-feet-and-sheets-mockup-parity.md#frost-under-a-see-through-palette),
+which `DFrost` owns.
 
 Phone page cards, page sheets, and the previous page revealed beneath them
 keep 31px top corners and 22px bottom corners. The condensed topic head keeps

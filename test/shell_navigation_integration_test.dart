@@ -46,6 +46,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/dock_panel.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
 import 'support/global_search_fixtures.dart';
@@ -80,8 +81,7 @@ Finder get _railUpdateButton => find.descendant(
 
 /// Grows the bar into its panel and picks the place called [label].
 Future<void> _openFromPanel(WidgetTester tester, String label) async {
-  await tester.tap(find.byKey(DMobileDock.moreKey));
-  await tester.pumpAndSettle();
+  await openDockPanel(tester);
   await tester.tap(
     find.descendant(
       of: find.byKey(DMobileDock.panelKey),

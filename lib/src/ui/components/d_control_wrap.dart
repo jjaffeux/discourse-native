@@ -267,6 +267,11 @@ class RenderDControlWrap extends RenderWrap {
   int get runCount => _runCount;
   int _runCount = 0;
 
+  /// Each child's own extent along the main axis, in child order, from the
+  /// last layout.
+  List<double> get childExtents => _childExtents;
+  List<double> _childExtents = const [];
+
   bool get _horizontal => direction == Axis.horizontal;
   double _main(Size value) => _horizontal ? value.width : value.height;
   double _cross(Size value) => _horizontal ? value.height : value.width;
@@ -289,6 +294,7 @@ class RenderDControlWrap extends RenderWrap {
     if (firstChild == null) {
       _naturalMain = 0;
       _runCount = 0;
+      _childExtents = const [];
       size = constraints.smallest;
       return;
     }
@@ -407,6 +413,10 @@ class RenderDControlWrap extends RenderWrap {
     }
     runs.add(run);
     _runCount = runs.length;
+    _childExtents = [
+      for (var child = firstChild; child != null; child = childAfter(child))
+        _main(_surfaces[child]!.size),
+    ];
     _naturalMain =
         _surfaces.values.fold(
           0.0,

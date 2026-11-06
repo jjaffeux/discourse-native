@@ -7,7 +7,7 @@ import 'package:discourse_native/discourse_ui.dart'
         DButton,
         DControlStyle,
         DControlSize,
-        DDropdownMenuItem,
+        DMobileDock,
         DPlaceCard,
         DPullToRefresh,
         DSpinner,
@@ -31,6 +31,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
+import 'support/dock_panel.dart';
 import 'support/fakes.dart';
 import 'support/pixel_samples.dart';
 import 'support/shell_test_harness.dart';
@@ -1165,14 +1166,13 @@ Future<_BrowseApi> _pumpMobileBrowse(WidgetTester tester, Size size) async {
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
     api: api,
   );
-  // Enlarged text on a narrow phone moves Chat into the dock's More menu.
+  // Enlarged text on a narrow phone moves Chat into the bar's panel.
   final dockTab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
   if (dockTab.evaluate().isEmpty) {
-    await tester.tap(find.byKey(const ValueKey('mobile-mode-more')));
-    await tester.pumpAndSettle();
+    await openDockPanel(tester);
     await tester.tap(
       find.descendant(
-        of: find.byType(DDropdownMenuItem),
+        of: find.byKey(DMobileDock.panelKey),
         matching: find.text('Chat'),
       ),
     );

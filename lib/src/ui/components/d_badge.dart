@@ -30,6 +30,9 @@ enum DBadgeSize {
   /// Feed menu counts retain the desktop count typography on touch platforms.
   menuCount,
 
+  /// What is unread in a place, as [DBadge.unreadChip] draws it.
+  unreadChip,
+
   /// Matches the mockup taxonomy chips: 30px with 12.5px labels and the
   /// button corner radius, so they sit beside buttons as one control row.
   control,
@@ -112,6 +115,33 @@ class DBadge extends StatefulWidget {
        borderColor = null,
 
        onPressed = null;
+
+  /// What is unread in a place, as one chip wherever a place is counted: a
+  /// place's count in a phone's bar, notifications' among them, and chat's on
+  /// the sidebar's switch. A pill of the success colour struck into the
+  /// ground, a quarter of it, with a label of the success colour struck
+  /// halfway into the text: at least 17 wide, 16 tall, 4 inside each end, in
+  /// 11/700 tabular figures on a 16 line; on a phone the size of the list's
+  /// counts, at least 20 wide, 20 tall, 7 inside, 12.5/600 on a 20 line.
+  /// Past 99 it says `99+`. The chip keeps the reference text scale as the
+  /// list's counts do; the caller owns visibility and semantics.
+  DBadge.unreadChip({super.key, required int count, this.semanticLabel})
+    : child = Text(
+        count > 99 ? '99+' : '$count',
+        textDirection: TextDirection.ltr,
+      ),
+      _interaction = _BadgeInteraction.none,
+      _overlay = false,
+      _inline = null,
+      variant = DBadgeVariant.primary,
+      size = DBadgeSize.unreadChip,
+      leading = null,
+      trailing = null,
+      backgroundColor = null,
+      foregroundColor = null,
+      borderColor = null,
+      ringColor = null,
+      onPressed = null;
 
   const DBadge.action({
     super.key,
@@ -256,7 +286,8 @@ class _DBadgeState extends State<DBadge> {
     Widget complete(Widget child) {
       final control = linkActivation.wrap(child);
       if (widget.size == DBadgeSize.count ||
-          widget.size == DBadgeSize.menuCount) {
+          widget.size == DBadgeSize.menuCount ||
+          widget.size == DBadgeSize.unreadChip) {
         return DReferenceTextScale(child: control);
       }
       return inline == null
@@ -277,6 +308,8 @@ class _DBadgeState extends State<DBadge> {
         widget.size == DBadgeSize.count || widget.size == DBadgeSize.menuCount;
     final touchCount =
         widget.size == DBadgeSize.count && DControlStyle.isTouch(context);
+    final chip = widget.size == DBadgeSize.unreadChip;
+    final touchChip = chip && DControlStyle.isTouch(context);
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
     final fontSize = inline != null
@@ -287,6 +320,8 @@ class _DBadgeState extends State<DBadge> {
         ? 10.0
         : count
         ? (touchCount ? 12.5 : 11.5)
+        : chip
+        ? (touchChip ? 12.5 : DiscourseTypography.micro)
         : (unread)
         ? DiscourseTypography.micro
         : DiscourseTypography.xs;
@@ -299,6 +334,8 @@ class _DBadgeState extends State<DBadge> {
         ? 1.2
         : count
         ? (touchCount ? 18 : 16) / fontSize
+        : chip
+        ? (touchChip ? 20 : 16) / fontSize
         : compact
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
@@ -361,6 +398,8 @@ class _DBadgeState extends State<DBadge> {
         widget.foregroundColor ??
         (count
             ? tokens.primary
+            : chip
+            ? Color.lerp(tokens.foreground, tokens.success, .5)!
             : inline == null
             ? baseForeground
             : inline.baseStyle?.color ??
@@ -370,6 +409,8 @@ class _DBadgeState extends State<DBadge> {
         widget.backgroundColor ??
         (count
             ? tokens.primary.withValues(alpha: .12)
+            : chip
+            ? Color.lerp(tokens.background, tokens.success, .25)!
             : inline == null
             ? baseBackground
             : tokens.muted);
@@ -405,8 +446,12 @@ class _DBadgeState extends State<DBadge> {
         curve: _transitionCurve,
         clipBehavior: Clip.antiAlias,
         constraints: BoxConstraints(
-          minWidth: count ? 20 : (overlay ? 14 : (unread ? 18 : 0)),
-          minHeight: inline != null
+          minWidth: count
+              ? 20
+              : chip
+              ? (touchChip ? 20 : 17)
+              : (overlay ? 14 : (unread ? 18 : 0)),
+          minHeight: inline != null || chip
               ? 0
               : featured
               ? 26 + (MediaQuery.textScalerOf(context).scale(12) - 12) * 1.5
@@ -424,7 +469,7 @@ class _DBadgeState extends State<DBadge> {
         ),
         decoration: BoxDecoration(
           color: background,
-          border: overlay || unread || count || inline != null
+          border: overlay || unread || count || chip || inline != null
               ? null
               : Border.all(color: border),
           borderRadius: radius,
@@ -455,6 +500,8 @@ class _DBadgeState extends State<DBadge> {
             ? const EdgeInsets.symmetric(horizontal: 3, vertical: 1)
             : count
             ? const EdgeInsets.symmetric(horizontal: 7, vertical: 1)
+            : chip
+            ? EdgeInsets.symmetric(horizontal: touchChip ? 7 : 4)
             : (unread
                   ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
                   : EdgeInsetsDirectional.fromSTEB(
@@ -498,12 +545,12 @@ class _DBadgeState extends State<DBadge> {
                       height: lineHeight,
                       fontWeight: inline != null
                           ? FontWeight.w400
-                          : overlay || count
+                          : overlay || count || touchChip
                           ? FontWeight.w600
-                          : unread
+                          : unread || chip
                           ? FontWeight.w700
                           : (control ? FontWeight.w400 : FontWeight.w500),
-                      fontFeatures: overlay || count
+                      fontFeatures: overlay || count || chip
                           ? const [FontFeature.tabularFigures()]
                           : null,
                       letterSpacing: inline == null
@@ -520,7 +567,7 @@ class _DBadgeState extends State<DBadge> {
                     ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: overlay || count
+              mainAxisAlignment: overlay || count || chip
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [

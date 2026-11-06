@@ -8501,6 +8501,27 @@
   "@chooseTopicFeed": {
     "description": "English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact."
   },
+  "topicFeedViewPill": "View: {view}",
+  "@topicFeedViewPill": {
+    "description": "Accessible name of the phone's topic view pill, which opens every topic view. view is the current view's name.",
+    "placeholders": {
+      "view": {
+        "type": "String"
+      }
+    }
+  },
+  "topicFeedViewPillWithMore": "View: {view}, {count} more in other views",
+  "@topicFeedViewPillWithMore": {
+    "description": "Accessible name of the phone's topic view pill when the current view has no count of its own and the other views hold count topics between them. view is the current view's name.",
+    "placeholders": {
+      "view": {
+        "type": "String"
+      },
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "newActivity": "New activity",
   "@newActivity": {
     "description": "English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact."
@@ -14061,6 +14082,18 @@
   "yourAccount": "Your account",
   "@yourAccount": {
     "description": "English UI message used by shell/mobile_shell.dart: what the panel's tile for the signed-in account is called to assistive technology. Keep placeholders intact."
+  },
+  "morePlaces": "More places",
+  "@morePlaces": {
+    "description": "English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action on each place of a phone's closed bar that grows the bar into its panel of more places, for whoever cannot pull the bar up. Keep placeholders intact."
+  },
+  "fewerPlaces": "Fewer places",
+  "@fewerPlaces": {
+    "description": "English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact."
+  },
+  "swipeUpForMore": "Swipe up for more",
+  "@swipeUpForMore": {
+    "description": "English UI message used by ui/components/d_mobile_dock.dart: the hint a phone's bar shows under itself as it lifts once on opening, saying it can be pulled up into a panel of more places. Keep placeholders intact."
   },
   "moveEarlier": "Move earlier",
   "@moveEarlier": {

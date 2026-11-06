@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button_group.dart';
 import 'd_group_indicator.dart';
@@ -135,8 +136,10 @@ class DToggleGroup<T extends Object> extends StatefulWidget {
   final DToggleDensity density;
 
   /// Equal-width choices filling the available horizontal space. Binary inset
-  /// text choices also use equal widths when sized to their content. Disables
-  /// scrolling; callers must provide bounded width (or height when vertical).
+  /// text choices also use equal widths when sized to their content, except on
+  /// touch platforms, where each half is only as wide as its own label so two
+  /// such switches share a line. Disables scrolling; callers must provide
+  /// bounded width (or height when vertical).
   final bool expanded;
 
   /// Number of 4px spacing units. The frozen default is 2 (8px).
@@ -430,7 +433,8 @@ class _DToggleGroupState<T extends Object> extends State<DToggleGroup<T>> {
         (widget.inset &&
             widget.items.length == 2 &&
             widget.items.every((item) => !item._iconOnly) &&
-            widget.density == DToggleDensity.standard);
+            widget.density == DToggleDensity.standard &&
+            !DControlStyle.isTouch(context));
     final viewSwitch =
         widget.inset &&
         widget.size == DToggleSize.segment &&

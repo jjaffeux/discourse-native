@@ -135,6 +135,9 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     final exact = splitTopicFilterQuery(
       widget.filterQuery ?? '',
     ).any((token) => token.startsWith('=category:'));
+    // On a phone the unchosen Categories pill is its mark alone, so the
+    // list's controls keep to one line.
+    final categoryMarkOnly = _touch && path.isEmpty;
     final controlChildren = <Widget>[
       if (widget.filterQuery != null) ...[
         TopicCategoryPathSelector(
@@ -143,6 +146,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           categories: widget.categories,
           selectedCategoryId: displayedCategoryId,
           exact: exact,
+          iconOnly: categoryMarkOnly,
           onSelected: widget.onCategorySelected,
           maxCategoryNesting: widget.maxCategoryNesting,
           segmentBuilder: (context, level, category, label, iconOnly) =>
@@ -209,6 +213,7 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
           onSelected: widget.onCategorySelected,
           sheetOnMobile: true,
           maxCategoryNesting: widget.maxCategoryNesting,
+          iconOnly: categoryMarkOnly,
         ),
       if (widget.taggingEnabled && widget.filterQuery == null)
         TopicTagSelector(
@@ -262,6 +267,9 @@ class _TopicListFilterBarState extends State<TopicListFilterBar> {
     final controls = widget.wrap
         ? DFitRow(
             compact: compact,
+            // Retracted, the row stands closer only while a category path has
+            // separators to keep on its line; otherwise nothing shifts.
+            closeUp: lastLevel > 0,
             runSpacing: 8,
             children: [
               if (widget.leading != null)

@@ -413,7 +413,7 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  _desktopTest('steps back once the row is as wide as each step needed', (
+  _desktopTest('fits again from the first step when its room changes', (
     tester,
   ) async {
     await pumpRow(tester, 210);
@@ -427,7 +427,7 @@ void main() {
     void resize(double width) =>
         room.additionalConstraints = BoxConstraints.tightFor(width: width);
 
-    // Resized without a rebuild, the row keeps what each step needed.
+    // Resized without a rebuild, in both directions.
     resize(246);
     await tester.pump();
     expect(pill(tester, 'filters').top, 38);
@@ -442,6 +442,68 @@ void main() {
     await tester.pump();
     expect(find.text('filters'), findsOneWidget);
     expect(row.size, const Size(312, 30));
+    resize(246);
+    await tester.pump();
+    expect(find.text('filters'), findsOneWidget);
+    expect(pill(tester, 'filters').top, 38);
+    expect(tester.takeException(), isNull);
+  });
+
+  // The category pill changes width on its own, as a count appearing or a
+  // name changing would, with no rebuild of the row: 100 + 8 + category + 8
+  // + a Filters of 96 (31 tight) at full length.
+  _desktopTest('a control changing width fits the row again in that frame', (
+    tester,
+  ) async {
+    final category = ValueNotifier(100.0);
+    addTearDown(category.dispose);
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 290,
+            child: DFitRow(
+              children: [
+                const _Pill('sort', full: 100),
+                ValueListenableBuilder(
+                  valueListenable: category,
+                  builder: (context, width, _) =>
+                      _Pill('category', full: width),
+                ),
+                const _Pill('filters', full: 96, tight: 31),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('filters-tight'), findsOneWidget);
+
+    Future<void> settle(double width) async {
+      category.value = width;
+      await tester.pump();
+      // Settled within that one frame: nothing is left to correct later.
+      expect(tester.binding.hasScheduledFrame, isFalse);
+    }
+
+    // 282 now fits at full length, which the row only learns by fitting
+    // again from the first step.
+    await settle(70);
+    expect(find.text('filters'), findsOneWidget);
+    expect(pill(tester, 'filters'), const Rect.fromLTWH(186, 0, 96, 30));
+    await settle(120);
+    expect(find.text('filters-tight'), findsOneWidget);
+    expect(pill(tester, 'filters'), const Rect.fromLTWH(236, 0, 31, 30));
+    // Wrapped at full length it takes three lines, so it shortens again.
+    await settle(200);
+    expect(find.text('filters-tight'), findsOneWidget);
+    expect(pill(tester, 'filters'), const Rect.fromLTWH(208, 38, 31, 30));
+    await settle(70);
+    expect(find.text('filters'), findsOneWidget);
+    expect(pill(tester, 'filters'), const Rect.fromLTWH(186, 0, 96, 30));
+    expect(tester.getSize(find.byType(DFitRow)), const Size(290, 30));
     expect(tester.takeException(), isNull);
   });
 

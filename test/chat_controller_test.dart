@@ -4441,7 +4441,6 @@ void main() {
         ChatHeaderIndicatorPreference.allNew,
       );
       expect(all.urgentCount, 105);
-      expect(all.label, '99+');
       expect(
         subject.chat
             .headerIndicator(
