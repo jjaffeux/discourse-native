@@ -419,7 +419,7 @@ void main() {
     );
 
     testWidgets(
-      'queues a newer search behind the active response and publishes only its results',
+      'filters known assignees while searching and ignores obsolete responses',
       (tester) async {
         final oldResult = Completer<List<AssignmentAssignee>>();
         final newResult = Completer<List<AssignmentAssignee>>();
@@ -448,23 +448,20 @@ void main() {
           'old',
         );
         await tester.pump();
-        final staleChoice = tester.widget<DRadioGroup<String>>(
-          find.ancestor(
-            of: find.byKey(const Key('assignment-assignee-user:sam')),
-            matching: find.byType(DRadioGroup<String>),
-          ),
+        expect(
+          find.byKey(const Key('assignment-assignee-user:sam')),
+          findsNothing,
         );
-        expect(staleChoice.enabled, isFalse);
         expect(
           _materialButton(tester, const Key('assignment-save')).onPressed,
-          isNull,
+          isNotNull,
         );
         await tester.enterText(
           find.byKey(const Key('assignment-search')),
           'new',
         );
         await tester.pump();
-        expect(terms, ['old']);
+        expect(terms, ['old', 'new']);
 
         oldResult.complete(const [
           AssignmentUser(username: 'old-user', name: 'Old result'),
@@ -481,6 +478,51 @@ void main() {
           _materialButton(tester, const Key('assignment-save')).onPressed,
           isNotNull,
         );
+      },
+    );
+
+    testWidgets(
+      'known permitted assignees can be saved before search completes',
+      (tester) async {
+        final response = Completer<List<AssignmentAssignee>>();
+        AssignmentAssignee? saved;
+        await tester.pumpWidget(
+          _editor(
+            suggestions: AssignmentSuggestions(
+              users: const [_sam],
+              assignAllowedForGroups: const ['support'],
+            ),
+            searchDebounce: Duration.zero,
+            search: (_, _) => response.future,
+            save: (assignee, {note, status}) async {
+              saved = assignee;
+              return const AssignmentWriteResult.applied();
+            },
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byKey(const Key('assignment-search')),
+          'SAM',
+        );
+        await tester.pump();
+        expect(
+          find.byKey(const Key('assignment-assignee-group:support')),
+          findsNothing,
+        );
+        await tester.tap(find.byKey(const Key('assignment-assignee-user:sam')));
+        await tester.pump();
+        expect(response.isCompleted, isFalse);
+        expect(
+          _materialButton(tester, const Key('assignment-save')).onPressed,
+          isNotNull,
+        );
+        await tester.tap(find.byKey(const Key('assignment-save')));
+        await tester.pump();
+        expect(saved, _sam);
+        response.complete(const []);
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
       },
     );
 
