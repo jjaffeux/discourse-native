@@ -243,6 +243,7 @@ class ComposerController extends ChangeNotifier
       notice: showNotice,
     );
     text.addListener(_onTextChanged);
+    emojiChanges?.addListener(autocomplete.refresh);
     focus.addListener(_activateMainEditor);
     title.addListener(_onMetadataChanged);
     _recomputeCanSubmit();
@@ -2600,6 +2601,7 @@ class ComposerController extends ChangeNotifier
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
+    text.emojiChanges?.removeListener(autocomplete.refresh);
     title.removeListener(_onMetadataChanged);
     blocks.dispose();
     if (_ownsHistory) history.dispose();

@@ -7100,10 +7100,7 @@ class ShellController extends FrameSafeNotifier
           return const [];
         }
 
-        // Aliases are optional. Waiting for them gives the first query the
-        // forum's active-locale vocabulary; a failed request leaves the
-        // catalog's canonical-name search fully usable.
-        await ensureEmojiSearchAliases(target.siteUrl);
+        unawaited(ensureEmojiSearchAliases(target.siteUrl));
         await emojiPickerStore.ensureLoaded(siteUrl: target.siteUrl);
         if (!siteConfigFor(target.siteUrl).emojiEnabled) return const [];
         final tone = emojiPickerStore.skinToneFor(siteUrl: target.siteUrl);

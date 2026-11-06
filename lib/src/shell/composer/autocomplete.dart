@@ -201,22 +201,26 @@ class ComposerAutocomplete extends ChangeNotifier {
     late final Timer timer;
     timer = Timer(debounce, () {
       if (identical(_timer, timer)) _timer = null;
-      _enqueueRemoteSearch(request);
+      _enqueueSearch(request);
     });
     _timer = timer;
   }
 
-  void _enqueueRemoteSearch(
+  void _enqueueSearch(
     ({ComposerTriggerKind kind, String query, int epoch}) request,
   ) {
     if (_disposed || request.epoch != _epoch) return;
+    if (request.kind == ComposerTriggerKind.emoji) {
+      unawaited(_search(request));
+      return;
+    }
     if (_remoteSearches >= maxConcurrentRemoteSearches) {
       _queuedRemoteSearch = request;
       return;
     }
 
     _remoteSearches++;
-    _searchRemote(request).whenComplete(_remoteSearchFinished).ignore();
+    _search(request).whenComplete(_remoteSearchFinished).ignore();
   }
 
   void _remoteSearchFinished() {
@@ -228,10 +232,10 @@ class ComposerAutocomplete extends ChangeNotifier {
 
     final queued = _queuedRemoteSearch;
     _queuedRemoteSearch = null;
-    if (queued != null) _enqueueRemoteSearch(queued);
+    if (queued != null) _enqueueSearch(queued);
   }
 
-  Future<void> _searchRemote(
+  Future<void> _search(
     ({ComposerTriggerKind kind, String query, int epoch}) request,
   ) async {
     if (_disposed || request.epoch != _epoch) return;
@@ -284,11 +288,7 @@ class ComposerAutocomplete extends ChangeNotifier {
         final epoch = ++_epoch;
         _selected = 0;
         notifyListeners();
-        _enqueueRemoteSearch((
-          kind: open.kind,
-          query: open.query,
-          epoch: epoch,
-        ));
+        _enqueueSearch((kind: open.kind, query: open.query, epoch: epoch));
         return;
       // Both of these asked the site, and the site's answer does not go stale
       // because a *different* list arrived.
