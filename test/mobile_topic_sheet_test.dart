@@ -135,8 +135,9 @@ void main() {
           find.byKey(const ValueKey('mobile-menu-button')),
           find.byKey(const ValueKey('mobile-home-button')),
           find.byKey(const ValueKey('mobile-search-button')),
-          find.byKey(UserMenuButton.bellKey),
         ];
+        // A phone's notifications are a place in the bar, not a header bell.
+        expect(find.byKey(UserMenuButton.bellKey), findsNothing);
         final title = find.byKey(const ValueKey('topic-header-compact-title'));
         final reader = tester.element(find.byType(TopicView));
         for (final scale in [
@@ -1448,6 +1449,9 @@ void main() {
         await shell.appSettings.setTextScale(AppTextScale.percent200);
         await shell.appSettings.setReduceMotion(true);
         await tester.pumpAndSettle();
+        // The bar's one peek on opening, which holds still under reduced
+        // motion, has come and gone.
+        await tester.pump(DMobileDock.peekAfter + DMobileDock.peekFor);
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, 52);
         expect(tester.getRect(_sheet).bottom, 844);

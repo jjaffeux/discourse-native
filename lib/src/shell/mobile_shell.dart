@@ -72,10 +72,15 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   // The drawer's profile menu, also opened by the dock's profile tile.
   final _accountMenu = DPopoverController();
 
+  // The notifications menu, which a phone opens from the bar's own place
+  // for it; the header hosts the menu and draws no bell.
+  final _notificationsMenu = DPopoverController();
+
   @override
   void dispose() {
     _footerAction.dispose();
     _accountMenu.dispose();
+    _notificationsMenu.dispose();
     super.dispose();
   }
 
@@ -426,6 +431,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                         const ForumSearch(fullScreen: true),
                       ];
+                      final notificationsMenu = UserMenuButton(
+                        compact: true,
+                        presentation: UserMenuPresentation.dockNotifications,
+                        menuController: _notificationsMenu,
+                      );
+                      // Signed in, the menu draws nothing, the bar's place
+                      // opening it, so it is hosted beside the row and takes
+                      // none of its room. Signed out, it draws the sign-in
+                      // actions, which the row lays out.
+                      final signedIn = instance.user != null;
                       final actions = <Widget>[
                         ...registry.shellHeaderActions(
                           context,
@@ -436,36 +451,47 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        const UserMenuButton(
-                          compact: true,
-                          presentation: UserMenuPresentation.notifications,
-                        ),
+                        if (!signedIn) notificationsMenu,
                       ];
                       final largeText =
                           MediaQuery.textScalerOf(context).scale(12) > 18;
-                      if (largeText) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(spacing: 10, children: navigation),
-                            const SizedBox(height: DSpacing.controlGap),
-                            Wrap(
-                              alignment: WrapAlignment.end,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              runSpacing: DSpacing.controlGap,
-                              children: actions,
-                            ),
-                          ],
-                        );
-                      }
-                      return Row(
-                        spacing: 10,
+                      return Stack(
+                        fit: StackFit.passthrough,
                         children: [
-                          ...navigation,
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions,
-                          ),
+                          if (largeText)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(spacing: 10, children: navigation),
+                                if (actions.isNotEmpty) ...[
+                                  const SizedBox(height: DSpacing.controlGap),
+                                  Wrap(
+                                    alignment: WrapAlignment.end,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    runSpacing: DSpacing.controlGap,
+                                    children: actions,
+                                  ),
+                                ],
+                              ],
+                            )
+                          else
+                            Row(
+                              spacing: 10,
+                              children: [
+                                ...navigation,
+                                if (actions.isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: actions,
+                                  ),
+                              ],
+                            ),
+                          if (signedIn)
+                            PositionedDirectional(
+                              end: 0,
+                              child: notificationsMenu,
+                            ),
                         ],
                       );
                     },
@@ -726,10 +752,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         .firstOrNull;
     // Found now: the dock also tells it as it is disposed, when this context
     // is no longer one to look up from.
-    final panelOut = MobileDockPanelScope.of(context);
-    // Notifications paused rings the you tile, and nothing else here.
+    final panelScope = MobileDockPanelScope.of(context);
+    final panelOut = panelScope?.out;
+    // Notifications paused rings the you tile; what has arrived, and the
+    // menu opening, count on the notifications place. Nothing else here.
     return ListenableBuilder(
-      listenable: shell.doNotDisturb,
+      listenable: Listenable.merge([
+        shell.doNotDisturb,
+        shell.accountActivity.totalsListenable,
+        _notificationsMenu,
+      ]),
       builder: (context, _) {
         final places = <String, DMobileDockPlace>{
           for (final item in destinations)
@@ -759,6 +791,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           // A composer's sheet covers the shell from inside it; the panel, which
           // paints over the shell, must not stand over the sheet.
           covered: ComposerPresentationHost.hasMobileSheetOf(context),
+          peek: panelScope?.peek,
           collapsedDestination: DMobileDockItem(
             key: const ValueKey('mobile-dock-reveal'),
             collapsed: true,
@@ -768,9 +801,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
           ),
           places: [for (final name in order) places[name]!],
-          more: (
-            icon: const DIcon(DIcons.ellipsisVertical),
-            label: context.l10n.more,
+          notifications: _notificationsPlace(
+            context,
+            shell: shell,
+            instance: instance,
           ),
           onPanelChanged: panelOut == null
               ? null
@@ -796,6 +830,41 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   ),
                 ),
         );
+      },
+    );
+  }
+
+  /// Notifications, fixed in the bar before the action once signed in: its
+  /// count is what has arrived since the menu was last open, said as the
+  /// header's bell said it, and hidden while the menu is open; pressing it
+  /// toggles the menu, which the header hosts.
+  DMobileDockPlace? _notificationsPlace(
+    BuildContext context, {
+    required ShellController shell,
+    required DiscourseInstance instance,
+  }) {
+    if (!instance.isConnected || instance.user == null) return null;
+    final open = _notificationsMenu.isOpen;
+    final count = UserMenuButton.unreadCountOf(shell, instance.url);
+    return DMobileDockPlace(
+      key: const ValueKey('mobile-mode-notifications'),
+      icon: const DIcon(DIcons.inbox),
+      label: context.l10n.notifications,
+      badge: count > 0 && !open
+          ? DBadge.unreadChip(
+              key: UserMenuButton.unreadDotKey,
+              count: count,
+              semanticLabel: context.l10n.notificationsUnread(count),
+            )
+          : null,
+      selected: open,
+      onPressed: () {
+        if (open) {
+          _notificationsMenu.close();
+          return;
+        }
+        AccountMenuScope.activate(context, _notificationsMenu);
+        _notificationsMenu.open();
       },
     );
   }

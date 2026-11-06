@@ -11,50 +11,46 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  for (final compact in [false, true]) {
-    testWidgets(
-      'returning feed menu keeps its first-frame width compact=$compact',
-      (tester) async {
-        final storage = PageStorageBucket();
-        Widget page({required bool visible, double scale = 1}) => MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-          home: MediaQuery(
-            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
-            child: PageStorage(
-              bucket: storage,
-              child: Align(
-                alignment: Alignment.topLeft,
-                child: visible
-                    ? SizedBox(
-                        width: 340,
-                        child: TopicFeedMenu(
-                          mode: TopicListMode.latest,
-                          compact: compact,
-                          onSelected: (_) {},
-                        ),
-                      )
-                    : const SizedBox.shrink(),
-              ),
-            ),
+  testWidgets('returning feed switch keeps its first-frame width', (
+    tester,
+  ) async {
+    final storage = PageStorageBucket();
+    Widget page({required bool visible, double scale = 1}) => MaterialApp(
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+      home: MediaQuery(
+        data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+        child: PageStorage(
+          bucket: storage,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: visible
+                ? SizedBox(
+                    width: 340,
+                    child: TopicFeedMenu(
+                      mode: TopicListMode.latest,
+                      onSelected: (_) {},
+                    ),
+                  )
+                : const SizedBox.shrink(),
           ),
-        );
-
-        final controls = find.byKey(const ValueKey('topic-list-view-switch'));
-        for (final scale in [1.0, 2.0]) {
-          await tester.pumpWidget(page(visible: true, scale: scale));
-          await tester.pumpAndSettle();
-          final size = tester.getSize(controls);
-          await tester.pumpWidget(page(visible: false, scale: scale));
-          expect(controls, findsNothing);
-          await tester.pumpWidget(page(visible: true, scale: scale));
-          expect(tester.getSize(controls), size);
-          await tester.pumpAndSettle();
-          expect(tester.getSize(controls), size);
-        }
-        expect(tester.takeException(), isNull);
-      },
+        ),
+      ),
     );
-  }
+
+    final controls = find.byKey(const ValueKey('topic-list-view-switch'));
+    for (final scale in [1.0, 2.0]) {
+      await tester.pumpWidget(page(visible: true, scale: scale));
+      await tester.pumpAndSettle();
+      final size = tester.getSize(controls);
+      await tester.pumpWidget(page(visible: false, scale: scale));
+      expect(controls, findsNothing);
+      await tester.pumpWidget(page(visible: true, scale: scale));
+      expect(tester.getSize(controls), size);
+      await tester.pumpAndSettle();
+      expect(tester.getSize(controls), size);
+    }
+    expect(tester.takeException(), isNull);
+  });
 
   setUpAll(() async {
     if (Platform.environment['TOPIC_FEED_CAPTURE_DIR'] == null) return;
@@ -243,7 +239,12 @@ void main() {
             expect(tester.widget<DButton>(trigger).focusNode!.hasFocus, isTrue);
           }
 
-          await tester.tap(find.byKey(const ValueKey('topic-list-view-top')));
+          // A phone's pill opens every view, Top's periods among them.
+          await tester.tap(
+            mobile
+                ? trigger
+                : find.byKey(const ValueKey('topic-list-view-top')),
+          );
           await tester.pumpAndSettle();
           final check = find.descendant(
             of: allTime,

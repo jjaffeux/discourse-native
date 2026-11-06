@@ -11199,6 +11199,18 @@ abstract class AppLocalizations {
   /// **'Choose topic feed'**
   String get chooseTopicFeed;
 
+  /// Accessible name of the phone's topic view pill, which opens every topic view. view is the current view's name.
+  ///
+  /// In en, this message translates to:
+  /// **'View: {view}'**
+  String topicFeedViewPill(String view);
+
+  /// Accessible name of the phone's topic view pill when the current view has no count of its own and the other views hold count topics between them. view is the current view's name.
+  ///
+  /// In en, this message translates to:
+  /// **'View: {view}, {count} more in other views'**
+  String topicFeedViewPillWithMore(String view, int count);
+
   /// English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -18191,6 +18203,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Your account'**
   String get yourAccount;
+
+  /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action on each place of a phone's closed bar that grows the bar into its panel of more places, for whoever cannot pull the bar up. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'More places'**
+  String get morePlaces;
+
+  /// English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Fewer places'**
+  String get fewerPlaces;
+
+  /// English UI message used by ui/components/d_mobile_dock.dart: the hint a phone's bar shows under itself as it lifts once on opening, saying it can be pulled up into a panel of more places. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe up for more'**
+  String get swipeUpForMore;
 
   /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot earlier among a phone's places. Keep placeholders intact.
   ///

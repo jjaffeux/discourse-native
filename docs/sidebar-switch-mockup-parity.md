@@ -29,8 +29,14 @@ Inactive hover uses a 28% tint, its own centered sheen and upper edge catch,
 without a backdrop filter or outer shadow. Selected hover brightens the sheen.
 Idle inactive controls remain transparent. Tint changes retain the 200ms fade;
 high contrast and Reduce Transparency keep the opaque Standard treatment.
-Desktop Chat urgent counts are plain green, bold, 12px tabular text with their
-existing accessible description; ordinary unread activity keeps its dot.
+Chat's urgent count on the switch is the one unread chip, `DBadge.unreadChip`,
+that a phone's bar of places counts with (`discourse-native-mockups` at
+`9b59748`, `UNREAD_CHIP` in `App.tsx`): the success colour struck a quarter
+into the ground with its figures struck halfway into the text, 17 by 16 with
+11/700 tabular figures on a desktop and 20 by 20 with 12.5/600 on a phone,
+`99+` past 99, with its existing accessible description. The desktop sidebar
+and the phone drawer's switch share it; ordinary unread activity keeps its
+dot. See [phone bar parity](phone-bar-mockup-parity.md).
 Routing, plugin visibility, manual keyboard activation, RTL, tooltips and
 independent badge updates retain their existing contracts.
 

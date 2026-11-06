@@ -25,6 +25,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/button_surface.dart';
 import 'support/fakes.dart';
+import 'support/notifications_menu.dart';
 import 'support/shell_test_harness.dart';
 
 const _site = 'https://meta.example';
@@ -303,7 +304,9 @@ void main() {
         final profile = find.byKey(UserMenuButton.avatarKey);
         final navigation = find.byKey(const ValueKey('mobile-navigation-page'));
         expect(profile, findsNothing);
-        expect(find.byKey(UserMenuButton.bellKey), findsOneWidget);
+        // Notifications are the bar's place; a phone's header has no bell.
+        expect(find.byKey(UserMenuButton.bellKey), findsNothing);
+        expect(dockNotifications, findsOneWidget);
         expect(
           tester.getSize(find.byKey(const ValueKey('forum-identity-logo'))),
           const Size.square(32),

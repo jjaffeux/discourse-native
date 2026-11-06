@@ -10,6 +10,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/frame_safe_notifier.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_style.dart';
 import '../foundation/joined_control.dart';
@@ -102,9 +103,8 @@ class DPopoverTriggerState {
 ///
 /// Calls while detached are intentionally ignored. The owner disposes a
 /// borrowed controller; [DPopover] only disposes its internally-created one.
-class DPopoverController extends ChangeNotifier {
+class DPopoverController extends FrameSafeNotifier {
   _DPopoverState? _owner;
-  bool _disposed = false;
 
   bool get isOpen => _owner?._open ?? false;
 
@@ -119,7 +119,7 @@ class DPopoverController extends ChangeNotifier {
   );
 
   void _attach(_DPopoverState owner) {
-    if (_disposed) return;
+    if (isDisposed) return;
     _owner?._setOpen(false, immediate: true, restoreFocus: false);
     _owner = owner;
   }
@@ -128,13 +128,14 @@ class DPopoverController extends ChangeNotifier {
     if (_owner == owner) _owner = null;
   }
 
-  void _changed() {
-    if (!_disposed) notifyListeners();
-  }
+  // A popover takes this controller over while it is built, closing the one
+  // it replaces. A listener elsewhere in the tree, such as a phone bar that
+  // marks the menu's place, cannot be marked dirty mid-build, so it hears of
+  // that close once the frame is built.
+  void _changed() => notifySafely();
 
   @override
   void dispose() {
-    _disposed = true;
     _owner = null;
     super.dispose();
   }

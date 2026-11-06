@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui show Gradient;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -12,6 +13,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';
 import 'd_mobile_dock_growth.dart';
@@ -57,9 +59,6 @@ class DMobileDockPlace {
   final VoidCallback onPressed;
 }
 
-/// The ⋮ that grows the bar into its panel.
-typedef DMobileDockMore = ({Widget icon, String label});
-
 /// Where the page a person is on stands among a bar's places.
 sealed class DMobileDockCurrent {
   const DMobileDockCurrent();
@@ -71,8 +70,8 @@ sealed class DMobileDockCurrent {
   const factory DMobileDockCurrent.place(int index) = DMobileDockAtPlace;
 
   /// The current page is the place at [index], one the bar has no column
-  /// for. It stands where the ⋮ would be, and pressing it grows the bar as
-  /// the ⋮ does.
+  /// for. It is added to the bar after its places, and pressing it grows the
+  /// bar into its panel.
   const factory DMobileDockCurrent.overflowed(int index) =
       DMobileDockOverflowed;
 
@@ -108,18 +107,22 @@ final class DMobileDockOverflowed extends DMobileDockCurrent {
 }
 
 /// How far the bar around a [DMobileDockAction] has grown into its panel,
-/// so the action can become one of the places it then stands among, and
-/// how the panel closes, so the action pressed puts it away first as the
-/// places beside it do.
+/// so the action can become one of the places it then stands among, how
+/// wide its name may be there, and how the panel closes, so the action
+/// pressed puts it away first as the places beside it do.
 class DMobileDockGrowthScope extends InheritedWidget {
   const DMobileDockGrowthScope({
     super.key,
     required this.growth,
+    required this.nameWidth,
     required this.closePanel,
     required super.child,
   });
 
   final double growth;
+
+  /// The most a grown action's name may take: its column, less a little.
+  final double nameWidth;
 
   /// Nothing to close while the bar is a bar.
   final VoidCallback closePanel;
@@ -129,36 +132,60 @@ class DMobileDockGrowthScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(DMobileDockGrowthScope oldWidget) =>
-      growth != oldWidget.growth || closePanel != oldWidget.closePanel;
+      growth != oldWidget.growth ||
+      nameWidth != oldWidget.nameWidth ||
+      closePanel != oldWidget.closePanel;
+}
+
+/// A phone bar's one peek on opening, taken by the first [DMobileDock] given
+/// it that has a panel to grow into: [DMobileDock.peekAfter] later, if the
+/// bar can still grow and nothing has grown it, it lifts to show there is
+/// more under it. No dock given it after that peeks, so whoever keeps one
+/// for a session has a bar built again, as the sidebar gives it back, stay
+/// put.
+final class DMobileDockPeek {
+  bool _taken = false;
 }
 
 /// A phone's bar, cut as its [DMobileDockGeometry] says. Its places take one
-/// column each of the row's four; the fourth holds the ⋮ for the places past
-/// them, or the current page when it is one of those, and the action at the
-/// row's end. The current place is marked by a short bar on the bar's top
-/// edge over its column. Folded, the bar is a circle in the screen's
+/// column each of the row's five: the first three of the places a person
+/// orders, then [DMobileDock.notifications] fixed before the action, and the
+/// action in the last. Closed, the places are their glyphs alone, a count on
+/// its glyph's corner; the current place is marked by a short bar on the
+/// bar's top edge over its column. On a page the bar has no column for, that
+/// page is added before notifications, the places sharing the room, and
+/// pressing it grows the bar. Folded, the bar is a circle in the screen's
 /// bottom-start corner.
 ///
-/// The ⋮, or the page standing in its slot, grows the bar into a panel of
-/// the places past its columns, [DMobileDockPanelGeometry] tall, risen from
-/// the screen's foot over the whole app and dimming what is under it. The
-/// bar rides the panel's top edge up to be its head, its places becoming
-/// tiles like the panel's, the ⋮ fading and the action moving over to the
-/// last column as a place in the accent. It settles open or closed on a
-/// spring, and a place in the head or a tile in the panel closes it and then
-/// goes there. The panel paints above the app's chrome as a sheet does, and
-/// below the sheets and menus opened after it.
+/// Pulled up, pressed on the page added to it, or asked by a screen reader's
+/// "More places" or the keyboard's Arrow Up from any of its places, the bar
+/// grows into a panel of the places past its columns,
+/// [DMobileDockPanelGeometry] tall, risen from the screen's foot over the
+/// whole app and dimming what is under it.
+/// The bar rides the panel's top edge up to be its head, its places named
+/// again and becoming tiles like the panel's, the added page easing away and
+/// the action moving over to the last column as a place in the accent. It
+/// settles open or closed on a spring, and a place in the head, a tile in
+/// the panel or the panel's grabber closes it. The panel paints above the
+/// app's chrome as a sheet does, and below the sheets and menus opened after
+/// it.
+///
+/// Nothing in the bar itself says it can be pulled up, so given the
+/// session's [peek] it says so once: it lifts a little off the panel under
+/// it, a hint shining in the room it leaves, and settles back. A pull or a
+/// swipe meanwhile carries on from where it has lifted to.
 class DMobileDock extends StatefulWidget {
   const DMobileDock({
     super.key,
     required this.geometry,
     required this.places,
-    required this.more,
     required this.collapsedDestination,
+    this.notifications,
     this.action,
     this.collapsed = false,
     this.destinationsHidden = false,
     this.covered = false,
+    this.peek,
     this.onPanelChanged,
     this.onMoved,
   });
@@ -168,7 +195,12 @@ class DMobileDock extends StatefulWidget {
   /// Every place in order; the bar shows the first
   /// [DMobileDockGeometry.placeColumns] and the panel holds the rest.
   final List<DMobileDockPlace> places;
-  final DMobileDockMore more;
+
+  /// The place fixed last before the action, which the person does not
+  /// order and which never moves into the panel: what arrives for them.
+  /// Its [DMobileDockPlace.selected] says its menu is open, which the bar
+  /// marks as it marks the current place; pressing it toggles the menu.
+  final DMobileDockPlace? notifications;
   final Widget collapsedDestination;
   final Widget? action;
 
@@ -179,6 +211,10 @@ class DMobileDock extends StatefulWidget {
   /// that the panel must not stand over in turn. The panel is put away
   /// with the bar.
   final bool covered;
+
+  /// The session's one peek, this dock's if it is the first given it with a
+  /// panel to grow into. Without it the bar never peeks.
+  final DMobileDockPeek? peek;
 
   /// Told once as the panel comes out and once as it goes, never during a
   /// build. A dock taken out of the tree while the panel is out, as when
@@ -195,8 +231,17 @@ class DMobileDock extends StatefulWidget {
   /// Around the folded circle's own button.
   static const circlePadding = 4.0;
 
-  static const moreKey = ValueKey('mobile-mode-more');
+  /// While a place is being moved, what cannot be moved, notifications and
+  /// the action, steps back to this opacity over [dimDuration].
+  static const fixedDimmed = .4;
+  static const dimDuration = Duration(milliseconds: 200);
+
   static const panelKey = ValueKey('mobile-dock-panel');
+
+  /// The panel as it shows under the bar while the bar peeks, and the hint
+  /// in it.
+  static const peekKey = ValueKey('mobile-dock-peek');
+  static const hintKey = ValueKey('mobile-dock-peek-hint');
   static const dimKey = ValueKey('mobile-dock-dim');
   static const grabberKey = ValueKey('mobile-dock-grabber');
 
@@ -222,9 +267,22 @@ class DMobileDock extends StatefulWidget {
   static const swipeRest = Duration(milliseconds: 180);
   static const swipeSpent = Duration(milliseconds: 160);
 
+  /// The peek waits [peekAfter] from the first build that could grow, lifts
+  /// by [DMobileDockGeometry.peek] on the settle spring, stays up [peekFor],
+  /// two passes of its hint's [peekShine] after [peekShineDelay] and a
+  /// moment more, and is over once it is back down on the same spring.
+  static const peekAfter = Duration(milliseconds: 900);
+  static const peekShineDelay = Duration(milliseconds: 300);
+  static const peekShine = Duration(milliseconds: 1600);
+  static const peekFor = Duration(milliseconds: 300 + 2 * 1600 + 200);
+
   @override
   State<DMobileDock> createState() => _DMobileDockState();
 }
+
+/// The bar's peek on opening as it is drawn: not at all, lifted with its
+/// hint coming in, or on its way back down with the hint going.
+enum _Peek { none, up, down }
 
 /// How far the bar has grown into its panel, and what is moving it.
 sealed class _Growth {
@@ -353,7 +411,11 @@ class _DMobileDockState extends State<DMobileDock>
   // The surface drops its decoration while the panel is out, which changes
   // the tree above its content; the key carries the content's state across.
   final _surfaceContentKey = GlobalKey(debugLabel: 'mobile-dock-surface');
-  final _moreFocus = FocusNode(debugLabel: 'mobile-dock-more');
+  // The page added to the bar, which opened the panel in a person's stead,
+  // or else the bar's first place: where the focus goes as the panel closes
+  // when nothing in particular had it.
+  final _hereFocus = FocusNode(debugLabel: 'mobile-dock-here');
+  final _headFocus = FocusNode(debugLabel: 'mobile-dock-head');
   final _panelFocus = FocusScopeNode(debugLabel: 'mobile-dock-panel');
   final _firstTile = FocusNode(debugLabel: 'mobile-dock-first-tile');
 
@@ -376,15 +438,39 @@ class _DMobileDockState extends State<DMobileDock>
   Timer? _swipeRest;
   Duration? _swipeSpentUntil;
 
+  // The peek: what is drawn, the wait for its next step, how far up it has
+  // lifted the bar as a share of [DMobileDockGeometry.peek], and the time
+  // since it went up, which its hint's light runs on. The hint keeps its
+  // own easing across a pull taking the peek over. A lowering cut short
+  // must not end the peek that took its place.
+  _Peek _peek = _Peek.none;
+  Timer? _peekNext;
+  int _peekStep = 0;
+  late final _peekLift = AnimationController.unbounded(vsync: this);
+  late final _peekClock = AnimationController(
+    vsync: this,
+    duration: DMobileDock.peekFor,
+  );
+  final _hintKey = GlobalKey(debugLabel: 'mobile-dock-peek-hint');
+
   bool get _out => _phase is! _Closed;
+
+  /// The bar stands in the overlay while the panel is out or it peeks.
+  bool get _layered => _out || _peek != _Peek.none;
+
+  bool get _hasPanel => widget.places.length > DMobileDockGeometry.placeColumns;
 
   /// With nothing past the bar's columns, or the bar put away, there is
   /// nothing to grow into.
   bool get _grows =>
-      widget.places.length > DMobileDockGeometry.placeColumns &&
+      _hasPanel &&
       !widget.collapsed &&
       !widget.destinationsHidden &&
       !widget.covered;
+
+  /// A closed bar that can grow, which a screen reader's action and the
+  /// keyboard open for whoever cannot pull it.
+  bool get _opens => _grows && !_out;
 
   List<DMobileDockPlace> get _rest =>
       widget.places.skip(DMobileDockGeometry.placeColumns).toList();
@@ -392,9 +478,19 @@ class _DMobileDockState extends State<DMobileDock>
   int get _tiles => _rest.length;
 
   @override
+  void initState() {
+    super.initState();
+    _takePeek();
+  }
+
+  @override
   void didUpdateWidget(DMobileDock oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_out && !_grows) _putAway();
+    _takePeek();
+    if (!_grows) {
+      _dropPeek();
+      if (_out) _putAway();
+    }
     // A move is of the places as they stood at the lift, and a place let go
     // lands among them in their new order. Any other order under it, a
     // place come or gone or the same places put otherwise, as a stored
@@ -415,7 +511,10 @@ class _DMobileDockState extends State<DMobileDock>
     super.didChangeDependencies();
     // Read first, so the chrome's change is a dependency from the start.
     final away = DScrollChrome.footerAwayOf(context);
-    if (away && _out) _putAway();
+    if (away) {
+      _dropPeek();
+      if (_out) _putAway();
+    }
   }
 
   @override
@@ -427,18 +526,112 @@ class _DMobileDockState extends State<DMobileDock>
       widget.onPanelChanged?.call(false);
     }
     _swipeRest?.cancel();
+    _peekNext?.cancel();
+    _peekLift.dispose();
+    _peekClock.dispose();
     _growth.dispose();
     _fade.dispose();
     _land.dispose();
     _repaint.dispose();
-    _moreFocus.dispose();
+    _hereFocus.dispose();
+    _headFocus.dispose();
     _panelFocus.dispose();
     _firstTile.dispose();
     super.dispose();
   }
 
-  /// A finger takes the growth over from a trackpad swipe, and never from
-  /// another finger. A place lifted to be moved has the drag suspended.
+  void _showLayer() {
+    if (!_portal.isShowing) _portal.show();
+  }
+
+  /// The session's peek is this dock's once it has a panel to grow into,
+  /// and taken then, whatever stands in its way when it is due. A dock
+  /// already peeking, or waiting to, leaves another session's to the next.
+  void _takePeek() {
+    final peek = widget.peek;
+    if (peek == null || peek._taken || !_hasPanel) return;
+    if (_peekNext != null || _peek != _Peek.none) return;
+    peek._taken = true;
+    _peekNext = Timer(DMobileDock.peekAfter, _peekUp);
+  }
+
+  /// Due, the bar lifts unless it cannot grow, the footer is away, or it is
+  /// already growing under a finger or out.
+  void _peekUp() {
+    _peekNext = null;
+    if (!_grows || DScrollChrome.footerAwayOf(context) || _out) return;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() => _peek = _Peek.up);
+    _showLayer();
+    _peekLift.animateTo(
+      1,
+      duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+      curve: DMobileDock.settleCurve,
+    );
+    if (!reduced) _peekClock.forward(from: 0);
+    _peekNext = Timer(DMobileDock.peekFor, _peekDown);
+  }
+
+  /// Down, the peek is over once the bar is back: the hint, quicker, has
+  /// gone by then.
+  void _peekDown() {
+    _peekNext = null;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    setState(() => _peek = _Peek.down);
+    _peekClock.value = 0;
+    final step = ++_peekStep;
+    _peekLift
+        .animateTo(
+          0,
+          duration: reduced ? Duration.zero : DMobileDock.settleDuration,
+          curve: DMobileDock.settleCurve,
+        )
+        .whenCompleteOrCancel(() {
+          if (mounted && step == _peekStep) _peekOver();
+        });
+  }
+
+  void _peekOver() {
+    _peekNext = null;
+    setState(() => _peek = _Peek.none);
+    if (!_layered) _portal.hide();
+  }
+
+  /// A pull, a swipe or a press growing the bar takes the peek over: the
+  /// growth that stands the bar as high as the peek had lifted it, or none
+  /// with no peek under way. The hint goes as the peek's would.
+  double? _takeOverPeek() {
+    if (_peek == _Peek.none || _out) return null;
+    final lift = widget.geometry.peek * _peekLift.value;
+    final travel = widget.geometry.panel(tiles: _tiles).travel;
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    _peekNext?.cancel();
+    _peekStep++;
+    _peekLift.value = 0;
+    _peekClock.value = 0;
+    setState(() => _peek = _Peek.down);
+    _peekNext = Timer(reduced ? Duration.zero : _PeekHint.goneAfter, _peekOver);
+    return lift / math.max(1.0, travel);
+  }
+
+  /// The bar unable to grow, or put away, takes its peek with it at once.
+  /// Called where a build follows, so the overlay leaves once it is drawn.
+  void _dropPeek() {
+    if (_peek == _Peek.none) return;
+    _peekNext?.cancel();
+    _peekNext = null;
+    _peekStep++;
+    _peekLift.value = 0;
+    _peekClock.value = 0;
+    _peek = _Peek.none;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_layered) _portal.hide();
+    });
+  }
+
+  /// A finger takes the growth over from a trackpad swipe or the peek, and
+  /// never from another finger. A place lifted to be moved has the drag
+  /// suspended.
   void _dragStart(_GrowDragRecognizer finger) {
     if (!_grows || _reorder is! _Still) return;
     if (_phase case _Dragging(finger: _?)) return;
@@ -448,10 +641,13 @@ class _DMobileDockState extends State<DMobileDock>
     _swipePushed = 0;
     _growth.stop();
     _fade.stop();
+    if (_takeOverPeek() case final lifted?) {
+      _growth.value = lifted;
+      _fade.value = lifted;
+    }
     final start = _growth.value.clamp(0.0, 1.0);
-    final wasOut = _out;
     setState(() => _phase = _Dragging(start: start, finger: finger));
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
   }
 
@@ -533,7 +729,7 @@ class _DMobileDockState extends State<DMobileDock>
     }
     final panel = widget.geometry.panel(tiles: _tiles);
     final travel = math.max(1.0, panel.reveal);
-    final start = _growth.value.clamp(0.0, 1.0);
+    final start = _takeOverPeek() ?? _growth.value.clamp(0.0, 1.0);
     final growth = (start + push / travel).clamp(0.0, 1.0);
     final wasOut = _out;
     if (!wasOut && growth == 0) return;
@@ -543,7 +739,7 @@ class _DMobileDockState extends State<DMobileDock>
     _swipePushed += push;
     _growth.value = growth;
     _fade.value = growth;
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
     _swipeRest?.cancel();
     _swipeRest = Timer(DMobileDock.swipeRest, () {
@@ -578,13 +774,16 @@ class _DMobileDockState extends State<DMobileDock>
     _swipeRest?.cancel();
     _swipeRest = null;
     final reduced = MediaQuery.disableAnimationsOf(context);
-    final wasOut = _out;
+    if (_takeOverPeek() case final lifted?) {
+      _growth.value = lifted;
+      _fade.value = lifted;
+    }
     final token = ++_settle;
     setState(() {
       _cancelMove();
       _phase = _Settling(opening: opening);
     });
-    if (!wasOut) _portal.show();
+    _showLayer();
     _reportOut();
     if (opening) _takeFocus();
     _fade.animateTo(
@@ -618,8 +817,8 @@ class _DMobileDockState extends State<DMobileDock>
   }
 
   /// What had the focus takes it back. Nothing in particular had it, or it
-  /// has gone since, and the ⋮ takes it, or the page standing in its slot
-  /// that opened the panel in the ⋮'s stead.
+  /// has gone since, and the page added to the bar takes it, which opened
+  /// the panel, or else the bar's first place.
   void _giveFocusBack() {
     final before = _focusBefore;
     _focusBefore = null;
@@ -629,7 +828,9 @@ class _DMobileDockState extends State<DMobileDock>
             before.enclosingScope != null &&
             before.canRequestFocus
         ? before
-        : _moreFocus;
+        : DMobileDockCurrent.of(widget.places) is DMobileDockOverflowed
+        ? _hereFocus
+        : _headFocus;
     target.requestFocus();
   }
 
@@ -640,7 +841,7 @@ class _DMobileDockState extends State<DMobileDock>
     }
     final hadFocus = _panelFocus.hasFocus;
     setState(() => _phase = const _Closed());
-    _portal.hide();
+    if (!_layered) _portal.hide();
     _reportOut();
     if (hadFocus) _giveFocusBack();
   }
@@ -664,7 +865,7 @@ class _DMobileDockState extends State<DMobileDock>
     // Whatever took the bar away has the focus to give.
     _focusBefore = null;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && !_out) _portal.hide();
+      if (mounted && !_layered) _portal.hide();
     });
     _reportOut();
   }
@@ -740,16 +941,21 @@ class _DMobileDockState extends State<DMobileDock>
     }
   }
 
-  /// How a screen reader, which cannot press and hold, moves the place at
-  /// [index]: a slot earlier or later, told at once. Nothing while the bar
-  /// is a bar, as a hold lifts nothing then either.
-  Map<CustomSemanticsAction, VoidCallback>? _moveActions(
-    BuildContext context,
-    int index,
-  ) {
-    final onMoved = widget.onMoved;
-    if (!_out || onMoved == null) return null;
+  /// What a screen reader, which can neither pull nor press and hold, does
+  /// with a place besides pressing it. Any place of a closed bar that can
+  /// grow grows it. Out, the place at [index] among [DMobileDock.places]
+  /// moves a slot earlier or later, told at once; notifications and the
+  /// page added, given none, never move.
+  Map<CustomSemanticsAction, VoidCallback>? _readerActions(
+    BuildContext context, {
+    int? index,
+  }) {
     final l10n = context.l10n;
+    if (_opens) {
+      return {CustomSemanticsAction(label: l10n.morePlaces): () => _grow(true)};
+    }
+    final onMoved = widget.onMoved;
+    if (!_out || index == null || onMoved == null) return null;
     return {
       if (index > 0)
         CustomSemanticsAction(label: l10n.moveEarlier): () =>
@@ -801,10 +1007,13 @@ class _DMobileDockState extends State<DMobileDock>
             : Align(
                 alignment: AlignmentDirectional.bottomStart,
                 // The page's lists thin under the bar from its top margin's
-                // edge to the foot, as far as it reaches open or folded.
+                // edge to the foot, as far as it reaches open or folded,
+                // and under its room while it peeks.
                 child: DScrollFootCover(
                   margin: widget.geometry.margin.vertical,
-                  child: bar,
+                  child: _peek == _Peek.none
+                      ? bar
+                      : SizedBox(height: widget.geometry.barHeight),
                 ),
               ),
       ),
@@ -813,13 +1022,15 @@ class _DMobileDockState extends State<DMobileDock>
 
   /// The layer over the whole app while the panel is out: the dim, the
   /// panel risen from the screen's foot, and the bar over both, in the
-  /// slot's own place and lifted as far as it has grown.
+  /// slot's own place and lifted as far as it has grown. While the bar
+  /// peeks, the panel and the bar alone.
   Widget _grown(BuildContext context, OverlayChildLayoutInfo info) {
-    if (!_out) return const SizedBox.shrink();
+    if (!_layered) return const SizedBox.shrink();
     final slot = MatrixUtils.transformRect(
       info.childPaintTransform,
       Offset.zero & info.childSize,
     );
+    if (!_out) return _peeking(context, slot);
     final panel = widget.geometry.panel(tiles: _tiles);
     return PopScope(
       // The system back closes the panel, as Escape does.
@@ -831,6 +1042,76 @@ class _DMobileDockState extends State<DMobileDock>
         animation: Listenable.merge([_growth, _fade]),
         builder: (context, _) => _layer(context, slot, panel),
       ),
+    );
+  }
+
+  /// The bar lifted off the panel under it as it peeks, with nothing over
+  /// the page but the two: the panel shown from the screen's foot to the
+  /// bar's top edge, the hint in it, and the bar, its fill left to the
+  /// panel's. Neither stands in the page's way beyond itself, and a pull on
+  /// either takes the peek over.
+  Widget _peeking(BuildContext context, Rect slot) {
+    final geometry = widget.geometry;
+    final margin = geometry.margin;
+    final foot = slot.bottom + margin.bottom;
+    final bar = KeyedSubtree(
+      key: _barKey,
+      child: AnimatedBuilder(
+        animation: _growth,
+        builder: (context, _) => _bar(context),
+      ),
+    );
+    final panel = ClipRRect(
+      key: DMobileDock.peekKey,
+      borderRadius: BorderRadius.vertical(
+        top: Radius.circular(geometry.topRadius),
+      ),
+      child: _draggable(
+        context,
+        DecoratedBox(
+          decoration: BoxDecoration(color: DTokens.of(context).wellFill),
+          child: Stack(children: [_hint(context)]),
+        ),
+      ),
+    );
+    return AnimatedBuilder(
+      animation: _peekLift,
+      builder: (context, _) {
+        final lift = geometry.peek * _peekLift.value;
+        return Stack(
+          children: [
+            Positioned(
+              left: slot.left - margin.start,
+              width: slot.width + margin.horizontal,
+              top: slot.top - lift,
+              height: foot - (slot.top - lift),
+              child: panel,
+            ),
+            Positioned(
+              left: slot.left,
+              top: slot.top - lift,
+              width: slot.width,
+              height: slot.height,
+              child: bar,
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  /// The hint the bar shows as it peeks, in the panel's foot: between where
+  /// the peek lifts the bar's glyphs to and half the screen's foot, full
+  /// width. It keeps its easing out across a pull taking the peek over.
+  Widget _hint(BuildContext context) {
+    final geometry = widget.geometry;
+    return Positioned(
+      key: DMobileDock.hintKey,
+      left: 0,
+      right: 0,
+      bottom: geometry.foot / 2,
+      height: geometry.peekUnder + geometry.peek - geometry.foot / 2,
+      child: _PeekHint(key: _hintKey, up: _peek == _Peek.up, clock: _peekClock),
     );
   }
 
@@ -877,9 +1158,9 @@ class _DMobileDockState extends State<DMobileDock>
               semanticLabel: place.semanticLabel,
               badge: place.badge,
               selected: place.selected,
-              customSemanticsActions: _moveActions(
+              customSemanticsActions: _readerActions(
                 context,
-                DMobileDockGeometry.placeColumns + index,
+                index: DMobileDockGeometry.placeColumns + index,
               ),
               onPressed: () {
                 _grow(false);
@@ -904,22 +1185,11 @@ class _DMobileDockState extends State<DMobileDock>
             start: 0,
             end: 0,
             child: Center(
-              child: ExcludeSemantics(
-                child: DecoratedBox(
-                  key: DMobileDock.grabberKey,
-                  decoration: BoxDecoration(
-                    color: tokens.subtleMark,
-                    borderRadius: BorderRadius.circular(
-                      DMobileDockPanelGeometry.grabberRadius,
-                    ),
-                  ),
-                  child: SizedBox.fromSize(
-                    size: DMobileDockPanelGeometry.grabberSize,
-                  ),
-                ),
-              ),
+              child: _Grabber(key: DMobileDock.grabberKey, onPressed: _close),
             ),
           ),
+          // A peek taken over by a pull: its hint going.
+          if (_peek != _Peek.none) _hint(context),
           Positioned.fill(
             child: Opacity(
               opacity: DMobileDockPanelGeometry.gridOpacity(fade),
@@ -1154,9 +1424,9 @@ class _DMobileDockState extends State<DMobileDock>
     );
   }
 
-  /// The bar: its row of places, the ⋮ or the current page past the columns
-  /// in the fourth, and the action at the end, on the surface that folds to
-  /// a circle. Grown, the row is the panel's head.
+  /// The bar: its row of places, the current page past the columns added
+  /// after them, notifications, and the action at the end, on the surface
+  /// that folds to a circle. Grown, the row is the panel's head.
   Widget _bar(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final geometry = widget.geometry;
@@ -1188,30 +1458,29 @@ class _DMobileDockState extends State<DMobileDock>
       final places = widget.places;
       final shown = places.take(DMobileDockGeometry.placeColumns).toList();
       final current = DMobileDockCurrent.of(places);
-      final tail = places.length <= DMobileDockGeometry.placeColumns
-          ? DMobileDockTail.none
-          : switch (current) {
-              DMobileDockOverflowed() => DMobileDockTail.page,
-              DMobileDockNowhere() ||
-              DMobileDockAtPlace() => DMobileDockTail.more,
-            };
+      final here = switch (current) {
+        DMobileDockOverflowed(:final index) => places[index],
+        DMobileDockNowhere() || DMobileDockAtPlace() => null,
+      };
+      final fixed = widget.notifications;
       final hasAction = widget.action != null;
       final atRest = geometry.rowSlots(
         constraints.maxWidth,
         places: shown.length,
-        tail: tail,
+        here: here != null,
+        fixed: fixed != null,
         action: hasAction,
       );
-      // Grown, a page standing where the ⋮ was gives its room back and the
-      // three return to their columns.
-      final grownSlots = tail == DMobileDockTail.page
-          ? geometry.rowSlots(
+      // Grown, the page added to the bar gives its room back, and the places
+      // after it return to their columns.
+      final grownSlots = here == null
+          ? atRest
+          : geometry.rowSlots(
               constraints.maxWidth,
               places: shown.length,
-              tail: DMobileDockTail.more,
+              fixed: fixed != null,
               action: hasAction,
-            )
-          : atRest;
+            );
       DMobileDockSlot between(DMobileDockSlot from, DMobileDockSlot to) => (
         start: lerpDouble(from.start, to.start, grown)!,
         width: lerpDouble(from.width, to.width, grown)!,
@@ -1220,14 +1489,21 @@ class _DMobileDockState extends State<DMobileDock>
         for (final (index, slot) in atRest.places.indexed)
           between(slot, grownSlots.places[index]),
       ];
-      final tailSlot = switch (tail) {
-        DMobileDockTail.none => null,
-        DMobileDockTail.more => atRest.tail!,
-        DMobileDockTail.page => between(atRest.tail!, (
-          start: grownSlots.tail!.start,
-          width: 0,
-        )),
-      };
+      // Eased away, it stands where the next column begins, and the gap
+      // after it goes with it.
+      final hereSlot = here == null
+          ? null
+          : between(atRest.here!, (
+              start:
+                  grownSlots.fixed?.start ??
+                  shown.length *
+                      (grownSlots.places.first.width +
+                          DMobileDockGeometry.columnGap),
+              width: 0,
+            ));
+      final fixedSlot = fixed == null
+          ? null
+          : between(atRest.fixed!, grownSlots.fixed!);
       // The action moves over to the middle of the last column, taking a
       // place's tile there.
       final column = geometry.gridColumn(constraints.maxWidth);
@@ -1239,6 +1515,16 @@ class _DMobileDockState extends State<DMobileDock>
                   (column + DMobileDockGeometry.columnGap),
               width: column,
             ));
+      // What cannot be moved steps back while a place is being moved, so
+      // what can stands out from it.
+      final fixedOpacity = _reorder is _Still ? 1.0 : DMobileDock.fixedDimmed;
+      final dimDuration = reduced ? Duration.zero : DMobileDock.dimDuration;
+      // Arrow Up from a place or the action grows a closed bar that can
+      // grow, as a pull does; otherwise it moves the focus up, as anywhere.
+      final shortcuts = <ShortcutActivator, VoidCallback>{
+        if (_opens)
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () => _grow(true),
+      };
 
       Widget destination(Widget child) => ExcludeSemantics(
         excluding: hidden,
@@ -1247,63 +1533,84 @@ class _DMobileDockState extends State<DMobileDock>
           child: Opacity(opacity: hidden ? 0 : 1, child: child),
         ),
       );
+      // Closed, the bar's places are their glyphs alone; grown, they are
+      // named again.
       Widget place(int index, DMobileDockPlace place) => DMobileDockItem(
         key: place.key,
         growth: out ? grown : 0,
+        bare: !out,
         // The panel's focus follows its place into the head.
-        focusNode: out && place.key == _firstTileKey ? _firstTile : null,
+        focusNode: out && place.key == _firstTileKey
+            ? _firstTile
+            : index == 0 && here == null
+            ? _headFocus
+            : null,
         icon: place.icon,
         label: place.label,
         semanticLabel: place.semanticLabel,
         badge: place.badge,
         selected: place.selected,
-        customSemanticsActions: _moveActions(context, index),
+        customSemanticsActions: _readerActions(context, index: index),
         onPressed: () {
           if (_out) _grow(false);
           place.onPressed();
         },
       );
-      // The ⋮, and the current page in its slot, open the panel; grown, the
-      // ⋮ has nothing left to open and goes, and the page shrinks away.
-      final gone = (1 - 2 * grown).clamp(0.0, 1.0);
-      Widget fourth = switch (current) {
-        DMobileDockOverflowed(:final index) => ClipRect(
-          child: Opacity(
-            opacity: gone,
-            child: DMobileDockItem(
-              key: places[index].key,
-              growth: out ? grown : 0,
-              icon: places[index].icon,
-              label: places[index].label,
-              badge: places[index].badge,
-              selected: true,
-              // It opens the panel in the ⋮'s stead, and takes the focus
-              // back in its stead as the panel closes.
-              focusNode: _moreFocus,
-              hasPopup: true,
-              expanded: out,
-              onPressed: () => _grow(true),
-            ),
-          ),
-        ),
-        DMobileDockNowhere() || DMobileDockAtPlace() => IgnorePointer(
-          ignoring: out,
-          child: Opacity(
-            opacity: gone,
-            child: DMobileDockItem(
-              key: DMobileDock.moreKey,
-              bare: true,
-              icon: widget.more.icon,
-              label: widget.more.label,
-              selected: current is DMobileDockNowhere,
-              focusNode: _moreFocus,
-              hasPopup: true,
-              expanded: out,
-              onPressed: () => _grow(true),
-            ),
-          ),
-        ),
-      };
+      // The page added to the bar opens the panel; grown, it eases away,
+      // and takes the focus back as the panel closes.
+      final hereItem = here == null
+          ? null
+          : ClipRect(
+              child: IgnorePointer(
+                ignoring: out,
+                child: AnimatedOpacity(
+                  opacity: out ? 0 : 1,
+                  duration: dimDuration,
+                  curve: Curves.ease,
+                  child: DMobileDockItem(
+                    key: here.key,
+                    growth: out ? grown : 0,
+                    bare: !out,
+                    icon: here.icon,
+                    label: here.label,
+                    semanticLabel: here.semanticLabel,
+                    badge: here.badge,
+                    selected: true,
+                    focusNode: _hereFocus,
+                    hasPopup: true,
+                    expanded: out,
+                    customSemanticsActions: _readerActions(context),
+                    onPressed: () => _grow(true),
+                  ),
+                ),
+              ),
+            );
+      // Notifications: pressed in the head, the panel closes first, as it
+      // does for the places beside it.
+      final fixedItem = fixed == null
+          ? null
+          : AnimatedOpacity(
+              opacity: fixedOpacity,
+              duration: dimDuration,
+              curve: Curves.ease,
+              child: DMobileDockItem(
+                key: fixed.key,
+                growth: out ? grown : 0,
+                bare: !out,
+                icon: fixed.icon,
+                label: fixed.label,
+                semanticLabel: fixed.semanticLabel,
+                badge: fixed.badge,
+                selected: fixed.selected,
+                hasPopup: true,
+                expanded: fixed.selected,
+                customSemanticsActions: _readerActions(context),
+                onPressed: () {
+                  if (_out) _grow(false);
+                  fixed.onPressed();
+                },
+              ),
+            );
       Widget at(DMobileDockSlot slot, Widget child, {Key? key}) =>
           PositionedDirectional(
             key: key,
@@ -1330,17 +1637,23 @@ class _DMobileDockState extends State<DMobileDock>
                   destination(_whileStill(place(index, entry))),
                   key: _slotKey(entry.key),
                 ),
-              // Grown, the ⋮ is out of the keyboard's round, not out of
-              // reach: it takes the focus back as the panel closes.
-              if (tailSlot case final slot?)
+              // Grown, the page added is out of the keyboard's round, not
+              // out of reach: it takes the focus back as the panel closes.
+              // Keyed, so the page added coming and going never hands the
+              // action's or notifications' element to the other.
+              if (hereSlot case final slot?)
                 at(
                   slot,
                   destination(
-                    ExcludeFocusTraversal(excluding: out, child: fourth),
+                    ExcludeFocusTraversal(excluding: out, child: hereItem!),
                   ),
+                  key: _slotKey(here!.key),
                 ),
+              if (fixedSlot case final slot?)
+                at(slot, destination(fixedItem!), key: _slotKey(fixed!.key)),
               if (actionSlot case final slot?)
                 PositionedDirectional(
+                  key: const ValueKey('mobile-dock-action-slot'),
                   start: slot.start,
                   width: slot.width,
                   height: rowHeight,
@@ -1348,10 +1661,18 @@ class _DMobileDockState extends State<DMobileDock>
                     grown: out,
                     color: DMobileDockItem.hoverFill(tokens),
                     child: Center(
-                      child: DMobileDockGrowthScope(
-                        growth: out ? grown : 0,
-                        closePanel: _close,
-                        child: widget.action!,
+                      child: AnimatedOpacity(
+                        opacity: fixedOpacity,
+                        duration: dimDuration,
+                        curve: Curves.ease,
+                        child: DMobileDockGrowthScope(
+                          growth: out ? grown : 0,
+                          nameWidth: geometry.actionNameWidth(
+                            constraints.maxWidth,
+                          ),
+                          closePanel: _close,
+                          child: widget.action!,
+                        ),
                       ),
                     ),
                   ),
@@ -1362,17 +1683,17 @@ class _DMobileDockState extends State<DMobileDock>
       );
       // Every column carries its own mark, grown in from nothing when its
       // place becomes current and gone the same way, so a move from one
-      // place to another is one mark shrinking as the other grows. Grown,
-      // the lit tile says it instead.
-      final markedIndex = switch (current) {
-        DMobileDockAtPlace(:final index) => index,
-        DMobileDockOverflowed() => DMobileDockGeometry.placeColumns,
-        DMobileDockNowhere() => null,
+      // place to another is one mark shrinking as the other grows: over
+      // the current place, over the page added for it, and over
+      // notifications while its menu is open. Grown, the lit tile says it
+      // instead.
+      final markSlots = [...placeSlots, ?hereSlot, ?fixedSlot];
+      final marked = {
+        if (current case DMobileDockAtPlace(:final index)) index,
+        if (here != null) shown.length,
+        if (fixed != null && fixed.selected) markSlots.length - 1,
       };
-      final markSlots = [
-        ...placeSlots,
-        if (tail == DMobileDockTail.page) tailSlot!,
-      ];
+      final gone = (1 - 2 * grown).clamp(0.0, 1.0);
       final marks = IgnorePointer(
         child: ExcludeSemantics(
           child: AnimatedOpacity(
@@ -1396,7 +1717,7 @@ class _DMobileDockState extends State<DMobileDock>
                             ? Duration.zero
                             : const Duration(milliseconds: 200),
                         curve: Curves.ease,
-                        width: index == markedIndex
+                        width: marked.contains(index)
                             ? DMobileDockGeometry.markWidth
                             : 0,
                         height: DMobileDockGeometry.markHeight,
@@ -1435,10 +1756,10 @@ class _DMobileDockState extends State<DMobileDock>
             curve: const Cubic(.32, .72, 0, 1),
             width: collapsed ? round : constraints.maxWidth,
             height: collapsed ? round : geometry.barHeight,
-            // The panel owns the head's fill while out. Remove the
-            // decoration so returning to the bar restores its fill
+            // The panel owns the head's fill while out or peeking. Remove
+            // the decoration so returning to the bar restores its fill
             // immediately, without tweening from transparent.
-            decoration: out
+            decoration: out || _peek != _Peek.none
                 ? null
                 : BoxDecoration(
                     color: well,
@@ -1473,7 +1794,10 @@ class _DMobileDockState extends State<DMobileDock>
                               duration: reduced
                                   ? Duration.zero
                                   : const Duration(milliseconds: 100),
-                              child: navigation,
+                              child: CallbackShortcuts(
+                                bindings: shortcuts,
+                                child: navigation,
+                              ),
                             ),
                           ),
                         ),
@@ -1628,6 +1952,180 @@ class _Face extends StatelessWidget {
   }
 }
 
+/// The grabber every sheet has, over the panel's head: drawn as a short
+/// bar, and a button that puts the panel away, named for what it does.
+class _Grabber extends StatelessWidget {
+  const _Grabber({super.key, required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    return DTouchTarget(
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        shortcuts: const {
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: {
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              onPressed();
+              return null;
+            },
+          ),
+        },
+        child: Semantics(
+          button: true,
+          expanded: true,
+          label: context.l10n.fewerPlaces,
+          onTap: onPressed,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            excludeFromSemantics: true,
+            onTap: onPressed,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: tokens.subtleMark,
+                borderRadius: BorderRadius.circular(
+                  DMobileDockPanelGeometry.grabberRadius,
+                ),
+              ),
+              child: SizedBox.fromSize(
+                size: DMobileDockPanelGeometry.grabberSize,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// What the bar says as it peeks: faded in and risen a little once [up],
+/// faded and lowered with no wait as it goes, with a light passing over its
+/// text on [clock], the time since the bar went up. A reader is not told
+/// it: it says in words what the bar's lift shows.
+class _PeekHint extends StatelessWidget {
+  const _PeekHint({super.key, required this.up, required this.clock});
+
+  final bool up;
+  final Animation<double> clock;
+
+  /// In after [delay], fading over [fade] and rising [rise] over [risen];
+  /// out with no wait, over the same.
+  static const delay = 150;
+  static const fade = 200;
+  static const risen = 300;
+  static const rise = 6.0;
+
+  /// Gone, faded and lowered, this long after it starts to go.
+  static const goneAfter = Duration(milliseconds: risen);
+
+  /// The light: a band at [angle] degrees, muted at its ends and strong at
+  /// its middle, over a gradient three times the text's width, slid from
+  /// the gradient's end over the text to its start once a pass.
+  static const angle = 100.0;
+  static const stops = [.34, .5, .66];
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    Duration over(int milliseconds) => reduced
+        ? Duration.zero
+        : Duration(milliseconds: up ? delay + milliseconds : milliseconds);
+    Curve eased(int milliseconds) => up
+        ? Interval(delay / (delay + milliseconds), 1, curve: Curves.ease)
+        : Curves.ease;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
+    final text = Text(
+      context.l10n.swipeUpForMore,
+      maxLines: 1,
+      softWrap: false,
+      style: TextStyle(
+        fontSize: DiscourseTypography.control,
+        fontWeight: FontWeight.w500,
+        color: tokens.mutedForeground,
+      ),
+    );
+    return ExcludeSemantics(
+      child: IgnorePointer(
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: up ? 1 : 0),
+          duration: over(fade),
+          curve: eased(fade),
+          builder: (context, opacity, child) =>
+              Opacity(opacity: opacity, child: child),
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: rise, end: up ? 0 : rise),
+            duration: over(risen),
+            curve: eased(risen),
+            builder: (context, y, child) =>
+                Transform.translate(offset: Offset(0, y), child: child),
+            child: Center(
+              child: AnimatedBuilder(
+                animation: clock,
+                builder: (context, child) => ShaderMask(
+                  blendMode: BlendMode.srcIn,
+                  shaderCallback: (bounds) => _light(
+                    bounds,
+                    pass: _pass(clock.value),
+                    muted: tokens.mutedForeground,
+                    strong: tokens.foreground,
+                    rtl: rtl,
+                  ),
+                  child: child,
+                ),
+                child: text,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// How far through its pass the light is, [time] through the hold: none
+  /// before the first pass begins.
+  static double _pass(double time) {
+    final elapsed = time * DMobileDock.peekFor.inMilliseconds;
+    final wait = DMobileDock.peekShineDelay.inMilliseconds;
+    final pass = DMobileDock.peekShine.inMilliseconds;
+    return elapsed < wait ? 0 : (elapsed - wait) % pass / pass;
+  }
+
+  /// The gradient over [bounds], the text, [pass] through a pass: three of
+  /// its widths across, from two widths before its start at the beginning
+  /// of a pass to level with it at the end, at [angle] as a page's gradient
+  /// is drawn, and the other way across for a right-to-left reader.
+  static Shader _light(
+    Rect bounds, {
+    required double pass,
+    required Color muted,
+    required Color strong,
+    required bool rtl,
+  }) {
+    final width = bounds.width;
+    final height = bounds.height;
+    final centre = Offset(-2 * width * (1 - pass) + 1.5 * width, height / 2);
+    const radians = angle * math.pi / 180;
+    final along = Offset(math.sin(radians), -math.cos(radians));
+    final length =
+        3 * width * math.sin(radians).abs() + height * math.cos(radians).abs();
+    Offset placed(Offset at) =>
+        bounds.topLeft + (rtl ? Offset(width - at.dx, at.dy) : at);
+    return ui.Gradient.linear(
+      placed(centre - along * (length / 2)),
+      placed(centre + along * (length / 2)),
+      [muted, strong, muted],
+      stops,
+    );
+  }
+}
+
 /// The place's tile the action takes under the pointer once it stands among
 /// the places, the size of the others'. Only the action itself is pressed.
 class _ActionTile extends StatefulWidget {
@@ -1689,7 +2187,9 @@ class DMobileDockAction extends StatelessWidget {
   final Key? buttonKey;
 
   /// Where the icon rises to, and where the name's middle sits below the
-  /// action's top, once grown.
+  /// action's top, once grown. The name takes its column at most, cut short
+  /// as the panel's names are, rather than running into the place beside
+  /// it.
   static const iconRise = 8.0;
   static const labelCentre = 39.0;
 
@@ -1726,35 +2226,43 @@ class DMobileDockAction extends StatelessWidget {
               pressed();
             },
     );
-    if (growth == 0) return button;
+    // One structure grown or not, so the bar growing keeps the button and
+    // its focus, which the panel gives back as it closes.
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
         button,
-        Positioned(
-          top: labelCentre,
-          child: FractionalTranslation(
-            translation: const Offset(0, -.5),
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: Opacity(
-                  opacity: growth,
-                  child: Text(
-                    label,
-                    maxLines: 1,
-                    softWrap: false,
-                    style: TextStyle(
-                      fontSize: DiscourseTypography.metadata,
-                      fontWeight: FontWeight.w400,
-                      color: tokens.primary,
+        if (growth > 0)
+          Positioned(
+            top: labelCentre,
+            child: FractionalTranslation(
+              translation: const Offset(0, -.5),
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: growth,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: scope?.nameWidth ?? double.infinity,
+                      ),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: DiscourseTypography.metadata,
+                          fontWeight: FontWeight.w400,
+                          color: tokens.primary,
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

@@ -69,7 +69,80 @@ Future<void> pump(
   ),
 );
 
+DTokens _paletteTokens({
+  required Brightness brightness,
+  required Color background,
+  required Color foreground,
+  required Color accent,
+  required Color quiet,
+}) => DTokens(
+  colors: ColorScheme.fromSeed(seedColor: accent, brightness: brightness)
+      .copyWith(
+        primary: accent,
+        onSurface: foreground,
+        onSurfaceVariant: quiet,
+        surface: background,
+      ),
+  background: background,
+  surface: background,
+  muted: background,
+  border: quiet,
+  hover: background,
+  selected: background,
+  selectedForeground: foreground,
+  radius: 10,
+);
+
 void main() {
+  group('DChartTone', () {
+    test('a light palette steps from its accent toward its panel', () {
+      final tokens = _paletteTokens(
+        brightness: Brightness.light,
+        background: const Color(0xFFFFFFFF),
+        foreground: const Color(0xFF000000),
+        accent: const Color(0xFF336699),
+        quiet: const Color(0xFF666666),
+      );
+      expect(
+        [for (final tone in DChartTone.values) tone.of(tokens).toARGB32()],
+        [0xFF336699, 0xFF7E9DBD, 0xFFB9C9D9, 0xFF9D9D9D, 0xFFC6C6C6],
+      );
+    });
+
+    test('a dark palette fades its third step toward the text', () {
+      final tokens = _paletteTokens(
+        brightness: Brightness.dark,
+        background: const Color(0xFF111111),
+        foreground: const Color(0xFFEEEEEE),
+        accent: const Color(0xFF669ACC),
+        quiet: const Color(0xFF999999),
+      );
+      expect(
+        [for (final tone in DChartTone.values) tone.of(tokens).toARGB32()],
+        [0xFF669ACC, 0xFF486887, 0xFFC5D5E4, 0xFF686868, 0xFF444444],
+      );
+    });
+
+    test('the palest step is 34% of the quiet text, not 38%', () {
+      final tokens = _paletteTokens(
+        brightness: Brightness.light,
+        background: const Color(0xFFFFFFFF),
+        foreground: const Color(0xFF000000),
+        accent: const Color(0xFF336699),
+        quiet: const Color(0xFF666666),
+      );
+      expect(DChartTone.faint.of(tokens).toARGB32(), isNot(0xFFC0C0C0));
+      expect(DChartTone.faint.of(tokens).toARGB32(), 0xFFC6C6C6);
+    });
+
+    test('unnamed series take the steps in order and start over', () {
+      expect(DChartTone.at(0), DChartTone.strong);
+      expect(DChartTone.at(4), DChartTone.faint);
+      expect(DChartTone.at(5), DChartTone.strong);
+      expect(() => DChartTone.at(-1), throwsRangeError);
+    });
+  });
+
   testWidgets('area fill fades downward without changing the line', (
     tester,
   ) async {

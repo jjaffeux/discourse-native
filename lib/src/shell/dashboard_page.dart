@@ -492,6 +492,14 @@ class _DashboardPageState extends State<DashboardPage> {
         : DateFormat.MMMd(context.l10n.localeName).format(date);
   }
 
+  static DChartTone _trafficTone(String id, int index) => switch (id) {
+    'page_view_logged_in_browser' => DChartTone.strong,
+    'page_view_anon_browser' => DChartTone.mid,
+    'page_view_other' => DChartTone.muted,
+    'page_view_crawler' => DChartTone.faint,
+    _ => DChartTone.at(index),
+  };
+
   Widget _traffic(DashboardTraffic traffic) {
     final shown = traffic.series
         .where((series) => !_trafficOff.contains(series.id))
@@ -517,7 +525,8 @@ class _DashboardPageState extends State<DashboardPage> {
         for (var i = 0; i < traffic.series.length; i++)
           traffic.series[i].id: DChartConfigEntry(
             label: traffic.series[i].label,
-            color: (context) => DChartColors.series(context, i),
+            color: (context) =>
+                _trafficTone(traffic.series[i].id, i).resolve(context),
           ),
       },
       child: Column(
@@ -882,7 +891,7 @@ class _DashboardPageState extends State<DashboardPage> {
     sheenColor: sheenColor,
   );
   Widget _cardFrame(List<Widget> children, {Color? sheenColor}) => DCard(
-    sheenColor: sheenColor ?? DChartColors.series(context, 0),
+    sheenColor: sheenColor ?? DChartTone.strong.resolve(context),
     child: Padding(
       padding: const EdgeInsets.all(14),
       child: Column(

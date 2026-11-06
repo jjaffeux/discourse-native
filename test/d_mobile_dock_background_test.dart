@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'd_mobile_dock_test.dart' as fixture;
+import 'support/dock_panel.dart';
 
 void main() {
   for (final brightness in Brightness.values) {
@@ -32,9 +33,7 @@ void main() {
           final point = rest.bottomCenter - const Offset(0, 3);
           final background = await _pixel(tester, point);
 
-          await tester.tap(find.byKey(DMobileDock.moreKey));
-          await tester.pumpAndSettle();
-          expect(find.byKey(DMobileDock.panelKey), findsOneWidget);
+          await openDockPanel(tester);
           await tester.sendKeyEvent(LogicalKeyboardKey.escape);
           await tester.pump();
           // Include the handoff from the overlay to the bar and any

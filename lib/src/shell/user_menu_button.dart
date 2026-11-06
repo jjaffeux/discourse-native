@@ -31,7 +31,17 @@ typedef _AccountAvatarSnapshot = ({
   bool connecting,
 });
 
-enum UserMenuPresentation { combined, notifications, profileCard, profileRail }
+/// How the account's controls are drawn: the bell and the profile together;
+/// the bell alone; the profile as a card or in the rail; or
+/// [dockNotifications], the notifications menu alone with no bell, hosted
+/// for a phone's bar of places to open through [UserMenuButton.menuController].
+enum UserMenuPresentation {
+  combined,
+  notifications,
+  dockNotifications,
+  profileCard,
+  profileRail,
+}
 
 class UserMenuButton extends StatefulWidget {
   const UserMenuButton({
@@ -92,6 +102,11 @@ class UserMenuButton extends StatefulWidget {
   static const Key signInKey = ValueKey('user-menu-sign-in');
 
   static const Key unreadDotKey = ValueKey('user-menu-unread');
+
+  /// What has arrived at [siteUrl] since the notifications menu was last
+  /// open: the bell's count, and a phone's notifications place's.
+  static int unreadCountOf(ShellController shell, String siteUrl) =>
+      shell.accountActivity.totalsFor(siteUrl)?.coreBadge ?? 0;
 
   @override
   State<UserMenuButton> createState() => _UserMenuButtonState();
@@ -244,8 +259,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
         ]),
         builder: (context, _) {
           final connecting = account.connecting;
-          final totals = controller.accountActivity.totalsFor(siteUrl);
-          final unreadCount = totals?.coreBadge ?? 0;
+          final unreadCount = UserMenuButton.unreadCountOf(controller, siteUrl);
           if (profileOnly) {
             final tokens = DTokens.of(context);
             final paused = controller.doNotDisturb
@@ -438,6 +452,7 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                         _menuGeneration,
                       )),
                       view: UserMenuView.notifications,
+                      presentation: widget.presentation,
                       isCurrent: isCurrentMenu,
                       controller: _notifications,
                       onOpen: _profile.close,
@@ -561,6 +576,10 @@ class _AccountMenuPopover extends StatelessWidget {
     Widget buildTrigger(BuildContext context, DPopoverTriggerState trigger) {
       final isProfile = view == UserMenuView.profile;
       final tokens = DTokens.of(context);
+      // The bar of places is the trigger; the menu is only hosted here.
+      if (presentation == UserMenuPresentation.dockNotifications) {
+        return const SizedBox.shrink();
+      }
       if (presentation == UserMenuPresentation.profileCard) {
         return DButton(
           key: UserMenuButton.avatarKey,
