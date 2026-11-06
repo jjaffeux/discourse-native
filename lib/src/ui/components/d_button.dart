@@ -1386,8 +1386,8 @@ class DButton extends StatelessWidget {
 
     return DControlMotion(
       child: linkActivation.wrap(
-        _MergedSemantics(
-          properties: SemanticsProperties(
+        MergeSemantics(
+          child: Semantics(
             button: !isLink,
             link: isLink,
             enabled: enabled,
@@ -1398,45 +1398,11 @@ class DButton extends StatelessWidget {
             liveRegion: loading,
             label: effectiveSemanticLabel,
             value: loading ? loadingSemanticLabel : null,
+            child: result,
           ),
-          child: result,
         ),
       ),
     );
-  }
-}
-
-/// A button's own semantics, merging everything below it into one node: what
-/// a MergeSemantics around a Semantics describes, in one render object
-/// instead of two. Every attached render object keeps a semantics
-/// configuration whether or not semantics is on, and lists mount buttons by
-/// the dozen.
-class _MergedSemantics extends Semantics {
-  const _MergedSemantics({required super.properties, required super.child})
-    : super.fromProperties();
-
-  @override
-  RenderSemanticsAnnotations createRenderObject(BuildContext context) =>
-      _RenderMergedSemantics(
-        properties: properties,
-        // As Semantics resolves it: only text needs a direction.
-        textDirection:
-            properties.textDirection ??
-            (properties.label != null || properties.value != null
-                ? Directionality.maybeOf(context)
-                : null),
-      );
-}
-
-class _RenderMergedSemantics extends RenderSemanticsAnnotations {
-  _RenderMergedSemantics({required super.properties, super.textDirection});
-
-  @override
-  void describeSemanticsConfiguration(SemanticsConfiguration config) {
-    super.describeSemanticsConfiguration(config);
-    config
-      ..isSemanticBoundary = true
-      ..isMergingSemanticsOfDescendants = true;
   }
 }
 

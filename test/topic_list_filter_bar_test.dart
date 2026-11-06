@@ -510,8 +510,8 @@ void main() {
           final indicator = find.byKey(
             ValueKey(('category-selector-icon', kind == 'category' ? 3 : 2)),
           );
-          final swatch = tester.widget<Container>(
-            find.descendant(of: indicator, matching: find.byType(Container)),
+          final swatch = tester.widget<DecoratedBox>(
+            find.descendant(of: indicator, matching: find.byType(DecoratedBox)),
           );
           expect(
             (swatch.decoration! as BoxDecoration).color,
