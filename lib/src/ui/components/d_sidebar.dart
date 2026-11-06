@@ -870,11 +870,11 @@ class _SidebarCardPaint extends CustomPainter {
     final rect = Offset.zero & size;
     const corners = BorderRadius.vertical(top: Radius.circular(18));
     final paint = Paint()..color = fill;
-    if (pinned) {
+    // One shape: the fill may be see-through, and laid twice it darkens.
+    if (!pinned) {
+      canvas.drawRRect(corners.toRRect(rect), paint);
+    } else {
       canvas.drawRect(rect, paint);
-    }
-    canvas.drawRRect(corners.toRRect(rect), paint);
-    if (pinned) {
       final fade = Rect.fromLTWH(0, size.height, size.width, 16);
       canvas.drawRect(
         fade,

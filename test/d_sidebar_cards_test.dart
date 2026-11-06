@@ -17,6 +17,7 @@ Future<void> _pump(
   Color? border,
   Brightness brightness = Brightness.light,
   int sheer = 0,
+  Color? groundUnderHeadings,
 }) async {
   await tester.binding.setSurfaceSize(const Size(390, 600));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -84,14 +85,22 @@ Future<void> _pump(
                           ),
                         ),
                         sliver: DCollapsibleContent.sliver(
-                          sliver: DSidebarMenu.sliverBuilder(
-                            itemCount: rowCount,
-                            itemBuilder: (context, index) => DSidebarMenuButton(
-                              key: ValueKey('$name-$index'),
-                              onPressed: () {},
-                              child: Text('$name destination $index'),
-                            ),
-                          ),
+                          sliver: groundUnderHeadings != null
+                              ? SliverToBoxAdapter(
+                                  child: ColoredBox(
+                                    color: groundUnderHeadings,
+                                    child: const SizedBox(height: 600),
+                                  ),
+                                )
+                              : DSidebarMenu.sliverBuilder(
+                                  itemCount: rowCount,
+                                  itemBuilder: (context, index) =>
+                                      DSidebarMenuButton(
+                                        key: ValueKey('$name-$index'),
+                                        onPressed: () {},
+                                        child: Text('$name destination $index'),
+                                      ),
+                                ),
                         ),
                       ),
                     ),
@@ -142,6 +151,40 @@ void main() {
       await _pump(tester);
       await hold(tester);
       expect(frosts(), findsNothing);
+    });
+
+    testWidgets('lay their see-through fill once over what passes under', (
+      tester,
+    ) async {
+      // A grey, which the frost's blur and saturation leave as it is.
+      const ground = Color(0xFF000000);
+      await _pump(tester, sheer: 30, groundUnderHeadings: ground);
+      await hold(tester);
+      final heading = tester.getRect(_heading('Forum'));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('sidebar-card-capture')),
+      );
+      final data = await tester.runAsync(() async {
+        final image = await boundary.toImage();
+        try {
+          return await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+        } finally {
+          image.dispose();
+        }
+      });
+      final offset =
+          (heading.center.dy.floor() * 390 + heading.center.dx.floor()) * 4;
+      final drawn = [for (var i = 0; i < 3; i++) data!.getUint8(offset + i)];
+      final fill = const DFrost(
+        sheer: 30,
+      ).panel(DTokens.of(tester.element(_heading('Forum'))).panelBackground);
+      final once = Color.alphaBlend(fill, ground);
+      final expected = [
+        for (final channel in [once.r, once.g, once.b]) (channel * 255).round(),
+      ];
+      for (var i = 0; i < 3; i++) {
+        expect(drawn[i], closeTo(expected[i], 2), reason: 'channel $i');
+      }
     });
   });
 
