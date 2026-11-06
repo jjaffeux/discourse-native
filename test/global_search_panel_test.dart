@@ -782,6 +782,29 @@ void main() {
   }
 
   testWidgets(
+    'category search keeps matching cached choices selectable during refresh',
+    (tester) async {
+      final api = _PanelApi();
+      final controller = await _pump(tester, api: api);
+      await _filter(tester, 'category');
+      final held = api.categoryGate = Completer<GlobalSearchCategoryPage>();
+      await tester.enterText(_key('global-search-filter-value'), 'supp');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(find.text('Support'), findsOneWidget);
+      expect(find.text('Development'), findsNothing);
+      await tester.tap(find.text('Support'));
+      await tester.pump();
+      await tester.tap(_key('global-search-filter-apply'));
+      await tester.pumpAndSettle();
+      expect(controller.conditions.single.value, ['1']);
+      expect(held.isCompleted, isFalse);
+      held.complete(const GlobalSearchCategoryPage());
+      await tester.pumpAndSettle();
+      expect(controller.conditions.single.value, ['1']);
+    },
+  );
+
+  testWidgets(
     'category search keeps selections, clears stale rows and retries',
     (tester) async {
       final api = _PanelApi();
