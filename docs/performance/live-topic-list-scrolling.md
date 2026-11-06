@@ -16,7 +16,9 @@ and then promotes, and in this Flutter build every render object keeps a
 semantics configuration even with semantics off; see
 [the frames that remain](#the-frames-that-remain-garbage-collection). A
 desktop widget-test row now attaches 15% fewer render objects and keeps
-12% less memory.
+12% less memory, and live a pass promotes about 10% less. On an idle machine
+the list already fits every frame; the remaining drops come when it is
+busy.
 
 The first round of changes, measured on its own while the machine was
 otherwise idle, on the pass that mounts the most rows (19,200 px back up the
@@ -318,9 +320,35 @@ boundary that also carries annotations trips Flutter's
 `shouldFormSemanticsNode` assertion in `flushSemantics`. 137 shell tests
 failed; the topic-list semantics comparison never builds that nesting.
 
-These changes have not been measured live yet. The machine was in use by a
-game for the rest of the session, and a run would open the app over it.
 `tool/topic_row_cost.py` reruns the widget-test measurement.
+
+### Live check
+
+Main before these changes (`b616a5e8d`) and after them alternated three
+times each on dev.discourse.org, with the screen awake and the machine
+otherwise idle (other processes used 40–75% of one core). Per timing pass:
+
+| Timing pass | Before | After |
+| --- | ---: | ---: |
+| Render objects per topic row | 289–305 | 248–250 |
+| Elements per topic row | 641–679 | 581–587 |
+| Promoted to the old generation, MB | 214 / 218 / 222 | 196 / 197 / 203 |
+| Scavenges | 44 / 44 / 46 | 42 / 43 / 45 |
+| Scavenge pause, ms | 152 / 153 / 159 | 134 / 148 / 160 |
+| Scavenges inside frames | 0 / 0 / 0 | 0 / 0 / 1 |
+| Frames over 8.33 ms of build | 0 / 0 / 0 | 0 / 0 / 1 |
+
+In this state the list drops no frames on either build: build p99 is
+1.6–1.7 ms, and the VM fits every scavenge but one into the idle time
+between frames. The one frame over budget is that scavenge. The frames that
+remain appear when the machine is busy or in a slower CPU state, as in the
+runs above, where 11–17 scavenges a pass landed inside frames. A mounted
+row now keeps 15% fewer render objects alive and a pass promotes about 10%
+less, which is what such a scavenge has to copy.
+
+Dart CPU inside frames did not change measurably: 225–242 µs per frame
+before and 237–250 µs after, over ranges that overlap. The two runs whose
+background load matched took 242 and 241 µs.
 
 ## Measurement
 
