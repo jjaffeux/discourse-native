@@ -1177,12 +1177,10 @@ class DButton extends StatelessWidget {
                 ? joined!.axis
                 : null,
           ),
-          child: IconTheme.merge(
-            data: IconThemeData(color: state.iconColor),
-            child: DefaultTextStyle.merge(
-              style: TextStyle(color: state.foregroundColor),
-              child: child ?? const SizedBox.shrink(),
-            ),
+          child: _SurfaceForeground(
+            iconColor: state.iconColor,
+            textColor: state.foregroundColor,
+            child: child ?? const SizedBox.shrink(),
           ),
         );
         final artwork = DControlArtwork(child: flatSurface);
@@ -1575,6 +1573,42 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
     builder: (context, decoration) =>
         Container(decoration: decoration, child: widget.child),
   );
+}
+
+/// Merges a surface's foreground colours into the ambient icon theme and
+/// text style, as IconTheme.merge and DefaultTextStyle.merge would, in one
+/// element instead of two builders: every button has a surface.
+class _SurfaceForeground extends StatelessWidget {
+  const _SurfaceForeground({
+    required this.iconColor,
+    required this.textColor,
+    required this.child,
+  });
+
+  final Color? iconColor;
+  final Color? textColor;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final icons =
+        context.dependOnInheritedWidgetOfExactType<IconTheme>()?.data ??
+        const IconThemeData.fallback();
+    final text = DefaultTextStyle.of(context);
+    return IconTheme(
+      data: icons.merge(IconThemeData(color: iconColor)),
+      child: DefaultTextStyle(
+        style: text.style.merge(TextStyle(color: textColor)),
+        textAlign: text.textAlign,
+        softWrap: text.softWrap,
+        overflow: text.overflow,
+        maxLines: text.maxLines,
+        textWidthBasis: text.textWidthBasis,
+        textHeightBehavior: text.textHeightBehavior,
+        child: child,
+      ),
+    );
+  }
 }
 
 Decoration _lerpDecoration(Decoration a, Decoration b, double t) =>
