@@ -57,7 +57,9 @@ final class _TopicListPrefetch {
 
   void hover(_ConversationTopicCardState row, bool hovered) {
     if (hovered) {
-      if (!_usable || _scrolling) return;
+      // Rows slide under a resting pointer on most frames of a scroll; the
+      // usability check walks ancestors, so the cheap test goes first.
+      if (_scrolling || !_usable) return;
       _select(row.row.siteUrl, row.row.topic, TopicPrefetchIntent.hover);
     } else if (_key == _rowKey(row) && _intent == TopicPrefetchIntent.hover) {
       _releaseCurrent();
@@ -104,7 +106,7 @@ final class _TopicListPrefetch {
     final event = _pending;
     _pending = null;
     if (event == null) return;
-    if (!_usable || _scrolling) {
+    if (_scrolling || !_usable) {
       _resetPointer();
       if (_intent != TopicPrefetchIntent.keyboard) _releaseCurrent();
       return;
