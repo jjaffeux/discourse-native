@@ -176,9 +176,13 @@ rows.
 
 - The slowest frames of the first pass (5–14 ms) are not rows. When a page
   brings categories the site had not loaded, `prepareFeed` notifies the
-  whole shell facade, and the sidebar, page header, filter bar and plugin
-  panels rebuild, including a `GlobalKey` subtree that is reactivated.
-  Category state on its own notifier would leave those frames to the rows.
+  whole shell facade. In the desktop widget-test shell, a page with one new
+  category rebuilds 3,221 elements where a page of known categories
+  rebuilds 552: the header and toolbar buttons with their Material, theme
+  and focus subtrees, the sidebar's destination tiles, the filter menus and
+  the page scaffolding. Category state on its own notifier, or selectors
+  that ignore categories they do not show, would leave those frames to the
+  rows.
 - On the raster thread, the edge-fade `ShaderMaskLayer`s remain the largest
   owner: an offscreen pass and blend per masked scrollable per frame. A
   replacement that leaves pixels unchanged still needs the backdrop under
