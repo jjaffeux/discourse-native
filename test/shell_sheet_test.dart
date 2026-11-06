@@ -26,6 +26,7 @@ void main() {
     testWidgets(
       'edit footer stays at the visible foot through partial detents and keyboard on $platform',
       (tester) async {
+        const footerPadding = 16 * 17 / 13;
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -83,7 +84,10 @@ void main() {
         final low = tester.getRect(surface);
         expect(low.top, greaterThan(47));
         expect(tester.getRect(save).bottom, lessThanOrEqualTo(844 - 34));
-        expect(tester.getRect(save).bottom, closeTo(low.bottom - 34 - 16, 1));
+        expect(
+          tester.getRect(save).bottom,
+          closeTo(low.bottom - 34 - footerPadding, 1),
+        );
         expect(save.hitTestable(), findsOneWidget);
         await _capturePolish(tester, 'edit-partial-${platform.name}');
         await tester.drag(
@@ -92,7 +96,10 @@ void main() {
         );
         await tester.pumpAndSettle();
         expect(tester.getRect(surface).top, lessThan(low.top));
-        expect(tester.getRect(save).bottom, closeTo(844 - 34 - 16, 1));
+        expect(
+          tester.getRect(save).bottom,
+          closeTo(844 - 34 - footerPadding, 1),
+        );
         keyboard.value = 300;
         await tester.pumpAndSettle();
         await tester.pump(const Duration(milliseconds: 400));
@@ -137,8 +144,14 @@ void main() {
       tester.getBottomRight(find.text('Apply editor')).dy,
       lessThanOrEqualTo(410),
     );
+    expect(find.byTooltip('Close'), findsOneWidget);
     expect(tester.takeException(), isNull);
     await tester.tap(find.text('Apply editor'));
+    await tester.pumpAndSettle();
+    expect(find.byType(DSheetContent), findsNothing);
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Close'));
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
@@ -217,7 +230,7 @@ void main() {
         expect(find.byType(DSheetContent), findsOneWidget);
         expect(find.byType(DDialogContent), findsNothing);
         expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
-        expect(find.byTooltip('Close'), findsOneWidget);
+        expect(find.byTooltip('Close'), findsNothing);
         expect(tester.getRect(find.byType(DSheetContent)).bottom, 600);
       },
       variant: TargetPlatformVariant.only(platform),
@@ -383,38 +396,53 @@ void main() {
     expect(tester.getSize(find.byType(DDialogContent)), const Size(960, 720));
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('a nested sheet back action leaves its parent open', (
-    tester,
-  ) async {
-    final nestedFocus = FocusNode();
-    addTearDown(nestedFocus.dispose);
-    await _pumpSurface(
-      tester,
-      dialog: true,
-      builder: (context) => DButton(
-        focusNode: nestedFocus,
-        label: const Text('Open nested'),
-        onPressed: () => showShellSheet<void>(
-          context: context,
-          title: 'Nested sheet',
-          nested: true,
-          dialogOnDesktop: true,
-          builder: (_) => const Text('Nested body'),
-        ),
-      ),
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'a nested sheet back action leaves its parent open on $platform',
+      (tester) async {
+        final nestedFocus = FocusNode();
+        addTearDown(nestedFocus.dispose);
+        await _pumpSurface(
+          tester,
+          dialog: true,
+          platform: platform,
+          builder: (context) => DButton(
+            focusNode: nestedFocus,
+            label: const Text('Open nested'),
+            onPressed: () => showShellSheet<void>(
+              context: context,
+              title: 'Nested sheet',
+              nested: true,
+              dialogOnDesktop: true,
+              builder: (_) => const Text('Nested body'),
+            ),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        nestedFocus.requestFocus();
+        await tester.pump();
+        await tester.tap(find.text('Open nested'));
+        await tester.pumpAndSettle();
+        if (platform != TargetPlatform.macOS) {
+          expect(find.byTooltip('Close'), findsNothing);
+        }
+        await tester.tap(find.byTooltip('Back'));
+        await tester.pumpAndSettle();
+        expect(find.text('Nested sheet'), findsNothing);
+        expect(find.text(_title), findsOneWidget);
+        expect(
+          _focusWithin(find.widgetWithText(DButton, 'Open nested')),
+          isTrue,
+        );
+      },
+      variant: TargetPlatformVariant.only(platform),
     );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    nestedFocus.requestFocus();
-    await tester.pump();
-    await tester.tap(find.text('Open nested'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Back'));
-    await tester.pumpAndSettle();
-    expect(find.text('Nested sheet'), findsNothing);
-    expect(find.text(_title), findsOneWidget);
-    expect(_focusWithin(find.widgetWithText(DButton, 'Open nested')), isTrue);
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
 }
 
 Future<FocusNode> _pumpMenu(
