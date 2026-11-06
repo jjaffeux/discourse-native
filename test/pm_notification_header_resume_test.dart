@@ -9,7 +9,6 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/nested_replies/nested_replies_module.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -18,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
+import 'support/notifications_menu.dart';
 import 'support/shell_test_harness.dart';
 import 'support/topic_post_list.dart';
 
@@ -194,7 +194,7 @@ void main() {
       final shell = ShellScope.read(
         tester.element(find.byType(MobileForumRoot)),
       );
-      await tester.tap(find.byKey(UserMenuButton.bellKey));
+      await tester.tap(dockNotifications);
       await tester.pumpAndSettle();
       await tester.tap(
         find.textContaining('Private conversation notification').last,

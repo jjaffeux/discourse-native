@@ -6,13 +6,13 @@ import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
-import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/fakes.dart';
+import 'support/notifications_menu.dart';
 import 'support/topic_post_list.dart';
 
 Future<List<int>> _pixels(
@@ -121,7 +121,7 @@ void main() {
         );
         final departure = await _pixels(tester, region, 'departure');
         final previous = shell.mobileNavigation.entryId;
-        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.tap(dockNotifications);
         await tester.pumpAndSettle();
         await tester.tap(find.textContaining('Notification discussion').last);
         await tester.pumpAndSettle();
