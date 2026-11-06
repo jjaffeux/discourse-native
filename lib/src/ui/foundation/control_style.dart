@@ -15,8 +15,8 @@ enum DControlSize {
   regular,
   large,
 
-  /// Page filters: 30px artwork and 12.5px text on desktop; 44px and
-  /// 16px text/icons on phones.
+  /// Page filters: 30px artwork and 12.5px text on desktop; 36px and
+  /// 14px text/icons on phones.
   filter,
 
   /// Floating reader tools: 40px surfaces, 14px text and 15px icons.
@@ -34,7 +34,7 @@ enum DControlSize {
   /// Composer and desktop navigation actions.
   toolbar,
 
-  /// View-switch segments: 26px on desktop, 40px on touch.
+  /// View-switch segments: 26px on desktop, 32px on touch.
   segment,
 
   /// Window navigation: 15px artwork with 5px vertical and 7px side insets.
@@ -109,13 +109,13 @@ abstract final class DControlStyle {
         DControlSize.small => usesTouchGeometry(context) ? 40 : smallHeight,
         DControlSize.regular => regularHeight,
         DControlSize.large => usesTouchGeometry(context) ? 48 : largeHeight,
-        DControlSize.filter => usesTouchGeometry(context) ? 44 : regularHeight,
+        DControlSize.filter => usesTouchGeometry(context) ? 36 : regularHeight,
         DControlSize.floating => 40,
         DControlSize.field => 35.5,
         DControlSize.preference => 40.25,
         DControlSize.chip => 24,
         DControlSize.toolbar => 34,
-        DControlSize.segment => usesTouchGeometry(context) ? 40 : 26,
+        DControlSize.segment => usesTouchGeometry(context) ? 32 : 26,
         DControlSize.chrome => 25,
         DControlSize.action => usesTouchGeometry(context) ? 44 : 34,
         DControlSize.post => 30,
@@ -126,7 +126,7 @@ abstract final class DControlStyle {
   static double fontSize(DControlSize size, {BuildContext? context}) =>
       switch (size) {
         DControlSize.filter =>
-          usesTouchGeometry(context) ? 16 : DiscourseTypography.preview,
+          usesTouchGeometry(context) ? 14 : DiscourseTypography.preview,
         DControlSize.floating => 14,
         DControlSize.small ||
         DControlSize.regular ||
@@ -135,7 +135,7 @@ abstract final class DControlStyle {
         DControlSize.toolbar ||
         DControlSize.chrome ||
         DControlSize.action => labelFontSize,
-        DControlSize.segment => usesTouchGeometry(context) ? 16 : 12.5,
+        DControlSize.segment => usesTouchGeometry(context) ? 14 : 12.5,
         DControlSize.post => labelFontSize,
         DControlSize.documentTab ||
         DControlSize.tabAction ||
@@ -152,7 +152,7 @@ abstract final class DControlStyle {
               ? 12
               : MediaQuery.textScalerOf(
                   context,
-                ).scale(usesTouchGeometry(context) ? 16 : 12),
+                ).scale(usesTouchGeometry(context) ? 14 : 12),
         DControlSize.floating => 15,
         DControlSize.small ||
         DControlSize.regular ||

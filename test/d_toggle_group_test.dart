@@ -59,13 +59,13 @@ void main() {
             matching: find.byType(DToggle),
           );
           final touch = platform != TargetPlatform.macOS;
-          expect(tester.getSize(group).height, touch ? 44 : 30);
-          expect(tester.getSize(toggles.first).height, touch ? 40 : 26);
+          expect(tester.getSize(group).height, touch ? 36 : 30);
+          expect(tester.getSize(toggles.first).height, touch ? 32 : 26);
           expect(
             DefaultTextStyle.of(
               tester.element(find.text('Suggested')),
             ).style.fontSize,
-            touch ? 16 : 12.5,
+            touch ? 14 : 12.5,
           );
           final selectedSurface = find
               .descendant(

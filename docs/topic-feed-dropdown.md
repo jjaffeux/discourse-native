@@ -66,8 +66,9 @@ Ancestors keep their marks, and the last selected category keeps its name.
 The unchosen deeper level shows a plus, or a prohibited glyph for exact scope.
 Every shortened control retains its accessible name and open menu state.
 
-Phone filters use the existing Native `filter` preset at 44 points with
-16-point labels and icons. Desktop retains 30-point filters and 12.5-point labels.
+Phone filters use the existing Native `filter` preset at 36 points with
+14-point labels and icons, as the mockup draws them; the kit's touch target
+keeps each one pressable across 44 points. Desktop retains 30-point filters and 12.5-point labels.
 The bar listens to `DPageHeaderScope` and requests `DFitRow.compact` when the
 owning phone heading is fully retracted. Category and tag controls then show
 meaningful icons while active styling and filter counts remain visible. It sets
@@ -80,7 +81,7 @@ Native reference text scaling preserves accessibility and app zoom.
 `DButtonGroup.inset` supplies the same raised round presentation used by topic
 recommendations. Child toggles and the ellipsis action use the existing
 `segment` size, with `DToggleVariant.segmented` for selectable views. Native owns
-a 30px track with 26px segments on desktop and a 44px track with 40px segments
+a 30px track with 26px segments on desktop and a 36px track with 32px segments
 on phones, where a choice of two takes columns as wide as its names rather than
 equal ones. The kit also owns the 2px inset, shared gaps, raised fill, focus
 treatment, and touch targets. New and Top retain

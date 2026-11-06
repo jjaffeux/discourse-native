@@ -14,33 +14,33 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets(
-      'topic and chat filters share larger visible controls on $platform',
+      'topic and chat filters share the mockup\'s 36-point controls on $platform',
       (tester) async {
         await topics.fixture(tester, size: phone);
         for (final key in [
-          'topic-list-view-switch',
+          'topic-list-feed-menu',
           'topic-list-category-filter',
           'topic-list-tag-filter',
           'topic-list-filter',
         ]) {
           expect(
             tester.getSize(find.byKey(ValueKey(key))).height,
-            44,
+            36,
             reason: key,
           );
         }
         final latest = find.descendant(
-          of: find.byKey(const ValueKey('topic-list-view-switch')),
+          of: find.byKey(const ValueKey('topic-list-feed-menu')),
           matching: find.text('Latest'),
         );
-        expect(DefaultTextStyle.of(tester.element(latest)).style.fontSize, 16);
+        expect(DefaultTextStyle.of(tester.element(latest)).style.fontSize, 14);
         expect(tester.takeException(), isNull);
 
         final filters = ChatInboxFilters();
         addTearDown(filters.dispose);
         for (final (appScale, platformScale, height, textSize) in [
-          (1.0, 1.0, 44.0, 16.0),
-          (1.25, 2.0, 80.0, 40.0),
+          (1.0, 1.0, 36.0, 14.0),
+          (1.25, 2.0, 67.5, 35.0),
         ]) {
           await tester.pumpWidget(
             MaterialApp(
@@ -70,10 +70,9 @@ void main() {
           ]) {
             final control = find.byKey(ValueKey(key));
             expect(tester.getSize(control).height, height, reason: key);
-            final label = find.descendant(
-              of: control,
-              matching: find.byType(Text),
-            );
+            final label = find
+                .descendant(of: control, matching: find.byType(Text))
+                .first;
             final context = tester.element(label);
             final fontSize = DefaultTextStyle.of(context).style.fontSize!;
             expect(MediaQuery.textScalerOf(context).scale(fontSize), textSize);
