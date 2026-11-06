@@ -172,7 +172,7 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
         variant: DButtonVariant.quiet,
         semanticLabel: own == 0 && waiting > 0
             ? context.l10n.topicFeedViewPillWithMore(name, waiting)
-            : context.l10n.topicFeedViewPill(name),
+            : _semantics(context.l10n.topicFeedViewPill(name), own),
         focusNode: trigger.focusNode,
         hasPopup: true,
         expanded: trigger.open,
