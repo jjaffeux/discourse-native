@@ -1,11 +1,14 @@
 # Live topic-list scrolling (dev.discourse.org)
 
-Scrolling the Latest list of a live forum costs **about 11% less UI-thread
-CPU inside frames, 22% less building and 15% less layout** after removing
-work that every row repeated as it mounted; see the
-[final comparison](#final-comparison). A row mounts about 5% fewer elements
-and render objects, and the largest app-level costs it paid on mount are
-gone or cut by an order of magnitude.
+Scrolling the Latest list of a live forum costs **about 18% less UI-thread
+CPU inside frames, 29% less building and 18% less layout**, with fewer than
+half as many frames over an 8.33 ms build. The changes remove work that
+every row repeated as it mounted, and the shell-wide rebuild a page of new
+categories caused; see the [final comparison](#final-comparison). A row
+mounts about 4% fewer elements and render objects, and the largest
+app-level costs it paid on mount are gone or cut by an order of magnitude.
+The slowest frame of a first pass, where a page brings categories the site
+had not loaded, went from 5–9 ms to 2–4 ms.
 
 The first round of changes, measured on its own while the machine was
 otherwise idle, on the pass that mounts the most rows (19,200 px back up the
@@ -132,40 +135,62 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   Steady scrolling was unchanged, as expected (warm pass in-frame CPU
   1,012–1,033 against 1,019–1,053 ms).
 
+- **Links and items.** A row's category breadcrumb links and its `DItem`
+  still used `FocusableActionDetector`, three per row, each registering a
+  global key, a highlight-mode listener and a post-frame callback on mount.
+  They now build its focus, cursor, shortcuts and actions themselves, and
+  they listen to the highlight mode only while hovered or focused. Ten
+  links or ten items mount ten fewer global keys, and their focus rings
+  follow the highlight mode as before. This came after the final
+  comparison and was not measured live; it is a small fraction of the
+  inline-button change above.
+
 The CPU comparison at the top covers the first four changes; the final
-comparison below covers all but the last.
+comparison below covers all of them except the last.
 
 ## Final comparison
 
-The baseline and the final build, with every change, alternated three times
-each on dev.discourse.org while the rest of the machine used about 30% of
-one core. On the warm pass back up the list, 19,300 px and about 2,580
-frames per run:
+The baseline (`d160c15d6`) and main with every change above (`76b99c013`)
+alternated three times each on dev.discourse.org, in one session, while
+the rest of the machine used 20–35% of one core. The screen was locked,
+which keeps the CPU in a slower state, close to a slower machine's. Sample
+counts compare like for like; raster times are not compared, because the
+lock screen shares the GPU.
 
-| Dart CPU in the pass, ms | Baseline | After |
+On the warm pass back up the list, 19,300 px and 2,400–2,600 frames per
+run:
+
+| Warm pass | Baseline | After |
 | --- | ---: | ---: |
-| Inside frames | 1,294 / 1,284 / 1,266 | 1,147 / 1,017 / 1,145 |
-| Building | 478 / 465 / 475 | 370 / 337 / 371 |
-| Layout | 487 / 490 / 490 | 415 / 377 / 423 |
+| Dart CPU inside frames, ms | 1,287 / 1,079 / 1,277 | 1,049 / 1,015 / 1,156 |
+| Building, ms | 475 / 433 / 480 | 340 / 340 / 385 |
+| Layout, ms | 480 / 431 / 483 | 394 / 376 / 426 |
+| Frames over 8.33 ms of build | 58 / 63 / 57 | 26 / 25 / 34 |
+| Build p99, ms | 9.9 / 11.4 / 9.9 | 8.4 / 8.4 / 8.7 |
 
-That is about 11% less in-frame CPU, 22% less building and 15% less layout.
-The first pass down, paced by page loads, built 20% less (83–90 to 66–70
-ms) for 2–3% less in-frame CPU.
+By the medians, that is 18% less in-frame CPU, 29% less building and 18%
+less layout, with fewer than half as many frames over budget. The timing
+pass, run without sampling, went from 53, 33 and 44 frames over 8.33 ms to
+20, 21 and 27, and from 1.22–1.29 ms to 1.14–1.21 ms mean build. On the
+first pass down, paced by page loads, building fell from 79–82 to 61–62 ms
+and layout from 178–193 to 125–160 ms.
 
-The screen was locked during these runs, which keeps the CPU in a slower
-state: build times were about three times those of the unlocked runs, close
-to a slower machine's. In the timing pass, run without sampling, frames
-whose build exceeded 8.33 ms went from 42, 51 and 49 to 31, 24 and 33, and
-mean build time from 1.28–1.30 ms to 1.16–1.20 ms. Raster times are not
-compared, because the lock screen shares the GPU.
+The slowest frame of that first pass is the one in which a page brings
+categories the site had not loaded. It took 5.4, 6.0 and 8.9 ms of build
+in the baseline runs, and 1.8–3.5 ms after (2.3–3.7 ms in three more runs
+of the same build).
 
-What the app mounts does not depend on CPU state. At the end of the census
-passes:
+What the app mounts does not depend on CPU state. At the end of each pass,
+per topic row:
 
 | Per topic row | Baseline | After |
 | --- | ---: | ---: |
-| Elements mounted | 705–732 | 665–692 |
-| Render objects | 315–327 | 299–311 |
+| Elements mounted | 695–763 | 665–736 |
+| Render objects | 311–342 | 300–332 |
+
+An earlier comparison of the row changes alone, before the new-category
+work, measured 11% less in-frame CPU, 22% less building and 15% less
+layout on the same pass.
 
 ## A false lead: scrolls that did not move the list
 
@@ -223,9 +248,14 @@ rows.
   offset layer. With eight rows on screen, seven of the list's fifteen
   child boundaries are separators, and their offset and picture layers are
   14 of the widget-test scene's 43. `compositeFrame` takes about a
-  quarter of in-frame CPU in the warm pass. Drawing the rule inside the row
-  it follows would halve those layers, but it changes the list's index
-  mapping, extent estimation and keyboard selection.
+  quarter of in-frame CPU in the warm pass. Turning the delegate's
+  boundaries off and keeping one per row was measured and made scrolling
+  worse. Composite time fell 23 ms per warm pass, but the viewport's paint
+  rose 113 ms, because it then re-records every separator in every
+  scrolled frame: in-frame CPU 1,101–1,228 against 1,025–1,054 ms over
+  three alternating runs each. Drawing the rule inside the row it follows
+  would remove the layers without that repaint, but it changes the list's
+  index mapping, extent estimation and keyboard selection.
 - `super_sliver_list` 0.4.1 builds its `_log.fine` messages eagerly on
   every layout of the sliver, formatting six doubles each time: about
   5 ms per warm pass, 0.5% of in-frame CPU. That is for upstream to fix.

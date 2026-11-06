@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../foundation/highlight_mode_tracking.dart';
 import '../foundation/implicit_transition.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
@@ -174,10 +175,30 @@ class DBreadcrumbLink extends StatefulWidget {
   State<DBreadcrumbLink> createState() => _DBreadcrumbLinkState();
 }
 
-class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
+class _DBreadcrumbLinkState extends State<DBreadcrumbLink>
+    with DHighlightModeTracking {
   FocusNode? _ownedFocusNode;
-  bool _hovered = false;
-  bool _focused = false;
+  bool _hovering = false;
+  bool _hasFocus = false;
+  late final Map<Type, Action<Intent>> _actions = {
+    ActivateIntent: CallbackAction<ActivateIntent>(
+      onInvoke: (_) {
+        _activate();
+        return null;
+      },
+    ),
+  };
+
+  bool get _canRequestFocus =>
+      switch (MediaQuery.maybeNavigationModeOf(context)) {
+        NavigationMode.directional => true,
+        NavigationMode.traditional || null => _enabled,
+      };
+  bool get _hovered => _hovering && _enabled && highlightModeShowsHighlight;
+  bool get _focused =>
+      _hasFocus && _canRequestFocus && highlightModeShowsHighlight;
+
+  void _engage() => trackHighlightMode(engaged: _hovering || _hasFocus);
 
   FocusNode get _focusNode =>
       widget.focusNode ??
@@ -236,70 +257,85 @@ class _DBreadcrumbLinkState extends State<DBreadcrumbLink> {
       onTap: enabled ? _activate : null,
       child: ExcludeSemantics(
         excluding: widget.semanticLabel != null,
-        child: FocusableActionDetector(
-          focusNode: _focusNode,
-          autofocus: widget.autofocus,
-          enabled: enabled,
-          mouseCursor: enabled
-              ? SystemMouseCursors.click
-              : SystemMouseCursors.basic,
-          onShowHoverHighlight: (value) => setState(() => _hovered = value),
-          onFocusChange: _ensureVisible,
-          onShowFocusHighlight: (value) => setState(() => _focused = value),
-          shortcuts: const <ShortcutActivator, Intent>{
-            SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
-            SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
-          },
-          actions: <Type, Action<Intent>>{
-            ActivateIntent: CallbackAction<ActivateIntent>(
-              onInvoke: (_) {
-                _activate();
-                return null;
+        // The pieces of a FocusableActionDetector this link uses, kept in the
+        // tree while disabled so that toggling keeps its shape. Its own Enter
+        // and Space keep a surrounding list's reading keys from taking them.
+        child: Shortcuts(
+          shortcuts: enabled
+              ? const <ShortcutActivator, Intent>{
+                  SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+                  SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+                }
+              : const <ShortcutActivator, Intent>{},
+          child: Actions(
+            actions: enabled ? _actions : const <Type, Action<Intent>>{},
+            child: MouseRegion(
+              cursor: enabled
+                  ? SystemMouseCursors.click
+                  : SystemMouseCursors.basic,
+              onEnter: (_) {
+                setState(() => _hovering = true);
+                _engage();
               },
-            ),
-          },
-          child: DTouchTarget(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              excludeFromSemantics: true,
-              onTap: enabled ? _activate : null,
-              child: DImplicitTransition<Decoration>(
-                duration: duration,
-                curve: Curves.easeOut,
-                // Painted over the label inside its own bounds: a decoration
-                // border would inset the label and resize the trail on focus,
-                // and an outside stroke would be clipped by scroll overflow.
-                value: BoxDecoration(
-                  borderRadius: BorderRadius.circular(tokens.radius * .6),
-                  border: _focused
-                      ? Border.all(color: tokens.focusRing, width: 1)
-                      : null,
-                ),
-                lerp: (a, b, t) => Decoration.lerp(a, b, t)!,
-                builder: (context, foreground) => Container(
-                  foregroundDecoration: foreground,
-                  child: Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    widthFactor: 1,
-                    heightFactor: 1,
-                    child: DImplicitTransition<TextStyle>(
+              onExit: (_) {
+                setState(() => _hovering = false);
+                _engage();
+              },
+              child: Focus(
+                focusNode: _focusNode,
+                autofocus: widget.autofocus,
+                canRequestFocus: _canRequestFocus,
+                onFocusChange: (focused) {
+                  setState(() => _hasFocus = focused);
+                  _engage();
+                  _ensureVisible(focused);
+                },
+                child: DTouchTarget(
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    excludeFromSemantics: true,
+                    onTap: enabled ? _activate : null,
+                    child: DImplicitTransition<Decoration>(
                       duration: duration,
                       curve: Curves.easeOut,
-                      value: Theme.of(context).textTheme.bodyMedium!.copyWith(
-                        color: color,
-                        fontSize: widget.compact
-                            ? DiscourseTypography.micro
-                            : DiscourseTypography.sm,
-                        height: DiscourseTypography.lineHeightSmall,
-                        fontWeight: FontWeight.w400,
-                        letterSpacing: 0,
+                      // Painted over the label inside its own bounds: a decoration
+                      // border would inset the label and resize the trail on focus,
+                      // and an outside stroke would be clipped by scroll overflow.
+                      value: BoxDecoration(
+                        borderRadius: BorderRadius.circular(tokens.radius * .6),
+                        border: _focused
+                            ? Border.all(color: tokens.focusRing, width: 1)
+                            : null,
                       ),
-                      lerp: (a, b, t) => TextStyle.lerp(a, b, t)!,
-                      builder: (context, style) => DefaultTextStyle(
-                        style: style,
-                        child: IconTheme.merge(
-                          data: IconThemeData(color: color, size: 14),
-                          child: widget.child,
+                      lerp: (a, b, t) => Decoration.lerp(a, b, t)!,
+                      builder: (context, foreground) => Container(
+                        foregroundDecoration: foreground,
+                        child: Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          widthFactor: 1,
+                          heightFactor: 1,
+                          child: DImplicitTransition<TextStyle>(
+                            duration: duration,
+                            curve: Curves.easeOut,
+                            value: Theme.of(context).textTheme.bodyMedium!
+                                .copyWith(
+                                  color: color,
+                                  fontSize: widget.compact
+                                      ? DiscourseTypography.micro
+                                      : DiscourseTypography.sm,
+                                  height: DiscourseTypography.lineHeightSmall,
+                                  fontWeight: FontWeight.w400,
+                                  letterSpacing: 0,
+                                ),
+                            lerp: (a, b, t) => TextStyle.lerp(a, b, t)!,
+                            builder: (context, style) => DefaultTextStyle(
+                              style: style,
+                              child: IconTheme.merge(
+                                data: IconThemeData(color: color, size: 14),
+                                child: widget.child,
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),

@@ -4,7 +4,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -99,13 +99,6 @@ void main() {
         await gapDrag.up();
         await gapDrag.removePointer();
         await tester.pumpAndSettle();
-        final detector = tester.widget<FocusableActionDetector>(
-          find.descendant(
-            of: target,
-            matching: find.byType(FocusableActionDetector),
-          ),
-        );
-        expect(detector.mouseCursor, SystemMouseCursors.grab);
         final marker = find.byKey(
           const ValueKey('instance-rail-marker-$_team'),
         );
@@ -118,6 +111,10 @@ void main() {
         await mouse.moveTo(bounds.center);
         await tester.pumpAndSettle();
         expect(markerHeight(), 16);
+        expect(
+          RendererBinding.instance.mouseTracker.debugDeviceActiveCursor(1),
+          SystemMouseCursors.grab,
+        );
         await mouse.moveTo(Offset(bounds.left - 3, bounds.center.dy));
         await tester.pumpAndSettle();
         expect(markerHeight(), 8);

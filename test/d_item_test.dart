@@ -816,6 +816,81 @@ void main() {
     }
   });
 
+  testWidgets('focus ring follows the highlight mode without global keys', (
+    tester,
+  ) async {
+    Future<int> keysWith(int items) async {
+      await tester.pumpWidget(
+        host(
+          Column(
+            children: [
+              for (var i = 0; i < items; i++)
+                DItem(
+                  key: ValueKey(i),
+                  onPressed: () {},
+                  children: [
+                    DItemContent(children: [DItemTitle(child: Text('$i'))]),
+                  ],
+                ),
+            ],
+          ),
+        ),
+      );
+      return tester.binding.buildOwner!.globalKeyCount;
+    }
+
+    final empty = await keysWith(0);
+    expect(await keysWith(10), empty);
+
+    final strategy = FocusManager.instance.highlightStrategy;
+    addTearDown(() => FocusManager.instance.highlightStrategy = strategy);
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    final theme = ThemeData(platform: TargetPlatform.macOS);
+    final tokens = DTokens.fromTheme(theme);
+    await tester.pumpWidget(
+      host(
+        DItem(
+          focusNode: focus,
+          onPressed: () {},
+          children: const [
+            DItemContent(children: [DItemTitle(child: Text('Topic'))]),
+          ],
+        ),
+        theme: theme,
+      ),
+    );
+    Color? ring() =>
+        ((tester
+                    .renderObject<RenderDecoratedBox>(
+                      find
+                          .descendant(
+                            of: find.byType(DItem),
+                            matching: find.byType(DecoratedBox),
+                          )
+                          .first,
+                    )
+                    .decoration
+                as BoxDecoration)
+            .border
+            ?.top
+            .color);
+    focus.requestFocus();
+    await tester.pumpAndSettle();
+    expect(ring(), tokens.focusRing);
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTouch;
+    await tester.pumpAndSettle();
+    expect(ring(), isNot(tokens.focusRing));
+    FocusManager.instance.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    await tester.pumpAndSettle();
+    expect(ring(), tokens.focusRing);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'interaction highlight can be omitted without losing selection or focus',
     (tester) async {
