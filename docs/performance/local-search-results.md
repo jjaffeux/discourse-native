@@ -55,3 +55,11 @@ performance trace was skipped. Fifteen existing mobile-presentation assertions
 were excluded after reproducing them on unchanged code: eight picker keyboard
 geometry cases, four chat keyboard geometry cases, and three assignment
 Close-tooltip cases. Static analysis of every changed Dart file was clean.
+
+All fifteen presentation failures were resolved in a follow-up. Keyboard tests
+now check visible bodies, lists, and inputs above the keyboard while the sheet
+surface continues behind it. Exact field and footer metrics follow the current
+Native presets. Grabber-only shell headers again omit Close, while nested Back
+and non-draggable Close actions remain covered. All 150 tests in the six
+affected suites passed without exclusions, as did 208 Native sheet contract
+tests. Static analysis and independent review were clean.
