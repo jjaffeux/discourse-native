@@ -103,11 +103,15 @@ final class BoardsPlugin
     BoardMemberships? memberships, {
     Widget? leading,
   }) {
+    // Every topic row asks, and most topics are on no board, so the scopes
+    // are only looked up for a topic that is.
+    final values = memberships?.values ?? const <BoardMembership>[];
+    if (values.isEmpty) return const [];
     final controller = PluginUiScope.require(context, boardsControllerKey);
     if (!controller.enabled(site)) return const [];
     final navigation = PluginUiScope.require(context, boardsNavigationKey);
     return [
-      for (final membership in memberships?.values ?? const <BoardMembership>[])
+      for (final membership in values)
         DButton(
           variant: DButtonVariant.primary,
           size: DButtonSize.chip,
