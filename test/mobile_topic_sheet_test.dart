@@ -135,8 +135,9 @@ void main() {
           find.byKey(const ValueKey('mobile-menu-button')),
           find.byKey(const ValueKey('mobile-home-button')),
           find.byKey(const ValueKey('mobile-search-button')),
-          find.byKey(UserMenuButton.bellKey),
         ];
+        // A phone's notifications are a place in the bar, not a header bell.
+        expect(find.byKey(UserMenuButton.bellKey), findsNothing);
         final title = find.byKey(const ValueKey('topic-header-compact-title'));
         final reader = tester.element(find.byType(TopicView));
         for (final scale in [
