@@ -1,4 +1,5 @@
-import 'package:flutter/foundation.dart' show precisionErrorTolerance;
+import 'package:flutter/foundation.dart'
+    show listEquals, precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
@@ -16,6 +17,8 @@ enum DFitRowStep { full, tight, wrapped, wrappedTight, isolated }
 /// labels take more than two rows, it shortens again, then puts the item marked
 /// [DFitRowItem.last] on the final row. Controls keep their elements and menus
 /// throughout these layout changes. Overflowing popup content needs no room.
+/// A change in the row's room or in any control's width fits it again from
+/// the first step within the same layout, so no intermediate step is painted.
 class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
   const DFitRow({
     super.key,
@@ -236,13 +239,21 @@ class _RenderDFitRow extends RenderProxyBox
   }
 
   var _step = DFitRowStep.full;
-  final _need = List.filled(DFitRowStep.values.length - 1, 0.0);
+
+  // The row's width and each control's width at the step the row settled on.
+  // Any difference at that same step means the room or a control's content
+  // changed, which says nothing about which step fits now.
+  List<double>? _settled;
 
   void reset() {
     _step = DFitRowStep.full;
-    _need.fillRange(0, _need.length, 0);
     markNeedsLayout();
   }
+
+  static List<double> _widthsOf(double width, RenderDControlWrap controls) => [
+    width,
+    ...controls.childExtents,
+  ];
 
   @override
   DFitRowLayout get layoutInfo => (constraints: constraints, step: _step);
@@ -288,19 +299,24 @@ class _RenderDFitRow extends RenderProxyBox
       size = line.size;
       if (wrap == null || !width.isFinite) return;
       final controls = wrap;
+      // Only the first pass can see a change from outside: later passes
+      // differ by the step this layout just took.
+      if (pass == 0 &&
+          _step != DFitRowStep.full &&
+          !listEquals(_widthsOf(width, controls), _settled)) {
+        _step = DFitRowStep.full;
+        continue;
+      }
       final index = _step.index;
-      if (index > 0 && width >= _need[index - 1]) {
-        _step = DFitRowStep.values[index - 1];
-      } else if (index < DFitRowStep.wrapped.index &&
+      if (index < DFitRowStep.wrapped.index &&
           controls.naturalMain > width + precisionErrorTolerance) {
-        _need[index] = controls.naturalMain;
         _step = DFitRowStep.values[index + 1];
       } else if ((_step == DFitRowStep.wrapped ||
               _step == DFitRowStep.wrappedTight) &&
           controls.runCount > 2) {
-        _need[index] = width + 1;
         _step = DFitRowStep.values[index + 1];
       } else {
+        _settled = _widthsOf(width, controls);
         return;
       }
     }
