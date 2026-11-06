@@ -28,7 +28,11 @@ site since the menu was last open (`UserMenuButton.unreadCountOf`, the
 bell's own count) and hiding the count while the menu is open. Pressing it
 toggles the notifications menu, which the phone's header still hosts as
 `UserMenuButton(presentation: UserMenuPresentation.dockNotifications)` with
-no bell of its own: the top bar's bell is a desktop's alone. While the menu
+no bell of its own: the top bar's bell is a desktop's alone. Signed in, the
+header hosts it beside its row rather than in it, so it takes no room there:
+Search ends at the header's 14-point end inset, and with large text there is
+no second row of actions. Signed out, it draws the sign-in actions, which the
+row lays out after Search. While the menu
 is open the bar marks Notifications as it marks the current place. It is
 never lifted to be moved, is no slot for a place being moved, and never
 moves into the panel.
