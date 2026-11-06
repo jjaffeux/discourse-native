@@ -9,8 +9,9 @@ final mobileDockExamples = ComponentExamples(
   description:
       'A measured floating dock with an active destination retained while reading.',
   notes:
-      'Three places take a column each; the ⋮ grows the bar into a panel of '
-      'the rest, risen from the foot over a dim. The profile is a regular place '
+      'Three places take a column each, then notifications, then the action; '
+      'a pull grows the bar into a panel of the rest, risen from the foot over '
+      'a dim, and the panel\'s grabber puts it away. The profile is a regular place '
       'that can be reordered with the others. '
       'Compose with DScrollChrome(floatingFooter: true) and add bottomInsetOf '
       'to the primary viewport. The open dock extent stays reserved at the end '

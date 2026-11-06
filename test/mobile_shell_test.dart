@@ -3702,15 +3702,15 @@ void main() {
       await tester.pumpAndSettle();
       final bell = tester.getRect(find.byType(CategoryNotificationLevelButton));
       expect(bell.right, tester.getRect(row).right);
-      // The bell shares the view switch's track; the switch's own segments,
-      // its overflow among them, sit 2 points inside that track.
-      final track = tester.getRect(
-        find.byKey(const ValueKey('topic-list-view-switch')),
-      );
-      expect(bell.top, track.top);
+      // A phone's view is one pill rather than a switch; the bell stands on
+      // its line, level with it.
       expect(
+        find.byKey(const ValueKey('topic-list-view-switch')),
+        findsNothing,
+      );
+      expect(
+        bell.top,
         tester.getRect(find.byKey(const ValueKey('topic-list-feed-menu'))).top,
-        track.top + 2,
       );
       expectFiltersFollowTags();
       expect(tester.getRect(filters).right, lessThan(bell.left));
@@ -3852,7 +3852,7 @@ void main() {
     },
   );
 
-  _mobileTest('the ⋮ grows the bar into a panel of places over the whole '
+  _mobileTest('a pull grows the bar into a panel of places over the whole '
       'app', (tester) async {
     final shell = await pumpMobileShellFixture(tester);
     tester.view.padding = const FakeViewPadding(bottom: 34);
