@@ -68,8 +68,8 @@ void main() {
       tester,
     ) async {
       for (final (appScale, platformScale, height, textSize) in [
-        (1.0, 1.0, 44.0, 16.0),
-        (1.25, 2.0, 80.0, 40.0),
+        (1.0, 1.0, 36.0, 14.0),
+        (1.25, 2.0, 67.5, 35.0),
       ]) {
         await _pump(
           tester,
@@ -1135,7 +1135,7 @@ void main() {
             of: period,
             matching: find.byKey(const Key('d-select-trigger-visual')),
           ),
-          platform == TargetPlatform.macOS ? 30 : 44,
+          platform == TargetPlatform.macOS ? 30 : 36,
           () => periodMenu.evaluate().isNotEmpty,
         ),
         (
@@ -1147,7 +1147,7 @@ void main() {
                   widget is Container && widget.decoration is DButtonDecoration,
             ),
           ),
-          platform == TargetPlatform.macOS ? 30 : 44,
+          platform == TargetPlatform.macOS ? 30 : 36,
           () => columnsMenu.evaluate().isNotEmpty,
         ),
       ]) {

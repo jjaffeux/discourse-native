@@ -24,8 +24,8 @@ and filter controls use the raised surface. Category segments share one pill.
 
 | Measurement | Desktop | Phone | Retracted phone header |
 | --- | --- | --- | --- |
-| Filter height | 30 | 44 | 44 |
-| Filter text | 12.5 | 16 | 16 |
+| Filter height | 30 | 36 | 36 |
+| Filter text | 12.5 | 14 | 14 |
 | Ordinary filter side inset | 10 plus transparent border | 12 | 10 with a path, else 12 |
 | View pill side inset / name-to-count gap | None | 12 / 7 | 12 / 7 |
 | Switch segment height | 26 | None | None |
@@ -35,8 +35,8 @@ and filter controls use the raised surface. Category segments share one pill.
 | Gap between wrapped lines | 8 | 8 | 8 |
 | Breadcrumb separator side inset | 5 | 5 | 2 |
 
-The phone height and text are the app's own 44 and 16 (since `617f14c24`),
-larger than the reference's 36 and 14.
+A phone filter is drawn at the reference's 36 and pressed across the kit's
+44-point touch target, which reaches past the drawn pill without moving it.
 
 Width pressure and phone header retraction are independent states.
 `DFitRow.tightOf` asks eligible labels to shorten; `DFitRow.compactOf` reports
