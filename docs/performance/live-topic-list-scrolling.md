@@ -160,9 +160,14 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   reading policy out of plugin data, before checking whether anything was
   prefetched (1.9 ms). Boards resolved its scopes for topics on no board
   (1.2 ms). Together these are about 0.5% of in-frame CPU.
+- **Touch targets.** Every touch target walked all its ancestors to the
+  touch-target scope near the root when it attached, 11 ms of self time per
+  warm pass (about 1%). A nested target now takes its holders and scope
+  from the nearest target above it, so only a row's outermost target
+  walks to the scope.
 
 The CPU comparison at the top covers the first four changes; the final
-comparison below covers all of them except the last three.
+comparison below covers all of them except the last four.
 
 ## Final comparison
 
