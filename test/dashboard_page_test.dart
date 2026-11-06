@@ -135,6 +135,34 @@ void main() {
     },
   );
 
+  testWidgets('traffic kinds take the chart scale in the mockup order', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(dashboard());
+    await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('Selected pageviews'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
+    final context = tester.element(find.text('Selected pageviews'));
+    final scope = DChartContainer.of(context);
+    expect(
+      scope.color(context, 'page_view_logged_in_browser'),
+      DChartTone.strong.resolve(context),
+    );
+    expect(
+      scope.color(context, 'page_view_anon_browser'),
+      DChartTone.mid.resolve(context),
+    );
+    expect(
+      scope.color(context, 'page_view_crawler'),
+      DChartTone.faint.resolve(context),
+    );
+  });
+
   for (final size in [const Size(390, 844), const Size(1100, 900)]) {
     testWidgets('six dashboard sections render and scroll at $size', (
       tester,
