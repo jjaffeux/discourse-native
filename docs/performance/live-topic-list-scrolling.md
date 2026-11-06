@@ -15,8 +15,8 @@ for row work. What a mounted row keeps alive is what each scavenge copies
 and then promotes, and in this Flutter build every render object keeps a
 semantics configuration even with semantics off; see
 [the frames that remain](#the-frames-that-remain-garbage-collection). A
-desktop widget-test row now attaches 18% fewer render objects and keeps
-13% less memory.
+desktop widget-test row now attaches 15% fewer render objects and keeps
+12% less memory.
 
 The first round of changes, measured on its own while the machine was
 otherwise idle, on the pass that mounts the most rows (19,200 px back up the
@@ -296,21 +296,27 @@ ship that guard; it belongs upstream.
 The app can attach fewer render objects. Each one it drops saves about
 2.3 KB: its share of semantics state, the render object, its element and
 its widget. A row carried tooltip plumbing, wrappers that lay out nothing,
-and two render objects where one describes a button's semantics:
+and a gesture detector inside each inline button's hover region:
 
 | Desktop widget-test row | Render objects | Elements | Retained heap |
 | --- | ---: | ---: | ---: |
 | Before | 400 | 909 | 1,754 KB |
 | Tooltip triggers take presses and paint their ring | 378 | 887 | 1,702 KB |
 | No-op paddings, wrappers and exclusions removed | 350 | 848 | 1,634 KB |
-| One render object for a button's merged semantics | 340 | 838 | — |
-| Inline buttons take presses in their hover region | 330 | 808 | 1,522 KB |
+| Inline buttons take presses in their hover region | 340 | 818 | 1,542 KB |
 
-The merged semantics were measured for heap together with the last step.
-Overall that is 13% less memory per row and 18% fewer render objects. The
+Overall that is 12% less memory per row and 15% fewer render objects. The
 semantics trees of the list on macOS and iOS are identical after each step,
 including while a row is hovered and through a keyboard walk of a row's
 controls.
+
+Describing a button's semantics and its merge in one render object saved
+ten more, and the list's semantics did not change. It was reverted: in the
+shell, a button with a tooltip sits inside `DControlMotion`, another
+merging boundary, and the tooltip's `Semantics` directly below a merging
+boundary that also carries annotations trips Flutter's
+`shouldFormSemanticsNode` assertion in `flushSemantics`. 137 shell tests
+failed; the topic-list semantics comparison never builds that nesting.
 
 These changes have not been measured live yet. The machine was in use by a
 game for the rest of the session, and a run would open the app over it.
