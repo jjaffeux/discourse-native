@@ -12,12 +12,12 @@ import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/notification_list.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
-import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/fakes.dart';
+import 'support/notifications_menu.dart';
 import 'support/shell_test_harness.dart';
 
 const _meta = 'https://meta.discourse.org';
@@ -65,7 +65,7 @@ void main() {
               ..keys[_meta] = 'meta-key'
               ..keys[_team] = 'team-key',
           );
-          await tester.tap(find.byKey(UserMenuButton.bellKey));
+          await tester.tap(notificationsMenuTrigger());
           await tester.pumpAndSettle();
           final menu = find.byType(UserMenuPanel);
           final label = switch (section) {

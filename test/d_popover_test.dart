@@ -985,6 +985,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'a popover taking over an open controller tells listeners elsewhere after the build',
+    (tester) async {
+      final controller = DPopoverController();
+      final generation = ValueNotifier(0);
+      addTearDown(() {
+        generation.dispose();
+        controller.dispose();
+      });
+      await tester.pumpWidget(
+        _app(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListenableBuilder(
+                listenable: controller,
+                builder: (context, _) =>
+                    Text(controller.isOpen ? 'Menu open' : 'Menu closed'),
+              ),
+              ValueListenableBuilder<int>(
+                valueListenable: generation,
+                builder: (context, value, _) => KeyedSubtree(
+                  key: ValueKey(value),
+                  child: _TestPopover(controller: controller),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+      controller.open();
+      await tester.pumpAndSettle();
+      expect(find.text('Menu open'), findsOneWidget);
+
+      generation.value++;
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(find.text('Menu closed'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('bottom start geometry uses 6px gap and logical RTL alignment', (
     tester,
   ) async {
