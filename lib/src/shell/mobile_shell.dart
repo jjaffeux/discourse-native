@@ -431,6 +431,16 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                         ),
                         const ForumSearch(fullScreen: true),
                       ];
+                      final notificationsMenu = UserMenuButton(
+                        compact: true,
+                        presentation: UserMenuPresentation.dockNotifications,
+                        menuController: _notificationsMenu,
+                      );
+                      // Signed in, the menu draws nothing, the bar's place
+                      // opening it, so it is hosted beside the row and takes
+                      // none of its room. Signed out, it draws the sign-in
+                      // actions, which the row lays out.
+                      final signedIn = instance.user != null;
                       final actions = <Widget>[
                         ...registry.shellHeaderActions(
                           context,
@@ -441,37 +451,47 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                             Theme.of(context).shell.sidebar,
                           ),
                         ),
-                        UserMenuButton(
-                          compact: true,
-                          presentation: UserMenuPresentation.dockNotifications,
-                          menuController: _notificationsMenu,
-                        ),
+                        if (!signedIn) notificationsMenu,
                       ];
                       final largeText =
                           MediaQuery.textScalerOf(context).scale(12) > 18;
-                      if (largeText) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(spacing: 10, children: navigation),
-                            const SizedBox(height: DSpacing.controlGap),
-                            Wrap(
-                              alignment: WrapAlignment.end,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              runSpacing: DSpacing.controlGap,
-                              children: actions,
-                            ),
-                          ],
-                        );
-                      }
-                      return Row(
-                        spacing: 10,
+                      return Stack(
+                        fit: StackFit.passthrough,
                         children: [
-                          ...navigation,
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: actions,
-                          ),
+                          if (largeText)
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(spacing: 10, children: navigation),
+                                if (actions.isNotEmpty) ...[
+                                  const SizedBox(height: DSpacing.controlGap),
+                                  Wrap(
+                                    alignment: WrapAlignment.end,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    runSpacing: DSpacing.controlGap,
+                                    children: actions,
+                                  ),
+                                ],
+                              ],
+                            )
+                          else
+                            Row(
+                              spacing: 10,
+                              children: [
+                                ...navigation,
+                                if (actions.isNotEmpty)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: actions,
+                                  ),
+                              ],
+                            ),
+                          if (signedIn)
+                            PositionedDirectional(
+                              end: 0,
+                              child: notificationsMenu,
+                            ),
                         ],
                       );
                     },

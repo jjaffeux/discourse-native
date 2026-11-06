@@ -120,7 +120,10 @@ void main() {
       fixture.rebuild(() => fixture.mode = mode);
       await tester.pumpAndSettle();
       expect(drawn(), [name, count]);
-      expect(find.bySemanticsLabel('View: $name'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('View: $name, $count topics'),
+        findsOneWidget,
+      );
     }
     fixture.rebuild(() {
       fixture.mode = TopicListMode.topYearly;
@@ -129,6 +132,10 @@ void main() {
     await tester.pumpAndSettle();
     // Legacy New's three topics are disjoint from Unread's four replies.
     expect(drawn(), ['Top · Year', '7']);
+    expect(
+      find.bySemanticsLabel('View: Top · Year, 7 more in other views'),
+      findsOneWidget,
+    );
     fixture.rebuild(() {
       fixture.mode = TopicListMode.latest;
       fixture.signedIn = false;

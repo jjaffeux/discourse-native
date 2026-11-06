@@ -90,7 +90,8 @@ one baseline 7 points on, it shows the view's own count when it has one. A
 view without a count shows instead what waits in the other views, when that
 is above zero. Pressed anywhere, it opens every view, the current one checked,
 as the phone's menu sheet. Its accessible name is `View: <name>`, followed by
-`, <n> more in other views` while that total shows. Its name stays drawn and
+`, <n> topics` while the view's own count shows, as the desktop toggles say
+it, or `, <n> more in other views` while that total shows. Its name stays drawn and
 its insets stay 12 when the header retracts.
 
 `DBadgeSize.count` owns header count geometry. `DBadgeSize.menuCount` retains

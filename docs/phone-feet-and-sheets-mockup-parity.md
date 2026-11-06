@@ -121,7 +121,7 @@ builds a `BackdropFilter`. The frost is `blur(26px) saturate(1.3)`: a sigma of
 | --- | --- | --- |
 | Phone menu sheet (`DSheetContent` menu and adaptive menu, no caller fill) | `panelBackground`, no blur | Fill thinned by `round(sheer / 3)`% (the mockup's `--surface-menu`), backdrop frosted within the sheet's rounded outline |
 | Sheet to write on (`extendBehindKeyboard`, the mockup's `.is-full`) | Solid | Solid, never frosted |
-| Drawer card heading | Opaque `panelBackground` | Fill thinned by `sheer`%; while held (pinned) the rows under it are frosted over its full width |
+| Drawer card heading | Opaque `panelBackground` | Fill thinned by `sheer`%, laid once (a plain rectangle while held, the rounded card otherwise); while held (pinned) the rows under it are frosted over its full width |
 
 The frost sits behind the fill, so the fill is not itself blurred. The OS
 Reduce Transparency channel is gone from the app
@@ -130,7 +130,7 @@ Reduce Transparency channel is gone from the app
 
 Covered by `test/frost_test.dart` (sheet frost iff sheer, writing sheet solid,
 `ForumBackground.sheer`, the theme extension) and `test/d_sidebar_cards_test.dart`
-(held headings frost iff sheer).
+(held headings frost iff sheer and lay their thinned fill once).
 
 ## Validation
 

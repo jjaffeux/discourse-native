@@ -28,7 +28,11 @@ site since the menu was last open (`UserMenuButton.unreadCountOf`, the
 bell's own count) and hiding the count while the menu is open. Pressing it
 toggles the notifications menu, which the phone's header still hosts as
 `UserMenuButton(presentation: UserMenuPresentation.dockNotifications)` with
-no bell of its own: the top bar's bell is a desktop's alone. While the menu
+no bell of its own: the top bar's bell is a desktop's alone. Signed in, the
+header hosts it beside its row rather than in it, so it takes no room there:
+Search ends at the header's 14-point end inset, and with large text there is
+no second row of actions. Signed out, it draws the sign-in actions, which the
+row lays out after Search. While the menu
 is open the bar marks Notifications as it marks the current place. It is
 never lifted to be moved, is no slot for a place being moved, and never
 moves into the panel.
@@ -69,8 +73,10 @@ colour struck halfway into the text (`--success-fill-text`), tabular and
 centred, `99+` past 99. On a desktop it is at least 17 wide, 16 tall, 4 inside
 each end, 11/700 on a 16 line; on a phone the size of the list's counts, at
 least 20 wide, 20 tall, 7 inside, 12.5/600 on a 20 line. It keeps the
-reference text scale as the list's counts do. Chat with nothing urgent keeps
-its dot.
+reference text scale as the list's counts do. Beside a grown place's or a
+panel tile's name it keeps that height, centred on the name's 14 line and
+overhanging it, and the name does not move for it. Chat with nothing urgent
+keeps its dot.
 
 ## The panel
 

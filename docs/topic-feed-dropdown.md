@@ -17,7 +17,8 @@ Tags and Filters pills beside it, rather than a switch. It names the current
 view and shows, on the name's baseline 7 points on, the view's own count, or
 else what waits in the other views when that is above zero. Pressed anywhere,
 it opens every view. Its accessible name is `View: <name>`, with
-`, <n> more in other views` while that total shows. It keeps its name and its
+`, <n> topics` while the view's own count shows, as the desktop toggles say
+it, or `, <n> more in other views` while that total shows. It keeps its name and its
 12-point insets when the phone header retracts.
 
 Latest, Unread, New, Unseen and Trending select the existing server feed routes.

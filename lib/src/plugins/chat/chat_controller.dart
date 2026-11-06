@@ -153,13 +153,6 @@ class ChatHeaderIndicator {
   final bool unread;
 
   bool get isVisible => urgentCount != null || unread;
-
-  /// Core caps the header number, but not the underlying count, at 99.
-  String? get label => switch (urgentCount) {
-    null => null,
-    > 99 => '99+',
-    final count => '$count',
-  };
 }
 
 /// Holds channel ordering while canonical messages live in the [Store].

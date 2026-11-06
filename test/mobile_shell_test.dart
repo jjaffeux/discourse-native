@@ -2347,7 +2347,8 @@ void main() {
       expect(menu.center.dx, 44 / 2);
       expect(home.left, 44 + 10);
       expect(identity.center, home.center);
-      expect(search.right, lessThanOrEqualTo(tester.getRect(_header).right));
+      // Nothing follows Search: it ends at the header's 14-point end inset.
+      expect(search.right, tester.getRect(_header).right - 14);
       expect(find.byKey(UserMenuButton.avatarKey), findsNothing);
       final menuIcon = tester.getRect(
         find.descendant(
@@ -4223,6 +4224,24 @@ void main() {
       instances: [instance('meta.discourse.org')],
       api: FakeDiscourseApi(),
     );
+    // Signed out, the header lays out the sign-in actions after Search.
+    final search = tester.getRect(
+      find.byKey(const ValueKey('mobile-search-button')),
+    );
+    final signUp = tester.getRect(
+      find.descendant(
+        of: _header,
+        matching: find.byKey(UserMenuButton.signUpKey),
+      ),
+    );
+    final signIn = tester.getRect(
+      find.descendant(
+        of: _header,
+        matching: find.byKey(UserMenuButton.signInKey),
+      ),
+    );
+    expect(signUp.left, search.right + 10);
+    expect(signIn.right, tester.getRect(_header).right - 14);
     final places = await _placesInOrder(tester);
     expect(places.first, 'Topics');
     expect(places, containsAll(['Users', 'Categories', 'Groups', 'Badges']));
@@ -4832,6 +4851,60 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _mobileTest(
+    'notifications keeps the focus as its count hides behind its open menu',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      FakeSiteTracker.built
+          .singleWhere(
+            (tracker) => tracker.siteUrl == shell.currentInstance!.url,
+          )
+          .deliverNotification(const {'all_unread_notifications_count': 3});
+      await tester.pumpAndSettle();
+      final count = find.descendant(
+        of: _notifications,
+        matching: find.byKey(UserMenuButton.unreadDotKey),
+      );
+      expect(count, findsOneWidget);
+      final focus = Focus.of(
+        tester.element(
+          find.descendant(of: _notifications, matching: find.byType(DIcon)),
+        ),
+      );
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(count, findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _mobileTest('a signed-in header with large text is its one row', (
+    tester,
+  ) async {
+    addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+    tester.platformDispatcher.textScaleFactorTestValue = 2;
+    await pumpMobileShellFixture(tester);
+    final header = tester.getRect(_header);
+    final search = tester.getRect(
+      find.byKey(const ValueKey('mobile-search-button')),
+    );
+    // The row is centred between the header's 8-point top and 4-point
+    // bottom insets, with no second row of actions under it.
+    expect(
+      search.center.dy - (header.top + 8),
+      closeTo(header.bottom - 4 - search.center.dy, .01),
+    );
+    expect(search.right, header.right - 14);
+    expect(tester.takeException(), isNull);
+  });
 
   _mobileTest('header icons stay on one line with enlarged text', (
     tester,

@@ -110,7 +110,7 @@ class DMobileDockItem extends StatelessWidget {
         onPressed: onPressed,
       );
     }
-    Widget button = DButton(
+    final button = DButton(
       density: tile ? DButtonDensity.mobileDockTile : DButtonDensity.mobileDock,
       variant: DButtonVariant.ghost,
       shape: DButtonShape.pill,
@@ -177,27 +177,28 @@ class DMobileDockItem extends StatelessWidget {
         ],
       ),
     );
-    if (bare && badge != null) {
-      button = Stack(
-        clipBehavior: Clip.none,
-        children: [
-          button,
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomSingleChildLayout(
-                delegate: _CornerCount(Directionality.of(context)),
-                child: badge,
-              ),
-            ),
-          ),
-        ],
-      );
-    }
+    // One structure whether or not the corner count is drawn, so the count
+    // coming or going, or the bar growing, keeps the button and its focus.
     return MergeSemantics(
       child: Semantics(
         selected: selected,
         customSemanticsActions: customSemanticsActions,
-        child: button,
+        child: Stack(
+          fit: StackFit.passthrough,
+          clipBehavior: Clip.none,
+          children: [
+            button,
+            if (bare && badge != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomSingleChildLayout(
+                    delegate: _CornerCount(Directionality.of(context)),
+                    child: badge,
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -263,7 +264,8 @@ class _LabelAndCount extends MultiChildLayoutDelegate {
     var countSize = Size.zero;
     var spacing = 0.0;
     if (hasChild(count)) {
-      countSize = layoutChild(count, BoxConstraints.loose(size));
+      // The count keeps its own height, centred on the line it may overhang.
+      countSize = layoutChild(count, BoxConstraints(maxWidth: size.width));
       spacing = gap;
     }
     final labelSize = layoutChild(
