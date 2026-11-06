@@ -193,12 +193,26 @@ final class _TaxonomyDirectoryController
       allowUncategorizedTopics: config.allowUncategorizedTopics,
     );
     if (_shell.sidebarFilterRoute?.categoryId == null) {
+      final sources = categorySidebarSources(section, {
+        for (final category in categories) category.id: category,
+      });
+      // A merge that leaves every listed category and its ancestors equal
+      // keeps the held section, so the sidebar's selector sees no change.
+      final kept =
+          held != null &&
+              identical(held.user, user) &&
+              held.config == config &&
+              listEquals(held.sources, sources)
+          ? held.section
+          : section;
       site.categorySidebarCache = (
         categories: categories,
         user: user,
         config: config,
-        section: section,
+        section: kept,
+        sources: sources,
       );
+      return kept;
     }
     return section;
   }
@@ -940,7 +954,6 @@ final class _TaxonomyDirectoryController
       return false;
     }
     site.categories = List.unmodifiable(byId.values);
-    site.categorySidebarCache = null;
     _shell._rewriteContentRoutes(
       siteUrl,
       (route) => route.resolveCategoryLink(byId.values),
@@ -1030,6 +1043,7 @@ typedef _CategorySidebarCache = ({
   DiscourseUser? user,
   SiteConfig config,
   SidebarSection section,
+  List<Object> sources,
 });
 typedef _TagSidebarCache = ({
   List<SidebarTag> tags,

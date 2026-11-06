@@ -190,7 +190,7 @@ SidebarDestination buildCategoryDestination(
       : DIcons.folder;
 
   return SidebarDestination(
-    id: 'category-${category.id}',
+    id: '$_categoryDestinationPrefix${category.id}',
     indent: indent,
     trailingIcon: onSave == null ? null : DIcons.plus,
     onSecondaryTap: onSave,
@@ -208,7 +208,36 @@ SidebarDestination buildCategoryDestination(
   );
 }
 
-String _categoryFeedPath(TopicCategory category, Map<int, TopicCategory> byId) {
+/// What the rows of a [buildCategorySidebarSection] section are drawn from:
+/// each category row's indent, whether it offers to be saved, and the
+/// category with its ancestors, whose colour and slugs it shows. Sections
+/// with equal sources show the same rows, so a site's category list can grow
+/// without a sidebar that lists none of the new categories changing.
+List<Object> categorySidebarSources(
+  SidebarSection section,
+  Map<int, TopicCategory> categoriesById,
+) => [
+  for (final destination in section.destinations)
+    if (categoriesById[_categoryIdOf(destination)] case final category?) ...[
+      destination.indent,
+      destination.onSecondaryTap != null,
+      ..._ancestry(category, categoriesById),
+    ] else
+      destination.id,
+];
+
+int? _categoryIdOf(SidebarDestination destination) =>
+    destination.id.startsWith(_categoryDestinationPrefix)
+    ? int.tryParse(destination.id.substring(_categoryDestinationPrefix.length))
+    : null;
+
+const _categoryDestinationPrefix = 'category-';
+
+/// The category, then its parent and theirs, stopping at a repeated id.
+List<TopicCategory> _ancestry(
+  TopicCategory category,
+  Map<int, TopicCategory> byId,
+) {
   final chain = <TopicCategory>[];
   final visited = <int>{};
   TopicCategory? current = category;
@@ -216,6 +245,11 @@ String _categoryFeedPath(TopicCategory category, Map<int, TopicCategory> byId) {
     chain.add(current);
     current = byId[current.parentCategoryId];
   }
+  return chain;
+}
+
+String _categoryFeedPath(TopicCategory category, Map<int, TopicCategory> byId) {
+  final chain = _ancestry(category, byId);
 
   final decodedSlugs = <String>[
     for (final item in chain.reversed)

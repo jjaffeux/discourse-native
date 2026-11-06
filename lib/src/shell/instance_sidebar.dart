@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 
 import '../data/sidebar_section_store.dart';
 import '../models/content_route.dart';
+import '../models/discourse_instance.dart';
 import '../models/group_route.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
@@ -930,13 +931,45 @@ class _SidebarPanelTabs extends StatelessWidget {
   }
 }
 
+/// What the community header shows: the current forum and every forum in its
+/// switcher, compared by the fields drawn, so the shell's other changes leave
+/// the header, its menu and its button as built.
+@immutable
+final class _CommunityHeaderSnapshot {
+  const _CommunityHeaderSnapshot(this.current, this.forums);
+
+  final DiscourseInstance? current;
+  final List<DiscourseInstance> forums;
+
+  static (String, String, String?)? _shown(DiscourseInstance? forum) =>
+      forum == null ? null : (forum.url, forum.title, forum.iconUrl);
+
+  @override
+  bool operator ==(Object other) =>
+      other is _CommunityHeaderSnapshot &&
+      _shown(current) == _shown(other.current) &&
+      listEquals(
+        forums.map(_shown).toList(),
+        other.forums.map(_shown).toList(),
+      );
+
+  @override
+  int get hashCode =>
+      Object.hash(_shown(current), Object.hashAll(forums.map(_shown)));
+}
+
 class _SidebarCommunityHeader extends StatelessWidget {
   const _SidebarCommunityHeader();
 
   @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.of(context);
-    final instance = shell.currentInstance;
+  Widget build(BuildContext context) => ShellSelector<_CommunityHeaderSnapshot>(
+    select: (shell) =>
+        _CommunityHeaderSnapshot(shell.currentInstance, shell.instances),
+    builder: (context, snapshot, _) => _header(context, snapshot),
+  );
+
+  Widget _header(BuildContext context, _CommunityHeaderSnapshot snapshot) {
+    final instance = snapshot.current;
     if (instance == null) return const SizedBox.shrink();
     return DSidebarHeader(
       child: Row(
@@ -953,10 +986,11 @@ class _SidebarCommunityHeader extends StatelessWidget {
               content: DDropdownMenuContent(
                 semanticLabel: context.l10n.forum,
                 children: [
-                  for (final (index, forum) in shell.instances.indexed)
+                  for (final (index, forum) in snapshot.forums.indexed)
                     DDropdownMenuItem(
                       key: ValueKey(('sidebar-community-option', forum.url)),
-                      onPressed: () => shell.selectInstance(index),
+                      onPressed: () =>
+                          ShellScope.read(context).selectInstance(index),
                       leading: ForumIdentityHeader(
                         name: forum.title,
                         iconUrl: forum.iconUrl,
