@@ -376,7 +376,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
           frame.size.width - (bounds.last.right - bounds.first.left);
       widths['gap'] = bounds[1].left - bounds[0].right;
       if (!mapEquals(widths, _widths)) {
-        setState(() => _widths = widths);
+        setState(() {
+          _widths = widths;
+          _built = null;
+        });
         PageStorage.maybeOf(context)?.writeState(context, (
           identity: _measurementIdentity!,
           widths: widths,
@@ -385,8 +388,44 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     });
   }
 
+  // The navigation builds this menu again with the shell, usually with
+  // nothing it shows changed, and every view, menu and measured copy then
+  // rebuilt. Returning the same widget lets the framework skip them. Taps
+  // read [widget] when they happen, so a new [TopicFeedMenu.onSelected]
+  // alone needs no build.
+  Widget? _built;
+
   @override
-  Widget build(BuildContext context) {
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _built = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _built = null;
+  }
+
+  @override
+  void didUpdateWidget(TopicFeedMenu oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.mode != widget.mode ||
+        oldWidget.signedIn != widget.signedIn ||
+        oldWidget.unifiedNew != widget.unifiedNew ||
+        oldWidget.unreadCount != widget.unreadCount ||
+        oldWidget.newCount != widget.newCount ||
+        oldWidget.topicCount != widget.topicCount ||
+        oldWidget.replyCount != widget.replyCount ||
+        oldWidget.maxVisibleViews != widget.maxVisibleViews) {
+      _built = null;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => _built ??= _build(context);
+
+  Widget _build(BuildContext context) {
     if (context.isTouch) return _pill();
     final identity = (
       widget.mode,
