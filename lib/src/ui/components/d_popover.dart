@@ -104,6 +104,7 @@ class DPopoverTriggerState {
 class DPopoverController extends ChangeNotifier {
   _DPopoverState? _owner;
   bool _disposed = false;
+  bool _changeScheduled = false;
 
   bool get isOpen => _owner?._open ?? false;
 
@@ -127,8 +128,23 @@ class DPopoverController extends ChangeNotifier {
     if (_owner == owner) _owner = null;
   }
 
+  // A popover takes this controller over while it is built, closing the one
+  // it replaces. A listener elsewhere in the tree, such as a phone bar that
+  // marks the menu's place, cannot be marked dirty mid-build, so it hears of
+  // that close once the frame is built.
   void _changed() {
-    if (!_disposed) notifyListeners();
+    if (_disposed) return;
+    final scheduler = SchedulerBinding.instance;
+    if (scheduler.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+      notifyListeners();
+      return;
+    }
+    if (_changeScheduled) return;
+    _changeScheduled = true;
+    scheduler.addPostFrameCallback((_) {
+      _changeScheduled = false;
+      if (!_disposed) notifyListeners();
+    });
   }
 
   @override
