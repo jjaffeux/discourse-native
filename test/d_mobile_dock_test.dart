@@ -207,6 +207,27 @@ Key? _focusedKey() {
   return key;
 }
 
+/// The names of the custom actions a screen reader is offered on [finder].
+List<String?> _readerActions(WidgetTester tester, Finder finder) => [
+  for (final id
+      in tester
+              .getSemantics(finder)
+              .getSemanticsData()
+              .customSemanticsActionIds ??
+          const <int>[])
+    CustomSemanticsAction.getAction(id)!.label,
+];
+
+/// Asks [finder] for its custom action [label], as a screen reader asks it.
+void _askReader(WidgetTester tester, Finder finder, String label) {
+  final node = tester.getSemantics(finder);
+  node.owner!.performAction(
+    node.id,
+    SemanticsAction.customAction,
+    CustomSemanticsAction.getIdentifier(CustomSemanticsAction(label: label)),
+  );
+}
+
 /// The count a bare place wears on its glyph's corner, or beside its name.
 Finder _countIn(Finder place) =>
     find.descendant(of: place, matching: find.byType(DBadge));
@@ -1867,10 +1888,14 @@ void main() {
       hasFocusAction: true,
       customActions: actions,
     );
-    // As a bar, its places go nowhere but where they lead.
+    // As a bar, its places move nowhere; they grow it into the panel.
     expect(
       tester.getSemantics(find.byKey(const ValueKey('Topics'))),
-      place('Topics', selected: true),
+      place(
+        'Topics',
+        selected: true,
+        actions: [const CustomSemanticsAction(label: 'More places')],
+      ),
     );
     await openDockPanel(tester);
     // Every place, including the profile, can move; the action stays fixed.
@@ -2313,6 +2338,183 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(usersFocus.hasFocus, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('every place of a closed bar that can grow offers a screen '
+      'reader "More places", drawn and pressed as before', (tester) async {
+    final semantics = tester.ensureSemantics();
+    final pressed = <String>[];
+    await tester.pumpWidget(fixture(foot: 34, onPlace: pressed.add));
+    await tester.pumpAndSettle();
+    final topics = find.byKey(const ValueKey('Topics'));
+    for (final place in ['Start', 'Topics', 'Chat', 'notifications']) {
+      expect(_readerActions(tester, find.byKey(ValueKey(place))), [
+        'More places',
+      ], reason: place);
+    }
+    // Nothing is added to a place's room or its target: the second of the
+    // five columns, 72.4 wide after the bar's 6 and a column and its gap.
+    final surface = tester.getRect(_surface);
+    final rect = tester.getRect(topics);
+    expect(rect.left, closeTo(surface.left + 6 + 72.4 + 4, .01));
+    expect(rect.width, closeTo(72.4, .01));
+    expect(rect.top, surface.top + 6);
+    expect(rect.height, 50);
+    final read = tester.getSemantics(topics).rect;
+    expect(read.width, closeTo(72.4, .01));
+    expect(read.height, 50);
+    await tester.tapAt(rect.topLeft + const Offset(1, 1));
+    await tester.tapAt(rect.bottomRight - const Offset(1, 1));
+    await tester.pump();
+    expect(pressed, ['Topics', 'Topics']);
+    expect(_panel, findsNothing);
+    // The page added to the bar offers it too.
+    await tester.pumpWidget(fixture(foot: 34, selected: 'Users'));
+    await tester.pumpAndSettle();
+    expect(_readerActions(tester, find.byKey(const ValueKey('Users'))), [
+      'More places',
+    ]);
+    // A bar that cannot grow, covered or with nothing past its columns,
+    // offers nothing.
+    await tester.pumpWidget(fixture(foot: 34, covered: true));
+    await tester.pumpAndSettle();
+    expect(_readerActions(tester, topics), isEmpty);
+    expect(_readerActions(tester, _notifications), isEmpty);
+    await tester.pumpWidget(
+      fixture(foot: 34, labels: const ['Start', 'Topics', 'Chat']),
+    );
+    await tester.pumpAndSettle();
+    expect(_readerActions(tester, topics), isEmpty);
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a screen reader\'s "More places" grows the bar, the focus on '
+      'its first tile, its places then movable; the grabber puts it away', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final moves = <(int, int)>[];
+    var labels = ['Start', 'Topics', 'Chat', 'Inbox', 'Users', 'Last'];
+    await tester.pumpWidget(
+      StatefulBuilder(
+        builder: (context, setState) => fixture(
+          foot: 34,
+          labels: labels,
+          onMoved: (from, to) {
+            moves.add((from, to));
+            setState(() => labels = DMobileDockReorder.moved(labels, from, to));
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final rest = tester.getRect(_surface);
+    final chat = find.byKey(const ValueKey('Chat'));
+    _askReader(tester, chat, 'More places');
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    // Out, it is the places' moves a reader is offered, and the grabber
+    // that closes.
+    expect(_readerActions(tester, find.byKey(const ValueKey('Start'))), [
+      'Move later',
+    ]);
+    expect(
+      _readerActions(tester, chat),
+      unorderedEquals(['Move earlier', 'Move later']),
+    );
+    expect(_readerActions(tester, _notifications), isEmpty);
+    _askReader(tester, chat, 'Move later');
+    await tester.pumpAndSettle();
+    expect(moves, [(2, 3)]);
+    expect(_barLabels(tester), ['Start', 'Topics', 'Inbox']);
+    expect(_tileLabels(tester), ['Chat', 'Users', 'Last']);
+    final grabber = tester.getSemantics(find.bySemanticsLabel('Fewer places'));
+    grabber.owner!.performAction(grabber.id, SemanticsAction.tap);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(_readerActions(tester, find.byKey(const ValueKey('Inbox'))), [
+      'More places',
+    ]);
+    semantics.dispose();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('Arrow Up on a closed bar\'s place or its action grows it, the '
+      'focus on the first tile, and Escape gives the focus back', (
+    tester,
+  ) async {
+    final field = FocusNode(debugLabel: 'field');
+    addTearDown(field.dispose);
+    // A page above the bar, which Arrow Up would otherwise move the focus to.
+    final page = Focus(
+      focusNode: field,
+      child: const SizedBox(width: 390, height: 40),
+    );
+    Future<void> escape() async {
+      // Keyboard focus shows the focused place's tooltip, which the kit
+      // puts away on the first Escape; the next closes the panel.
+      for (var press = 0; press < 2; press++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+    }
+
+    await tester.pumpWidget(fixture(foot: 34, page: page));
+    await tester.pumpAndSettle();
+    final startFocus = tester
+        .widget<DMobileDockItem>(find.byKey(const ValueKey('Start')))
+        .focusNode!;
+    startFocus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    expect(field.hasFocus, isFalse);
+    // Out, the arrows move the focus between the grid and the head, so
+    // neither grows nor closes the panel: Escape closes it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_focusedKey(), const ValueKey('Start'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    expect(_panel, findsOneWidget);
+    for (var press = 0; press < 2; press++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+    }
+    expect(_focusedKey(), DMobileDock.grabberKey);
+    await escape();
+    expect(_panel, findsNothing);
+    expect(startFocus.hasFocus, isTrue);
+    // The action is the bar's last stop.
+    for (var step = 0; step < 4; step++) {
+      await _tab(tester);
+    }
+    expect(_focusedKey(), const ValueKey('action'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_panel, findsOneWidget);
+    expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+    await escape();
+    expect(_panel, findsNothing);
+    expect(_focusedKey(), const ValueKey('action'));
+    // A bar with nothing to grow into leaves Arrow Up to move the focus up.
+    await tester.pumpWidget(
+      fixture(foot: 34, page: page, labels: const ['Start', 'Topics', 'Chat']),
+    );
+    await tester.pumpAndSettle();
+    startFocus.requestFocus();
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(_panel, findsNothing);
+    expect(field.hasFocus, isTrue);
     expect(tester.takeException(), isNull);
   });
 
@@ -2855,6 +3057,26 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
       expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a screen reader\'s "More places" during the peek opens the '
+        'panel from where the bar has lifted', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      _askReader(tester, find.byKey(const ValueKey('Topics')), 'More places');
+      await tester.pump();
+      expect(_panel, findsOneWidget);
+      expect(peeked, findsNothing);
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+      expect(hint, findsNothing);
+      expect(_focusedKey(), DMobileDock.tileKey(const ValueKey('Inbox')));
+      semantics.dispose();
       expect(tester.takeException(), isNull);
     });
 

@@ -82,7 +82,9 @@ keeps its dot.
 
 A pull up on the bar, or a press on the page added to it, grows the bar into a
 panel of the places past its columns, with you as the last tile when signed
-in. The bar also takes a trackpad's two-finger swipe, to grow and shrink. The
+in. The bar also takes a trackpad's two-finger swipe, to grow and shrink, and
+a screen reader's "More places" and the keyboard's Arrow Up, which draw
+nothing (see Keyboard and screen readers below). The
 rules are `.dock-float`, `.dock-panel` and `.dock-panel-dim` in `app.css`,
 and `growTo`, `growDrag` and the trackpad effect in `App.tsx`.
 `DMobileDockPanelGeometry` holds the arithmetic and `DMobileDockDrag` the
@@ -118,6 +120,30 @@ bar, which opened it, or else to the bar's first place. The keyboard goes
 round the grabber, the head's places, Notifications, the action, the grid
 and you, with the page added out of the round while the panel is out.
 
+### Keyboard and screen readers
+
+A person who cannot pull the bar has two ways in. Neither draws anything or
+changes a place's room or target, and the mockup has neither, its bar being
+pulled. While the bar can grow and is not out, every place in it,
+Notifications and the page added among them, offers a screen reader the
+custom action "More places", which grows the bar as a press on the page
+added does (`_readerActions`). It is on each place rather than on the row,
+as VoiceOver's actions rotor and TalkBack's actions menu list the actions of
+the element a reader is on, and a reader is never on the row itself. Out, the
+same places offer "Move earlier" and "Move later" instead, and the grabber's
+"Fewer places" puts the panel away. With the focus on any place of the
+closed bar or on its action, Arrow Up grows the bar rather than moving the
+focus up to the page; a bar that cannot grow leaves Arrow Up to the page.
+Either way in, the focus moves to the first tile, as for any growth meant to
+be open, and goes back to what had it as the panel closes, so the place or
+the action Arrow Up was pressed on has it again.
+
+Out, the arrows move the focus between the grabber, the head and the grid's
+rows, as they do anywhere in the app, so Arrow Down does not close the
+panel. Bound to closing, it could no longer take the focus from the head
+into the grid or from one row to the next. Escape closes it. A place the
+keyboard has focused shows the kit's tooltip, which takes the first Escape.
+
 ### The peek
 
 Nothing in the bar itself says it can be pulled up, so on opening it says
@@ -140,7 +166,7 @@ page's lists still thin under it. At width 390 and a foot of 34:
 | Hint | "Swipe up for more", 13 / 500, centred in a box the screen's width whose bottom is `foot / 2` = 17 above the screen's bottom and whose height is `peekUnder + peek - foot / 2` = 75, where `DMobileDockGeometry.peekUnder`, 45, is how far the bar's glyphs' bottom stood above the foot before the lift: the box runs from half the foot to the lifted glyphs. In 150 ms after up: its opacity over 200 ms and a rise of 6 over 300 ms, both `ease`. Out with no wait: 200 ms and 300 ms, `ease`. Not read to assistive technology. |
 | Light | A gradient at 100° over three times the text's width, `mutedForeground` to 34%, `foreground` at 50%, `mutedForeground` from 66%, slid from its end to its start over the text in 1.6 s, linear, from 300 ms after up and again each 1.6 s while up. Mirrored for a right-to-left reader. Back to its start, all muted, as the bar goes down. |
 | Hold and down | Up for `DMobileDock.peekFor`, `300 + 2 × 1600 + 200` = 3700 ms: two passes of the light and the start of a third. Then down on the same spring, the hint going, and the peek is over once the bar is back down. The mockup clears its `data-peek` 480 ms after down, just past its 460 ms transition, as its `growTo` clears `data-easing`; the app ends both on the animation's own end instead, so nothing of the peek is left once nothing moves. |
-| Taken over | A pull past the slop, a trackpad swipe, or a press growing the bar ends the peek and carries on from where the bar is: the growth starts at `lift / max(1, travel)`, 47 / 88 with three tiles and 47 / 158 with six, so the bar does not jump. The hint goes as it would have, in the grown panel's foot, and is gone 300 ms later. |
+| Taken over | A pull past the slop, a trackpad swipe, or a press, a screen reader's "More places" or Arrow Up growing the bar ends the peek and carries on from where the bar is: the growth starts at `lift / max(1, travel)`, 47 / 88 with three tiles and 47 / 158 with six, so the bar does not jump. The hint goes as it would have, in the grown panel's foot, and is gone 300 ms later. |
 | Taps | A place pressed during the peek is pressed as ever, where it has been lifted to; the panel under the bar takes a pull and nothing else. |
 | Reduced motion | The same steps at the same times, at once, with no light. |
 
@@ -179,7 +205,8 @@ through the place list.
 
 `test/d_mobile_dock_geometry_test.dart`, `test/d_mobile_dock_growth_test.dart`,
 `test/d_mobile_dock_reorder_test.dart`, `test/mobile_place_order_test.dart`,
-`test/d_mobile_dock_test.dart` (the peek among it),
+`test/d_mobile_dock_test.dart` (the peek, and the ways in for screen readers
+and the keyboard, among it),
 `test/d_mobile_dock_item_test.dart`,
 `test/d_badge_test.dart` (the unread chip), `test/d_composer_dock_test.dart`,
 `test/oklab_test.dart`, `test/topic_progress_motion_test.dart`,

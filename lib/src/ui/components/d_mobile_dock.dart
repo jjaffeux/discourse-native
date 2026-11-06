@@ -157,9 +157,11 @@ final class DMobileDockPeek {
 /// pressing it grows the bar. Folded, the bar is a circle in the screen's
 /// bottom-start corner.
 ///
-/// Pulled up, or pressed on the page added to it, the bar grows into a panel
-/// of the places past its columns, [DMobileDockPanelGeometry] tall, risen
-/// from the screen's foot over the whole app and dimming what is under it.
+/// Pulled up, pressed on the page added to it, or asked by a screen reader's
+/// "More places" or the keyboard's Arrow Up from any of its places, the bar
+/// grows into a panel of the places past its columns,
+/// [DMobileDockPanelGeometry] tall, risen from the screen's foot over the
+/// whole app and dimming what is under it.
 /// The bar rides the panel's top edge up to be its head, its places named
 /// again and becoming tiles like the panel's, the added page easing away and
 /// the action moving over to the last column as a place in the accent. It
@@ -465,6 +467,10 @@ class _DMobileDockState extends State<DMobileDock>
       !widget.collapsed &&
       !widget.destinationsHidden &&
       !widget.covered;
+
+  /// A closed bar that can grow, which a screen reader's action and the
+  /// keyboard open for whoever cannot pull it.
+  bool get _opens => _grows && !_out;
 
   List<DMobileDockPlace> get _rest =>
       widget.places.skip(DMobileDockGeometry.placeColumns).toList();
@@ -935,16 +941,21 @@ class _DMobileDockState extends State<DMobileDock>
     }
   }
 
-  /// How a screen reader, which cannot press and hold, moves the place at
-  /// [index]: a slot earlier or later, told at once. Nothing while the bar
-  /// is a bar, as a hold lifts nothing then either.
-  Map<CustomSemanticsAction, VoidCallback>? _moveActions(
-    BuildContext context,
-    int index,
-  ) {
-    final onMoved = widget.onMoved;
-    if (!_out || onMoved == null) return null;
+  /// What a screen reader, which can neither pull nor press and hold, does
+  /// with a place besides pressing it. Any place of a closed bar that can
+  /// grow grows it. Out, the place at [index] among [DMobileDock.places]
+  /// moves a slot earlier or later, told at once; notifications and the
+  /// page added, given none, never move.
+  Map<CustomSemanticsAction, VoidCallback>? _readerActions(
+    BuildContext context, {
+    int? index,
+  }) {
     final l10n = context.l10n;
+    if (_opens) {
+      return {CustomSemanticsAction(label: l10n.morePlaces): () => _grow(true)};
+    }
+    final onMoved = widget.onMoved;
+    if (!_out || index == null || onMoved == null) return null;
     return {
       if (index > 0)
         CustomSemanticsAction(label: l10n.moveEarlier): () =>
@@ -1147,9 +1158,9 @@ class _DMobileDockState extends State<DMobileDock>
               semanticLabel: place.semanticLabel,
               badge: place.badge,
               selected: place.selected,
-              customSemanticsActions: _moveActions(
+              customSemanticsActions: _readerActions(
                 context,
-                DMobileDockGeometry.placeColumns + index,
+                index: DMobileDockGeometry.placeColumns + index,
               ),
               onPressed: () {
                 _grow(false);
@@ -1508,6 +1519,12 @@ class _DMobileDockState extends State<DMobileDock>
       // what can stands out from it.
       final fixedOpacity = _reorder is _Still ? 1.0 : DMobileDock.fixedDimmed;
       final dimDuration = reduced ? Duration.zero : DMobileDock.dimDuration;
+      // Arrow Up from a place or the action grows a closed bar that can
+      // grow, as a pull does; otherwise it moves the focus up, as anywhere.
+      final shortcuts = <ShortcutActivator, VoidCallback>{
+        if (_opens)
+          const SingleActivator(LogicalKeyboardKey.arrowUp): () => _grow(true),
+      };
 
       Widget destination(Widget child) => ExcludeSemantics(
         excluding: hidden,
@@ -1533,7 +1550,7 @@ class _DMobileDockState extends State<DMobileDock>
         semanticLabel: place.semanticLabel,
         badge: place.badge,
         selected: place.selected,
-        customSemanticsActions: _moveActions(context, index),
+        customSemanticsActions: _readerActions(context, index: index),
         onPressed: () {
           if (_out) _grow(false);
           place.onPressed();
@@ -1562,6 +1579,7 @@ class _DMobileDockState extends State<DMobileDock>
                     focusNode: _hereFocus,
                     hasPopup: true,
                     expanded: out,
+                    customSemanticsActions: _readerActions(context),
                     onPressed: () => _grow(true),
                   ),
                 ),
@@ -1586,6 +1604,7 @@ class _DMobileDockState extends State<DMobileDock>
                 selected: fixed.selected,
                 hasPopup: true,
                 expanded: fixed.selected,
+                customSemanticsActions: _readerActions(context),
                 onPressed: () {
                   if (_out) _grow(false);
                   fixed.onPressed();
@@ -1775,7 +1794,10 @@ class _DMobileDockState extends State<DMobileDock>
                               duration: reduced
                                   ? Duration.zero
                                   : const Duration(milliseconds: 100),
-                              child: navigation,
+                              child: CallbackShortcuts(
+                                bindings: shortcuts,
+                                child: navigation,
+                              ),
                             ),
                           ),
                         ),
@@ -2204,33 +2226,36 @@ class DMobileDockAction extends StatelessWidget {
               pressed();
             },
     );
-    if (growth == 0) return button;
+    // One structure grown or not, so the bar growing keeps the button and
+    // its focus, which the panel gives back as it closes.
     return Stack(
       clipBehavior: Clip.none,
       alignment: Alignment.topCenter,
       children: [
         button,
-        Positioned(
-          top: labelCentre,
-          child: FractionalTranslation(
-            translation: const Offset(0, -.5),
-            child: IgnorePointer(
-              child: ExcludeSemantics(
-                child: Opacity(
-                  opacity: growth,
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: scope?.nameWidth ?? double.infinity,
-                    ),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: DiscourseTypography.metadata,
-                        fontWeight: FontWeight.w400,
-                        color: tokens.primary,
+        if (growth > 0)
+          Positioned(
+            top: labelCentre,
+            child: FractionalTranslation(
+              translation: const Offset(0, -.5),
+              child: IgnorePointer(
+                child: ExcludeSemantics(
+                  child: Opacity(
+                    opacity: growth,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: scope?.nameWidth ?? double.infinity,
+                      ),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: DiscourseTypography.metadata,
+                          fontWeight: FontWeight.w400,
+                          color: tokens.primary,
+                        ),
                       ),
                     ),
                   ),
@@ -2238,7 +2263,6 @@ class DMobileDockAction extends StatelessWidget {
               ),
             ),
           ),
-        ),
       ],
     );
   }

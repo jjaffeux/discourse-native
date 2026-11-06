@@ -18204,6 +18204,12 @@ abstract class AppLocalizations {
   /// **'Your account'**
   String get yourAccount;
 
+  /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action on each place of a phone's closed bar that grows the bar into its panel of more places, for whoever cannot pull the bar up. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'More places'**
+  String get morePlaces;
+
   /// English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact.
   ///
   /// In en, this message translates to:
