@@ -106,6 +106,32 @@ def run(app, output, timeout, trace, gpu_phases, gpu_seconds):
 
     threading.Thread(target=sample_gpu, daemon=True).start()
 
+    # Other processes' CPU, so a comparison can discard runs that shared the
+    # machine with a build, a test suite or a game.
+    load = []
+
+    def sample_load():
+        while not stop.is_set():
+            try:
+                rows = subprocess.run(
+                    ["ps", "-axo", "pcpu=,pid=,comm="],
+                    capture_output=True, text=True, timeout=2,
+                ).stdout.splitlines()
+            except subprocess.TimeoutExpired:
+                rows = []
+            others = []
+            for row in rows:
+                parts = row.split(None, 2)
+                if len(parts) == 3 and parts[1] != str(process.pid):
+                    others.append((float(parts[0]), parts[2]))
+            if others:
+                busiest = max(others)
+                load.append((time.time() * 1e6, sum(c for c, _ in others),
+                             busiest[0], Path(busiest[1]).name))
+            stop.wait(2)
+
+    threading.Thread(target=sample_load, daemon=True).start()
+
     # A Metal System Trace of a whole run is tens of gigabytes, more than
     # xctrace can export, so it records a window at the start of each
     # selected pass instead.
@@ -165,7 +191,21 @@ def run(app, output, timeout, trace, gpu_phases, gpu_seconds):
     data = json.loads(Path(result_path).read_text())
     data = data.get("data", data)
     (output.with_suffix(".json")).write_text(json.dumps(data))
-    return data, phases, gpu
+    return data, phases, gpu, load
+
+
+def load_tables(phases, load):
+    lines = ["", "Background CPU of other processes (% of one core):"]
+    for name, (start, end) in phases.items():
+        samples = [sample for sample in load if start <= sample[0] <= end]
+        if samples:
+            busiest = max(samples, key=lambda sample: sample[2])
+            lines.append(
+                f"  {name:24} mean {statistics.mean(s[1] for s in samples):6.0f}%  "
+                f"max {max(s[1] for s in samples):6.0f}%  busiest {busiest[3]} "
+                f"{busiest[2]:.0f}%  n={len(samples)}"
+            )
+    return lines
 
 
 def gpu_tables(phases, gpu):
@@ -469,11 +509,14 @@ def main():
         saved = json.loads(phases_path.read_text())
         phases = {k: tuple(v) for k, v in saved["phases"].items()}
         gpu = saved["gpu"]
+        load = saved.get("load", [])
     else:
-        data, phases, gpu = run(args.app.resolve(), args.output, args.timeout,
-                                None if args.trace == "none" else args.trace,
-                                args.gpu_phases, args.gpu_seconds)
-        phases_path.write_text(json.dumps({"phases": phases, "gpu": gpu}))
+        data, phases, gpu, load = run(
+            args.app.resolve(), args.output, args.timeout,
+            None if args.trace == "none" else args.trace,
+            args.gpu_phases, args.gpu_seconds)
+        phases_path.write_text(
+            json.dumps({"phases": phases, "gpu": gpu, "load": load}))
 
     summary = data.get("summary", {})
     lines = ["Summary:", json.dumps({k: v for k, v in summary.items() if k != "phases"}, indent=2), "", "Frame timings (ms):"]
@@ -486,6 +529,7 @@ def main():
             f">8.3 {r['over8ms']:4d}"
         )
     lines += gpu_tables(phases, gpu)
+    lines += load_tables(phases, load)
     lines += census_tables(data, args.top)
     for key in sorted(k for k in data if k.startswith("cpuFolded.")):
         phase = key.split(".", 1)[1]

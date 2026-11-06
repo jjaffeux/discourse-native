@@ -206,6 +206,13 @@ python3 tool/profile_desktop_scroll.py \
   --output /tmp/live-topic-list/run --trace none
 ```
 
+To compare builds, alternate their runs and pass the output prefixes to
+`tool/compare_desktop_scroll_profiles.py --baseline … --candidate …`. It
+tabulates in-frame, build and layout CPU, frame times, rows' elements and
+render objects and the other processes' CPU for every pass; the runner now
+samples that background load, so runs that shared the machine can be
+discarded.
+
 `--dart-define=PROFILE_CPU=false` builds a timing-only harness;
 `LIVE_CENSUS=false` skips the census passes; `LIVE_SITE` names another
 saved forum. `--trace time` adds an Instruments Time Profiler recording of
