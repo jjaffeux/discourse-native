@@ -9,7 +9,9 @@ Give each run's --output prefix, in the order the runs alternated:
 
 For every pass it prints, per run: the Dart CPU the UI isolate spent inside
 frames, building and laying out (from the harness's CPU samples, when the
-build profiled CPU), frame build and raster times, the scroll distance, the
+build profiled CPU), frame build and raster times, how many frames over
+budget overlapped a garbage collection and how long frames waited for
+collections (timing passes), the scroll distance, the
 elements and render objects mounted per row at the pass's end, and the
 other processes' CPU while the pass ran. Runs that shared the machine
 (background CPU far above the others) should be discarded rather than
@@ -17,13 +19,21 @@ averaged: they change frame counts and sampling.
 """
 
 import argparse
+import importlib.util
 import json
 import re
 import statistics
 from pathlib import Path
 
+_spec = importlib.util.spec_from_file_location(
+    "dart_gc_pauses", Path(__file__).resolve().parent / "dart_gc_pauses.py")
+gc = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(gc)
+
 FRAME = re.compile(r"handleBeginFrame|handleDrawFrame|drawFrame", re.I)
 SAMPLE_MS = 0.25  # the harness samples every 250 microseconds
+GC_COLUMNS = ["over 8.3 with gc", "gc ms in frames", "scavenges",
+              "scavenges in frames", "promoted MB"]
 
 
 def cpu(folded):
@@ -73,6 +83,9 @@ def describe(prefix, label):
             rows_mounted = max(elements["rows"], 1)
             row["elements/row"] = elements["listElements"] / rows_mounted
             row["render objects/row"] = elements["listRenderObjects"] / rows_mounted
+        if collected := gc.report(data.get(f"gcTimeline.{name}"),
+                                  data.get(f"frameTimings.{name}", [])):
+            row.update({key: collected[key] for key in GC_COLUMNS})
         if (load := background(prefix, name)) is not None:
             row["background %"] = load
         rows.append(row)
@@ -89,7 +102,7 @@ def main():
     rows += [r for p in args.candidate for r in describe(p, "candidate")]
     columns = ["frames", "moved", "cpu frames", "cpu build", "cpu layout",
                "build mean", "build p99", "build >8.3", "raster mean",
-               "elements/row", "render objects/row", "background %"]
+               *GC_COLUMNS, "elements/row", "render objects/row", "background %"]
     for phase in dict.fromkeys(r["phase"] for r in rows):
         selected = [r for r in rows if r["phase"] == phase]
         present = [c for c in columns if any(c in r for r in selected)]

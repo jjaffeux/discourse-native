@@ -10,7 +10,9 @@ One launch records, for every pass the test brackets with
 DESKTOP_SCROLL_PHASE lines:
 
   - frame timings and the UI isolate's Dart CPU samples (from the test),
-  - the Dart, Embedder and GC timeline (from the test),
+  - the Dart, Embedder and GC timeline (from the test), and for a timing
+    pass the GC timeline alone, which covers the whole pass, with the
+    classes it allocated,
   - an Instruments Time Profiler trace of the whole process, so native
     frames on the raster and platform threads are attributed per pass, with
     the core tier each sample ran on,
@@ -49,6 +51,9 @@ _spec = importlib.util.spec_from_file_location(
 )
 media = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(media)
+_spec = importlib.util.spec_from_file_location("dart_gc_pauses", _here / "dart_gc_pauses.py")
+gc = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(gc)
 
 PHASE = re.compile(r"DESKTOP_SCROLL_PHASE (start|end) (\S+) (\d+)")
 NUMBERED = re.compile(r"/\d+")
@@ -530,6 +535,9 @@ def main():
         )
     lines += gpu_tables(phases, gpu)
     lines += load_tables(phases, load)
+    for name in summary.get("phases", {}):
+        lines += gc.table(name, data.get(f"gcTimeline.{name}"), data.get(f"frameTimings.{name}", []))
+        lines += gc.allocation_table(name, data.get(f"allocations.{name}"))
     lines += census_tables(data, args.top)
     for key in sorted(k for k in data if k.startswith("cpuFolded.")):
         phase = key.split(".", 1)[1]
