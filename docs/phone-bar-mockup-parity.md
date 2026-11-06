@@ -69,8 +69,10 @@ colour struck halfway into the text (`--success-fill-text`), tabular and
 centred, `99+` past 99. On a desktop it is at least 17 wide, 16 tall, 4 inside
 each end, 11/700 on a 16 line; on a phone the size of the list's counts, at
 least 20 wide, 20 tall, 7 inside, 12.5/600 on a 20 line. It keeps the
-reference text scale as the list's counts do. Chat with nothing urgent keeps
-its dot.
+reference text scale as the list's counts do. Beside a grown place's or a
+panel tile's name it keeps that height, centred on the name's 14 line and
+overhanging it, and the name does not move for it. Chat with nothing urgent
+keeps its dot.
 
 ## The panel
 

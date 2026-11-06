@@ -263,7 +263,8 @@ class _LabelAndCount extends MultiChildLayoutDelegate {
     var countSize = Size.zero;
     var spacing = 0.0;
     if (hasChild(count)) {
-      countSize = layoutChild(count, BoxConstraints.loose(size));
+      // The count keeps its own height, centred on the line it may overhang.
+      countSize = layoutChild(count, BoxConstraints(maxWidth: size.width));
       spacing = gap;
     }
     final labelSize = layoutChild(

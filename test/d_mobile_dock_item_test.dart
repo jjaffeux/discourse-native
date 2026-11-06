@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -124,6 +125,54 @@ void main() {
       final semantics = tester.ensureSemantics();
       expect(find.bySemanticsLabel(RegExp('Chat')), findsOneWidget);
       semantics.dispose();
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final (platform, chipHeight) in [
+    (TargetPlatform.iOS, 20.0),
+    (TargetPlatform.macOS, 16.0),
+  ]) {
+    testWidgets('a grown item keeps its unread chip whole beside an unmoved '
+        'label on $platform', (tester) async {
+      Future<void> pump({required bool counted}) => tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 96,
+                child: DMobileDockItem(
+                  growth: 1,
+                  icon: const Icon(Icons.chat_bubble),
+                  label: 'Chat',
+                  badge: counted ? DBadge.unreadChip(count: 32) : null,
+                  onPressed: () {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await pump(counted: false);
+      final label = find.text('Chat');
+      final alone = tester.getRect(label).top;
+      await pump(counted: true);
+      final item = tester.getRect(find.byType(DMobileDockItem));
+      final chip = tester.getRect(find.byType(DBadge));
+      final figures = tester.getRect(find.text('32'));
+      expect(chip.height, chipHeight);
+      expect(figures.top, greaterThanOrEqualTo(chip.top));
+      expect(figures.bottom, lessThanOrEqualTo(chip.bottom));
+      expect(chip.center.dy, tester.getRect(label).center.dy);
+      expect(chip.top, greaterThanOrEqualTo(item.top));
+      expect(chip.bottom, lessThanOrEqualTo(item.bottom));
+      expect(tester.getRect(label).top, alone);
+      expect(
+        tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+        isFalse,
+      );
       expect(tester.takeException(), isNull);
     });
   }
