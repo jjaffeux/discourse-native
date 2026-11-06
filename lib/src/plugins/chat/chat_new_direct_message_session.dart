@@ -14,7 +14,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     required this.siteUrl,
     required this._lease,
   }) : _sender = chat.currentUserFor(siteUrl) {
-    _showExistingChannels();
+    _results = _existingChannels();
     chat.addListener(_sessionChanged);
     _sessionChanged();
   }
@@ -56,6 +56,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     if (_lease.isCurrent || _activity is _Retired) return;
     _invalidate();
     _activity = const _Retired();
+    _results = const [];
     _error = appL10n.yourConnectionChangedReopenTheActionAndTryAgain;
     notifyListeners();
   }
@@ -67,7 +68,8 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     _activity = const _Idle();
   }
 
-  void _showExistingChannels() {
+  List<ChatDirectMessageSearchItem> _existingChannels([String term = '']) {
+    final query = term.toLowerCase();
     final channels = [
       ...chat.directChannels(siteUrl),
       ...chat.publicChannels(siteUrl),
@@ -83,14 +85,23 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
           ? activity
           : positions[a.id]!.compareTo(positions[b.id]!);
     });
-    _results = List.unmodifiable([
+    return List.unmodifiable([
       for (final channel in channels)
-        ChatDirectMessageChannel(
-          identifier: 'c-${channel.id}',
-          matchQuality: 3,
-          enabled: true,
-          channel: channel,
-        ),
+        if (query.isEmpty ||
+            [
+              channel.title,
+              channel.slug ?? '',
+              for (final user in channel.users) ...[
+                user.username,
+                user.displayName,
+              ],
+            ].any((label) => label.toLowerCase().contains(query)))
+          ChatDirectMessageChannel(
+            identifier: 'c-${channel.id}',
+            matchQuality: 3,
+            enabled: true,
+            channel: channel,
+          ),
     ]);
   }
 
@@ -104,7 +115,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
       if (composingGroup) {
         _results = const [];
       } else {
-        _showExistingChannels();
+        _results = _existingChannels();
       }
     } else {
       final attempt = _QueryAttempt(
@@ -113,7 +124,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
         includeChannels: !composingGroup,
       );
       _activity = attempt;
-      _results = const [];
+      _results = composingGroup ? const [] : _existingChannels(term);
       _debounce = Timer(
         const Duration(milliseconds: 300),
         () => unawaited(_search(attempt)),
@@ -137,7 +148,16 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
       );
       if (!_isCurrent(attempt)) return;
       _activity = const _Idle();
-      _results = answer.items;
+      _results = List.unmodifiable(
+        {
+          for (final item in answer.items) item.identifier: item,
+          for (final item in _results)
+            if (!answer.items.any(
+              (remote) => remote.identifier == item.identifier,
+            ))
+              item.identifier: item,
+        }.values,
+      );
     } catch (error) {
       if (!_isCurrent(attempt)) return;
       _activity = const _Idle();
@@ -146,14 +166,25 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  bool _acceptsResult(int revision) =>
-      _checkSession() && _activity is _Idle && revision == _revision;
+  bool _acceptsResult(int revision, [ChatDirectMessageSearchItem? item]) =>
+      _checkSession() &&
+      revision == _revision &&
+      (_activity is _Idle ||
+          (_activity is _QueryAttempt &&
+              item is ChatDirectMessageChannel &&
+              _results.contains(item)));
 
   Future<ChatNewConversationDestination?> select(
     ChatDirectMessageSearchItem item,
     int revision,
   ) async {
-    if (!_acceptsResult(revision) || !item.enabled) return null;
+    if (!_acceptsResult(revision, item)) return null;
+    item =
+        _results
+            .where((current) => current.identifier == item.identifier)
+            .firstOrNull ??
+        item;
+    if (!item.enabled) return null;
     if (composingGroup) {
       _addMember(item);
       return null;
@@ -192,7 +223,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     _invalidate();
     _mode = const _DirectEditing();
     _clearSearch();
-    _showExistingChannels();
+    _results = _existingChannels();
     notifyListeners();
     return true;
   }

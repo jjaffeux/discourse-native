@@ -352,7 +352,8 @@ class _ChatNewDirectMessageDialogState
       shouldFilter: false,
       loop: true,
       vimBindings: false,
-      loading: _editing.searching || _editing.opening,
+      loading:
+          _editing.opening || (_editing.searching && _editing.results.isEmpty),
       semanticLabel: appL10n.chatDestinations,
       onQueryChanged: _scheduleSearch,
       child: Column(
@@ -497,7 +498,7 @@ class _ChatNewDirectMessageDialogState
     final generation = _editing.revision;
     final query = _search.text.trim();
     final results = [
-      if (!_editing.opening && !_editing.searching)
+      if (!_editing.opening)
         for (final item in _editing.results)
           if (!_editing.composingGroup ||
               (item is! ChatDirectMessageChannel &&
