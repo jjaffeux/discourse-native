@@ -147,8 +147,14 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   pass) and in-frame CPU did not move beyond noise (medians 1,030 and
   1,026 ms).
 
+- **Count labels.** Each count a row writes resolved the message catalogue
+  twice, matching the current locale against the supported ones, and built
+  a `NumberFormat` for the integer: 3.2 ms and 1.5 ms per warm pass, about
+  0.4% of in-frame CPU. The catalogue is now kept for the locale string it
+  was resolved for, and one integer format per locale.
+
 The CPU comparison at the top covers the first four changes; the final
-comparison below covers all of them except the last.
+comparison below covers all of them except the last two.
 
 ## Final comparison
 
