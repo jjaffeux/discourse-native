@@ -4833,6 +4833,40 @@ void main() {
     },
   );
 
+  _mobileTest(
+    'notifications keeps the focus as its count hides behind its open menu',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      FakeSiteTracker.built
+          .singleWhere(
+            (tracker) => tracker.siteUrl == shell.currentInstance!.url,
+          )
+          .deliverNotification(const {'all_unread_notifications_count': 3});
+      await tester.pumpAndSettle();
+      final count = find.descendant(
+        of: _notifications,
+        matching: find.byKey(UserMenuButton.unreadDotKey),
+      );
+      expect(count, findsOneWidget);
+      final focus = Focus.of(
+        tester.element(
+          find.descendant(of: _notifications, matching: find.byType(DIcon)),
+        ),
+      );
+      focus.requestFocus();
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsOneWidget);
+      expect(count, findsNothing);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(focus.hasPrimaryFocus, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   _mobileTest('header icons stay on one line with enlarged text', (
     tester,
   ) async {

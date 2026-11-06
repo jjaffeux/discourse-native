@@ -3,6 +3,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -249,4 +250,58 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('a focused item keeps the focus as its count comes and goes and '
+      'as it is named again', (tester) async {
+    var presses = 0;
+    Future<void> pump({required bool counted, bool bare = true}) =>
+        tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 72,
+                  child: DMobileDockItem(
+                    bare: bare,
+                    growth: bare ? 0 : 1,
+                    icon: const Icon(Icons.inbox),
+                    label: 'Notifications',
+                    badge: counted ? DBadge.unreadChip(count: 3) : null,
+                    onPressed: () => presses++,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+
+    await pump(counted: true);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final focused = FocusManager.instance.primaryFocus!;
+    expect(
+      find.descendant(
+        of: find.byType(DMobileDockItem),
+        matching: find.byWidget(focused.context!.widget),
+      ),
+      findsOneWidget,
+    );
+    for (final (counted, bare) in [
+      (false, true),
+      (true, true),
+      (true, false),
+    ]) {
+      await pump(counted: counted, bare: bare);
+      expect(
+        focused.hasPrimaryFocus,
+        isTrue,
+        reason: 'counted $counted, bare $bare',
+      );
+    }
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+    expect(presses, 1);
+    expect(tester.takeException(), isNull);
+  });
 }
