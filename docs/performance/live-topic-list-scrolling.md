@@ -76,7 +76,10 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
 - **Smaller costs.** Tooltips find their enclosing scrollables through
   `Scrollable.maybeOf` instead of walking every ancestor on each hover
   entry; the edge fade reuses its shader while its fades are unchanged; the
-  metadata text style is derived once per theme.
+  metadata text style is derived once per theme; and the hover prefetcher
+  ignores a row entering under the pointer during a scroll before it checks
+  whether navigation shortcuts are allowed, which walked ancestors on each
+  entry (1.1% of in-frame samples).
 - **Item layers.** `DItem` kept an `Opacity` in its tree so that toggling
   `enabled` does not remount children, and Flutter's `RenderOpacity` is a
   repaint boundary with its own layer even when opaque. An enabled item now
