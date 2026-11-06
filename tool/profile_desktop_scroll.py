@@ -51,6 +51,7 @@ media = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(media)
 
 PHASE = re.compile(r"DESKTOP_SCROLL_PHASE (start|end) (\S+) (\d+)")
+NUMBERED = re.compile(r"/\d+")
 
 
 def gpu_utilization():
@@ -394,6 +395,54 @@ def gpu_pass_tables(trace_path, phases, summary):
     return lines
 
 
+def census_tables(data, top):
+    """Requests, mounted elements and per-frame build/layout/paint counts."""
+    lines = []
+    for key in sorted(k for k in data if k.startswith("requests.")):
+        requests = data[key]
+        paths = collections.Counter(
+            method + " " + NUMBERED.sub("/N", path) + (" REFUSED" if refused else "")
+            for _, method, _, path, refused in requests)
+        lines += ["", f"Requests {key.split('.', 1)[1]} ({len(requests)}):"]
+        lines += [f"  {n:5d}  {path}" for path, n in paths.most_common(12)]
+    for key in sorted(k for k in data if k.startswith("legs.")):
+        legs = data[key]
+        stuck = [leg for leg in legs if abs(leg[2] - leg[1]) < 1]
+        lines += ["", f"Legs {key.split('.', 1)[1]}: {len(legs)}, {len(stuck)} did not move"]
+        for _, start, end, reaches, first in legs:
+            if abs(end - start) < 1 or not reaches:
+                lines.append(f"  {start:9.0f} -> {end:9.0f}  reaches list {reaches}  hit {first}")
+    for key in sorted(k for k in data if k.startswith("elements.")):
+        census = data[key]
+        lines += ["", f"Mounted at the end of {key.split('.', 1)[1]}: tree {census['tree']}  "
+                  f"list {census['listElements']}  render objects {census['listRenderObjects']}  "
+                  f"ticker states {census['listTickerStates']}  rows {census['rows']}"]
+        lines += [f"  {n:6d}  {name}" for name, n in list(census["byType"].items())[:15]]
+    for key in sorted(k for k in data if k.startswith("census.")):
+        census = data[key]
+        per_frame = sorted(census["blocksPerFrame"])
+        if not per_frame:
+            continue
+        at = lambda q: per_frame[min(len(per_frame) - 1, int(len(per_frame) * q))]
+        lines += ["", f"=== Census {key.split('.', 1)[1]}: {census['frames']} frames, "
+                  f"{sum(per_frame)} widget/render blocks; per frame p50 {at(.5)} "
+                  f"p90 {at(.9)} p99 {at(.99)} max {per_frame[-1]} ==="]
+        names = census["byName"]
+        lines.append("  By self time:      count    self ms   incl ms  name")
+        for name, (count, self_us, incl_us) in sorted(names.items(), key=lambda kv: -kv[1][1])[:top]:
+            lines.append(f"    {count:15d} {self_us / 1000:10.1f} {incl_us / 1000:9.1f}  {name}")
+        lines.append("  By count:")
+        for name, (count, self_us, incl_us) in sorted(names.items(), key=lambda kv: -kv[1][0])[:top]:
+            lines.append(f"    {count:15d} {self_us / 1000:10.1f} {incl_us / 1000:9.1f}  {name}")
+        for frame in census["slowFrames"][:8]:
+            lines.append(f"  Slow frame at {frame['startUs']}: build {frame['buildUs'] / 1000:.2f} ms, "
+                         f"{frame['blocks']} blocks")
+            rows = sorted(frame["byName"].items(), key=lambda kv: -kv[1][1])[:10]
+            lines += [f"    {c:6d} {s / 1000:7.2f} ms self {i / 1000:7.2f} incl  {n}"
+                      for n, (c, s, i) in rows]
+    return lines
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("app", type=Path)
@@ -437,6 +486,7 @@ def main():
             f">8.3 {r['over8ms']:4d}"
         )
     lines += gpu_tables(phases, gpu)
+    lines += census_tables(data, args.top)
     for key in sorted(k for k in data if k.startswith("cpuFolded.")):
         phase = key.split(".", 1)[1]
         stacks = media.parse_folded(data[key])
