@@ -1448,6 +1448,9 @@ void main() {
         await shell.appSettings.setTextScale(AppTextScale.percent200);
         await shell.appSettings.setReduceMotion(true);
         await tester.pumpAndSettle();
+        // The bar's one peek on opening, which holds still under reduced
+        // motion, has come and gone.
+        await tester.pump(DMobileDock.peekAfter + DMobileDock.peekFor);
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, 52);
         expect(tester.getRect(_sheet).bottom, 844);

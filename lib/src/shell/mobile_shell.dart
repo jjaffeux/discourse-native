@@ -752,7 +752,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         .firstOrNull;
     // Found now: the dock also tells it as it is disposed, when this context
     // is no longer one to look up from.
-    final panelOut = MobileDockPanelScope.of(context);
+    final panelScope = MobileDockPanelScope.of(context);
+    final panelOut = panelScope?.out;
     // Notifications paused rings the you tile; what has arrived, and the
     // menu opening, count on the notifications place. Nothing else here.
     return ListenableBuilder(
@@ -790,6 +791,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           // A composer's sheet covers the shell from inside it; the panel, which
           // paints over the shell, must not stand over the sheet.
           covered: ComposerPresentationHost.hasMobileSheetOf(context),
+          peek: panelScope?.peek,
           collapsedDestination: DMobileDockItem(
             key: const ValueKey('mobile-dock-reveal'),
             collapsed: true,

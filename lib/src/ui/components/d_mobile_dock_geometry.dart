@@ -80,7 +80,24 @@ class DMobileDockGeometry {
   static const countTop = 6.0;
   static const countPastMiddle = 6.0;
 
+  /// A place's glyph on the bar, as the bar's buttons draw it at the
+  /// default text scale.
+  static const glyph = 20.0;
+
+  /// On opening, the bar lifts this much past half the foot to show there
+  /// is more under it ([peek]).
+  static const peekRise = 30.0;
+
   double get rowHeight => 50 + growth;
+
+  /// How far the bar lifts as it peeks.
+  double get peek => peekRise + foot / 2;
+
+  /// From the screen's foot to the bottom of the bar's glyphs, the bar at
+  /// rest: the hint shown as it peeks stands between where the glyphs are
+  /// lifted to and half the foot.
+  double get peekUnder =>
+      margin.bottom + padding.bottom + (rowHeight - glyph - growth) / 2;
 
   /// A place as a tile of the panel the bar grows into, and the head's
   /// places with it: taller than the row, centred on it.

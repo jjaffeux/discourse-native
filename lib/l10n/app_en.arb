@@ -14087,6 +14087,10 @@
   "@fewerPlaces": {
     "description": "English UI message used by ui/components/d_mobile_dock.dart: the name of the grabber over a phone's open panel of places, which puts the panel away when pressed. Keep placeholders intact."
   },
+  "swipeUpForMore": "Swipe up for more",
+  "@swipeUpForMore": {
+    "description": "English UI message used by ui/components/d_mobile_dock.dart: the hint a phone's bar shows under itself as it lifts once on opening, saying it can be pulled up into a panel of more places. Keep placeholders intact."
+  },
   "moveEarlier": "Move earlier",
   "@moveEarlier": {
     "description": "English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot earlier among a phone's places. Keep placeholders intact."

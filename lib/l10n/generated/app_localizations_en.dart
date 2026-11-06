@@ -10613,6 +10613,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get fewerPlaces => 'Fewer places';
 
   @override
+  String get swipeUpForMore => 'Swipe up for more';
+
+  @override
   String get moveEarlier => 'Move earlier';
 
   @override

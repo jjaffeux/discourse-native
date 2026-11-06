@@ -12,9 +12,10 @@ abstract final class DMobileDockDrag {
   /// goes the way it was moving.
   static const flick = .1;
 
-  /// Still, a release goes by how far it has come: a pull up opens from
-  /// well short of halfway, and a push down from open closes only once most
-  /// of the way back.
+  /// Still, a release goes by how far it has come: a pull up from short of
+  /// halfway, as from closed or from where the bar has lifted to peek, opens
+  /// from well short of halfway, and a push down from past it closes only
+  /// once most of the way back.
   static const opensFromClosedPast = .25;
   static const opensFromOpenPast = .75;
 
@@ -28,7 +29,7 @@ abstract final class DMobileDockDrag {
   }) =>
       velocity > flick ||
       (velocity > -flick &&
-          (start == 0 ? at > opensFromClosedPast : at > opensFromOpenPast));
+          (start < .5 ? at > opensFromClosedPast : at > opensFromOpenPast));
 
   /// Whether the panel settles open after a trackpad swipe that [pushed] it
   /// (upward positive, summed over the swipe) and left it at [at]: the way

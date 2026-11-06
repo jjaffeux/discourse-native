@@ -18210,6 +18210,12 @@ abstract class AppLocalizations {
   /// **'Fewer places'**
   String get fewerPlaces;
 
+  /// English UI message used by ui/components/d_mobile_dock.dart: the hint a phone's bar shows under itself as it lifts once on opening, saying it can be pulled up into a panel of more places. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe up for more'**
+  String get swipeUpForMore;
+
   /// English UI message used by ui/components/d_mobile_dock.dart: the assistive-technology action that moves a place one slot earlier among a phone's places. Keep placeholders intact.
   ///
   /// In en, this message translates to:

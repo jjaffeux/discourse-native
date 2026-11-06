@@ -45,6 +45,7 @@ Widget fixture({
   bool reducedMotion = false,
   double foot = 0,
   Widget? page,
+  DMobileDockPeek? peek,
 }) => MaterialApp(
   theme: theme,
   home: MediaQuery(
@@ -79,6 +80,7 @@ Widget fixture({
                           collapsed: collapsed,
                           destinationsHidden: hidden,
                           covered: covered,
+                          peek: peek,
                           places: [
                             for (final name in labels)
                               DMobileDockPlace(
@@ -2553,5 +2555,381 @@ void main() {
     await tester.pumpAndSettle();
     expect(_panel, findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  group('the peek on opening', () {
+    final hint = find.text('Swipe up for more');
+    final peeked = find.byKey(DMobileDock.peekKey);
+    const nine = [
+      'Start',
+      'Topics',
+      'Chat',
+      'Inbox',
+      'Users',
+      'Events',
+      'Groups',
+      'Badges',
+      'Settings',
+    ];
+
+    double hintOpacity(WidgetTester tester) => tester
+        .widget<Opacity>(
+          find.ancestor(of: hint, matching: find.byType(Opacity)).first,
+        )
+        .opacity;
+
+    testWidgets('the first bar given the session\'s peek lifts once, 900 ms '
+        'after it can grow, and settles back; no bar given it after does', (
+      tester,
+    ) async {
+      final peek = DMobileDockPeek();
+      await tester.pumpWidget(fixture(foot: 34, peek: peek));
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 899));
+      expect(hint, findsNothing);
+      expect(peeked, findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(hint, findsOneWidget);
+      expect(hintOpacity(tester), 0);
+      // On the settle spring, past its lift and back.
+      await tester.pump(const Duration(milliseconds: 230));
+      expect(tester.getRect(_surface).top, lessThan(rest.top - 47));
+      await tester.pump(const Duration(milliseconds: 230));
+      // 30, and half the foot of 34.
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      expect(tester.getRect(peeked).top, closeTo(rest.top - 47, .01));
+      expect(tester.getRect(peeked).bottom, rest.bottom);
+      expect(hintOpacity(tester), 1);
+      expect(_panel, findsNothing);
+      expect(_dim, findsNothing);
+      // Up for 3.7 s from its lift, then down the same way.
+      await tester.pump(const Duration(milliseconds: 3239));
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      expect(hintOpacity(tester), 1);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(hintOpacity(tester), 0);
+      // Over once the bar is back down, with nothing left to settle.
+      await tester.pump(const Duration(milliseconds: 260));
+      expect(tester.getRect(_surface), rest);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(hint, findsNothing);
+      expect(peeked, findsNothing);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.getRect(_surface), rest);
+
+      // The same session's bar, built again, stays put.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(fixture(foot: 34, peek: peek));
+      await tester.pump(const Duration(seconds: 5));
+      expect(hint, findsNothing);
+      expect(tester.getRect(_surface), rest);
+      // Another session's does not.
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(hint, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a bar with nothing to grow into waits to peek until it has', (
+      tester,
+    ) async {
+      final peek = DMobileDockPeek();
+      await tester.pumpWidget(
+        fixture(foot: 34, peek: peek, labels: const ['Start', 'Topics']),
+      );
+      await tester.pump(const Duration(seconds: 2));
+      expect(hint, findsNothing);
+      await tester.pumpWidget(fixture(foot: 34, peek: peek));
+      await tester.pump(const Duration(milliseconds: 899));
+      expect(hint, findsNothing);
+      await tester.pump(const Duration(milliseconds: 1));
+      expect(hint, findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('grown, folded, or under a drag when it is due, the bar does '
+        'not peek, then or later', (tester) async {
+      Future<void> stillAfterwards() async {
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 5));
+        expect(hint, findsNothing);
+        expect(peeked, findsNothing);
+      }
+
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      await openDockPanel(tester);
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(hint, findsNothing);
+      await tester.tap(find.byKey(DMobileDock.grabberKey));
+      await stillAfterwards();
+
+      final folded = DMobileDockPeek();
+      await tester.pumpWidget(fixture(foot: 34, peek: folded, collapsed: true));
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(hint, findsNothing);
+      await tester.pumpWidget(fixture(foot: 34, peek: folded));
+      await stillAfterwards();
+
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        tester.getCenter(find.byKey(const ValueKey('Topics'))),
+        timeStamp: Duration.zero,
+      );
+      await gesture.moveBy(
+        const Offset(0, -12),
+        timeStamp: const Duration(milliseconds: 16),
+      );
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(_panel, findsOneWidget);
+      expect(hint, findsNothing);
+      await gesture.up(timeStamp: const Duration(milliseconds: 1000));
+      await stillAfterwards();
+      expect(tester.takeException(), isNull);
+    });
+
+    for (final (foot, width) in [(34.0, 390.0), (0.0, 375.0)]) {
+      testWidgets('the hint stands between the lifted glyphs and half the '
+          'foot, the panel under the bar up to its top (foot $foot)', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          fixture(foot: foot, width: width, peek: DMobileDockPeek()),
+        );
+        final rest = tester.getRect(_surface);
+        final screen = tester.getRect(_frame);
+        await tester.pump(const Duration(milliseconds: 900));
+        await tester.pump(const Duration(milliseconds: 500));
+        final peek = 30 + foot / 2;
+        final box = tester.getRect(find.byKey(DMobileDock.hintKey));
+        expect(box.left, screen.left);
+        expect(box.width, width);
+        expect(box.bottom, closeTo(screen.bottom - foot / 2, .01));
+        // The glyphs' bottom stood 45 above the foot of 34, 27 above a
+        // square screen's, and stands the peek higher now.
+        final glyph = tester.getRect(
+          find.descendant(
+            of: find.byKey(const ValueKey('Topics')),
+            matching: find.byType(Icon),
+          ),
+        );
+        expect(
+          screen.bottom - glyph.bottom,
+          closeTo((foot > 0 ? 45 : 27) + peek, .01),
+        );
+        expect(box.top, closeTo(glyph.bottom, .01));
+        expect(tester.getCenter(hint).dy, closeTo(box.center.dy, .01));
+        // The panel runs the screen's width under the bar, up to the bar's
+        // own lifted top.
+        final panel = tester.getRect(peeked);
+        expect(panel.left, screen.left);
+        expect(panel.width, width);
+        expect(panel.bottom, screen.bottom);
+        expect(panel.top, closeTo(rest.top - peek, .01));
+        expect(tester.getRect(_surface).top, closeTo(rest.top - peek, .01));
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a pull during the peek carries on from where the bar has '
+        'lifted, and the hint goes as it would have', (tester) async {
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        tester.getCenter(find.byKey(const ValueKey('Topics'))),
+        timeStamp: const Duration(seconds: 2),
+      );
+      await tester.pump();
+      await gesture.moveBy(
+        const Offset(0, -8),
+        timeStamp: const Duration(milliseconds: 2016),
+      );
+      await tester.pump();
+      expect(_panel, findsNothing);
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      await gesture.moveBy(
+        const Offset(0, -2),
+        timeStamp: const Duration(milliseconds: 2032),
+      );
+      await tester.pump();
+      // Three tiles: the lift of 47 is that share of the bar's 88 travel,
+      // and the 10 pulled that share of the panel's 104 above the bar.
+      expect(_panel, findsOneWidget);
+      expect(
+        tester.getRect(_surface).top,
+        closeTo(rest.top - 47 - 88 * 10 / 104, .01),
+      );
+      expect(peeked, findsNothing);
+      expect(hint, findsOneWidget);
+      expect(hintOpacity(tester), 1);
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(hintOpacity(tester), 0);
+      await tester.pump(const Duration(milliseconds: 280));
+      expect(hint, findsNothing);
+      await gesture.up(timeStamp: const Duration(milliseconds: 2600));
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('let go still a little past where the peek had lifted it, '
+        'the bar opens, as from closed', (tester) async {
+      await tester.pumpWidget(
+        fixture(foot: 34, peek: DMobileDockPeek(), labels: nine),
+      );
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      final gesture = await tester.createGesture();
+      await gesture.down(
+        tester.getCenter(find.byKey(const ValueKey('Topics'))),
+        timeStamp: const Duration(seconds: 2),
+      );
+      await tester.pump();
+      await gesture.moveBy(
+        const Offset(0, -10),
+        timeStamp: const Duration(milliseconds: 2016),
+      );
+      await tester.pump();
+      // Six tiles: 47 of the bar's 158 travel, then 10 of the panel's 174
+      // above the bar, about a third of the way.
+      expect(
+        tester.getRect(_surface).top,
+        closeTo(rest.top - 47 - 158 * 10 / 174, .01),
+      );
+      await gesture.moveBy(
+        Offset.zero,
+        timeStamp: const Duration(milliseconds: 2400),
+      );
+      await gesture.up(timeStamp: const Duration(milliseconds: 2416));
+      await tester.pumpAndSettle();
+      expect(_panel, findsOneWidget);
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 158, .01));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a trackpad swipe during the peek carries on from it too', (
+      tester,
+    ) async {
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byKey(const ValueKey('Topics'))),
+          scrollDelta: const Offset(0, 10),
+          timeStamp: const Duration(seconds: 2),
+        ),
+      );
+      await tester.pump();
+      expect(_panel, findsOneWidget);
+      expect(
+        tester.getRect(_surface).top,
+        closeTo(rest.top - 47 - 88 * 10 / 104, .01),
+      );
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+      expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('the page added to the bar, pressed during the peek, opens '
+        'the panel from where the bar has lifted', (tester) async {
+      await tester.pumpWidget(
+        fixture(foot: 34, peek: DMobileDockPeek(), selected: 'Users'),
+      );
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.byKey(const ValueKey('Users')));
+      await tester.pump();
+      expect(_panel, findsOneWidget);
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      await tester.pumpAndSettle();
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 88, .01));
+      expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('covered during the peek, the bar is back in its place at once '
+        'and does not peek again', (tester) async {
+      final peek = DMobileDockPeek();
+      await tester.pumpWidget(fixture(foot: 34, peek: peek));
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pumpWidget(fixture(foot: 34, peek: peek, covered: true));
+      expect(hint, findsNothing);
+      expect(peeked, findsNothing);
+      expect(tester.getRect(_surface), rest);
+      await tester.pump();
+      await tester.pumpWidget(fixture(foot: 34, peek: peek));
+      await tester.pump(const Duration(seconds: 5));
+      expect(hint, findsNothing);
+      expect(tester.getRect(_surface), rest);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('during the peek a place is pressed as ever, and the hint is '
+        'not read', (tester) async {
+      final semantics = tester.ensureSemantics();
+      final pressed = <String>[];
+      await tester.pumpWidget(
+        fixture(foot: 34, peek: DMobileDockPeek(), onPlace: pressed.add),
+      );
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(hint, findsOneWidget);
+      expect(find.bySemanticsLabel('Swipe up for more'), findsNothing);
+      expect(find.bySemanticsLabel('Chat'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('Chat')));
+      await tester.pump();
+      expect(pressed, ['Chat']);
+      expect(_panel, findsNothing);
+      expect(hint, findsOneWidget);
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('under reduced motion the bar is up and down at once, and no '
+        'light passes over the hint', (tester) async {
+      await tester.pumpWidget(
+        fixture(foot: 34, peek: DMobileDockPeek(), reducedMotion: true),
+      );
+      final rest = tester.getRect(_surface);
+      await tester.pump(const Duration(milliseconds: 900));
+      expect(tester.getRect(_surface).top, closeTo(rest.top - 47, .01));
+      expect(hintOpacity(tester), 1);
+      await tester.pump();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      await tester.pump(const Duration(milliseconds: 3700));
+      expect(tester.getRect(_surface), rest);
+      await tester.pump();
+      expect(hint, findsNothing);
+      expect(peeked, findsNothing);
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('with motion, a light passes over the hint while it is up', (
+      tester,
+    ) async {
+      await tester.pumpWidget(fixture(foot: 34, peek: DMobileDockPeek()));
+      await tester.pump(const Duration(milliseconds: 900));
+      await tester.pump(const Duration(milliseconds: 1000));
+      expect(hintOpacity(tester), 1);
+      expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pump(const Duration(milliseconds: 2700));
+      await tester.pumpAndSettle();
+      expect(hint, findsNothing);
+      expect(tester.takeException(), isNull);
+    });
   });
 }

@@ -40,6 +40,19 @@ void main() {
     expect(geometry.barHeight, 6 + 30 + 61);
   });
 
+  test('the peek lifts 30 past half the foot, from glyphs 15 above the row\'s '
+      'foot at any text scale', () {
+    const round = DMobileDockGeometry(foot: 34);
+    expect(round.peek, 47);
+    expect(round.peekUnder, 45);
+    const square = DMobileDockGeometry(foot: 0);
+    expect(square.peek, 30);
+    expect(square.peekUnder, 27);
+    const larger = DMobileDockGeometry(foot: 34, growth: 11);
+    expect(larger.peek, 47);
+    expect(larger.peekUnder, 45);
+  });
+
   test('a corner is on the diagonal, never deeper than the foot', () {
     const round = DMobileDockGeometry(foot: 34);
     expect(round.cornerAt(48), closeTo(13.3225, .001));
