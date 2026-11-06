@@ -6556,6 +6556,16 @@ class AppLocalizationsEn extends AppLocalizations {
   String get chooseTopicFeed => 'Choose topic feed';
 
   @override
+  String topicFeedViewPill(String view) {
+    return 'View: $view';
+  }
+
+  @override
+  String topicFeedViewPillWithMore(String view, int count) {
+    return 'View: $view, $count more in other views';
+  }
+
+  @override
   String get newActivity => 'New activity';
 
   @override

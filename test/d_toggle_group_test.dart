@@ -5,6 +5,8 @@ import 'package:discourse_native/src/styleguide/component_examples.dart';
 import 'package:discourse_native/src/styleguide/examples/toggle_group_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/control_style.dart'
+    show DControlDecoration;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -86,6 +88,53 @@ void main() {
         },
       );
     }
+  }
+
+  for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+    testWidgets('a choice of two on $platform is as wide as its names', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: const Scaffold(
+            body: Center(
+              child: DToggleGroup<String>(
+                size: DControlSize.segment,
+                inset: true,
+                allowEmptySelection: false,
+                values: ['recent'],
+                items: [
+                  DToggleGroupItem(value: 'recent', child: Text('Recent')),
+                  DToggleGroupItem(
+                    value: 'unread',
+                    child: Text('Unread conversations'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      Rect half(String value) =>
+          tester.getRect(find.byKey(ValueKey(('toggle-group-item', value))));
+      Rect label(String text) => tester.getRect(find.text(text));
+      // Not equal columns: the halves differ exactly as their names do.
+      expect(
+        half('unread').width - half('recent').width,
+        label('Unread conversations').width - label('Recent').width,
+      );
+      const inset = 10 + DControlDecoration.borderWidth;
+      for (final (value, text) in [
+        ('recent', 'Recent'),
+        ('unread', 'Unread conversations'),
+      ]) {
+        expect(label(text).left - half(value).left, inset, reason: text);
+        expect(half(value).right - label(text).right, inset, reason: text);
+      }
+      expect(tester.takeException(), isNull);
+    });
   }
 
   testWidgets('selection indicator follows layout-only resizing', (

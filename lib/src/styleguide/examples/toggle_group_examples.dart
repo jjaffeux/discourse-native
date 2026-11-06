@@ -60,7 +60,7 @@ final toggleGroupExamples = ComponentExamples(
     StyleguideExample(
       title: 'View-switch segments',
       description:
-          'Inset segments share a tinted selection indicator that slides in 240ms and honors reduced motion. Binary text choices have equal widths.',
+          'Inset segments share a tinted selection indicator that slides in 240ms and honors reduced motion. Binary text choices have equal widths on desktop; on touch each half is as wide as its own label.',
       states: const ['Desktop', 'Touch', 'Selected', 'Keyboard'],
       code:
           'DToggleGroup<String>(size: DControlSize.segment, inset: true, allowEmptySelection: false, items: views)\n// Independent popup triggers use DButtonGroup.inset(selectedIndex: currentIndex, ...).',

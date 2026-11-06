@@ -1050,7 +1050,7 @@ class DButton extends StatelessWidget {
                 horizontal:
                     effectiveSize == DControlSize.filter &&
                         DControlStyle.isTouch(context)
-                    ? DFitRow.compactOf(context)
+                    ? DFitRow.closedUpOf(context)
                           ? 10
                           : 12
                     : joined?.quiet == true

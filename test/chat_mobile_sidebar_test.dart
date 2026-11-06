@@ -132,8 +132,16 @@ Future<void> _scrollInboxTo(
     attempt < 100 && row.hitTestable().evaluate().isEmpty;
     attempt++
   ) {
+    // The inbox's own list, not its filters' sideways strips.
     final viewport = find
-        .descendant(of: _inbox, matching: find.byType(Scrollable))
+        .descendant(
+          of: _inbox,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is Scrollable &&
+                axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+          ),
+        )
         .last;
     // The dock overlays the viewport's lower part. Swipe its visible top edge.
     await tester.dragFrom(

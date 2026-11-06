@@ -11199,6 +11199,18 @@ abstract class AppLocalizations {
   /// **'Choose topic feed'**
   String get chooseTopicFeed;
 
+  /// Accessible name of the phone's topic view pill, which opens every topic view. view is the current view's name.
+  ///
+  /// In en, this message translates to:
+  /// **'View: {view}'**
+  String topicFeedViewPill(String view);
+
+  /// Accessible name of the phone's topic view pill when the current view has no count of its own and the other views hold count topics between them. view is the current view's name.
+  ///
+  /// In en, this message translates to:
+  /// **'View: {view}, {count} more in other views'**
+  String topicFeedViewPillWithMore(String view, int count);
+
   /// English UI message used by shell/topic_list_navigation.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
