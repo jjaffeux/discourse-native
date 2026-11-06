@@ -37,48 +37,56 @@ enum CountNoun {
   year,
 }
 
+// A row writes several counts as it builds; a format is built once per locale.
+final _integerFormats = <String, NumberFormat>{};
+
 /// A complete localized count, optionally using an already formatted number.
 String countLabel(int count, CountNoun noun, {String? number}) {
-  final written = number ?? NumberFormat('0', appL10n.localeName).format(count);
+  final l10n = appL10n;
+  final written =
+      number ??
+      _integerFormats
+          .putIfAbsent(
+            l10n.localeName,
+            () => NumberFormat('0', l10n.localeName),
+          )
+          .format(count);
   return switch (noun) {
-    CountNoun.badge => appL10n.countBadge(count, written),
-    CountNoun.reply => appL10n.countReply(count, written),
-    CountNoun.person => appL10n.countPerson(count, written),
-    CountNoun.click => appL10n.countClick(count, written),
-    CountNoun.like => appL10n.countLike(count, written),
-    CountNoun.member => appL10n.countMember(count, written),
-    CountNoun.topic => appL10n.countTopic(count, written),
-    CountNoun.post => appL10n.countPost(count, written),
-    CountNoun.view => appL10n.countView(count, written),
-    CountNoun.message => appL10n.countMessage(count, written),
-    CountNoun.reaction => appL10n.countReaction(count, written),
-    CountNoun.category => appL10n.countCategory(count, written),
-    CountNoun.entry => appL10n.countEntry(count, written),
-    CountNoun.day => appL10n.countDay(count, written),
-    CountNoun.tag => appL10n.countTag(count, written),
-    CountNoun.second => appL10n.countSecond(count, written),
-    CountNoun.repost => appL10n.countRepost(count, written),
-    CountNoun.unreadNotification => appL10n.countUnreadNotification(
+    CountNoun.badge => l10n.countBadge(count, written),
+    CountNoun.reply => l10n.countReply(count, written),
+    CountNoun.person => l10n.countPerson(count, written),
+    CountNoun.click => l10n.countClick(count, written),
+    CountNoun.like => l10n.countLike(count, written),
+    CountNoun.member => l10n.countMember(count, written),
+    CountNoun.topic => l10n.countTopic(count, written),
+    CountNoun.post => l10n.countPost(count, written),
+    CountNoun.view => l10n.countView(count, written),
+    CountNoun.message => l10n.countMessage(count, written),
+    CountNoun.reaction => l10n.countReaction(count, written),
+    CountNoun.category => l10n.countCategory(count, written),
+    CountNoun.entry => l10n.countEntry(count, written),
+    CountNoun.day => l10n.countDay(count, written),
+    CountNoun.tag => l10n.countTag(count, written),
+    CountNoun.second => l10n.countSecond(count, written),
+    CountNoun.repost => l10n.countRepost(count, written),
+    CountNoun.unreadNotification => l10n.countUnreadNotification(
       count,
       written,
     ),
-    CountNoun.membershipRequest => appL10n.countMembershipRequest(
-      count,
-      written,
-    ),
-    CountNoun.thread => appL10n.countThread(count, written),
-    CountNoun.link => appL10n.countLink(count, written),
-    CountNoun.user => appL10n.countUser(count, written),
-    CountNoun.image => appL10n.countImage(count, written),
-    CountNoun.draft => appL10n.countDraft(count, written),
-    CountNoun.recipient => appL10n.countRecipient(count, written),
-    CountNoun.vote => appL10n.countVote(count, written),
-    CountNoun.voter => appL10n.countVoter(count, written),
-    CountNoun.group => appL10n.countGroup(count, written),
-    CountNoun.minute => appL10n.countMinute(count, written),
-    CountNoun.hour => appL10n.countHour(count, written),
-    CountNoun.month => appL10n.countMonth(count, written),
-    CountNoun.year => appL10n.countYear(count, written),
+    CountNoun.membershipRequest => l10n.countMembershipRequest(count, written),
+    CountNoun.thread => l10n.countThread(count, written),
+    CountNoun.link => l10n.countLink(count, written),
+    CountNoun.user => l10n.countUser(count, written),
+    CountNoun.image => l10n.countImage(count, written),
+    CountNoun.draft => l10n.countDraft(count, written),
+    CountNoun.recipient => l10n.countRecipient(count, written),
+    CountNoun.vote => l10n.countVote(count, written),
+    CountNoun.voter => l10n.countVoter(count, written),
+    CountNoun.group => l10n.countGroup(count, written),
+    CountNoun.minute => l10n.countMinute(count, written),
+    CountNoun.hour => l10n.countHour(count, written),
+    CountNoun.month => l10n.countMonth(count, written),
+    CountNoun.year => l10n.countYear(count, written),
   };
 }
 
