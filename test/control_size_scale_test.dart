@@ -30,11 +30,11 @@ void main() {
           size == DControlSize.filter && platform != TargetPlatform.macOS;
       // Touch sidebars are drawer rows with their own 40pt geometry.
       final drawerRows = platform != TargetPlatform.macOS;
-      final controlFontSize = phoneFilter ? 16.0 : fontSize;
+      final controlFontSize = phoneFilter ? 14.0 : fontSize;
       final height = scale == 1
-          ? (phoneFilter ? 44.0 : baseHeight)
+          ? (phoneFilter ? 36.0 : baseHeight)
           : phoneFilter
-          ? 68.0
+          ? 57.0
           : doubledHeight;
       testWidgets(
         '${size.name} on $platform at $scale has the same height across controls',
@@ -234,7 +234,7 @@ void main() {
             );
           }
           if (size == DControlSize.filter) {
-            final iconSize = (phoneFilter ? 16.0 : 12.0) * scale;
+            final iconSize = (phoneFilter ? 14.0 : 12.0) * scale;
             for (final key in ['icon', 'toggle']) {
               final icon = find.descendant(
                 of: find.byKey(Key(key)),

@@ -251,7 +251,8 @@ void main() {
     final parent = buttonSurface(tester, of: _parentCategory);
     expect(parent.color, Colors.transparent);
 
-    tester.view.physicalSize = phone;
+    // Too narrow for the whole path beside a count of every tag.
+    tester.view.physicalSize = const Size(320, 844);
     await tester.pumpAndSettle();
     expect(_parentCategory, findsNothing);
     expect(_ownCategory, findsOneWidget);

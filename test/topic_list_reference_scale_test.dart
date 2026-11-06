@@ -19,8 +19,8 @@ void main() {
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final (appScale, accessibility, height, textSize) in [
-      (AppTextScale.percent100, 1.0, 44.0, 16.0),
-      (AppTextScale.percent125, 2.0, 80.0, 40.0),
+      (AppTextScale.percent100, 1.0, 36.0, 14.0),
+      (AppTextScale.percent125, 2.0, 67.5, 35.0),
     ]) {
       testWidgets(
         'category header actions use reference scaling on $platform at ${appScale.factor}/$accessibility',
@@ -43,7 +43,7 @@ void main() {
             final control = find.byKey(ValueKey(key));
             expect(tester.getSize(control).height, height, reason: key);
             expect(
-              MediaQuery.textScalerOf(tester.element(control)).scale(16),
+              MediaQuery.textScalerOf(tester.element(control)).scale(14),
               textSize,
               reason: key,
             );

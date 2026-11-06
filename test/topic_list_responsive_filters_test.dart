@@ -413,6 +413,9 @@ void main() {
       find.descendant(of: bar, matching: find.text('Mobile')),
       findsNothing,
     );
+    // The path, its level still to choose and all, keeps to the one line of
+    // 36-point pills with the rest.
+    expect(tester.getSize(bar).height, 36);
     expect(
       shell.topicListFilterEditorQuery(shell.topicListContent!),
       contains('=category:3'),
