@@ -412,10 +412,18 @@ rows.
   `RenderObject.attach`, semantics on or not: 30% of a row's retained
   heap. The guard belongs upstream, in Flutter.
 - A closed `OverlayPortal` is two render objects and three elements, and a
-  row has nineteen: its tooltips, hover cards and context menus. Mounting
-  the portal only when it first shows would remove them, but a tooltip's
-  portal anchors its popup's traversal order in the semantics tree, so the
-  change needs the same semantics comparison as the ones above.
+  row has nineteen: its tooltips, hover cards and context menus. Mounting a
+  tooltip's portal beside its trigger the first time it opens was tried: a
+  row then attached 318 render objects instead of 340 and kept 1,488 KB
+  instead of 1,542 KB, and the list's semantics trees matched with every
+  tooltip closed and with each one open. It was reverted, because the
+  semantics tree assumes the portal's traversal anchor wraps the trigger
+  and exists before the popup does. The first opening sent the platform a
+  popup node with no connected parent (`topic_list_semantics_test.dart`),
+  and moving a topic between desktop panels left two nodes with one anchor
+  (`desktop_topic_page_test.dart`); mounting the portal a frame before
+  showing it fixed neither. A lazy portal has to keep the anchor around the
+  trigger, which `OverlayPortal` does not allow from outside.
 - The list's separators are list children of their own, so the separated
   delegate gives each one a `RepaintBoundary`, a keep-alive wrapper and an
   offset layer. With eight rows on screen, seven of the list's fifteen
