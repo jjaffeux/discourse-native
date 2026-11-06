@@ -133,9 +133,9 @@ def allocation_table(name, allocations, top=30):
     if not allocations:
         return []
     lines = ["", f"=== Allocations {name} ==="]
-    for key in ("accumulated", "current"):
+    for key in ("current",):
         rows = allocations.get(key) or []
-        lines.append(f"  {key} (MB, instances):")
+        lines.append("  live heap at the pass's end (MB, instances):")
         for cls, library, size, count in rows[:top]:
             lines.append(f"    {size / 1048576:8.2f} {count:9d}  {cls} [{library}]")
     return lines

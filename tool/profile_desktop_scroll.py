@@ -11,8 +11,8 @@ DESKTOP_SCROLL_PHASE lines:
 
   - frame timings and the UI isolate's Dart CPU samples (from the test),
   - the Dart, Embedder and GC timeline (from the test), and for a timing
-    pass the GC timeline alone, which covers the whole pass, with the
-    classes it allocated,
+    pass the GC timeline alone, which covers the whole pass, and the live
+    heap by class at its end,
   - an Instruments Time Profiler trace of the whole process, so native
     frames on the raster and platform threads are attributed per pass, with
     the core tier each sample ran on,

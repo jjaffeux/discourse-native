@@ -322,14 +322,15 @@ void main() {
       }
       final requestsBefore = http.log.length;
       // A timing pass records only garbage collection, which stays inside
-      // the timeline's ring buffer for the whole pass, and what was
-      // allocated, so a frame over budget can be told apart from a frame
-      // that waited for a collection.
+      // the timeline's ring buffer for the whole pass, so a frame over budget
+      // can be told apart from a frame that waited for a collection. Its live
+      // heap is read once the pass ends: AOT keeps no allocation counts since
+      // a reset, and resetting walks the heap, which delayed the pass's first
+      // frame by 200 ms.
       final timingOnly = !profile && !countBlocks;
       if (timingOnly) {
         await service.setVMTimelineFlags(['GC']);
         await service.clearVMTimeline();
-        await service.getAllocationProfile(isolateId, reset: true);
       }
       if (profile) {
         await service.setFlag('profile_period', '250');
@@ -596,8 +597,7 @@ Map<String, Object> _summary(Iterable<Duration> durations) {
   };
 }
 
-/// The classes that allocated the most since the pass reset the profile,
-/// and the largest live ones at its end, as
+/// The largest classes in the live heap at the end of a pass, as
 /// `[class, library, bytes, instances]`.
 Map<String, Object?> _allocationReport(vm.AllocationProfile profile) {
   final members = profile.members ?? const <vm.ClassHeapStats>[];
@@ -619,10 +619,6 @@ Map<String, Object?> _allocationReport(vm.AllocationProfile profile) {
     'heapUsage': profile.memoryUsage?.heapUsage,
     'heapCapacity': profile.memoryUsage?.heapCapacity,
     'externalUsage': profile.memoryUsage?.externalUsage,
-    'accumulated': top(
-      (s) => s.accumulatedSize ?? 0,
-      (s) => s.instancesAccumulated ?? 0,
-    ),
     'current': top((s) => s.bytesCurrent ?? 0, (s) => s.instancesCurrent ?? 0),
   };
 }
