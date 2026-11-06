@@ -153,8 +153,16 @@ and unmounting 8.5%. Those are spread over hundreds of small widgets.
   0.4% of in-frame CPU. The catalogue is now kept for the locale string it
   was resolved for, and one integer format per locale.
 
+- **Smaller row costs.** Three lookups each row repeated as it scrolled in
+  or out, per warm pass. Its keyboard-cursor lookup walked up to the list
+  state on every build (2.2 ms); the list now passes the cursor down. A
+  row leaving the list built its hover-prefetch key, which reads its
+  reading policy out of plugin data, before checking whether anything was
+  prefetched (1.9 ms). Boards resolved its scopes for topics on no board
+  (1.2 ms). Together these are about 0.5% of in-frame CPU.
+
 The CPU comparison at the top covers the first four changes; the final
-comparison below covers all of them except the last two.
+comparison below covers all of them except the last three.
 
 ## Final comparison
 
