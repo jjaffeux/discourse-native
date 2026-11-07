@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
@@ -135,6 +136,239 @@ void main() {
     });
   });
 
+  group('RecentDestinationsStore hydration', () {
+    const otherSite = 'https://other.example';
+    final fresh = ContentRoute.topic(
+      topicId: 77,
+      slug: 'fresh',
+      title: 'Fresh',
+    );
+    final older = ContentRoute.topic(
+      topicId: 76,
+      slug: 'older',
+      title: 'Older',
+    );
+
+    Future<String> document() async {
+      final persistence = MemoryRecentDestinationsPersistence();
+      final seed = RecentDestinationsStore(persistence: persistence)
+        ..remember(_site, _account, older)
+        ..remember(_site, _account, _fromSidebar)
+        ..remember(otherSite, _account, _other);
+      await seed.save();
+      return persistence.value!;
+    }
+
+    test(
+      'merges visits made during a delayed read with saved history',
+      () async {
+        final raw = await document();
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        store.remember(_site, _account, fresh);
+        final saving = store.save();
+        expect(persistence.written, isNull);
+        persistence.response.complete(raw);
+        await Future.wait([loading, saving]);
+
+        expect(store.topicsFor(_site, _account), [fresh, older]);
+        expect(store.categoriesFor(_site, _account), [_fromSidebar]);
+        expect(store.categoriesFor(otherSite, _account), [_other]);
+        await store.save();
+        expect(persistence.written, contains('Fresh'));
+        expect(persistence.written, contains('Older'));
+      },
+    );
+
+    test(
+      'forget during hydration excludes old visits but permits new ones',
+      () async {
+        final raw = await document();
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        expect(store.forgetSite(_site), isTrue);
+        store.remember(_site, _account, fresh);
+        persistence.response.complete(raw);
+        await loading;
+
+        expect(store.topicsFor(_site, _account), [fresh]);
+        expect(store.categoriesFor(_site, _account), isEmpty);
+        expect(store.categoriesFor(otherSite, _account), [_other]);
+      },
+    );
+
+    test(
+      'retaining forums during hydration cannot revive excluded history',
+      () async {
+        final raw = await document();
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        expect(store.retainSites({otherSite}), isTrue);
+        store.remember(_site, _account, fresh);
+        persistence.response.complete(raw);
+        await loading;
+
+        expect(store.topicsFor(_site, _account), [fresh]);
+        expect(store.categoriesFor(_site, _account), isEmpty);
+        expect(store.categoriesFor(otherSite, _account), [_other]);
+      },
+    );
+
+    test(
+      'later removals also discard visits staged during hydration',
+      () async {
+        final raw = await document();
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        store.remember(_site, _account, fresh);
+        store.retainSites({_site});
+        store.retainSites({otherSite});
+        persistence.response.complete(raw);
+        await loading;
+
+        expect(store.hasVisits(_site, _account), isFalse);
+        expect(store.hasVisits(otherSite, _account), isFalse);
+      },
+    );
+
+    for (final retain in [false, true]) {
+      test(
+        '${retain ? 'retaining' : 'forgetting'} unseen stored visits requests a merged save',
+        () async {
+          final raw = await document();
+          final persistence = _HeldRecentPersistence();
+          final store = RecentDestinationsStore(persistence: persistence);
+          final loading = store.load();
+          await persistence.started.future;
+          final needsSave = retain
+              ? store.retainSites({otherSite})
+              : store.forgetSite(_site);
+          expect(needsSave, isTrue);
+          final saving = needsSave ? store.save() : Future<void>.value();
+          expect(persistence.written, isNull);
+          persistence.response.complete(raw);
+          await Future.wait([loading, saving]);
+
+          final reloaded = RecentDestinationsStore(
+            persistence: MemoryRecentDestinationsPersistence()
+              ..value = persistence.written,
+          );
+          await reloaded.load();
+          expect(reloaded.hasVisits(_site, _account), isFalse);
+          expect(reloaded.categoriesFor(otherSite, _account), [_other]);
+          expect(
+            retain ? store.retainSites({otherSite}) : store.forgetSite(_site),
+            isFalse,
+          );
+        },
+      );
+    }
+
+    test(
+      'staged visits retain recency, updated metadata, and the five-visit limit',
+      () async {
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        for (var id = 80; id <= 86; id++) {
+          store.remember(
+            _site,
+            _account,
+            ContentRoute.topic(
+              topicId: id,
+              slug: 'topic-$id',
+              title: 'Topic $id',
+            ),
+          );
+        }
+        store.remember(
+          _site,
+          _account,
+          ContentRoute.topic(topicId: 84, slug: 'renamed', title: 'Renamed'),
+        );
+        persistence.response.complete(await document());
+        await loading;
+        final topics = store.topicsFor(_site, _account);
+        expect(topics.map((route) => route.topicId), [84, 86, 85, 83, 82]);
+        expect(topics.first.title, 'Renamed');
+        expect(store.categoriesFor(_site, _account), [_fromSidebar]);
+      },
+    );
+
+    test('completed hydration permits a later explicit storage read', () async {
+      final persistence = _HeldRecentPersistence();
+      final store = RecentDestinationsStore(persistence: persistence);
+      final first = store.load();
+      await persistence.started.future;
+      persistence.response.complete(await document());
+      await first;
+      persistence.response = Completer<String?>();
+      final next = store.load();
+      await pumpEventQueue();
+      expect(persistence.reads, 2);
+      persistence.response.complete(null);
+      await next;
+      expect(store.hasVisits(_site, _account), isFalse);
+    });
+
+    test('overlapping loads share one hydration result', () async {
+      final persistence = _HeldRecentPersistence();
+      final store = RecentDestinationsStore(persistence: persistence);
+      final loading = store.load();
+      await persistence.started.future;
+      final joined = store.load();
+      expect(joined, same(loading));
+      persistence.response.complete(await document());
+      await Future.wait([loading, joined]);
+      expect(persistence.reads, 1);
+    });
+
+    test('malformed hydration keeps visits made while reading', () async {
+      final persistence = _HeldRecentPersistence();
+      final store = RecentDestinationsStore(persistence: persistence);
+      final loading = store.load();
+      await persistence.started.future;
+      store.remember(_site, _account, fresh);
+      persistence.response.complete('invalid');
+      await loading;
+      expect(store.topicsFor(_site, _account), [fresh]);
+    });
+
+    test(
+      'failed hydration retains live visits without overwriting unread storage',
+      () async {
+        final persistence = _HeldRecentPersistence();
+        final store = RecentDestinationsStore(persistence: persistence);
+        final loading = store.load();
+        await persistence.started.future;
+        store.remember(_site, _account, fresh);
+        persistence.response.completeError(StateError('unavailable'));
+        await loading;
+        expect(store.topicsFor(_site, _account), [fresh]);
+        await store.save();
+        expect(persistence.written, isNull);
+        persistence.response = Completer<String?>();
+        final retry = store.load();
+        await pumpEventQueue();
+        persistence.response.complete(await document());
+        await retry;
+        expect(store.topicsFor(_site, _account), [fresh, older]);
+        await store.save();
+        expect(persistence.written, contains('Fresh'));
+        expect(persistence.written, contains('Older'));
+      },
+    );
+  });
+
   group('RecentDestinationsStore forums', () {
     const otherSite = 'https://other.example';
     final message = ContentRoute.topic(
@@ -191,4 +425,24 @@ void main() {
       await expectOnlyOtherSite(persistence);
     });
   });
+}
+
+final class _HeldRecentPersistence implements RecentDestinationsPersistence {
+  final started = Completer<void>();
+  var response = Completer<String?>();
+  int reads = 0;
+  String? written;
+
+  @override
+  Future<String?> read() {
+    reads++;
+    if (!started.isCompleted) started.complete();
+    return response.future;
+  }
+
+  @override
+  Future<bool> write(String value) async {
+    written = value;
+    return true;
+  }
 }
