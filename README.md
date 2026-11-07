@@ -2,8 +2,9 @@
 
 wip
 
-See [Composer ownership](docs/composer-architecture.md) for the live editor,
-built-in component modules, and plugin extension points.
+See [Application ownership](docs/architecture/README.md) for service, account,
+request, and feature boundaries. [Composer ownership](docs/composer-architecture.md)
+covers the live editor, built-in component modules, and plugin extension points.
 
 ## Native image build tools
 
