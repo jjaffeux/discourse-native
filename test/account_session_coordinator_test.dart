@@ -35,11 +35,14 @@ const _newCredentials = UserApiCredentials(
 
 enum _Failure {
   readCredential,
+  readCredentialAfterPersist,
   authorize,
   cancelAuthorization,
   clearDrafts,
   lookup,
   persistCredential,
+  persistCredentialAfterWrite,
+  persistCredentialAfterDelete,
   revokeOld,
   revokeIssued,
   deleteCredential,
@@ -60,7 +63,9 @@ final class _SessionAuthenticator extends FakeAuthenticator {
   @override
   Future<String?> apiKeyFor(String siteUrl) async {
     events.add('credential:read');
-    if (failures.contains(_Failure.readCredential)) {
+    if (failures.contains(_Failure.readCredential) ||
+        (failures.contains(_Failure.readCredentialAfterPersist) &&
+            events.contains('credential:persist'))) {
       throw StateError('credential read failed');
     }
     return keys[siteUrl];
@@ -89,7 +94,14 @@ final class _SessionAuthenticator extends FakeAuthenticator {
     if (failures.contains(_Failure.persistCredential)) {
       throw StateError('credential write failed');
     }
+    if (failures.contains(_Failure.persistCredentialAfterDelete)) {
+      keys.remove(siteUrl);
+      throw StateError('credential replacement failed after deletion');
+    }
     keys[siteUrl] = credentials.key;
+    if (failures.contains(_Failure.persistCredentialAfterWrite)) {
+      throw StateError('credential state write failed');
+    }
   }
 
   @override
@@ -797,6 +809,42 @@ void main() {
         fixture.expectPrivateStateIsCoherent();
       });
     }
+
+    for (final failure in [
+      _Failure.persistCredentialAfterWrite,
+      _Failure.persistCredentialAfterDelete,
+    ]) {
+      test('keeps signed out when ${failure.name} changes storage', () async {
+        final fixture = _Fixture(failures: {failure});
+
+        final result = await fixture.coordinator.connect(_siteUrl);
+
+        expect(result, isA<AccountConnectionFailed>());
+        expect(fixture.current.user, isNull);
+        expect((await fixture.durable).user, isNull);
+        expect(fixture.authenticator.keys[_siteUrl], isNull);
+        expect(fixture.events, isNot(contains('presentation:restored')));
+        expect(fixture.events, contains('credential:revoke:$_newKey'));
+        fixture.expectPrivateStateIsCoherent();
+      });
+    }
+
+    test('keeps signed out when a failed write cannot be verified', () async {
+      final fixture = _Fixture(
+        failures: {
+          _Failure.persistCredential,
+          _Failure.readCredentialAfterPersist,
+        },
+      );
+
+      final result = await fixture.coordinator.connect(_siteUrl);
+
+      expect(result, isA<AccountConnectionFailed>());
+      expect(fixture.current.user, isNull);
+      expect((await fixture.durable).user, isNull);
+      expect(fixture.authenticator.keys[_siteUrl], isNull);
+      expect(fixture.events, isNot(contains('presentation:restored')));
+    });
 
     test('tolerates failure to revoke the superseded remote key', () async {
       final fixture = _Fixture(failures: {_Failure.revokeOld});
