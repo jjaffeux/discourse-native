@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
+import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/json.dart';
 import '../plugin_api/notification_feed_host.dart';
@@ -531,7 +532,7 @@ class _PluginNotificationsSectionState
       final spacing = DesktopHeaderMenu.isActiveOf(context) ? 2.0 : 0.0;
       return _withActions(
         widget._sliver
-            ? SliverList.separated(
+            ? SuperSliverList.separated(
                 itemCount: feed.notifications.length,
                 itemBuilder: (context, index) => row(feed.notifications[index]),
                 separatorBuilder: (context, index) => SizedBox(height: spacing),
@@ -694,7 +695,7 @@ class _NotificationSectionViewState extends State<_NotificationSectionView> {
 
         final spacing = DesktopHeaderMenu.isActiveOf(context) ? 2.0 : 0.0;
         if (widget.sliver) {
-          return SliverList.separated(
+          return SuperSliverList.separated(
             itemCount: currentFeed.notifications.length,
             itemBuilder: (context, index) =>
                 row(currentFeed.notifications[index]),
@@ -757,7 +758,7 @@ class NotificationRow extends StatelessWidget {
         ? context.l10n.unreadNotificationlist((line).toString())
         : line;
 
-    Widget row = Padding(
+    Widget standardRow() => Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       child: Container(
         constraints: const BoxConstraints(minHeight: 44),
@@ -819,6 +820,7 @@ class NotificationRow extends StatelessWidget {
         ),
       ),
     );
+    late final Widget row;
     if (DesktopHeaderMenu.isActiveOf(context)) {
       final presentation =
           resolved?.presentation ??
@@ -913,6 +915,8 @@ class NotificationRow extends StatelessWidget {
               when: notification.createdAt!,
               builder: (context, time) => menuRow(time),
             );
+    } else {
+      row = standardRow();
     }
     final interactive = GestureDetector(
       behavior: HitTestBehavior.opaque,

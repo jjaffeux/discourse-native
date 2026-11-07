@@ -732,7 +732,9 @@ class _AccountMenuPopover extends StatelessWidget {
             ShellSelector<bool>(
               select: (_) => isCurrent(),
               builder: (context, current, _) => current
-                  ? UserMenuPanel(onDismiss: controller.close)
+                  ? RepaintBoundary(
+                      child: UserMenuPanel(onDismiss: controller.close),
+                    )
                   : const SizedBox.shrink(),
             ),
           ],

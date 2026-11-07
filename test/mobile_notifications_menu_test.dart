@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +17,95 @@ import 'support/fakes.dart';
 
 void main() {
   notificationScrollTests();
+
+  for (final platform in [
+    TargetPlatform.macOS,
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+  ]) {
+    testWidgets(
+      'fast notification scrolling builds only nearby rows on $platform',
+      (tester) async {
+        await _mount(
+          tester,
+          platform: platform,
+          width: platform == TargetPlatform.macOS ? 1000 : 390,
+          notificationCount: 1000,
+        );
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        await tester.pumpAndSettle();
+        final scrollable = find.descendant(
+          of: find.byType(UserMenuPanel),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+          ),
+        );
+        final position = tester.state<ScrollableState>(scrollable).position;
+        var builtRows = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, firstBuild) {
+          previous?.call(element, firstBuild);
+          if (element.widget is NotificationRow) builtRows++;
+        };
+        try {
+          position.jumpTo(position.maxScrollExtent * .8);
+          await tester.pumpAndSettle();
+        } finally {
+          debugOnRebuildDirtyWidget = previous;
+        }
+        expect(position.pixels, greaterThan(10000));
+        expect(builtRows, lessThan(40));
+        expect(find.byType(NotificationRow).evaluate().length, lessThan(40));
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets('notification animations reuse painted content on $platform', (
+      tester,
+    ) async {
+      await _mount(
+        tester,
+        platform: platform,
+        width: platform == TargetPlatform.macOS ? 1000 : 390,
+        notificationCount: 200,
+      );
+      var titlePaints = 0;
+      final previous = debugOnProfilePaint;
+      debugOnProfilePaint = (object) {
+        previous?.call(object);
+        if (object is RenderParagraph &&
+            object.text.toPlainText() == 'Notifications') {
+          titlePaints++;
+        }
+      };
+      try {
+        await tester.tap(find.byKey(UserMenuButton.bellKey));
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        // Allow initial paint, feed arrival and focus updates, not a repaint
+        // for every animation frame. The mobile overlay mounts asynchronously.
+        expect(titlePaints, inInclusiveRange(1, 3));
+        titlePaints = 0;
+        await tester.tapAt(const Offset(100, 100));
+        for (var frame = 0; frame < 30; frame++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+      } finally {
+        debugOnProfilePaint = previous;
+      }
+      expect(find.byType(UserMenuPanel), findsNothing);
+      expect(
+        titlePaints,
+        lessThanOrEqualTo(1),
+        reason: 'Dismissal can update focus, but motion must reuse the surface',
+      );
+      await tester.tap(find.byKey(UserMenuButton.bellKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('notification-row-1')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     for (final rtl in [false, true]) {
@@ -402,67 +492,80 @@ void main() {
 }
 
 void notificationScrollTests() {
-  for (final scale in [1.0, 2.0]) {
-    testWidgets(
-      'long notification feed mounts only nearby rows at $scale text',
-      (tester) async {
-        final controller = await _mount(
-          tester,
-          notificationCount: 200,
-          scale: scale,
-        );
-        await tester.tap(find.byKey(UserMenuButton.bellKey));
-        await tester.pumpAndSettle();
-        final openedRows = find.byType(NotificationRow).evaluate().length;
-        debugPrint(
-          'notification-scroll opened rows=$openedRows total=200 scale=$scale',
-        );
-        expect(openedRows, lessThan(40));
-        expect(
-          find.byKey(const ValueKey('notification-row-200')),
-          findsNothing,
-        );
+  for (final platform in [
+    TargetPlatform.iOS,
+    TargetPlatform.android,
+    TargetPlatform.macOS,
+  ]) {
+    for (final scale in [1.0, 2.0]) {
+      testWidgets(
+        'long notification feed mounts only nearby rows on $platform at $scale text',
+        (tester) async {
+          final controller = await _mount(
+            tester,
+            notificationCount: 200,
+            platform: platform,
+            width: platform == TargetPlatform.macOS ? 1000 : 390,
+            scale: scale,
+          );
+          await tester.tap(find.byKey(UserMenuButton.bellKey));
+          await tester.pumpAndSettle();
+          final openedRows = find.byType(NotificationRow).evaluate().length;
+          debugPrint(
+            'notification-scroll opened rows=$openedRows total=200 scale=$scale',
+          );
+          expect(openedRows, lessThan(40));
+          expect(
+            find.byKey(const ValueKey('notification-row-200')),
+            findsNothing,
+          );
 
-        await tester.drag(
-          find.byKey(const ValueKey('sheet-drag-handle')),
-          const Offset(0, -500),
-        );
-        await tester.pumpAndSettle();
-        final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
-        final tabsRect = tester.getRect(tabs);
-        final scrollable = find.descendant(
-          of: find.byType(UserMenuPanel),
-          matching: find.byWidgetPredicate(
-            (widget) => widget is Scrollable && widget.axis == Axis.vertical,
-          ),
-        );
-        await tester.scrollUntilVisible(
-          find.byKey(const ValueKey('notification-row-200')),
-          500,
-          scrollable: scrollable,
-          maxScrolls: 200,
-        );
-        await tester.pumpAndSettle();
-        expect(tester.getRect(tabs), tabsRect);
-        expect(find.byType(NotificationRow).evaluate().length, lessThan(40));
-        expect(find.byKey(const ValueKey('notification-row-1')), findsNothing);
-        expect(
-          find.byKey(const ValueKey('notification-row-200')).hitTestable(),
-          findsOneWidget,
-        );
-        await tester.tap(find.byKey(const ValueKey('notification-row-200')));
-        await tester.pumpAndSettle();
-        expect(
-          controller
-              .notificationsFor('https://meta.example')
-              .notifications
-              .last
-              .read,
-          isTrue,
-        );
-        expect(tester.takeException(), isNull);
-      },
-    );
+          if (platform != TargetPlatform.macOS) {
+            await tester.drag(
+              find.byKey(const ValueKey('sheet-drag-handle')),
+              const Offset(0, -500),
+            );
+            await tester.pumpAndSettle();
+          }
+          final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
+          final tabsRect = tester.getRect(tabs);
+          final scrollable = find.descendant(
+            of: find.byType(UserMenuPanel),
+            matching: find.byWidgetPredicate(
+              (widget) => widget is Scrollable && widget.axis == Axis.vertical,
+            ),
+          );
+          await tester.scrollUntilVisible(
+            find.byKey(const ValueKey('notification-row-200')),
+            500,
+            scrollable: scrollable,
+            maxScrolls: 200,
+          );
+          await tester.pumpAndSettle();
+          expect(tester.getRect(tabs), tabsRect);
+          expect(find.byType(NotificationRow).evaluate().length, lessThan(40));
+          expect(
+            find.byKey(const ValueKey('notification-row-1')),
+            findsNothing,
+          );
+          expect(
+            find.byKey(const ValueKey('notification-row-200')).hitTestable(),
+            findsOneWidget,
+          );
+          await tester.tap(find.byKey(const ValueKey('notification-row-200')));
+          await tester.pumpAndSettle();
+          expect(
+            controller
+                .notificationsFor('https://meta.example')
+                .notifications
+                .last
+                .read,
+            isTrue,
+          );
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
   }
 }
 
