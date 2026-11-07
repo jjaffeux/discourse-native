@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
@@ -272,6 +274,9 @@ final class AppSettingsStore {
   AppThemeMode? _sessionThemeMode;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
+  static final Expando<Object> _mutationVersions = Expando();
+  Object get _mutationVersion => _mutationVersions[_persistence] ??= Object();
+  ({Object version, Future<AppSettings> result})? _pendingRead;
 
   bool get _hasSessionChanges =>
       _sessionLimitContentSize != null ||
@@ -296,11 +301,7 @@ final class AppSettingsStore {
         _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
-    final persisted = await _operations.read(
-      owner: _persistence,
-      key: _operationKey,
-      operation: _read,
-    );
+    final persisted = await _readShared();
     // Retain known preferences with session edits if storage later fails.
     // An older read must not replace a session another read already hydrated.
     final settings = _hasSessionChanges
@@ -308,6 +309,32 @@ final class AppSettingsStore {
         : persisted;
     _lastReadSettings = settings;
     return _withSessionSettings(settings);
+  }
+
+  Future<AppSettings> _readShared() {
+    final version = _mutationVersion;
+    final pending = _pendingRead;
+    if (pending != null && identical(pending.version, version)) {
+      return pending.result;
+    }
+    final result = Completer<AppSettings>();
+    final request = result.future;
+    _pendingRead = (version: version, result: request);
+    unawaited(
+      _operations
+          .read(owner: _persistence, key: _operationKey, operation: _read)
+          .then<void>(
+            (value) {
+              if (identical(_pendingRead?.result, request)) _pendingRead = null;
+              result.complete(value);
+            },
+            onError: (Object error, StackTrace stack) {
+              if (identical(_pendingRead?.result, request)) _pendingRead = null;
+              result.completeError(error, stack);
+            },
+          ),
+    );
+    return request;
   }
 
   AppSettings _withSessionSettings(AppSettings settings) => settings.copyWith(
@@ -394,6 +421,7 @@ final class AppSettingsStore {
     AppThemeMode? themeMode,
     TopicListDisplayMode? topicListMode,
   }) {
+    _mutationVersions[_persistence] = Object();
     _sessionLimitContentSize = limitContentSize ?? _sessionLimitContentSize;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;

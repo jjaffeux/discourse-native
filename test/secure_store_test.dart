@@ -500,6 +500,46 @@ void main() {
       });
     }
 
+    test('shared owner invalidates another stores retained push ID', () async {
+      final persistence = _FakeClientIds('old-token');
+      final first = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: persistence,
+      );
+      final replacement = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: persistence,
+      );
+      expect(await first.readPushClientId(), 'old-token');
+      await replacement.writePushClientId('new-token');
+      expect(await first.readPushClientId(), 'new-token');
+      expect(await replacement.readPushClientId(), 'new-token');
+    });
+
+    test('shared owner overtakes another stores pending push read', () async {
+      final release = Completer<void>();
+      final started = Completer<void>();
+      final persistence = _FakeClientIds('old-token')
+        ..snapshotGatedRead = true
+        ..readGate = release
+        ..readStarted = started;
+      final first = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: persistence,
+      );
+      final replacement = SecureStore(
+        storage: _FakeStorage(),
+        pushClientIds: persistence,
+      );
+      final read = first.readPushClientId();
+      await started.future;
+      final write = replacement.writePushClientId('new-token');
+      release.complete();
+      await write;
+      expect(await read, 'new-token');
+      expect(await first.readPushClientId(), 'new-token');
+    });
+
     test('reads the stored ID once and does not rewrite it', () async {
       final pushClientIds = _FakeClientIds('apns-token');
       final store = SecureStore(

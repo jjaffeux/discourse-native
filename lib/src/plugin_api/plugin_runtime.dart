@@ -585,6 +585,12 @@ final class InstalledPlugins {
           'which is owned by ${service.key.owner}.',
         );
       }
+      if (!service.key.accepts(service.value)) {
+        throw PluginInstallationException(
+          'Service ${service.key.id} requires ${service.key.valueType}, '
+          'received ${service.value.runtimeType}.',
+        );
+      }
       final previous = owners[service.key];
       if (previous != null) {
         throw PluginInstallationException(

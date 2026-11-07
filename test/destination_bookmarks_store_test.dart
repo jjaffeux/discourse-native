@@ -33,6 +33,72 @@ const _chat = ContentRoute(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'shared owner preserves bookmarks accepted by replacement stores',
+    () async {
+      final persistence = MemoryDestinationBookmarksPersistence();
+      final first = DestinationBookmarksStore(persistence: persistence);
+      final replacement = DestinationBookmarksStore(persistence: persistence);
+      await first.load();
+      await replacement.load();
+      await first.set(
+        _site,
+        _account,
+        DestinationBookmark.fromRoute(_page)!,
+        bookmarked: true,
+      );
+      await replacement.set(
+        _site,
+        _account,
+        DestinationBookmark.fromRoute(_category)!,
+        bookmarked: true,
+      );
+      final reopened = DestinationBookmarksStore(persistence: persistence);
+      await reopened.load();
+      expect(reopened.entriesFor(_site, _account).map((entry) => entry.route), [
+        _category,
+        _page,
+      ]);
+      expect(first.entriesFor(_site, _account).map((entry) => entry.route), [
+        _category,
+        _page,
+      ]);
+    },
+  );
+
+  test(
+    'shared owner keeps failed replacement writes out of committed state',
+    () async {
+      final persistence = _GatedPersistence();
+      final first = DestinationBookmarksStore(persistence: persistence);
+      final replacement = DestinationBookmarksStore(persistence: persistence);
+      await first.load();
+      await replacement.load();
+      final failed = first.set(
+        _site,
+        _account,
+        DestinationBookmark.fromRoute(_page)!,
+        bookmarked: true,
+      );
+      final rejected = expectLater(failed, throwsStateError);
+      final accepted = replacement.set(
+        _site,
+        _account,
+        DestinationBookmark.fromRoute(_category)!,
+        bookmarked: true,
+      );
+      await pumpEventQueue();
+      expect(first.entriesFor(_site, _account), isEmpty);
+      expect(replacement.entriesFor(_site, _account), isEmpty);
+      persistence.first.complete(false);
+      await rejected;
+      expect(await accepted, isTrue);
+      expect(first.entriesFor(_site, _account).single.route, _category);
+      await first.load();
+      expect(replacement.entriesFor(_site, _account).single.route, _category);
+    },
+  );
+
   test('reload and mutations share one transaction order', () async {
     final persistence = _HeldReadBookmarksPersistence();
     final store = DestinationBookmarksStore(persistence: persistence);

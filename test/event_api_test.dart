@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
-import 'package:discourse_native/src/plugins/discourse_events/event_api.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_event_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/event_fixtures.dart';
@@ -28,7 +28,7 @@ void main() {
           'POST /discourse-post-event/events/42/invite': {'success': 'OK'},
         },
       );
-      final api = EventApi(transport);
+      final api = DiscourseEventApi(transport);
       expect((await api.get(eventSite, 42, credentials)).topicId, 700);
       await api.respond(
         eventSite,
@@ -79,7 +79,7 @@ void main() {
 
   test('null-clearing and bad IDs are not emitted to the server', () async {
     final transport = RecordingPluginTransport();
-    final api = EventApi(transport);
+    final api = DiscourseEventApi(transport);
     await expectLater(
       api.respond(
         eventSite,
@@ -108,7 +108,7 @@ void main() {
           },
         },
       );
-      final api = EventApi(transport);
+      final api = DiscourseEventApi(transport);
       await expectLater(
         api.get(eventSite, 42, credentials),
         throwsFormatException,
@@ -200,13 +200,14 @@ void main() {
           },
         );
 
-        final result = await EventApi(transport, clock: eventTestNow).list(
-          eventSite,
-          credentials,
-          upcoming: upcoming,
-          after: after,
-          before: before,
-        );
+        final result = await DiscourseEventApi(transport, clock: eventTestNow)
+            .list(
+              eventSite,
+              credentials,
+              upcoming: upcoming,
+              after: after,
+              before: before,
+            );
 
         expect(result.map((event) => event.id), [42]);
         expect(transport.requests.map((r) => (r.method, r.path)), [

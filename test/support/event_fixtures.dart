@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
-import 'package:discourse_native/src/plugins/discourse_events/event_api.dart';
+import 'package:discourse_native/src/plugins/discourse_events/discourse_event_api.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_controller.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 
@@ -69,7 +69,7 @@ final class EventTestPorts {
       changes: environment,
     );
     controller = EventController(
-      api: EventApi(this.transport, clock: eventTestNow),
+      api: DiscourseEventApi(this.transport, clock: eventTestNow),
       requests: requests,
       posts: posts,
       siteState: PluginSiteStateHost(

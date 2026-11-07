@@ -91,9 +91,14 @@ class SecureStore {
 
   String? _clientId;
   Future<String>? _clientIdRequest;
-  ({String? value})? _pushClientId;
+  ({String? value, Object version})? _pushClientId;
   Future<String?>? _pushClientIdRequest;
-  Object _pushClientIdVersion = Object();
+  // Replacement stores keep their own read caches but share mutation authority.
+  static final Expando<Object> _pushClientIdVersions = Expando();
+  Object get _pushClientIdVersion =>
+      _pushClientIdVersions[_pushClientIds] ??= Object();
+  set _pushClientIdVersion(Object value) =>
+      _pushClientIdVersions[_pushClientIds] = value;
   late final _ApiKeyState _apiKeyState = _apiKeyStates[_storage] ??=
       _ApiKeyState();
 
@@ -161,7 +166,12 @@ class SecureStore {
   /// A read never answers a value older than a [writePushClientId] issued
   /// before it completed.
   Future<String?> readPushClientId() {
-    if (_pushClientId case (:final value)) return Future.value(value);
+    if (_pushClientId case (
+      :final value,
+      :final version,
+    ) when identical(version, _pushClientIdVersion)) {
+      return Future.value(value);
+    }
     final pending = _pushClientIdRequest;
     if (pending != null) return pending;
 
@@ -193,12 +203,12 @@ class SecureStore {
     // A write issued while this read waited is queued behind it, so reading
     // again answers what that write left.
     if (!identical(_pushClientIdVersion, version)) return _loadPushClientId();
-    return (_pushClientId = (value: value)).value;
+    return (_pushClientId = (value: value, version: version)).value;
   }
 
   /// Completes once [value] is what [readPushClientId] answers, from this
-  /// store and from any store opened later. An unchanged value is not
-  /// rewritten.
+  /// store and every store sharing the persistence owner. An unchanged value
+  /// is not rewritten.
   Future<void> writePushClientId(String value) async {
     final version = _pushClientIdVersion = Object();
     _pushClientId = null;
@@ -212,7 +222,7 @@ class SecureStore {
       },
     );
     if (identical(_pushClientIdVersion, version)) {
-      _pushClientId = (value: value);
+      _pushClientId = (value: value, version: version);
     }
   }
 
