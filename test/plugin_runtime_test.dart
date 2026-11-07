@@ -1904,6 +1904,126 @@ void main() {
       expect(retained.read, throwsStateError);
     });
 
+    for (final failClose in [false, true]) {
+      test(
+        'repeated session close waits for teardown and retains failure $failClose',
+        () async {
+          final events = <String>[];
+          final started = Completer<void>();
+          final release = Completer<void>();
+          late PluginSession session;
+          Future<void>? fromHook;
+          final installed = PluginInstaller.install(
+            PluginManifest([
+              _Module(
+                'feature',
+                sessionFactory: (_, _) => PluginSessionContribution(
+                  lifecycle: _GatedSessionCloseLifecycle(
+                    'feature',
+                    events,
+                    closeStarted: started,
+                    releaseClose: release,
+                    failClose: failClose,
+                    onClose: () => fromHook = session.close(),
+                  ),
+                ),
+              ),
+            ]),
+          );
+          session = installed.openSession(const PluginHostBindings.empty());
+          final first = _closeFailure(session.close());
+          await started.future;
+          var repeatedFinished = false;
+          var reentrantFinished = false;
+          final repeated = _closeFailure(session.close()).then((failure) {
+            repeatedFinished = true;
+            return failure;
+          });
+          final reentrant = _closeFailure(fromHook!).then((failure) {
+            reentrantFinished = true;
+            return failure;
+          });
+          try {
+            await Future<void>.delayed(Duration.zero);
+            expect(repeatedFinished, isFalse);
+            expect(reentrantFinished, isFalse);
+            expect(events, ['feature:close:start']);
+          } finally {
+            release.complete();
+            await Future.wait([first, repeated, reentrant]);
+            await installed.close();
+          }
+          final failure = await first;
+          expect(await repeated, same(failure));
+          expect(await reentrant, same(failure));
+          expect(await _closeFailure(session.close()), same(failure));
+          expect(failure, failClose ? isA<PluginLifecycleException>() : isNull);
+          expect(events, ['feature:close:start', 'feature:close:end']);
+        },
+      );
+    }
+
+    test(
+      'session close publishes its completion before consumer revocation reenters',
+      () async {
+        final events = <String>[];
+        final started = Completer<void>();
+        final release = Completer<void>();
+        final revocationFailure = StateError('revocation failed');
+        late PluginSession session;
+        Future<void>? reentrant;
+        var revocations = 0;
+        final installed = PluginInstaller.install(
+          PluginManifest([
+            _Module(
+              'feature',
+              requiredPorts: const [_revocableHostPort],
+              sessionFactory: (_, _) => PluginSessionContribution(
+                lifecycle: _GatedSessionCloseLifecycle(
+                  'feature',
+                  events,
+                  closeStarted: started,
+                  releaseClose: release,
+                  failClose: true,
+                ),
+              ),
+            ),
+          ]),
+        );
+        session = installed.openSession(
+          PluginHostBindings([
+            PluginHostPort<Object>(
+              _revocableHostPort,
+              _RevocableHost(),
+              scopeToConsumer: (_) => _RevocableHost(),
+              revokeConsumer: (_) {
+                revocations++;
+                if (revocations == 1) reentrant = session.close();
+                throw revocationFailure;
+              },
+            ),
+          ]),
+        );
+        final first = _closeFailure(session.close());
+        final joined = _closeFailure(reentrant!);
+        try {
+          await started.future;
+          expect(revocations, 1);
+        } finally {
+          release.complete();
+          await Future.wait([first, joined]);
+          await installed.close();
+        }
+        final failure = await first;
+        expect(failure, isA<PluginLifecycleException>());
+        expect(await joined, same(failure));
+        final failures = (failure as PluginLifecycleException).failures;
+        expect(failures, hasLength(2));
+        expect(failures.first, same(revocationFailure));
+        expect(events, ['feature:close:start', 'feature:close:end']);
+      },
+    );
+
     test('session close drains an in-flight hook before teardown', () async {
       final events = <String>[];
       final hookStarted = Completer<void>();
@@ -2616,4 +2736,13 @@ final class _CountingInstalledCapability
   String? mergeAfterPostEdit(String? held, String? incoming) => incoming;
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+Future<Object?> _closeFailure(Future<void> operation) async {
+  try {
+    await operation;
+    return null;
+  } catch (error) {
+    return error;
+  }
 }

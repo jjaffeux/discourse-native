@@ -816,17 +816,28 @@ final class PluginSession {
     );
   }
 
+  /// Repeated callers observe the same teardown completion and failure.
   Future<void> close() {
-    if (_closed) return Future<void>.value();
     final pending = _closeFuture;
     if (pending != null) return pending;
+    if (_closed) return Future<void>.value();
+    // Revocation and lifecycle hooks can synchronously call close again.
+    final completion = Completer<void>();
+    _closeFuture = completion.future;
     _closing = true;
     final failures = <Object>[];
     _revokeConsumers(_consumerRevocations, failures);
     _consumerRevocations.clear();
-    final close = _lifecycleOperations.run(() => _close(failures));
-    _closeFuture = close;
-    return close;
+    unawaited(
+      _lifecycleOperations
+          .run(() => _close(failures))
+          .then<void>(
+            (_) => completion.complete(),
+            onError: (Object error, StackTrace stackTrace) =>
+                completion.completeError(error, stackTrace),
+          ),
+    );
+    return completion.future;
   }
 
   Future<void> _close(List<Object> failures) async {
