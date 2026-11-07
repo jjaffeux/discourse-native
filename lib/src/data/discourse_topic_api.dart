@@ -36,7 +36,7 @@ final class DiscourseTopicApi {
     if (toggles.isEmpty || toggles.length > 50) {
       throw ArgumentError.value(toggles.length, 'toggles');
     }
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/checklist/toggle.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -77,7 +77,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     if (topicIds != null && topicIds.isEmpty) return [];
-    final result = await _write(
+    final result = await _transport.write(
       Uri.parse('$siteUrl/topics/reset-new'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -116,7 +116,7 @@ final class DiscourseTopicApi {
         workerProjection: _topicListProjection,
       );
     }
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl$path'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -170,7 +170,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(id, 'id');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/t/$id.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -247,7 +247,7 @@ final class DiscourseTopicApi {
     final timings = {
       for (final postNumber in postNumbers) '$postNumber': milliseconds,
     };
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/topics/timings.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -269,7 +269,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/notifications'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -287,7 +287,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/${pinned ? 're-pin' : 'clear-pin'}'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -306,7 +306,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(topicId, 'topicId');
     final action = archived ? 'archive-message' : 'move-to-inbox';
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/$action'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -325,7 +325,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/status'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -342,7 +342,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -359,7 +359,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -376,7 +376,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/recover.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -441,7 +441,7 @@ final class DiscourseTopicApi {
     _requirePositiveId(topicId, 'topicId');
     _requirePositiveId(postNumber, 'postNumber');
     // TopicsController#posts reads these as filter_post_number and asc.
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/t/$topicId/posts.json').replace(
         queryParameters: {'post_number': '$postNumber', 'asc': '$ascending'},
       ),
@@ -472,7 +472,7 @@ final class DiscourseTopicApi {
       if (includeRaw) 'include_raw=true',
       if (includeSuggested) 'include_suggested=true',
     ].join('&');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/t/$topicId/posts.json?$query'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -501,7 +501,7 @@ final class DiscourseTopicApi {
       throw ArgumentError.value(revision, 'revision', 'must be at least 2');
     }
     final target = revision?.toString() ?? 'latest';
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/posts/$postId/revisions/$target.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -523,7 +523,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(topicId, 'topicId');
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/t/$topicId.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -548,7 +548,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/tags.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -565,7 +565,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -582,7 +582,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/posts/$postId/permanently_delete_check.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -603,7 +603,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(topicId, 'topicId');
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -620,7 +620,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _validateSelectedPostIds(postIds);
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/destroy_many.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -637,7 +637,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _validateSelectedPostIds(postIds, minimum: 2);
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/merge_posts.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -698,7 +698,7 @@ final class DiscourseTopicApi {
       );
     }
 
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/move-posts.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -745,7 +745,7 @@ final class DiscourseTopicApi {
         'must not be empty',
       );
     }
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/change-owner.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -766,7 +766,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/wiki.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -784,7 +784,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/locked.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -803,7 +803,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/unhide.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -825,7 +825,7 @@ final class DiscourseTopicApi {
         postType != Post.moderatorPostType) {
       throw ArgumentError.value(postType, 'postType', 'must be 1 or 2');
     }
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/post_type.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -843,7 +843,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/notice.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -861,7 +861,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(postId, 'postId');
     return _actedPost(
-      await _write(
+      await _transport.write(
         Uri.parse('$siteUrl/post_actions.json'),
         siteUrl: siteUrl,
         method: 'POST',
@@ -884,7 +884,7 @@ final class DiscourseTopicApi {
     _requirePositiveId(postId, 'postId');
     _requirePositiveId(postActionTypeId, 'postActionTypeId');
     final post = _actedPost(
-      await _write(
+      await _transport.write(
         Uri.parse('$siteUrl/post_actions.json'),
         siteUrl: siteUrl,
         method: 'POST',
@@ -914,7 +914,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(topicId, 'topicId');
     _requirePositiveId(postActionTypeId, 'postActionTypeId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/post_actions.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -940,7 +940,7 @@ final class DiscourseTopicApi {
   }) async {
     _requirePositiveId(postId, 'postId');
     return _actedPost(
-      await _write(
+      await _transport.write(
         Uri.parse(
           '$siteUrl/post_actions/$postId.json'
           '?post_action_type_id=${Post.likeActionId}',
@@ -968,7 +968,7 @@ final class DiscourseTopicApi {
     if (limit < 1 || limit > PostLikers.maximumPageSize) {
       throw RangeError.range(limit, 1, PostLikers.maximumPageSize, 'limit');
     }
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse(
         '$siteUrl/post_action_users.json'
         '?id=$postId&post_action_type_id=${Post.likeActionId}&limit=$limit',
@@ -988,7 +988,7 @@ final class DiscourseTopicApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/posts/$postId/recover.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -997,36 +997,6 @@ final class DiscourseTopicApi {
       body: const {},
     );
   }
-
-  Future<Map<String, dynamic>> _write(
-    Uri url, {
-    required String siteUrl,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-  }) => _transport.write(
-    url,
-    siteUrl: siteUrl,
-    method: method,
-    apiKey: apiKey,
-    body: body,
-    clientId: clientId,
-  );
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-    Future<void>? abortTrigger,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-    abortTrigger: abortTrigger,
-  );
 
   Future<T> _getTopicModel<T>(
     Uri url, {
@@ -1046,7 +1016,7 @@ final class DiscourseTopicApi {
     final recipe = _models.topicModelRecipe;
     if (recipe == null) {
       return project(
-        await _getObject(
+        await _transport.getObject(
           url,
           siteUrl: siteUrl,
           apiKey: apiKey,

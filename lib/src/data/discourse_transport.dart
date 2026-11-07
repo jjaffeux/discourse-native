@@ -275,7 +275,7 @@ final class DiscourseTransport {
     try {
       _requireCredentialOrigin(request.url, siteUrl);
       AccountRequestScope.current?.validate(siteUrl, apiKey, clientId);
-      request.headers.addAll(authHeaders(apiKey, clientId: clientId));
+      request.headers.addAll(_authHeaders(apiKey, clientId: clientId));
       return await send(
         request,
         requestTimeout: requestTimeout,
@@ -324,7 +324,7 @@ final class DiscourseTransport {
         request.headers['User-Agent'] = discourseUserAgent;
         if (accept != null) request.headers['Accept'] = accept;
         if (apiKey != null) {
-          request.headers.addAll(authHeaders(apiKey, clientId: clientId));
+          request.headers.addAll(_authHeaders(apiKey, clientId: clientId));
         }
         scope?.validateRequest(requestUrl, request.headers);
         response = await _gets.send(
@@ -616,7 +616,10 @@ final class DiscourseTransport {
     }
   }
 
-  static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
+  static Map<String, String> _authHeaders(
+    String apiKey, {
+    String? clientId,
+  }) => {
     'User-Api-Key': apiKey,
     if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
     'User-Agent': discourseUserAgent,

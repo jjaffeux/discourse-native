@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:http/http.dart' as http;
 
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
@@ -44,7 +43,7 @@ final class DiscourseSearchApi {
       );
     }
     if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/search/query.json').replace(
         queryParameters: {
           'term': term,
@@ -75,7 +74,7 @@ final class DiscourseSearchApi {
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     if (topicId != null) _requirePositiveId(topicId, 'topicId');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/search/users.json').replace(
         queryParameters: {
           if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
@@ -108,7 +107,7 @@ final class DiscourseSearchApi {
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/search/users.json').replace(
         queryParameters: {
           if (term.isNotEmpty) 'term': term else 'last_seen_users': 'true',
@@ -143,7 +142,7 @@ final class DiscourseSearchApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/recent-searches.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -171,7 +170,7 @@ final class DiscourseSearchApi {
       'limit': '$limit',
       if (topicId != null) 'topic_id': '$topicId',
     };
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/u/search/users.json').replace(queryParameters: query),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -205,7 +204,7 @@ final class DiscourseSearchApi {
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/tags/filter/search.json').replace(
         queryParameters: {
           'q': term,
@@ -248,7 +247,7 @@ final class DiscourseSearchApi {
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse(
         '$siteUrl/tag_groups/filter/search.json',
       ).replace(queryParameters: {'q': term, 'limit': '$limit'}),
@@ -292,7 +291,7 @@ final class DiscourseSearchApi {
     String? clientId,
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/groups/search.json').replace(
         queryParameters: {if (term.isNotEmpty) 'term': term, 'limit': '$limit'},
       ),
@@ -332,7 +331,7 @@ final class DiscourseSearchApi {
   }) async {
     _validateComposerLookupValue(term, allowEmpty: true);
     _validateHashtagOrder(order);
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/hashtags/search.json').replace(
         // `<String, dynamic>` so the list is emitted as a repeated parameter.
         // A `Map<String, String>` would stringify it to `[category, tag]` and
@@ -377,7 +376,7 @@ final class DiscourseSearchApi {
     }
     final requested = slugs.toSet();
 
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/hashtags.json').replace(
         queryParameters: <String, dynamic>{'slugs[]': slugs, 'order[]': order},
       ),
@@ -439,7 +438,7 @@ final class DiscourseSearchApi {
       (requested[name.toLowerCase()] ??= {}).add(name);
     }
 
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/composer/mentions').replace(
         queryParameters: <String, dynamic>{
           'names[]': asked,
@@ -469,28 +468,6 @@ final class DiscourseSearchApi {
       );
     }
   }
-
-  Future<http.Response> _get(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) =>
-      _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-    Duration? requestTimeout,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-    requestTimeout: requestTimeout,
-  );
 
   static void _validateHashtagOrder(List<String> order) {
     if (order.isEmpty || order.length > hashtagsPerRequest) {

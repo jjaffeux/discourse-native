@@ -2,8 +2,8 @@
 
 `DiscourseApi` composes the application's endpoint capabilities from independent
 Dart libraries. Each domain client imports its own models, codec, and transport
-contracts. Its private request helpers and response projections are visible only
-inside that domain library, rather than sharing the facade's private namespace.
+contracts. Its private validation and response projections are visible only inside that
+domain library, rather than sharing the facade's private namespace.
 
 - `DiscourseAccountApi` owns current-user, notification, bookmark, draft, and
   account-preference endpoint policy.
@@ -35,3 +35,16 @@ All five implementation bodies remain unchanged by this migration. Existing
 API, direct-domain, payload, autocomplete, timeout, bookmark, credential, and
 transport tests exercise the same endpoints through the new library boundaries.
 The account projection tests also retain their isolate-transfer checks.
+
+## Direct transport boundary
+
+Endpoint methods call the borrowed transport directly. Eleven former private
+GET, object-GET, and write methods only repeated the transport's arguments;
+removing them leaves request admission, credentials, deadlines, decoding and
+write ambiguity with their actual transport owner. Domain helpers remain where
+they add validation, model projection or endpoint-specific policy.
+
+The transport's credential-header builder is private to its library. The unused
+facade alias is removed, so the facade no longer exposes a second way to build
+transport headers. Existing endpoint, timeout, upload, credential-session and
+transport contract tests exercise these direct calls.

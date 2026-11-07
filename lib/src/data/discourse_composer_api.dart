@@ -31,7 +31,7 @@ final class DiscourseComposerApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/site.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -51,7 +51,7 @@ final class DiscourseComposerApi {
   }) async {
     _validateAutocompleteRequest(term: term, limit: limit);
     if (categoryId != null) _requirePositiveId(categoryId, 'categoryId');
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/tags/filter/search.json').replace(
         queryParameters: <String, dynamic>{
           'q': term,
@@ -85,7 +85,7 @@ final class DiscourseComposerApi {
     if (replyToPostNumber != null) {
       _requirePositiveId(replyToPostNumber, 'replyToPostNumber');
     }
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -135,7 +135,7 @@ final class DiscourseComposerApi {
         'Private messages cannot carry topic creation extensions',
       );
     }
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/posts.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -170,7 +170,7 @@ final class DiscourseComposerApi {
     String? clientId,
   }) async {
     _requirePositiveId(postId, 'postId');
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/posts/$postId.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -204,7 +204,7 @@ final class DiscourseComposerApi {
     String? owner,
     String? clientId,
   }) async {
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/drafts.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -399,7 +399,7 @@ final class DiscourseComposerApi {
     required String draftKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/drafts/${Uri.encodeComponent(draftKey)}.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -421,7 +421,7 @@ final class DiscourseComposerApi {
     required String username,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/posts/${Uri.encodeComponent(username)}/pending.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -432,34 +432,6 @@ final class DiscourseComposerApi {
         ?PendingPost.fromJson(row),
     ];
   }
-
-  Future<Map<String, dynamic>> _write(
-    Uri url, {
-    required String siteUrl,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-  }) => _transport.write(
-    url,
-    siteUrl: siteUrl,
-    method: method,
-    apiKey: apiKey,
-    body: body,
-    clientId: clientId,
-  );
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-  );
 
   static String _absoluteUploadUrl(String siteUrl, String url) =>
       Uri.parse(siteUrl).resolve(url).toString();

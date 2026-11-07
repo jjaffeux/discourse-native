@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:http/http.dart' as http;
 
 import '../foundation/redacted_uri.dart';
 import '../models/discourse_instance.dart';
@@ -263,7 +262,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/about.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -277,7 +276,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/site/settings.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -286,7 +285,7 @@ final class DiscourseSiteApi {
 
     if (jsonText(body['default_homepage'])?.trim().isNotEmpty == true) {
       try {
-        final site = await _getObject(
+        final site = await _transport.getObject(
           Uri.parse('$siteUrl/site.json'),
           siteUrl: siteUrl,
           apiKey: apiKey,
@@ -320,7 +319,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/site.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -339,7 +338,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/site/emoji.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -374,7 +373,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/emojis.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -423,7 +422,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse('$siteUrl/emojis/search-aliases.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -479,7 +478,7 @@ final class DiscourseSiteApi {
     // known-current when this method is entered; dispatching the site metadata
     // request only after the category response could send a key whose session
     // was revoked while that response was in flight.
-    final categoryRequest = _getObject(
+    final categoryRequest = _transport.getObject(
       Uri.parse('$siteUrl/categories.json').replace(
         queryParameters: {
           'include_subcategories': 'true',
@@ -565,7 +564,7 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/tags.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -612,7 +611,7 @@ final class DiscourseSiteApi {
     }
     if (uniqueIds.isEmpty) return const [];
 
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/categories/find.json').replace(
         queryParameters: {
           'ids[]': uniqueIds.map((id) => '$id').toList(growable: false),
@@ -702,7 +701,7 @@ final class DiscourseSiteApi {
     String? clientId,
   }) async {
     try {
-      final body = await _getObject(
+      final body = await _transport.getObject(
         Uri.parse('$siteUrl/site.json'),
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -713,26 +712,6 @@ final class DiscourseSiteApi {
       return (body: null, complete: false);
     }
   }
-
-  Future<http.Response> _get(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) =>
-      _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-  );
 
   static void _requirePositiveId(int value, String name) {
     if (value <= 0) throw RangeError.value(value, name, 'Must be positive.');

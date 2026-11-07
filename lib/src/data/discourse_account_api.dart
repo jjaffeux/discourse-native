@@ -47,7 +47,7 @@ final class DiscourseAccountApi {
   }) async {
     final Map<String, dynamic> body;
     try {
-      body = await _getObject(
+      body = await _transport.getObject(
         Uri.parse('$siteUrl/session/current.json'),
         siteUrl: siteUrl,
         apiKey: apiKey,
@@ -80,7 +80,7 @@ final class DiscourseAccountApi {
     required String username,
     String? clientId,
   }) async {
-    final response = await _get(
+    final response = await _transport.get(
       Uri.parse(
         '$siteUrl/u/${Uri.encodeComponent(username)}/topic-tracking-state.json',
       ),
@@ -112,7 +112,7 @@ final class DiscourseAccountApi {
     required String username,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -130,7 +130,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     _validateUserPreferenceValues(values);
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse(
         '$siteUrl/u/${Uri.encodeComponent(username.toLowerCase())}.json',
       ),
@@ -152,7 +152,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     final authenticated = apiKey != null;
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/${authenticated ? 'sidebar_sections' : 'site'}.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -182,7 +182,7 @@ final class DiscourseAccountApi {
     required List<int> linksOrder,
     String? clientId,
   }) async {
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/sidebar_sections/$sectionId/reorder.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -209,7 +209,7 @@ final class DiscourseAccountApi {
     required int position,
     String? clientId,
   }) async {
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/sidebar_sections/$sourceSectionId/move_link.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -244,7 +244,7 @@ final class DiscourseAccountApi {
     required String apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/notifications/totals.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -274,7 +274,7 @@ final class DiscourseAccountApi {
         },
       },
     );
-    final body = await _getObject(
+    final body = await _transport.getObject(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -293,7 +293,7 @@ final class DiscourseAccountApi {
     required String username,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse(
         '$siteUrl/u/${Uri.encodeComponent(username)}/user-menu-bookmarks.json',
       ),
@@ -338,7 +338,7 @@ final class DiscourseAccountApi {
     final url = Uri.parse(
       '$siteUrl/u/${Uri.encodeComponent(username)}/bookmarks.json',
     ).replace(queryParameters: {'page': '$page'});
-    final body = await _getObject(
+    final body = await _transport.getObject(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -371,7 +371,7 @@ final class DiscourseAccountApi {
         'limit': '$limit',
       },
     );
-    final body = await _getObject(
+    final body = await _transport.getObject(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -392,7 +392,7 @@ final class DiscourseAccountApi {
   }) async {
     _requirePositiveId(targetId, 'targetId');
     _validateBookmarkDraft(name: name, reminderAt: reminderAt);
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/bookmarks.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -429,7 +429,7 @@ final class DiscourseAccountApi {
       reminderAt: reminderAt,
       originalReminderAt: originalReminderAt,
     );
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -451,7 +451,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     _requirePositiveId(bookmarkId, 'bookmarkId');
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/bookmarks/$bookmarkId.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -473,7 +473,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     _requirePositiveId(topicId, 'topicId');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/t/$topicId/remove_bookmarks'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -490,7 +490,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     _requirePositiveId(id, 'id');
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/notifications/mark-read.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -509,7 +509,7 @@ final class DiscourseAccountApi {
     if (types.isEmpty) {
       throw ArgumentError.value(types, 'types', 'Must not be empty');
     }
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/notifications/mark-read.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -525,7 +525,7 @@ final class DiscourseAccountApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}/card.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -566,7 +566,7 @@ final class DiscourseAccountApi {
     if (normalizedEmoji.isEmpty || normalizedEmoji.length > 100) {
       throw ArgumentError.value(emoji, 'emoji', 'must name one emoji');
     }
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/user-status.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -585,7 +585,7 @@ final class DiscourseAccountApi {
     required String apiKey,
     String? clientId,
   }) async {
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/user-status.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -601,7 +601,7 @@ final class DiscourseAccountApi {
     required DoNotDisturbDuration duration,
     String? clientId,
   }) async {
-    final body = await _write(
+    final body = await _transport.write(
       Uri.parse('$siteUrl/do-not-disturb.json'),
       siteUrl: siteUrl,
       method: 'POST',
@@ -621,7 +621,7 @@ final class DiscourseAccountApi {
     required String apiKey,
     String? clientId,
   }) async {
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/do-not-disturb.json'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -638,7 +638,7 @@ final class DiscourseAccountApi {
     required bool hidePresence,
     String? clientId,
   }) async {
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/u/${Uri.encodeComponent(username)}.json'),
       siteUrl: siteUrl,
       method: 'PUT',
@@ -664,7 +664,7 @@ final class DiscourseAccountApi {
     final url = Uri.parse(
       '$siteUrl/drafts.json',
     ).replace(queryParameters: {'offset': '$offset', 'limit': '$limit'});
-    final response = await _get(
+    final response = await _transport.get(
       url,
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -697,7 +697,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     final encoded = Uri.encodeComponent(draftKey);
-    await _write(
+    await _transport.write(
       Uri.parse('$siteUrl/drafts/$encoded.json?sequence=$sequence'),
       siteUrl: siteUrl,
       method: 'DELETE',
@@ -714,7 +714,7 @@ final class DiscourseAccountApi {
     String? clientId,
   }) async {
     final encoded = Uri.encodeComponent(username);
-    final body = await _getObject(
+    final body = await _transport.getObject(
       Uri.parse('$siteUrl/u/$encoded/summary.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
@@ -758,42 +758,6 @@ final class DiscourseAccountApi {
       );
     }
   }
-
-  Future<Map<String, dynamic>> _write(
-    Uri url, {
-    required String siteUrl,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-  }) => _transport.write(
-    url,
-    siteUrl: siteUrl,
-    method: method,
-    apiKey: apiKey,
-    body: body,
-    clientId: clientId,
-  );
-
-  Future<http.Response> _get(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) =>
-      _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-  );
 
   void _validateUserPreferenceValues(Map<String, Object?> values) {
     final unsupported = values.keys.where(
