@@ -14,16 +14,6 @@ void main() {
       expect(link.uri.host, 'meta.discourse.org');
     });
 
-    test('reads numbered and final post positions', () {
-      final numbered = parse('https://meta.discourse.org/t/a/12/34');
-      expect(numbered?.topicId, 12);
-      expect(numbered?.postNumber, 34);
-
-      final named = parse('https://meta.discourse.org/t/a/12/last');
-      expect(named?.topicId, 12);
-      expect(named?.postNumber, 99999999);
-    });
-
     test('reads final positions for root and subfolder permalink shapes', () {
       for (final prefix in ['', '/forum']) {
         for (final path in [
@@ -86,14 +76,10 @@ void main() {
       expect(slugged.postNumber, isNull);
       expect(slugged.slug, 'some-slug');
 
-      final sluggedPost = parse('/t/some-slug/123/4')!;
+      final sluggedPost = parse('/t/some-slug/123/34')!;
       expect(sluggedPost.topicId, 123);
-      expect(sluggedPost.postNumber, 4);
+      expect(sluggedPost.postNumber, 34);
       expect(sluggedPost.slug, 'some-slug');
-    });
-
-    test('resolves a site-relative link, which is how posts are written', () {
-      expect(parse('/t/a-real-topic/12345')?.topicId, 12345);
     });
 
     test('claims nothing but topics', () {
