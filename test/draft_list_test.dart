@@ -1308,6 +1308,36 @@ void main() {
       expect(shell.draftCountFor(_siteUrl), 0);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets(
+      'count publication cannot queue a stale refresh behind a successor',
+      (tester) async {
+        final fixture = await _pumpList(tester);
+        final shell = ShellScope.read(
+          tester.element(find.byType(DraftListView)),
+        );
+        var rotated = false;
+        Future<void>? successor;
+        shell.addListener(() {
+          if (rotated || shell.currentInstance?.user?.draftCount != 0) return;
+          rotated = true;
+          shell.lifecycle.invalidate(_siteUrl);
+          successor = shell.draftList.load(shell.currentInstance!);
+        });
+        final tracker = FakeSiteTracker.built.lastWhere(
+          (tracker) => tracker.siteUrl == _siteUrl && !tracker.disposed,
+        );
+        tracker.deliverPluginMessage('/user-drafts/7', const {
+          'draft_count': 0,
+        });
+        await tester.pumpAndSettle();
+        await successor;
+        expect(rotated, isTrue);
+        expect(fixture.api.userDraftRequests, hasLength(2));
+        expect(shell.draftList.feedFor(_siteUrl).loaded, isTrue);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.linux),
+    );
+
     for (final draftKey in [
       'new_topic',
       'new_topic_1789070000000',

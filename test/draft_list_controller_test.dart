@@ -104,6 +104,69 @@ final class _GatedApiKeys implements SiteApiKeyReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'count reconciliation keeps rows explained by pending and completed deletions',
+    () async {
+      final api = _GatedDraftsApi();
+      final deletion = Completer<void>();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: SiteLifecycle(),
+        deleteDraft: (_, _, _) => deletion.future,
+      );
+      addTearDown(controller.dispose);
+      final instance = _instance.copyWith(
+        user: _instance.user!.withDraftCount(2),
+      );
+      const other = UserDraft(key: 'topic_2', sequence: 1, data: null);
+      final loaded = controller.load(instance);
+      await pumpEventQueue();
+      api.pages.single.complete(const [_draft, other]);
+      await loaded;
+      final removing = controller.delete(instance, _draft);
+      final changed = instance.copyWith(user: instance.user!.withDraftCount(1));
+      await controller.reconcileCount(changed, previousCount: 2);
+      expect(api.pages, hasLength(1));
+      expect(controller.feedFor(_siteUrl).drafts, const [_draft, other]);
+      deletion.complete();
+      expect(await removing, isTrue);
+      await controller.reconcileCount(changed, previousCount: 2);
+      expect(api.pages, hasLength(1));
+      expect(controller.feedFor(_siteUrl).drafts, const [other]);
+      // An unchanged count can still hide a change to the actual draft rows.
+      final duplicate = controller.reconcileCount(changed, previousCount: 1);
+      await pumpEventQueue();
+      expect(api.pages, hasLength(2));
+      api.pages.last.complete(const [other]);
+      await duplicate;
+    },
+  );
+
+  test(
+    'count reconciliation ignores unobserved feeds and stops after retirement publication',
+    () async {
+      final api = _GatedDraftsApi();
+      final lifecycle = SiteLifecycle();
+      final controller = DraftListController(
+        api: api,
+        credentials: _ReadyApiKeys(),
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      await controller.reconcileCount(_instance, previousCount: 0);
+      expect(api.pages, isEmpty);
+      final loaded = controller.load(_instance);
+      await pumpEventQueue();
+      api.pages.single.complete(const [_draft]);
+      await loaded;
+      controller.addListener(() => lifecycle.invalidate(_siteUrl));
+      await controller.reconcileCount(_instance, previousCount: 0);
+      expect(api.pages, hasLength(1));
+      expect(controller.feedFor(_siteUrl).loaded, isFalse);
+    },
+  );
+
   test('a composer preview requests and pages by its own five rows', () async {
     final api = _GatedDraftsApi();
     final controller = DraftListController(

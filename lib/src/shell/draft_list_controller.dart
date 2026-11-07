@@ -83,6 +83,34 @@ final class DraftListController extends FrameSafeNotifier {
     notifySafely();
   }
 
+  Future<void> reconcileCount(
+    DiscourseInstance instance, {
+    required int previousCount,
+  }) {
+    if (isDisposed || !instance.isConnected) return Future<void>.value();
+    final account = _existingAccount(instance.url);
+    if (account == null) return Future<void>.value();
+    final feed = account.feed;
+    if (!feed.loaded && !feed.loading) return Future<void>.value();
+    final count = instance.user!.draftCount;
+    final total = feed.totalCount;
+    final pendingDeletes = feed.drafts
+        .where((draft) => account.deletions.containsKey(draft.key))
+        .length;
+    // A server count can arrive before its local deletion response. Those
+    // deletions already explain the change and must not reset the page.
+    if (total != null &&
+        count <= total &&
+        count >= total - pendingDeletes &&
+        (count < total || count < previousCount)) {
+      return Future<void>.value();
+    }
+    account.feed = feed.withoutTotalCount();
+    notifySafely();
+    if (!account.isCurrent) return Future<void>.value();
+    return load(instance, refresh: true);
+  }
+
   void invalidateTotalCount(String siteUrl) {
     if (isDisposed) return;
     final account = _existingAccount(siteUrl);

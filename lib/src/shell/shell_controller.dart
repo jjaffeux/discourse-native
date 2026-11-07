@@ -4175,6 +4175,7 @@ class ShellController extends FrameSafeNotifier
     final user = instance?.user;
     if (instance == null || user == null) return;
 
+    final lease = lifecycle.capture(siteUrl);
     _currentUsers.reconcilerFor(siteUrl).draftCountChanged();
 
     var current = instance;
@@ -4182,25 +4183,13 @@ class ShellController extends FrameSafeNotifier
       current = instance.copyWith(user: user.withDraftCount(count));
       _replaceInstance(instance, current);
       _notify();
+      if (isDisposed || !lease.isCurrent) return;
       instanceStore.save(List.of(_instances)).ignore();
     }
 
-    final feed = draftList.feedFor(siteUrl);
-    if (!feed.loaded && !feed.loading) return;
-    // The server can publish the count before the delete response arrives.
-    // Keep the existing rows when local deletions already explain the change.
-    final total = feed.totalCount;
-    final pendingDeletes = feed.drafts
-        .where((draft) => draftList.deleting(siteUrl, draft.key))
-        .length;
-    if (total != null &&
-        count <= total &&
-        count >= total - pendingDeletes &&
-        (count < total || count < user.draftCount)) {
-      return;
-    }
-    draftList.invalidateTotalCount(siteUrl);
-    unawaited(draftList.load(current, refresh: true));
+    unawaited(
+      draftList.reconcileCount(current, previousCount: user.draftCount),
+    );
   }
 
   void _seedGroupedUnreadNotifications(String siteUrl, DiscourseUser user) {

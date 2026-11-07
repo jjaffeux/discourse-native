@@ -35,3 +35,21 @@ replacement before old HTTP settles, late errors, deletion-key isolation,
 tombstone/cursor isolation, refresh replay, pagination and deletion during loads.
 The draft list and recovery widget tests cover the unchanged presentation and
 recovery facade.
+
+## Live count reconciliation
+
+The shell parses the live draft count and updates the current-user snapshot.
+`DraftListController.reconcileCount` owns deciding whether that count is explained
+by pending/completed deletions or requires a page refresh. The controller uses
+its own feed total and deletion tickets; the shell no longer reconstructs that
+policy by inspecting rows and individual deletion flags. An unchanged count can
+still represent changed draft contents and retains its existing refresh policy.
+
+The shell captures its account lease before publishing the new user count and
+checks it after synchronous listeners before persistence or reconciliation. The
+controller also checks its captured owner after publishing total invalidation.
+A retirement listener cannot queue stale refresh work behind a successor load.
+
+A pure feed predicate was considered, but would leave callers coordinating the
+controller's deletion tickets and refresh dispatch. The existing controller owns
+all those facts and completes the reconciliation without another adapter.
