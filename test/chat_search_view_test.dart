@@ -31,6 +31,60 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
+  testWidgets(
+    'a mounted search follows the successor account ref after retirement',
+    (tester) async {
+      final api = FakeDiscourseApi(
+        user: _user,
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey('old'): ChatSearchPage(
+            hits: [_hit(1)],
+          ),
+          FakeDiscourseApi.chatSearchKey('new'): ChatSearchPage(
+            hits: [_hit(90)],
+          ),
+          FakeDiscourseApi.chatSearchKey('again'): ChatSearchPage(
+            hits: [_hit(91)],
+          ),
+        },
+      );
+      final controller = await _createController(api);
+      await tester.pumpWidget(_searchWidget(controller));
+      await tester.pumpAndSettle();
+      final field = find.byKey(const ValueKey('chat-search-field'));
+      await tester.enterText(field, 'old');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.text('deploy 1', findRichText: true), findsOneWidget);
+      controller.lifecycle.invalidate(_site);
+      await tester.pumpAndSettle();
+      expect(find.text('deploy 1', findRichText: true), findsNothing);
+      await tester.enterText(field, 'new');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(
+        controller.pluginSession
+            .require(chatSearchControllerService)
+            .globalState(_site)
+            .hits
+            .single
+            .id,
+        90,
+      );
+      expect(find.text('deploy 90', findRichText: true), findsOneWidget);
+      controller.lifecycle.invalidate(_site);
+      await tester.pumpAndSettle();
+      controller.pluginSession
+          .require(chatSearchControllerService)
+          .setGlobalQuery(_site, 'again');
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      expect(find.text('deploy 90', findRichText: true), findsNothing);
+      expect(find.text('deploy 91', findRichText: true), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets(
       'Native sort changes requests and cancels without changing selection on $platform',

@@ -48,11 +48,13 @@ class _HeldSearchApi extends FakeDiscourseApi {
   _HeldSearchApi({
     required this.completion,
     required this.heldOffset,
+    this.heldQuery,
     required super.chatSearchPagesByKey,
   });
 
   final Completer<void> completion;
   final int heldOffset;
+  final String? heldQuery;
 
   @override
   Future<ChatSearchPage> searchChatMessages({
@@ -77,7 +79,9 @@ class _HeldSearchApi extends FakeDiscourseApi {
       excludeThreads: excludeThreads,
       clientId: clientId,
     );
-    if (offset == heldOffset) await completion.future;
+    if (offset == heldOffset && (heldQuery == null || heldQuery == query)) {
+      await completion.future;
+    }
     return page;
   }
 }
@@ -113,6 +117,187 @@ void main() {
     store = Store();
     lifecycle = SiteLifecycle();
   });
+
+  test(
+    'account retirement withdraws cached global Chat search excerpts',
+    () async {
+      final api = FakeDiscourseApi(
+        chatSearchPagesByKey: {
+          FakeDiscourseApi.chatSearchKey('private needle'): ChatSearchPage(
+            hits: [hit(1)],
+          ),
+        },
+      );
+      final search = ChatSearchController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
+        debounceDuration: Duration.zero,
+      );
+      addTearDown(search.dispose);
+      final retainedRef = search.globalRef(site);
+      search.setGlobalQuery(site, 'private needle');
+      await drain();
+      expect(retainedRef.value.hits.single.id, 1);
+      lifecycle.invalidate(site);
+      expect(retainedRef.value.hits, isEmpty);
+      expect(search.globalState(site).hits, isEmpty);
+    },
+  );
+
+  test('retiring one forum leaves another forum search visible', () async {
+    const other = 'https://other.example';
+    credentials.keys[other] = 'other-key';
+    final api = FakeDiscourseApi(
+      chatSearchPagesByKey: {
+        FakeDiscourseApi.chatSearchKey('needle'): ChatSearchPage(
+          hits: [hit(1)],
+        ),
+      },
+    );
+    final search = ChatSearchController(
+      api: api,
+      requests: FakePluginRequestHost(
+        credentials: credentials,
+        lifecycle: lifecycle,
+      ),
+      debounceDuration: Duration.zero,
+    );
+    addTearDown(search.dispose);
+    final retiredRef = search.globalRef(site);
+    final heldRef = search.globalRef(other);
+    search.setGlobalQuery(site, 'needle');
+    search.setGlobalQuery(other, 'needle');
+    await drain();
+    expect(heldRef.value.hits.single.id, 1);
+    lifecycle.invalidate(site);
+    expect(retiredRef.value, const GlobalChatSearchState());
+    expect(heldRef.value.hits.single.id, 1);
+    expect(search.globalState(other), heldRef.value);
+  });
+
+  for (final fail in [false, true]) {
+    test(
+      'retired search ${fail ? 'failure' : 'success'} cannot publish through old or successor refs',
+      () async {
+        final gate = Completer<void>();
+        final api = _HeldSearchApi(
+          completion: gate,
+          heldOffset: 0,
+          heldQuery: 'old',
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('old'): ChatSearchPage(
+              hits: [hit(1)],
+            ),
+            FakeDiscourseApi.chatSearchKey('new'): ChatSearchPage(
+              hits: [hit(90)],
+            ),
+          },
+        );
+        final search = ChatSearchController(
+          api: api,
+          requests: FakePluginRequestHost(
+            credentials: credentials,
+            lifecycle: lifecycle,
+          ),
+          debounceDuration: Duration.zero,
+        );
+        addTearDown(search.dispose);
+        final retiredRef = search.globalRef(site);
+        search.setGlobalQuery(site, 'old');
+        await drain();
+        lifecycle.invalidate(site);
+        expect(retiredRef.value, const GlobalChatSearchState());
+        final successorRef = search.globalRef(site);
+        expect(identical(retiredRef, successorRef), isFalse);
+        search.setGlobalQuery(site, 'new');
+        await drain();
+        expect(successorRef.value.hits.single.id, 90);
+        if (fail) {
+          gate.completeError(StateError('retired request'));
+        } else {
+          gate.complete();
+        }
+        await drain();
+        expect(retiredRef.value, const GlobalChatSearchState());
+        expect(successorRef.value.hits.single.id, 90);
+        expect(successorRef.value.phase, ChatSearchPhase.results);
+      },
+    );
+  }
+
+  for (final earlier in [false, true]) {
+    test(
+      'a ${earlier ? 'prior retirement observer' : 'retired ref listener'} can admit a successor search',
+      () async {
+        final api = FakeDiscourseApi(
+          chatSearchPagesByKey: {
+            FakeDiscourseApi.chatSearchKey('old'): ChatSearchPage(
+              hits: [hit(1)],
+            ),
+            FakeDiscourseApi.chatSearchKey('new'): ChatSearchPage(
+              hits: [hit(90)],
+            ),
+          },
+        );
+        final search = ChatSearchController(
+          api: api,
+          requests: FakePluginRequestHost(
+            credentials: credentials,
+            lifecycle: lifecycle,
+          ),
+          debounceDuration: Duration.zero,
+        );
+        addTearDown(search.dispose);
+        if (earlier) {
+          lifecycle
+              .capture(site)
+              .onRetire(() => search.setGlobalQuery(site, 'new'));
+        }
+        final oldRef = search.globalRef(site);
+        search.setGlobalQuery(site, 'old');
+        await drain();
+        expect(oldRef.value.hits.single.id, 1);
+        if (!earlier) {
+          oldRef.addListener(() {
+            if (oldRef.value.phase == ChatSearchPhase.idle) {
+              search.setGlobalQuery(site, 'new');
+            }
+          });
+        }
+        lifecycle.invalidate(site);
+        expect(oldRef.value, const GlobalChatSearchState());
+        await drain();
+        final successorRef = search.globalRef(site);
+        expect(identical(oldRef, successorRef), isFalse);
+        expect(successorRef.value.hits.single.id, 90);
+        expect(successorRef.value.query, 'new');
+      },
+    );
+  }
+
+  test(
+    'a retired ref listener can dispose search without readmitting an account',
+    () async {
+      final search = ChatSearchController(
+        api: FakeDiscourseApi(),
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
+      );
+      addTearDown(search.dispose);
+      final ref = search.globalRef(site);
+      search.setGlobalQuery(site, 'pending');
+      ref.addListener(search.dispose);
+      lifecycle.invalidate(site);
+      expect(ref.value, const GlobalChatSearchState());
+      expect(search.globalState(site), const GlobalChatSearchState());
+      await drain();
+    },
+  );
 
   group('global search', () {
     testWidgets('rejects overlong retries and sort changes', (tester) async {
@@ -444,10 +629,7 @@ void main() {
           expectCanonicalMessage(store.read<ChatMessage>(site, 2), updated);
           expectCanonicalMessage(messageRef.value, updated);
           expect(store.read<ChatMessage>(site, 3), isNull);
-          expect(
-            search.globalState(site).hits.map((hit) => hit.id),
-            retirement == 'invalidate' && heldOffset != 0 ? [1] : isEmpty,
-          );
+          expect(search.globalState(site).hits.map((hit) => hit.id), isEmpty);
         });
       }
     }

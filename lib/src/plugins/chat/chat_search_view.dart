@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'chat_plugin.dart';
@@ -25,10 +26,10 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   late ChatSearchController _search;
   ChatShellService? _shell;
   String? _boundSite;
+  ValueListenable<GlobalChatSearchState>? _resultsRef;
   final TextEditingController _query = TextEditingController();
   late final FocusNode _focus;
   late final ScrollController _scroll;
-  VoidCallback? _unregisterFocus;
   VoidCallback? _unregisterRefresher;
   bool _ready = false;
   String? _pageQuery;
@@ -83,9 +84,9 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _search = search;
     _shell = shell;
     _boundSite = siteUrl;
+    _resultsRef = search.globalRef(siteUrl)..addListener(_followResultsRef);
     _pageQuery = null;
     _query.text = search.globalState(siteUrl).query;
-    _unregisterFocus = search.registerGlobalFocus(siteUrl, _focus.requestFocus);
     _unregisterRefresher = shell.registerRouteRefresher(
       siteUrl,
       ChatPlugin.searchRouteId,
@@ -94,9 +95,19 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _ready = true;
   }
 
+  void _followResultsRef() {
+    final site = _boundSite;
+    if (!mounted || site == null) return;
+    final current = _search.globalRef(site);
+    if (identical(_resultsRef, current)) return;
+    _resultsRef?.removeListener(_followResultsRef);
+    _resultsRef = current..addListener(_followResultsRef);
+    setState(() {});
+  }
+
   void _detach() {
-    _unregisterFocus?.call();
-    _unregisterFocus = null;
+    _resultsRef?.removeListener(_followResultsRef);
+    _resultsRef = null;
     _unregisterRefresher?.call();
     _unregisterRefresher = null;
   }
@@ -131,7 +142,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<GlobalChatSearchState>(
-      valueListenable: _search.globalRef(widget.siteUrl),
+      valueListenable: _resultsRef!,
       builder: (context, state, _) => Column(
         children: [
           _SearchControls(

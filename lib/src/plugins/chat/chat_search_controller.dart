@@ -75,48 +75,58 @@ final class ChatSearchController {
 
   static const int maximumQueryLength = 2048;
 
-  final Map<String, GlobalChatSearchState> _global = {};
-  final Map<String, FrameSafeValueNotifier<GlobalChatSearchState>> _globalRefs =
-      {};
-  final Map<String, Timer> _globalTimers = {};
-  final Map<String, Object> _globalRequests = {};
-  final Map<String, VoidCallback> _globalFocus = {};
+  final Map<String, _GlobalChatSearchAccount> _accounts = {};
   bool _disposed = false;
 
+  _GlobalChatSearchAccount? _account(String siteUrl) {
+    if (_disposed) return null;
+    final held = _accounts[siteUrl];
+    if (held?.lease.isCurrent == true) return held;
+    if (held != null) _retire(siteUrl, held);
+    if (_disposed) return null;
+    final successor = _accounts[siteUrl];
+    if (successor != null) return successor;
+    final account = _GlobalChatSearchAccount(_requests.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() => _retire(siteUrl, account));
+    return account;
+  }
+
+  bool _owns(String siteUrl, _GlobalChatSearchAccount account) =>
+      !_disposed &&
+      account.lease.isCurrent &&
+      identical(_accounts[siteUrl], account);
+
   ValueListenable<GlobalChatSearchState> globalRef(String siteUrl) =>
-      _globalRefs.putIfAbsent(
-        siteUrl,
-        () => FrameSafeValueNotifier(
-          _global[siteUrl] ?? const GlobalChatSearchState(),
-        ),
-      );
+      _account(siteUrl)?.ref ??
+      FrameSafeValueNotifier(const GlobalChatSearchState());
 
-  GlobalChatSearchState globalState(String siteUrl) =>
-      _global[siteUrl] ?? const GlobalChatSearchState();
-
-  VoidCallback registerGlobalFocus(String siteUrl, VoidCallback focus) {
-    if (_disposed) return () {};
-    _globalFocus[siteUrl] = focus;
-    return () {
-      if (identical(_globalFocus[siteUrl], focus)) {
-        _globalFocus.remove(siteUrl);
-      }
-    };
+  GlobalChatSearchState globalState(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return !_disposed && account?.lease.isCurrent == true
+        ? account!.ref.value
+        : const GlobalChatSearchState();
   }
 
   void setGlobalQuery(String siteUrl, String query) {
-    if (_disposed) return;
-    final held = globalState(siteUrl);
+    final account = _account(siteUrl);
+    if (account == null) return;
+    final held = account.ref.value;
     if (held.query == query) return;
-    _cancelGlobal(siteUrl);
+    _cancelGlobal(account);
     final trimmed = query.trim();
     if (trimmed.isEmpty) {
-      _setGlobal(siteUrl, GlobalChatSearchState(query: query, sort: held.sort));
+      _setGlobal(
+        siteUrl,
+        account,
+        GlobalChatSearchState(query: query, sort: held.sort),
+      );
       return;
     }
     if (trimmed.length > maximumQueryLength) {
       _setGlobal(
         siteUrl,
+        account,
         GlobalChatSearchState(
           query: query,
           sort: held.sort,
@@ -130,66 +140,75 @@ final class ChatSearchController {
     }
     // Listeners may replace or cancel this operation while state is published.
     final run = Object();
-    _globalRequests[siteUrl] = run;
-    final lease = _requests.capture(siteUrl);
+    account.request = run;
+    final lease = account.lease;
     _setGlobal(
       siteUrl,
+      account,
       GlobalChatSearchState(
         query: query,
         sort: held.sort,
         phase: ChatSearchPhase.waiting,
       ),
     );
-    if (_disposed ||
+    if (!_owns(siteUrl, account) ||
         !lease.isCurrent ||
-        !identical(_globalRequests[siteUrl], run)) {
+        !identical(account.request, run)) {
       return;
     }
-    _globalTimers[siteUrl] = Timer(debounceDuration, () {
-      if (!_disposed &&
+    account.timer = Timer(debounceDuration, () {
+      if (_owns(siteUrl, account) &&
           lease.isCurrent &&
-          identical(_globalRequests[siteUrl], run)) {
-        unawaited(_searchGlobal(siteUrl));
+          identical(account.request, run)) {
+        unawaited(_searchGlobal(siteUrl, account));
       }
     });
   }
 
   void setGlobalSort(String siteUrl, ChatSearchSort sort) {
-    if (_disposed) return;
-    final held = globalState(siteUrl);
+    final account = _account(siteUrl);
+    if (account == null) return;
+    final held = account.ref.value;
     if (held.sort == sort) return;
-    _cancelGlobal(siteUrl);
-    unawaited(_searchGlobal(siteUrl, sort: sort));
+    _cancelGlobal(account);
+    unawaited(_searchGlobal(siteUrl, account, sort: sort));
   }
 
   Future<void> retryGlobal(String siteUrl) async {
-    final held = globalState(siteUrl);
-    if (_disposed || !held.hasQuery || held.loadingMore) return;
-    _cancelGlobal(siteUrl);
-    await _searchGlobal(siteUrl);
+    final account = _accounts[siteUrl];
+    if (account == null || !_owns(siteUrl, account)) return;
+    final held = account.ref.value;
+    if (!held.hasQuery || held.loadingMore) return;
+    _cancelGlobal(account);
+    await _searchGlobal(siteUrl, account);
   }
 
   void loadMore(String siteUrl) {
-    final held = globalState(siteUrl);
-    if (_disposed || held.hits.isEmpty || !held.hasMore || held.loadingMore) {
+    final account = _accounts[siteUrl];
+    if (account == null || !_owns(siteUrl, account)) return;
+    final held = account.ref.value;
+    if (held.hits.isEmpty || !held.hasMore || held.loadingMore) {
       return;
     }
-    unawaited(_searchGlobal(siteUrl, append: true));
+    unawaited(_searchGlobal(siteUrl, account, append: true));
   }
 
   Future<void> _searchGlobal(
-    String siteUrl, {
+    String siteUrl,
+    _GlobalChatSearchAccount account, {
     bool append = false,
     ChatSearchSort? sort,
   }) async {
-    _globalTimers.remove(siteUrl)?.cancel();
-    if (_disposed) return;
-    final held = globalState(siteUrl);
+    account.timer?.cancel();
+    account.timer = null;
+    if (!_owns(siteUrl, account)) return;
+    final held = account.ref.value;
     final term = held.query.trim();
     final requestedSort = sort ?? held.sort;
     if (term.isEmpty || term.length > maximumQueryLength) {
       _setGlobal(
         siteUrl,
+        account,
         GlobalChatSearchState(
           query: held.query,
           sort: requestedSort,
@@ -205,18 +224,19 @@ final class ChatSearchController {
     }
     // Listeners may replace or cancel this operation while state is published.
     final run = Object();
-    _globalRequests[siteUrl] = run;
-    final lease = _requests.capture(siteUrl);
+    account.request = run;
+    final lease = account.lease;
     bool current() =>
-        !_disposed &&
+        _owns(siteUrl, account) &&
         lease.isCurrent &&
-        identical(_globalRequests[siteUrl], run);
+        identical(account.request, run);
 
     try {
       if (!current()) return;
       if (append) {
         _setGlobal(
           siteUrl,
+          account,
           GlobalChatSearchState(
             query: held.query,
             sort: requestedSort,
@@ -230,6 +250,7 @@ final class ChatSearchController {
       } else {
         _setGlobal(
           siteUrl,
+          account,
           GlobalChatSearchState(
             query: held.query,
             sort: requestedSort,
@@ -259,6 +280,7 @@ final class ChatSearchController {
         final hits = append ? _appendUnique(held.hits, page.hits) : page.hits;
         _setGlobal(
           siteUrl,
+          account,
           GlobalChatSearchState(
             query: held.query,
             sort: requestedSort,
@@ -277,6 +299,7 @@ final class ChatSearchController {
       lease.commit(() {
         _setGlobal(
           siteUrl,
+          account,
           append
               ? GlobalChatSearchState(
                   query: held.query,
@@ -296,8 +319,8 @@ final class ChatSearchController {
         );
       });
     } finally {
-      if (identical(_globalRequests[siteUrl], run)) {
-        _globalRequests.remove(siteUrl);
+      if (identical(account.request, run)) {
+        account.request = null;
       }
     }
   }
@@ -314,39 +337,49 @@ final class ChatSearchController {
     ]);
   }
 
-  void _setGlobal(String siteUrl, GlobalChatSearchState state) {
-    if (_disposed) return;
-    _global[siteUrl] = state;
-    final ref = _globalRefs[siteUrl];
-    if (ref != null) ref.value = state;
+  void _setGlobal(
+    String siteUrl,
+    _GlobalChatSearchAccount account,
+    GlobalChatSearchState state,
+  ) {
+    if (_owns(siteUrl, account)) account.ref.value = state;
   }
 
-  void _cancelGlobal(String siteUrl) {
-    _globalTimers.remove(siteUrl)?.cancel();
-    _globalRequests.remove(siteUrl);
+  void _cancelGlobal(_GlobalChatSearchAccount account) {
+    account.timer?.cancel();
+    account.timer = null;
+    account.request = null;
+  }
+
+  void _retire(String siteUrl, _GlobalChatSearchAccount account) {
+    if (!identical(_accounts[siteUrl], account)) return;
+    _accounts.remove(siteUrl);
+    account.detach?.call();
+    account.detach = null;
+    _cancelGlobal(account);
+    account.ref.value = const GlobalChatSearchState();
   }
 
   void forget(String siteUrl) {
-    _cancelGlobal(siteUrl);
-    _global.remove(siteUrl);
-    _globalFocus.remove(siteUrl);
-    final globalRef = _globalRefs.remove(siteUrl);
-    globalRef?.value = const GlobalChatSearchState();
+    final account = _accounts[siteUrl];
+    if (account != null) _retire(siteUrl, account);
   }
 
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    for (final timer in _globalTimers.values) {
-      timer.cancel();
+    for (final entry in _accounts.entries.toList()) {
+      _retire(entry.key, entry.value);
     }
-    _globalTimers.clear();
-    _globalRequests.clear();
-    for (final ref in _globalRefs.values) {
-      ref.dispose();
-    }
-    _globalRefs.clear();
-    _global.clear();
-    _globalFocus.clear();
   }
+}
+
+final class _GlobalChatSearchAccount {
+  _GlobalChatSearchAccount(this.lease);
+
+  final PluginSiteLease lease;
+  final ref = FrameSafeValueNotifier(const GlobalChatSearchState());
+  Timer? timer;
+  Object? request;
+  VoidCallback? detach;
 }
