@@ -410,6 +410,8 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
     final composer = _composer;
     final lifecycle = _lifecycleGeneration;
     final operation = ++_pickerGeneration;
+    bool ownsPicker() =>
+        _isCurrent(composer, lifecycle) && operation == _pickerGeneration;
     _setState(
       selectedImage: _state.selectedImage,
       selectedImageGallery: _state.selectedImageGallery,
@@ -419,21 +421,16 @@ final class ComposerMediaEditingCoordinator extends FrameSafeNotifier
       pickingGalleryImages: true,
     );
     try {
+      if (!ownsPicker() || !composer.canUpload) return;
       final files = await pickImages();
-      if (!_isCurrent(composer, lifecycle) ||
-          operation != _pickerGeneration ||
-          !composer.canUpload) {
-        return;
-      }
+      if (!ownsPicker() || !composer.canUpload) return;
       composer.addImagesToGallery(files, gallery);
     } catch (error) {
-      if (_isCurrent(composer, lifecycle) &&
-          operation == _pickerGeneration &&
-          composer.canUpload) {
+      if (ownsPicker() && composer.canUpload) {
         composer.showNotice(appL10n.couldnTOpenTheImagePicker);
       }
     } finally {
-      if (_isCurrent(composer, lifecycle) && operation == _pickerGeneration) {
+      if (ownsPicker()) {
         _setState(
           selectedImage: _state.selectedImage,
           selectedImageGallery: _state.selectedImageGallery,

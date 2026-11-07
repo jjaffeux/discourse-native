@@ -368,3 +368,15 @@ without a flag that silently changes identity semantics. The model handles only
 matching and eligibility. Callers retain their distinct request lifetimes,
 selection revision checks and error policies, including keeping selected tags
 when validation fails to reach the server.
+
+## Gallery picker admission
+
+`ComposerMediaEditingCoordinator` captures the composer, its lifecycle
+revision, and the picker operation before publishing the loading state. The
+same ownership predicate gates opening the platform picker and consuming its
+result. A listener that replaces the composer during loading publication
+therefore cannot open an orphaned picker. Completion or cleanup of that
+operation also cannot alter the replacement composer's picker state.
+
+`composer_media_editing_coordinator_test.dart` covers both replacement during
+publication and replacement while the picker future is pending.

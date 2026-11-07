@@ -57,6 +57,34 @@ void main() {
     );
 
     test(
+      'gallery picker admission ends when publication replaces its composer',
+      () async {
+        final original = _composer(
+          onUpload: () => Completer<ComposerUploadResult>().future,
+        )..text.text = '[grid]\n![inside](upload://inside)\n[/grid]';
+        final replacement = _composer();
+        final coordinator = ComposerMediaEditingCoordinator(original);
+        addTearDown(original.dispose);
+        addTearDown(replacement.dispose);
+        addTearDown(coordinator.dispose);
+        coordinator.selectGallery(original.text.galleryBlocks.single);
+        coordinator.addListener(() {
+          if (coordinator.value.pickingGalleryImages) {
+            coordinator.replaceComposer(replacement);
+          }
+        });
+        var opened = 0;
+        await coordinator.pickImagesForSelectedGallery(() async {
+          opened++;
+          return [];
+        });
+        expect(opened, 0);
+        expect(coordinator.composer, same(replacement));
+        expect(coordinator.value.pickingGalleryImages, isFalse);
+      },
+    );
+
+    test(
       'late gallery picker completion cannot enter a replacement composer',
       () async {
         final picker = Completer<List<ComposerUploadFile>>();
