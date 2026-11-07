@@ -96,9 +96,14 @@ final class ChatConversationReader {
     if (_disposed) return;
     _disposed = true;
     if (--_owner._readers != 0 || !_owner.isCurrent) return;
+    _owner._openIntent = null;
     for (final token in _owner._viewTokens.toList()) {
       _controller._endViewing(_owner, token);
     }
-    _controller._evictRetainedTarget(_owner.key);
+    if (_owner._readers == 0 && _owner.isCurrent) {
+      _owner.syncMessagePins();
+      _owner.disposeReference();
+      _controller._enforceSiteRetention(siteUrl);
+    }
   }
 }

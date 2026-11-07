@@ -15,6 +15,219 @@ import 'chat_thread_controller_test.dart' as threads;
 import 'support/fakes.dart';
 
 void main() {
+  test(
+    'a remounted thread reader owns its open while previous metadata is pending',
+    () async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        chatThreadGate: gate,
+        chatThreadsByKey: {
+          FakeDiscourseApi.chatThreadKey(9, 22): threads.threadDetail(),
+        },
+        chatMessagesByKey: {
+          'thread-9-22': fixtures.page([threads.threadMessage(100)]),
+        },
+      );
+      final subject = fixtures.build(
+        api: api,
+        clock: () => DateTime.utc(2026, 11, 7),
+      );
+      addTearDown(subject.chat.dispose);
+      final previous = subject.chat.acquireReader(
+        fixtures.site,
+        threads.target,
+        readerId: 'tab',
+      );
+      final opening = previous.open();
+      await Future<void>.delayed(Duration.zero);
+      expect(api.chatThreadsRequested, hasLength(1));
+      previous.dispose();
+      final replacement = subject.chat.acquireReader(
+        fixtures.site,
+        threads.target,
+        readerId: 'tab',
+      );
+      addTearDown(replacement.dispose);
+      final reopening = replacement.open();
+      gate.complete();
+      await Future.wait([opening, reopening]);
+      expect(replacement.stream.fetchedOnce, isTrue);
+      expect(replacement.messages.map((message) => message.id), [100]);
+    },
+  );
+
+  test(
+    'passive reader caches release pins and queued arrivals do not defeat the LRU budget',
+    () async {
+      final subject = fixtures.build(
+        channels: {
+          fixtures.site: ChatChannels(
+            public: [fixtures.channel(9), fixtures.channel(10)],
+          ),
+        },
+        messages: {
+          '9': fixtures.page([fixtures.message(100)], canLoadMoreFuture: true),
+          '10': fixtures.page([
+            const ChatMessage(
+              id: 200,
+              channelId: 10,
+              cooked: '<p>200</p>',
+              author: ChatMessageAuthor(id: 2, username: 'sam'),
+            ),
+          ]),
+        },
+        maxRetainedCanonicalMessageIdsPerSite: 50,
+        clock: () => DateTime.utc(2026, 11, 7),
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = fixtures.attachTracker(subject.chat);
+      await subject.chat.loadChannels(fixtures.site);
+      final source = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      source.beginViewing();
+      await source.open();
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'sent',
+        'chat_message': {
+          'id': 101,
+          'chat_channel_id': 9,
+          'cooked': '<p>New arrival</p>',
+          'user': {'id': 2, 'username': 'sam'},
+        },
+      });
+      expect(source.stream.pendingNewMessages, 1);
+      source.dispose();
+      expect(source.isCurrent, isFalse);
+      expect(subject.chat.pinnedMessageCountForTesting(fixtures.site), 0);
+      final cached = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      expect(cached.stream.messageIds, [100]);
+      expect(cached.stream.pendingNewMessages, 1);
+      await cached.open();
+      expect(subject.api.chatMessagesRequested, hasLength(1));
+      cached.dispose();
+      final next = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(10),
+        readerId: 'another-tab',
+      );
+      addTearDown(next.dispose);
+      next.beginViewing();
+      await next.open();
+      final evicted = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      addTearDown(evicted.dispose);
+      expect(evicted.stream.fetchedOnce, isFalse);
+      expect(evicted.stream.messageIds, isEmpty);
+    },
+  );
+
+  test(
+    'disposing a hidden reader releases its local pins while the default send owner survives',
+    () async {
+      final gate = Completer<void>();
+      final subject = fixtures.build(
+        currentUser: const DiscourseUser(id: 7, username: 'reader'),
+        channels: {
+          fixtures.site: ChatChannels(
+            public: [fixtures.channel(9), fixtures.channel(10)],
+          ),
+        },
+        messages: {
+          '9': fixtures.page([fixtures.message(100)]),
+          '10': fixtures.page([
+            const ChatMessage(
+              id: 200,
+              channelId: 10,
+              cooked: '<p>200</p>',
+              author: ChatMessageAuthor(id: 2, username: 'sam'),
+            ),
+          ]),
+        },
+        sendGate: gate,
+        sentMessageId: 101,
+        maxRetainedCanonicalMessageIdsPerSite: 100,
+      );
+      addTearDown(subject.chat.dispose);
+      await subject.chat.loadChannels(fixtures.site);
+      final source = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      final view = source.beginViewing();
+      await source.open();
+      final send = subject.chat.sendMessage(
+        fixtures.site,
+        9,
+        OutgoingChatMessage.text('Pending send'),
+      )!;
+      source.endViewing(view);
+      expect(subject.chat.pinnedMessageCountForTesting(fixtures.site), 2);
+      source.dispose();
+      expect(subject.chat.pinnedMessageCountForTesting(fixtures.site), 1);
+      expect(subject.chat.stream(fixtures.site, 9).localMessageIds, [
+        send.localId,
+      ]);
+      expect(
+        subject.store.read<ChatMessage>(fixtures.site, send.localId),
+        isNotNull,
+      );
+      await subject.chat.openChannel(fixtures.site, 10);
+      final reopened = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      addTearDown(reopened.dispose);
+      expect(reopened.stream.messageIds, isEmpty);
+      expect(reopened.stream.localMessageIds, [send.localId]);
+      gate.complete();
+      await send.settled;
+      expect(
+        subject.store.read<ChatMessage>(fixtures.site, send.localId)?.delivery,
+        ChatMessageDelivery.sent,
+      );
+    },
+  );
+
+  test(
+    'forgetting an account clears passive reader windows before reacquisition',
+    () async {
+      final subject = fixtures.build(
+        messages: {
+          '9': fixtures.page([fixtures.message(100)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      final source = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      await source.open();
+      source.dispose();
+      subject.chat.forget(fixtures.site);
+      final replacement = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'tab',
+      );
+      addTearDown(replacement.dispose);
+      expect(replacement.stream.fetchedOnce, isFalse);
+      expect(replacement.messages, isEmpty);
+    },
+  );
+
   for (final target in <ChatStreamTarget>[
     const ChatChannelTarget(9),
     threads.target,
