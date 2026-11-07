@@ -23,10 +23,11 @@ final class ChatSearchResponse {
 
   factory ChatSearchResponse.fromJson(Map<String, dynamic> json) {
     final records = <ChatSearchRecord>[];
-    final entries = jsonObjects(
+    final entries = jsonArray(
       json['messages'],
     ).take(maximumPageSize).toList(growable: false);
     for (final entry in entries) {
+      if (entry is! Map<String, dynamic>) continue;
       final channel = entry['channel'];
       if (channel is! Map<String, dynamic>) continue;
       final id = jsonInt(entry['id']);

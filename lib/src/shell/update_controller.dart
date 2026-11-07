@@ -82,9 +82,11 @@ class UpdateController extends FrameSafeNotifier {
     if (!_isCurrent(revision)) return;
 
     final last = _lastChecked;
+    final now = DateTime.now();
     if (mustCheckHydratedChannel ||
         last == null ||
-        DateTime.now().difference(last) >= _recheckAfter) {
+        last.isAfter(now) ||
+        now.difference(last) >= _recheckAfter) {
       await check(silent: true);
     }
   }

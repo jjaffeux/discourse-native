@@ -1,9 +1,32 @@
+import 'package:discourse_native/src/plugins/local_dates/local_date.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_composer_parser.dart';
+import 'package:discourse_native/src/plugins/local_dates/local_date_environment.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/alert_fixtures.dart';
 
 void main() {
+  test('regression: quoted alert timestamps resolve as native local dates', () {
+    final environment = LocalDateEnvironment.instance..ensureDatabase();
+    final alert = PrometheusAlert.decode(alertJson())!;
+    final blocks = parseLocalDateComposerBlocks(
+      alert.quoteContents,
+      environment: environment,
+    );
+    expect(blocks, hasLength(1));
+    final block = blocks.single;
+    final instant = LocalDateFormatter(environment: environment).resolveInstant(
+      LocalDateSpec(
+        date: block.attribute('date')!,
+        time: block.attribute('time'),
+        timezone: block.attribute('timezone'),
+        fallbackText: '',
+      ),
+    );
+    expect(instant, DateTime.utc(2020, 7, 27, 17, 26, 49));
+  });
+
   test('groups statuses in priority order and datacenters alphabetically', () {
     final data = AlertData.decode({
       'alert_data': [
@@ -114,13 +137,13 @@ void main() {
     },
   );
 
-  test('quotes the alert with its precise opening timestamp and description', () {
+  test('quotes the alert with its opening time and description', () {
     final alert = PrometheusAlert.decode(
       alertJson(status: 'resolved', description: 'High latency'),
     )!;
     expect(
       alert.quoteContents,
-      '**myalert** - sjc1 - [date=2020-07-27 time=17:26:49.526234Z displayedTimezone=UTC format="YYYY-MM-DD HH:mm"] - High latency',
+      '**myalert** - sjc1 - [date=2020-07-27 time=17:26:49 timezone=UTC displayedTimezone=UTC format="YYYY-MM-DD HH:mm"] - High latency',
     );
   });
 

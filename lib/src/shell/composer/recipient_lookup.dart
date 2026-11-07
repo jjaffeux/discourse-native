@@ -80,7 +80,13 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     notifyListeners();
     _debounce = Timer(const Duration(milliseconds: 200), () async {
       if (!_isCurrent) return;
-      final results = await _search.search(query.trim());
+      final FoundUsersAndGroups results;
+      try {
+        results = await _search.search(query.trim());
+      } catch (_) {
+        // Keep the query editable so the reader can retry the lookup.
+        return;
+      }
       if (!_isCurrent || generation != _generation) return;
       _results = results;
       notifyListeners();

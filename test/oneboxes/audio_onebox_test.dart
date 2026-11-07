@@ -11,6 +11,25 @@ import 'package:html/parser.dart' as html;
 import '../support/fakes.dart';
 
 void main() {
+  test('regression: relative onebox audio retains the forum subfolder', () {
+    for (final site in [
+      'https://forum.test/community',
+      'https://forum.test/community/',
+    ]) {
+      final data = AudioOneboxData.from(
+        html
+            .parseFragment('<audio src="uploads/recording.mp3"></audio>')
+            .children
+            .single,
+        siteUrl: site,
+      )!;
+      expect(
+        data.source.toString(),
+        'https://forum.test/community/uploads/recording.mp3',
+      );
+    }
+  });
+
   test('core audio markup resolves uploads and rejects unsafe URLs', () {
     final data = AudioOneboxData.from(
       html

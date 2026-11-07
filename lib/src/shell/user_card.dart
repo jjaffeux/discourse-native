@@ -252,13 +252,15 @@ class _UserCardHoverContent extends StatelessWidget {
 }
 
 String? usernameFromProfileUrl(Uri url, {String? siteUrl}) {
-  final segments = siteUrl == null
+  final decoded = siteUrl == null
       ? tryUriPathSegments(url)
       : DiscourseInstance.pathSegmentsWithin(siteUrl, url);
-  if (segments == null ||
-      segments.length != 2 ||
-      segments.first != 'u' ||
-      segments.last.isEmpty) {
+  if (decoded == null) return null;
+  final segments = [...decoded];
+  while (segments.isNotEmpty && segments.last.isEmpty) {
+    segments.removeLast();
+  }
+  if (segments.length != 2 || segments.first != 'u') {
     return null;
   }
   return segments.last;

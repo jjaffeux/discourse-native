@@ -35,6 +35,19 @@ Future<GlobalSearchPage> globalPage(Map<String, dynamic> body) =>
     );
 
 void main() {
+  test('regression: chat search counts every raw pagination slot', () async {
+    final body = <String, dynamic>{
+      'messages': [result(1), null, result(2)],
+      'meta': {'offset': 20, 'limit': 3, 'has_more': true},
+    };
+    final dedicated = ChatSearchPage.fromJson(body, site);
+    final global = await globalPage(body);
+    expect(dedicated.consumedCount, 3);
+    expect(global.consumedCount, 3);
+    expect(dedicated.hits.map((hit) => hit.id), [1, 2]);
+    expect(dedicated.offset + dedicated.consumedCount, 23);
+  });
+
   test(
     'both searches accept the same bounded window and consume rejected objects',
     () async {
@@ -73,7 +86,7 @@ void main() {
       };
       final dedicated = ChatSearchPage.fromJson(body, site);
       final global = await globalPage(body);
-      final expected = [for (var id = 9; id <= 37; id++) id];
+      final expected = [for (var id = 9; id <= 35; id++) id];
       expect(dedicated.hits.map((hit) => hit.id), expected);
       expect(
         global.results.map((hit) => hit.id),
@@ -107,7 +120,7 @@ void main() {
         final global = await globalPage(body);
         expect(dedicated.hits, isEmpty);
         expect(global.results, isEmpty);
-        final consumed = messages is List && messages.lastOrNull is Map ? 2 : 0;
+        final consumed = messages is List ? messages.length : 0;
         expect(dedicated.consumedCount, consumed);
         expect(global.consumedCount, consumed);
         expect(dedicated.hasMore, isTrue);

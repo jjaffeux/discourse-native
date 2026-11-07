@@ -375,7 +375,17 @@ class SearchTagHit extends SearchResult {
 
   @override
   String get path {
-    final encoded = Uri.encodeComponent(slug ?? name);
+    var segment = slug ?? name;
+    if (slug != null) {
+      try {
+        segment = Uri.decodeComponent(slug!);
+      } on FormatException {
+        // A literal percent sign is still a valid tag slug.
+      } on ArgumentError {
+        // Preserve a server slug whose escape cannot be decoded.
+      }
+    }
+    final encoded = Uri.encodeComponent(segment);
     return tagId == null || tagId! <= 0
         ? '/tag/$encoded'
         : '/tag/$encoded/$tagId';

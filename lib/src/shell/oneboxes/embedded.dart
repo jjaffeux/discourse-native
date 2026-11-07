@@ -7,6 +7,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../foundation/uri_query.dart';
 import '../open_link.dart';
+import '../site_url.dart';
 
 /// Cooked iframe markup has already passed the forum's iframe allowlist.
 /// Rebuild from its URL and dimensions; never execute srcdoc, event handlers,
@@ -109,7 +110,7 @@ Uri? oneboxHttpUri(String? value, {String? siteUrl}) {
   var uri = Uri.tryParse(source.startsWith('//') ? 'https:$source' : source);
   if (uri == null) return null;
   if (!uri.hasScheme && siteUrl != null) {
-    uri = Uri.tryParse(siteUrl)?.resolveUri(uri);
+    uri = Uri.tryParse(resolveSiteUrl(source, siteUrl));
   }
   if (uri == null ||
       !const {'https', 'http'}.contains(uri.scheme) ||

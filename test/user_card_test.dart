@@ -3,6 +3,25 @@ import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('regression: trailing-slash profile roots still open native cards', () {
+    for (final site in [
+      'https://forum.example',
+      'https://forum.example/community',
+    ]) {
+      expect(
+        usernameFromProfileUrl(Uri.parse('$site/u/sam/'), siteUrl: site),
+        'sam',
+      );
+      expect(
+        usernameFromProfileUrl(
+          Uri.parse('$site/u/sam/activity/'),
+          siteUrl: site,
+        ),
+        isNull,
+      );
+    }
+  });
+
   test(
     'card retains permission, timezone and featured badges in server order',
     () {

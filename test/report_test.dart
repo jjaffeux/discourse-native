@@ -35,6 +35,41 @@ const reportPayload = <String, dynamic>{
 };
 
 void main() {
+  test(
+    'regression: superseded report skips obsolete credential reads',
+    () async {
+      final credentials = FakeCredentials();
+      final api = PendingReportApi();
+      final owner = ReportController(
+        api: api,
+        credentials: credentials,
+        lease: SiteLifecycle().capture('https://forum.example'),
+        siteUrl: 'https://forum.example',
+        report: report,
+        range: range,
+      );
+      addTearDown(owner.dispose);
+      Future<void>? replacement;
+      void selectNewRange() {
+        if (!owner.loading) return;
+        owner.removeListener(selectNewRange);
+        replacement = owner.selectRange(
+          DashboardRange(DateTime(2026, 10, 2), range.end),
+        );
+      }
+
+      owner.addListener(selectNewRange);
+      final original = owner.refresh();
+      await flush();
+      api.pending.single.complete(
+        ReportDetails(result: DashboardReportResult()),
+      );
+      await original;
+      await replacement;
+      expect(credentials.reads, 1);
+    },
+  );
+
   test('regression: Top Uploads exposes string-valued extension choices', () {
     final details = ReportDetails.fromJson({
       'data': {
