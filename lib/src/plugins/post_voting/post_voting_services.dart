@@ -40,6 +40,7 @@ final class PostVotingServices extends FrameSafeNotifier
     implements
         PluginSiteActivator,
         PluginCurrentUserObserver,
+        PluginCoreLinkProjection,
         PluginLinkHandler {
   PostVotingServices({
     required this.api,
@@ -210,6 +211,50 @@ final class PostVotingServices extends FrameSafeNotifier
     }
   }
 
+  static final _commentFragment = RegExp(
+    r'^post-voting-comment-([1-9][0-9]*)$',
+  );
+
+  static int? _commentLinkId(Uri uri) =>
+      int.tryParse(_commentFragment.firstMatch(uri.fragment)?.group(1) ?? '');
+
+  static String _commentLinkQuery(Uri uri, int commentId) => Uri(
+    queryParameters: {
+      ...uri.queryParametersAll,
+      'post-voting-comment': ['$commentId'],
+    },
+  ).query;
+
+  @override
+  ContentRoute? projectCoreLink({
+    required String siteUrl,
+    required String url,
+    required ContentRoute route,
+  }) {
+    if (isDisposed ||
+        settingsFor(siteUrl).enabled == false ||
+        route.topicId == null) {
+      return null;
+    }
+    final uri = Uri.tryParse(url);
+    if (uri == null) return null;
+    final commentId = _commentLinkId(uri);
+    if (commentId == null) return null;
+    try {
+      return ContentRoute.topic(
+        topicId: route.topicId!,
+        slug: route.slug ?? '',
+        title: route.title,
+        subtitle: route.subtitle,
+        color: route.color,
+        postNumber: route.postNumber,
+        query: _commentLinkQuery(uri, commentId),
+      ).withDisplay(icon: route.icon);
+    } on FormatException {
+      return null;
+    }
+  }
+
   @override
   Future<bool> openPluginUrl(
     String url, {
@@ -219,11 +264,7 @@ final class PostVotingServices extends FrameSafeNotifier
     if (isDisposed || url.length > TopicLink.maximumUrlLength) return false;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return false;
-    final match = RegExp(
-      r'^post-voting-comment-([1-9][0-9]*)$',
-    ).firstMatch(uri.fragment);
-    if (match == null) return false;
-    final commentId = int.tryParse(match.group(1)!);
+    final commentId = _commentLinkId(uri);
     if (commentId == null) return false;
     final owner = mostSpecificServingForum(
       navigation.instances,
@@ -281,17 +322,13 @@ final class PostVotingServices extends FrameSafeNotifier
       }
       if (!current()) return true;
       if (topicId == null || topicId <= 0) return false;
-      final query = {
-        ...uri.queryParameters,
-        'post-voting-comment': '$commentId',
-      };
       committed = routeNavigation.pushContent(
         ContentRoute.topic(
           topicId: topicId,
           slug: slug,
           title: slug,
           postNumber: number,
-          query: Uri(queryParameters: query).query,
+          query: _commentLinkQuery(uri, commentId),
         ),
         siteUrl: site,
         origin: origin,

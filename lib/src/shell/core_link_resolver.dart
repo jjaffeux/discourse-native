@@ -29,6 +29,8 @@ final class CoreLinkTarget {
   final Uri _target;
   final DiscourseInstance instance;
 
+  String get url => _target.toString();
+
   bool get isHomepage =>
       const {'', '/'}.contains(instance.pathWithin(_target)) &&
       !_target.hasQuery &&

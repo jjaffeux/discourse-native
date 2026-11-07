@@ -113,6 +113,7 @@ import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/cooking_plugin.dart';
+import '../plugin_api/core_link_projection.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/discourse_model_codec.dart';
@@ -5213,9 +5214,22 @@ class ShellController extends FrameSafeNotifier
       specializedTitle: specializedTitle,
     );
     if (decoded == null) return null;
+    ContentRoute route = decoded;
+    for (final projection
+        in _pluginSession.capabilities<PluginCoreLinkProjection>()) {
+      final projected = projection.projectCoreLink(
+        siteUrl: instance.url,
+        url: target.url,
+        route: route,
+      );
+      if (projected != null) {
+        route = projected;
+        break;
+      }
+    }
     return target.enrich(
-      decoded,
-      category: categoryFor(decoded.categoryId, siteUrl: instance.url),
+      route,
+      category: categoryFor(route.categoryId, siteUrl: instance.url),
       filterCategories: filterCategoriesFor(instance.url),
     );
   }

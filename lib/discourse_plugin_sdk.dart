@@ -112,6 +112,7 @@ export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/composer_syntax.dart';
 export 'src/plugin_api/cooking_plugin.dart';
+export 'src/plugin_api/core_link_projection.dart';
 export 'src/plugin_api/core_plugin_host.dart';
 export 'src/plugin_api/dashboard_report_source.dart';
 export 'src/plugin_api/discourse_model_codec.dart';
