@@ -42,6 +42,8 @@ final class BoardsController extends FrameSafeNotifier
   final _createdTopics =
       <(String, int, int), ({int topicId, PluginSiteLease lease})>{};
   final _entries = <(String, int), BoardHandle>{};
+  final _accounts = <String, _BoardAccount>{};
+  bool _closing = false;
 
   /// Boards no view holds, least recently released first. They keep their
   /// snapshot without live updates, so a board shown again draws at once
@@ -55,22 +57,52 @@ final class BoardsController extends FrameSafeNotifier
   final _revisions = <String, int>{};
   final _trackers = <String, PluginLiveChannelHandle>{};
   bool _foreground = true;
+  bool _hasCurrentAccount(String site) =>
+      !_closing && !isDisposed && _accounts[site]?.lease.isCurrent == true;
+
+  _BoardAccount? _ensureAccount(String site) {
+    if (!enabled(site)) return null;
+    final held = _accounts[site];
+    if (held?.lease.isCurrent == true) return held;
+    if (held != null) _retireAccount(site, held);
+    if (!enabled(site)) return null;
+    final successor = _accounts[site];
+    if (successor != null) return successor;
+    final account = _BoardAccount(requests.capture(site));
+    _accounts[site] = account;
+    account.detach = account.lease.onRetire(
+      () => _retireAccount(site, account),
+    );
+    return account;
+  }
+
+  void _retireAccount(String site, _BoardAccount account) {
+    if (!identical(_accounts[site], account)) return;
+    _accounts.remove(site);
+    account.detach?.call();
+    account.detach = null;
+    _resetSite(site, retire: true, refresh: false);
+  }
+
   void changed() => notifySafely();
   int accountRevision(String site) => _revisions[site] ?? 0;
   bool sourceCurrent(String site, PluginSiteLease lease, int revision) =>
       enabled(site) && lease.isCurrent && accountRevision(site) == revision;
 
   bool enabled(String site) =>
+      !_closing &&
       !isDisposed &&
       (siteState.siteConfigFor(site).plugins.get(boardsSettingsKey)?.enabled ??
           false);
 
   /// Null until a directory read has finished for the current account.
   List<BoardSnapshot>? directory(String site) =>
-      enabled(site) ? _directory[site] : null;
+      enabled(site) && _hasCurrentAccount(site) ? _directory[site] : null;
 
   List<BoardSnapshot>? eligibleBoards(String site, int topicId) =>
-      enabled(site) && siteState.currentUserFor(site) != null
+      enabled(site) &&
+          _hasCurrentAccount(site) &&
+          siteState.currentUserFor(site) != null
       ? _eligibleBoards[(site, topicId)]
       : null;
 
@@ -82,12 +114,14 @@ final class BoardsController extends FrameSafeNotifier
     if (!enabled(site) || siteState.currentUserFor(site) == null) {
       return const [];
     }
+    final account = _ensureAccount(site);
+    if (account == null) return const [];
     final key = (site, topicId);
     if (_eligibleReads[key] case final read?) return read;
     if (!force) {
       if (_eligibleBoards[key] case final boards?) return boards;
     }
-    final lease = requests.capture(site);
+    final lease = account.lease;
     final revision = accountRevision(site);
     final future = () async {
       List<BoardSnapshot> boards;
@@ -121,13 +155,14 @@ final class BoardsController extends FrameSafeNotifier
     bool force = false,
   }) async {
     _observeSettings(site);
-    if (!enabled(site)) return const [];
+    final account = _ensureAccount(site);
+    if (account == null) return const [];
     if (topicId == null) {
       final held = _directoryReads[site];
       if (held != null) return held;
       if (_directory[site] case final boards? when !force) return boards;
     }
-    final lease = requests.capture(site);
+    final lease = account.lease;
     final revision = _revisions[site] ?? 0;
     bool current() =>
         lease.isCurrent && enabled(site) && revision == (_revisions[site] ?? 0);
@@ -181,6 +216,7 @@ final class BoardsController extends FrameSafeNotifier
 
   BoardHandle acquire(String site, int id) {
     _observeSettings(site);
+    _ensureAccount(site);
     final handle = _entries.putIfAbsent((
       site,
       id,
@@ -206,8 +242,13 @@ final class BoardsController extends FrameSafeNotifier
     oldest._retire();
   }
 
-  void forget(String site) => _resetSite(site, retire: true);
-  void _resetSite(String site, {required bool retire}) {
+  void forget(String site) {
+    final account = _accounts.remove(site);
+    account?.detach?.call();
+    _resetSite(site, retire: true);
+  }
+
+  void _resetSite(String site, {required bool retire, bool refresh = true}) {
     _revisions[site] = (_revisions[site] ?? 0) + 1;
     _directory.remove(site);
     _eligibleBoards.removeWhere((key, _) => key.$1 == site);
@@ -220,9 +261,21 @@ final class BoardsController extends FrameSafeNotifier
     _composing.removeWhere(
       (key, lease) => key.$1 == site && (retire || !lease.isCurrent),
     );
-    for (final entry
-        in _entries.values.where((entry) => entry.site == site).toList()) {
-      entry._reset(retire: retire);
+    final entries = _entries.values
+        .where((entry) => entry.site == site)
+        .toList();
+    final subscriptions = [
+      for (final entry in entries) ?entry._clearForReset(retire: retire),
+    ];
+    for (final subscription in subscriptions) {
+      subscription.cancel();
+    }
+    for (final entry in entries) {
+      entry._changed();
+      if (refresh && entry.enabled) {
+        entry._subscribe();
+        unawaited(entry.refresh());
+      }
     }
     notifySafely();
   }
@@ -300,6 +353,14 @@ final class BoardsController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    if (_closing || isDisposed) return;
+    _closing = true;
+    final accounts = _accounts.values.toList();
+    _accounts.clear();
+    for (final account in accounts) {
+      account.detach?.call();
+      account.detach = null;
+    }
     for (final listener in _settingsListeners.values) {
       listener.$1.removeListener(listener.$2);
     }
@@ -318,7 +379,9 @@ final class BoardHandle extends ChangeNotifier {
   final BoardsController owner;
   final String site;
   final int id;
-  BoardSnapshot? snapshot;
+  BoardSnapshot? _snapshot;
+  BoardSnapshot? get snapshot =>
+      !_disposed && owner._hasCurrentAccount(site) ? _snapshot : null;
   String? error;
   bool reading = false, writing = false;
   int _references = 0, _generation = 0;
@@ -343,6 +406,7 @@ final class BoardHandle extends ChangeNotifier {
 
   void _subscribe() {
     if (!enabled ||
+        !owner._hasCurrentAccount(site) ||
         !owner._foreground ||
         _references <= 0 ||
         _subscription != null) {
@@ -355,7 +419,7 @@ final class BoardHandle extends ChangeNotifier {
   }
 
   void release() => owner._release(this);
-  void _reset({required bool retire}) {
+  PluginLiveChannelSubscription? _clearForReset({required bool retire}) {
     _generation++;
     _readToken = null;
     _read = null;
@@ -366,30 +430,26 @@ final class BoardHandle extends ChangeNotifier {
       _writeLease = null;
     }
     _dirty = false;
-    snapshot = null;
+    _snapshot = null;
     error = null;
-    _subscription?.cancel();
+    final subscription = _subscription;
     _subscription = null;
-    _changed();
-    if (enabled) {
-      _subscribe();
-      unawaited(refresh());
-    }
+    return subscription;
   }
 
   void _retire() {
     if (_disposed) return;
     _disposed = true;
     _generation++;
-    snapshot = null;
+    _snapshot = null;
     _subscription?.cancel();
     _subscription = null;
     dispose();
   }
 
   Future<void> refresh() {
-    if (!enabled) {
-      snapshot = null;
+    if (!enabled || owner._ensureAccount(site) == null) {
+      _snapshot = null;
       return Future.value();
     }
     if (_references <= 0) return Future.value();
@@ -428,7 +488,7 @@ final class BoardHandle extends ChangeNotifier {
           continue;
         }
         lease.commit(() {
-          snapshot = board;
+          _snapshot = board;
           error = null;
           owner._updateDirectory(site, id, board);
         });
@@ -442,7 +502,7 @@ final class BoardHandle extends ChangeNotifier {
                   (failure.statusCode == 403 || failure.statusCode == 404) ||
               failure is WriteException &&
                   failure.failure == WriteFailure.forbidden) {
-            snapshot = null;
+            _snapshot = null;
             _subscription?.cancel();
             _subscription = null;
             owner._updateDirectory(site, id, null);
@@ -936,4 +996,11 @@ final class BoardHandle extends ChangeNotifier {
       topicIds: [topicId],
     );
   }
+}
+
+final class _BoardAccount {
+  _BoardAccount(this.lease);
+
+  final PluginSiteLease lease;
+  VoidCallback? detach;
 }

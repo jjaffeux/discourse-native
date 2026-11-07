@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/plugins/boards/boards_controller.dart'
+    show BoardHandle;
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -9,24 +11,232 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/boards_fixture.dart';
 
 void main() {
-  test('board links decline malformed query bytes without navigating', () async {
+  test(
+    'account retirement withdraws a mounted board without fetching a successor',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      expect(handle.snapshot, isNotNull);
+      expect(handle.canWrite, isTrue);
+      final reads = fixture.transport.reads.length;
+      fixture.requests.forget(boardsSite);
+      expect(handle.snapshot, isNull);
+      expect(handle.canWrite, isFalse);
+      expect(handle.reading, isFalse);
+      expect(handle.writing, isFalse);
+      expect(fixture.live.channels, isEmpty);
+      await pumpEventQueue();
+      expect(fixture.transport.reads.length, reads);
+      await handle.refresh();
+      expect(handle.snapshot, isNotNull);
+      expect(handle.canWrite, isTrue);
+    },
+  );
+
+  test('account retirement withdraws the cached board directory', () async {
     final fixture = BoardsFixture();
     addTearDown(fixture.dispose);
-    var navigated = false;
-
-    for (final bytes in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
-      expect(
-        await fixture.navigation.openPluginUrl(
-          '$boardsSite/boards/roadmap/1?card=$bytes',
-          onNavigated: () => navigated = true,
-        ),
-        isFalse,
-        reason: bytes,
-      );
-      expect(fixture.host.currentContent, isNull);
-      expect(navigated, isFalse);
-    }
+    await fixture.controller.loadDirectory(boardsSite);
+    expect(fixture.controller.directory(boardsSite), isNotEmpty);
+    fixture.requests.forget(boardsSite);
+    expect(fixture.controller.directory(boardsSite), isNull);
   });
+
+  test(
+    'account retirement withdraws cached eligible board permissions',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      fixture
+              .transport
+              .responders['GET /boards/api/boards/available.json?allowed_permissions=edit,manage&topic_id=500'] =
+          (_) => {
+            'boards': [fixture.data['board']],
+          };
+      await fixture.controller.loadEligibleBoards(boardsSite, 500);
+      expect(fixture.controller.eligibleBoards(boardsSite, 500), isNotEmpty);
+      fixture.requests.forget(boardsSite);
+      expect(fixture.controller.eligibleBoards(boardsSite, 500), isNull);
+    },
+  );
+
+  for (final fail in [false, true]) {
+    test('retired board read $fail cannot settle its successor', () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      final replies = <Completer<Map<String, dynamic>>>[];
+      fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) {
+        replies.add(Completer());
+        return replies.last.future;
+      };
+      final handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      final old = handle.refresh();
+      await pumpEventQueue();
+      expect(replies.length, 1);
+      fixture.requests.forget(boardsSite);
+      final current = handle.refresh();
+      await pumpEventQueue();
+      expect(replies.length, 2);
+      if (fail) {
+        replies.first.completeError(StateError('retired read'));
+      } else {
+        replies.first.complete(boardFixtureJson());
+      }
+      await old;
+      expect(handle.reading, isTrue);
+      expect(handle.snapshot, isNull);
+      expect(handle.error, isNull);
+      replies.last.complete(boardFixtureJson(canWrite: false));
+      await current;
+      expect(handle.reading, isFalse);
+      expect(handle.snapshot!.canWrite, isFalse);
+    });
+  }
+
+  test('retired directory settlement cannot clear a successor read', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final replies = <Completer<Map<String, dynamic>>>[];
+    fixture.transport.responders['GET /boards/api/boards.json'] = (_) {
+      replies.add(Completer());
+      return replies.last.future;
+    };
+    final old = fixture.controller.loadDirectory(boardsSite);
+    await pumpEventQueue();
+    fixture.requests.forget(boardsSite);
+    final current = fixture.controller.loadDirectory(boardsSite);
+    await pumpEventQueue();
+    expect(replies.length, 2);
+    replies.first.complete({
+      'boards': [fixture.data['board']],
+    });
+    expect(await old, isEmpty);
+    final joined = fixture.controller.loadDirectory(boardsSite);
+    await pumpEventQueue();
+    expect(replies.length, 2);
+    replies.last.complete({
+      'boards': [
+        {...boardObject(fixture.data['board']), 'can_write': false},
+      ],
+    });
+    expect((await current).single.canWrite, isFalse);
+    expect((await joined).single.canWrite, isFalse);
+  });
+
+  test(
+    'retirement clears every handle before a listener admits a successor',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      fixture.transport.responders['GET /boards/api/boards/2.json'] = (_) =>
+          _boardWithId(2);
+      final first = fixture.controller.acquire(boardsSite, 1);
+      final second = fixture.controller.acquire(boardsSite, 2);
+      addTearDown(first.release);
+      addTearDown(second.release);
+      await Future.wait([first.refresh(), second.refresh()]);
+      expect(second.snapshot, isNotNull);
+      final pending = Completer<Map<String, dynamic>>();
+      fixture.transport.responders['GET /boards/api/boards/2.json'] = (_) =>
+          pending.future;
+      Future<void>? successor;
+      first.addListener(() {
+        if (successor != null || first.snapshot != null) return;
+        expect(second.snapshot, isNull);
+        expect(second.canWrite, isFalse);
+        expect(second.reading, isFalse);
+        successor = second.refresh();
+      });
+      fixture.requests.forget(boardsSite);
+      expect(second.reading, isTrue);
+      pending.complete(_boardWithId(2, canWrite: false));
+      await successor;
+      expect(second.snapshot!.canWrite, isFalse);
+    },
+  );
+
+  test(
+    'a prior retirement observer may explicitly refresh a mounted successor',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      late BoardHandle handle;
+      Future<void>? successor;
+      fixture.requests.capture(boardsSite).onRetire(() {
+        expect(handle.snapshot, isNull);
+        expect(handle.canWrite, isFalse);
+        successor = handle.refresh();
+      });
+      handle = fixture.controller.acquire(boardsSite, 1);
+      addTearDown(handle.release);
+      await handle.refresh();
+      final pending = Completer<Map<String, dynamic>>();
+      fixture.transport.responders['GET /boards/api/boards/1.json'] = (_) =>
+          pending.future;
+      fixture.requests.forget(boardsSite);
+      expect(handle.reading, isTrue);
+      pending.complete(boardFixtureJson(canWrite: false));
+      await successor;
+      expect(handle.snapshot!.canWrite, isFalse);
+    },
+  );
+
+  test('retired write cannot release a new account write lane', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+    final oldReply = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['POST /boards/api/boards/1/cards'] = (_) =>
+        oldReply.future;
+    final old = handle.saveStandalone(10, 'Old account', '');
+    await pumpEventQueue();
+    fixture.requests.forget(boardsSite);
+    await handle.refresh();
+    expect(handle.canWrite, isTrue);
+    final currentReply = Completer<Map<String, dynamic>>();
+    fixture.transport.responders['POST /boards/api/boards/1/cards'] = (_) =>
+        currentReply.future;
+    final current = handle.saveStandalone(10, 'New account', '');
+    await pumpEventQueue();
+    oldReply.complete({
+      'card': {'id': 900},
+    });
+    expect((await old).state, BoardWriteState.cancelled);
+    expect(handle.writing, isTrue);
+    currentReply.complete({
+      'card': {'id': 901},
+    });
+    expect((await current).state, BoardWriteState.saved);
+    expect(handle.writing, isFalse);
+  });
+
+  test(
+    'board links decline malformed query bytes without navigating',
+    () async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      var navigated = false;
+
+      for (final bytes in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
+        expect(
+          await fixture.navigation.openPluginUrl(
+            '$boardsSite/boards/roadmap/1?card=$bytes',
+            onNavigated: () => navigated = true,
+          ),
+          isFalse,
+          reason: bytes,
+        );
+        expect(fixture.host.currentContent, isNull);
+        expect(navigated, isFalse);
+      }
+    },
+  );
 
   test('board links retain valid card query navigation', () async {
     final fixture = BoardsFixture();
@@ -1512,4 +1722,10 @@ final class _PausedWriteRequestHost implements PluginRequestHost {
     await ready.future;
     return delegate.writeCredentialFor(siteUrl);
   }
+}
+
+Map<String, dynamic> _boardWithId(int id, {bool canWrite = true}) {
+  final json = boardFixtureJson(canWrite: canWrite);
+  json['board'] = {...boardObject(json['board']), 'id': id};
+  return json;
 }
