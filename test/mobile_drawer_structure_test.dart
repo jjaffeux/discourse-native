@@ -205,7 +205,7 @@ void main() {
       for (final preview in ['chat', 'shortcuts']) {
         await tester.tap(_side(preview));
         await tester.pumpAndSettle();
-        await tester.tap(_menu);
+        shell.closeMobileSidebar();
         await tester.pumpAndSettle();
         await tester.tap(_menu);
         await tester.pumpAndSettle();
@@ -219,7 +219,7 @@ void main() {
       expect(tester.widget<DTabs<String>>(_tabs).value, 'chat');
       await tester.tap(_side('shortcuts'));
       await tester.pumpAndSettle();
-      await tester.tap(_menu);
+      shell.closeMobileSidebar();
       await tester.pumpAndSettle();
       await tester.tap(_menu);
       await tester.pumpAndSettle();
@@ -414,19 +414,32 @@ void main() {
     await _capture(tester, 'forum-drawer-scrolled');
     await tester.tap(_side('chat'));
     await tester.pumpAndSettle();
-    expect(
-      find.byKey(const ValueKey('chat-inbox-channel-4')).hitTestable(),
-      findsOneWidget,
+    final fourthChannel = find.byKey(const ValueKey('chat-inbox-channel-4'));
+    await tester.scrollUntilVisible(
+      fourthChannel,
+      200,
+      scrollable: find
+          .descendant(of: list(), matching: find.byType(Scrollable))
+          .first,
     );
+    await tester.pumpAndSettle();
+    expect(fourthChannel.hitTestable(), findsOneWidget);
     await _capture(tester, 'chat-drawer');
-    expect(
-      tester.getSize(find.byKey(const ValueKey('chat-inbox-channel-1'))).height,
-      56,
+    expect(tester.getSize(fourthChannel).height, 56);
+    await tester.scrollUntilVisible(
+      find.text('Starred'),
+      -200,
+      scrollable: find
+          .descendant(of: list(), matching: find.byType(Scrollable))
+          .first,
     );
+    await tester.pumpAndSettle();
     final starredHeading = find.ancestor(
       of: find.text('Starred'),
       matching: find.byType(DCollapsibleTrigger),
     );
+    await tester.ensureVisible(starredHeading);
+    await tester.pumpAndSettle();
     await tester.tap(starredHeading);
     await tester.pumpAndSettle();
     expect(

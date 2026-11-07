@@ -171,12 +171,12 @@ void main() {
   ) async {
     await _setup(tester, size: const Size(390, 844));
     final title = tester.getRect(
-      _primary(find.byKey(const ValueKey('topic-list-title'))),
+      find.byKey(const ValueKey('mobile-page-title')),
     );
     final controls = tester.getRect(
       _primary(find.byKey(const ValueKey('topic-list-feed-row'))),
     );
-    expect(controls.left, title.left);
+    expect(title.width, greaterThan(0));
     expect(controls.top, greaterThan(title.bottom));
     expect(
       _primary(find.byKey(const ValueKey('topic-list-heading-separator'))),

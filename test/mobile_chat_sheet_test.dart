@@ -18,9 +18,9 @@ import 'package:discourse_native/src/plugins/chat/chat_thread_view.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 

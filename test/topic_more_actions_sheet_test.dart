@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/post_flag_editor.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -80,7 +81,13 @@ void main() {
         tester,
         '${Theme.of(tester.element(_more)).platform.name}-${mode.name}-flat',
       );
-      expect(rect.height, closeTo(144.04, 1));
+      expect(
+        rect.height,
+        closeTo(
+          defaultTargetPlatform == TargetPlatform.android ? 164.8846 : 167.04,
+          1,
+        ),
+      );
       final labels = ['Share topic', 'Flag topic', 'Mark unread'];
       for (final label in labels) {
         expect(find.text(label).hitTestable(), findsOneWidget);
@@ -108,7 +115,7 @@ void main() {
     expect(find.text('Flag topic'), findsOneWidget);
     expect(find.text('Mark unread'), findsOneWidget);
     expect(
-      find.descendant(of: _menuSheet, matching: find.byType(DSheetHeader)),
+      find.descendant(of: _menuSheet, matching: find.byType(DSheetTitle)),
       findsNothing,
     );
     expect(

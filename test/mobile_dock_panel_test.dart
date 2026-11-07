@@ -341,7 +341,7 @@ void main() {
     await openDockPanel(tester);
     expect(panel, findsOneWidget);
     shell.toggleMobileSidebar();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(panel, findsNothing);
     shell.closeMobileSidebar();
     await tester.pumpAndSettle();
@@ -367,7 +367,7 @@ void main() {
     await openDockPanel(tester);
     expect(panel, findsOneWidget);
     shell.toggleMobileSidebar();
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(panel, findsNothing);
     shell.closeMobileSidebar();
     await tester.pumpAndSettle();

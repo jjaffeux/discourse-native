@@ -11,7 +11,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'sidebar_filter_parity_test.dart' as fixture;
-import 'support/shell_test_harness.dart' show desktop, phone;
+import 'support/shell_test_harness.dart'
+    show desktop, phone, primaryMainContent;
 
 void main({
   bool nativeView = false,
@@ -106,11 +107,14 @@ void main({
         await data.shell.applyTopicListFilterQuery('category:1');
         await tester.pumpAndSettle();
         await tester.tap(
-          find.byKey(
-            ValueKey(
-              scale == 1
-                  ? 'topic-list-subcategory-filter-1'
-                  : 'topic-list-category-filter',
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(
+              ValueKey(
+                scale == 1
+                    ? 'topic-list-subcategory-filter-1'
+                    : 'topic-list-category-filter',
+              ),
             ),
           ),
         );

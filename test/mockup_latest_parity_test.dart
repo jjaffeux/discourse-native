@@ -97,7 +97,7 @@ void main() {
     final sheet = find.byType(DSheetContent);
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
     expect(tester.getRect(sheet).top, 8);
-    expect(tester.getRect(handle).top, 15);
+    expect(tester.getRect(handle).top, 16);
     expect(find.byKey(_barTitle).hitTestable(), findsNothing);
     expect(
       find.byKey(const ValueKey('topic-header-compact-layout')),
@@ -115,7 +115,7 @@ void main() {
     scroll.jumpTo(20);
     await tester.pumpAndSettle();
     expect(tester.getTopLeft(firstPost).dy, closeTo(firstTop - 20, .1));
-    expect(tester.getRect(handle).top, 35);
+    expect(tester.getRect(handle).top, 36);
     await _capture(tester, 'topic-partial');
     scroll.jumpTo(600);
     await tester.pumpAndSettle();
@@ -123,7 +123,7 @@ void main() {
     expect(find.byKey(_barTitle).hitTestable(), findsOneWidget);
     expect(
       tester.getRect(handle).top,
-      tester.getRect(find.byKey(const ValueKey('mobile-header'))).bottom + 13,
+      tester.getRect(find.byKey(const ValueKey('mobile-header'))).bottom + 14,
     );
     final pull = await tester.startGesture(tester.getCenter(handle));
     await pull.moveBy(const Offset(0, 20));
@@ -142,7 +142,7 @@ void main() {
     await tester.tap(find.byKey(_barTitle));
     await tester.pumpAndSettle();
     expect(scroll.offset, 0);
-    expect(tester.getRect(handle).top, 15);
+    expect(tester.getRect(handle).top, 16);
     scroll.jumpTo(600);
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('mobile-home-button')));

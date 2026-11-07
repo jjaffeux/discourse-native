@@ -588,12 +588,14 @@ void main() {
 
         await tester.pumpWidget(_topicView(controller));
         await tester.pumpAndSettle();
+        final retained = topicPostList(tester);
+        final retainedKey = retained.key;
+        final retainedExtent = retained.listController!.totalExtent;
         controller.openCurrentTopicPost(80, loadAroundPost: true);
         await tester.pump();
         await tester.pump();
-        final loadingList = topicPostList(tester);
-        final loadingKey = loadingList.key;
-        final whileLoading = loadingList.listController!.totalExtent;
+        expect(topicPostListFinder(), findsNothing);
+        expect(find.byType(TopicLoadingSkeleton), findsOneWidget);
 
         topicGate.complete();
         await tester.pump();
@@ -601,8 +603,8 @@ void main() {
 
         final list = topicPostList(tester);
         expect(find.byKey(const ValueKey(80)), findsOneWidget);
-        expect(list.key, isNot(loadingKey));
-        expect(list.listController!.totalExtent, lessThan(whileLoading / 2));
+        expect(list.key, isNot(retainedKey));
+        expect(list.listController!.totalExtent, lessThan(retainedExtent / 2));
       });
 
       testWidgets('credits every post read on a notified screen', (

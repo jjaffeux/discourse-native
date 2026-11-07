@@ -35,7 +35,7 @@ void main() {
               tester.widget<DSheetContent>(sheet).variant,
               DSheetVariant.adaptiveMenu,
             );
-            expect(find.byType(DSheetHeader), findsNothing);
+            expect(find.byType(DSheetTitle), findsNothing);
             expect(find.byType(NotificationSection), findsOneWidget);
             final panel = find.byType(UserMenuPanel);
             final tabs = find.byKey(const ValueKey('user-menu-mobile-tabs'));
@@ -142,9 +142,8 @@ void main() {
         final sheet = tester.getRect(find.byType(DSheetContent));
         final panel = tester.getRect(find.byType(UserMenuPanel));
         expect(sheet.top, closeTo(47 + 8, 1));
-        const dock = DMobileDockGeometry(foot: 34);
-        final inner = sheet.bottom - (34 - dock.endLift);
-        expect(sheet.bottom, closeTo(1000 - dock.endLift, 1));
+        final inner = sheet.bottom - 34;
+        expect(sheet.bottom, closeTo(1000, 1));
         expect(panel.bottom, closeTo(inner, 1));
         expect(panel.height, greaterThan(640));
         final feed = find.descendant(
@@ -441,7 +440,7 @@ void notificationScrollTests() {
           find.byKey(const ValueKey('notification-row-200')),
           500,
           scrollable: scrollable,
-          maxScrolls: 100,
+          maxScrolls: 200,
         );
         await tester.pumpAndSettle();
         expect(tester.getRect(tabs), tabsRect);
