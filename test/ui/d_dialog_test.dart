@@ -551,6 +551,81 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets(
+      'Escape preserves composing text before normal dismissal on $platform',
+      (tester) async {
+        final text = TextEditingController();
+        addTearDown(text.dispose);
+        final changes = <DDialogChangeDetails<void>>[];
+        await tester.pumpWidget(
+          _host(
+            _dialog<void>(
+              onOpenChanged: changes.add,
+              body: [
+                DTextarea(
+                  key: const ValueKey('dialog-editor'),
+                  controller: text,
+                  autofocus: true,
+                ),
+              ],
+            ),
+            theme: ThemeData(platform: platform),
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final editor = find.byKey(const ValueKey('dialog-editor'));
+        final input = find.descendant(
+          of: editor,
+          matching: find.byType(EditableText),
+        );
+        await tester.showKeyboard(input);
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '変更',
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange(start: 0, end: 2),
+          ),
+        );
+        await tester.pump();
+        expect(
+          tester.widget<EditableText>(input).focusNode.hasPrimaryFocus,
+          isTrue,
+        );
+        expect(text.value.composing, const TextRange(start: 0, end: 2));
+        final changesBeforeEscape = changes.length;
+
+        await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+        final modifiedHandled = await tester.sendKeyEvent(
+          LogicalKeyboardKey.escape,
+        );
+        await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+        await tester.pumpAndSettle();
+        expect(editor, findsOneWidget);
+        expect(changes, hasLength(changesBeforeEscape));
+        expect(modifiedHandled, isFalse);
+
+        final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(editor, findsOneWidget);
+        expect(text.text, '変更');
+        expect(changes, hasLength(changesBeforeEscape));
+        expect(handled, isFalse);
+
+        tester.testTextInput.updateEditingValue(
+          text.value.copyWith(composing: const TextRange.collapsed(2)),
+        );
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(editor, findsNothing);
+        expect(changes.last.reason, DDialogChangeReason.escape);
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   testWidgets('Escape requests close and reports its reason', (tester) async {
     final changes = <DDialogChangeDetails<void>>[];
     await tester.pumpWidget(_host(_dialog<void>(onOpenChanged: changes.add)));

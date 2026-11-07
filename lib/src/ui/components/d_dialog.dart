@@ -578,6 +578,23 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
     super.dispose();
   }
 
+  KeyEventResult _handleEscape(FocusNode node, KeyEvent event) {
+    const escape = SingleActivator(LogicalKeyboardKey.escape);
+    if (!escape.accepts(event, HardwareKeyboard.instance)) {
+      return KeyEventResult.ignored;
+    }
+    final editor = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorStateOfType<EditableTextState>();
+    final value = editor?.widget.controller.value;
+    if (value != null &&
+        value.isComposingRangeValid &&
+        !value.composing.isCollapsed) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
+    widget.onEscapeDismiss();
+    return KeyEventResult.handled;
+  }
+
   @override
   Widget build(BuildContext context) {
     final insets = MediaQuery.viewInsetsOf(context);
@@ -653,11 +670,9 @@ class _DDialogRoutePageState<T> extends State<_DDialogRoutePage<T>> {
       child: presented,
     );
     if (widget.dismissOnEscape) {
-      page = CallbackShortcuts(
-        bindings: {
-          const SingleActivator(LogicalKeyboardKey.escape):
-              widget.onEscapeDismiss,
-        },
+      page = Focus(
+        canRequestFocus: false,
+        onKeyEvent: _handleEscape,
         child: page,
       );
     }
