@@ -10,6 +10,202 @@ import 'package:flutter_test/flutter_test.dart';
 const _siteUrl = 'https://meta.discourse.org';
 
 void main() {
+  test(
+    'retirement releases pause state and permits independent replacement writes',
+    () async {
+      final oldReply = Completer<void>();
+      final newReply = Completer<void>();
+      addTearDown(() {
+        if (!oldReply.isCompleted) oldReply.complete();
+        if (!newReply.isCompleted) newReply.complete();
+      });
+      final lifecycle = SiteLifecycle();
+      final api = _Api()..pauseGate = oldReply;
+      final controller = _controller(api, lifecycle: lifecycle)
+        ..restoreSnapshot(_siteUrl, DateTime.utc(2035));
+      addTearDown(controller.dispose);
+      final old = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.halfHour.duration,
+      );
+      await pumpEventQueue();
+      lifecycle.invalidate(_siteUrl);
+      expect(controller.stateFor(_siteUrl).until, isNull);
+      expect(controller.stateFor(_siteUrl).saving, isFalse);
+      api.pauseGate = newReply;
+      final replacement = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.oneHour.duration,
+      );
+      await pumpEventQueue();
+      expect(api.pauseDurations, hasLength(2));
+      oldReply.complete();
+      await old;
+      expect(controller.stateFor(_siteUrl).saving, isTrue);
+      newReply.complete();
+      expect(await replacement, isNull);
+      expect(controller.stateFor(_siteUrl).saving, isFalse);
+    },
+  );
+
+  test(
+    'a live pause invalidation callback cannot publish into its successor',
+    () {
+      final lifecycle = SiteLifecycle();
+      final committed = <DateTime?>[];
+      late DoNotDisturbController controller;
+      var rotated = false;
+      final successorUntil = DateTime.utc(2036);
+      controller = _controller(
+        _Api(),
+        lifecycle: lifecycle,
+        onCommitted: (_, until) => committed.add(until),
+        onSnapshotInvalidated: (_) {
+          if (rotated) return;
+          rotated = true;
+          lifecycle.invalidate(_siteUrl);
+          controller.restoreSnapshot(_siteUrl, successorUntil);
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.applyMessage(_siteUrl, {
+        'ends_at': DateTime.utc(2035).toIso8601String(),
+      });
+      expect(controller.stateFor(_siteUrl).until, successorUntil);
+      expect(committed, isEmpty);
+    },
+  );
+
+  test(
+    'write cleanup cannot release a successor started by its invalidation hook',
+    () async {
+      final firstReply = Completer<void>();
+      final secondReply = Completer<void>();
+      addTearDown(() {
+        if (!firstReply.isCompleted) firstReply.complete();
+        if (!secondReply.isCompleted) secondReply.complete();
+      });
+      final lifecycle = SiteLifecycle();
+      final api = _Api()..pauseGate = firstReply;
+      late DoNotDisturbController controller;
+      Future<String?>? successor;
+      var invalidations = 0;
+      controller = _controller(
+        api,
+        lifecycle: lifecycle,
+        onSnapshotInvalidated: (_) {
+          if (++invalidations != 2) return;
+          lifecycle.invalidate(_siteUrl);
+          controller.forget(_siteUrl);
+          api.pauseGate = secondReply;
+          successor = controller.pause(
+            _siteUrl,
+            DoNotDisturbOption.oneHour.duration,
+          );
+        },
+      );
+      addTearDown(controller.dispose);
+      final initial = controller.pause(
+        _siteUrl,
+        DoNotDisturbOption.halfHour.duration,
+      );
+      await pumpEventQueue();
+      firstReply.complete();
+      await initial;
+      await pumpEventQueue();
+      expect(api.pauseDurations, hasLength(2));
+      expect(controller.stateFor(_siteUrl).saving, isTrue);
+      secondReply.complete();
+      expect(await successor, isNull);
+      expect(controller.stateFor(_siteUrl).saving, isFalse);
+    },
+  );
+
+  testWidgets('retirement cancels the old pause expiry timer', (tester) async {
+    final now = DateTime.utc(2030);
+    final lifecycle = SiteLifecycle();
+    final committed = <DateTime?>[];
+    final controller = _controller(
+      _Api(),
+      lifecycle: lifecycle,
+      clock: () => now,
+      onCommitted: (_, until) => committed.add(until),
+    )..restoreSnapshot(_siteUrl, now.add(const Duration(seconds: 10)));
+    addTearDown(controller.dispose);
+    lifecycle.invalidate(_siteUrl);
+    await tester.pump(const Duration(seconds: 11));
+    expect(committed, isEmpty);
+    expect(controller.stateFor(_siteUrl).until, isNull);
+  });
+
+  for (final expires in [false, true]) {
+    test(
+      'a newer live snapshot during ${expires ? 'expiry' : 'live'} invalidation wins',
+      () {
+        var now = DateTime.utc(2030);
+        final newer = now.add(const Duration(hours: 2));
+        final committed = <DateTime?>[];
+        late DoNotDisturbController controller;
+        var reentered = false;
+        controller = _controller(
+          _Api(),
+          clock: () => now,
+          onCommitted: (_, until) => committed.add(until),
+          onSnapshotInvalidated: (_) {
+            if (reentered) return;
+            reentered = true;
+            controller.applyMessage(_siteUrl, {
+              'ends_at': newer.toIso8601String(),
+            });
+          },
+        );
+        addTearDown(controller.dispose);
+        if (expires) {
+          controller.restoreSnapshot(
+            _siteUrl,
+            now.add(const Duration(minutes: 1)),
+          );
+          now = now.add(const Duration(minutes: 2));
+          controller.checkExpirations();
+        } else {
+          controller.applyMessage(_siteUrl, {
+            'ends_at': now.add(const Duration(hours: 1)).toIso8601String(),
+          });
+        }
+        expect(controller.stateFor(_siteUrl).until, newer);
+        expect(committed, [newer]);
+      },
+    );
+  }
+
+  testWidgets(
+    'an earlier retirement observer preserves the successor pause timer',
+    (tester) async {
+      final now = DateTime.utc(2030);
+      final lifecycle = SiteLifecycle();
+      final committed = <DateTime?>[];
+      late DoNotDisturbController controller;
+      final successorUntil = now.add(const Duration(seconds: 20));
+      lifecycle.capture(_siteUrl).onRetire(() {
+        controller.restoreSnapshot(_siteUrl, successorUntil);
+      });
+      controller = _controller(
+        _Api(),
+        lifecycle: lifecycle,
+        clock: () => now,
+        onCommitted: (_, until) => committed.add(until),
+      )..restoreSnapshot(_siteUrl, now.add(const Duration(seconds: 10)));
+      addTearDown(controller.dispose);
+      lifecycle.invalidate(_siteUrl);
+      await tester.pump(const Duration(seconds: 11));
+      expect(controller.stateFor(_siteUrl).until, successorUntil);
+      expect(committed, isEmpty);
+      await tester.pump(const Duration(seconds: 10));
+      expect(controller.stateFor(_siteUrl).until, isNull);
+      expect(committed, [null]);
+    },
+  );
+
   test('exposes core pause options and exact wire durations', () {
     expect(DoNotDisturbOption.values.map((option) => option.label), [
       '30 minutes',

@@ -7,7 +7,6 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-
 import '../foundation/frame_safe_notifier.dart';
 import '../models/do_not_disturb.dart';
 
@@ -29,21 +28,45 @@ final class DoNotDisturbController extends FrameSafeNotifier {
   final DoNotDisturbCommitted onCommitted;
   final void Function(String siteUrl)? onSnapshotInvalidated;
   final DateTime Function() _clock;
+  final Map<String, _PauseAccount> _accounts = {};
 
-  final Map<String, DateTime?> _untilBySite = {};
-  final Map<String, Object> _requests = {};
-  final Map<String, int> _revisions = {};
-  final Set<String> _protectsRestoration = {};
-  final Map<String, Timer> _expiryTimers = {};
+  _PauseAccount? _existingAccount(String siteUrl) {
+    final account = _accounts[siteUrl];
+    if (account == null || account.isCurrent) return account;
+    _retireAccount(account);
+    return _accounts[siteUrl];
+  }
 
-  DoNotDisturbState stateFor(String siteUrl) => DoNotDisturbState(
-    until: _untilBySite[siteUrl],
-    saving: _requests.containsKey(siteUrl),
-  );
+  _PauseAccount _accountFor(String siteUrl) {
+    final held = _existingAccount(siteUrl);
+    if (held != null) return held;
+    final account = _PauseAccount(this, siteUrl, lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.observeRetirement();
+    return account;
+  }
+
+  void _retireAccount(_PauseAccount account) {
+    final changed =
+        identical(_accounts[account.siteUrl], account) &&
+        (account.snapshot?.until != null || account.request != null);
+    account.retire();
+    if (changed) notifySafely();
+  }
+
+  DoNotDisturbState stateFor(String siteUrl) {
+    final account = _existingAccount(siteUrl);
+    return DoNotDisturbState(
+      until: account?.snapshot?.until,
+      saving: account?.request != null,
+    );
+  }
 
   void restoreSnapshot(String siteUrl, DateTime? until) {
-    if (_protectsRestoration.contains(siteUrl)) return;
-    _replaceUntil(siteUrl, _activeUntil(until), notify: false);
+    if (isDisposed) return;
+    final account = _accountFor(siteUrl);
+    if (account.protectsRestoration) return;
+    _replaceUntil(account, _activeUntil(until), notify: false);
   }
 
   DateTime? acceptSnapshot(
@@ -51,10 +74,14 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     DateTime? until, {
     required bool isCurrent,
   }) {
-    if (isCurrent && !_requests.containsKey(siteUrl)) {
-      _replaceUntil(siteUrl, _activeUntil(until));
+    if (isDisposed) return null;
+    final account = isCurrent
+        ? _accountFor(siteUrl)
+        : _existingAccount(siteUrl);
+    if (isCurrent && account?.request == null && account != null) {
+      _replaceUntil(account, _activeUntil(until));
     }
-    return _untilBySite[siteUrl];
+    return _existingAccount(siteUrl)?.snapshot?.until;
   }
 
   Future<String?> pause(String siteUrl, DoNotDisturbDuration duration) =>
@@ -84,73 +111,75 @@ final class DoNotDisturbController extends FrameSafeNotifier {
     Future<DateTime?> Function(String apiKey, String clientId) send,
   ) async {
     if (isDisposed) return null;
-    if (_requests.containsKey(siteUrl)) {
+    final account = _accountFor(siteUrl);
+    if (account.request != null) {
       return appL10n.anotherNotificationChangeIsStillFinishing;
     }
 
     final request = Object();
-    final lease = lifecycle.capture(siteUrl);
-    final revision = _bumpRevision(siteUrl);
-    final wasRestorationProtected = _protectsRestoration.contains(siteUrl);
+    final revision = ++account.revision;
+    final wasRestorationProtected = account.protectsRestoration;
     var confirmed = false;
-    _protectsRestoration.add(siteUrl);
-    _requests[siteUrl] = request;
-    _expiryTimers.remove(siteUrl)?.cancel();
-    onSnapshotInvalidated?.call(siteUrl);
-    notifySafely();
-
+    account.protectsRestoration = true;
+    account.request = request;
+    account.timer?.cancel();
+    account.timer = null;
     bool isCurrent() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        identical(_requests[siteUrl], request);
+        account.isCurrent && identical(account.request, request);
 
+    onSnapshotInvalidated?.call(siteUrl);
+    if (!isCurrent()) return null;
+    notifySafely();
+    if (!isCurrent()) return null;
     try {
       final auth = await AccountRequestSession(
         siteUrl,
-        lease,
+        account.lease,
       ).credentials(credentials);
       final apiKey = auth.apiKey;
       if (!isCurrent()) return null;
       if (apiKey == null) {
         return const WriteException(WriteFailure.forbidden).message;
       }
-      final clientId = auth.clientId;
-      if (!isCurrent()) return null;
-      final until = await auth.run(() => send(apiKey, clientId));
+      final until = await auth.run(() => send(apiKey, auth.clientId));
       if (!isCurrent()) return null;
 
       confirmed = true;
-      // A MessageBus delivery received after this write began is newer than
-      // the response snapshot, including one produced by another session.
-      if (_revisions[siteUrl] == revision) {
-        _replaceUntil(siteUrl, _activeUntil(until), committed: true);
+      // Live changes received after dispatch outrank the response snapshot.
+      if (account.revision == revision) {
+        _replaceUntil(account, _activeUntil(until), committed: true);
       }
       return null;
     } on WriteException catch (error) {
       return isCurrent() ? error.message : null;
-    } catch (error) {
-      if (!isCurrent()) return null;
-
-      return const WriteException(WriteFailure.unreachable).message;
+    } catch (_) {
+      return isCurrent()
+          ? const WriteException(WriteFailure.unreachable).message
+          : null;
     } finally {
-      if (identical(_requests[siteUrl], request)) {
-        if (!isDisposed && lease.isCurrent) {
-          onSnapshotInvalidated?.call(siteUrl);
+      if (isCurrent()) {
+        onSnapshotInvalidated?.call(siteUrl);
+        // The hook may synchronously retire this account and start a successor.
+        if (isCurrent()) {
+          if (!confirmed &&
+              !wasRestorationProtected &&
+              account.revision == revision) {
+            account.protectsRestoration = false;
+          }
+          account.request = null;
+          _schedule(account);
+          notifySafely();
         }
-        if (!confirmed &&
-            !wasRestorationProtected &&
-            _revisions[siteUrl] == revision) {
-          _protectsRestoration.remove(siteUrl);
-        }
-        _requests.remove(siteUrl);
-        _schedule(siteUrl);
-        if (!isDisposed) notifySafely();
       }
     }
   }
 
   void applyMessage(String siteUrl, Object? data) {
-    if (data is! Map<Object?, Object?> || !data.containsKey('ends_at')) return;
+    if (isDisposed ||
+        data is! Map<Object?, Object?> ||
+        !data.containsKey('ends_at')) {
+      return;
+    }
     final rawUntil = data['ends_at'];
     final DateTime? until;
     if (rawUntil == null) {
@@ -162,100 +191,102 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       return;
     }
 
-    _protectsRestoration.add(siteUrl);
-    _bumpRevision(siteUrl);
+    final account = _accountFor(siteUrl);
+    account.protectsRestoration = true;
+    final revision = ++account.revision;
     onSnapshotInvalidated?.call(siteUrl);
-    _replaceUntil(siteUrl, _activeUntil(until), committed: true);
+    if (account.revision == revision) {
+      _replaceUntil(account, _activeUntil(until), committed: true);
+    }
   }
 
   void checkExpirations() {
-    for (final siteUrl in List<String>.of(_untilBySite.keys)) {
-      _expireOrTick(siteUrl);
+    for (final account in _accounts.values.toList()) {
+      _expireOrTick(account);
     }
   }
 
   void forget(String siteUrl) {
-    var changed = _untilBySite.remove(siteUrl) != null;
-    changed = _requests.remove(siteUrl) != null || changed;
-    _protectsRestoration.remove(siteUrl);
-    _revisions.remove(siteUrl);
-    _expiryTimers.remove(siteUrl)?.cancel();
-    if (changed && !isDisposed) notifySafely();
+    final account = _accounts[siteUrl];
+    if (account != null) _retireAccount(account);
   }
-
-  int _bumpRevision(String siteUrl) =>
-      _revisions.update(siteUrl, (revision) => revision + 1, ifAbsent: () => 1);
 
   DateTime? _activeUntil(DateTime? until) =>
       until?.isAfter(_clock()) == true ? until!.toUtc() : null;
 
   void _replaceUntil(
-    String siteUrl,
+    _PauseAccount account,
     DateTime? until, {
     bool committed = false,
     bool notify = true,
   }) {
+    if (!account.isCurrent) return;
     final normalized = until?.toUtc();
-    final present = _untilBySite.containsKey(siteUrl);
-    final changed = !present || _untilBySite[siteUrl] != normalized;
-    _untilBySite[siteUrl] = normalized;
-    _schedule(siteUrl);
-    if (committed && changed) onCommitted(siteUrl, normalized);
-    if (notify && changed && !isDisposed) notifySafely();
+    final changed =
+        account.snapshot == null || account.snapshot?.until != normalized;
+    account.snapshot = (until: normalized);
+    _schedule(account);
+    if (committed && changed) onCommitted(account.siteUrl, normalized);
+    if (notify && changed && account.isCurrent) notifySafely();
   }
 
-  void _schedule(String siteUrl) {
-    _expiryTimers.remove(siteUrl)?.cancel();
-    if (_requests.containsKey(siteUrl)) return;
-    final until = _untilBySite[siteUrl];
+  void _schedule(_PauseAccount account) {
+    if (!account.isCurrent) return;
+    account.timer?.cancel();
+    account.timer = null;
+    if (account.request != null) return;
+    final until = account.snapshot?.until;
     if (until == null || isEternalDoNotDisturb(until)) return;
     final remaining = until.difference(_clock());
     if (remaining <= Duration.zero) {
-      _expiryTimers[siteUrl] = Timer(Duration.zero, () {
-        _expiryTimers.remove(siteUrl);
-        _expireOrTick(siteUrl);
+      late final Timer timer;
+      timer = Timer(Duration.zero, () {
+        if (!account.isCurrent || !identical(account.timer, timer)) return;
+        account.timer = null;
+        _expireOrTick(account);
       });
+      account.timer = timer;
       return;
     }
     final wait = remaining < const Duration(minutes: 1)
         ? remaining
         : const Duration(minutes: 1);
-    final scheduledUntil = until;
     final expiresOnFire = wait == remaining;
-    _expiryTimers[siteUrl] = Timer(wait, () {
-      _expiryTimers.remove(siteUrl);
+    late final Timer timer;
+    timer = Timer(wait, () {
+      if (!account.isCurrent || !identical(account.timer, timer)) return;
+      account.timer = null;
       if (expiresOnFire &&
-          !isDisposed &&
-          !_requests.containsKey(siteUrl) &&
-          _untilBySite[siteUrl] == scheduledUntil) {
-        // A Timer is monotonic while DateTime is wall-clock based. Clearing at
-        // the exact scheduled boundary also keeps expiry deterministic under
-        // Flutter's fake clock; foreground reconciliation still handles clock
-        // changes and timers suspended by the operating system.
-        _expire(siteUrl);
+          account.request == null &&
+          account.snapshot?.until == until) {
+        // Timers are monotonic; wall clocks and background suspension are not.
+        _expire(account);
       } else {
-        _expireOrTick(siteUrl);
+        _expireOrTick(account);
       }
     });
+    account.timer = timer;
   }
 
-  void _expireOrTick(String siteUrl) {
-    if (isDisposed || _requests.containsKey(siteUrl)) return;
-    final until = _untilBySite[siteUrl];
+  void _expireOrTick(_PauseAccount account) {
+    if (!account.isCurrent || account.request != null) return;
+    final until = account.snapshot?.until;
     if (until == null || isEternalDoNotDisturb(until)) return;
     if (!until.isAfter(_clock())) {
-      _expire(siteUrl);
+      _expire(account);
       return;
     }
     notifySafely();
-    _schedule(siteUrl);
+    _schedule(account);
   }
 
-  void _expire(String siteUrl) {
-    _protectsRestoration.add(siteUrl);
-    _bumpRevision(siteUrl);
-    onSnapshotInvalidated?.call(siteUrl);
-    _replaceUntil(siteUrl, null, committed: true);
+  void _expire(_PauseAccount account) {
+    account.protectsRestoration = true;
+    final revision = ++account.revision;
+    onSnapshotInvalidated?.call(account.siteUrl);
+    if (account.revision == revision) {
+      _replaceUntil(account, null, committed: true);
+    }
   }
 
   DateTime? _parseDate(String value) {
@@ -271,11 +302,48 @@ final class DoNotDisturbController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    for (final timer in _expiryTimers.values) {
-      timer.cancel();
+    final accounts = _accounts.values.toList();
+    _accounts.clear();
+    for (final account in accounts) {
+      account.retire();
     }
-    _expiryTimers.clear();
-    _requests.clear();
     super.dispose();
+  }
+}
+
+final class _PauseAccount {
+  _PauseAccount(this.controller, this.siteUrl, this.lease);
+
+  final DoNotDisturbController controller;
+  final String siteUrl;
+  final SiteLease lease;
+  ({DateTime? until})? snapshot;
+  Object? request;
+  int revision = 0;
+  bool protectsRestoration = false;
+  Timer? timer;
+  void Function()? _detach;
+  bool _retired = false;
+
+  bool get isCurrent =>
+      !_retired &&
+      lease.isCurrent &&
+      identical(controller._accounts[siteUrl], this);
+
+  void observeRetirement() =>
+      _detach = lease.onRetire(() => controller._retireAccount(this));
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    _detach?.call();
+    _detach = null;
+    if (identical(controller._accounts[siteUrl], this)) {
+      controller._accounts.remove(siteUrl);
+    }
+    timer?.cancel();
+    timer = null;
+    request = null;
+    snapshot = null;
   }
 }
