@@ -101,6 +101,17 @@ final class ChatSearchController {
       _account(siteUrl)?.ref ??
       FrameSafeValueNotifier(const GlobalChatSearchState());
 
+  /// Checks rendered account authority without admitting a successor account.
+  bool isCurrentGlobalRef(
+    String siteUrl,
+    ValueListenable<GlobalChatSearchState> ref,
+  ) {
+    final account = _accounts[siteUrl];
+    return account != null &&
+        _owns(siteUrl, account) &&
+        identical(account.ref, ref);
+  }
+
   GlobalChatSearchState globalState(String siteUrl) {
     final account = _accounts[siteUrl];
     return !_disposed && account?.lease.isCurrent == true

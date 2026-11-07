@@ -7,11 +7,20 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
+import 'chat_controller.dart';
 import 'chat_plugin.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
+
+typedef _ChatSearchActivation = ({
+  String siteUrl,
+  ChatSearchController search,
+  ValueListenable<GlobalChatSearchState> results,
+  ChatController chat,
+  ChatShellService shell,
+});
 
 class ChatSearchView extends StatefulWidget {
   const ChatSearchView({super.key, required this.siteUrl});
@@ -196,6 +205,13 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     }
     if (state.hits.isEmpty) return const SizedBox.shrink();
 
+    final activation = (
+      siteUrl: widget.siteUrl,
+      search: _search,
+      results: _resultsRef!,
+      chat: PluginUiScope.require(context, chatControllerService),
+      shell: PluginUiScope.require(context, chatShellService),
+    );
     final hasFooter = state.loadingMore || state.error != null || state.hasMore;
     final content = ContentReadingLane(
       basePadding: const EdgeInsets.symmetric(vertical: 8),
@@ -231,7 +247,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
           }
           return _ChatSearchResult(
             hit: state.hits[index],
-            onOpen: () => unawaited(_open(state.hits[index])),
+            onOpen: () => unawaited(_open(state.hits[index], activation)),
           );
         },
       ),
@@ -243,20 +259,25 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     );
   }
 
-  Future<void> _open(ChatSearchHit hit) async {
-    final siteUrl = widget.siteUrl;
-    final words = _search.globalState(siteUrl).query;
-    final chat = PluginUiScope.require(context, chatControllerService);
-    final shell = PluginUiScope.require(context, chatShellService);
+  Future<void> _open(
+    ChatSearchHit hit,
+    _ChatSearchActivation activation,
+  ) async {
+    final (:siteUrl, :search, :results, :chat, :shell) = activation;
     bool ownsActivation() =>
         mounted &&
         widget.siteUrl == siteUrl &&
+        identical(_search, search) &&
+        identical(_shell, shell) &&
+        search.isCurrentGlobalRef(siteUrl, results) &&
         shell.currentSiteUrl == siteUrl &&
         identical(
           PluginUiScope.optional(context, chatControllerService),
           chat,
         ) &&
         identical(PluginUiScope.optional(context, chatShellService), shell);
+    if (!ownsActivation()) return;
+    final words = results.value.query;
     try {
       final channel = await chat.ensureChannel(siteUrl, hit.channel.id);
       if (!mounted || !ownsActivation()) return;

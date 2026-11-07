@@ -269,8 +269,54 @@ void main() {
     expect(find.text('Try again'), findsOneWidget);
   });
 
+  testWidgets(
+    'a result rejects account retirement while ref notification is deferred by layout',
+    (tester) async {
+      final gate = Completer<void>()..complete();
+      final api = _DelayedChannelApi(gate, _hit(1));
+      final controller = await _createController(api);
+      final app = _searchWidget(controller);
+      await tester.pumpWidget(LayoutBuilder(builder: (_, _) => app));
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('chat-search-field')),
+        'deploy',
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.pumpAndSettle();
+      final row = tester.widget<DItem>(
+        find.ancestor(of: find.text('Ops'), matching: find.byType(DItem)),
+      );
+      await tester.pumpWidget(
+        LayoutBuilder(
+          builder: (_, _) {
+            controller.lifecycle.invalidate(_site);
+            row.onPressed!();
+            return app;
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(api.chatChannelDetailsRequested, isEmpty);
+      expect(
+        controller.pluginSession.require(chatShellService).fullPageChatActive,
+        isFalse,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final threaded in [false, true]) {
-    for (final replacement in ['none', 'open', 'disposed']) {
+    for (final replacement in [
+      'none',
+      'open',
+      'disposed',
+      'account-before-paint',
+      'account-resolution',
+      'account-error',
+      'query',
+      'error',
+    ]) {
       testWidgets(
         'a held ${threaded ? 'thread' : 'channel'} result opens only with its '
         'source owner ($replacement)',
@@ -310,27 +356,47 @@ void main() {
           await tester.pumpAndSettle();
           expect(find.text('deploy 1'), findsOneWidget);
           expect(chat.message(_site, hit.message.id), isNull);
+          if (replacement == 'account-before-paint') {
+            original.lifecycle.invalidate(_site);
+          }
           await tester.tap(find.text('Ops'));
           await tester.pump();
-          expect(api.chatChannelDetailsRequested, [9]);
+          expect(
+            api.chatChannelDetailsRequested,
+            replacement == 'account-before-paint' ? isEmpty : [9],
+          );
           final sourceShell = original.pluginSession.require(chatShellService);
           final replacementShell = other.pluginSession.require(
             chatShellService,
           );
           expect(sourceShell.fullPageChatActive, isFalse);
 
-          if (replacement != 'none') {
+          if (replacement == 'open' || replacement == 'disposed') {
             await tester.pumpWidget(_searchWidget(other));
             await tester.pumpAndSettle();
             expect(tester.state(find.byType(ChatSearchView)), same(state));
             if (replacement == 'disposed') await original.pluginSession.close();
           }
-          gate.complete();
+          if (replacement == 'account-resolution' ||
+              replacement == 'account-error') {
+            original.lifecycle.invalidate(_site);
+          }
+          if (replacement == 'query') {
+            original.pluginSession
+                .require(chatSearchControllerService)
+                .setGlobalQuery(_site, 'another');
+          }
+          if (replacement == 'account-error' || replacement == 'error') {
+            gate.completeError(StateError('retired lookup'));
+          } else {
+            gate.complete();
+          }
           await tester.pumpAndSettle();
 
           expect(replacementShell.fullPageChatActive, isFalse);
-          expect(sourceShell.fullPageChatActive, replacement == 'none');
-          if (replacement == 'none') {
+          final opens = replacement == 'none' || replacement == 'query';
+          expect(sourceShell.fullPageChatActive, opens);
+          if (opens) {
             expect(sourceShell.visibleChannelId, 9);
             expect(
               original.search.wordsFor(
@@ -371,7 +437,10 @@ void main() {
             }
             expect(chat.message(_site, hit.message.id)?.pinned, isTrue);
           }
-          expect(find.text('Could not open this chat message.'), findsNothing);
+          expect(
+            find.text('Could not open this chat message.'),
+            replacement == 'error' ? findsOneWidget : findsNothing,
+          );
           expect(tester.takeException(), isNull);
         },
       );
@@ -583,7 +652,7 @@ Widget _searchWidget(
           data: MediaQuery.of(
             context,
           ).copyWith(textScaler: TextScaler.linear(scale)),
-          child: child!,
+          child: DToaster(child: child!),
         ),
       ),
       home: const Scaffold(body: ChatSearchView(siteUrl: _site)),

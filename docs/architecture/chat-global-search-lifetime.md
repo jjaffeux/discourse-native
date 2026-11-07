@@ -34,3 +34,20 @@ Controller tests reproduce retained private excerpts on the old source and cover
 old/new refs, late success/failure, earlier retirement observers, ref-listener
 successor admission and disposal. A mounted-view regression proves successor results render after withdrawal;
 view, entry and loading suites pin the surrounding UI behavior.
+
+## Rendered result activation
+
+A rendered result captures its account ref, search controller, Chat controller,
+shell service and forum before its callback can run. Dispatch, navigation after
+channel resolution and failure feedback all require that same authority. The
+controller's passive `isCurrentGlobalRef` check includes its captured lease; it
+does not rely on the view having followed a replacement ref yet. This matters
+when retirement notification is deferred until the end of a layout frame.
+
+Same-account query changes do not revoke an already admitted target. Account
+retirement or service/site replacement does: an old row waiting for repaint
+cannot start a successor-account lookup, and old success/error completions cannot
+navigate or display feedback there. No separate navigation dispatcher is added.
+Widget regressions cover channel/thread targets, pre-paint callbacks, deferred
+layout notification and late resolution/error. Same-owner navigation, query
+change and visible-error controls prove the guards still permit active work.
