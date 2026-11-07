@@ -15,15 +15,24 @@ void main() {
 
   test('installer orders Voice after its Chat dependency', () {
     final descriptors = installed.descriptors;
-    expect(descriptors.last.id.value, 'voice');
-    expect(
-      descriptors.last.dependencies.map((dependency) => dependency.id.value),
-      ['chat'],
+    final voice = descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'voice',
     );
+    expect(
+      descriptors.indexOf(voice),
+      greaterThan(
+        descriptors.indexWhere((descriptor) => descriptor.id.value == 'chat'),
+      ),
+    );
+    expect(voice.dependencies.map((dependency) => dependency.id.value), [
+      'chat',
+    ]);
   });
 
   test('module declares its routing, media, and live contracts', () {
-    final descriptor = installed.descriptors.last;
+    final descriptor = installed.descriptors.singleWhere(
+      (descriptor) => descriptor.id.value == 'voice',
+    );
 
     expect(descriptor.routeNamespaces, {'live', 'voice'});
     expect(descriptor.exclusiveClaims, {'app-global-media-session'});

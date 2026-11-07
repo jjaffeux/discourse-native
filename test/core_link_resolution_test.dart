@@ -94,7 +94,7 @@ void main() {
     },
   );
 
-  test('root links use configured homepage and site top period', () async {
+  test('root links use Latest and top links keep the site period', () async {
     const site = DiscourseInstance(
       url: 'https://example.com/forum',
       title: 'Nested',
@@ -116,10 +116,7 @@ void main() {
     addTearDown(shell.dispose);
     await shell.load();
     await pumpEventQueue();
-    expect(
-      shell.destinationBookmarkRouteForUrl(site.url)?.id,
-      'all-categories',
-    );
+    expect(shell.destinationBookmarkRouteForUrl(site.url)?.id, 'latest');
     expect(
       shell.destinationBookmarkRouteForUrl('/forum/top')?.id,
       'top-monthly',

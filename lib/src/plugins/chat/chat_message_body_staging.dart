@@ -1,9 +1,9 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show HtmlBodyMountingNotification, HtmlBodyTiming;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
-
-import '../../shell/progressive_html_mode.dart';
 
 /// Whether a chat row's HTML builds after the frame that first builds the
 /// row, and the height the row holds until then.

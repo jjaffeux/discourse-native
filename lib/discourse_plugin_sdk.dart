@@ -235,6 +235,8 @@ export 'src/shell/post_action.dart'
     show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
+export 'src/shell/progressive_html_mode.dart'
+    show HtmlBodyMountingNotification, HtmlBodyTiming;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;

@@ -18,10 +18,12 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary_plugin.dart';
+import 'package:discourse_native/src/plugins/policy/policy_preferences.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -210,6 +212,11 @@ void main() {
           final fallback = UserPreferences(
             username: 'Reader',
             pluginValues: {
+              'discourse-cakeday/birthday':
+                  const CakedayPreferences.unavailable(),
+              'discourse-policy/emails': const PolicyEmailPreferences(
+                PolicyEmailFrequency.never,
+              ),
               'chat/preferences': ChatUserPreferences(
                 channelList: ChatChannelListPreferences.read({
                   entry.key: entry.value,
@@ -302,6 +309,10 @@ void main() {
           canEdit: true,
           canChangeTrackingPreferences: true,
           pluginValues: {
+            'discourse-cakeday/birthday': CakedayPreferences.unavailable(),
+            'discourse-policy/emails': PolicyEmailPreferences(
+              PolicyEmailFrequency.never,
+            ),
             'chat/preferences': ChatUserPreferences(
               separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
             ),

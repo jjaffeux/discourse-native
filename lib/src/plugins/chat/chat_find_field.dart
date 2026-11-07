@@ -1,9 +1,8 @@
+import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
-
-import '../../theme/d_icons.dart';
 
 /// The shared quiet field for narrowing chat lists in place.
 class ChatFindField extends StatelessWidget {
