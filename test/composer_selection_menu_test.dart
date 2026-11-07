@@ -89,15 +89,6 @@ Future<void> action(WidgetTester tester, String label) async {
 }
 
 void main() {
-  testWidgets('colors are hidden without the server plugin', (tester) async {
-    await pumpEditor(tester);
-    expect(
-      find.descendant(of: toolbar, matching: find.byTooltip('Bold')),
-      findsOneWidget,
-    );
-    expect(find.byTooltip('Color'), findsNothing);
-  });
-
   testWidgets(
     'Escape closes the color palette and keeps the selection usable',
     (tester) async {
@@ -175,6 +166,11 @@ void main() {
   ) async {
     final composer = await pumpEditor(tester);
     expect(toolbar, findsOneWidget);
+    expect(
+      find.descendant(of: toolbar, matching: find.byTooltip('Bold')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Color'), findsNothing);
     await action(tester, 'Underline');
     expect(composer.text.text, '<ins>format</ins> me please');
     final painted = tester
