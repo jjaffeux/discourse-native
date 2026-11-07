@@ -9,6 +9,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_actions.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/boards_fixture.dart';
@@ -89,12 +90,44 @@ void main() {
       expect(find.text('Add existing topic'), findsNothing);
       expect(
         api.availableReads,
-        eligibility == 'disabled' || eligibility == 'anonymous' ? 0 : 1,
+        eligibility == 'disabled' || eligibility == 'anonymous'
+            ? 0
+            : eligibility == 'failed'
+            ? 2
+            : 1,
       );
       await tester.pumpWidget(const SizedBox.shrink());
       shell.dispose();
     });
   }
+
+  testWidgets('reopening the menu retries failed board eligibility', (
+    tester,
+  ) async {
+    final api = _BoardMenuApi()..eligibilityFailure = StateError('Unavailable');
+    final shell = await _fixture(tester, api);
+    await _open(tester);
+    expect(find.text('Add to board…'), findsNothing);
+    final failedReads = api.availableReads;
+    expect(failedReads, 2);
+    expect(
+      shell.pluginSession.require(boardsControllerKey).eligibleBoards(_site, 7),
+      isNull,
+    );
+    await tester.pumpAndSettle();
+    expect(api.availableReads, failedReads);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    final readsBeforeReopening = api.availableReads;
+    api.eligibilityFailure = null;
+    await _open(tester);
+
+    expect(find.text('Add to board…'), findsOneWidget);
+    expect(api.availableReads, readsBeforeReopening + 1);
+    await tester.pumpWidget(const SizedBox.shrink());
+    shell.dispose();
+  });
 
   testWidgets('pending eligibility updates an already open menu', (
     tester,

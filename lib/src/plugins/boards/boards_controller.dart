@@ -96,7 +96,7 @@ final class BoardsController extends FrameSafeNotifier
             .where((board) => board.canWrite && board.columns.isNotEmpty)
             .toList(growable: false);
       } catch (_) {
-        boards = const [];
+        return const <BoardSnapshot>[];
       }
       if (!sourceCurrent(site, lease, revision)) return <BoardSnapshot>[];
       _eligibleBoards[key] = boards;
