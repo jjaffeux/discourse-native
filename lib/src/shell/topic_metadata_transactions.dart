@@ -154,14 +154,8 @@ extension _TopicMetadataTransactions on ShellController {
             ).maxTagSearchResults.clamp(1, TopicTagSearch.maximumResults),
           ),
         );
-        final match = result.results
-            .where(
-              (item) =>
-                  (tag.id != null && item.id == tag.id) ||
-                  item.name.toLowerCase() == tag.name.toLowerCase(),
-            )
-            .firstOrNull;
-        if (!result.isForbidden && match != null && !match.disabled) {
+        final match = result.allowedMatch(tag);
+        if (match != null) {
           kept.add(match);
         }
       } catch (_) {

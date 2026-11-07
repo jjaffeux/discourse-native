@@ -339,3 +339,18 @@ The draft coordinator still owns storage, draft conflict handling and persistenc
 ordering. Close safety, docking, navigation and draft integration tests cover the
 transaction, including publication retirement and replacement during the paint
 boundary.
+
+## Tag eligibility
+
+`TopicTagSearch` owns the shared eligibility policy used by category changes,
+existing-topic metadata transactions and initial tag-route seeding. A selected
+tag matches an explicit non-null ID or a case-insensitive name. A tag route can
+also match the returned slug. Missing IDs never identify unrelated tags.
+Forbidden searches and disabled matches are rejected; the first matching result
+retains the server's ordering and cannot be bypassed for a later enabled result.
+
+The two queries accept the caller's actual domain input (selected tag or route),
+without a flag that silently changes identity semantics. The model handles only
+matching and eligibility. Callers retain their distinct request lifetimes,
+selection revision checks and error policies, including keeping selected tags
+when validation fails to reach the server.

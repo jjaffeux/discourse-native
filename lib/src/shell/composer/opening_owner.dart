@@ -502,14 +502,12 @@ final class ComposerOpeningOwner {
             ),
           );
           if (!isCurrent()) return;
-          final exact = result.results.where(
-            (tag) =>
-                tag.id == tagLink.id ||
-                tag.name.toLowerCase() == tagLink.slug.toLowerCase() ||
-                tag.slug?.toLowerCase() == tagLink.slug.toLowerCase(),
+          final match = result.allowedRouteMatch(
+            id: tagLink.id,
+            slug: tagLink.slug,
           );
-          if (exact.isNotEmpty && !exact.first.disabled) {
-            composer.applyInitialTagsIfUntouched([exact.first]);
+          if (match != null) {
+            composer.applyInitialTagsIfUntouched([match]);
           }
         } catch (_) {}
       }
@@ -576,14 +574,8 @@ final class ComposerOpeningOwner {
           if (!identical(composer.tags, selectedTags)) {
             continue validateSelection;
           }
-          final match = result.results
-              .where(
-                (tag) =>
-                    tag.id == selected.id ||
-                    tag.name.toLowerCase() == selected.name.toLowerCase(),
-              )
-              .firstOrNull;
-          if (!result.isForbidden && match != null && !match.disabled) {
+          final match = result.allowedMatch(selected);
+          if (match != null) {
             kept.add(match);
           }
         } catch (_) {

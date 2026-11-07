@@ -606,6 +606,59 @@ void main() {
     );
   }
 
+  for (final forbidden in [false, true]) {
+    test(
+      'route seeding rejects ${forbidden ? 'forbidden results' : 'unrelated ID-less results'}',
+      () async {
+        final harness = _Harness(
+          route: _tagRoute,
+          api: FakeDiscourseApi(
+            topicTagSearches: {
+              'release': TopicTagSearch(
+                tags: [TopicTag(name: forbidden ? 'release' : 'unrelated')],
+                forbidden: forbidden,
+              ),
+            },
+          ),
+        );
+        addTearDown(harness.dispose);
+        final plan = await harness.plan();
+        final composer = harness.build(plan);
+        final setup = harness.owner.start(plan, composer);
+        harness.metadataReady.complete();
+        await setup;
+        expect(composer.tags, isEmpty);
+      },
+    );
+  }
+
+  test(
+    'route seeding retains an allowed tag matched by its slug alias',
+    () async {
+      const allowed = TopicTag(id: 7, name: 'Display name', slug: 'release');
+      final harness = _Harness(
+        route: _tagRoute,
+        api: FakeDiscourseApi(
+          topicTagSearches: const {
+            'release': TopicTagSearch(
+              tags: [
+                TopicTag(name: 'other'),
+                allowed,
+              ],
+            ),
+          },
+        ),
+      );
+      addTearDown(harness.dispose);
+      final plan = await harness.plan();
+      final composer = harness.build(plan);
+      final setup = harness.owner.start(plan, composer);
+      harness.metadataReady.complete();
+      await setup;
+      expect(composer.tags, const [allowed]);
+    },
+  );
+
   test('a disabled exact tag is not seeded', () async {
     final harness = _Harness(
       route: _tagRoute,
@@ -626,6 +679,21 @@ void main() {
 
     expect(composer.tags, isEmpty);
   });
+
+  test(
+    'category validation removes an ID-less tag when only another ID-less tag matches the search',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.categories[6] = _ideas;
+      final composer = harness.build(await harness.plan());
+      composer.setTags(const [TopicTag(name: 'selected')]);
+      harness.tagResults = (_) =>
+          const TopicTagSearch(tags: [TopicTag(name: 'unrelated')]);
+      await harness.owner.changeCategory(composer, 6);
+      expect(composer.tags, isEmpty);
+    },
+  );
 
   test(
     'category change replaces the untouched template and drops refused tags',

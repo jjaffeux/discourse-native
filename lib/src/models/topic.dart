@@ -1321,6 +1321,34 @@ class TopicTagSearch {
   final bool forbidden;
   final String? forbiddenMessage;
 
+  /// Returns the first exact identity/name match when the site permits it.
+  /// Missing IDs do not establish identity between unrelated tags.
+  TopicTag? allowedMatch(TopicTag selected) {
+    final name = selected.name.toLowerCase();
+    return _allowedWhere(
+      (tag) =>
+          (selected.id != null && tag.id == selected.id) ||
+          tag.name.toLowerCase() == name,
+    );
+  }
+
+  /// Resolves a route's ID, name or slug while retaining server eligibility.
+  TopicTag? allowedRouteMatch({int? id, required String slug}) {
+    final name = slug.toLowerCase();
+    return _allowedWhere(
+      (tag) =>
+          (id != null && tag.id == id) ||
+          tag.name.toLowerCase() == name ||
+          tag.slug?.toLowerCase() == name,
+    );
+  }
+
+  TopicTag? _allowedWhere(bool Function(TopicTag) matches) {
+    if (isForbidden) return null;
+    final match = results.where(matches).firstOrNull;
+    return match == null || match.disabled ? null : match;
+  }
+
   List<TopicTag> get results => tags;
   bool get isForbidden => forbidden;
   String? get explanation =>
