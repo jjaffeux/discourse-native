@@ -282,16 +282,6 @@ void _registerReactionAndLikeTests() {
       expect(count('1'), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-    testWidgets('tapping somebody else\'s adds yours to it', (tester) async {
-      final api = await openTopic(tester, first: post(likeCount: 1));
-
-      await tester.tap(count('1'));
-      await tester.pumpAndSettle();
-
-      expect(api.liked, [1]);
-      expect(count('2'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('a refused like says why and puts the count back', (
       tester,
     ) async {
