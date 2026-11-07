@@ -375,6 +375,17 @@ final class ChatShellService
             threadId: route.threadId!,
           )
         : ChatChannelTarget(route.channelId);
+    if (_host.activeTabId case final tabId?) {
+      final reader = chat.acquireReader(siteUrl, target, readerId: tabId);
+      try {
+        await reader.open(force: true);
+        return reader.stream.error == null
+            ? PluginRouteRetryResult.succeeded
+            : PluginRouteRetryResult.failed;
+      } finally {
+        reader.dispose();
+      }
+    }
     if (target case final ChatThreadTarget thread) {
       await chat.openThread(siteUrl, thread, force: true);
     } else {

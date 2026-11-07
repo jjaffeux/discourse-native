@@ -147,6 +147,7 @@ class ChatComposer extends StatefulWidget {
     required this.siteUrl,
     required this.channelId,
     this.threadId,
+    this.reader,
     this.focusRequest = 0,
     this.uploadDropController,
     this.editingMessage,
@@ -159,6 +160,7 @@ class ChatComposer extends StatefulWidget {
   final String siteUrl;
   final int channelId;
   final int? threadId;
+  final ChatConversationReader? reader;
   final ChatUploadDropController? uploadDropController;
   final ChatMessage? editingMessage;
   final ValueChanged<ChatMessage>? onEditMessage;
@@ -708,9 +710,12 @@ class _ChatComposerState extends State<ChatComposer> {
           listenable: Listenable.merge([
             composer,
             _draftSession!.replyChanges,
-            _chat!.streamListenableFor(widget.siteUrl, _target),
+            widget.reader?.changes ??
+                _chat!.streamListenableFor(widget.siteUrl, _target),
             for (final id
-                in _chat!.streamFor(widget.siteUrl, _target).localMessageIds)
+                in (widget.reader?.stream ??
+                        _chat!.streamFor(widget.siteUrl, _target))
+                    .localMessageIds)
               _chat!.messageRef(widget.siteUrl, id),
           ]),
           builder: (context, _) => _composerLaneBuilder(
@@ -854,7 +859,10 @@ class _ChatComposerState extends State<ChatComposer> {
     if (chat == null || userId == null) return KeyEventResult.ignored;
 
     ChatMessage? lastUserMessage;
-    for (final message in chat.messagesFor(widget.siteUrl, _target).reversed) {
+    for (final message
+        in (widget.reader?.messages ??
+                chat.messagesFor(widget.siteUrl, _target))
+            .reversed) {
       if (message.author.id == userId && !message.isDeleted) {
         lastUserMessage = message;
         break;

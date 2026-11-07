@@ -263,6 +263,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   List<ChatStreamItem> _items = const [];
   int _focusComposerRequest = 0;
   int? _highlightMessageId;
+  int? _highlightAfterFetches;
   int _highlightRequest = 0;
   bool _selectingMessages = false;
   final Set<int> _selectedMessageIds = {};
@@ -289,10 +290,11 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       target: widget.target,
       onAcquire: () {
         if (_opened) {
-          unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+          unawaited(_viewing.reader.open());
         }
       },
       onShellChanged: _handleShellChanged,
+      onReaderChanged: _handleTimeChanged,
     );
   }
 
@@ -305,7 +307,11 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _timeChanges = timeChanges..addListener(_handleTimeChanged);
     }
     final shell = PluginUiScope.require(context, chatShellService);
-    _viewing.bind(shell, tickerEnabled: TickerMode.valuesOf(context).enabled);
+    _viewing.bind(
+      shell,
+      tickerEnabled: TickerMode.valuesOf(context).enabled,
+      readerId: shell.tabIdOf(context),
+    );
 
     final navigation = shell.navigation;
     if (!identical(navigation, _navigation)) {
@@ -315,7 +321,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     }
     if (!_consumeNavigation() && !_opened) {
       _opened = true;
-      unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
+      unawaited(_viewing.reader.open());
     }
   }
 
@@ -338,16 +344,12 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       if (pending.focusComposer) _focusComposerRequest++;
       if (pending.messageId case final messageId?) {
         _highlightMessageId = messageId;
+        _highlightAfterFetches = _viewing.reader.stream.fetches;
         _highlightRequest++;
       }
     });
     unawaited(
-      widget.chat.openThread(
-        widget.siteUrl,
-        widget.target,
-        targetMessageId: pending.messageId,
-        force: true,
-      ),
+      _viewing.reader.open(targetMessageId: pending.messageId, force: true),
     );
     return true;
   }
@@ -363,10 +365,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatStreamState>(
-      valueListenable: widget.chat.streamListenableFor(
-        widget.siteUrl,
-        widget.target,
-      ),
+      valueListenable: _viewing.reader.changes,
       builder: (context, stream, _) => _buildThread(stream),
     );
   }
@@ -379,6 +378,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     final Widget content;
     if (hasMessages) {
       content = ChatMessageStream(
+        reader: _viewing.reader,
         siteUrl: widget.siteUrl,
         target: widget.target,
         items: _items,
@@ -465,6 +465,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
               )
             : !stream.threadUnavailable && (stream.error == null || hasMessages)
             ? ChatComposer(
+                reader: _viewing.reader,
                 key: ValueKey((
                   widget.siteUrl,
                   widget.target.channelId,
@@ -528,8 +529,14 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _editingMessage = null;
     }
     if (_highlightMessageId case final highlighted?
-        when !retained.contains(highlighted)) {
+        when !retained.contains(highlighted) &&
+            (_highlightAfterFetches == null ||
+                stream.fetches > _highlightAfterFetches!)) {
       _highlightMessageId = null;
+    }
+    if (_highlightAfterFetches != null &&
+        stream.fetches > _highlightAfterFetches!) {
+      _highlightAfterFetches = null;
     }
   }
 
@@ -557,16 +564,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   void _jumpToMessage(int messageId) {
     setState(() {
       _highlightMessageId = messageId;
+      _highlightAfterFetches = _viewing.reader.stream.fetches;
       _highlightRequest++;
     });
-    unawaited(
-      widget.chat.openThread(
-        widget.siteUrl,
-        widget.target,
-        targetMessageId: messageId,
-        force: true,
-      ),
-    );
+    unawaited(_viewing.reader.open(targetMessageId: messageId, force: true));
   }
 
   void _syncProjection(ChatStreamState stream) {
@@ -586,7 +587,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
     _projectedRevision = stream.revision;
     _projectedShowTimeGapDays = showTimeGapDays;
     _projectedTimezone = widget.chat.timeFor(widget.siteUrl).name;
-    _messages = widget.chat.messagesFor(widget.siteUrl, widget.target);
+    _messages = _viewing.reader.messages;
     _activity = const ChatChannelActivity().adding(_messages);
     _items = buildChatStream(
       _messages,
