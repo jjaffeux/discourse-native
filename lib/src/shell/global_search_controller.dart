@@ -465,10 +465,7 @@ class GlobalSearchController extends ChangeNotifier {
         if (parsed.conditions.isNotEmpty || parsed.order != null) {
           converted = true;
           for (final condition in parsed.conditions) {
-            final old = conditions.indexWhere(
-              (item) => item.filterId == condition.filterId,
-            );
-            _putCondition(condition, index: old < 0 ? null : old);
+            _putCondition(condition);
           }
           if (parsed.order != null) {
             _scope = GlobalSearchScope.forum;

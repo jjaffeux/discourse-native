@@ -964,6 +964,28 @@ void main() {
     });
   }
 
+  testWidgets('Whitespace keeps independent tag conditions additive', (
+    tester,
+  ) async {
+    final api = _EngineApi();
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    controller.addCondition(
+      const GlobalSearchCondition(
+        filterId: 'tags',
+        operator: 'none',
+        value: ['hidden'],
+      ),
+    );
+    controller.setQuery('tags:visible ');
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(globalSearchTerm(api.requests.single), '-tags:hidden tags:visible');
+    expect(controller.conditions.map((c) => (c.operator, c.text)), [
+      ('none', 'hidden'),
+      ('any', 'visible'),
+    ]);
+  });
+
   testWidgets('Enter keeps independent multi-value tag conditions additive', (
     tester,
   ) async {
