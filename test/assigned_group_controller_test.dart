@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_api.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group_controller.dart';
+import 'package:discourse_native/src/plugins/assign/assigned_group_presentation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -156,6 +157,167 @@ Future<void> _loadQueries(
 }
 
 void main() {
+  for (final borrowed in [false, true]) {
+    test(
+      'earlier retirement observer admits successor with ${borrowed ? 'borrowed' : 'owned'} records',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final api = _ControlledAssignedGroupApi()
+          ..memberResults.addAll([
+            _completed(_members(1)),
+            _completed(_members(2)),
+          ])
+          ..topicResults.addAll([
+            _completed(_topics(10)),
+            _completed(_topics(20)),
+          ]);
+        final store = borrowed ? Store() : null;
+        final controller = AssignedGroupController(
+          api: api,
+          requests: _requests(lifecycle),
+          topics: store,
+        );
+        addTearDown(controller.dispose);
+        const filter = AssignedGroupFilter.everyone();
+        Future<void>? successor;
+        lifecycle.capture(_site).onRetire(() {
+          successor = Future.wait([
+            controller.loadMembers(siteUrl: _site, groupName: 'support'),
+            controller.loadTopics(
+              siteUrl: _site,
+              groupName: 'support',
+              filter: filter,
+            ),
+          ]);
+        });
+        await controller.loadMembers(siteUrl: _site, groupName: 'support');
+        await controller.loadTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+        );
+        lifecycle.invalidate(_site);
+        expect(controller.membersStateFor(_site, 'support').members, isEmpty);
+        expect(
+          controller.topicFeedFor(_site, 'support', filter).topicIds,
+          isEmpty,
+        );
+        await successor;
+        expect(
+          controller.membersStateFor(_site, 'support').members.single.id,
+          2,
+        );
+        expect(controller.topicsFor(_site, 'support', filter).single.id, 20);
+        if (borrowed) expect(store!.read<Topic>(_site, 10), isNotNull);
+      },
+    );
+  }
+
+  test(
+    'retained presentation drops private queries on account retirement',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader()..keys[_site] = 'old-key';
+      final api = _ControlledAssignedGroupApi()
+        ..memberResults.addAll([
+          _completed(_members(17)),
+          _completed(_members(18)),
+        ])
+        ..topicResults.addAll([
+          _completed(_topics(29)),
+          _completed(_topics(30)),
+        ]);
+      final domain = AssignedGroupController(
+        api: api,
+        requests: FakePluginRequestHost(
+          credentials: credentials,
+          lifecycle: lifecycle,
+        ),
+      );
+      addTearDown(domain.dispose);
+      final presentation = AssignedGroupPresentationController(
+        siteUrl: _site,
+        groupName: 'support',
+        subsection: null,
+        controller: domain,
+        onSelectFilter: (_, _) {},
+        onOpenTopic: (_) {},
+      );
+      addTearDown(presentation.dispose);
+      await presentation.load();
+      expect(presentation.state.members.members.single.id, 17);
+      expect(presentation.state.topics.single.id, 29);
+      var publications = 0;
+      presentation.addListener(() => publications++);
+      lifecycle.invalidate(_site);
+      expect(presentation.state.members.members, isEmpty);
+      expect(presentation.state.feed.topicIds, isEmpty);
+      expect(presentation.state.topics, isEmpty);
+      expect(publications, 1);
+      credentials.keys[_site] = 'new-key';
+      await presentation.load();
+      expect(api.memberCalls.map((call) => call.apiKey), [
+        'old-key',
+        'new-key',
+      ]);
+      expect(presentation.state.members.members.single.id, 18);
+      expect(presentation.state.topics.single.id, 30);
+    },
+  );
+
+  for (final fail in [false, true]) {
+    test(
+      'bare retirement rejects late query ${fail ? 'failure' : 'success'}',
+      () async {
+        final lifecycle = SiteLifecycle();
+        final oldMembers = Completer<AssignedGroupMembersPage>();
+        final oldTopics = Completer<TopicList>();
+        final api = _ControlledAssignedGroupApi()
+          ..memberResults.addAll([oldMembers, _completed(_members(2))])
+          ..topicResults.addAll([oldTopics, _completed(_topics(20))]);
+        final controller = AssignedGroupController(
+          api: api,
+          requests: _requests(lifecycle),
+        );
+        addTearDown(controller.dispose);
+        const filter = AssignedGroupFilter.everyone();
+        final members = controller.loadMembers(
+          siteUrl: _site,
+          groupName: 'support',
+        );
+        final topics = controller.loadTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+        );
+        await pumpEventQueue();
+        lifecycle.invalidate(_site);
+        await controller.loadMembers(siteUrl: _site, groupName: 'support');
+        await controller.loadTopics(
+          siteUrl: _site,
+          groupName: 'support',
+          filter: filter,
+        );
+        var publications = 0;
+        controller.addListener(() => publications++);
+        if (fail) {
+          oldMembers.completeError(StateError('retired members'));
+          oldTopics.completeError(StateError('retired topics'));
+        } else {
+          oldMembers.complete(_members(1));
+          oldTopics.complete(_topics(10));
+        }
+        await Future.wait([members, topics]);
+        expect(
+          controller.membersStateFor(_site, 'support').members.single.id,
+          2,
+        );
+        expect(controller.topicsFor(_site, 'support', filter).single.id, 20);
+        expect(publications, 0);
+      },
+    );
+  }
+
   test('complete assignment totals include every loaded member page', () async {
     AssignedGroupMembersPage page(int offset, int count) =>
         AssignedGroupMembersPage.fromJson(

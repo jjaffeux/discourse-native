@@ -31,28 +31,48 @@ final class AssignedGroupController extends FrameSafeNotifier {
        _topics = topics ?? Store(policy: _assignedTopicStorePolicy),
        _ownsTopicStore = topics == null;
 
-  // Match the directory's 16-query history, independently for members and
-  // topics, to retain recent searches/filters without keeping a whole session.
-  static const int _cachedQueriesPerSite = 16;
-
   final AssignedGroupApi api;
   final PluginRequestHost _requests;
   final Store _topics;
   final bool _ownsTopicStore;
+  final _accounts = <String, _AssignedGroupAccount>{};
+  bool _closing = false;
 
-  final Map<_MemberKey, _AssignedMemberQuery> _memberQueries = {};
+  _AssignedGroupAccount? _existingAccount(String siteUrl) {
+    final held = _accounts[siteUrl];
+    return !isDisposed && !_closing && held?.isCurrent == true ? held : null;
+  }
 
-  final Map<_TopicKey, _AssignedTopicQuery> _topicQueries = {};
+  _AssignedGroupAccount? _account(String siteUrl) {
+    if (isDisposed || _closing) return null;
+    final previous = _accounts[siteUrl];
+    if (previous != null && !previous.isCurrent) _retireAccount(previous);
+    if (isDisposed || _closing) return null;
+    if (_existingAccount(siteUrl) case final held?) return held;
+    final account = _AssignedGroupAccount(siteUrl, _requests.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() => _retireAccount(account));
+    return account.isCurrent ? account : null;
+  }
+
+  void _retireAccount(_AssignedGroupAccount account, {bool notify = true}) {
+    final owns = identical(_accounts[account.siteUrl], account);
+    if (owns) _accounts.remove(account.siteUrl);
+    account.retire();
+    if (!owns) return;
+    // Clear owned records before notification can admit a successor account.
+    if (_ownsTopicStore) _topics.forget(account.siteUrl);
+    if (notify) notifySafely();
+  }
 
   AssignedGroupMembersState membersStateFor(
     String siteUrl,
     String groupName, {
     String search = '',
   }) =>
-      _touchQuery(
-        _memberQueries,
-        _memberKey(siteUrl, groupName, search),
-      )?.state ??
+      _existingAccount(
+        siteUrl,
+      )?.member(_memberKey(siteUrl, groupName, search))?.state ??
       const AssignedGroupMembersState();
 
   TopicFeed topicFeedFor(
@@ -61,10 +81,9 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupFilter filter, {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
   }) =>
-      _touchQuery(
-        _topicQueries,
-        _topicKey(siteUrl, groupName, filter, query),
-      )?.feed ??
+      _existingAccount(
+        siteUrl,
+      )?.topic(_topicKey(siteUrl, groupName, filter, query))?.feed ??
       const TopicFeed();
 
   List<Topic> topicsFor(
@@ -79,43 +98,25 @@ final class AssignedGroupController extends FrameSafeNotifier {
     ]);
   }
 
-  void _trimMemberQueries(String siteUrl) {
-    final keys = _memberQueries.keys
-        .where((key) => key.siteUrl == siteUrl)
-        .toList(growable: false);
-    if (keys.length <= _cachedQueriesPerSite) return;
-    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
-      _memberQueries.remove(key)?.retire();
-    }
-  }
-
-  void _trimTopicQueries(String siteUrl) {
-    final keys = _topicQueries.keys
-        .where((key) => key.siteUrl == siteUrl)
-        .toList(growable: false);
-    if (keys.length <= _cachedQueriesPerSite) return;
-    for (final key in keys.take(keys.length - _cachedQueriesPerSite)) {
-      _topicQueries.remove(key)?.retire();
-    }
-  }
-
   Future<void> loadMembers({
     required String siteUrl,
     required String groupName,
     String search = '',
     bool refresh = false,
   }) async {
-    if (isDisposed) return;
+    final account = _account(siteUrl);
+    if (account == null) return;
     final key = _memberKey(siteUrl, groupName, search);
     final owner =
-        _touchQuery(_memberQueries, key) ??
-        (_memberQueries[key] = _AssignedMemberQuery(
+        account.member(key) ??
+        (account.members[key] = _AssignedMemberQuery(
           key: key,
           api: api,
           requests: _requests,
+          lease: account.lease,
           notify: notifySafely,
         ));
-    _trimMemberQueries(siteUrl);
+    account.trimMembers();
     await owner.load(refresh: refresh);
   }
 
@@ -125,10 +126,9 @@ final class AssignedGroupController extends FrameSafeNotifier {
     String search = '',
   }) async {
     if (isDisposed) return;
-    final owner = _touchQuery(
-      _memberQueries,
-      _memberKey(siteUrl, groupName, search),
-    );
+    final owner = _existingAccount(
+      siteUrl,
+    )?.member(_memberKey(siteUrl, groupName, search));
     await owner?.loadMore();
   }
 
@@ -139,18 +139,20 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
     bool refresh = false,
   }) async {
-    if (isDisposed) return;
+    final account = _account(siteUrl);
+    if (account == null) return;
     final key = _topicKey(siteUrl, groupName, filter, query);
     final owner =
-        _touchQuery(_topicQueries, key) ??
-        (_topicQueries[key] = _AssignedTopicQuery(
+        account.topic(key) ??
+        (account.topics[key] = _AssignedTopicQuery(
           key: key,
           api: api,
           requests: _requests,
           topics: _topics,
+          lease: account.lease,
           notify: notifySafely,
         ));
-    _trimTopicQueries(siteUrl);
+    account.trimTopics();
     await owner.load(refresh: refresh);
   }
 
@@ -161,35 +163,15 @@ final class AssignedGroupController extends FrameSafeNotifier {
     AssignedGroupTopicQuery query = const AssignedGroupTopicQuery(),
   }) async {
     if (isDisposed) return;
-    final owner = _touchQuery(
-      _topicQueries,
-      _topicKey(siteUrl, groupName, filter, query),
-    );
+    final owner = _existingAccount(
+      siteUrl,
+    )?.topic(_topicKey(siteUrl, groupName, filter, query));
     await owner?.loadMore();
   }
 
   void forget(String siteUrl) {
-    final before = _memberQueries.length + _topicQueries.length;
-    _memberQueries.removeWhere((key, owner) {
-      if (key.siteUrl != siteUrl) return false;
-      owner.retire();
-      return true;
-    });
-    _topicQueries.removeWhere((key, owner) {
-      if (key.siteUrl != siteUrl) return false;
-      owner.retire();
-      return true;
-    });
-    if (_ownsTopicStore) _topics.forget(siteUrl);
-    if (before != _memberQueries.length + _topicQueries.length) notifySafely();
-  }
-
-  // Reads and load attempts count as access; asynchronous completions do not
-  // change the insertion order or allocate entries for cache misses.
-  static V? _touchQuery<K, V extends Object>(Map<K, V> cache, K key) {
-    final held = cache.remove(key);
-    if (held != null) cache[key] = held;
-    return held;
+    final account = _accounts[siteUrl];
+    if (account != null) _retireAccount(account);
   }
 
   static _MemberKey _memberKey(
@@ -216,15 +198,64 @@ final class AssignedGroupController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    for (final owner in _memberQueries.values) {
-      owner.retire();
+    if (_closing) return;
+    _closing = true;
+    for (final account in _accounts.values.toList()) {
+      _retireAccount(account, notify: false);
     }
-    _memberQueries.clear();
-    for (final owner in _topicQueries.values) {
-      owner.retire();
-    }
-    _topicQueries.clear();
     super.dispose();
+  }
+}
+
+final class _AssignedGroupAccount {
+  _AssignedGroupAccount(this.siteUrl, this.lease);
+
+  final String siteUrl;
+  final PluginSiteLease lease;
+  void Function()? detach;
+  bool _retired = false;
+  bool get isCurrent => !_retired && lease.isCurrent;
+
+  // Preserve separate, bounded histories for member searches and topic filters.
+  static const _cachedQueries = 16;
+  final members = <_MemberKey, _AssignedMemberQuery>{};
+  final topics = <_TopicKey, _AssignedTopicQuery>{};
+
+  _AssignedMemberQuery? member(_MemberKey key) => _touch(members, key);
+  _AssignedTopicQuery? topic(_TopicKey key) => _touch(topics, key);
+
+  // Reads and admission count as access; completions never change cache order.
+  static V? _touch<K, V extends Object>(Map<K, V> cache, K key) {
+    final held = cache.remove(key);
+    if (held != null) cache[key] = held;
+    return held;
+  }
+
+  void trimMembers() {
+    while (members.length > _cachedQueries) {
+      members.remove(members.keys.first)?.retire();
+    }
+  }
+
+  void trimTopics() {
+    while (topics.length > _cachedQueries) {
+      topics.remove(topics.keys.first)?.retire();
+    }
+  }
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    detach?.call();
+    detach = null;
+    for (final query in members.values) {
+      query.retire();
+    }
+    for (final query in topics.values) {
+      query.retire();
+    }
+    members.clear();
+    topics.clear();
   }
 }
 
@@ -233,12 +264,14 @@ final class _AssignedMemberQuery {
     required this.key,
     required this.api,
     required this.requests,
+    required this.lease,
     required this.notify,
   });
 
   final _MemberKey key;
   final AssignedGroupApi api;
   final PluginRequestHost requests;
+  final PluginSiteLease lease;
   final void Function() notify;
 
   AssignedGroupMembersState state = const AssignedGroupMembersState();
@@ -251,7 +284,7 @@ final class _AssignedMemberQuery {
   Future<void> loadMore() => _load(page: true);
 
   Future<void> _load({required bool page, bool refresh = false}) async {
-    if (_retired) return;
+    if (_retired || !lease.isCurrent) return;
     final held = state;
     if (page) {
       if (_request != null ||
@@ -268,7 +301,6 @@ final class _AssignedMemberQuery {
     }
 
     final request = Object();
-    final lease = requests.capture(key.siteUrl);
     _request = request;
     state = page ? held.loadingNextPage() : held.loadingFirst();
     notify();
@@ -352,12 +384,14 @@ final class _AssignedTopicQuery {
     required this.api,
     required this.requests,
     required this.topics,
+    required this.lease,
     required this.notify,
   });
 
   final _TopicKey key;
   final AssignedGroupApi api;
   final PluginRequestHost requests;
+  final PluginSiteLease lease;
   final Store topics;
   final void Function() notify;
 
@@ -371,7 +405,7 @@ final class _AssignedTopicQuery {
   Future<void> loadMore() => _load(page: true);
 
   Future<void> _load({required bool page, bool refresh = false}) async {
-    if (_retired) return;
+    if (_retired || !lease.isCurrent) return;
     final held = feed;
     if (page) {
       if (_request != null ||
@@ -387,7 +421,6 @@ final class _AssignedTopicQuery {
     }
 
     final request = Object();
-    final lease = requests.capture(key.siteUrl);
     final requestedPath = page ? held.nextPagePath! : null;
     _request = request;
     feed = page ? held.loadingNextPage() : held.refreshing();
