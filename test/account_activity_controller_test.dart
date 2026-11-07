@@ -3304,6 +3304,157 @@ void main() {
   });
 
   group('account forgetting and session replacement', () {
+    for (final feed in [
+      (
+        name: 'all',
+        load: (AccountActivityController controller) =>
+            controller.loadNotifications(_connectedInstance()),
+        read: (AccountActivityController controller) =>
+            controller.notificationsFor(_siteUrl),
+      ),
+      (
+        name: 'replies',
+        load: (AccountActivityController controller) =>
+            controller.loadReplyNotifications(_connectedInstance()),
+        read: (AccountActivityController controller) =>
+            controller.replyNotificationsFor(_siteUrl),
+      ),
+      (
+        name: 'likes',
+        load: (AccountActivityController controller) =>
+            controller.loadLikeNotifications(_connectedInstance()),
+        read: (AccountActivityController controller) =>
+            controller.likeNotificationsFor(_siteUrl),
+      ),
+      (
+        name: 'other',
+        load: (AccountActivityController controller) =>
+            controller.loadOtherNotifications(
+              _connectedInstance(),
+              (_) async => const [NotificationTypeName('replied')],
+            ),
+        read: (AccountActivityController controller) =>
+            controller.otherNotificationsFor(_siteUrl),
+      ),
+      (
+        name: 'plugin',
+        load: (AccountActivityController controller) =>
+            controller.loadPluginNotifications(
+              _connectedInstance(),
+              chatNotificationFeed,
+            ),
+        read: (AccountActivityController controller) => controller
+            .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl),
+      ),
+    ]) {
+      test('retirement alone releases the ${feed.name} feed load', () async {
+        final api = _SequencedNotificationsApi(2);
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        var retiredCompleted = false;
+        final retired = feed.load(controller);
+        unawaited(retired.then((_) => retiredCompleted = true));
+        await api.started[0].future;
+
+        lifecycle.invalidate(_siteUrl);
+        final replacement = feed.load(controller);
+        await pumpEventQueue();
+
+        expect(retiredCompleted, isTrue);
+        expect(api.calls, 2);
+        expect(feed.read(controller).loading, isTrue);
+        api.gates[0].complete();
+        await retired;
+        await pumpEventQueue();
+        expect(feed.load(controller), same(replacement));
+        expect(feed.read(controller).loaded, isFalse);
+        api.gates[1].complete();
+        await replacement;
+        expect(feed.read(controller).loaded, isTrue);
+      });
+    }
+
+    test(
+      'a completed retired notification load cannot block a later load',
+      () async {
+        final api = _SequencedNotificationsApi(2);
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        final retired = controller.loadNotifications(_connectedInstance());
+        await api.started[0].future;
+        lifecycle.invalidate(_siteUrl);
+        api.gates[0].complete();
+        await retired;
+        final replacement = controller.loadNotifications(_connectedInstance());
+        await pumpEventQueue();
+        expect(api.calls, 2);
+        api.gates[1].complete();
+        await replacement;
+        expect(controller.notificationsFor(_siteUrl).loaded, isTrue);
+      },
+    );
+
+    for (final plugin in [false, true]) {
+      test(
+        'a reentrant ${plugin ? 'plugin' : 'core'} loading listener starts a successor',
+        () async {
+          final api = _SequencedNotificationsApi(1);
+          final lifecycle = SiteLifecycle();
+          final controller = _controller(
+            api,
+            FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+          Future<void> load() => plugin
+              ? controller.loadPluginNotifications(
+                  _connectedInstance(),
+                  chatNotificationFeed,
+                )
+              : controller.loadNotifications(_connectedInstance());
+          Future<void>? successor;
+          var rotated = false;
+          final changes = plugin
+              ? controller.pluginNotificationsListenable(
+                  chatNotificationFeed.id,
+                )
+              : controller.notificationsListenable;
+          changes.addListener(() {
+            if (rotated) return;
+            rotated = true;
+            lifecycle.invalidate(_siteUrl);
+            successor = load();
+          });
+
+          final retired = load();
+          await pumpEventQueue();
+          expect(api.calls, 1);
+          expect(successor, isNotNull);
+          expect(load(), same(successor));
+          api.gates[0].complete();
+          await Future.wait([retired, successor!]);
+          expect(
+            plugin
+                ? controller
+                      .pluginNotificationsFor(chatNotificationFeed.id, _siteUrl)
+                      .loaded
+                : controller.notificationsFor(_siteUrl).loaded,
+            isTrue,
+          );
+        },
+      );
+    }
+
     test(
       'a response from a forgotten account cannot repopulate its feed',
       () async {

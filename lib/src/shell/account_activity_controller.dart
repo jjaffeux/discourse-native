@@ -22,6 +22,7 @@ import 'account_history_feed_owners.dart';
 import 'notification_reconciliation.dart';
 
 part 'account_totals_refresh.dart';
+part 'notification_feed_load.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
@@ -104,19 +105,15 @@ final class AccountActivityController extends FrameSafeNotifier {
     _bookmarkChanges.changed,
   );
   final Map<String, _AccountTotalsRefresh> _totalsRefreshes = {};
-  final Map<String, Future<void>> _notificationTasks = {};
-  final Map<String, Future<void>> _replyNotificationTasks = {};
-  final Map<String, Future<void>> _likeNotificationTasks = {};
-  final Map<String, Future<void>> _otherNotificationTasks = {};
+  final Map<String, _NotificationFeedLoad> _notificationLoads = {};
+  final Map<String, _NotificationFeedLoad> _replyNotificationLoads = {};
+  final Map<String, _NotificationFeedLoad> _likeNotificationLoads = {};
+  final Map<String, _NotificationFeedLoad> _otherNotificationLoads = {};
   final Map<String, Future<void>> _bookmarkTasks = {};
   final Map<String, ({DiscourseInstance instance, SiteLease lease})>
   _pendingBookmarks = {};
   final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
   final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
-  final Map<String, Object> _notificationRequests = {};
-  final Map<String, Object> _replyNotificationRequests = {};
-  final Map<String, Object> _likeNotificationRequests = {};
-  final Map<String, Object> _otherNotificationRequests = {};
   final Map<String, Object> _bookmarkRequests = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<(String, PluginNotificationFeedId), Future<void>>
@@ -183,7 +180,7 @@ final class AccountActivityController extends FrameSafeNotifier {
         (state) =>
             _existingReconciliation(siteUrl)?.hasPublished(state.slot) ==
                 true ||
-            state.tasks.containsKey(siteUrl),
+            state.loads.containsKey(siteUrl),
       );
 
   BookmarkFeed bookmarksFor(String? siteUrl) => _feedFor(siteUrl, _bookmarks);
@@ -218,11 +215,11 @@ final class AccountActivityController extends FrameSafeNotifier {
   Future<void> loadNotifications(DiscourseInstance instance) =>
       _coalescedActivityLoad(
         instance.url,
-        tasks: _notificationTasks,
-        start: () => _loadNotificationFeed(
+        loads: _notificationLoads,
+        start: (load) => _loadNotificationFeed(
           instance,
+          load: load,
           slot: _notifications,
-          requests: _notificationRequests,
           fetch: (apiKey, _) =>
               api.notifications(siteUrl: instance.url, apiKey: apiKey),
           reconnectMessage: appL10n.reconnectToToSeeNotifications(
@@ -237,11 +234,11 @@ final class AccountActivityController extends FrameSafeNotifier {
   Future<void> loadReplyNotifications(DiscourseInstance instance) =>
       _coalescedActivityLoad(
         instance.url,
-        tasks: _replyNotificationTasks,
-        start: () => _loadNotificationFeed(
+        loads: _replyNotificationLoads,
+        start: (load) => _loadNotificationFeed(
           instance,
+          load: load,
           slot: _replyNotifications,
-          requests: _replyNotificationRequests,
           fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
@@ -259,11 +256,11 @@ final class AccountActivityController extends FrameSafeNotifier {
   Future<void> loadLikeNotifications(DiscourseInstance instance) =>
       _coalescedActivityLoad(
         instance.url,
-        tasks: _likeNotificationTasks,
-        start: () => _loadNotificationFeed(
+        loads: _likeNotificationLoads,
+        start: (load) => _loadNotificationFeed(
           instance,
+          load: load,
           slot: _likeNotifications,
-          requests: _likeNotificationRequests,
           fetch: (apiKey, _) => api.notifications(
             siteUrl: instance.url,
             apiKey: apiKey,
@@ -283,11 +280,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     OtherNotificationTypes resolveTypes,
   ) => _coalescedActivityLoad(
     instance.url,
-    tasks: _otherNotificationTasks,
-    start: () => _loadNotificationFeed(
+    loads: _otherNotificationLoads,
+    start: (load) => _loadNotificationFeed(
       instance,
+      load: load,
       slot: _otherNotifications,
-      requests: _otherNotificationRequests,
       fetch: (apiKey, ownsRequest) async {
         final types = await resolveTypes(apiKey);
         // The catalog and notification requests share the original owner.
@@ -321,11 +318,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     final state = _pluginNotificationState(source.id);
     return _coalescedActivityLoad(
       instance.url,
-      tasks: state.tasks,
-      start: () => _loadNotificationFeed(
+      loads: state.loads,
+      start: (load) => _loadNotificationFeed(
         instance,
+        load: load,
         slot: state.slot,
-        requests: state.requests,
         fetch: (apiKey, _) async => source.arrange(
           await api.notifications(
             siteUrl: instance.url,
@@ -357,7 +354,7 @@ final class AccountActivityController extends FrameSafeNotifier {
                   instance.url,
                 )?.hasPublished(_pluginNotificationState(source.id).slot) ==
                 true ||
-            _pluginNotificationState(source.id).tasks.containsKey(instance.url))
+            _pluginNotificationState(source.id).loads.containsKey(instance.url))
           _refreshLoadedPluginNotifications(instance, source, lease),
     ]);
   }
@@ -368,8 +365,8 @@ final class AccountActivityController extends FrameSafeNotifier {
     SiteLease lease,
   ) async {
     final state = _pluginNotificationState(source.id);
-    final active = state.tasks[instance.url];
-    if (active != null) await active;
+    final active = state.loads[instance.url];
+    if (active != null) await active.future;
     if (isDisposed || !lease.isCurrent) return;
     await loadPluginNotifications(instance, source);
   }
@@ -473,8 +470,8 @@ final class AccountActivityController extends FrameSafeNotifier {
       if (source != null) {
         await _refreshLoadedPluginNotifications(instance, source, lease);
       } else {
-        final active = _notificationTasks[siteUrl];
-        if (active != null) await active;
+        final active = _notificationLoads[siteUrl];
+        if (active != null) await active.future;
         if (isDisposed || !lease.isCurrent) return;
         await loadNotifications(instance);
       }
@@ -497,50 +494,39 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   Future<void> _coalescedActivityLoad(
     String siteUrl, {
-    required Map<String, Future<void>> tasks,
-    required Future<void> Function() start,
+    required Map<String, _NotificationFeedLoad> loads,
+    required Future<void> Function(_NotificationFeedLoad load) start,
   }) {
     if (isDisposed) return Future<void>.value();
-    final active = tasks[siteUrl];
-    if (active != null) return active;
+    final active = loads[siteUrl];
+    if (active != null && active.isCurrent) return active.future;
+    active?.finish();
 
-    final result = Completer<void>();
-    final task = result.future;
-    // Publish the shared future before [start]. Loading state notifications can
-    // synchronously re-enter through a listener, and that caller must join the
-    // same task rather than start a duplicate request.
-    tasks[siteUrl] = task;
-
-    void finish([Object? error, StackTrace? stackTrace]) {
-      if (identical(tasks[siteUrl], task)) {
-        final _ = tasks.remove(siteUrl);
-      }
-      if (result.isCompleted) return;
-      if (error == null) {
-        result.complete();
-      } else {
-        result.completeError(error, stackTrace!);
-      }
-    }
-
+    final load = _NotificationFeedLoad(lifecycle.capture(siteUrl));
+    // Loading publication can re-enter before credential IO. Install the load
+    // and its retirement cleanup before invoking any domain callbacks.
+    loads[siteUrl] = load;
+    load.observeRetirement(() {
+      if (identical(loads[siteUrl], load)) loads.remove(siteUrl);
+    });
     try {
       unawaited(
-        start().then<void>(
-          (_) => finish(),
+        start(load).then<void>(
+          (_) => load.finish(),
           onError: (Object error, StackTrace stackTrace) =>
-              finish(error, stackTrace),
+              load.finish(error, stackTrace),
         ),
       );
     } catch (error, stackTrace) {
-      finish(error, stackTrace);
+      load.finish(error, stackTrace);
     }
-    return task;
+    return load.future;
   }
 
   Future<void> _loadNotificationFeed(
     DiscourseInstance instance, {
     required NotificationFeedSlot<NotificationFeed> slot,
-    required Map<String, Object> requests,
+    required _NotificationFeedLoad load,
     required Future<List<DiscourseNotification>> Function(
       String apiKey,
       bool Function() ownsRequest,
@@ -549,15 +535,12 @@ final class AccountActivityController extends FrameSafeNotifier {
     required String reconnectMessage,
     required String failureMessage,
   }) async {
-    if (isDisposed || !instance.isConnected) return;
-    final lease = lifecycle.capture(instance.url);
-    if (requests.containsKey(instance.url)) return;
-    final request = Object();
-    requests[instance.url] = request;
+    if (isDisposed || !instance.isConnected || !load.isCurrent) return;
+    final lease = load.lease;
     final owner = _reconciliationFor(instance.url, lease: lease);
     final held = owner.hasPublished(slot) ? owner.feed(slot) : null;
 
-    bool ownsRequest() => _ownsRequest(lease, requests[instance.url], request);
+    bool ownsRequest() => !isDisposed && load.isCurrent;
 
     if (held == null || held.error != null) {
       owner.publish(slot, const NotificationFeed.loading());
@@ -584,25 +567,23 @@ final class AccountActivityController extends FrameSafeNotifier {
       }
       if (apiKey == null) {
         _commit(lease, () {
-          if (!identical(requests[instance.url], request)) return;
+          if (!ownsRequest()) return;
           fail(reconnectMessage);
         });
         return;
       }
       final notifications = await auth.run(() => fetch(apiKey, ownsRequest));
       _commit(lease, () {
-        if (!identical(requests[instance.url], request)) return;
+        if (!ownsRequest()) return;
         owner.publish(slot, NotificationFeed.of(notifications));
       });
     } on SiteLookupException catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(requests[instance.url], request)) {
+      if (!ownsRequest()) {
         return;
       }
 
       _commit(lease, () {
-        if (!identical(requests[instance.url], request)) return;
+        if (!ownsRequest()) return;
         fail(
           error.failure == SiteLookupFailure.notDiscourse
               ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
@@ -610,21 +591,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         );
       });
     } catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(requests[instance.url], request)) {
+      if (!ownsRequest()) {
         return;
       }
 
       _commit(lease, () {
-        if (!identical(requests[instance.url], request)) return;
+        if (!ownsRequest()) return;
         fail(failureMessage);
-      });
-    } finally {
-      _commit(lease, () {
-        if (identical(requests[instance.url], request)) {
-          requests.remove(instance.url);
-        }
       });
     }
   }
@@ -945,16 +918,15 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (isDisposed) return;
     final owner = _reconciliations.remove(siteUrl);
     for (final state in _pluginNotifications.values) {
-      state.tasks.remove(siteUrl)?.ignore();
-      state.requests.remove(siteUrl);
+      state.loads.remove(siteUrl)?.finish();
     }
     final hadBookmarkList = _bookmarkListOwner.retire(siteUrl);
     final hadUserActivity = _userActivityOwner.retire(siteUrl);
     _totalsRefreshes.remove(siteUrl)?.retire();
-    _notificationTasks.remove(siteUrl)?.ignore();
-    _replyNotificationTasks.remove(siteUrl)?.ignore();
-    _likeNotificationTasks.remove(siteUrl)?.ignore();
-    _otherNotificationTasks.remove(siteUrl)?.ignore();
+    _notificationLoads.remove(siteUrl)?.finish();
+    _replyNotificationLoads.remove(siteUrl)?.finish();
+    _likeNotificationLoads.remove(siteUrl)?.finish();
+    _otherNotificationLoads.remove(siteUrl)?.finish();
     _bookmarkTasks.remove(siteUrl)?.ignore();
     _pendingBookmarks.remove(siteUrl);
     _pendingBookmarkWaiters.remove(siteUrl)?.complete();
@@ -963,10 +935,6 @@ final class AccountActivityController extends FrameSafeNotifier {
         !replayingBookmarkWaiter.isCompleted) {
       replayingBookmarkWaiter.complete();
     }
-    _notificationRequests.remove(siteUrl);
-    _replyNotificationRequests.remove(siteUrl);
-    _likeNotificationRequests.remove(siteUrl);
-    _otherNotificationRequests.remove(siteUrl);
     _bookmarkRequests.remove(siteUrl);
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pluginNotificationDismissTasks.removeWhere((key, task) {
@@ -1005,23 +973,24 @@ final class AccountActivityController extends FrameSafeNotifier {
     _pendingBookmarkWaiters.clear();
     _replayingBookmarkWaiters.clear();
     _pendingBookmarks.clear();
-    _notificationTasks.clear();
-    _replyNotificationTasks.clear();
-    _likeNotificationTasks.clear();
-    _otherNotificationTasks.clear();
+    for (final load in _notificationLoads.values.toList()) {
+      load.finish();
+    }
+    for (final load in _replyNotificationLoads.values.toList()) {
+      load.finish();
+    }
+    for (final load in _likeNotificationLoads.values.toList()) {
+      load.finish();
+    }
+    for (final load in _otherNotificationLoads.values.toList()) {
+      load.finish();
+    }
     for (final state in _pluginNotifications.values) {
-      for (final task in state.tasks.values) {
-        task.ignore();
-      }
       state.dispose();
     }
     _pluginNotifications.clear();
     _pluginNotificationSources.clear();
     _bookmarkTasks.clear();
-    _notificationRequests.clear();
-    _replyNotificationRequests.clear();
-    _likeNotificationRequests.clear();
-    _otherNotificationRequests.clear();
     _bookmarkRequests.clear();
     _notificationReadRequests.clear();
     for (final owner in _reconciliations.values) {
@@ -1048,8 +1017,12 @@ final class _ActivityAspect extends FrameSafeNotifier {
 final class _PluginNotificationState {
   final _ActivityAspect changes = _ActivityAspect();
   late final slot = NotificationFeedSlot.notifications(changes.changed);
-  final Map<String, Future<void>> tasks = {};
-  final Map<String, Object> requests = {};
+  final Map<String, _NotificationFeedLoad> loads = {};
 
-  void dispose() => changes.dispose();
+  void dispose() {
+    for (final load in loads.values.toList()) {
+      load.finish();
+    }
+    changes.dispose();
+  }
 }
