@@ -330,6 +330,12 @@ final class TopicReaderGeometry implements TopicViewportGeometry {
     // with post IDs. Move the cached heights too, before updating the delegate;
     // invalidating them alone leaves old heights assigned to different posts.
     // Separated lists have two children per inserted post or loading header.
+    if (inserted > 0) {
+      final sliver = _sliverKey.currentContext?.findRenderObject();
+      if (sliver is _TopicPostRenderSliver) {
+        sliver.retainPrependAnchor(previousLeading * 2);
+      }
+    }
     final previousTotalExtent = list.totalExtent;
     if (change.previousHasHeader && !change.hasHeader) {
       list

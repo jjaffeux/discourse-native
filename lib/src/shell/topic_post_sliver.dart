@@ -167,6 +167,26 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
 
   double? _precedingExtent;
   bool _resizing = false;
+  RenderBox? _prependAnchor;
+
+  void retainPrependAnchor(int firstPostChild) {
+    _prependAnchor = null;
+    final leading = constraints.scrollOffset;
+    for (var child = firstChild; child != null; child = childAfter(child)) {
+      final index = indexOf(child);
+      final offset = childScrollOffset(child);
+      if (index < firstPostChild ||
+          index.isOdd ||
+          offset == null ||
+          !child.hasSize) {
+        continue;
+      }
+      if (offset + paintExtentOf(child) > leading) {
+        _prependAnchor = child;
+        return;
+      }
+    }
+  }
 
   @override
   double? childScrollOffset(RenderObject child) {
@@ -232,7 +252,23 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
     final trailing =
         constraints.scrollOffset + constraints.remainingPaintExtent;
     RenderBox? anchor;
-    for (var child = firstChild; child != null; child = childAfter(child)) {
+    // Earlier staged replies can grow inside the viewport after a prepend.
+    // Keep the reply the reader was already seeing until it leaves the view.
+    final retained = _prependAnchor;
+    if (retained != null && retained.parent == this && retained.hasSize) {
+      final offset = childScrollOffset(retained);
+      if (offset != null &&
+          offset + paintExtentOf(retained) > leading &&
+          offset < trailing) {
+        anchor = retained;
+      }
+    }
+    if (anchor == null) _prependAnchor = null;
+    for (
+      var child = firstChild;
+      anchor == null && child != null;
+      child = childAfter(child)
+    ) {
       final offset = childScrollOffset(child);
       if (offset == null || !child.hasSize) continue;
       if (offset >= trailing) break;
