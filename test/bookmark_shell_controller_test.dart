@@ -1577,7 +1577,9 @@ final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
         },
         topics: {7: _payload()},
         siteConfigs: {
-          _site: installedPlugins.models.siteConfig({'chat_enabled': true}, _site),
+          _site: installedPlugins.models.siteConfig({
+            'chat_enabled': true,
+          }, _site),
         },
         bookmarkList: const [],
       );
