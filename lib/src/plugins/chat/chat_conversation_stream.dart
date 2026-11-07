@@ -27,8 +27,12 @@ ChatMessagePage _projectSourceMoves(
       );
 
 final class _ChatConversationStream {
-  _ChatConversationStream(this._controller, this.siteUrl, this.target)
-    : key = ChatController._targetKey(siteUrl, target);
+  _ChatConversationStream(
+    this._controller,
+    this.siteUrl,
+    this.target, {
+    String? key,
+  }) : key = key ?? ChatController._targetKey(siteUrl, target);
 
   final ChatController _controller;
   final String siteUrl;
@@ -43,11 +47,16 @@ final class _ChatConversationStream {
   _ChatPageRequest? _olderRequest;
   _ChatPageRequest? _newerRequest;
   bool _loading = false;
+  Object? _openIntent;
   DateTime? _attemptedAt;
   final Set<int> _pendingLiveMessageIds = {};
   Timer? _noticeTimer;
   ChatReadReceiptOwner? _readReceipts;
   bool _retired = false;
+  int _readers = 0;
+  final Set<Object> _viewTokens = {};
+
+  bool get isViewing => _viewTokens.isNotEmpty;
 
   bool get isCurrent =>
       !_retired && identical(_controller._conversations[key], this);
@@ -71,6 +80,7 @@ final class _ChatConversationStream {
   }
 
   bool get preventsEviction =>
+      _readers > 0 ||
       (_window?.localMessageIds.isNotEmpty ?? false) ||
       _pendingLiveMessageIds.isNotEmpty ||
       _loading ||
@@ -92,7 +102,12 @@ final class _ChatConversationStream {
     if (previous != null && previous.localMessageIds.isNotEmpty) {
       final remaining = retained.localMessageIds.toSet();
       for (final id in previous.localMessageIds) {
-        if (!remaining.contains(id)) {
+        if (!remaining.contains(id) &&
+            !_controller._conversations.values.any(
+              (owner) =>
+                  owner.siteUrl == siteUrl &&
+                  owner.snapshot.localMessageIds.contains(id),
+            )) {
           _controller._store.remove<ChatMessage>(siteUrl, id);
         }
       }
@@ -105,7 +120,7 @@ final class _ChatConversationStream {
   void syncMessagePins() {
     if (!isCurrent) return;
     final stream = snapshot;
-    final viewing = _controller._liveSync.isViewingTarget(siteUrl, target);
+    final viewing = isViewing;
     final previous = _completePinInputs;
     if (previous != null &&
         identical(previous.messageIds, stream.messageIds) &&
@@ -144,6 +159,7 @@ final class _ChatConversationStream {
   }
 
   void abandonWindowWork() {
+    _openIntent = null;
     _generation = null;
     _loading = false;
     _attemptedAt = null;
@@ -154,6 +170,9 @@ final class _ChatConversationStream {
   }
 
   void retire() {
+    for (final token in _viewTokens.toList()) {
+      _controller._endViewing(this, token);
+    }
     _retired = true;
     _completePinInputs = null;
     abandonWindowWork();
@@ -198,6 +217,7 @@ final class _ChatConversationStream {
   void admitLive(ChatMessage message) {
     if (!isCurrent) return;
     final window = snapshot;
+    if (window.messageIds.contains(message.id)) return;
     if (!window.fetchedOnce) {
       // Only a page establishes a window: subscriptions resume from an older
       // snapshot cursor, so a replayed arrival would stand in for the present
@@ -408,7 +428,7 @@ final class _ChatConversationStream {
       );
       lease.commit(() {
         if (!ownsRequest()) return;
-        final current = _window ?? held;
+        var current = _window ?? held;
         final heldIds = held.messageIds.toSet();
         final pageIds = {for (final message in page.messages) message.id};
         final arrivedWhileLoading = [
@@ -421,6 +441,8 @@ final class _ChatConversationStream {
           page.messages,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
+        _controller._reconcilePageOutgoing(this, page.messages);
+        current = _window ?? current;
         final pendingIds = _pendingLiveMessageIds;
         final List<int> messageIds;
         var retired = page.messages;
@@ -598,6 +620,7 @@ final class _ChatConversationStream {
           page.messages,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
+        _controller._reconcilePageOutgoing(this, page.messages);
         final current = _window ?? const ChatStreamState();
         final merged = ChatMessageTimeline.merge(
           held: _controller._timelineSnapshot(siteUrl, current.messageIds),
@@ -710,6 +733,7 @@ final class _ChatConversationStream {
           page.messages,
           bookmarkVersionAtDispatch: bookmarkVersion,
         );
+        _controller._reconcilePageOutgoing(this, page.messages);
         final current = _window ?? const ChatStreamState();
         var merged = ChatMessageTimeline.merge(
           held: _controller._timelineSnapshot(siteUrl, current.messageIds),

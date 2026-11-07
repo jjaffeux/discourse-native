@@ -12,19 +12,20 @@ class ChatViewLifetime {
     required this.target,
     this.onAcquire,
     this.onShellChanged,
-  }) {
-    if (target case final ChatThreadTarget thread) {
-      _viewToken = chat.beginViewingThread(siteUrl, thread);
-    }
-  }
+    this.onReaderChanged,
+  });
 
   final ChatController chat;
   final String siteUrl;
   final ChatStreamTarget target;
   final VoidCallback? onAcquire;
   final VoidCallback? onShellChanged;
+  final VoidCallback? onReaderChanged;
 
   ChatShellService? _shell;
+  ChatConversationReader? _reader;
+  String? _readerId;
+  ChatConversationReader get reader => _reader!;
   Object? _viewToken;
   bool _viewStartScheduled = false;
   bool _disposed = false;
@@ -35,16 +36,35 @@ class ChatViewLifetime {
   bool get _active =>
       !_disposed && _tickerEnabled && (_shell?.forumActive ?? false);
 
-  void bind(ChatShellService shell, {required bool tickerEnabled}) {
+  void bind(
+    ChatShellService shell, {
+    required bool tickerEnabled,
+    String? readerId,
+  }) {
     if (!identical(shell, _shell)) {
       _shell?.removeListener(_handleShellChanged);
       _shell = shell..addListener(_handleShellChanged);
+    }
+    final id = readerId ?? 'view-${identityHashCode(this)}';
+    if (_readerId != id || !(_reader?.isCurrent ?? false)) {
+      _replaceReader(id);
     }
     _tickerEnabled = tickerEnabled;
     _syncViewing();
   }
 
+  void _replaceReader(String id) {
+    _release();
+    _reader?.dispose();
+    _readerId = id;
+    _reader = chat.acquireReader(siteUrl, target, readerId: id);
+  }
+
   void _handleShellChanged() {
+    if (_readerId case final id? when !reader.isCurrent) {
+      _replaceReader(id);
+      onReaderChanged?.call();
+    }
     _syncViewing();
     onShellChanged?.call();
   }
@@ -68,13 +88,7 @@ class ChatViewLifetime {
   }
 
   void _acquire() {
-    _viewToken = switch (target) {
-      ChatChannelTarget(:final channelId) => chat.beginViewingChannel(
-        siteUrl,
-        channelId,
-      ),
-      final ChatThreadTarget thread => chat.beginViewingThread(siteUrl, thread),
-    };
+    _viewToken = reader.beginViewing();
     onAcquire?.call();
   }
 
@@ -82,17 +96,13 @@ class ChatViewLifetime {
     final token = _viewToken;
     _viewToken = null;
     if (token == null) return;
-    switch (target) {
-      case ChatChannelTarget(:final channelId):
-        chat.endViewingChannel(siteUrl, channelId, token);
-      case final ChatThreadTarget thread:
-        chat.endViewingThread(siteUrl, thread, token);
-    }
+    reader.endViewing(token);
   }
 
   void dispose() {
     _disposed = true;
     _shell?.removeListener(_handleShellChanged);
     _release();
+    _reader?.dispose();
   }
 }

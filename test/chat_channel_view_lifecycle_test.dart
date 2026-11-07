@@ -1048,13 +1048,12 @@ void main() {
       await controller.chat.openChannel(firstSite, 9);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        // The view's own rapid remount is cooled down. This callback models the
-        // explicit replacement whose generation must invalidate queued paging.
-        unawaited(controller.chat.openChannel(firstSite, 9, force: true));
+        // Replace the mounted reader before its queued history fill runs.
+        unawaited(_mountedReader(tester).open(force: true));
       });
       await tester.pumpWidget(_TestView(controller: controller));
 
-      expect(controller.chat.stream(firstSite, 9).oldestId, 10);
+      expect(_mountedReader(tester).stream.oldestId, 10);
       expect(api.olderSites, isEmpty);
     });
 
@@ -1131,10 +1130,10 @@ void main() {
       expect(reads.count, greaterThan(0));
       reads.count = 0;
 
-      final request = controller.chat.loadOlder(firstSite, 9);
+      final request = _mountedReader(tester).loadOlder();
       await tester.pump();
 
-      expect(controller.chat.stream(firstSite, 9).loadingOlder, isTrue);
+      expect(_mountedReader(tester).stream.loadingOlder, isTrue);
       expect(reads.count, 0);
 
       older.complete(_messagesPage(-1, 1));
@@ -1329,7 +1328,7 @@ void main() {
               await controller.chat.openChannel(firstSite, 9);
               await tester.pumpWidget(_TestView(controller: controller));
               await tester.pumpAndSettle();
-              final before = controller.chat.stream(firstSite, 9);
+              final before = _mountedReader(tester).stream;
               final oldItems = tester
                   .widget<ChatMessageStream>(find.byType(ChatMessageStream))
                   .items;
@@ -1342,10 +1341,10 @@ void main() {
                 _channel(lastRead: before.lastReadOnOpen ?? 0),
               );
 
-              await controller.chat.openChannel(firstSite, 9, force: true);
+              await _mountedReader(tester).open(force: true);
               await tester.pump();
 
-              final stream = controller.chat.stream(firstSite, 9);
+              final stream = _mountedReader(tester).stream;
               expect(stream.fetches, before.fetches + 1);
               expect(stream.lastReadOnOpen, before.lastReadOnOpen);
               expect(stream.messageIds, hasLength(capacity));
@@ -1363,7 +1362,7 @@ void main() {
               expect(
                 items,
                 buildChatStream(
-                  controller.chat.messages(firstSite, 9),
+                  _mountedReader(tester).messages,
                   time: controller.chat.timeFor(firstSite),
                   lastReadMessageId: stream.lastReadOnOpen,
                 ),
@@ -1454,11 +1453,11 @@ void main() {
                     });
               }
             } else {
-              await controller.chat.openChannel(firstSite, 9, force: true);
+              await _mountedReader(tester).open(force: true);
             }
             await tester.pump();
 
-            final stream = controller.chat.stream(firstSite, 9);
+            final stream = _mountedReader(tester).stream;
             expect(stream.messageIds, hasLength(capacity));
             expect(stream.messageIds.first, nonmonotone ? 4 : 2);
             expect(stream.messageIds.last, capacity + 2);
@@ -1467,7 +1466,7 @@ void main() {
                   .widget<ChatMessageStream>(find.byType(ChatMessageStream))
                   .items,
               buildChatStream(
-                controller.chat.messages(firstSite, 9),
+                _mountedReader(tester).messages,
                 time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
@@ -1522,20 +1521,17 @@ void main() {
                 .items
                 .whereType<ChatStreamMessage>()
                 .firstWhere((item) => item.id == 500);
-            expect(
-              controller.chat.stream(firstSite, 9).canLoadMorePast,
-              isTrue,
-            );
+            expect(_mountedReader(tester).stream.canLoadMorePast, isTrue);
             reads.count = 0;
 
-            await controller.chat.loadOlder(firstSite, 9);
-            expect(controller.chat.stream(firstSite, 9).messageIds.first, 100);
+            await _mountedReader(tester).loadOlder();
+            expect(_mountedReader(tester).stream.messageIds.first, 100);
             await tester.pump();
             await tester.pump();
 
             expect(api.olderSites, contains(firstSite));
             expect(reads.count, lessThan(50));
-            final stream = controller.chat.stream(firstSite, 9);
+            final stream = _mountedReader(tester).stream;
             expect(stream.messageIds, hasLength(capacity));
             expect(api.newerSites, atPresent ? contains(firstSite) : isEmpty);
             expect(stream.messageIds.first, atPresent ? 101 : 100);
@@ -1552,7 +1548,7 @@ void main() {
             expect(
               items,
               buildChatStream(
-                controller.chat.messages(firstSite, 9),
+                _mountedReader(tester).messages,
                 time: controller.chat.timeFor(firstSite),
                 lastReadMessageId: stream.lastReadOnOpen,
               ),
@@ -2121,8 +2117,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.targetMessageIds, [null, null]);
-      expect(controller.chat.stream(firstSite, 9).newestId, 180);
-      expect(controller.chat.stream(firstSite, 9).atPresent, isTrue);
+      expect(_mountedReader(tester).stream.newestId, 180);
+      expect(_mountedReader(tester).stream.atPresent, isTrue);
       expect(
         tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
         0,
@@ -2805,12 +2801,7 @@ void main() {
       gate.complete();
       await tester.pumpAndSettle();
 
-      expect(
-        controller.chat
-            .streamFor(firstSite, const ChatChannelTarget(9))
-            .lastReadOnOpen,
-        1,
-      );
+      expect(_mountedReader(tester).stream.lastReadOnOpen, 1);
       await tester.pump(const Duration(milliseconds: 600));
     });
 
@@ -3799,7 +3790,7 @@ void main() {
               expectHeld();
             }
             await tester.pumpAndSettle();
-            expect(controller.chat.stream(firstSite, 9).newestId, 40 + missed);
+            expect(_mountedReader(tester).stream.newestId, 40 + missed);
             expectHeld();
           },
           variant: const TargetPlatformVariant({TargetPlatform.iOS}),
@@ -3847,7 +3838,7 @@ void main() {
           await tester.pumpAndSettle();
 
           expect(api.newerSites, hasLength(resync));
-          expect(controller.chat.stream(firstSite, 9).newestId, 40 + resync);
+          expect(_mountedReader(tester).stream.newestId, 40 + resync);
           final visible = _visibleMessageTops(tester);
           for (final entry in seen.entries) {
             expect(
@@ -4561,3 +4552,6 @@ ChatMessage _message(
   thread: thread,
   reactions: reactions,
 );
+
+ChatConversationReader _mountedReader(WidgetTester tester) =>
+    tester.widget<ChatMessageStream>(find.byType(ChatMessageStream)).reader!;

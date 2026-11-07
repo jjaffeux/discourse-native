@@ -122,16 +122,17 @@ class _ChatChannelBody extends StatefulWidget {
 class _ChatChannelBodyState extends State<_ChatChannelBody> {
   static const _maxHeaderShare = 0.4;
 
-  late final _viewing = ChatViewLifetime(
+  late final ChatViewLifetime _viewing = ChatViewLifetime(
     chat: widget.chat,
     siteUrl: widget.siteUrl,
     target: ChatChannelTarget(widget.channelId),
     onAcquire: () {
       if (_opened) {
-        unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+        unawaited(_viewing.reader.open());
       }
     },
     onShellChanged: _handleShellChanged,
+    onReaderChanged: _handleTimeChanged,
   );
   Listenable? _navigation;
   Listenable? _timeChanges;
@@ -145,6 +146,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   String? _projectedTimezone;
   List<ChatStreamItem> _items = const [];
   int? _highlightMessageId;
+  int? _highlightAfterFetches;
   int _highlightRequest = 0;
   bool _selectingMessages = false;
   final Set<int> _selectedMessageIds = {};
@@ -172,7 +174,11 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _timeChanges = timeChanges..addListener(_handleTimeChanged);
     }
     final shell = PluginUiScope.require(context, chatShellService);
-    _viewing.bind(shell, tickerEnabled: TickerMode.valuesOf(context).enabled);
+    _viewing.bind(
+      shell,
+      tickerEnabled: TickerMode.valuesOf(context).enabled,
+      readerId: shell.tabIdOf(context),
+    );
 
     final navigation = shell.navigation;
     if (!identical(navigation, _navigation)) {
@@ -182,7 +188,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     }
     if (!_consumeNavigation() && !_opened) {
       _opened = true;
-      unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
+      unawaited(_viewing.reader.open());
     }
   }
 
@@ -203,16 +209,12 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (pending.messageId case final messageId?) {
       setState(() {
         _highlightMessageId = messageId;
+        _highlightAfterFetches = _viewing.reader.stream.fetches;
         _highlightRequest++;
       });
     }
     unawaited(
-      widget.chat.openChannel(
-        widget.siteUrl,
-        widget.channelId,
-        targetMessageId: pending.messageId,
-        force: true,
-      ),
+      _viewing.reader.open(targetMessageId: pending.messageId, force: true),
     );
     return true;
   }
@@ -228,10 +230,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatStreamState>(
-      valueListenable: widget.chat.streamListenable(
-        widget.siteUrl,
-        widget.channelId,
-      ),
+      valueListenable: _viewing.reader.changes,
       builder: (context, stream, _) => ValueListenableBuilder<ChatChannel?>(
         valueListenable: widget.chat.channelRef(
           widget.siteUrl,
@@ -255,6 +254,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       // Local sends remain visible while the first page loads or has failed.
       _syncProjection(stream);
       return ChatMessageStream(
+        reader: _viewing.reader,
         siteUrl: widget.siteUrl,
         target: ChatChannelTarget(widget.channelId),
         items: _items,
@@ -374,6 +374,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                 )
               : stream.error == null || hasMessages
               ? ChatComposer(
+                  reader: _viewing.reader,
                   key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
                   siteUrl: widget.siteUrl,
                   channelId: widget.channelId,
@@ -434,8 +435,14 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _editingMessage = null;
     }
     if (_highlightMessageId case final highlighted?
-        when !retained.contains(highlighted)) {
+        when !retained.contains(highlighted) &&
+            (_highlightAfterFetches == null ||
+                stream.fetches > _highlightAfterFetches!)) {
       _highlightMessageId = null;
+    }
+    if (_highlightAfterFetches != null &&
+        stream.fetches > _highlightAfterFetches!) {
+      _highlightAfterFetches = null;
     }
   }
 
@@ -447,16 +454,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   void _jumpToMessage(int messageId) {
     setState(() {
       _highlightMessageId = messageId;
+      _highlightAfterFetches = _viewing.reader.stream.fetches;
       _highlightRequest++;
     });
-    unawaited(
-      widget.chat.openChannel(
-        widget.siteUrl,
-        widget.channelId,
-        targetMessageId: messageId,
-        force: true,
-      ),
-    );
+    unawaited(_viewing.reader.open(targetMessageId: messageId, force: true));
   }
 
   Future<void> _replyToMessage(
@@ -554,7 +555,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
         (_extendProjectionIntoPast(stream) ||
             _extendProjectionIntoFuture(stream));
     if (!extended) {
-      final messages = widget.chat.messages(widget.siteUrl, widget.channelId);
+      final messages = _viewing.reader.messages;
       // Use the opening snapshot so read receipts cannot move the divider.
       _items = buildChatStream(
         messages,
@@ -752,6 +753,7 @@ class ChatMessageStream extends StatefulWidget {
     required this.target,
     required this.items,
     required this.stream,
+    this.reader,
     this.highlightMessageId,
     this.highlightRequest = 0,
     this.onHighlightComplete,
@@ -772,6 +774,7 @@ class ChatMessageStream extends StatefulWidget {
   final ChatStreamTarget target;
   final List<ChatStreamItem> items;
   final ChatStreamState stream;
+  final ChatConversationReader? reader;
   final int? highlightMessageId;
 
   final int highlightRequest;
@@ -1166,7 +1169,10 @@ class _StreamState extends State<ChatMessageStream>
     if (_filled == asked) return;
     _filled = asked;
 
-    unawaited(_chat?.loadNewerFor(widget.siteUrl, widget.target));
+    unawaited(
+      widget.reader?.loadNewer() ??
+          _chat?.loadNewerFor(widget.siteUrl, widget.target),
+    );
   }
 
   ({String siteUrl, ChatStreamTarget target, int fetches, int? newestId})?
@@ -1366,7 +1372,10 @@ class _StreamState extends State<ChatMessageStream>
     }
 
     _readTimeRemaining = _readInterval;
-    unawaited(_chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId));
+    unawaited(
+      widget.reader?.markRead(seen.messageId) ??
+          _chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId),
+    );
   }
 
   int get _leadingRows =>
@@ -1522,7 +1531,7 @@ class _StreamState extends State<ChatMessageStream>
         widget.target == target;
 
     while (isCurrent()) {
-      final stream = chat.streamFor(siteUrl, target);
+      final stream = (widget.reader?.stream ?? chat.streamFor(siteUrl, target));
       final oldest = stream.oldestId;
       if (!stream.canLoadMorePast ||
           oldest == null ||
@@ -1532,9 +1541,12 @@ class _StreamState extends State<ChatMessageStream>
               day) {
         break;
       }
-      await chat.loadOlderFor(siteUrl, target);
+      await (widget.reader?.loadOlder() ?? chat.loadOlderFor(siteUrl, target));
       if (!isCurrent()) return;
-      if (chat.streamFor(siteUrl, target).oldestId == oldest) break;
+      if ((widget.reader?.stream ?? chat.streamFor(siteUrl, target)).oldestId ==
+          oldest) {
+        break;
+      }
       // Let the stream rebuild its rows before resolving the day's separator.
       await WidgetsBinding.instance.endOfFrame;
     }
@@ -1771,11 +1783,17 @@ class _StreamState extends State<ChatMessageStream>
                 // and extentBefore back toward the present.
                 if (notification.metrics.extentAfter <
                     paginationPrefetchDistance(notification.metrics)) {
-                  unawaited(chat.loadOlderFor(siteUrl, widget.target));
+                  unawaited(
+                    (widget.reader?.loadOlder() ??
+                        chat.loadOlderFor(siteUrl, widget.target)),
+                  );
                 }
                 if (notification.metrics.extentBefore <
                     paginationPrefetchDistance(notification.metrics)) {
-                  unawaited(chat.loadNewerFor(siteUrl, widget.target));
+                  unawaited(
+                    (widget.reader?.loadNewer() ??
+                        chat.loadNewerFor(siteUrl, widget.target)),
+                  );
                 }
                 _syncAwayFromPresent();
                 _scheduleLook();
@@ -1995,11 +2013,17 @@ class _StreamState extends State<ChatMessageStream>
           widget.siteUrl != siteUrl ||
           widget.channelId != channelId ||
           !identical(widget.stream, stream) ||
-          !identical(chat.streamFor(siteUrl, widget.target), stream)) {
+          !identical(
+            (widget.reader?.stream ?? chat.streamFor(siteUrl, widget.target)),
+            stream,
+          )) {
         return;
       }
       _olderFilled = asked;
-      unawaited(chat.loadOlderFor(siteUrl, widget.target));
+      unawaited(
+        (widget.reader?.loadOlder() ??
+            chat.loadOlderFor(siteUrl, widget.target)),
+      );
     });
   }
 
@@ -2014,7 +2038,8 @@ class _StreamState extends State<ChatMessageStream>
     int channelId,
   ) async {
     if (!widget.stream.atPresent) {
-      await chat.showLatestFor(siteUrl, widget.target);
+      await (widget.reader?.showLatest() ??
+          chat.showLatestFor(siteUrl, widget.target));
       // The state is reused across channels, so the count cleared here must
       // belong to the channel that asked for the present, not whichever one
       // is on screen when the fetch resolves.

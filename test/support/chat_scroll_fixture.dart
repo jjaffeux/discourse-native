@@ -59,6 +59,7 @@ Future<ShellController> chatScrollController({
           : null);
   final api = _ChatScrollApi(
     sessionUser: sessionUser,
+    chatThreadsByKey: {},
     user:
         reader ??
         const DiscourseUser(id: 1, username: 'reader1', timezone: 'Etc/UTC'),
@@ -162,7 +163,12 @@ Future<ShellController> chatScrollController({
 }
 
 final class _ChatScrollApi extends FakeDiscourseApi {
-  _ChatScrollApi({this.sessionUser, super.user, super.chatMessagesByKey});
+  _ChatScrollApi({
+    this.sessionUser,
+    super.user,
+    super.chatMessagesByKey,
+    super.chatThreadsByKey,
+  });
 
   /// Answers the session's account refresh when completed; until then the
   /// stored account stays current.
