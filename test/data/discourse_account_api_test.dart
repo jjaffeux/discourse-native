@@ -499,7 +499,7 @@ void main() {
   });
 
   group('user activity', () {
-    test('requests the web default contribution stream contract', () async {
+    test('requests topics, replies and likes', () async {
       Uri? url;
       String? apiKey;
       final api = _accountApi(
@@ -559,9 +559,7 @@ void main() {
       expect(url?.queryParameters, {
         'offset': '30',
         'username': 'sam',
-        // Core maps the unfiltered userActivity.index route to topics and
-        // replies. Summary, drafts, likes, reads, and bookmarks are separate.
-        'filter': '4,5',
+        'filter': '4,5,1',
         'limit': '30',
       });
       expect(apiKey, 'the-key');
