@@ -48,6 +48,7 @@ final class _GlobalSearchExecution {
 
   void failQuery(String message) {
     _cancel();
+    loadingMore = false;
     error = message;
     phase = GlobalSearchPhase.failed;
   }

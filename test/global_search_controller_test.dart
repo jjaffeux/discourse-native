@@ -1113,6 +1113,48 @@ void main() {
     expect(controller.error, isNull);
   });
 
+  testWidgets('invalid submission releases canceled pagination for retry', (
+    tester,
+  ) async {
+    final api = _EngineApi()..hold = true;
+    final controller = _controller(api)
+      ..setScope(GlobalSearchScope.forum)
+      ..setQuery('design order:bogus');
+    addTearDown(controller.dispose);
+    await tester.pump(const Duration(milliseconds: 10));
+    api.pending.single.complete(_page('first', hasMore: true));
+    await tester.pump();
+
+    controller.loadMore();
+    await tester.pump();
+    expect(controller.loadingMore, isTrue);
+    controller.submit();
+    expect(controller.phase, GlobalSearchPhase.failed);
+    expect(controller.error, isNotNull);
+    expect(controller.loadingMore, isFalse);
+    expect(controller.results.single.title, 'first');
+    expect(controller.hasMore, isTrue);
+
+    api.pending.last.complete(_page('canceled'));
+    await tester.pump();
+    expect(controller.phase, GlobalSearchPhase.failed);
+    expect(controller.results.single.title, 'first');
+    controller.loadMore();
+    await tester.pump();
+    expect(api.requests, hasLength(3));
+    expect(api.requests.last.query, 'design');
+    expect(api.requests.last.page, 1);
+    expect(api.requests.last.offset, 1);
+    api.pending.last.complete(_page('second'));
+    await tester.pump();
+    expect(controller.results.map((result) => result.title), [
+      'first',
+      'second',
+    ]);
+    expect(controller.loadingMore, isFalse);
+    expect(controller.error, isNull);
+  });
+
   testWidgets('superseded credential reads retain slots until they drain', (
     tester,
   ) async {
