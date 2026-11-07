@@ -50,11 +50,18 @@ final class CakedayNavigation implements PluginLinkHandler {
       clean,
       today: controller.viewerToday(owner.forum.url),
     );
-    if (query?.period == CakedayPeriod.month &&
-        target.queryParameters.containsKey('month')) {
-      final month = int.tryParse(target.queryParameters['month']!);
-      if (month == null || month < 1 || month > 12) return false;
-      query = CakedayQuery(query!.kind, CakedayPeriod.month, month: month);
+    if (query?.period == CakedayPeriod.month) {
+      final Map<String, String> parameters;
+      try {
+        parameters = target.queryParameters;
+      } on FormatException {
+        return false;
+      }
+      if (parameters['month'] case final value?) {
+        final month = int.tryParse(value);
+        if (month == null || month < 1 || month > 12) return false;
+        query = CakedayQuery(query!.kind, CakedayPeriod.month, month: month);
+      }
     }
     if (query == null || !controller.enabled(owner.forum.url, query.kind)) {
       return false;
