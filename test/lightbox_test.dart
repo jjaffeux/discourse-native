@@ -203,7 +203,7 @@ void main() {
   });
 
   group('LightboxImage.from', () {
-    test('reads the full-size image off the anchor, not the thumbnail', () {
+    test('reads upload URLs, caption and thumbnail/full-image dimensions', () {
       final image = parse(singleImage);
 
       expect(
@@ -214,11 +214,6 @@ void main() {
         image.thumbnailSrc,
         'https://meta.discourse.org/uploads/optimized/4X/a/b/c/thumb.png',
       );
-    });
-
-    test('reads the caption and the download link', () {
-      final image = parse(singleImage);
-
       expect(image.title, 'screenshot.png');
       expect(image.description, 'screenshot');
       expect(image.details, '1920×1080 234 KB');
@@ -226,22 +221,10 @@ void main() {
         image.downloadHref,
         'https://meta.discourse.org/uploads/short-url/xyz.png?dl=1',
       );
-    });
-
-    test('sizes the slot from the resized dimensions the markup declares', () {
-      final image = parse(singleImage);
-
       expect(image.width, 690);
       expect(image.height, 388);
       expect(image.aspectRatio, closeTo(690 / 388, 0.0001));
-    });
-
-    test('keeps the full image size separate from its thumbnail slot', () {
-      final image = parse(singleImage);
-
       expect(image.fullSize, const Size(1920, 1080));
-      expect(image.width, 690);
-      expect(image.height, 388);
     });
 
     test('prefers target dimensions for the full image size', () {
@@ -510,16 +493,6 @@ void main() {
       expect(find.byType(DImagePreview), findsOneWidget);
     });
 
-    testWidgets('draws the thumbnail natively instead of as a bare img', (
-      tester,
-    ) async {
-      await pumpCooked(tester, singleImage);
-
-      expect(find.byType(LightboxThumbnail), findsOneWidget);
-      expect(renderedText('Before.'), findsOneWidget);
-      expect(renderedText('After.'), findsOneWidget);
-    });
-
     testWidgets('names the thumbnail as an image-opening action', (
       tester,
     ) async {
@@ -621,6 +594,9 @@ void main() {
     ) async {
       await pumpCooked(tester, singleImage);
 
+      expect(find.byType(LightboxThumbnail), findsOneWidget);
+      expect(renderedText('Before.'), findsOneWidget);
+      expect(renderedText('After.'), findsOneWidget);
       expect(renderedText('screenshot.png'), findsNothing);
       expect(renderedText('1920×1080 234 KB'), findsNothing);
       final preview = find.byType(DImagePreview);
@@ -751,6 +727,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.download), findsOneWidget);
+      expect(find.text('1 / 1'), findsNothing);
       expect(find.text('screenshot.png'), findsOneWidget);
       expect(find.text('1920×1080 234 KB'), findsOneWidget);
 
@@ -1356,14 +1333,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.download), findsNothing);
-    });
-
-    testWidgets('hides the counter for a post with one image', (tester) async {
-      await pumpCooked(tester, singleImage);
-      await tester.tap(thumbnail());
-      await tester.pumpAndSettle();
-
-      expect(find.text('1 / 1'), findsNothing);
     });
 
     testWidgets('closes on the close button', (tester) async {
