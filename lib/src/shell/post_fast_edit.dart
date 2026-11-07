@@ -82,6 +82,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
   late final TextEditingController _text = TextEditingController(
     text: widget.selectedMarkdown,
   );
+  late final FocusNode _focus = FocusNode(onKeyEvent: _handleEditorKey);
   bool _saving = false;
   String? _error;
 
@@ -91,8 +92,19 @@ class _PostFastEditorState extends State<_PostFastEditor> {
 
   @override
   void dispose() {
+    _focus.dispose();
     _text.dispose();
     super.dispose();
+  }
+
+  KeyEventResult _handleEditorKey(FocusNode node, KeyEvent event) {
+    final value = _text.value;
+    if (event.logicalKey == LogicalKeyboardKey.escape &&
+        value.isComposingRangeValid &&
+        !value.composing.isCollapsed) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
+    return KeyEventResult.ignored;
   }
 
   Future<void> _save() async {
@@ -148,6 +160,7 @@ class _PostFastEditorState extends State<_PostFastEditor> {
       DTextarea(
         key: const ValueKey('fast-edit-input'),
         controller: _text,
+        focusNode: _focus,
         autofocus: true,
         enabled: !_saving,
         minLines: 3,
