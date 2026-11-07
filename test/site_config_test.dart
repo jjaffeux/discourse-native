@@ -618,47 +618,6 @@ void main() {
       expect(disabled.assignStatuses, isEmpty);
     });
 
-    test('reads local-date authoring and preview defaults', () {
-      final config = pluginSettings(
-        settings(
-          localDatesEnabled: true,
-          localDateFormats: 'LLL|YYYY-MM-DD [at] HH:mm',
-          localDateTimezones: 'Etc/UTC|Asia/Tokyo',
-        ),
-      );
-
-      expect(config.localDatesEnabled, isTrue);
-      expect(config.localDateFormats, ['LLL', 'YYYY-MM-DD [at] HH:mm']);
-      expect(config.localDateTimezones, ['Etc/UTC', 'Asia/Tokyo']);
-    });
-
-    test(
-      'missing local-date enablement disables authoring but keeps defaults',
-      () {
-        final config = pluginSettings(const {});
-
-        expect(config.localDatesEnabled, isFalse);
-        expect(config.localDateFormats, LocalDatesSettings.defaultFormats);
-        expect(config.localDateTimezones, LocalDatesSettings.defaultTimezones);
-      },
-    );
-
-    test('reads GIF proxy presentation and result-limit settings', () {
-      final config = pluginSettings(
-        settings(
-          gifsEnabled: true,
-          gifFileDetail: 'gif',
-          gifResultLimitEnabled: true,
-          gifMaxResults: 96,
-        ),
-      );
-
-      expect(config.gifsEnabled, isTrue);
-      expect(config.gifFileDetail, 'gif');
-      expect(config.gifResultLimitEnabled, isTrue);
-      expect(config.gifMaxResults, 96);
-    });
-
     test('bounds unknown GIF format and result-limit values', () {
       final config = pluginSettings(
         settings(gifFileDetail: 'future-format', gifMaxResults: 23),
@@ -1160,6 +1119,13 @@ void main() {
 
       expect(decoded, full);
       expect(full, isNot(const SiteConfig.unknown()));
+      expect(decoded.localDatesEnabled, isTrue);
+      expect(decoded.localDateFormats, ['LLL', 'YYYY']);
+      expect(decoded.localDateTimezones, ['Etc/UTC', 'Asia/Tokyo']);
+      expect(decoded.gifsEnabled, isTrue);
+      expect(decoded.gifFileDetail, 'gif');
+      expect(decoded.gifResultLimitEnabled, isTrue);
+      expect(decoded.gifMaxResults, 72);
     });
 
     test('reads a stored copy that predates a field', () {

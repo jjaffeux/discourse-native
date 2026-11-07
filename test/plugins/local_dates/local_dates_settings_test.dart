@@ -42,6 +42,7 @@ void main() {
 
     expect(cleared.localDateTimezones, ['Etc/UTC']);
     expect(cleared.localDateFormats, isEmpty);
+    expect(absent.localDatesEnabled, isFalse);
     expect(absent.localDateTimezones, LocalDatesSettings.defaultTimezones);
     expect(absent.localDateFormats, LocalDatesSettings.defaultFormats);
   });
