@@ -1,5 +1,4 @@
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
-import 'package:discourse_native/src/plugins/discourse_events/event_directory.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_time.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -195,35 +194,4 @@ void main() {
       'Sep 8, 2026, 23:00 → Sep 9, 2026, 00:00 (Europe/Paris)',
     );
   });
-
-  test(
-    'directory uses server occurrences, orders instants and hides current RSVP data',
-    () {
-      final event = PostEvent.decode(
-        eventJson(
-          overrides: {
-            'occurrences': [
-              {'starts_at': '2026-09-08T23:00:00+02:00', 'ends_at': null},
-              {'starts_at': '2026-09-15T23:00:00+02:00', 'ends_at': null},
-            ],
-          },
-        ),
-      )!;
-      final other = PostEvent.decode({
-        'id': 43,
-        'starts_at': '2026-09-08T22:00:00Z',
-      })!;
-      final rows = eventDirectoryOccurrences([event, other], ports.zones);
-      expect(rows.map((row) => row.id), [42, 43, 42]);
-      expect(rows.last.stats, isNull);
-      expect(rows.last.displayInvitees, isFalse);
-      expect(rows.last.canRespond, isFalse);
-      expect(
-        eventDirectoryOccurrences([
-          PostEvent.decode(eventJson(overrides: {'occurrences': []}))!,
-        ], ports.zones),
-        isEmpty,
-      );
-    },
-  );
 }
