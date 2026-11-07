@@ -2127,6 +2127,38 @@ void main({bool useDeviceMetrics = false}) {
       expect(tester.takeException(), isNull);
     },
   );
+  for (final action in ['apply', 'section']) {
+    _testPresentation(
+      '$action search retains intentional mobile page handoff',
+      (tester) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+        final shell = await _pumpSearch(tester, size: phone);
+        await _openAndSearch(tester, 'keyboard');
+        if (action == 'apply') {
+          tester
+              .widget<GlobalSearchPanel>(find.byType(GlobalSearchPanel))
+              .onApply!();
+        } else {
+          tester
+              .widget<DItem>(find.byKey(const ValueKey('section:groups:')))
+              .onPressed!();
+        }
+        await _finishSearch(tester);
+        expect(shell.currentContent!.isGlobalSearch, isFalse);
+        expect(shell.currentContent!.isGroups, action == 'section');
+        expect(
+          shell.search.wordsFor(
+            globalSearchFixtureSite,
+            shell.activeTabId,
+            shell.currentContent!.id,
+          ),
+          'keyboard',
+        );
+        expect(find.byKey(ForumSearch.panelKey), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 }
 
 Future<ShellController> _pumpSearch(

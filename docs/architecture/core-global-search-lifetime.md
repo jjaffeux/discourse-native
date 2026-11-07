@@ -46,3 +46,17 @@ before remembering the selection. History publication can synchronously
 reconfigure the controller. In that case the click is not sent with the next
 account's credentials. Once navigation is admitted, `SearchResultActivation`
 continues to own its existing route and account checks across asynchronous work.
+
+History publication is a synchronous callout. Result, submitted-query and section
+activation capture their source account and document before publishing history,
+and recheck before focus, close or navigation effects. Rendered section headers
+also require their exact section to remain current when admitted. A retired
+row or header cannot close or mutate a successor search before its next paint.
+
+Once admitted, a same-account query change does not revoke the captured result
+or section target. Submitted queries retain normal parsing before their normalized
+words and conditions are read. Intentional mobile-page dismissal and primary-pane
+handoff may change the source route or reader projection; their continuation
+checks retain the original account lease and host rather than requiring that
+old projection to survive navigation. Account retirement still stops remaining
+query cleanup, highlighting and destination loads.

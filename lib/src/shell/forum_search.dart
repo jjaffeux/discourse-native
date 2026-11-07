@@ -88,6 +88,24 @@ class _ForumSearchState extends State<ForumSearch> {
       identical(tab.shell, _shell) &&
       tab.shell.activeTabId == tab.tabId;
 
+  bool _ownsSearchAction(
+    ShellController shell,
+    ShellTabContext owner,
+    String site,
+    ContentRoute? sourceRoute, {
+    bool requireSourceRoute = true,
+  }) =>
+      mounted &&
+      owner.lease?.isCurrent == true &&
+      owner.accountIdentity == shell.currentAccountIdentity &&
+      (!requireSourceRoute || _ownsInput(owner)) &&
+      identical(shell, _shell) &&
+      identical(shell, ShellScope.maybeRead(context)) &&
+      _global.siteUrl == site &&
+      shell.currentInstance?.url == site &&
+      (!requireSourceRoute ||
+          sourceRoute?.sameDestinationAs(owner.currentContent) == true);
+
   late ShellSearchController _search;
   late GlobalSearchController _global;
   VoidCallback? _unregisterFocus;
@@ -557,6 +575,23 @@ class _ForumSearchState extends State<ForumSearch> {
       words: _global.wordsQuery,
       result: result,
     );
+    bool ownsActivation() =>
+        mounted &&
+        activation.canNavigate(
+          currentHost: _shell,
+          contextHost: ShellScope.maybeRead(context),
+          sourceOwnsInput: _ownsInput(owner),
+          currentRoute: owner.currentContent,
+          searchSite: _global.siteUrl,
+          activeSite: shell.currentInstance?.url,
+        );
+    bool ownsAccount() => _ownsSearchAction(
+      shell,
+      owner,
+      site,
+      activation.sourceRoute,
+      requireSourceRoute: false,
+    );
     unawaited(_global.recordSelection(result));
     final resultRoute = result.destination == null
         ? null
@@ -574,27 +609,22 @@ class _ForumSearchState extends State<ForumSearch> {
                       context,
                       resultRoute,
                     )));
+    if (!ownsActivation()) return;
     final page = _page;
     _focus.unfocus();
+    if (!ownsActivation()) return;
     if (!preserveSearch && !widget._pageContent) {
       _closeSearch();
       if (page != null) await page.completed;
     }
-    if (!mounted ||
-        !activation.canNavigate(
-          currentHost: _shell,
-          contextHost: ShellScope.maybeRead(context),
-          sourceOwnsInput: _ownsInput(owner),
-          currentRoute: owner.currentContent,
-          searchSite: _global.siteUrl,
-          activeSite: shell.currentInstance?.url,
-        )) {
-      return;
-    }
+    if (!mounted || !ownsActivation()) return;
     if (!preserveSearch) {
       if (widget._pageContent) _closeSearch();
+      if (!ownsAccount()) return;
       _global.setQuery('');
+      if (!ownsAccount()) return;
       _global.clearAllConditions();
+      if (!ownsAccount()) return;
     }
     if (result.source case final SearchPostHit hit) {
       shell.openSearchResult(hit, words: activation.words);
@@ -632,9 +662,20 @@ class _ForumSearchState extends State<ForumSearch> {
   }
 
   void _apply() {
-    if (!_ownsInput(_document)) return;
+    final shell = _shell!;
+    final owner = _document;
+    final site = _global.siteUrl;
+    if (!_ownsInput(owner) || site == null) return;
+    final sourceRoute = owner!.currentContent;
+    bool ownsAction({bool requireSourceRoute = true}) => _ownsSearchAction(
+      shell,
+      owner,
+      site,
+      sourceRoute,
+      requireSourceRoute: requireSourceRoute,
+    );
     _global.submit();
-    if (_global.phase == GlobalSearchPhase.failed) return;
+    if (!ownsAction() || _global.phase == GlobalSearchPhase.failed) return;
     final words = _global.wordsQuery.trim();
     final conditions = [
       ..._global.conditions,
@@ -642,26 +683,41 @@ class _ForumSearchState extends State<ForumSearch> {
         GlobalSearchCondition(filterId: 'order', value: [_global.order]),
     ];
     _global.rememberSearch();
+    if (!ownsAction()) return;
     _closeSearch();
-    _shell!.applySearchToList(
+    if (!ownsAction(requireSourceRoute: false)) return;
+    shell.applySearchToList(
       words,
       conditions,
       clearFilters: words.isEmpty && conditions.isEmpty,
     );
+    if (!ownsAction(requireSourceRoute: false)) return;
     _clearSubmittedSearch();
   }
 
   void _openSection(GlobalSearchSection section) {
     final shell = _shell!;
     final owner = _document;
-    if (!_ownsInput(owner)) return;
+    if (!_ownsInput(owner) ||
+        !_global.sections.any((held) => identical(held, section))) {
+      return;
+    }
     final site = _global.siteUrl;
     if (site == null) return;
+    final sourceRoute = owner!.currentContent;
+    bool ownsAction({bool requireSourceRoute = true}) => _ownsSearchAction(
+      shell,
+      owner,
+      site,
+      sourceRoute,
+      requireSourceRoute: requireSourceRoute,
+    );
     if (section.scope == GlobalSearchScope.users &&
             !_global.capabilities.userDirectory ||
         section.scope == GlobalSearchScope.groups &&
             !_global.capabilities.groupDirectory) {
       _global.rememberSearch();
+      if (!ownsAction()) return;
       _global.setScope(section.scope);
       return;
     }
@@ -675,7 +731,9 @@ class _ForumSearchState extends State<ForumSearch> {
     }
     final words = _global.wordsQuery.trim();
     _global.rememberSearch();
+    if (!ownsAction()) return;
     _closeSearch();
+    if (!ownsAction(requireSourceRoute: false)) return;
     final route = section.scope == GlobalSearchScope.messages
         ? ContentRoute.searchList(
             '$words in:personal',
@@ -697,8 +755,11 @@ class _ForumSearchState extends State<ForumSearch> {
             icon: DIcons.magnifyingGlass,
           );
     shell.focusPrimarySearchPane();
+    if (!ownsAction(requireSourceRoute: false)) return;
     shell.pushContent(route);
+    if (!ownsAction(requireSourceRoute: false)) return;
     shell.search.setPageWords(site, shell.activeTabId, route.id, words);
+    if (!ownsAction(requireSourceRoute: false)) return;
     if (route.isMessages) unawaited(shell.loadFeed(route.id));
     if (route.isUsers) unawaited(shell.focusedTabContext.loadUsers());
     _clearSubmittedSearch();
