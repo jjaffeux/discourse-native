@@ -35,3 +35,25 @@ own account retirement or add another lifecycle listener.
 Member-session tests cover immediate retirement, equal-target successor binding,
 late success/failure and a prior retirement observer that binds the successor.
 Existing directory and channel-info tests cover account HTTP admission and UI use.
+
+## Retained browse directories
+
+`ChatBrowseSession` also owns an account lease for its retained directory rows.
+Account retirement clears rows, server cursor, pending request/error state and
+search debounce immediately. The mounted document keeps its filter choices;
+explicit refresh captures a successor lease and starts at offset zero. Automatic
+prefetch cannot reopen a retired account or borrow its cursor.
+
+Every browse request captures its account owner as well as its immutable query.
+Both dispatch and settlement require that exact owner, current lease and request.
+An older retirement callback or late response cannot clear a successor request.
+Successor admission also clears outgoing rows before notifying listeners, even
+when another retirement observer refreshes before this session's callback runs.
+Refresh and disposal detach the previous account observation. Disposal from a
+synchronous retirement listener waits until notifier dispatch has unwound.
+No widget lifecycle listener or general request dispatcher is added.
+
+Browse-session tests use the real controller and request host to reproduce old
+retained rows after invalidation, and cover late success/failure, a prior
+retirement observer refreshing the successor, and reentrant disposal. Existing
+view, parity and scroll tests retain filtering and pagination coverage.

@@ -12,6 +12,130 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  testWidgets(
+    'account retirement clears retained directory rows and pending search',
+    (tester) async {
+      final requests = FakePluginRequestHost(
+        credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+      );
+      final (session, api, _) = _fixture(requests: requests);
+      final loaded = session.refresh();
+      await tester.pump();
+      api.responses.single.complete(
+        ChatChannelBrowsePage(
+          channels: [_channel(1)],
+          rowCount: 25,
+          hasMore: true,
+        ),
+      );
+      await loaded;
+      session.changeQuery('pending');
+      requests.lifecycle.invalidate(_site);
+      expect(session.visibleChannels, isEmpty);
+      expect(session.hasMore, isFalse);
+      expect(session.loading, isFalse);
+      expect(session.error, isNull);
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(api.calls.length, 1);
+      final successor = session.refresh();
+      await tester.pump();
+      expect(api.calls.last.offset, 0);
+      api.responses.last.complete(
+        ChatChannelBrowsePage(channels: [_channel(90)]),
+      );
+      await successor;
+      expect(session.visibleChannels.single.id, 90);
+    },
+  );
+
+  for (final failure in [false, true]) {
+    testWidgets(
+      'old account ${failure ? 'failure' : 'success'} cannot settle a refreshed directory',
+      (tester) async {
+        final requests = FakePluginRequestHost(
+          credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+        );
+        final (session, api, _) = _fixture(requests: requests);
+        final old = session.refresh();
+        await tester.pump();
+        requests.lifecycle.invalidate(_site);
+        final successor = session.refresh();
+        await tester.pump();
+        if (failure) {
+          api.responses.first.completeError(StateError('old account failure'));
+        } else {
+          api.responses.first.complete(
+            ChatChannelBrowsePage(channels: [_channel(1)]),
+          );
+        }
+        await old;
+        expect(session.loading, isTrue);
+        expect(session.visibleChannels, isEmpty);
+        expect(session.error, isNull);
+        api.responses.last.complete(
+          ChatChannelBrowsePage(channels: [_channel(90)]),
+        );
+        await successor;
+        expect(session.visibleChannels.single.id, 90);
+      },
+    );
+  }
+
+  testWidgets(
+    'an earlier retirement observer may refresh the successor directory',
+    (tester) async {
+      final requests = FakePluginRequestHost(
+        credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+      );
+      late ChatBrowseSession session;
+      Future<void>? successor;
+      requests.lifecycle.capture(_site).onRetire(() {
+        successor = session.refresh();
+      });
+      final fixture = _fixture(requests: requests);
+      session = fixture.$1;
+      final api = fixture.$2;
+      final old = session.refresh();
+      await tester.pump();
+      api.responses.first.complete(
+        ChatChannelBrowsePage(
+          channels: [_channel(1)],
+          rowCount: 25,
+          hasMore: true,
+        ),
+      );
+      await old;
+      expect(session.visibleChannels.single.id, 1);
+      requests.lifecycle.invalidate(_site);
+      expect(session.visibleChannels, isEmpty);
+      expect(session.hasMore, isFalse);
+      await tester.pump();
+      expect(api.calls.length, 2);
+      expect(api.calls.last.offset, 0);
+      expect(session.loading, isTrue);
+      api.responses.last.complete(
+        ChatChannelBrowsePage(channels: [_channel(90)]),
+      );
+      await successor;
+      expect(session.visibleChannels.single.id, 90);
+    },
+  );
+
+  testWidgets(
+    'a retirement listener may close the directory without dispatching more work',
+    (tester) async {
+      final requests = FakePluginRequestHost(
+        credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+      );
+      final (session, api, _) = _fixture(requests: requests);
+      session.addListener(session.dispose);
+      requests.lifecycle.invalidate(_site);
+      await session.refresh();
+      expect(api.calls, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('server rows drive hidden, duplicate and zero-row pages', (
     tester,
   ) async {
@@ -214,13 +338,16 @@ void main() {
 
 (ChatBrowseSession, _BrowseApi, ChatController) _fixture({
   bool disposeSession = true,
+  FakePluginRequestHost? requests,
 }) {
   final api = _BrowseApi();
   final chat = ChatController(
     api: api,
-    requests: FakePluginRequestHost(
-      credentials: FakeApiCredentialReader()..keys[_site] = 'key',
-    ),
+    requests:
+        requests ??
+        FakePluginRequestHost(
+          credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+        ),
     store: Store(),
   );
   addTearDown(chat.dispose);
