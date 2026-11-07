@@ -2712,7 +2712,13 @@ class ChatController extends FrameSafeNotifier {
     final owner = _conversations.putIfAbsent(key, () {
       final created = _ChatConversationStream(this, siteUrl, target, key: key);
       final held = _conversations[_targetKey(siteUrl, target)];
-      created._window = held?._window;
+      created._window = held?._window?.copyWith(
+        loading: false,
+        loadingOlder: false,
+        loadingNewer: false,
+        revalidating: false,
+        clearNotice: true,
+      );
       created._attemptedAt = held?._attemptedAt;
       return created;
     });

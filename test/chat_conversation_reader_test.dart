@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_conversation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -14,6 +15,98 @@ import 'chat_thread_controller_test.dart' as threads;
 import 'support/fakes.dart';
 
 void main() {
+  for (final target in <ChatStreamTarget>[
+    const ChatChannelTarget(9),
+    threads.target,
+  ]) {
+    for (final older in [true, false]) {
+      test(
+        '${target.storageKey} reader does not inherit pending ${older ? 'older' : 'newer'} paging',
+        () async {
+          final api = _SeedPagingApi();
+          final subject = fixtures.build(api: api);
+          addTearDown(subject.chat.dispose);
+          await subject.chat.loadChannels(fixtures.site);
+          final conversation = target is ChatThreadTarget
+              ? ChatControllerConversationCapability(
+                  subject.chat,
+                ).openThread(siteUrl: fixtures.site, channelId: 9, threadId: 22)
+              : null;
+          if (conversation != null) {
+            await conversation.refresh();
+          } else {
+            await subject.chat.openChannel(fixtures.site, 9);
+          }
+          final gate = Completer<void>();
+          api.directionalGate = gate;
+          final pending = older
+              ? conversation?.loadOlder() ??
+                    subject.chat.loadOlderFor(fixtures.site, target)
+              : subject.chat.loadNewerFor(fixtures.site, target);
+          conversation?.close();
+          final held = subject.chat.streamFor(fixtures.site, target);
+          expect(older ? held.loadingOlder : held.loadingNewer, isTrue);
+          final reader = subject.chat.acquireReader(
+            fixtures.site,
+            target,
+            readerId: 'new-tab',
+          );
+          addTearDown(reader.dispose);
+          await reader.open();
+          gate.complete();
+          await pending;
+          expect(
+            subject.chat.streamFor(fixtures.site, target).messageIds,
+            older ? [99, 100, 101] : [100, 101, 102],
+          );
+          expect(reader.stream.messageIds, [100, 101]);
+          expect(reader.stream.loadingOlder, isFalse);
+          expect(reader.stream.loadingNewer, isFalse);
+          if (older) {
+            await reader.loadOlder();
+            expect(reader.stream.messageIds, [99, 100, 101]);
+          } else {
+            await reader.loadNewer();
+            expect(reader.stream.messageIds, [100, 101, 102]);
+          }
+        },
+      );
+    }
+  }
+
+  testWidgets(
+    'a new reader does not retain another owner notice after its timer expires',
+    (tester) async {
+      final subject = fixtures.build(
+        messages: {
+          '9': fixtures.page([fixtures.message(100)]),
+        },
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(fixtures.site, fixtures.channel(9));
+      final tracker = fixtures.attachTracker(subject.chat);
+      await subject.chat.openChannel(fixtures.site, 9);
+      final view = subject.chat.beginViewingChannel(fixtures.site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(fixtures.site, 9, view));
+      tracker.deliverPluginMessage('/chat/9', {
+        'type': 'notice',
+        'channel_id': 9,
+        'text_content': 'Some mentioned users cannot see this channel.',
+      });
+      expect(subject.chat.stream(fixtures.site, 9).notice, isNotNull);
+      final reader = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'new-tab',
+      );
+      addTearDown(reader.dispose);
+      await reader.open();
+      await tester.pump(const Duration(seconds: 4));
+      expect(subject.chat.stream(fixtures.site, 9).notice, isNull);
+      expect(reader.stream.notice, isNull);
+      expect(reader.stream.messageIds, [100]);
+    },
+  );
   for (final target in <ChatStreamTarget>[
     const ChatChannelTarget(9),
     threads.target,
@@ -607,6 +700,83 @@ final class _ThreadDetailApi extends FakeDiscourseApi {
       siteUrl: siteUrl,
       channelId: channelId,
       threadId: threadId,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
+final class _SeedPagingApi extends FakeDiscourseApi {
+  _SeedPagingApi()
+    : super(
+        chatChannelsBySite: {
+          fixtures.site: ChatChannels(public: [fixtures.channel(9)]),
+        },
+        chatThreadsByKey: {
+          FakeDiscourseApi.chatThreadKey(9, 22): threads.threadDetail(),
+        },
+        chatMessagesByKey: {
+          for (final base in ['9', 'thread-9-22']) ...{
+            base: fixtures.page(
+              [fixtures.message(100), fixtures.message(101)],
+              canLoadMorePast: true,
+              canLoadMoreFuture: true,
+            ),
+            '$base~past~100': fixtures.page([fixtures.message(99)]),
+            '$base~future~101': fixtures.page([fixtures.message(102)]),
+          },
+        },
+      );
+
+  Completer<void>? directionalGate;
+
+  @override
+  Future<ChatMessagePage> chatMessages({
+    required String siteUrl,
+    required int channelId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    bool fromLastRead = false,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (before != null || after != null) await directionalGate?.future;
+    return super.chatMessages(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+      fromLastRead: fromLastRead,
+      pageSize: pageSize,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<ChatMessagePage> chatThreadMessages({
+    required String siteUrl,
+    required int channelId,
+    required int threadId,
+    int? before,
+    int? after,
+    int? targetMessageId,
+    int pageSize = 50,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (before != null || after != null) await directionalGate?.future;
+    return super.chatThreadMessages(
+      siteUrl: siteUrl,
+      channelId: channelId,
+      threadId: threadId,
+      before: before,
+      after: after,
+      targetMessageId: targetMessageId,
+      pageSize: pageSize,
       apiKey: apiKey,
       clientId: clientId,
     );
