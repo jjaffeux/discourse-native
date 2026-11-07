@@ -477,6 +477,7 @@ final class TopicDataSession implements BookmarkTopicData {
       topicId,
       (detail) => detail.copyWith(
         title: title,
+        clearLocalizedTitle: title != null && title != detail.title,
         categoryId: categoryId,
         clearCategory: clearCategory,
         tags: tags,
@@ -485,9 +486,12 @@ final class TopicDataSession implements BookmarkTopicData {
     _update<Topic>(topicId, (row) {
       final accepted = _store.read<TopicDetail>(siteUrl, topicId);
       final projectsCategory = categoryId != null || clearCategory;
+      final projectedTitle = title == null ? null : accepted?.title ?? title;
       final category = accepted == null ? categoryId : accepted.categoryId;
       return row.copyWith(
-        title: title == null ? null : accepted?.title ?? title,
+        title: projectedTitle,
+        clearLocalizedTitle:
+            projectedTitle != null && projectedTitle != row.title,
         categoryId: projectsCategory ? category : null,
         clearCategory: projectsCategory && category == null,
         tags: tags == null ? null : accepted?.tags ?? tags,
@@ -571,7 +575,14 @@ final class TopicDataSession implements BookmarkTopicData {
     if (held == null && row == null) return incoming;
     final state = _topic(incoming.id);
     if ((state.metadata[_MetadataField.title] ?? 0) > atDispatch) {
-      incoming = incoming.copyWith(title: held?.title ?? row?.title);
+      final localizedTitle = held == null
+          ? row?.localizedTitle
+          : held.localizedTitle;
+      incoming = incoming.copyWith(
+        title: held?.title ?? row?.title,
+        localizedTitle: localizedTitle,
+        clearLocalizedTitle: localizedTitle == null,
+      );
     }
     if ((state.metadata[_MetadataField.category] ?? 0) > atDispatch) {
       final categoryId = held == null ? row?.categoryId : held.categoryId;
@@ -613,8 +624,16 @@ final class TopicDataSession implements BookmarkTopicData {
     if (state == null) return incoming;
     final held = _store.read<TopicDetail>(siteUrl, incoming.id);
     final row = _store.read<Topic>(siteUrl, incoming.id);
-    if ((state.metadata[_MetadataField.title] ?? 0) > atDispatch) {
-      incoming = incoming.copyWith(title: row?.title ?? held?.title);
+    if ((state.metadata[_MetadataField.title] ?? 0) > atDispatch &&
+        (row != null || held != null)) {
+      final localizedTitle = row == null
+          ? held?.localizedTitle
+          : row.localizedTitle;
+      incoming = incoming.copyWith(
+        title: row?.title ?? held?.title,
+        localizedTitle: localizedTitle,
+        clearLocalizedTitle: localizedTitle == null,
+      );
     }
     if ((state.metadata[_MetadataField.category] ?? 0) > atDispatch) {
       final categoryId = row == null ? held?.categoryId : row.categoryId;

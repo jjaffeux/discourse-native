@@ -127,3 +127,21 @@ summary, composer and reader suites pin the migrated behavior.
 streams, mega edges and account/tab retirement without a Flutter binding.
 `topic_data_tab_windows_test.dart` also pins alternating-tab snapshot reuse and
 closed-tab handle retirement when the same ID is reopened.
+
+## Display title authority
+
+Raw `title` and optional `localizedTitle` form one title projection. Accepting an
+actually changed raw title clears its previous localization in canonical detail
+and list rows. An unchanged title, category write or tag write does not clear a
+valid translation. Topic detail copying exposes explicit localized replacement
+and clearing, matching the existing list-row model.
+
+A read dispatched before an accepted title write preserves the current raw and
+localized pair, including a cleared localization. Protecting only raw spelling
+would let an older `localizedTitle` override it through `displayTitle`. Reads
+dispatched after the write remain eligible to supply a fresh translation.
+
+This stays within the existing metadata field epoch; a separate translation
+revision or new title value object would split one authority or widen the model
+migration without improving the rule. Topic data tests pin changed/unchanged
+writes, unrelated metadata, old detail/feed replies and fresh translations.

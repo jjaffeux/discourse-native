@@ -358,6 +358,260 @@ void main() {
     },
   );
 
+  for (final heldLocalization in [null, 'Previous translation']) {
+    test(
+      'accepted changed titles protect raw and localized display fields from older reads, held=$heldLocalization',
+      () async {
+        final f = _Fixture()..seed();
+        f.store.put(
+          _site,
+          TopicDetail(
+            id: 7,
+            title: 'Original',
+            localizedTitle: heldLocalization,
+            stream: const [],
+          ),
+        );
+        f.store.put(
+          _site,
+          Topic(
+            id: 7,
+            title: 'Original',
+            localizedTitle: heldLocalization,
+            slug: 'original',
+          ),
+        );
+        final data = f.data;
+        final stamp = data.actionEpoch;
+        final reading = data.refresh(7);
+        await f.api.waitTopics(1);
+        data.projectAcceptedMetadata(7, title: 'Accepted title');
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.displayTitle,
+          'Accepted title',
+        );
+        expect(f.store.read<Topic>(_site, 7)!.displayTitle, 'Accepted title');
+        f.api.topicReads.single.result.complete((
+          detail: const TopicDetail(
+            id: 7,
+            title: 'Old title',
+            localizedTitle: 'Stale translation',
+            stream: [],
+          ),
+          posts: const <Post>[],
+        ));
+        await reading;
+        expect(f.store.read<TopicDetail>(_site, 7)!.title, 'Accepted title');
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.displayTitle,
+          'Accepted title',
+        );
+        final row = data.actionRowFromRead(
+          stamp,
+          const Topic(
+            id: 7,
+            title: 'Old title',
+            localizedTitle: 'Stale translation',
+            slug: 'original',
+          ),
+        );
+        expect(row.title, 'Accepted title');
+        expect(row.localizedTitle, isNull);
+        final fresh = data.refresh(7);
+        await f.api.waitTopics(2);
+        f.api.topicReads.last.result.complete((
+          detail: const TopicDetail(
+            id: 7,
+            title: 'Accepted title',
+            localizedTitle: 'Fresh translation',
+            stream: [],
+          ),
+          posts: const <Post>[],
+        ));
+        await fresh;
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.displayTitle,
+          'Fresh translation',
+        );
+        expect(
+          f.store.read<Topic>(_site, 7)!.displayTitle,
+          'Fresh translation',
+        );
+      },
+    );
+  }
+
+  for (final field in ['unchanged title', 'category', 'tags']) {
+    test('$field writes retain valid title localization', () async {
+      final f = _Fixture()..seed();
+      f.store.put(
+        _site,
+        const TopicDetail(
+          id: 7,
+          title: 'Original',
+          localizedTitle: 'Valid translation',
+          stream: [],
+        ),
+      );
+      f.store.put(
+        _site,
+        const Topic(
+          id: 7,
+          title: 'Original',
+          localizedTitle: 'Valid translation',
+          slug: 'original',
+        ),
+      );
+      final data = f.data;
+      final stamp = data.actionEpoch;
+      final reading = data.refresh(7);
+      await f.api.waitTopics(1);
+      data.projectAcceptedMetadata(
+        7,
+        title: field == 'unchanged title' ? 'Original' : null,
+        categoryId: field == 'category' ? 3 : null,
+        tags: field == 'tags' ? const [TopicTag(name: 'accepted')] : null,
+      );
+      expect(
+        f.store.read<TopicDetail>(_site, 7)!.displayTitle,
+        'Valid translation',
+      );
+      expect(f.store.read<Topic>(_site, 7)!.displayTitle, 'Valid translation');
+      // Only the title command advances title authority. Other field writes
+      // must leave a concurrent valid title translation eligible.
+      f.api.topicReads.single.result.complete((
+        detail: TopicDetail(
+          id: 7,
+          title: 'Original',
+          localizedTitle: field == 'unchanged title'
+              ? 'Stale translation'
+              : 'Updated translation',
+          stream: const [],
+        ),
+        posts: const <Post>[],
+      ));
+      await reading;
+      final expected = field == 'unchanged title'
+          ? 'Valid translation'
+          : 'Updated translation';
+      expect(f.store.read<TopicDetail>(_site, 7)!.displayTitle, expected);
+      final row = data.actionRowFromRead(
+        stamp,
+        Topic(
+          id: 7,
+          title: 'Original',
+          localizedTitle: field == 'unchanged title'
+              ? 'Stale translation'
+              : 'Updated translation',
+          slug: 'original',
+        ),
+      );
+      expect(row.displayTitle, expected);
+    });
+  }
+
+  for (final (detailLocalization, rowLocalization) in [
+    (null, 'Valid row translation'),
+    ('Valid detail translation', null),
+    ('Valid detail translation', 'Different valid row translation'),
+  ]) {
+    test(
+      'unchanged title confirmation preserves independent localization detail=$detailLocalization row=$rowLocalization',
+      () async {
+        final f = _Fixture()..seed();
+        f.store.put(
+          _site,
+          TopicDetail(
+            id: 7,
+            title: 'Original',
+            localizedTitle: detailLocalization,
+            stream: const [],
+          ),
+        );
+        f.store.put(
+          _site,
+          Topic(
+            id: 7,
+            title: 'Original',
+            localizedTitle: rowLocalization,
+            slug: 'original',
+          ),
+        );
+        final data = f.data;
+        final stamp = data.actionEpoch;
+        final reading = data.refresh(7);
+        await f.api.waitTopics(1);
+        data.projectAcceptedMetadata(7, title: 'Original');
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.localizedTitle,
+          detailLocalization,
+        );
+        expect(f.store.read<Topic>(_site, 7)!.localizedTitle, rowLocalization);
+        f.api.topicReads.single.result.complete((
+          detail: const TopicDetail(
+            id: 7,
+            title: 'Original',
+            localizedTitle: 'Stale translation',
+            stream: [],
+          ),
+          posts: const <Post>[],
+        ));
+        await reading;
+        expect(
+          f.store.read<TopicDetail>(_site, 7)!.localizedTitle,
+          detailLocalization,
+        );
+        expect(f.store.read<Topic>(_site, 7)!.localizedTitle, rowLocalization);
+        final row = data.actionRowFromRead(
+          stamp,
+          const Topic(
+            id: 7,
+            title: 'Original',
+            localizedTitle: 'Stale translation',
+            slug: 'original',
+          ),
+        );
+        expect(row.localizedTitle, rowLocalization);
+      },
+    );
+  }
+
+  test(
+    'accepted row-only titles protect a subsequently hydrated detail',
+    () async {
+      final f = _Fixture();
+      f.store.put(
+        _site,
+        const Topic(
+          id: 7,
+          title: 'Original',
+          localizedTitle: 'Old translation',
+          slug: 'original',
+        ),
+      );
+      final data = f.data;
+      final reading = data.refresh(7);
+      await f.api.waitTopics(1);
+      data.projectAcceptedMetadata(7, title: 'Accepted title');
+      expect(f.store.read<Topic>(_site, 7)!.displayTitle, 'Accepted title');
+      f.api.topicReads.single.result.complete((
+        detail: const TopicDetail(
+          id: 7,
+          title: 'Original',
+          localizedTitle: 'Old translation',
+          stream: [],
+        ),
+        posts: const <Post>[],
+      ));
+      await reading;
+      expect(
+        f.store.read<TopicDetail>(_site, 7)!.displayTitle,
+        'Accepted title',
+      );
+      expect(f.store.read<Topic>(_site, 7)!.displayTitle, 'Accepted title');
+    },
+  );
+
   test('external refresh awaits a new read after an active old read', () async {
     final f = _Fixture()..seed();
     final oldRead = f.data.refresh(7);

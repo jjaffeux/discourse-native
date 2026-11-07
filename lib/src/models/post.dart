@@ -1309,6 +1309,8 @@ class TopicDetail with Storable<TopicDetail> {
 
   TopicDetail copyWith({
     String? title,
+    String? localizedTitle,
+    bool clearLocalizedTitle = false,
     List<int>? stream,
     int? lastPostId,
     Map<int, List<int>>? gapsBefore,
@@ -1343,7 +1345,9 @@ class TopicDetail with Storable<TopicDetail> {
   }) => TopicDetail(
     id: id,
     title: title ?? this.title,
-    localizedTitle: localizedTitle,
+    localizedTitle: clearLocalizedTitle
+        ? null
+        : localizedTitle ?? this.localizedTitle,
     messageBusLastId: messageBusLastId ?? this.messageBusLastId,
     createdAt: createdAt,
     lastPostedAt: lastPostedAt,
