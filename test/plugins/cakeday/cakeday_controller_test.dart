@@ -291,6 +291,37 @@ void main() {
     },
   );
   test(
+    'month links decline malformed query bytes without navigating',
+    () async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      var navigations = 0;
+      for (final kind in CakedayKind.values) {
+        for (final bytes in [
+          '%FF',
+          '%C3',
+          '%ED%A0%80',
+          '%F4%90%80%80',
+          '%80',
+          '%C0%AF',
+        ]) {
+          for (final query in ['month=$bytes', '$bytes=12']) {
+            expect(
+              await f.navigation.openPluginUrl(
+                '$cakedaySite/cakeday/${kind.name}/all?$query',
+                onNavigated: () => navigations++,
+              ),
+              isFalse,
+              reason: query,
+            );
+          }
+        }
+      }
+      expect(f.routes.pushed, isEmpty);
+      expect(navigations, 0);
+    },
+  );
+  test(
     'visible directory hydrates again after an authorized current-user refresh',
     () async {
       final f = CakedayFixture();
