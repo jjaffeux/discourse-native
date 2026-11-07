@@ -527,7 +527,7 @@ class LocalDateFormatter {
       'Z' => _offset(value, colon: true),
       'ZZ' => _offset(value, colon: false),
       'z' || 'zz' => value.timeZoneName,
-      'X' => '${value.millisecondsSinceEpoch ~/ 1000}',
+      'X' => '${(value.millisecondsSinceEpoch / 1000).floor()}',
       'x' => '${value.millisecondsSinceEpoch}',
       _ => token,
     };

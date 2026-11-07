@@ -87,7 +87,7 @@ String? jsonHtmlText(Object? value) {
     emoji.replaceWith(dom.Text(shortcode ?? ''));
   }
   for (final element in fragment.querySelectorAll(
-    'br, p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr',
+    'br, p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr, th, td',
   )) {
     if (element.localName == 'br') {
       element.replaceWith(dom.Text(' '));
@@ -178,7 +178,8 @@ String? resolveAvatarUrl(String? template, String siteUrl, {int size = 90}) {
   if (template == null || template.isEmpty) return null;
   final sized = template.replaceAll('{size}', '$size');
   if (sized.startsWith('//')) return 'https:$sized';
-  if (sized.startsWith('http') && (Uri.tryParse(sized)?.hasScheme ?? true)) {
+  if (_avatarHttpPrefix.hasMatch(sized) &&
+      (Uri.tryParse(sized)?.hasScheme ?? true)) {
     return sized;
   }
   if (sized.startsWith('/')) {
@@ -195,3 +196,5 @@ String? resolveAvatarUrl(String? template, String siteUrl, {int size = 90}) {
   }
   return '$siteUrl${siteUrl.endsWith('/') ? '' : '/'}$sized';
 }
+
+final _avatarHttpPrefix = RegExp(r'^http', caseSensitive: false);

@@ -17,6 +17,47 @@ const _shortCategory = GifCategory(
 );
 
 void main() {
+  test('regression: GIF pagination stops when a cursor repeats', () async {
+    final api = FakeDiscourseApi(
+      gifSearchPages: {
+        FakeDiscourseApi.gifSearchKey('go'): GifSearchPage(
+          results: const [_catResult],
+          nextPosition: 'cursor/24',
+        ),
+        FakeDiscourseApi.gifSearchKey(
+          'go',
+          position: 'cursor/24',
+        ): GifSearchPage(
+          results: const [_dogResult],
+          nextPosition: 'cursor/48',
+        ),
+        FakeDiscourseApi.gifSearchKey(
+          'go',
+          position: 'cursor/48',
+        ): GifSearchPage(
+          results: const [_catResult],
+          nextPosition: 'cursor/24',
+        ),
+      },
+    );
+    final controller = _controller(api);
+    addTearDown(controller.dispose);
+    await controller.selectCategory(_shortCategory);
+    await controller.loadMore();
+    await controller.loadMore();
+    expect(controller.canLoadMore, isFalse);
+    await controller.loadMore();
+    expect(api.gifSearchRequests.map((request) => request.position), [
+      '0',
+      'cursor/24',
+      'cursor/48',
+    ]);
+    expect(controller.results, const [_catResult, _dogResult]);
+    // Starting the search again gives its cursors a new lifetime.
+    await controller.selectCategory(_shortCategory);
+    expect(controller.canLoadMore, isTrue);
+  });
+
   for (final terminalFirstPage in [true, false]) {
     test('terminal zero does not restart the first page '
         '(first page: $terminalFirstPage)', () async {

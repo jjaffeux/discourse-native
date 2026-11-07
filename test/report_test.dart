@@ -35,6 +35,27 @@ const reportPayload = <String, dynamic>{
 };
 
 void main() {
+  test('regression: Top Uploads exposes string-valued extension choices', () {
+    final details = ReportDetails.fromJson({
+      'data': {
+        ...reportPayload,
+        'available_filters': [
+          {
+            'id': 'file_extension',
+            'type': 'list',
+            'default': 'any',
+            'choices': ['jpg', 'png', 'pdf'],
+          },
+        ],
+      },
+    });
+    expect(details.filters.single.choices, {
+      'jpg': 'jpg',
+      'png': 'png',
+      'pdf': 'pdf',
+    });
+  });
+
   test(
     'core report GET uses mounted path, credentials, limit, and Rails filters',
     () async {

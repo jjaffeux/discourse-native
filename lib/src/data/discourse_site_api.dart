@@ -54,7 +54,7 @@ final class DiscourseSiteApi {
       end--;
     }
     if (end != trimmed.length) trimmed = trimmed.substring(0, end);
-    if (!RegExp(r'^https?://', caseSensitive: false).hasMatch(trimmed)) {
+    if (schemeSeparator < 0) {
       trimmed = 'https://$trimmed';
     }
     try {

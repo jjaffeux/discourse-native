@@ -26,6 +26,22 @@ CoreLinkTarget? _match(
 }) => CoreLinkTarget.match(url, currentSiteUrl: base, instances: sites);
 
 void main() {
+  test('regression: home links obey URL admission before routing', () {
+    for (final url in [
+      'https://reader:secret@example.com/forum',
+      'ftp://example.com/forum',
+    ]) {
+      final target = _match(url)!;
+      expect(target.decode(config: const SiteConfig()), isNull, reason: url);
+    }
+    expect(
+      _match(
+        'https://example.com/forum',
+      )!.decode(config: const SiteConfig())?.id,
+      'latest',
+    );
+  });
+
   test('matching chooses the deepest configured forum in either order', () {
     for (final sites in [
       const [_root, _nested, _deep],
@@ -57,9 +73,9 @@ void main() {
   });
 
   test(
-    'relative links retain site URL file semantics and protocol-relative matching',
+    'relative links retain the forum directory and protocol-relative matching',
     () {
-      expect(_match('t/example/7')?.instance, same(_root));
+      expect(_match('t/example/7')?.instance, same(_nested));
       expect(
         _match('t/example/7', base: 'https://example.com/forum/')?.instance,
         same(_nested),

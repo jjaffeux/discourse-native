@@ -3,6 +3,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
 void main() {
+  test('regression: search snippets start at a whole grapheme', () {
+    for (final grapheme in ['😀', 'e\u0301', '👩‍💻']) {
+      final text = '${'x' * 65}$grapheme${' ' * 39}needle';
+      expect(searchSnippet(text, 'needle'), '…$grapheme${' ' * 39}needle');
+    }
+  });
+
   test('empty and filter-only queries preserve the exact source', () {
     const html = "<P data-label='needle'>needle &amp; untouched</P>";
     for (final query in ['', ' \n\t ', 'category:support @sam "in:all"']) {

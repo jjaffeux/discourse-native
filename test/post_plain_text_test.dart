@@ -11,6 +11,39 @@ Post _post({String cooked = '', String? raw}) => Post.fromJson({
 }, 'https://meta.example');
 
 void main() {
+  test('regression: reply previews retain cooked emoji content', () {
+    expect(
+      postPlainText(
+        _post(
+          cooked:
+              '<p>Nice <img class="emoji" alt=":heart:" src="/heart.png"> work</p>',
+        ),
+      ),
+      'Nice :heart: work',
+    );
+    expect(
+      postPlainText(
+        _post(
+          cooked:
+              '<p><img class="emoji only-emoji" title=":+1:" src="/thumb.png"></p>',
+        ),
+      ),
+      ':+1:',
+    );
+  });
+
+  test('regression: raw previews preserve literal punctuation', () {
+    expect(
+      postPlainText(
+        _post(
+          raw:
+              '# Notes\nUse snake_case, C#, a*b and 2 > 1. **Bold** and _soft_.',
+        ),
+      ),
+      'Notes Use snake_case, C#, a*b and 2 > 1. Bold and soft.',
+    );
+  });
+
   test('cooked posts give their words, blocks set apart, scripts unread', () {
     expect(
       postPlainText(

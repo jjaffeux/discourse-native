@@ -12,6 +12,17 @@ const _uploaded = '/community/user_avatar/forum.example/sam/{size}/1.png';
 const _letter = '/community/letter_avatar/sam/{size}/1.png';
 
 void main() {
+  test('regression: absolute avatar schemes are case insensitive', () {
+    for (final scheme in ['HTTPS', 'Http', 'hTtPs']) {
+      final resolved = resolveAvatarUrl(
+        '$scheme://cdn.example/avatar/{size}.png',
+        _site,
+      )!;
+      expect(Uri.parse(resolved).host, 'cdn.example');
+      expect(Uri.parse(resolved).path, '/avatar/90.png');
+    }
+  });
+
   test(
     'relative avatar filenames starting with http resolve against the site',
     () {
