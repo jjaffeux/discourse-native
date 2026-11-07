@@ -85,6 +85,40 @@ const _creditLimitCopy =
     'for more information.';
 
 void main() {
+  for (final waitingForHttp in [false, true]) {
+    testWidgets(
+      'account retirement releases quiet AI work (HTTP pending=$waitingForHttp)',
+      (tester) async {
+        final api = waitingForHttp ? _DelayedSummaryApi() : null;
+        final fixture = _SummaryFixture(api: api);
+        final request = fixture.load();
+        Object? failure;
+        var settled = false;
+        final observed = request.result.then<void>(
+          (_) => settled = true,
+          onError: (Object error) {
+            failure = error;
+            settled = true;
+          },
+        );
+        await tester.pump();
+        expect(fixture.callbacks, hasLength(1));
+        fixture.requests.lifecycle.invalidate(_siteUrl);
+        await tester.pump();
+        expect(settled, isTrue);
+        expect(failure, isStateError);
+        expect(fixture.callbacks, isEmpty);
+        if (api != null) {
+          expect(api.response.isCompleted, isFalse);
+          api.response.completeError(StateError('Late transport failure'));
+          await tester.pump();
+        }
+        await observed;
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   test('cooks summary Markdown with the Discourse runtime', () async {
     final service = OfflineCookingService();
     addTearDown(service.dispose);
@@ -1139,15 +1173,19 @@ void main() {
     );
     await tester.pump();
 
-    await fixture.session.close();
+    await tester.runAsync(fixture.session.close);
+    await tester.pump();
     await cancelled;
     expect(fixture.callbacks, isEmpty);
     api.response.complete({});
     await tester.pump();
-    await expectLater(
-      fixture.load().result,
+    final newRequest = fixture.load();
+    final closed = expectLater(
+      newRequest.result,
       throwsA(isA<AiSummaryCancelled>()),
     );
+    await tester.pump();
+    await closed;
     expect(api.responses, hasLength(1));
   });
 }

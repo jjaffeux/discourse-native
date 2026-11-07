@@ -55,8 +55,9 @@ final class SiteLease {
       observer();
       return () {};
     }
-    _session._observers.add(observer);
-    return () => _session._observers.remove(observer);
+    void registration() => observer();
+    _session._observers.add(registration);
+    return () => _session._observers.remove(registration);
   }
 
   bool commit(SiteMutation mutation) {

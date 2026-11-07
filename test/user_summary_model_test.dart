@@ -85,6 +85,57 @@ Map<String, dynamic> _payload() => {
 };
 
 void main() {
+  test('summary construction owns all published collection snapshots', () {
+    final parsed = UserSummary.fromJson(_payload(), _siteUrl);
+    final topics = [...parsed.topics];
+    final replies = [...parsed.replies];
+    final links = [...parsed.links];
+    final replied = [...parsed.mostRepliedToUsers];
+    final likedBy = [...parsed.mostRepliedToUsers];
+    final liked = [...parsed.mostRepliedToUsers];
+    final categories = [...parsed.topCategories];
+    final badges = [...parsed.badges];
+    final summary = UserSummary(
+      topics: topics,
+      replies: replies,
+      links: links,
+      mostRepliedToUsers: replied,
+      mostLikedByUsers: likedBy,
+      mostLikedUsers: liked,
+      topCategories: categories,
+      badges: badges,
+    );
+    final inputs = [
+      topics,
+      replies,
+      links,
+      replied,
+      likedBy,
+      liked,
+      categories,
+      badges,
+    ];
+    final published = [
+      summary.topics,
+      summary.replies,
+      summary.links,
+      summary.mostRepliedToUsers,
+      summary.mostLikedByUsers,
+      summary.mostLikedUsers,
+      summary.topCategories,
+      summary.badges,
+    ];
+    final counts = inputs.map((values) => values.length).toList();
+    expect(counts, everyElement(greaterThan(0)));
+    for (final values in inputs) {
+      values.clear();
+    }
+    expect(published.map((values) => values.length), counts);
+    for (final values in published) {
+      expect(values.clear, throwsUnsupportedError);
+    }
+  });
+
   test('joins the side-loaded summary contract into native records', () {
     final summary = UserSummary.fromJson(_payload(), _siteUrl);
 
@@ -163,11 +214,11 @@ void main() {
 
   test('recent read time appears only when it adds information', () {
     expect(
-      const UserSummary(timeRead: 30, recentTimeRead: 30).showRecentTimeRead,
+      UserSummary(timeRead: 30, recentTimeRead: 30).showRecentTimeRead,
       isFalse,
     );
     expect(
-      const UserSummary(timeRead: 30, recentTimeRead: 0).showRecentTimeRead,
+      UserSummary(timeRead: 30, recentTimeRead: 0).showRecentTimeRead,
       isFalse,
     );
   });

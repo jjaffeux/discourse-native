@@ -125,7 +125,7 @@ void main() {
           name: 'Reader with a very long display name',
         ),
         cards: {'reader': const UserCard(username: 'reader', title: 'visible')},
-        summary: const UserSummary(canSeeSummaryStats: true),
+        summary: UserSummary(canSeeSummaryStats: true),
         feeds: const {'/latest.json': []},
       );
       await pumpShell(
@@ -177,7 +177,7 @@ void main() {
         username: 'reader',
         name: 'Reader Example',
       ),
-      summary: const UserSummary(),
+      summary: UserSummary(),
       feeds: const {'/latest.json': []},
     );
     await pumpShell(
@@ -259,7 +259,7 @@ final class _SummaryApi extends FakeDiscourseApi {
           name: 'Reader Example',
         ),
         cards: cards,
-        summary: const UserSummary(canSeeSummaryStats: true),
+        summary: UserSummary(canSeeSummaryStats: true),
         feeds: const {'/latest.json': []},
       );
   bool failSummary = false;

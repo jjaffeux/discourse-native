@@ -14,6 +14,25 @@ void main() {
   const siteUrl = 'https://forum.example';
   const secureUrl = '$siteUrl/secure-uploads/original/image.png';
 
+  test('published image bytes cannot corrupt shared cache consumers', () async {
+    var transfers = 0;
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient((_) async {
+        transfers++;
+        return http.Response.bytes([1, 2, 3], 200);
+      }),
+    );
+    addTearDown(repository.dispose);
+    final first = (await repository.load(siteUrl: siteUrl, url: secureUrl))!;
+    expect(() => first.bytes[0] = 99, throwsUnsupportedError);
+    final second = await repository.load(siteUrl: siteUrl, url: secureUrl);
+    expect(second, same(first));
+    expect(second!.bytes, [1, 2, 3]);
+    expect(transfers, 1);
+  });
+
   test(
     'credentials follow the exact forum origin across redirect hops',
     () async {

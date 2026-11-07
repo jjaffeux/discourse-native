@@ -44,6 +44,8 @@ final class OriginRequestGate {
   int _active = 0;
   int _interactiveOvertakes = 0;
   bool _closed = false;
+  bool _draining = false;
+  int _waitingRevision = 0;
 
   bool get isClosed => _closed;
 
@@ -97,6 +99,7 @@ final class OriginRequestGate {
     );
     if (index < 0) return;
     final entry = _waiting.removeAt(index);
+    _waitingRevision++;
     entry.state.waiting--;
     pending.reject(
       const OriginRequestGateCancelledException(),
@@ -148,16 +151,27 @@ final class OriginRequestGate {
 
     state.waiting++;
     _waiting.add(_QueuedAdmission(origin, state, pending, resolvePriority));
+    _waitingRevision++;
     _drain();
   }
 
   _OriginState _createOriginState() => _OriginState(_newCooldown());
 
   void _drain() {
-    if (_closed) return;
+    if (_closed || _draining) return;
+    _draining = true;
+    try {
+      _drainAvailable();
+    } finally {
+      _draining = false;
+    }
+  }
 
+  void _drainAvailable() {
     final aggregateLimit = maxConcurrent;
-    while (aggregateLimit == null || _active < aggregateLimit) {
+    drain:
+    while (!_closed && (aggregateLimit == null || _active < aggregateLimit)) {
+      final revision = _waitingRevision;
       final normal = <String, int>{};
       final interactive = <String, int>{};
       for (var index = 0; index < _waiting.length; index++) {
@@ -169,7 +183,11 @@ final class OriginRequestGate {
           continue;
         }
         final domain = aggregateLimit == null ? queued.origin : '';
-        final priorities = queued.priority == OriginRequestPriority.interactive
+        final priority = queued.priority;
+        if (_closed) return;
+        if (revision != _waitingRevision) continue drain;
+        if (state.cooldown.remaining != null) continue;
+        final priorities = priority == OriginRequestPriority.interactive
             ? interactive
             : normal;
         priorities.putIfAbsent(domain, () => index);
@@ -190,6 +208,7 @@ final class OriginRequestGate {
       if (eligible < 0) break;
 
       final queued = _waiting.removeAt(eligible);
+      _waitingRevision++;
       final domain = aggregateLimit == null ? queued.origin : '';
       final overtook =
           normal.containsKey(domain) && interactive[domain] == eligible;
@@ -255,6 +274,7 @@ final class OriginRequestGate {
       final queued = _waiting[index];
       if (!identical(queued.state, state)) continue;
       _waiting.removeAt(index);
+      _waitingRevision++;
       state.waiting--;
       queued.pending.reject(error, stackTrace);
     }
@@ -283,6 +303,7 @@ final class OriginRequestGate {
       queued.pending.reject(error, stackTrace);
     }
     _waiting.clear();
+    _waitingRevision++;
     _origins.clear();
     _active = 0;
   }

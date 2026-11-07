@@ -4,7 +4,7 @@ import 'json.dart';
 
 @immutable
 final class UserSummary {
-  const UserSummary({
+  UserSummary({
     this.canSeeSummaryStats = false,
     this.canSeeUserActions = false,
     this.likesGiven = 0,
@@ -17,15 +17,22 @@ final class UserSummary {
     this.timeRead = 0,
     this.recentTimeRead = 0,
     this.bookmarkCount = 0,
-    this.topics = const [],
-    this.replies = const [],
-    this.links = const [],
-    this.mostRepliedToUsers = const [],
-    this.mostLikedByUsers = const [],
-    this.mostLikedUsers = const [],
-    this.topCategories = const [],
-    this.badges = const [],
-  });
+    Iterable<UserSummaryTopic> topics = const [],
+    Iterable<UserSummaryReply> replies = const [],
+    Iterable<UserSummaryLink> links = const [],
+    Iterable<UserSummaryUser> mostRepliedToUsers = const [],
+    Iterable<UserSummaryUser> mostLikedByUsers = const [],
+    Iterable<UserSummaryUser> mostLikedUsers = const [],
+    Iterable<UserSummaryCategory> topCategories = const [],
+    Iterable<UserSummaryBadge> badges = const [],
+  }) : topics = List.unmodifiable(topics),
+       replies = List.unmodifiable(replies),
+       links = List.unmodifiable(links),
+       mostRepliedToUsers = List.unmodifiable(mostRepliedToUsers),
+       mostLikedByUsers = List.unmodifiable(mostLikedByUsers),
+       mostLikedUsers = List.unmodifiable(mostLikedUsers),
+       topCategories = List.unmodifiable(topCategories),
+       badges = List.unmodifiable(badges);
 
   static const int maximumResults = 6;
 
@@ -77,12 +84,12 @@ final class UserSummary {
       );
     }
 
-    List<UserSummaryUser> users(Object? value) => List.unmodifiable([
+    List<UserSummaryUser> users(Object? value) => [
       for (final row in jsonObjects(value).take(maximumResults))
         if (UserSummaryUser._fromJson(row, siteUrl) case final user?
             when user.id > 0 && user.username.isNotEmpty)
           user,
-    ]);
+    ];
 
     final badgeById = <int, Map<String, dynamic>>{};
     for (final badge in jsonObjects(json['badges']).take(maximumResults)) {
@@ -119,21 +126,21 @@ final class UserSummary {
       timeRead: jsonInt(summary['time_read']),
       recentTimeRead: jsonInt(summary['recent_time_read']),
       bookmarkCount: jsonInt(summary['bookmark_count']),
-      topics: List.unmodifiable(topics),
-      replies: List.unmodifiable(replies),
-      links: List.unmodifiable(links),
+      topics: topics,
+      replies: replies,
+      links: links,
       mostRepliedToUsers: users(summary['most_replied_to_users']),
       mostLikedByUsers: users(summary['most_liked_by_users']),
       mostLikedUsers: users(summary['most_liked_users']),
-      topCategories: List.unmodifiable([
+      topCategories: [
         for (final row in jsonObjects(
           summary['top_categories'],
         ).take(maximumResults))
           if (UserSummaryCategory._fromJson(row) case final category?
               when category.id > 0 && category.name.isNotEmpty)
             category,
-      ]),
-      badges: List.unmodifiable(badges),
+      ],
+      badges: badges,
     );
   }
 

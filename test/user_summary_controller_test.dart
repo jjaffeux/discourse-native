@@ -80,7 +80,7 @@ void main() {
       await pumpEventQueue();
       expect(controller.stateFor(_oneUrl).loading, isTrue);
       expect(api.requests.single.username, 'reader-one');
-      api.requests.single.result.complete(const UserSummary(daysVisited: 4));
+      api.requests.single.result.complete(UserSummary(daysVisited: 4));
       await first;
 
       expect(controller.stateFor(_oneUrl).summary?.daysVisited, 4);
@@ -88,7 +88,7 @@ void main() {
       await pumpEventQueue();
       expect(controller.stateFor(_oneUrl).summary?.daysVisited, 4);
       expect(controller.stateFor(_oneUrl).loading, isTrue);
-      api.requests.last.result.complete(const UserSummary(daysVisited: 9));
+      api.requests.last.result.complete(UserSummary(daysVisited: 9));
       await refresh;
 
       expect(controller.stateFor(_oneUrl).summary?.daysVisited, 9);
@@ -109,8 +109,8 @@ void main() {
     await pumpEventQueue();
     final two = controller.load(_two);
     await pumpEventQueue();
-    api.requests[0].result.complete(const UserSummary(daysVisited: 1));
-    api.requests[1].result.complete(const UserSummary(daysVisited: 2));
+    api.requests[0].result.complete(UserSummary(daysVisited: 1));
+    api.requests[1].result.complete(UserSummary(daysVisited: 2));
     await Future.wait([one, two]);
 
     expect(controller.stateFor(_oneUrl).summary?.daysVisited, 1);
@@ -144,10 +144,10 @@ void main() {
       );
       final current = controller.load(replacement);
       await pumpEventQueue();
-      api.requests.last.result.complete(const UserSummary(daysVisited: 20));
+      api.requests.last.result.complete(UserSummary(daysVisited: 20));
       await current;
 
-      api.requests.first.result.complete(const UserSummary(daysVisited: 99));
+      api.requests.first.result.complete(UserSummary(daysVisited: 99));
       await former;
 
       expect(controller.stateFor(_oneUrl).summary?.daysVisited, 20);
@@ -195,7 +195,7 @@ void main() {
       addTearDown(controller.dispose);
       final first = controller.load(_one);
       await pumpEventQueue();
-      api.requests.single.result.complete(const UserSummary(daysVisited: 7));
+      api.requests.single.result.complete(UserSummary(daysVisited: 7));
       await first;
       lifecycle.invalidate(_oneUrl);
       expect(controller.stateFor(_oneUrl).summary, isNull);
@@ -204,7 +204,7 @@ void main() {
       final replacement = controller.load(_one);
       await pumpEventQueue();
       expect(api.requests, hasLength(2));
-      api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+      api.requests.last.result.complete(UserSummary(daysVisited: 8));
       await replacement;
       expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
     },
@@ -230,7 +230,7 @@ void main() {
     expect(controller.stateFor(_oneUrl).error, isNull);
     await controller.load(_one);
     expect(api.requests, hasLength(2));
-    api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+    api.requests.last.result.complete(UserSummary(daysVisited: 8));
     await replacement;
     expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
   });
@@ -253,13 +253,13 @@ void main() {
     lifecycle.invalidate(_oneUrl);
     await pumpEventQueue();
     expect(controller.stateFor(_oneUrl).loading, isTrue);
-    api.requests.first.result.complete(const UserSummary(daysVisited: 99));
+    api.requests.first.result.complete(UserSummary(daysVisited: 99));
     await former;
     expect(controller.stateFor(_oneUrl).loading, isTrue);
     expect(controller.stateFor(_oneUrl).summary, isNull);
     await controller.load(_one);
     expect(api.requests, hasLength(2));
-    api.requests.last.result.complete(const UserSummary(daysVisited: 8));
+    api.requests.last.result.complete(UserSummary(daysVisited: 8));
     await successor;
     expect(controller.stateFor(_oneUrl).summary?.daysVisited, 8);
   });

@@ -53,6 +53,7 @@ final class AiSummaryController {
     if (_disposed) {
       request.cancel();
     } else {
+      request._observeRetirement();
       unawaited(_load(request, siteUrl, topicId, hasCachedSummary, regenerate));
     }
     return request;
@@ -150,10 +151,20 @@ final class AiSummaryRequest {
   final _result = Completer<AiTopicSummary>();
   PluginLiveChannelSubscription? _subscription;
   Timer? _deadline;
+  void Function()? _detachRetirement;
   AiTopicSummary? _streamedSummary;
   bool _waitingForStream = false;
 
   Future<AiTopicSummary> get result => _result.future;
+
+  void _observeRetirement() {
+    final detach = _lease.onRetire(_sessionChanged);
+    if (_result.isCompleted) {
+      detach();
+    } else {
+      _detachRetirement = detach;
+    }
+  }
 
   void cancel() => _fail(const AiSummaryCancelled());
 
@@ -220,6 +231,8 @@ final class AiSummaryRequest {
   }
 
   void _release() {
+    _detachRetirement?.call();
+    _detachRetirement = null;
     _subscription?.cancel();
     _subscription = null;
     _deadline?.cancel();

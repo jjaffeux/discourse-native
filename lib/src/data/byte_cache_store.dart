@@ -128,7 +128,6 @@ final class FileByteCacheStore implements ByteCacheStore {
         !expiresAt.isAfter(_clock())) {
       return;
     }
-    await directory.create(recursive: true);
     final target = File(_pathFor(url));
     final temporary = File(
       '${target.path}.$pid.${DateTime.now().microsecondsSinceEpoch}.tmp',
@@ -142,6 +141,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     ).setInt64(0, expiresAt.toUtc().millisecondsSinceEpoch, Endian.big);
     encoded.setRange(_headerBytes, encoded.length, bytes);
 
+    await directory.create(recursive: true);
     try {
       await temporary.writeAsBytes(encoded, flush: true);
       try {
