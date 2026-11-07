@@ -79,18 +79,16 @@ void main() {
     }
   }
 
-  test(
-    'a full activity page without a timestamp cannot offer a continuation',
-    () {
-      final page = GroupActivityPage.fromWire({
-        'posts': [
-          for (var id = 1; id <= 20; id++) {'id': id, 'topic_id': id},
-        ],
-      }, siteUrl);
-      expect(page.posts, hasLength(20));
-      expect(page.hasMore, isFalse);
-    },
-  );
+  test('a full activity page can continue by ID without a timestamp', () {
+    final page = GroupActivityPage.fromWire({
+      'posts': [
+        for (var id = 1; id <= 20; id++) {'id': id, 'topic_id': id},
+      ],
+    }, siteUrl);
+    expect(page.posts, hasLength(20));
+    expect(page.beforePostId, 20);
+    expect(page.hasMore, isTrue);
+  });
 
   for (final scenario in [
     (name: 'a null slot', row: null, slots: 20),
@@ -125,12 +123,12 @@ void main() {
         for (var id = 1; id <= 20; id++)
           if (id != 10) id,
       ]);
-      expect(page.before, DateTime.utc(2026, 9, 1, 12));
+      expect(page.beforePostId, 20);
       expect(page.hasMore, isTrue);
     });
   }
 
-  test('activity cannot use a timestamp beyond the raw page cap', () {
+  test('activity cannot use a post ID beyond the raw page cap', () {
     final page = GroupActivityPage.fromWire({
       'posts': [
         ...List<Object?>.filled(20, null),
@@ -140,29 +138,29 @@ void main() {
 
     expect(page.rawPostCount, 20);
     expect(page.posts, isEmpty);
-    expect(page.before, isNull);
+    expect(page.beforePostId, isNull);
     expect(page.hasMore, isFalse);
   });
 
-  for (final timestamp in [null, 'invalid']) {
-    test('mixed activity stops when its final timestamp is $timestamp', () {
+  for (final id in [null, 0, -1]) {
+    test('mixed activity stops when its final post ID is $id', () {
       final page = GroupActivityPage.fromWire({
         'posts': [
-          for (var id = 1; id <= 20; id++)
-            if (id == 10)
+          for (var row = 1; row <= 20; row++)
+            if (row == 10)
               null
             else
               {
-                'id': id,
-                'topic_id': id,
-                'created_at': id == 20 ? timestamp : '2026-09-01T12:00:00Z',
+                'id': row == 20 ? id : row,
+                'topic_id': row,
+                'created_at': '2026-09-01T12:00:00Z',
               },
         ],
       }, siteUrl);
 
       expect(page.rawPostCount, 20);
       expect(page.posts, hasLength(19));
-      expect(page.before, isNull);
+      expect(page.beforePostId, isNull);
       expect(page.hasMore, isFalse);
     });
   }
