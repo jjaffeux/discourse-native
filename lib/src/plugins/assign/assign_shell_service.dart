@@ -78,13 +78,11 @@ final class AssignShellService implements PluginLinkHandler {
       siteUrl: (site) => site.url,
     );
     if (owner == null || !owner.forum.isConnected) return false;
-    final index = owner.index;
     final site = owner.forum;
     final link = AssignedGroupLink.parse(absolute, siteUrl: site.url);
     if (link == null) return false;
     if (!_canOpenGroupAssignments(site.url)) return false;
 
-    if (_host.currentSite?.url != site.url) _host.selectInstance(index);
     final route = ContentRoute.group(
       GroupRoute.plugin(
         groupName: link.groupName,
@@ -94,12 +92,18 @@ final class AssignShellService implements PluginLinkHandler {
       ),
       title: link.groupName,
     );
-    if (!route.sameDestinationAs(_host.currentContent)) {
-      _host.pushContent(route);
-    }
-    if (_host.currentSite?.url == site.url &&
+    if ((origin == PluginLinkOrigin.direct ||
+            origin == PluginLinkOrigin.inApp) &&
+        _host.currentSite?.url == site.url &&
         route.sameDestinationAs(_host.currentContent)) {
       onNavigated?.call();
+    } else {
+      _host.pushContent(
+        route,
+        siteUrl: site.url,
+        origin: origin,
+        onNavigated: onNavigated,
+      );
     }
     return true;
   }

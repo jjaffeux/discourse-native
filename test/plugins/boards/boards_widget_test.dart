@@ -34,7 +34,20 @@ class _BoardPresentationHost extends ChangeNotifier
   @override
   void selectInstance(int index) => host.selectInstance(index);
   @override
-  void pushContent(ContentRoute route) => host.pushContent(route);
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    return host.pushContent(
+      route,
+      siteUrl: siteUrl,
+      origin: origin,
+      onNavigated: onNavigated,
+    );
+  }
+
   @override
   void replaceCurrentContent(ContentRoute route) =>
       host.replaceCurrentContent(route);

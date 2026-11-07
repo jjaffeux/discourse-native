@@ -10056,7 +10056,58 @@ final class _ShellPluginRouteNavigationHost
   void selectInstance(int index) => _shell.selectInstance(index);
 
   @override
-  void pushContent(ContentRoute route) => _shell.pushContent(route);
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    final site = siteUrl ?? _shell.currentInstance?.url;
+    final index = _shell.instances.indexWhere(
+      (instance) => instance.url == site,
+    );
+    if (index < 0) return false;
+    final newTab = switch (origin) {
+      PluginLinkOrigin.newTab ||
+      PluginLinkOrigin.mainPanelNewTab ||
+      PluginLinkOrigin.secondaryPanelNewTab => _shell.forumTabsEnabled,
+      _ => false,
+    };
+    final panel = switch (origin) {
+      PluginLinkOrigin.mainPanel ||
+      PluginLinkOrigin.mainPanelNewTab => ForumPanel.main,
+      PluginLinkOrigin.secondaryPanel ||
+      PluginLinkOrigin.secondaryPanelNewTab => ForumPanel.secondary,
+      _ => null,
+    };
+    if (newTab) {
+      return _shell.openContentInNewTab(
+            route,
+            siteUrl: site,
+            panel: panel,
+            select: false,
+            source: _shell.currentInstance?.url == site
+                ? _shell.activeTab
+                : null,
+          ) ==
+          TabOpenResult.opened;
+    }
+    if (_shell.currentInstance?.url != site) _shell.selectInstance(index);
+    if (panel != null && _shell.desktopPanelsEnabled) {
+      if (_shell.openContentInPanel(route, panel: panel) !=
+          TabOpenResult.opened) {
+        return false;
+      }
+    } else {
+      _shell.pushContent(route);
+    }
+    if (_shell.currentInstance?.url != site ||
+        _shell.currentContent?.sameDestinationAs(route) != true) {
+      return false;
+    }
+    onNavigated?.call();
+    return true;
+  }
 
   @override
   void replaceCurrentContent(ContentRoute route) =>

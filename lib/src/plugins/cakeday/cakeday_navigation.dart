@@ -12,9 +12,15 @@ final class CakedayNavigation implements PluginLinkHandler {
   const CakedayNavigation(this.host, this.controller);
   final PluginRouteNavigationHost host;
   final CakedayController controller;
-  void open(CakedayQuery query, {bool replace = false}) {
-    final site = host.currentSite;
-    if (site == null || !controller.enabled(site.url, query.kind)) return;
+  void open(
+    CakedayQuery query, {
+    bool replace = false,
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    final site = siteUrl ?? host.currentSite?.url;
+    if (site == null || !controller.enabled(site, query.kind)) return;
     final route = ContentRoute(
       destination: ExtensionDestination(query.id),
       title: query.kind == CakedayKind.birthdays
@@ -25,7 +31,12 @@ final class CakedayNavigation implements PluginLinkHandler {
     if (replace) {
       host.replaceCurrentContent(route);
     } else {
-      host.pushContent(route);
+      host.pushContent(
+        route,
+        siteUrl: site,
+        origin: origin,
+        onNavigated: onNavigated,
+      );
     }
   }
 
@@ -66,9 +77,12 @@ final class CakedayNavigation implements PluginLinkHandler {
     if (query == null || !controller.enabled(owner.forum.url, query.kind)) {
       return false;
     }
-    host.selectInstance(owner.index);
-    open(query);
-    onNavigated?.call();
+    open(
+      query,
+      siteUrl: owner.forum.url,
+      origin: origin,
+      onNavigated: onNavigated,
+    );
     return true;
   }
 }

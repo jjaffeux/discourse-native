@@ -142,7 +142,6 @@ final class AiConversationsService implements PluginLinkHandler {
       siteUrl: (site) => site.url,
     );
     if (owner == null) return false;
-    final index = owner.index;
     final site = owner.forum;
     if (site.pathWithin(uri) != '/discourse-ai/ai-bot/conversations' ||
         !site.isConnected ||
@@ -152,17 +151,20 @@ final class AiConversationsService implements PluginLinkHandler {
         )) {
       return false;
     }
-    if (navigation.currentSite?.url != site.url) {
-      navigation.selectInstance(index);
-    }
-    if (!AiConversationsPlugin.route.sameDestinationAs(
-      navigation.currentContent,
-    )) {
-      navigation.pushContent(AiConversationsPlugin.route);
-    }
-    if (navigation.currentSite?.url == site.url &&
-        navigation.currentContent?.id == 'ai-conversations') {
+    if ((origin == PluginLinkOrigin.direct ||
+            origin == PluginLinkOrigin.inApp) &&
+        navigation.currentSite?.url == site.url &&
+        AiConversationsPlugin.route.sameDestinationAs(
+          navigation.currentContent,
+        )) {
       onNavigated?.call();
+    } else {
+      navigation.pushContent(
+        AiConversationsPlugin.route,
+        siteUrl: site.url,
+        origin: origin,
+        onNavigated: onNavigated,
+      );
     }
     return true;
   }

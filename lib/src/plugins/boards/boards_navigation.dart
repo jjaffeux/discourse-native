@@ -155,20 +155,16 @@ final class BoardsNavigation implements PluginLinkHandler {
       }
     }
     if (route == null) return false;
-    if (host.currentSite?.url != owner.forum.url) {
-      host.selectInstance(owner.index);
-    }
     host.pushContent(
       ContentRoute(
         destination: ExtensionDestination(route.id),
         title: appL10n.boardsTitle,
         icon: boardsIcon,
       ),
+      siteUrl: owner.forum.url,
+      origin: origin,
+      onNavigated: onNavigated,
     );
-    if (host.currentSite?.url == owner.forum.url &&
-        host.currentContent?.id == route.id) {
-      onNavigated?.call();
-    }
     return true;
   }
 }

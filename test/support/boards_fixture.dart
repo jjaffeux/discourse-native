@@ -260,7 +260,22 @@ final class BoardsFixtureNavigation
   @override
   void selectInstance(int index) {}
   @override
-  void pushContent(ContentRoute route) => currentContent = route;
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    currentContent = route;
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
+
   @override
   void openTopicList(ContentRoute route) => currentContent = route;
   @override

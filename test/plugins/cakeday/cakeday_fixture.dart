@@ -109,7 +109,22 @@ final class CakedayRoutes implements PluginRouteNavigationHost {
   @override
   void selectInstance(int index) {}
   @override
-  void pushContent(ContentRoute route) => pushed.add(route);
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite?.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    pushed.add(route);
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
+
   @override
   void replaceCurrentContent(ContentRoute route) {
     if (pushed.isNotEmpty) pushed.removeLast();

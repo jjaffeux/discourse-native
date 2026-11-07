@@ -37,7 +37,159 @@ void main() {
 
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  for (final origin in [
+    PluginLinkOrigin.newTab,
+    PluginLinkOrigin.mainPanelNewTab,
+    PluginLinkOrigin.secondaryPanelNewTab,
+  ]) {
+    for (final target in [_firstSite, _secondSite]) {
+      test(
+        '${origin.name} keeps the source when opening ${target.url}',
+        () async {
+          final harness = _Harness();
+          final source = harness.host.currentContent;
+          var navigated = 0;
+
+          expect(
+            await harness.shell.openPluginUrl(
+              '${target.url}$_invitation',
+              origin: origin,
+              onNavigated: () => navigated++,
+            ),
+            isTrue,
+          );
+
+          expect(harness.host.currentSite?.url, _firstSite.url);
+          expect(harness.host.currentContent, same(source));
+          expect(harness.host.pushed.single.siteUrl, target.url);
+          expect(harness.host.pushed.single.origin, origin);
+          expect(navigated, 0);
+          expect(harness.controller.call, isNull);
+          expect(harness.transport.writes, isEmpty);
+          expect(await harness.inviterOnNextJoin(siteUrl: target.url), 'older');
+        },
+      );
+    }
+  }
+
+  for (final origin in [
+    PluginLinkOrigin.mainPanel,
+    PluginLinkOrigin.secondaryPanel,
+  ]) {
+    test(
+      '${origin.name} forwards foreground navigation and attribution',
+      () async {
+        final harness = _Harness();
+        Future<Object?>? inviter;
+        var navigated = 0;
+
+        expect(
+          await harness.shell.openPluginUrl(
+            '${_secondSite.url}$_invitation',
+            origin: origin,
+            onNavigated: () {
+              navigated++;
+              inviter = harness.inviterOnNextJoin(siteUrl: _secondSite.url);
+            },
+          ),
+          isTrue,
+        );
+
+        expect(harness.host.currentSite?.url, _secondSite.url);
+        expect(harness.host.currentContent?.id, 'voice-room-7');
+        expect(harness.host.pushed.single.origin, origin);
+        expect(navigated, 1);
+        expect(await inviter, 'older');
+      },
+    );
+  }
+
+  test(
+    'a refused background open does not navigate or credit an inviter',
+    () async {
+      final harness = _Harness();
+      final source = harness.host.currentContent;
+      harness.host.acceptPush = false;
+      var navigated = 0;
+
+      expect(
+        await harness.shell.openPluginUrl(
+          '${_secondSite.url}$_invitation',
+          origin: PluginLinkOrigin.secondaryPanelNewTab,
+          onNavigated: () => navigated++,
+        ),
+        isTrue,
+      );
+
+      expect(harness.host.currentSite?.url, _firstSite.url);
+      expect(harness.host.currentContent, same(source));
+      expect(harness.host.pushed, isEmpty);
+      expect(navigated, 0);
+      expect(await harness.inviterOnNextJoin(siteUrl: _secondSite.url), isNull);
+    },
+  );
+
+  test(
+    'new-tab intent falls back to foreground when tabs are disabled',
+    () async {
+      final harness = _Harness();
+      harness.host.tabsEnabled = false;
+      Future<Object?>? inviter;
+      var navigated = 0;
+
+      expect(
+        await harness.shell.openPluginUrl(
+          '${_secondSite.url}$_invitation',
+          origin: PluginLinkOrigin.secondaryPanelNewTab,
+          onNavigated: () {
+            navigated++;
+            inviter = harness.inviterOnNextJoin(siteUrl: _secondSite.url);
+          },
+        ),
+        isTrue,
+      );
+
+      expect(harness.host.currentSite?.url, _secondSite.url);
+      expect(harness.host.currentContent?.id, 'voice-room-7');
+      expect(navigated, 1);
+      expect(await inviter, 'older');
+    },
+  );
+
   for (final boundary in ['directory', 'room']) {
+    for (final changed in ['source account', 'target account', 'tab']) {
+      test(
+        '$changed during background $boundary loading retires the link',
+        () async {
+          final harness = _Harness();
+          final response = harness.hold(boundary);
+          final opening = harness.shell.openPluginUrl(
+            '${_secondSite.url}$_invitation',
+            origin: PluginLinkOrigin.secondaryPanelNewTab,
+          );
+          await response.started.future;
+
+          switch (changed) {
+            case 'source account':
+              harness.requests.forget(_firstSite.url);
+            case 'target account':
+              harness.requests.forget(_secondSite.url);
+            case 'tab':
+              harness.host.activeTabId = 'replacement-tab';
+          }
+          response.release();
+
+          expect(await opening, isTrue);
+          expect(harness.host.currentSite?.url, _firstSite.url);
+          expect(harness.host.pushed, isEmpty);
+          expect(
+            await harness.inviterOnNextJoin(siteUrl: _secondSite.url),
+            isNull,
+          );
+        },
+      );
+    }
+
     test('a forum switch during $boundary loading retires the link', () async {
       final harness = _Harness();
       final response = harness.hold(boundary);
@@ -370,13 +522,16 @@ final class _Harness {
 
 final class _RouteHost implements PluginRouteNavigationHost {
   @override
-  String? get activeTabId => null;
+  String? activeTabId = 'source-tab';
 
   @override
   final sites = [_firstSite, _secondSite];
   String selectedUrl = _firstSite.url;
   void Function()? onSelect;
-  final pushed = <({String? siteUrl, ContentRoute route})>[];
+  bool acceptPush = true;
+  bool tabsEnabled = true;
+  final pushed =
+      <({String? siteUrl, ContentRoute route, PluginLinkOrigin origin})>[];
 
   // Match the production host's fresh value projections; site object
   // identity cannot be used as a navigation or account lifetime token.
@@ -414,9 +569,35 @@ final class _RouteHost implements PluginRouteNavigationHost {
   }
 
   @override
-  void pushContent(ContentRoute route) {
-    pushed.add((siteUrl: currentSite?.url, route: route));
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (!acceptPush) return false;
+    final targetSite = siteUrl ?? currentSite?.url;
+    final background =
+        tabsEnabled &&
+        const {
+          PluginLinkOrigin.newTab,
+          PluginLinkOrigin.mainPanelNewTab,
+          PluginLinkOrigin.secondaryPanelNewTab,
+        }.contains(origin);
+    if (background) {
+      if (!sites.any((site) => site.url == targetSite)) return false;
+      pushed.add((siteUrl: targetSite, route: route, origin: origin));
+      return true;
+    }
+    if (siteUrl != null && currentSite?.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    pushed.add((siteUrl: currentSite?.url, route: route, origin: origin));
     currentContent = route;
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
   }
 
   @override
