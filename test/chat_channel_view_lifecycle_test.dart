@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
@@ -20,16 +21,19 @@ import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_avatar.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
@@ -2124,6 +2128,84 @@ void main() {
         0,
       );
     });
+
+    testWidgets(
+      'a background same-channel message link waits for its own tab',
+      (tester) async {
+        tester.view.physicalSize = const Size(1600, 900);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        final api = _ChatApi(
+          openPages: {
+            firstSite: [_messagesPage(40, 5)],
+          },
+        );
+        final controller = await _controller(api, sites: const [firstSite]);
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(firstSite, _channel(lastRead: 40));
+        controller.desktopTopicTabs = true;
+        expect(controller.openChatChannel(9), isTrue);
+        final source = controller.activeTabId;
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+              home: const TopicPresentationPreferences(
+                child: Scaffold(body: DesktopPanels()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        api.targetMessageIds.clear();
+        expect(
+          find.byKey(const ValueKey('chat-message-highlight')),
+          findsNothing,
+        );
+
+        final openedTabs = <String>[];
+        for (final messageId in [42, 43, 44]) {
+          expect(
+            await controller.pluginSession
+                .require(chatShellService)
+                .openPluginUrl(
+                  '$firstSite/chat/c/-/9/$messageId',
+                  origin: PluginLinkOrigin.mainPanelNewTab,
+                ),
+            isTrue,
+          );
+          openedTabs.add(controller.tabsForCurrentForum.last.id);
+          await tester.pumpAndSettle();
+        }
+
+        expect(controller.activeTabId, source);
+        expect(api.targetMessageIds.whereType<int>(), isEmpty);
+        expect(
+          find.byKey(const ValueKey('chat-message-highlight')),
+          findsNothing,
+        );
+
+        controller.closeTab(openedTabs.removeLast());
+        await tester.pumpAndSettle();
+        expect(controller.chatNavigation.value?.messageId, 43);
+
+        controller.selectTab(openedTabs.first);
+        await tester.pumpAndSettle();
+
+        expect(api.targetMessageIds, contains(42));
+        expect(api.targetMessageIds, isNot(contains(43)));
+        expect(
+          find.byKey(const ValueKey('chat-message-highlight')),
+          findsOneWidget,
+        );
+        api.targetMessageIds.clear();
+        controller.selectTab(openedTabs.last);
+        await tester.pumpAndSettle();
+        expect(api.targetMessageIds, contains(43));
+        expect(controller.chatNavigation.value, isNull);
+      },
+    );
 
     testWidgets(
       'an explicit channel target is fetched and transiently highlighted',

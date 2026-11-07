@@ -24,6 +24,13 @@ class _BoardPresentationHost extends ChangeNotifier
   @override
   bool get mobileNavigationEnabled => mobile;
   @override
+  String? tabIdOf(BuildContext context) => activeTabId;
+  @override
+  ContentRoute? contentForTab(String siteUrl, String tabId) =>
+      currentSite.url == siteUrl && activeTabId == tabId
+      ? currentContent
+      : null;
+  @override
   List<PluginRouteSite> get sites => host.sites;
   @override
   PluginRouteSite get currentSite => host.currentSite;
@@ -39,12 +46,14 @@ class _BoardPresentationHost extends ChangeNotifier
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   }) {
     return host.pushContent(
       route,
       siteUrl: siteUrl,
       origin: origin,
       onNavigated: onNavigated,
+      onOpened: onOpened,
     );
   }
 

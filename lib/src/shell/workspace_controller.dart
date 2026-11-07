@@ -340,6 +340,7 @@ final class _WorkspaceController {
     bool? select,
     String? rootDestinationId,
     ForumTab? source,
+    void Function(ForumTab tab)? onOpened,
   }) {
     if (!_shell.forumTabsEnabled) return TabOpenResult.unsupported;
     final instance = siteUrl == null
@@ -393,6 +394,7 @@ final class _WorkspaceController {
       tabs.insert(insertion, tab);
     }
     put(workspace.copyWith(tabs: tabs, activeTabId: activate ? tab.id : null));
+    onOpened?.call(tab);
     _shell._rememberRoute(instance.url, workspace.accountIdentity, route);
     if (activate && _shell.currentInstance?.url == instance.url) {
       _shell._mobilePane = MobilePane.content;

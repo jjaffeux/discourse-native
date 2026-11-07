@@ -2,6 +2,8 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
+
 void main() {
   group('ChatRoute', () {
     test('round-trips the stable channel and thread identities', () {
@@ -231,6 +233,41 @@ void main() {
   });
 
   group('ChatNavigationHandoff', () {
+    test('keeps each destination tab separate and retires pending targets', () {
+      final handoff = ChatNavigationHandoff();
+      addTearDown(handoff.dispose);
+      final requests = FakePluginRequestHost();
+      const site = 'https://meta.discourse.org';
+      final route = ChatRoute.channel(9);
+      for (final (tabId, messageId) in [('first', 41), ('second', 42)]) {
+        handoff.offer(
+          ChatNavigationTarget(
+            siteUrl: site,
+            route: route,
+            tabId: tabId,
+            messageId: messageId,
+            lease: requests.capture(site),
+          ),
+        );
+      }
+
+      expect(
+        handoff.take(siteUrl: site, route: route, tabId: 'source'),
+        isNull,
+      );
+      expect(
+        handoff.take(siteUrl: site, route: route, tabId: 'first')?.messageId,
+        41,
+      );
+      expect(handoff.value?.messageId, 42);
+      requests.lifecycle.invalidate(site);
+      expect(handoff.value, isNull);
+      expect(
+        handoff.take(siteUrl: site, route: route, tabId: 'second'),
+        isNull,
+      );
+    });
+
     test('offers and consumes only the matching site and route', () {
       final handoff = ChatNavigationHandoff();
       addTearDown(handoff.dispose);

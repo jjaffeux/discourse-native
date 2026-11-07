@@ -5,6 +5,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
 
 import 'chat_bookmark.dart';
 import 'chat_channel.dart';
@@ -40,11 +41,13 @@ final class ChatShellService
   ChatShellService({
     required this.chat,
     required PluginNavigationHost host,
+    required PluginRouteNavigationHost routeNavigation,
     required this.composerHost,
     required this.store,
     required PluginPostFlagCatalogReader postFlagCatalog,
     PluginRoutePresentationHost? presentationHost,
   }) : _host = host,
+       _routeNavigation = routeNavigation,
        _presentationHost = presentationHost,
        _postFlagCatalog = postFlagCatalog {
     _rememberHeaderRoutes();
@@ -56,6 +59,7 @@ final class ChatShellService
   final PluginComposerHost composerHost;
   final Store store;
   final PluginNavigationHost _host;
+  final PluginRouteNavigationHost _routeNavigation;
   final PluginRoutePresentationHost? _presentationHost;
   final PluginPostFlagCatalogReader _postFlagCatalog;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
@@ -106,6 +110,9 @@ final class ChatShellService
   NotificationTotals? get currentTotals => _host.currentTotals;
   ContentRoute? get currentContent => _host.currentContent;
   String? get activeTabId => _host.activeTabId;
+
+  String? tabIdOf(BuildContext context) =>
+      _presentationHost?.tabIdOf(context) ?? _host.activeTabId;
 
   void setPageSearchWords(String siteUrl, String routeId, String words) {
     if (!_disposed &&
@@ -213,6 +220,13 @@ final class ChatShellService
 
   void _handleHostChanged() {
     if (_disposed) return;
+    navigation.retain(
+      (target) =>
+          target.tabId == null ||
+          _presentationHost == null ||
+          _presentationHost.contentForTab(target.siteUrl, target.tabId!)?.id ==
+              target.route.routeId,
+    );
     _rememberHeaderRoutes();
     final presentation = _hostPresentation;
     if (presentation != _lastHostPresentation) {
@@ -323,7 +337,10 @@ final class ChatShellService
       (instance) => instance.url == siteUrl,
     );
     if (index < 0 || !_host.instances[index].isConnected) return false;
-    if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
+    if (!(newTab && desktopPanelsEnabled) &&
+        _host.currentInstance?.url != siteUrl) {
+      _host.selectInstance(index);
+    }
     final opened = _openRoute(
       siteUrl,
       link.route,
@@ -930,35 +947,55 @@ final class ChatShellService
     bool secondaryPanel = false,
     bool newTab = false,
   }) {
-    if (_host.currentInstance?.url != siteUrl) return false;
+    if (_host.currentInstance?.url != siteUrl &&
+        !(newTab && desktopPanelsEnabled)) {
+      return false;
+    }
     final channel = chat.channel(siteUrl, route.channelId);
     if (channel == null) return false;
     if (desktopPanelsEnabled ||
         _presentationHost?.mobileNavigationEnabled == true &&
             _host.currentContent?.isGlobalSearch == true) {
-      _host.pushContent(
-        ContentRoute(
-          destination: ExtensionDestination(route.routeId),
-          title: route.isThread ? appL10n.thread : channel.title,
-          subtitle: route.isThread ? channel.title : null,
-          icon: route.isThread ? DIcons.comments : DIcons.comment,
-        ),
-        newTab: newTab,
-        panel: mainPanel
-            ? ForumPanel.main
-            : secondaryPanel
-            ? ForumPanel.secondary
-            : null,
+      final content = ContentRoute(
+        destination: ExtensionDestination(route.routeId),
+        title: route.isThread ? appL10n.thread : channel.title,
+        subtitle: route.isThread ? channel.title : null,
+        icon: route.isThread ? DIcons.comments : DIcons.comment,
       );
-      navigation.offer(
+      void offer(String? tabId) => navigation.offer(
         ChatNavigationTarget(
           siteUrl: siteUrl,
           route: route,
           messageId: messageId,
           focusComposer: focusComposer,
+          tabId: tabId,
+          lease: chat.captureSession(siteUrl),
         ),
       );
-      _host.showPluginContent();
+      if (newTab && desktopPanelsEnabled) {
+        _routeNavigation.pushContent(
+          content,
+          siteUrl: siteUrl,
+          origin: mainPanel
+              ? PluginLinkOrigin.mainPanelNewTab
+              : secondaryPanel
+              ? PluginLinkOrigin.secondaryPanelNewTab
+              : PluginLinkOrigin.newTab,
+          onOpened: offer,
+        );
+      } else {
+        _host.pushContent(
+          content,
+          newTab: newTab,
+          panel: mainPanel
+              ? ForumPanel.main
+              : secondaryPanel
+              ? ForumPanel.secondary
+              : null,
+        );
+        offer(_host.activeTabId);
+        _host.showPluginContent();
+      }
       return true;
     }
     if (route.isInfo) {
@@ -1008,6 +1045,8 @@ final class ChatShellService
         route: route,
         messageId: messageId,
         focusComposer: focusComposer,
+        tabId: _host.activeTabId,
+        lease: chat.captureSession(siteUrl),
       ),
     );
     _host.showPluginContent();

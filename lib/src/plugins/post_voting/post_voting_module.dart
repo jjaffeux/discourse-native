@@ -33,6 +33,7 @@ final class PostVotingModule implements PluginModule {
           records: bindings.require(corePluginTopicRecordsPort),
           topics: bindings.require(corePluginTopicRefreshPort),
           navigation: bindings.require(corePluginNavigationPort),
+          routeNavigation: bindings.require(corePluginRouteNavigationPort),
           accounts: bindings.require(corePluginAccountConnectionPort),
           flagCatalog: bindings.require(corePluginPostFlagCatalogPort),
         );
@@ -52,6 +53,7 @@ final class PostVotingModule implements PluginModule {
         corePluginTopicRecordsPort,
         corePluginTopicRefreshPort,
         corePluginNavigationPort,
+        corePluginRouteNavigationPort,
         corePluginAccountConnectionPort,
         corePluginPostFlagCatalogPort,
       ],

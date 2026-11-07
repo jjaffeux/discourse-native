@@ -30,7 +30,7 @@ final class NestedRepliesModule implements PluginModule {
           records: bindings.require(corePluginTopicRecordsPort),
           topics: bindings.require(corePluginTopicRefreshPort),
           targets: bindings.require(corePluginTargetPort),
-          navigation: bindings.require(corePluginNavigationPort),
+          navigation: bindings.require(corePluginRouteNavigationPort),
           accounts: bindings.require(corePluginFreshAccountPort),
         );
         return PluginSessionContribution(
@@ -48,7 +48,7 @@ final class NestedRepliesModule implements PluginModule {
         corePluginTopicRecordsPort,
         corePluginTopicRefreshPort,
         corePluginTargetPort,
-        corePluginNavigationPort,
+        corePluginRouteNavigationPort,
         corePluginFreshAccountPort,
       ],
     );

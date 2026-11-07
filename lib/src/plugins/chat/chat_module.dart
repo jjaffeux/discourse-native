@@ -124,6 +124,7 @@ final class ChatModule implements PluginModule {
         final shell = ChatShellService(
           chat: controller,
           host: navigation,
+          routeNavigation: routeNavigation,
           presentationHost: switch (routeNavigation) {
             final PluginRoutePresentationHost host => host,
             _ => null,

@@ -50,6 +50,7 @@ final class PostVotingServices extends FrameSafeNotifier
     required this.records,
     required this.topics,
     required this.navigation,
+    required this.routeNavigation,
     required this.accounts,
     required this.flagCatalog,
   }) {
@@ -69,6 +70,7 @@ final class PostVotingServices extends FrameSafeNotifier
   final PluginTopicRecordsHost records;
   final PluginTopicRefreshHost topics;
   final PluginNavigationHost navigation;
+  final PluginRouteNavigationHost routeNavigation;
   final PluginAccountConnectionHost accounts;
   final PluginPostFlagCatalogReader flagCatalog;
   late final PostVotingActions actions;
@@ -238,14 +240,28 @@ final class PostVotingServices extends FrameSafeNotifier
     final parts = DiscourseInstance.pathSegmentsWithin(site, uri);
     if (parts == null) return false;
     final lease = _watch(site).lease;
+    final sourceSite = navigation.currentInstance?.url;
+    final sourceLease = sourceSite == null
+        ? null
+        : requests.capture(sourceSite);
+    final sourceTab = navigation.activeTabId;
+    final sourceIdentity = navigation.currentContent?.destination.identity;
+    bool current() =>
+        !isDisposed &&
+        lease.isCurrent &&
+        sourceLease?.isCurrent != false &&
+        navigation.currentInstance?.url == sourceSite &&
+        navigation.activeTabId == sourceTab &&
+        navigation.currentContent?.destination.identity == sourceIdentity;
     int? topicId, number;
     var slug = 'topic';
+    var committed = false;
     try {
       if (parts.length == 2 && parts.first == 'p') {
         final id = int.tryParse(parts.last);
         if (id == null || id <= 0) return false;
         final credentials = await requests.credentialsFor(site);
-        if (!lease.isCurrent || isDisposed) return false;
+        if (!current()) return true;
         final location = await api.lookupPost(
           siteUrl: site,
           postId: id,
@@ -263,18 +279,13 @@ final class PostVotingServices extends FrameSafeNotifier
       } else {
         return false;
       }
-      if (topicId == null || topicId <= 0 || !lease.isCurrent || isDisposed) {
-        return false;
-      }
+      if (!current()) return true;
+      if (topicId == null || topicId <= 0) return false;
       final query = {
         ...uri.queryParameters,
         'post-voting-comment': '$commentId',
       };
-      if (navigation.currentInstance?.url != site) {
-        navigation.selectInstance(index);
-      }
-      if (!lease.isCurrent || isDisposed) return false;
-      navigation.pushContent(
+      committed = routeNavigation.pushContent(
         ContentRoute.topic(
           topicId: topicId,
           slug: slug,
@@ -282,26 +293,17 @@ final class PostVotingServices extends FrameSafeNotifier
           postNumber: number,
           query: Uri(queryParameters: query).query,
         ),
-        newTab: const {
-          PluginLinkOrigin.newTab,
-          PluginLinkOrigin.mainPanelNewTab,
-          PluginLinkOrigin.secondaryPanelNewTab,
-        }.contains(origin),
-        panel: switch (origin) {
-          PluginLinkOrigin.mainPanel ||
-          PluginLinkOrigin.mainPanelNewTab => ForumPanel.main,
-          PluginLinkOrigin.secondaryPanel ||
-          PluginLinkOrigin.secondaryPanelNewTab => ForumPanel.secondary,
-          _ => null,
-        },
+        siteUrl: site,
+        origin: origin,
+        onNavigated: onNavigated,
       );
-      onNavigated?.call();
+      if (!committed) return true;
       if (lease.isCurrent && !isDisposed) {
         await topics.reloadTopic(site, topicId);
       }
-      return lease.isCurrent && !isDisposed;
+      return true;
     } catch (_) {
-      return false;
+      return committed || !current();
     }
   }
 

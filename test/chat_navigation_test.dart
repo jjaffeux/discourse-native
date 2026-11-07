@@ -1348,6 +1348,109 @@ void main() {
       );
 
       test(
+        'a cross-forum background chat link preserves the source reader',
+        () async {
+          shell.desktopTopicTabs = true;
+          shell.selectInstance(1);
+          final source = shell.activeTab;
+          final targetTabs = shell.workspaceFor(_site)!.tabs.length;
+          var navigated = 0;
+
+          expect(
+            await shell.pluginSession
+                .require(chatShellService)
+                .openPluginUrl(
+                  '$_site/chat/c/-/9/t/3/44',
+                  origin: PluginLinkOrigin.secondaryPanelNewTab,
+                  onNavigated: () => navigated++,
+                ),
+            isTrue,
+          );
+
+          expect(shell.currentInstance?.url, _otherSite);
+          expect(shell.activeTab, source);
+          expect(shell.workspaceFor(_site)!.tabs, hasLength(targetTabs + 1));
+          final opened = shell.workspaceFor(_site)!.tabs.last;
+          expect(opened.currentContent.id, 'chat-c-9-t-3');
+          expect(opened.panel, ForumPanel.secondary);
+          expect(shell.chatNavigation.value?.messageId, 44);
+          expect(navigated, 0);
+        },
+      );
+
+      for (final retiredSite in [_site, _otherSite]) {
+        test(
+          'a cross-forum background check stops when $retiredSite retires',
+          () async {
+            final gate = Completer<void>();
+            final (gated, gatedApi) = await gatedShell(threadGate: gate);
+            gated.desktopTopicTabs = true;
+            gated.selectInstance(1);
+            final source = gated.activeTab;
+            final before = gated.workspaceFor(_site)!.tabs;
+            final opening = gated.pluginSession
+                .require(chatShellService)
+                .openPluginUrl(
+                  '$_site/chat/c/-/9/t/3/44',
+                  origin: PluginLinkOrigin.newTab,
+                );
+            await pumpEventQueue();
+            expect(gatedApi.chatThreadsRequested, [
+              (channelId: 9, threadId: 3),
+            ]);
+
+            gated.lifecycle.invalidate(retiredSite);
+            gate.complete();
+
+            expect(await opening, isTrue);
+            expect(gated.currentInstance?.url, _otherSite);
+            expect(gated.activeTab, source);
+            expect(gated.workspaceFor(_site)!.tabs, before);
+            expect(gated.chatNavigation.value, isNull);
+          },
+        );
+      }
+
+      test(
+        'a full destination workspace refuses a background chat link',
+        () async {
+          shell.desktopTopicTabs = true;
+          shell.selectInstance(1);
+          final source = shell.activeTab;
+          while (shell.workspaceFor(_site)!.tabs.length <
+              ForumWorkspace.maximumTabs) {
+            shell.openContentInNewTab(
+              ContentRoute.topic(
+                topicId: 1000 + shell.workspaceFor(_site)!.tabs.length,
+                slug: 'held',
+                title: 'Held topic',
+              ),
+              siteUrl: _site,
+              select: false,
+            );
+          }
+
+          expect(
+            await shell.pluginSession
+                .require(chatShellService)
+                .openPluginUrl(
+                  '$_site/chat/c/-/9/44',
+                  origin: PluginLinkOrigin.newTab,
+                ),
+            isTrue,
+          );
+
+          expect(shell.currentInstance?.url, _otherSite);
+          expect(shell.activeTab, source);
+          expect(
+            shell.workspaceFor(_site)!.tabs,
+            hasLength(ForumWorkspace.maximumTabs),
+          );
+          expect(shell.chatNavigation.value, isNull);
+        },
+      );
+
+      test(
         'replaces previous thread history when the thread changes',
         () async {
           await shell.openChatUrl('$_site/chat/c/-/9/t/3');

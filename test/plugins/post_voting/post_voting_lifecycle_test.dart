@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_controller.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_data.dart';
 import 'package:discourse_native/src/plugins/post_voting/post_voting_module.dart';
@@ -208,6 +209,7 @@ void main() {
         (tester) async {
           final f = await _twoSites(tester);
           expect(f.shell.currentInstance!.url, _root);
+          final source = f.shell.activeTab;
           var navigations = 0;
           expect(
             await f.services.openPluginUrl(
@@ -217,10 +219,12 @@ void main() {
             ),
             isTrue,
           );
-          expect(f.shell.currentInstance!.url, target);
-          final tab = f.shell.tabsForCurrentForum.singleWhere(
-            (tab) => tab.currentContent.topicId == 7,
-          );
+          expect(f.shell.currentInstance!.url, _root);
+          expect(f.shell.activeTab, source);
+          final tab = f.shell
+              .workspaceFor(target)!
+              .tabs
+              .singleWhere((tab) => tab.currentContent.topicId == 7);
           expect(tab.panel, ForumPanel.secondary);
           final route = tab.currentContent;
           expect(route.topicId, 7);
@@ -230,7 +234,7 @@ void main() {
             'source': 'notification',
             'post-voting-comment': '51',
           });
-          expect(navigations, 1);
+          expect(navigations, 0);
           if (endpoint.startsWith('p/')) {
             expect(f.api.parentLookups, [
               (target, target == _root ? 'root-key' : 'sub-key'),
@@ -246,6 +250,39 @@ void main() {
       );
     }
   }
+  testWidgets('post permalink opens a cross-forum background secondary tab', (
+    tester,
+  ) async {
+    final f = await _twoSites(tester);
+    final source = f.shell.activeTab;
+    var navigations = 0;
+    expect(
+      await openLink(
+        tester.element(primaryMainContent),
+        '$_subfolder/p/103?filter=activity#post-voting-comment-51',
+        newTab: true,
+        panel: ForumPanel.secondary,
+        onNavigated: () => navigations++,
+      ),
+      isTrue,
+    );
+    expect(f.shell.currentInstance!.url, _root);
+    expect(f.shell.activeTab, source);
+    final opened = f.shell
+        .workspaceFor(_subfolder)!
+        .tabs
+        .singleWhere((tab) => tab.currentContent.topicId == 7);
+    expect(opened.panel, ForumPanel.secondary);
+    expect(opened.currentContent.postNumber, 3);
+    expect(Uri(query: opened.currentContent.topicQuery).queryParameters, {
+      'filter': 'activity',
+      'post-voting-comment': '51',
+    });
+    expect(navigations, 0);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets(
     'account retirement during parent lookup cannot navigate or invoke completion',
     (tester) async {
@@ -261,7 +298,7 @@ void main() {
       expect(f.api.parentLookups, [(_subfolder, 'sub-key')]);
       expect(await f.shell.disconnectInstance(_subfolder), isTrue);
       gate.complete();
-      expect(await old, isFalse);
+      expect(await old, isTrue);
       expect(f.shell.currentInstance!.url, _root);
       expect(f.shell.currentContent?.topicId, isNull);
       expect(navigations, 0);
@@ -269,6 +306,121 @@ void main() {
       await tester.pump(const Duration(seconds: 1));
     },
   );
+
+  for (final retiringSite in [_root, _subfolder]) {
+    testWidgets(
+      'retirement during permalink lookup is handled for $retiringSite',
+      (tester) async {
+        final f = await _twoSites(tester);
+        final browser = watchBrowser(tester);
+        final gate = Completer<void>();
+        f.api.pluginReadGates['/posts/103.json'] = gate;
+        var navigations = 0;
+        final pending = openLink(
+          tester.element(primaryMainContent),
+          '$_subfolder/p/103#post-voting-comment-51',
+          newTab: true,
+          onNavigated: () => navigations++,
+        );
+        await tester.pump();
+        expect(f.api.parentLookups, [(_subfolder, 'sub-key')]);
+        expect(await f.shell.disconnectInstance(retiringSite), isTrue);
+        gate.complete();
+        expect(await pending, isTrue);
+        expect(f.shell.currentInstance!.url, _root);
+        expect(f.shell.currentContent?.topicId, isNull);
+        expect(navigations, 0);
+        expect(browser, isEmpty);
+        await tester.pumpWidget(const SizedBox());
+        await tester.pump(const Duration(seconds: 1));
+      },
+    );
+  }
+
+  testWidgets('a changed source tab supersedes a pending permalink lookup', (
+    tester,
+  ) async {
+    final f = await _twoSites(tester);
+    final browser = watchBrowser(tester);
+    final gate = Completer<void>();
+    f.api.pluginReadGates['/posts/103.json'] = gate;
+    var navigations = 0;
+    final pending = openLink(
+      tester.element(primaryMainContent),
+      '$_subfolder/p/103#post-voting-comment-51',
+      onNavigated: () => navigations++,
+    );
+    await tester.pump();
+    expect(f.api.parentLookups, [(_subfolder, 'sub-key')]);
+    final before = f.shell.activeTab;
+    f.shell.createTab();
+    final replacement = f.shell.activeTab;
+    expect(replacement!.id, isNot(before!.id));
+    gate.complete();
+    expect(await pending, isTrue);
+    expect(f.shell.activeTab, replacement);
+    expect(f.shell.currentInstance!.url, _root);
+    expect(f.shell.currentContent?.topicId, isNull);
+    expect(navigations, 0);
+    expect(browser, isEmpty);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a full destination refuses without disturbing the source', (
+    tester,
+  ) async {
+    final f = await _twoSites(tester);
+    f.shell.selectInstance(1);
+    for (
+      var i = f.shell.tabsForCurrentForum.length;
+      i < ForumWorkspace.maximumTabs;
+      i++
+    ) {
+      f.shell.createTab();
+    }
+    f.shell.selectInstance(0);
+    final source = f.shell.activeTab;
+    var navigations = 0;
+    expect(
+      await f.services.openPluginUrl(
+        '$_subfolder/p/103#post-voting-comment-51',
+        origin: PluginLinkOrigin.secondaryPanelNewTab,
+        onNavigated: () => navigations++,
+      ),
+      isTrue,
+    );
+    expect(f.shell.currentInstance!.url, _root);
+    expect(f.shell.activeTab, source);
+    expect(
+      f.shell.workspaceFor(_subfolder)!.tabs,
+      hasLength(ForumWorkspace.maximumTabs),
+    );
+    expect(navigations, 0);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a foreground permalink opens its panel and calls completion', (
+    tester,
+  ) async {
+    final f = await _twoSites(tester);
+    var navigations = 0;
+    expect(
+      await f.services.openPluginUrl(
+        '$_subfolder/p/103#post-voting-comment-51',
+        origin: PluginLinkOrigin.secondaryPanel,
+        onNavigated: () => navigations++,
+      ),
+      isTrue,
+    );
+    expect(f.shell.currentInstance!.url, _subfolder);
+    expect(f.shell.activeTab!.panel, ForumPanel.secondary);
+    expect(f.shell.currentContent!.topicId, 7);
+    expect(navigations, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets(
     'identical topic and post IDs keep votes and comments within their serving site',
