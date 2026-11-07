@@ -511,28 +511,13 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
     if (_controller.post(id) != null || !_liveReads.add(id)) return;
     try {
       final accepted = await reader.ingest((request) async {
-        final json = await widget.api.transport.pluginGetJson(
-          siteUrl: reader.siteUrl,
-          path: '/posts/$id.json',
-          apiKey: request.apiKey,
-          clientId: request.clientId,
-        );
-        final number = nestedPositiveInt(json['post_number']);
-        if (nestedPositiveInt(json['topic_id']) != reader.topicId ||
-            nestedPositiveInt(json['id']) != id ||
-            number == null) {
-          throw const FormatException('Post belongs to another topic');
-        }
-        // The tree endpoint applies ignored/deleted visibility. A normal post
-        // lookup supplies identity only and must not publish its unfiltered body.
-        final page = await widget.api.context(
+        final page = await widget.api.createdContext(
           siteUrl: reader.siteUrl,
           topicId: reader.topicId,
           slug: reader.route.slug ?? 'topic',
           credentials: request,
           sort: _controller.effectiveSort,
-          postNumber: number,
-          contextDepth: 0,
+          postId: id,
         );
         return TopicContentResult(
           value: page.target,

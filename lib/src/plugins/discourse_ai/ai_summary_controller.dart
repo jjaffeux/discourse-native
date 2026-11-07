@@ -160,7 +160,9 @@ final class AiSummaryRequest {
   void _observeRetirement() {
     final detach = _lease.onRetire(_sessionChanged);
     if (_result.isCompleted) {
-      detach();
+      try {
+        detach();
+      } catch (_) {}
     } else {
       _detachRetirement = detach;
     }
@@ -199,7 +201,7 @@ final class AiSummaryRequest {
       },
     );
     if (_result.isCompleted) {
-      subscription.cancel();
+      _cancelSubscription(subscription);
     } else {
       _subscription = subscription;
     }
@@ -231,15 +233,28 @@ final class AiSummaryRequest {
   }
 
   void _release() {
-    _detachRetirement?.call();
+    final detach = _detachRetirement;
+    final subscription = _subscription;
+    final settled = _onSettled;
     _detachRetirement = null;
-    _subscription?.cancel();
     _subscription = null;
+    _onSettled = null;
     _deadline?.cancel();
     _deadline = null;
     _streamedSummary = null;
-    _onSettled?.call(this);
-    _onSettled = null;
+    settled?.call(this);
+    // The result is terminal. Optional host cleanup cannot change it or keep
+    // the controller from settling the other requests it owns.
+    try {
+      detach?.call();
+    } catch (_) {}
+    _cancelSubscription(subscription);
+  }
+
+  static void _cancelSubscription(PluginLiveChannelSubscription? subscription) {
+    try {
+      subscription?.cancel();
+    } catch (_) {}
   }
 }
 

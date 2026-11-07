@@ -30,6 +30,7 @@ final class NestedRepliesServices extends ChangeNotifier
         PluginLinkHandler {
   NestedRepliesServices({
     required this.api,
+    required this.categories,
     required this.requests,
     required this.siteState,
     required this.readers,
@@ -43,6 +44,7 @@ final class NestedRepliesServices extends ChangeNotifier
   }
 
   final NestedRepliesApi api;
+  final PluginCategorySettingsApi categories;
   final PluginRequestHost requests;
   final PluginSiteStateHost siteState;
   final PluginTopicReaderHost readers;
@@ -242,6 +244,7 @@ final class NestedRepliesServices extends ChangeNotifier
         context,
         reader: reader,
         api: api,
+        categories: categories,
         settings: settings,
         requests: requests,
         available: () => !_disposed && settingsFor(site) == settings,

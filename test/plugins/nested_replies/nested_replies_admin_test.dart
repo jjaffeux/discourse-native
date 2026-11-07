@@ -157,6 +157,7 @@ void main() {
       final controller = NestedRepliesAdminController(
         reader: _Reader(),
         api: NestedRepliesApi(transport, const DiscourseModelCodec.core()),
+        categories: PluginCategorySettingsApi(transport),
         requests: _Requests(),
         settings: const NestedRepliesSettings(enabled: true),
         available: () => enabled,
@@ -351,6 +352,7 @@ NestedRepliesAdminController _admin(
 ) => NestedRepliesAdminController(
   reader: reader,
   api: NestedRepliesApi(transport, const DiscourseModelCodec.core()),
+  categories: PluginCategorySettingsApi(transport),
   settings: const NestedRepliesSettings(enabled: true),
   requests: requests,
 );

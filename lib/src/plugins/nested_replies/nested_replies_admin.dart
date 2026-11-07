@@ -14,11 +14,11 @@ final class NestedRepliesAdminController extends ChangeNotifier {
   NestedRepliesAdminController({
     required this.reader,
     required this.api,
+    required this.categories,
     required this.settings,
     required this.requests,
     this.available,
-  }) : _lease = requests.capture(reader.siteUrl),
-       categories = PluginCategorySettingsApi(api.transport) {
+  }) : _lease = requests.capture(reader.siteUrl) {
     reader.addListener(_readerChanged);
   }
 
@@ -223,6 +223,7 @@ Future<void> showNestedRepliesSettings(
   BuildContext context, {
   required PluginTopicReader reader,
   required NestedRepliesApi api,
+  required PluginCategorySettingsApi categories,
   required NestedRepliesSettings settings,
   required PluginRequestHost requests,
   bool Function()? available,
@@ -230,6 +231,7 @@ Future<void> showNestedRepliesSettings(
   final controller = NestedRepliesAdminController(
     reader: reader,
     api: api,
+    categories: categories,
     settings: settings,
     requests: requests,
     available: available,

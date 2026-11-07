@@ -196,6 +196,105 @@ void main() {
   );
 
   test(
+    'created context resolves identity but publishes only filtered tree content',
+    () async {
+      final transport = _Transport()
+        ..responses['/posts/109.json'] = {
+          ..._post(9),
+          'cooked': '<p>Unfiltered secret</p>',
+        }
+        ..responses['/n/tree/7/context/9.json?sort=new&context=0'] = {
+          'topic': {'id': 7},
+          'target_post': {
+            ..._post(9),
+            'ignored_post_placeholder': true,
+            'cooked': '',
+            'raw': null,
+          },
+          'ancestor_chain': <Object?>[],
+          'siblings': <String, Object?>{},
+          'ancestors_truncated': false,
+        };
+      final api = NestedRepliesApi(transport, const DiscourseModelCodec.core());
+      final page = await api.createdContext(
+        siteUrl: _site,
+        topicId: 7,
+        slug: 'tree',
+        postId: 109,
+        credentials: _credentials,
+        sort: NestedRepliesSort.newest,
+      );
+      expect(page.target.postId, 109);
+      expect(page.posts.single.redacted, isTrue);
+      expect(
+        page.posts.single.post.cooked,
+        isNot(contains('Unfiltered secret')),
+      );
+      expect(transport.paths, [
+        '/posts/109.json',
+        '/n/tree/7/context/9.json?sort=new&context=0',
+      ]);
+    },
+  );
+
+  test(
+    'created context refuses mismatched identities before a context request',
+    () async {
+      final transport = _Transport()..response = {..._post(9), 'topic_id': 8};
+      final api = NestedRepliesApi(transport, const DiscourseModelCodec.core());
+      await expectLater(
+        api.createdContext(
+          siteUrl: _site,
+          topicId: 7,
+          slug: 'tree',
+          postId: 109,
+          credentials: _credentials,
+          sort: NestedRepliesSort.top,
+        ),
+        throwsFormatException,
+      );
+      expect(transport.paths, ['/posts/109.json']);
+    },
+  );
+
+  test(
+    'created context rejects a different target at the same post number',
+    () async {
+      final transport = _Transport()
+        ..responses['/posts/109.json'] = _post(9)
+        ..responses['/n/tree/7/context/9.json?sort=top&context=0'] = {
+          'topic': {'id': 7},
+          'target_post': {..._post(9), 'id': 999},
+          'ancestor_chain': <Object?>[],
+          'siblings': <String, Object?>{},
+          'ancestors_truncated': false,
+        };
+      final api = NestedRepliesApi(transport, const DiscourseModelCodec.core());
+      await expectLater(
+        api.createdContext(
+          siteUrl: _site,
+          topicId: 7,
+          slug: 'tree',
+          postId: 109,
+          credentials: _credentials,
+          sort: NestedRepliesSort.top,
+        ),
+        throwsA(
+          isA<FormatException>().having(
+            (error) => error.message,
+            'message',
+            'Mismatched created post identity',
+          ),
+        ),
+      );
+      expect(transport.paths, [
+        '/posts/109.json',
+        '/n/tree/7/context/9.json?sort=top&context=0',
+      ]);
+    },
+  );
+
+  test(
     'deleted and ignored redaction do not erase staff deleted content',
     () async {
       final ignored = _post(2)
@@ -408,6 +507,7 @@ Map<String, dynamic> _post(
 
 final class _Transport implements PluginApiTransport {
   Map<String, dynamic> response = {};
+  final responses = <String, Map<String, dynamic>>{};
   Object? failure;
   final paths = <String>[];
   final sites = <String>[];
@@ -423,7 +523,7 @@ final class _Transport implements PluginApiTransport {
     paths.add(path);
     sites.add(siteUrl);
     if (failure != null) throw failure!;
-    return response;
+    return responses[path] ?? response;
   }
 
   @override

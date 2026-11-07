@@ -164,6 +164,7 @@ final class _Harness implements PluginTopicReaderHost {
       );
   late final service = NestedRepliesServices(
     api: NestedRepliesApi(transport, const DiscourseModelCodec.core()),
+    categories: PluginCategorySettingsApi(transport),
     requests: requests,
     siteState: PluginSiteStateHost(
       currentUserFor: (_) => null,
