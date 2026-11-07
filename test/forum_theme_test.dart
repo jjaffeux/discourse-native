@@ -598,19 +598,12 @@ void main() {
       transparency: .2,
     );
 
-    test('without effects the forum palette is shown exactly as published', () {
-      final settings = ForumSettingsController(
-        store: ForumSettingsStore.memory(),
-      );
-      addTearDown(settings.dispose);
-      expect(settings.appearanceFor(site, forum), same(forum));
-    });
-
     test('are drawn over every source, and only a saved theme tints', () async {
       final settings = ForumSettingsController(
         store: ForumSettingsStore.memory(),
       );
       addTearDown(settings.dispose);
+      expect(settings.appearanceFor(site, forum), same(forum));
       await settings.setShared(const SharedAppearance(effects: effects));
       final published = forum.base!;
       final shown = settings.appearanceFor(site, forum)!.base!;

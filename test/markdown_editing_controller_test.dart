@@ -1158,7 +1158,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('preserves every source character', (tester) async {
+    testWidgets('preserves caret hit testing', (tester) async {
       const source = 'hey :smile: there';
       await pumpWithEmoji(tester, source);
 
@@ -1170,11 +1170,6 @@ void main() {
         editable(tester).renderEditable.plainText.replaceAll('\uFFFC', ':'),
         source,
       );
-    });
-
-    testWidgets('preserves caret hit testing', (tester) async {
-      const source = 'hey :smile: there';
-      await pumpWithEmoji(tester, source);
 
       final render = editable(tester).renderEditable;
       for (final offset in [0, 3, 11, 13, source.length]) {
@@ -1347,17 +1342,6 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('a resolved hashtag is drawn as a pill', (tester) async {
-      known['bug'] = bug;
-      await pumpAway(tester, 'filed under #bug today');
-
-      expect(find.byType(HashtagPill), findsOneWidget);
-      expect(
-        tester.widget<HashtagPill>(find.byType(HashtagPill)).label,
-        '#bug',
-      );
-    });
-
     testWidgets('an installed room plugin uses its microphone policy', (
       tester,
     ) async {
@@ -1489,6 +1473,12 @@ void main() {
     testWidgets('preserves caret hit testing', (tester) async {
       known['bug'] = bug;
       await pumpAway(tester, 'filed under #bug today');
+
+      expect(find.byType(HashtagPill), findsOneWidget);
+      expect(
+        tester.widget<HashtagPill>(find.byType(HashtagPill)).label,
+        '#bug',
+      );
 
       final at = controller.text.indexOf('today');
       controller.selection = TextSelection.collapsed(offset: at);

@@ -103,6 +103,7 @@ void main() {
       expect(thread.preview?.lastReplyId, 108);
       expect(thread.preview?.participantCount, 5);
       expect(thread.preview?.participantUsers, hasLength(2));
+      expect(thread.copyWith(clearMembership: true).membership, isNull);
     });
 
     test('reads omitted participants as none unless creation skipped them', () {
@@ -224,12 +225,6 @@ void main() {
         );
       },
     );
-
-    test('copyWith can explicitly remove a membership', () {
-      final thread = ChatThread.fromJson(threadJson(), site);
-
-      expect(thread.copyWith(clearMembership: true).membership, isNull);
-    });
   });
 
   group('thread-list refresh', () {
