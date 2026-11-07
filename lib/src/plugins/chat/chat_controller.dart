@@ -2719,6 +2719,9 @@ class ChatController extends FrameSafeNotifier {
         revalidating: false,
         clearNotice: true,
       );
+      created._pendingLiveMessageIds.addAll(
+        held?._pendingLiveMessageIds ?? const {},
+      );
       created._attemptedAt = held?._attemptedAt;
       return created;
     });

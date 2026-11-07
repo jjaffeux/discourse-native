@@ -19,6 +19,144 @@ void main() {
     const ChatChannelTarget(9),
     threads.target,
   ]) {
+    test(
+      '${target.storageKey} reader retains parked arrivals independently of its seed owner',
+      () async {
+        final threaded = target is ChatThreadTarget;
+        ChatMessagePage page(
+          List<int> ids, {
+          bool past = false,
+          bool future = false,
+        }) => (
+          messages: [
+            for (final id in ids)
+              threaded ? threads.threadMessage(id) : fixtures.message(id),
+          ],
+          canLoadMorePast: past,
+          canLoadMoreFuture: future,
+          targetMessageId: null,
+        );
+        final base = threaded ? 'thread-9-22' : '9';
+        final api = FakeDiscourseApi(
+          chatChannelsBySite: {
+            fixtures.site: ChatChannels(public: [fixtures.channel(9)]),
+          },
+          chatThreadsByKey: {
+            FakeDiscourseApi.chatThreadKey(9, 22): threads.threadDetail(),
+          },
+          chatMessagesByKey: {
+            base: page([100, 101], past: true),
+            '$base~past~100': page([98, 99]),
+            '$base~future~99': page([100, 101], future: true),
+            '$base~future~101': page([102]),
+          },
+        );
+        final subject = fixtures.build(
+          api: api,
+          maxRetainedCanonicalMessageIdsPerSite: 2,
+          clock: () => DateTime.utc(2026, 8, 12, 12),
+        );
+        addTearDown(subject.chat.dispose);
+        final tracker = fixtures.attachTracker(subject.chat);
+        await subject.chat.loadChannels(fixtures.site);
+        final conversation = threaded
+            ? ChatControllerConversationCapability(
+                subject.chat,
+              ).openThread(siteUrl: fixtures.site, channelId: 9, threadId: 22)
+            : null;
+        if (conversation != null) {
+          await conversation.refresh();
+          await conversation.loadOlder();
+        } else {
+          final viewing = subject.chat.beginViewingChannel(fixtures.site, 9);
+          addTearDown(
+            () => subject.chat.endViewingChannel(fixtures.site, 9, viewing),
+          );
+          await subject.chat.openChannel(fixtures.site, 9);
+          await subject.chat.loadOlderFor(fixtures.site, target);
+        }
+        expect(subject.chat.streamFor(fixtures.site, target).messageIds, [
+          98,
+          99,
+        ]);
+        expect(
+          subject.chat.streamFor(fixtures.site, target).canLoadMoreFuture,
+          isTrue,
+        );
+        void arrive(int id) => tracker.deliverPluginMessage(
+          threaded ? '/chat/9/thread/22' : '/chat/9',
+          threaded
+              ? threads.threadSentEvent(id)
+              : {
+                  'type': 'sent',
+                  'chat_message': {
+                    'id': id,
+                    'chat_channel_id': 9,
+                    'cooked': '<p>$id live</p>',
+                    'created_at': '2026-08-12T12:00:00.000Z',
+                    'user': {'id': 2, 'username': 'sam'},
+                  },
+                },
+        );
+        arrive(102);
+        arrive(103);
+        expect(
+          subject.chat.streamFor(fixtures.site, target).pendingNewMessages,
+          2,
+        );
+        conversation?.close();
+        final reader = subject.chat.acquireReader(
+          fixtures.site,
+          target,
+          readerId: 'handoff',
+        );
+        addTearDown(reader.dispose);
+        reader.beginViewing();
+        await reader.open();
+        expect(reader.stream.pendingNewMessages, 2);
+        final latest = subject.chat.acquireReader(
+          fixtures.site,
+          target,
+          readerId: 'latest',
+        );
+        addTearDown(latest.dispose);
+        latest.beginViewing();
+        await latest.open();
+        await latest.showLatest();
+        expect(latest.stream.pendingNewMessages, 0);
+        expect(latest.stream.messageIds, [102, 103]);
+        expect(reader.stream.pendingNewMessages, 2);
+        expect(
+          subject.chat.streamFor(fixtures.site, target).pendingNewMessages,
+          2,
+        );
+        arrive(103);
+        expect(reader.stream.pendingNewMessages, 2);
+        arrive(104);
+        expect(reader.stream.pendingNewMessages, 3);
+        expect(reader.stream.messageIds, [98, 99]);
+
+        await subject.chat.loadNewerFor(fixtures.site, target);
+        await subject.chat.loadNewerFor(fixtures.site, target);
+        expect(
+          subject.chat.streamFor(fixtures.site, target).pendingNewMessages,
+          0,
+        );
+        expect(reader.stream.pendingNewMessages, 3);
+        arrive(105);
+        expect(reader.stream.pendingNewMessages, 4);
+        await reader.loadNewer();
+        await reader.loadNewer();
+        expect(reader.stream.pendingNewMessages, 0);
+        expect(reader.stream.messageIds, [104, 105]);
+      },
+    );
+  }
+
+  for (final target in <ChatStreamTarget>[
+    const ChatChannelTarget(9),
+    threads.target,
+  ]) {
     for (final older in [true, false]) {
       test(
         '${target.storageKey} reader does not inherit pending ${older ? 'older' : 'newer'} paging',
