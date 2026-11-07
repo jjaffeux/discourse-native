@@ -233,18 +233,28 @@ final class VoiceShellService
     _linkNavigation = navigation;
     final sessionIsCurrent = controller.captureSiteSession(instance.url);
     if (!sessionIsCurrent()) return true;
-    if (_host.currentSite?.url != instance.url) {
+    final background = const {
+      PluginLinkOrigin.newTab,
+      PluginLinkOrigin.mainPanelNewTab,
+      PluginLinkOrigin.secondaryPanelNewTab,
+    }.contains(origin);
+    if (!background && _host.currentSite?.url != instance.url) {
       _host.selectInstance(index);
     }
+    final source = _host.currentSite;
+    final sourceSessionIsCurrent = source == null || source.url == instance.url
+        ? sessionIsCurrent
+        : controller.captureSiteSession(source.url);
     final content = _host.currentContent;
     final tabId = _host.activeTabId;
     bool isCurrent() {
       final selected = _host.currentSite;
       return identical(_linkNavigation, navigation) &&
           sessionIsCurrent() &&
+          sourceSessionIsCurrent() &&
           _host.activeTabId == tabId &&
-          selected?.url == instance.url &&
-          selected?.isConnected == true &&
+          selected?.url == source?.url &&
+          selected?.isConnected == source?.isConnected &&
           _host.sites.any(
             (site) => site.url == instance.url && site.isConnected,
           ) &&
@@ -263,22 +273,38 @@ final class VoiceShellService
     if (!isCurrent()) return true;
     if (room == null) return false;
     final invitedBy = match.group(2);
-    if (invitedBy != null) {
+    final route = ContentRoute(
+      destination: ExtensionDestination('voice-room-${room.id}'),
+      title: room.name,
+      icon: DIcons.microphoneLines,
+    );
+    var credited = false;
+    bool ownsCommit() =>
+        identical(_linkNavigation, navigation) &&
+        sessionIsCurrent() &&
+        sourceSessionIsCurrent();
+    void creditInviter() {
+      if (credited || invitedBy == null || !ownsCommit()) return;
+      credited = true;
       controller.rememberInviteRef(
         siteUrl: instance.url,
         roomSlug: room.slug,
         username: Uri.decodeComponent(invitedBy).toLowerCase(),
       );
     }
-    final route = ContentRoute(
-      destination: ExtensionDestination('voice-room-${room.id}'),
-      title: room.name,
-      icon: DIcons.microphoneLines,
+
+    final committed = _host.pushContent(
+      route,
+      siteUrl: instance.url,
+      origin: origin,
+      onNavigated: () {
+        if (!ownsCommit()) return;
+        creditInviter();
+        onNavigated?.call();
+      },
     );
-    _host.pushContent(route);
-    if (_host.currentSite?.url == instance.url &&
-        _host.currentContent?.id == route.id) {
-      onNavigated?.call();
+    if (committed) {
+      creditInviter();
     }
     return true;
   }
