@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/global_search.dart'
     show GlobalSearchContribution;
@@ -47,6 +48,66 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  for (final replaceAccount in [false, true]) {
+    testWidgets(
+      'selection analytics retain the admitted account $replaceAccount',
+      (tester) async {
+        const otherSite = 'https://other.test';
+        final api = _ClickApi()..hold = true;
+        final search = GlobalSearchController(
+          api: api,
+          credentials: FakeApiCredentialReader()
+            ..keys.addAll({_site: 'original-key', otherSite: 'other-key'}),
+          lifecycle: SiteLifecycle(),
+          debounceDuration: const Duration(milliseconds: 1),
+        )..configure(siteUrl: _site, capabilities: _caps);
+        addTearDown(search.dispose);
+        search.setQuery('selected result');
+        await tester.pump(const Duration(milliseconds: 5));
+        const result = GlobalSearchResult(
+          id: 'selected',
+          scope: GlobalSearchScope.forum,
+          title: 'Selected result',
+          path: '/t/selected/9',
+          searchLogId: 77,
+          source: SearchPostHit(
+            postId: 9,
+            topicId: 9,
+            postNumber: 1,
+            topicTitle: 'Selected result',
+            topicSlug: 'selected',
+            username: 'reader',
+            excerpt: SearchExcerpt([]),
+          ),
+        );
+        api.pending.single.complete(
+          const GlobalSearchPage(
+            sections: [
+              GlobalSearchSection(
+                scope: GlobalSearchScope.forum,
+                results: [result],
+              ),
+            ],
+          ),
+        );
+        await tester.pump();
+        if (replaceAccount) {
+          var replaced = false;
+          search.history.addListener(() {
+            if (replaced) return;
+            replaced = true;
+            search.configure(siteUrl: otherSite, capabilities: _caps);
+          });
+        }
+        await search.recordSelection(search.results.single);
+        expect(
+          api.clicks,
+          replaceAccount ? isEmpty : [(_site, 'original-key', result)],
+        );
+      },
+    );
+  }
+
   testWidgets(
     'history submit observes capability sanitization before admission',
     (tester) async {
@@ -2605,5 +2666,19 @@ final class _DeferredSearchCredentials extends FakeApiCredentialReader {
     final result = Completer<String?>();
     pending.add(result);
     return result.future;
+  }
+}
+
+class _ClickApi extends _EngineApi {
+  final clicks = <(String, String, GlobalSearchResult)>[];
+
+  @override
+  Future<void> logClick({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+    required GlobalSearchResult result,
+  }) async {
+    clicks.add((siteUrl, apiKey, result));
   }
 }

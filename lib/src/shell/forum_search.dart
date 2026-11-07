@@ -546,7 +546,7 @@ class _ForumSearchState extends State<ForumSearch> {
   Future<void> _openResult(GlobalSearchResult result) async {
     final shell = _shell!;
     final owner = _document;
-    if (!_ownsInput(owner)) return;
+    if (!_ownsInput(owner) || !_global.ownsResult(result)) return;
     final site = _global.siteUrl;
     if (site == null) return;
     final activation = SearchResultActivation(

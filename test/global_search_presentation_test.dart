@@ -231,6 +231,43 @@ class _ProgressiveSearchApi extends GlobalSearchFixtureApi {
 
 void main({bool useDeviceMetrics = false}) {
   _useDeviceMetrics = useDeviceMetrics;
+  for (final retired in [false, true]) {
+    _testPresentation(
+      'rendered result activation retains its account $retired',
+      (tester) async {
+        final shell = await _pumpSearch(tester);
+        await _openAndSearch(tester, 'design');
+        final panel = tester.widget<GlobalSearchPanel>(
+          find.byType(GlobalSearchPanel),
+        );
+        final result = shell.globalSearch.results.firstWhere(
+          (row) => row.scope == GlobalSearchScope.forum,
+        );
+        final before = shell.currentContent;
+        if (retired) {
+          final capabilities = shell.globalSearch.capabilities;
+          shell.lifecycle.invalidate(globalSearchFixtureSite);
+          shell.globalSearch.configure(
+            siteUrl: globalSearchFixtureSite,
+            capabilities: capabilities,
+          );
+          expect(shell.globalSearch.results, isEmpty);
+        }
+        panel.onOpen(result);
+        await tester.pumpAndSettle();
+        if (retired) {
+          expect(
+            shell.currentContent?.destination.identity,
+            before?.destination.identity,
+          );
+        } else {
+          expect(shell.currentContent?.topicId, isNotNull);
+        }
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   _testPresentation(
     'outer search selection clears when a late duplicate changes destination',
     (tester) async {

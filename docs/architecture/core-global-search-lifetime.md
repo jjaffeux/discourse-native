@@ -32,3 +32,17 @@ notification, reentrant successor configuration and recent history, late old
 append success and failure, and preserving a submission admitted by a history
 listener. Direct integration suites cover controller cancellation, history,
 forum scope replacement, and the search UI.
+
+## Result activation
+
+A row may remain painted after its account's results have been withdrawn.
+`GlobalSearchController.ownsResult` requires the exact result object to belong
+to the current live account configuration. Both navigation admission and click
+recording use that check; an old row cannot acquire a successor account's lease
+merely because the forum and widget are still present.
+
+Selection analytics capture their site, lease, configuration and logging policy
+before remembering the selection. History publication can synchronously
+reconfigure the controller. In that case the click is not sent with the next
+account's credentials. Once navigation is admitted, `SearchResultActivation`
+continues to own its existing route and account checks across asynchronous work.

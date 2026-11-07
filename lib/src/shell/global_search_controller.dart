@@ -341,6 +341,11 @@ class GlobalSearchController extends ChangeNotifier {
 
   List<GlobalSearchResult> get results =>
       List.unmodifiable([for (final section in sections) ...section.results]);
+
+  bool ownsResult(GlobalSearchResult result) =>
+      !_disposed &&
+      _lease?.isCurrent == true &&
+      results.any((item) => identical(item, result));
   GlobalSearchPhase get phase => _execution.phase;
   String? get error => _execution.error;
   bool get hasMore => _execution.hasMore;
@@ -800,11 +805,13 @@ class GlobalSearchController extends ChangeNotifier {
   }
 
   Future<void> recordSelection(GlobalSearchResult result) async {
-    if (!results.any((item) => identical(item, result))) return;
-    _remember();
+    if (!ownsResult(result)) return;
     final site = siteUrl, lease = _lease, epoch = _configuration;
-    if (site == null || lease == null || !capabilities.logSearchQueries) return;
+    final logSearchQueries = capabilities.logSearchQueries;
+    _remember();
+    if (site == null || lease == null || !logSearchQueries) return;
     bool current() => !_disposed && lease.isCurrent && epoch == _configuration;
+    if (!current()) return;
     try {
       final auth = await AccountRequestSession(
         site,
