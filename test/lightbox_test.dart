@@ -743,21 +743,13 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('shows the caption Discourse wrote into the markup', (
-      tester,
-    ) async {
+    testWidgets('keeps the caption readable over every image', (tester) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
 
       expect(find.text('screenshot.png'), findsOneWidget);
       expect(find.text('1920×1080 234 KB'), findsOneWidget);
-    });
-
-    testWidgets('keeps the caption readable over every image', (tester) async {
-      await pumpCooked(tester, singleImage);
-      await tester.tap(thumbnail());
-      await tester.pumpAndSettle();
 
       final captionSurfaces = tester
           .widgetList<DecoratedBox>(
