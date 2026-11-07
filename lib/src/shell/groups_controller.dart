@@ -703,6 +703,13 @@ final class GroupsController extends FrameSafeNotifier {
       order: order,
       ascending: ascending,
     );
+    // A failed replacement may follow a mutation that changed the server's
+    // ordering. Its retained rows are readable, but its cursor needs a new
+    // first page before pagination can resume.
+    if (more && held.error != null && !held.pageError) {
+      refresh = true;
+      more = false;
+    }
     // A refresh supersedes a page already in flight for this list. It is
     // issued after a confirmed mutation such as adding members, so dropping
     // it would hide that mutation until the next visit; the older page's
@@ -1317,8 +1324,8 @@ final class GroupsController extends FrameSafeNotifier {
   );
 
   /// Refreshes [shown] and every other cached member list of [group] after a
-  /// write that adds members. A page shows a list it loaded earlier from the
-  /// cache when it returns to it, so a list left alone would lack the members.
+  /// write that adds members or changes their order. Returning to a cached
+  /// list must show the accepted membership and resume from its new cursor.
   Future<bool> _refreshMemberLists(
     DiscourseInstance instance,
     Group group, {
@@ -1400,10 +1407,21 @@ final class GroupsController extends FrameSafeNotifier {
             ),
       refreshDetail: false,
     );
-    if (saved.canApplyLocally) {
-      _updateMember(instance, group, member, owner: owner);
-    }
-    return saved;
+    if (!saved.canApplyLocally) return saved;
+    _updateMember(instance, group, member, owner: owner);
+    // The server puts owners first. A role change can move an unseen member
+    // across a cached page boundary, so its old offset is no longer valid.
+    final refreshed = await _refreshMemberLists(instance, group);
+    final accepted = saved as GroupWriteAccepted<void>;
+    final current = !isDisposed && accepted.isCurrent;
+    return accepted.withProjection(
+      !current
+          ? GroupProjectionFreshness.retired
+          : refreshed
+          ? GroupProjectionFreshness.refreshed
+          : GroupProjectionFreshness.stale,
+      current: current,
+    );
   }
 
   Future<GroupWriteOutcome<void>> setMemberPrimary(
