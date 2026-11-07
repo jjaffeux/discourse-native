@@ -13,7 +13,22 @@ String postPlainText(Post post) => _plainText[post] ??= _read(post);
 final _plainText = Expando<String>('post plain text');
 
 const _unread = {'script', 'style'};
-const _blocks = {'p', 'div', 'li', 'br'};
+const _blocks = {
+  'p',
+  'div',
+  'li',
+  'br',
+  'blockquote',
+  'h1',
+  'h2',
+  'h3',
+  'h4',
+  'h5',
+  'h6',
+  'tr',
+  'th',
+  'td',
+};
 
 String _read(Post post) {
   final words = StringBuffer();
@@ -22,6 +37,7 @@ String _read(Post post) {
       if (child is dom.Text) {
         words.write(child.data);
       } else if (child is dom.Element && !_unread.contains(child.localName)) {
+        if (_blocks.contains(child.localName)) words.write(' ');
         if (child.localName == 'img' && child.classes.contains('emoji')) {
           words.write(
             jsonText(child.attributes['alt']) ??
@@ -46,16 +62,29 @@ String _collapse(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
 
 // Each bracket class excludes both brackets, so no match rescans past the
 // next one: the scan stays linear on unbalanced markup.
-final _link = RegExp(r'\[([^\[\]]+)\]\([^()]*\)');
-final _tags = RegExp(r'\[date=[^\[\]]*\]|\[/?\w[^\[\]]*\]');
+final _previewMarkup = RegExp(
+  r'\[([^\[\]]+)\]\([^()]*\)'
+  r'|\[date=[^\[\]]*\]'
+  r'|\[/?(?:u|b|i|s|quote|details|spoiler|color|bgcolor|center|wrap|poll|event)(?:[= ][^\[\]]*)?\]',
+  caseSensitive: false,
+);
+final _brackets = RegExp(r'[\[\]]');
 
 String _unmark(String markup) {
-  final source = markup
-      .replaceAllMapped(_link, (match) => match[1]!)
-      .replaceAll(_tags, '');
+  // Links are handled here; the formatting scan need not rediscover bracket
+  // pairs. Mask them without moving offsets, including on malformed markup.
+  late final code = markdownCodeRanges(markup.replaceAll(_brackets, '.'));
+  final source = markup.replaceAllMapped(_previewMarkup, (match) {
+    if (code.overlaps(match.start, match.end)) return match[0]!;
+    var slashes = 0;
+    for (var at = match.start - 1; at >= 0 && markup[at] == '\\'; at--) {
+      slashes++;
+    }
+    return slashes.isOdd ? match[0]! : match[1] ?? '';
+  });
   final words = StringBuffer();
   for (final run in scanMarkdown(
-    source,
+    source.replaceAll(_brackets, '.'),
     shared: false,
     deferHighlight: (_, _) {},
   )) {

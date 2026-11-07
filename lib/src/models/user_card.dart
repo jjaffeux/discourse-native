@@ -209,7 +209,10 @@ String? _backgroundUrl(dynamic value, String siteUrl) {
   if (path == null) return null;
   final relative = Uri.tryParse(path);
   if (relative == null) return null;
-  final uri = Uri.tryParse(siteUrl)?.resolveUri(relative);
+  final base = Uri.tryParse(siteUrl);
+  final uri = base
+      ?.replace(path: base.path.endsWith('/') ? base.path : '${base.path}/')
+      .resolveUri(relative);
   return uri != null && (uri.scheme == 'https' || uri.scheme == 'http')
       ? uri.toString()
       : null;

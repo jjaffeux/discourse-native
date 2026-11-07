@@ -16,6 +16,15 @@ typedef _ExpectedLink = ({
 
 void main() {
   test(
+    'regression fourth: nested closing punctuation stays outside pasted URLs',
+    () {
+      final links = parseComposerLinks('See {[https://example.com/path]}.');
+      expect(links.map((link) => link.url), ['https://example.com/path']);
+      expect(links.single.source, 'https://example.com/path');
+    },
+  );
+
+  test(
     'escaped exclamation mark does not turn a Markdown link into an image',
     () {
       final links = parseComposerLinks(
@@ -373,25 +382,30 @@ void main() {
       },
     );
 
-    test('preserves balanced punctuation and the order of trimming passes', () {
-      const suffixes = {
-        '(film).': '(film)',
-        '(film))))': '(film)',
-        '[part]]],': '[part]',
-        '{part}}}?!': '{part}',
-        '((part)))))': '((part))',
-        'part?))))': 'part?',
-        'part)]}': 'part)]',
-        'part}])': 'part',
-        r'part\)))': r'part\',
-        ')part(': ')part(',
-        'part...': 'part',
-      };
-      for (final entry in suffixes.entries) {
-        final source = 'See https://example.test/${entry.key} end';
-        _expectLinks(source, [_linkify('https://example.test/${entry.value}')]);
-      }
-    });
+    test(
+      'preserves balanced punctuation while trimming unmatched suffixes',
+      () {
+        const suffixes = {
+          '(film).': '(film)',
+          '(film))))': '(film)',
+          '[part]]],': '[part]',
+          '{part}}}?!': '{part}',
+          '((part)))))': '((part))',
+          'part?))))': 'part?',
+          'part)]}': 'part',
+          'part}])': 'part',
+          r'part\)))': r'part\',
+          ')part(': ')part(',
+          'part...': 'part',
+        };
+        for (final entry in suffixes.entries) {
+          final source = 'See https://example.test/${entry.key} end';
+          _expectLinks(source, [
+            _linkify('https://example.test/${entry.value}'),
+          ]);
+        }
+      },
+    );
 
     test('finds links where long runs without spaces end', () {
       final letters = 'a' * 4096;

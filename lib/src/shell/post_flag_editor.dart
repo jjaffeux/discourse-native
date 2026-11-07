@@ -196,7 +196,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
 
   bool get _messageValid {
     if (_selected?.requireMessage != true) return true;
-    final length = _message.text.length;
+    final length = _message.text.characters.length;
     return length >= widget.minimumMessageLength &&
         length <= PostFlagType.maximumMessageLength;
   }
@@ -279,7 +279,7 @@ class _PostFlagEditorState extends State<PostFlagEditor> {
   };
 
   String get _messageCounter {
-    final length = _message.text.length;
+    final length = _message.text.characters.length;
     if (length < widget.minimumMessageLength) {
       return appL10n.moreRequiredRemaining(
         (widget.minimumMessageLength - length).toString(),

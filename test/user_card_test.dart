@@ -3,6 +3,20 @@ import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'regression fourth: relative user card artwork retains the forum subfolder',
+    () {
+      final card = UserCard.fromJson(const {
+        'username': 'sam',
+        'card_background_upload_url': 'uploads/card.png',
+      }, 'https://example.com/community');
+      expect(
+        card.cardBackgroundUrl,
+        'https://example.com/community/uploads/card.png',
+      );
+    },
+  );
+
   test('regression: trailing-slash profile roots still open native cards', () {
     for (final site in [
       'https://forum.example',

@@ -152,18 +152,23 @@ class _DInputOTPState extends FormFieldState<String> {
     var editingValue = _controller.value;
     final sanitized = _sanitize(editingValue.text);
     if (sanitized != editingValue.text) {
-      _replace(sanitized);
+      _syncing = true;
+      _controller.value = _formatter.formatEditUpdate(
+        editingValue,
+        editingValue,
+      );
+      _syncing = false;
       editingValue = _controller.value;
     }
     if (editingValue.text == _lastText) {
       if (mounted) setState(() {});
       return;
     }
-    final previousLength = _lastText.length;
+    final previousLength = _lastText.characters.length;
     _lastText = editingValue.text;
     super.didChange(editingValue.text);
     input.onChanged?.call(editingValue.text);
-    if (editingValue.text.length == input.maxLength &&
+    if (editingValue.text.characters.length == input.maxLength &&
         previousLength != input.maxLength) {
       input.onCompleted?.call(editingValue.text);
     }
@@ -249,10 +254,12 @@ class _DInputOTPState extends FormFieldState<String> {
     final logicalX = dir == TextDirection.rtl
         ? width - event.localPosition.dx
         : event.localPosition.dx;
-    final offset = (logicalX / width * input.maxLength).floor().clamp(
+    final characters = _controller.text.characters;
+    final slot = (logicalX / width * input.maxLength).floor().clamp(
       0,
-      _controller.text.length,
+      characters.length,
     );
+    final offset = characters.take(slot).toString().length;
     _focus.requestFocus();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -397,9 +404,8 @@ class _DInputOTPFormatter extends TextInputFormatter {
     final transformed = transformer?.call(proposed) ?? proposed;
     final output = StringBuffer();
     var count = 0;
-    for (final rune in transformed.runes) {
+    for (final character in transformed.characters) {
       if (count == maxLength) break;
-      final character = String.fromCharCode(rune);
       if (pattern == null || pattern.hasMatch(character)) {
         output.write(character);
         count++;
@@ -420,9 +426,28 @@ class _DInputOTPFormatter extends TextInputFormatter {
       transformer: transformer,
     );
     if (text == newValue.text) return newValue;
+    int offset(int value) => value < 0
+        ? value
+        : filter(
+            newValue.text.substring(0, value.clamp(0, newValue.text.length)),
+            maxLength: maxLength,
+            pattern: pattern,
+            transformer: transformer,
+          ).length.clamp(0, text.length);
     return TextEditingValue(
       text: text,
-      selection: TextSelection.collapsed(offset: text.length),
+      selection: newValue.selection.isValid
+          ? newValue.selection.copyWith(
+              baseOffset: offset(newValue.selection.baseOffset),
+              extentOffset: offset(newValue.selection.extentOffset),
+            )
+          : TextSelection.collapsed(offset: text.length),
+      composing: newValue.isComposingRangeValid
+          ? TextRange(
+              start: offset(newValue.composing.start),
+              end: offset(newValue.composing.end),
+            )
+          : TextRange.empty,
     );
   }
 }
@@ -537,19 +562,23 @@ class DInputOTPSlot extends StatelessWidget {
     final dark = Theme.of(context).brightness == Brightness.dark;
     final direction = Directionality.of(context);
     final text = scope?.value.text ?? '';
+    final characters = text.characters.toList();
     final selection = scope?.value.selection;
     final caretOffset = selection?.isValid == true
-        ? selection!.extentOffset.clamp(0, text.length)
-        : text.length;
+        ? text
+              .substring(0, selection!.extentOffset.clamp(0, text.length))
+              .characters
+              .length
+        : characters.length;
     final active =
         scope?.focused == true &&
         (caretOffset == index ||
-            (caretOffset == text.length &&
-                text.length == scope?.maxLength &&
-                index == text.length - 1));
-    final showCaret = active && index >= text.length;
+            (caretOffset == characters.length &&
+                characters.length == scope?.maxLength &&
+                index == characters.length - 1));
+    final showCaret = active && index >= characters.length;
     final isInvalid = invalid || scope?.invalid == true;
-    final char = index < text.length ? text[index] : '';
+    final char = index < characters.length ? characters[index] : '';
     final first = group == null || group.position == 0;
     final last = group == null || group.position == group.count - 1;
     final startRadius = first ? t.radius : 0.0;
