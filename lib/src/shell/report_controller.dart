@@ -56,6 +56,7 @@ final class ReportController extends FrameSafeNotifier {
     loading = true;
     error = false;
     notifySafely();
+    if (!owns()) return;
     try {
       final auth = await AccountRequestSession(
         siteUrl,

@@ -28,10 +28,10 @@ final class DsaNoticeDraft {
         url.userInfo.isEmpty &&
         !RegExp(r'[\s<>]').hasMatch(contentUrl.trim()) &&
         contentUrl.trim().length <= 2048 &&
-        explanation.trim().length >= 50 &&
-        explanation.trim().length <= 20000 &&
+        explanation.trim().runes.length >= 50 &&
+        explanation.trim().runes.length <= 20000 &&
         name.trim().isNotEmpty &&
-        name.trim().length <= 200 &&
+        name.trim().runes.length <= 200 &&
         (useAccountEmail || validEmail(email)) &&
         declaration;
   }

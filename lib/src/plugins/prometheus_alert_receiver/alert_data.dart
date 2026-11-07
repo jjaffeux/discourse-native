@@ -91,7 +91,7 @@ final class PrometheusAlert {
   String get quoteContents {
     final date = start?.toIso8601String().split('T');
     return '**$identifier** - $datacenter'
-        '${date == null ? '' : ' - [date=${date[0]} time=${date[1]} displayedTimezone=UTC format="YYYY-MM-DD HH:mm"]'}'
+        '${date == null ? '' : ' - [date=${date[0]} time=${date[1].split('.').first} timezone=UTC displayedTimezone=UTC format="YYYY-MM-DD HH:mm"]'}'
         '${description.isEmpty ? '' : ' - $description'}';
   }
 

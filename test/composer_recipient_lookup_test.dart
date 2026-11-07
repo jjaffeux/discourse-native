@@ -14,6 +14,25 @@ const _sam = FoundUsersAndGroups(
 );
 
 void main() {
+  testWidgets(
+    'regression: recipient lookup contains network failures and retries',
+    (tester) async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      fixture.lookup.search('sam');
+      await tester.pump(const Duration(milliseconds: 200));
+      fixture.pending.single.completeError(StateError('network unavailable'));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(fixture.lookup.results.users, isEmpty);
+      fixture.lookup.search('sam');
+      await tester.pump(const Duration(milliseconds: 200));
+      fixture.pending.last.complete(_sam);
+      await tester.pump();
+      expect(fixture.lookup.results, same(_sam));
+    },
+  );
+
   testWidgets('debounce searches only the latest trimmed query at 200ms', (
     tester,
   ) async {

@@ -26,6 +26,19 @@ const _video = YoutubeVideoData(
 );
 
 void main() {
+  test(
+    'regression: an explicit zero YouTube time overrides fallback timestamps',
+    () {
+      final video = YoutubeVideoData.tryParseUrl(
+        'https://www.youtube.com/watch?v=dQw4w9WgXcQ&start=0s&t=30s',
+      )!;
+      expect(video.startSeconds, 0);
+      expect(parseYoutubeTime('0h0m0s'), 0);
+      expect(parseYoutubeTime(''), isNull);
+      expect(parseYoutubeTime('999999999999999999999999h'), isNull);
+    },
+  );
+
   group('YouTube markup parsing', () {
     test('reads the lazy-video plugin markup', () {
       final element = html_parser

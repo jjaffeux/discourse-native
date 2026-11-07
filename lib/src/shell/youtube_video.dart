@@ -219,10 +219,10 @@ int? parseYoutubeTime(String? value) {
 
   final match = _youtubeTime.firstMatch(candidate);
   if (match == null || match.group(0)!.isEmpty) return null;
-  final hours = int.tryParse(match.group(1) ?? '') ?? 0;
-  final minutes = int.tryParse(match.group(2) ?? '') ?? 0;
-  final remainingSeconds = int.tryParse(match.group(3) ?? '') ?? 0;
-  if (hours == 0 && minutes == 0 && remainingSeconds == 0) return null;
+  final hours = int.tryParse(match.group(1) ?? '0');
+  final minutes = int.tryParse(match.group(2) ?? '0');
+  final remainingSeconds = int.tryParse(match.group(3) ?? '0');
+  if (hours == null || minutes == null || remainingSeconds == null) return null;
   return hours * 3600 + minutes * 60 + remainingSeconds;
 }
 

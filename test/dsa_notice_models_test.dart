@@ -6,6 +6,26 @@ import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('regression: notice length validation counts Unicode characters', () {
+    DsaNoticeDraft draft(String explanation, {String name = 'Reporter'}) =>
+        DsaNoticeDraft(
+          contentUrl: 'https://forum.example/t/topic/7',
+          explanation: explanation,
+          name: name,
+          email: 'reader@example.com',
+          declaration: true,
+        );
+    expect(draft('😀' * 25).valid(useAccountEmail: false), isFalse);
+    expect(
+      draft('😀' * 50, name: '𐐀' * 200).valid(useAccountEmail: false),
+      isTrue,
+    );
+    expect(
+      draft('x' * 50, name: '𐐀' * 201).valid(useAccountEmail: false),
+      isFalse,
+    );
+  });
+
   test(
     'reporting and confirmed-email capabilities survive storage and account updates',
     () {

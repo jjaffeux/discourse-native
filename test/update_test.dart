@@ -109,6 +109,23 @@ final class _ControlledUpdater extends FakeUpdater {
 }
 
 void main() {
+  test(
+    'regression: a future saved check does not disable automatic updates',
+    () async {
+      final updater = FakeUpdater(isSupported: true);
+      final controller = controllerWith(
+        updater: updater,
+        store: FakeUpdateStore(
+          lastChecked: DateTime.now().add(const Duration(days: 365)),
+        ),
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      expect(updater.checkCount, 1);
+      expect(controller.status, UpdateStatus.upToDate);
+    },
+  );
+
   // UpdateController defers a notification raised mid-frame to a post-frame
   // callback, which reads SchedulerBinding.instance. These are plain tests
   // rather than testWidgets, so the binding has to be stood up by hand.

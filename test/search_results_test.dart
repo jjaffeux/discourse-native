@@ -2,6 +2,19 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('regression: encoded tag slugs are encoded once in search links', () {
+    for (final id in [null, 7]) {
+      final tag = SearchTagHit.fromJson({
+        'name': '日本語',
+        'slug': '%E6%97%A5%E6%9C%AC%E8%AA%9E',
+        'id': id,
+      })!;
+      expect(Uri.parse(tag.path).pathSegments[1], '日本語');
+    }
+    final literal = SearchTagHit.fromJson({'name': '100% useful'})!;
+    expect(Uri.parse(literal.path).pathSegments[1], '100% useful');
+  });
+
   group('topic result parsing', () {
     test('associates posts with topics and resolves transient presentation', () {
       final results = SearchResults.fromJson(const {
