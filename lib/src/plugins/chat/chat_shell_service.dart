@@ -484,6 +484,7 @@ final class ChatShellService
       },
       lastChannelId: held.lastChannelId,
       ignoredUsernames: held.ignoredUsernames,
+      // List options retain their separate confirmed-write authority.
       channelListPreferences: held.channelListPreferences,
     );
     return user.withPlugins(

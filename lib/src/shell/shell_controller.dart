@@ -2624,30 +2624,41 @@ class ShellController extends FrameSafeNotifier
         user.username.toLowerCase() != preferences.username.toLowerCase()) {
       return;
     }
-    var updated = switch (section) {
-      PreferenceSection.sidebarCategories => user.withPreferences(
-        sidebarCategoryIds: preferences.sidebarCategoryIds,
-      ),
-      PreferenceSection.sidebarTags => user.withPreferences(
-        sidebarTags: preferences.sidebarTags,
-      ),
-      PreferenceSection.notifications => user.withPreferences(
-        likesNotificationsDisabled: preferences.likeNotificationFrequency == 3,
-      ),
-      PreferenceSection.profile => user.withPreferences(
-        timezone: preferences.timezone,
-      ),
-      PreferenceSection.interface => user.withPreferences(
-        bookmarkAutoDeletePreference: preferences.bookmarkAutoDeletePreference,
-      ),
-      _ => user,
-    };
-    for (final mirror
-        in _pluginSession.capabilities<PluginUserPreferenceMirror>()) {
-      try {
-        updated = mirror.mirrorUserPreference(updated, section, preferences);
-      } catch (_) {}
+    final mirrors = _pluginSession
+        .capabilities<PluginUserPreferenceMirror>()
+        .toList(growable: false);
+    DiscourseUser project(DiscourseUser current) {
+      var updated = switch (section) {
+        PreferenceSection.sidebarCategories => current.withPreferences(
+          sidebarCategoryIds: preferences.sidebarCategoryIds,
+        ),
+        PreferenceSection.sidebarTags => current.withPreferences(
+          sidebarTags: preferences.sidebarTags,
+        ),
+        PreferenceSection.notifications => current.withPreferences(
+          likesNotificationsDisabled:
+              preferences.likeNotificationFrequency == 3,
+        ),
+        PreferenceSection.profile => current.withPreferences(
+          timezone: preferences.timezone,
+        ),
+        PreferenceSection.interface => current.withPreferences(
+          bookmarkAutoDeletePreference:
+              preferences.bookmarkAutoDeletePreference,
+        ),
+        _ => current,
+      };
+      for (final mirror in mirrors) {
+        try {
+          updated = mirror.mirrorUserPreference(updated, section, preferences);
+        } catch (_) {}
+      }
+      return updated;
     }
+
+    final updated = _currentUsers
+        .reconcilerFor(siteUrl)
+        .confirmPreferences(section, previous: user, update: project);
     if (updated == user) return;
     _replaceInstance(instance, instance.copyWith(user: updated));
     _notify();

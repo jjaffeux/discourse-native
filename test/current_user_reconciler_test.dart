@@ -2,6 +2,7 @@ import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -26,6 +27,200 @@ void main() {
       models: _models,
     );
   });
+
+  test(
+    'confirmed preference sections protect stale responses but permit later server truth',
+    () {
+      final ticket = reconciler.beginSnapshot();
+      const original = DiscourseUser(id: 7, username: 'sam');
+      final profile = reconciler.confirmPreferences(
+        PreferenceSection.profile,
+        previous: original,
+        update: (user) => user.withPreferences(timezone: 'Europe/London'),
+      );
+      final notifications = reconciler.confirmPreferences(
+        PreferenceSection.notifications,
+        previous: profile,
+        update: (user) =>
+            user.withPreferences(likesNotificationsDisabled: true),
+      );
+      final stale = reconciler.reconcile(
+        ticket,
+        previous: notifications,
+        incoming: const DiscourseUser(
+          id: 7,
+          username: 'sam',
+          name: 'Fresh name',
+          timezone: 'Etc/UTC',
+        ),
+      )!;
+      expect(stale.user.timezone, 'Europe/London');
+      expect(stale.user.likesNotificationsDisabled, isTrue);
+      expect(stale.user.name, 'Fresh name');
+      final fresh = reconciler.reconcile(
+        reconciler.beginSnapshot(),
+        previous: stale.user,
+        incoming: const DiscourseUser(
+          id: 7,
+          username: 'sam',
+          timezone: 'Asia/Tokyo',
+        ),
+      )!;
+      expect(fresh.user.timezone, 'Asia/Tokyo');
+      expect(fresh.user.likesNotificationsDisabled, isFalse);
+    },
+  );
+
+  test(
+    'an equal preference confirmation still rejects an older conflicting snapshot',
+    () {
+      const original = DiscourseUser(
+        id: 7,
+        username: 'sam',
+        timezone: 'Europe/London',
+      );
+      final ticket = reconciler.beginSnapshot();
+      final confirmed = reconciler.confirmPreferences(
+        PreferenceSection.profile,
+        previous: original,
+        update: (user) => user.withPreferences(timezone: 'Europe/London'),
+      );
+      expect(confirmed, original);
+      final stale = reconciler.reconcile(
+        ticket,
+        previous: confirmed,
+        incoming: const DiscourseUser(
+          id: 7,
+          username: 'sam',
+          timezone: 'Etc/UTC',
+        ),
+      )!;
+      expect(stale.user.timezone, 'Europe/London');
+    },
+  );
+
+  for (final preferenceFirst in [false, true]) {
+    test(
+      'preference mirrors and direct option writes keep confirmation order, preference first $preferenceFirst',
+      () {
+        const section = PreferenceSection.plugin(
+          owner: 'test',
+          name: 'preferences',
+        );
+        final ticket = reconciler.beginSnapshot();
+        var current = const DiscourseUser(id: 7, username: 'sam');
+        void preference() {
+          current = reconciler.confirmPreferences(
+            section,
+            previous: current,
+            update: (user) => user.withPlugins(
+              user.plugins
+                  .withValue(_firstOption, 'preference')
+                  .withValue(_secondOption, 'section value'),
+            ),
+          );
+        }
+
+        void direct() {
+          current = reconciler.updatePluginOption(
+            'first',
+            previous: current,
+            update: (data) => data.withValue(_firstOption, 'direct'),
+          );
+        }
+
+        if (preferenceFirst) {
+          preference();
+          direct();
+        } else {
+          direct();
+          preference();
+        }
+        final stale = reconciler.reconcile(
+          ticket,
+          previous: current,
+          incoming: const DiscourseUser(
+            id: 7,
+            username: 'sam',
+            name: 'Fresh name',
+          ),
+        )!;
+        expect(
+          stale.user.plugins.get(_firstOption),
+          preferenceFirst ? 'direct' : 'preference',
+        );
+        expect(stale.user.plugins.get(_secondOption), 'section value');
+        expect(stale.user.name, 'Fresh name');
+      },
+    );
+  }
+
+  test(
+    'repeated section confirmations retain the complete latest projection',
+    () {
+      const section = PreferenceSection.plugin(
+        owner: 'test',
+        name: 'preferences',
+      );
+      final ticket = reconciler.beginSnapshot();
+      var current = const DiscourseUser(id: 7, username: 'sam');
+      for (final secondValue in ['original', 'changed']) {
+        current = reconciler.confirmPreferences(
+          section,
+          previous: current,
+          update: (user) => user.withPlugins(
+            user.plugins
+                .withValue(_firstOption, 'unchanged')
+                .withValue(_secondOption, secondValue),
+          ),
+        );
+        current = reconciler.updatePluginOption(
+          'first',
+          previous: current,
+          update: (data) =>
+              data.withValue(_firstOption, 'direct after $secondValue'),
+        );
+      }
+      final stale = reconciler.reconcile(
+        ticket,
+        previous: current,
+        incoming: const DiscourseUser(id: 7, username: 'sam'),
+      )!;
+      expect(stale.user.plugins.get(_firstOption), 'direct after changed');
+      expect(stale.user.plugins.get(_secondOption), 'changed');
+      final replacement = reconciler.reconcile(
+        ticket,
+        previous: stale.user,
+        incoming: const DiscourseUser(
+          id: 8,
+          username: 'alex',
+          timezone: 'Asia/Tokyo',
+        ),
+      )!;
+      expect(replacement.user.plugins.get(_firstOption), isNull);
+      expect(replacement.user.plugins.get(_secondOption), isNull);
+      final later = reconciler.reconcile(
+        ticket,
+        previous: replacement.user,
+        incoming: const DiscourseUser(id: 8, username: 'alex'),
+      )!;
+      expect(later.user.plugins.get(_secondOption), isNull);
+      reconciler.retire();
+      var invoked = false;
+      expect(
+        reconciler.confirmPreferences(
+          section,
+          previous: later.user,
+          update: (user) {
+            invoked = true;
+            return user;
+          },
+        ),
+        same(later.user),
+      );
+      expect(invoked, isFalse);
+    },
+  );
 
   test('accepts the first user without treating it as an account change', () {
     final ticket = reconciler.beginSnapshot();

@@ -273,6 +273,9 @@ abstract interface class PluginComposerSubmitPreparer
 
 abstract interface class PluginUserPreferenceMirror
     implements PluginSessionCapability {
+  /// Projects every current-user field this module mirrors from the section.
+  /// Preserve other fields, even when the section has additional wire settings.
+  /// May replay against an older current-user response; must be side-effect free.
   DiscourseUser mirrorUserPreference(
     DiscourseUser user,
     PreferenceSection section,

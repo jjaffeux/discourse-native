@@ -1,4 +1,5 @@
 import '../models/discourse_user.dart';
+import '../models/user_preferences.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/plugin_data.dart';
 import 'site_lifecycle.dart';
@@ -20,10 +21,11 @@ final class CurrentUserReconciler {
   int _groupedUnreadRevision = 0;
   int _draftCountRevision = 0;
   int _categoryPreferencesRevision = 0;
-  int _pluginOptionsRevision = 0;
+  int _confirmationRevision = 0;
   bool _presenceWritePending = false;
   bool _retired = false;
-  final Map<String, _PluginOptionUpdate> _pluginUpdates = {};
+  final Map<String, _ConfirmedUserUpdate> _pluginUpdates = {};
+  final Map<PreferenceSection, _ConfirmedUserUpdate> _preferenceUpdates = {};
 
   bool get isCurrent => !_retired && _lease.isCurrent;
 
@@ -56,11 +58,28 @@ final class CurrentUserReconciler {
     required PluginData Function(PluginData) update,
   }) {
     if (!isCurrent) return previous;
+    DiscourseUser project(DiscourseUser user) =>
+        user.withPlugins(update(user.plugins));
     _pluginUpdates[field] = (
-      revision: ++_pluginOptionsRevision,
+      revision: ++_confirmationRevision,
+      update: project,
+    );
+    return project(previous);
+  }
+
+  /// Confirms the complete current-user effect of a saved preference section.
+  /// The projection preserves fields the section does not mirror.
+  DiscourseUser confirmPreferences(
+    PreferenceSection section, {
+    required DiscourseUser previous,
+    required DiscourseUser Function(DiscourseUser) update,
+  }) {
+    if (!isCurrent) return previous;
+    _preferenceUpdates[section] = (
+      revision: ++_confirmationRevision,
       update: update,
     );
-    return previous.withPlugins(update(previous.plugins));
+    return update(previous);
   }
 
   bool _accepts(CurrentUserSnapshot ticket) =>
@@ -117,15 +136,17 @@ final class CurrentUserReconciler {
           );
         }
       }
-      var data = user.plugins;
-      for (final write in _pluginUpdates.values) {
-        if (write.revision > ticket._pluginOptionsRevision) {
-          data = write.update(data);
-        }
+      final confirmations =
+          [..._pluginUpdates.values, ..._preferenceUpdates.values]
+              .where((write) => write.revision > ticket._confirmationRevision)
+              .toList()
+            ..sort((left, right) => left.revision.compareTo(right.revision));
+      for (final write in confirmations) {
+        user = write.update(user);
       }
-      user = user.withPlugins(data);
     } else {
       _pluginUpdates.clear();
+      _preferenceUpdates.clear();
     }
     final userId = user.id;
     var statusChanged = false;
@@ -154,6 +175,7 @@ final class CurrentUserReconciler {
   void retire() {
     _retired = true;
     _pluginUpdates.clear();
+    _preferenceUpdates.clear();
   }
 }
 
@@ -166,7 +188,7 @@ final class CurrentUserSnapshot {
       _groupedUnreadRevision = owner._groupedUnreadRevision,
       _draftCountRevision = owner._draftCountRevision,
       _categoryPreferencesRevision = owner._categoryPreferencesRevision,
-      _pluginOptionsRevision = owner._pluginOptionsRevision;
+      _confirmationRevision = owner._confirmationRevision;
 
   final CurrentUserReconciler _owner;
   final UserStatusSnapshot _status;
@@ -175,7 +197,7 @@ final class CurrentUserSnapshot {
   final int _groupedUnreadRevision;
   final int _draftCountRevision;
   final int _categoryPreferencesRevision;
-  final int _pluginOptionsRevision;
+  final int _confirmationRevision;
 }
 
 final class CurrentUserReconciliation {
@@ -192,7 +214,7 @@ final class CurrentUserReconciliation {
   final bool seedGroupedUnreadCounts;
 }
 
-typedef _PluginOptionUpdate = ({
+typedef _ConfirmedUserUpdate = ({
   int revision,
-  PluginData Function(PluginData) update,
+  DiscourseUser Function(DiscourseUser) update,
 });

@@ -5,10 +5,16 @@ import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/do_not_disturb.dart';
+import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -72,6 +78,164 @@ final class _GatedFreshnessApi extends FakeDiscourseApi {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
+
+  for (final alreadyMirrored in [false, true]) {
+    test(
+      'a pending current-user read cannot undo confirmed core preferences, already mirrored $alreadyMirrored',
+      () async {
+        final api = _GatedFreshnessApi();
+        final original = _user.withPreferences(timezone: 'Etc/UTC');
+        final shell = await _loadShell(
+          api,
+          user: alreadyMirrored
+              ? original.withPreferences(timezone: 'Europe/London')
+              : original,
+        );
+        await shell.preferences.load(shell.currentInstance!);
+        shell.preferences.edit(
+          _site,
+          PreferenceSection.profile,
+          (preferences) => preferences.copyWith(timezone: 'Europe/London'),
+        );
+        expect(
+          await shell.preferences.save(
+            shell.currentInstance!,
+            PreferenceSection.profile,
+          ),
+          isTrue,
+        );
+        expect(shell.currentInstance!.user!.timezone, 'Europe/London');
+        await _completeRead(api, 0, original);
+        expect(shell.currentInstance!.user!.timezone, 'Europe/London');
+      },
+    );
+  }
+
+  test(
+    'preference mirrors preserve direct options when a current-user read is pending',
+    () async {
+      final api = _GatedFreshnessApi();
+      api.userPreferences = UserPreferences(
+        username: 'reader',
+        canEdit: true,
+        pluginValues: {
+          'chat/preferences': ChatUserPreferences(
+            separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
+            channelList: ChatChannelListPreferences.read({
+              ChatChannelListSection.channels.filterField:
+                  ChatChannelListFilter.all.wireValue,
+            }),
+          ),
+        },
+      );
+      final original = _user.withPlugins(
+        _user.plugins.withValue(
+          chatCurrentUserDataKey,
+          ChatCurrentUser(
+            separateSidebarMode: ChatSeparateSidebarMode.fullscreen,
+            channelListPreferences: ChatChannelListPreferences.read({
+              ChatChannelListSection.channels.filterField:
+                  ChatChannelListFilter.all.wireValue,
+            }),
+          ),
+        ),
+      );
+      final shell = await _loadShell(api, user: original, bundledPlugins: true);
+      await shell.preferences.load(shell.currentInstance!);
+      shell.preferences.edit(
+        _site,
+        chatPreferenceSection,
+        (preferences) => preferences.withChatPreferences(
+          separateSidebarMode: ChatSeparateSidebarPreference.always,
+        ),
+      );
+      expect(
+        await shell.preferences.save(
+          shell.currentInstance!,
+          chatPreferenceSection,
+        ),
+        isTrue,
+      );
+      expect(
+        shell.currentInstance!.user!.chatCurrentUser!.separateSidebarMode,
+        ChatSeparateSidebarMode.always,
+      );
+      final channelLists = shell.pluginSession
+          .require(chatControllerService)
+          .channelListPreferences;
+      expect(
+        await channelLists.setFilter(
+          _site,
+          ChatChannelListSection.channels,
+          ChatChannelListFilter.mentions,
+        ),
+        isTrue,
+      );
+      shell.preferences.edit(
+        _site,
+        PreferenceSection.profile,
+        (preferences) => preferences.copyWith(timezone: 'Europe/London'),
+      );
+      expect(
+        await shell.preferences.save(
+          shell.currentInstance!,
+          PreferenceSection.profile,
+        ),
+        isTrue,
+      );
+      shell.preferences.edit(
+        _site,
+        chatPreferenceSection,
+        (preferences) => preferences.withChatPreferences(
+          channelList: preferences.chatPreferences.channelList.withValue(
+            ChatChannelListSection.channels.filterField,
+            ChatChannelListFilter.unread.wireValue,
+          ),
+        ),
+      );
+      expect(
+        await shell.preferences.save(
+          shell.currentInstance!,
+          chatPreferenceSection,
+        ),
+        isTrue,
+      );
+      expect(api.userPreferenceUpdates.last.values, {
+        ChatChannelListSection.channels.filterField:
+            ChatChannelListFilter.unread.wireValue,
+      });
+      expect(
+        shell.preferences
+            .stateFor(_site)!
+            .confirmed!
+            .chatPreferences
+            .separateSidebarMode,
+        ChatSeparateSidebarPreference.always,
+      );
+      expect(
+        shell.currentInstance!.user!.chatCurrentUser!.channelListPreferences
+            .filterFor(ChatChannelListSection.channels),
+        ChatChannelListFilter.mentions,
+      );
+      await _completeRead(api, 0, original);
+      expect(
+        shell.currentInstance!.user!.chatCurrentUser!.separateSidebarMode,
+        ChatSeparateSidebarMode.always,
+      );
+      expect(
+        shell.currentInstance!.user!.chatCurrentUser!.channelListPreferences
+            .filterFor(ChatChannelListSection.channels),
+        ChatChannelListFilter.mentions,
+      );
+      expect(
+        channelLists
+            .preferencesFor(_site)
+            .filterFor(ChatChannelListSection.channels),
+        ChatChannelListFilter.mentions,
+      );
+      expect(shell.currentInstance!.user!.timezone, 'Europe/London');
+    },
+  );
 
   test(
     'a fresh account read reconciles a pause changed on another device',
@@ -309,6 +473,7 @@ Future<ShellController> _loadShell(
   _GatedFreshnessApi api, {
   DiscourseUser user = _user,
   DateTime Function()? clock,
+  bool bundledPlugins = false,
 }) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -321,6 +486,7 @@ Future<ShellController> _loadShell(
     trackers: FakeSiteTracker.reset(),
     initialRootMode: ShellRootMode.forum,
     clock: clock,
+    plugins: bundledPlugins ? installedPlugins : null,
   );
   addTearDown(shell.dispose);
   addTearDown(() {

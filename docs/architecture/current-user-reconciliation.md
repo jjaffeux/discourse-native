@@ -40,15 +40,35 @@ settlement or a live update can reconcile missed changes from another device.
 Grouped unread authority advances on accepted complete live maps and local
 notification read or dismiss operations. Draft authority advances on every
 valid live count, including repeated values. Successful category writes advance
-category authority. Confirmed plugin option updates record the latest
-transformation for each field before applying it, including equal updates.
+category authority. Confirmed plugin option updates and saved preference sections
+share one confirmation revision. Each option field or typed preference section
+retains its latest complete current-user effect, including equal-value confirmations.
 
 Full reconciliation preserves those newer fields for the same account while
 accepting unrelated response fields. The existing model codec decides account
-identity and preserves unknown plugin namespaces. Plugin transformations newer
-than dispatch replay over the response's plugin data. A discovered account
-change clears those transformations but keeps revisions monotonic until
-retirement, because other reads may still carry earlier revisions.
+identity and preserves unknown plugin namespaces. Confirmations newer than the
+snapshot dispatch replay in confirmation order. A later direct option write wins
+over an earlier section mirror, and a later section confirmation wins over an
+earlier option write. A discovered account change clears both sets of projections
+but keeps their shared revision monotonic until retirement, because other reads
+may still carry earlier revisions. A read dispatched after confirmation accepts
+new server values normally.
+
+The shell constructs core preference projections and invokes only registered
+module mirrors. Core reconciliation knows no module schema or endpoint. A mirror
+projects all current-user fields it mirrors from the confirmed section and is
+side-effect free, since it can run again against a delayed current-user response.
+This does not require mirroring every wire field in that section. Other current-user fields retain their input values and existing write owners. `PreferencesController` supplies
+`mergedConfirmed`: its existing confirmed snapshot updated with the complete
+section returned by API decoding against the submitted draft fallback. A second
+partial wire response therefore retains the first save's unchanged mirrored
+values. Replacing the retained projection does not drop their authority or expand
+its effect to fields the module does not mirror.
+
+The retained maps contain only the latest projection per section or option field,
+not a write history or another canonical user. Recording precedes the shell's
+equality shortcut, so an equal local value still protects against an older
+conflicting response. Retirement drops projections with the account.
 
 The result contains the reconciled user, whether its account changed, and
 whether grouped counts may seed account totals. A stale grouped snapshot can
