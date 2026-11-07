@@ -187,7 +187,7 @@ final class SiteImageRepository {
     if (existing != null) return SynchronousFuture(existing);
 
     // A lifecycle change can replace an account without an explicit forget.
-    _sessions.remove(siteUrl)?.cache.close();
+    _sessions.remove(siteUrl)?.retire();
 
     final pending = _opening[siteUrl];
     if (pending != null && pending.lease.isCurrent) return pending.result;
@@ -229,6 +229,9 @@ final class SiteImageRepository {
         ),
       );
       _sessions[siteUrl] = session;
+      session.observeRetirement(() {
+        if (identical(_sessions[siteUrl], session)) _sessions.remove(siteUrl);
+      });
       return session;
     } catch (_) {
       if (_isCurrentOpening(siteUrl, opening)) rethrow;
@@ -245,7 +248,7 @@ final class SiteImageRepository {
       if (request._siteUrl == siteUrl) request.release();
     }
     final _ = _opening.remove(siteUrl);
-    _sessions.remove(siteUrl)?.cache.close();
+    _sessions.remove(siteUrl)?.retire();
   }
 
   void dispose() {
@@ -255,8 +258,8 @@ final class SiteImageRepository {
       request.release();
     }
     _opening.clear();
-    for (final session in _sessions.values) {
-      session.cache.close();
+    for (final session in _sessions.values.toList()) {
+      session.retire();
     }
     _sessions.clear();
     _coordinator.close();
@@ -318,10 +321,28 @@ final class _SiteImageOpening {
 }
 
 final class _SiteImageSession {
-  const _SiteImageSession({required this.lease, required this.cache});
+  _SiteImageSession({required this.lease, required this.cache});
 
   final SiteLease lease;
   final _AuthenticatedSiteImageCache cache;
+  void Function()? _detach;
+  void Function()? _remove;
+  bool _retired = false;
+
+  void observeRetirement(void Function() remove) {
+    _remove = remove;
+    _detach = lease.onRetire(retire);
+  }
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    _detach?.call();
+    _detach = null;
+    _remove?.call();
+    _remove = null;
+    cache.close();
+  }
 }
 
 final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {

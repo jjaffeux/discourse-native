@@ -183,6 +183,55 @@ void main() {
   });
 
   test(
+    'an earlier retirement observer starts a successor thumbnail cache',
+    () async {
+      final harness = _Harness();
+      VideoThumbnailRequest? successor;
+      harness.lifecycle.capture(_site).onRetire(() {
+        successor = harness.acquire();
+      });
+      final first = harness.acquire();
+      await _flush();
+      harness.jobs.single.result.complete(Uint8List.fromList([1]));
+      await first.result;
+
+      harness.lifecycle.invalidate(_site);
+      await _flush();
+      expect(harness.jobs, hasLength(2));
+      first.dispose();
+      harness.jobs.last.result.complete(Uint8List.fromList([2]));
+      expect(await successor!.result, orderedEquals([2]));
+      expect(await harness.acquire().result, orderedEquals([2]));
+      expect(harness.jobs, hasLength(2));
+    },
+  );
+
+  test(
+    'retired thumbnail caches release budget before another account loads',
+    () async {
+      final harness = _Harness(maxCachedBytes: 6);
+      const survivor = 'https://survivor.example';
+      const newcomer = 'https://new.example';
+      for (final site in [survivor, _site]) {
+        final request = harness.acquire('clip', site);
+        await _flush();
+        harness.jobs.last.result.complete(Uint8List.fromList([1, 2, 3]));
+        await request.result;
+      }
+      harness.lifecycle.invalidate(_site);
+      final arriving = harness.acquire('clip', newcomer);
+      await _flush();
+      harness.jobs.last.result.complete(Uint8List.fromList([4, 5, 6]));
+      await arriving.result;
+
+      final cached = harness.acquire('clip', survivor);
+      await _flush();
+      expect(harness.jobs, hasLength(3));
+      expect(await cached.result, orderedEquals([1, 2, 3]));
+    },
+  );
+
+  test(
     'evicts least recently used thumbnails within the byte budget',
     () async {
       final harness = _Harness(maxCachedBytes: 5);

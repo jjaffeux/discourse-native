@@ -79,6 +79,7 @@ class SiteThumbnailRepository {
         _cachedBytes += cached.bytes?.length ?? 0;
         return ThumbnailRequest(SynchronousFuture(cached.bytes), () {});
       }
+      cached.detach();
     }
 
     var job = _jobs[key];
@@ -166,15 +167,27 @@ class SiteThumbnailRepository {
   }
 
   void _remember(_ThumbnailJob job, Uint8List? bytes) {
-    _cache[job.key] = _CachedThumbnail(
+    final cached = _CachedThumbnail(
       job.lease,
       bytes,
       _clock().add(const Duration(seconds: 30)),
     );
+    _cache[job.key] = cached;
     _cachedBytes += bytes?.length ?? 0;
+    final key = job.key;
+    cached.removeRetirement = cached.lease.onRetire(() {
+      if (identical(_cache[key], cached)) _removeCached(key);
+    });
     while (_cache.length > maxEntries || _cachedBytes > maxCachedBytes) {
-      _cachedBytes -= _cache.remove(_cache.keys.first)!.bytes?.length ?? 0;
+      _removeCached(_cache.keys.first);
     }
+  }
+
+  void _removeCached((String, Uri) key) {
+    final cached = _cache.remove(key);
+    if (cached == null) return;
+    cached.detach();
+    _cachedBytes -= cached.bytes?.length ?? 0;
   }
 
   void _cancel(_ThumbnailJob job) {
@@ -188,7 +201,7 @@ class SiteThumbnailRepository {
 
   void forget(String siteUrl) {
     for (final key in _cache.keys.where((key) => key.$1 == siteUrl).toList()) {
-      _cachedBytes -= _cache.remove(key)!.bytes?.length ?? 0;
+      _removeCached(key);
     }
     for (final job in _jobs.values.toList(growable: false)) {
       if (job.key.$1 == siteUrl) _cancel(job);
@@ -202,8 +215,9 @@ class SiteThumbnailRepository {
     for (final job in _jobs.values.toList(growable: false)) {
       _cancel(job);
     }
-    _cache.clear();
-    _cachedBytes = 0;
+    for (final key in _cache.keys.toList()) {
+      _removeCached(key);
+    }
   }
 
   static ThumbnailRequest _empty() =>
@@ -224,9 +238,15 @@ final class _ThumbnailJob {
 }
 
 final class _CachedThumbnail {
-  const _CachedThumbnail(this.lease, this.bytes, this.retryAt);
+  _CachedThumbnail(this.lease, this.bytes, this.retryAt);
 
   final SiteLease lease;
   final Uint8List? bytes;
   final DateTime retryAt;
+  VoidCallback? removeRetirement;
+
+  void detach() {
+    removeRetirement?.call();
+    removeRetirement = null;
+  }
 }

@@ -1000,6 +1000,102 @@ void main() {
     }
   }
 
+  test(
+    'retirement releases shared image consumers and aborts their transfer',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final client = _ControlledImageClient(honorAbort: true);
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: lifecycle,
+        client: client,
+      );
+      addTearDown(repository.dispose);
+      final first = repository.load(siteUrl: siteUrl, url: secureUrl);
+      await client.started.future;
+      final second = repository.load(siteUrl: siteUrl, url: secureUrl);
+      await pumpEventQueue();
+      expect(client.requests, hasLength(1));
+
+      lifecycle.invalidate(siteUrl);
+      expect(await Future.wait([first, second]), everyElement(isNull));
+      await pumpEventQueue();
+      expect(client.aborted, isTrue);
+      final successor = await repository.load(siteUrl: siteUrl, url: secureUrl);
+      expect(successor?.bytes, [2]);
+      expect(
+        repository.cached(siteUrl: siteUrl, url: secureUrl),
+        same(successor),
+      );
+    },
+  );
+
+  test(
+    'retired image caches release budget before another forum loads',
+    () async {
+      const survivor = 'https://survivor.example';
+      const retired = 'https://retired.example';
+      const newcomer = 'https://new.example';
+      final lifecycle = SiteLifecycle();
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: lifecycle,
+        maxCachedBytes: 6,
+        client: MockClient((_) async => http.Response.bytes([1, 2, 3], 200)),
+      );
+      addTearDown(repository.dispose);
+      for (final site in [survivor, retired]) {
+        await repository.load(siteUrl: site, url: '$site/image.png');
+      }
+      lifecycle.invalidate(retired);
+      await repository.load(siteUrl: newcomer, url: '$newcomer/image.png');
+
+      expect(
+        repository.isCached(siteUrl: survivor, url: '$survivor/image.png'),
+        isTrue,
+      );
+      expect(
+        repository.isCached(siteUrl: newcomer, url: '$newcomer/image.png'),
+        isTrue,
+      );
+      expect(
+        repository.isCached(siteUrl: retired, url: '$retired/image.png'),
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'an earlier retirement observer can open a successor image session',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final credentials = FakeApiCredentialReader()..keys[siteUrl] = 'old-key';
+      final sentKeys = <String?>[];
+      final repository = SiteImageRepository(
+        credentials: credentials,
+        lifecycle: lifecycle,
+        client: MockClient((request) async {
+          sentKeys.add(request.headers['User-Api-Key']);
+          return http.Response.bytes([sentKeys.length], 200);
+        }),
+      );
+      addTearDown(repository.dispose);
+      Future<SiteImageBytes?>? successor;
+      lifecycle.capture(siteUrl).onRetire(() {
+        credentials.keys[siteUrl] = 'new-key';
+        successor = repository.load(siteUrl: siteUrl, url: secureUrl);
+      });
+      await repository.load(siteUrl: siteUrl, url: secureUrl);
+
+      lifecycle.invalidate(siteUrl);
+      expect((await successor)?.bytes, [2]);
+      expect(repository.cached(siteUrl: siteUrl, url: secureUrl)?.bytes, [2]);
+      expect(sentKeys, ['old-key', 'new-key']);
+      repository.forget(siteUrl);
+      expect(repository.cached(siteUrl: siteUrl, url: secureUrl), isNull);
+    },
+  );
+
   test('forums share one image byte budget', () async {
     const imageBytes = 512 * 1024;
     const sites = [
