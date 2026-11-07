@@ -24,6 +24,7 @@ import 'd_history_transition.dart';
 import 'd_mobile_dock_geometry.dart';
 import 'd_page_header.dart';
 import 'd_page_surface.dart';
+import 'd_swipe_hint.dart';
 
 part 'd_sheet_adaptive_menu.dart';
 part 'd_sheet_lifecycle.dart';
@@ -150,6 +151,7 @@ class DSheet<T> extends StatelessWidget {
       sizeToContent: content.sizeToContent,
       initiallyExpanded: content.initiallyExpanded,
       contentLoading: content.contentLoading,
+      restAt: content.restAt,
     ),
     trigger: DDialogTrigger(builder: trigger.builder),
     content: content,
@@ -465,6 +467,7 @@ class _DSheetViewportState extends State<DSheetViewport>
           sizeToContent: content.sizeToContent,
           initiallyExpanded: content.initiallyExpanded,
           contentLoading: content.contentLoading,
+          restAt: content.restAt,
           retainKeyboardInsets: true,
           onRetainedDismiss: widget.onDismiss,
           onRetainedSwipeDismissRequested: widget.onSwipeDismissRequested,
@@ -1056,6 +1059,7 @@ Widget _sheetPresentation(
   bool sizeToContent = true,
   bool initiallyExpanded = false,
   bool contentLoading = false,
+  GlobalKey? restAt,
   double? topBottomMaxWidth,
   bool retainKeyboardInsets = false,
   VoidCallback? onRetainedDismiss,
@@ -1073,6 +1077,7 @@ Widget _sheetPresentation(
       sizeToContent: sizeToContent,
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
+      restAt: restAt,
     );
     return _DSheetKeyboardInsets(
       child: retainKeyboardInsets
@@ -2434,6 +2439,7 @@ class DSheetContent extends StatelessWidget {
     this.sizeToContent = true,
     this.initiallyExpanded = false,
     this.contentLoading = false,
+    this.restAt,
     this.showCloseButton = true,
     this.card = false,
 
@@ -2478,6 +2484,11 @@ class DSheetContent extends StatelessWidget {
   ///
   /// This does not render a loading indicator or affect other sheet variants.
   final bool contentLoading;
+
+  /// The content whose bottom defines an adaptive menu's lower detent.
+  /// It remains clear of the bottom safe area; following content is revealed
+  /// by raising the sheet. The key must identify a laid-out descendant.
+  final GlobalKey? restAt;
   final DSheetSide side;
   final bool showCloseButton;
 
@@ -2704,6 +2715,42 @@ class DSheetContent extends StatelessWidget {
             writing ? DSurfaceDepth.fullSheet : DSurfaceDepth.menu,
           )
         : null;
+    final headerArtwork = headerImage == null
+        ? null
+        : Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 132,
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Image(
+                      image: headerImage!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
+                    DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            surfaceColor.withValues(alpha: .45),
+                            surfaceColor.withValues(alpha: .84),
+                            surfaceColor,
+                          ],
+                          stops: const [0, .55, 1],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          );
     Widget surface = CustomPaint(
       painter: edges?.castPainter(radius),
       // Over the content, as the border is: what is at a sheet's top edge is
@@ -2752,49 +2799,33 @@ class DSheetContent extends StatelessWidget {
                   removeBottom: !extendBehindKeyboard,
                   child: Stack(
                     children: [
-                      if (headerImage != null)
-                        Positioned(
-                          top: 0,
-                          left: 0,
-                          right: 0,
-                          height: 132,
-                          child: IgnorePointer(
-                            child: ExcludeSemantics(
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  Image(
-                                    image: headerImage!,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) =>
-                                        const SizedBox.shrink(),
-                                  ),
-                                  DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          surfaceColor.withValues(alpha: .45),
-                                          surfaceColor.withValues(alpha: .84),
-                                          surfaceColor,
-                                        ],
-                                        stops: const [0, .55, 1],
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
+                      if (headerArtwork != null && restAt == null)
+                        headerArtwork,
                       if (scrollWholeSheet)
-                        SingleChildScrollView(
-                          primary: false,
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: parts,
+                        _DSheetRestContentClip(
+                          enabled: restAt != null,
+                          child: SingleChildScrollView(
+                            controller: restAt == null
+                                ? null
+                                : context
+                                      .dependOnInheritedWidgetOfExactType<
+                                        _DSheetAdaptiveMenuScope
+                                      >()
+                                      ?.menu
+                                      ._restScroll,
+                            primary: false,
+                            child: Stack(
+                              children: [
+                                if (headerArtwork != null && restAt != null)
+                                  headerArtwork,
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: parts,
+                                ),
+                              ],
+                            ),
                           ),
                         )
                       else
@@ -3151,6 +3182,7 @@ Future<T?> showDSheet<T>({
   bool sizeToContent = true,
   bool initiallyExpanded = false,
   bool contentLoading = false,
+  GlobalKey? restAt,
 
   bool fillAvailableHeight = false,
 
@@ -3194,9 +3226,110 @@ Future<T?> showDSheet<T>({
       sizeToContent: sizeToContent,
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
+      restAt: restAt,
       topBottomMaxWidth: topBottomMaxWidth,
     ),
     transitionDuration: const Duration(milliseconds: 200),
     reverseTransitionDuration: const Duration(milliseconds: 200),
   );
+}
+
+/// A 40-point hint beneath an adaptive sheet's resting content.
+class DSheetSwipeHint extends StatelessWidget {
+  const DSheetSwipeHint({super.key, required this.label});
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final menu = context
+        .dependOnInheritedWidgetOfExactType<_DSheetAdaptiveMenuScope>()
+        ?.menu;
+    if (menu == null) return const SizedBox.shrink();
+    return AnimatedBuilder(
+      animation: menu._travel,
+      builder: (context, _) {
+        final rise = math.max(0.0, menu._low - menu._travel.value);
+        return SizedBox(
+          height: 40,
+          child: Opacity(
+            opacity: ((140 - rise) / 80).clamp(0.0, 1.0),
+            child: DSwipeHint(label: label, clock: menu._peekClock),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DSheetRestContentClip extends StatelessWidget {
+  const _DSheetRestContentClip({required this.enabled, required this.child});
+  final bool enabled;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final menu = context
+        .dependOnInheritedWidgetOfExactType<_DSheetAdaptiveMenuScope>()
+        ?.menu;
+    if (!enabled || menu == null) return child;
+    return AnimatedBuilder(
+      animation: Listenable.merge([menu._travel, menu._restScroll]),
+      builder: (context, child) => ClipRect(
+        clipper: _DSheetRestClipper(menu._offset + 6),
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (bounds) {
+            final cut = (bounds.height - menu._offset - 6).clamp(
+              0.0,
+              bounds.height,
+            );
+            final position = menu._restScroll.hasClients
+                ? menu._restScroll.position
+                : null;
+            final topFade = position != null && position.pixels > 1
+                ? math.min(24.0, cut)
+                : 0.0;
+            final bottomFade =
+                menu._offset <= 1 &&
+                    position != null &&
+                    position.extentAfter > 1
+                ? math.min(36.0, cut - topFade)
+                : 0.0;
+            final height = math.max(1.0, bounds.height);
+            return LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: const [
+                Colors.transparent,
+                Colors.black,
+                Colors.black,
+                Colors.transparent,
+                Colors.transparent,
+              ],
+              stops: [
+                0,
+                topFade / height,
+                (cut - bottomFade) / height,
+                cut / height,
+                1,
+              ],
+            ).createShader(bounds);
+          },
+          child: child,
+        ),
+      ),
+      child: child,
+    );
+  }
+}
+
+class _DSheetRestClipper extends CustomClipper<Rect> {
+  const _DSheetRestClipper(this.hidden);
+  final double hidden;
+  @override
+  Rect getClip(Size size) =>
+      Rect.fromLTWH(0, 0, size.width, math.max(0, size.height - hidden));
+  @override
+  bool shouldReclip(_DSheetRestClipper oldClipper) =>
+      hidden != oldClipper.hidden;
 }

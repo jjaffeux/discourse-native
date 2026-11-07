@@ -26,6 +26,7 @@ import 'server_image.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
+import 'user_activity.dart';
 import 'user_card_header.dart';
 import 'user_menu_message.dart';
 
@@ -291,11 +292,13 @@ Future<void> showUserCard({
   final targetSite = siteUrl ?? controller.currentInstance?.url;
   if (targetSite == null) return Future<void>.value();
   if (context.isTouch) {
+    final restAt = GlobalKey(debugLabel: 'user-card-rest');
     return showDSheet<void>(
       context: context,
       side: DSheetSide.bottom,
       inset: true,
-      variant: DSheetVariant.menu,
+      variant: DSheetVariant.adaptiveMenu,
+      restAt: restAt,
       builder: (context, sheet) =>
           ShellSelector<({ShellController controller, Object session})>(
             select: (controller) => (
@@ -317,16 +320,19 @@ Future<void> showUserCard({
                   card: true,
                   side: DSheetSide.bottom,
                   inset: true,
-                  variant: DSheetVariant.menu,
+                  variant: DSheetVariant.adaptiveMenu,
+                  restAt: restAt,
+                  scrollWholeSheet: true,
                   showCloseButton: false,
                   semanticLabel: context.l10n.profileFor(username),
-                  topBottomMaxHeightFactor: .9,
+
                   headerImage: card?.cardBackgroundUrl == null
                       ? null
                       : serverImageProvider(card!.cardBackgroundUrl!),
                   children: [
                     _ControllerUserCardPopup(
                       key: ValueKey(owner),
+                      restAt: restAt,
                       controller: owner.controller,
                       username: username,
                       siteUrl: targetSite,
@@ -351,8 +357,8 @@ Future<void> showUserCard({
     builder: (context) => DPopoverContent(
       key: const ValueKey<String>('user-card-surface'),
       semanticLabel: context.l10n.profileFor(username),
-      width: 400,
-      constraints: const BoxConstraints(maxHeight: 480),
+      width: 340,
+      constraints: const BoxConstraints(maxHeight: 640),
       align: DPopoverAlign.start,
       sideOffset: 8,
       collisionPadding: 12,
@@ -384,8 +390,10 @@ class _ControllerUserCardPopup extends StatefulWidget {
     required this.username,
     required this.siteUrl,
     required this.close,
+    this.restAt,
   });
 
+  final GlobalKey? restAt;
   final ShellController controller;
   final String username;
   final String siteUrl;
@@ -435,6 +443,7 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
       username: widget.username,
       siteUrl: widget.siteUrl,
       close: widget.close,
+      restAt: widget.restAt,
     ),
   );
 }
@@ -445,8 +454,10 @@ class _CardBody extends StatelessWidget {
     required this.username,
     required this.siteUrl,
     required this.close,
+    this.restAt,
   });
 
+  final GlobalKey? restAt;
   final ShellController controller;
   final String username;
   final String siteUrl;
@@ -455,9 +466,41 @@ class _CardBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final card = controller.userCard(username, siteUrl: siteUrl);
+    final lease = controller.lifecycle.capture(siteUrl);
     if (card != null) {
       if (context.isTouch) {
-        return _MobileCardContent(card: card, siteUrl: siteUrl, close: close);
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              key: restAt,
+              child: _MobileCardContent(
+                card: card,
+                siteUrl: siteUrl,
+                close: close,
+              ),
+            ),
+            DSheetSwipeHint(label: context.l10n.swipeUpToViewActivity),
+            UserActivityView(
+              siteUrl: siteUrl,
+              username: card.username,
+              embedded: true,
+              onOpen: (item) {
+                if (!lease.isCurrent) return;
+                close();
+                if (controller.currentInstance?.url != siteUrl) {
+                  controller.selectInstance(
+                    controller.instances.indexWhere(
+                      (instance) => instance.url == siteUrl,
+                    ),
+                  );
+                }
+                controller.openUserActivityItem(item);
+              },
+            ),
+          ],
+        );
       }
       return _CardContent(card: card, siteUrl: siteUrl, close: close);
     }
@@ -655,6 +698,27 @@ class _CardContent extends StatelessWidget {
                 const SizedBox(height: 10),
                 _BadgeCount(count: card.badgeCount),
               ],
+              const SizedBox(height: 14),
+              SizedBox(
+                width: double.infinity,
+                child: DButton(
+                  variant: DButtonVariant.secondary,
+                  size: DButtonSize.toolbar,
+                  shape: DButtonShape.pill,
+                  borderColor: Colors.transparent,
+                  label: Text(context.l10n.viewActivity),
+                  icon: const DIcon(DIcons.barsStaggered),
+                  onPressed: () {
+                    if (!lease.isCurrent) return;
+                    close();
+                    shell.openUserActivity(
+                      siteUrl,
+                      username: card.username,
+                      displayName: card.displayName,
+                    );
+                  },
+                ),
+              ),
             ],
           ),
         ),

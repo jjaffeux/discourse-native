@@ -1,0 +1,40 @@
+{
+  "mockup_revision": "13db54c6128264818f5ade4f6e3caa3acec41863",
+  "feature_commit": "f41d9141f9f9bb3153001728154df4d1155f326f",
+  "checks": {
+    "flutter_analyze": "No issues found",
+    "focused_tests": 508,
+    "test_files": [
+      "test/user_card_activity_test.dart",
+      "test/person_activity_test.dart",
+      "test/ui/d_sheet_adaptive_menu_test.dart",
+      "test/ui/d_sheet_test.dart",
+      "test/d_mobile_dock_test.dart",
+      "test/user_card_popover_test.dart",
+      "test/user_card_status_parity_test.dart",
+      "test/user_card_account_lifecycle_test.dart",
+      "test/account_activity_pagination_test.dart",
+      "test/account_activity_paging_loading_test.dart",
+      "test/account_activity_rows_accessibility_test.dart",
+      "test/account_activity_controller_test.dart",
+      "test/content_route_test.dart",
+      "test/discourse_api_payload_boundary_test.dart",
+      "test/styleguide/sheet_examples_test.dart"
+    ]
+  },
+  "visual_evidence": "Actual Flutter widget renders at 390x844 (phone) and 1200x900 (desktop), compared with the running pinned mockup in phone and desktop layouts. Test data is deterministic; production uses authenticated Discourse user_actions.json with action types 4,5,1.",
+  "covered": [
+    "Card-relative resting cut, six-point safe-area gap, no resting bottom fade",
+    "700ms delayed hint, 40-point rise, 460ms spring, 3700ms hold, interaction cancellation",
+    "Same-gesture expansion/scroll handoff, wheel expansion, collapse, dismissal",
+    "Banner geometry retained during scrolling",
+    "All/Topics/Replies/Likes, action-specific excerpts/timestamps, non-bold titles",
+    "Other-person and own-page navigation, fresh-card reset, independent split panes",
+    "Server pagination, like/authored-post deduplication, stale account responses",
+    "Existing dock hint motion and reduced-motion behavior"
+  ],
+  "limits": [
+    "No physical-device or signed-in live-forum session was exercised.",
+    "The activity endpoint does not supply topic participant strips, tag lists, or aggregate topic counts. Those mockup details are not fabricated. Category and action-time metadata are shown when supplied."
+  ]
+}

@@ -215,7 +215,7 @@ void main() {
           expect(request.url.queryParameters, {
             'offset': '0',
             'username': 'sam',
-            'filter': '4,5',
+            'filter': '4,5,1',
             'limit': '${DiscourseApi.maximumUserActivityPageSize}',
           });
           return {

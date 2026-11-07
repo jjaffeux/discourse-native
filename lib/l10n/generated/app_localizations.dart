@@ -94,6 +94,30 @@ abstract class AppLocalizations {
   /// A list of this localizations delegate's supported locales.
   static const List<Locale> supportedLocales = <Locale>[Locale('en')];
 
+  /// Hint below a person’s card.
+  ///
+  /// In en, this message translates to:
+  /// **'Swipe up to view activity'**
+  String get swipeUpToViewActivity;
+
+  /// Open this person’s activity page.
+  ///
+  /// In en, this message translates to:
+  /// **'View activity'**
+  String get viewActivity;
+
+  /// Action kicker for a liked post in user activity.
+  ///
+  /// In en, this message translates to:
+  /// **'Liked {username}\'\'s post'**
+  String activityLikedPost(String username);
+
+  /// Title of another person’s activity page.
+  ///
+  /// In en, this message translates to:
+  /// **'{name}\'\'s activity'**
+  String personActivity(String name);
+
   /// Keyboard hint for cycling through global search result types.
   ///
   /// In en, this message translates to:
@@ -11453,8 +11477,8 @@ abstract class AppLocalizations {
   /// English UI message used by shell/user_activity.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Topics you create and replies you post will appear here. Likes, bookmarks, reads, and drafts have their own lists.'**
-  String get topicsYouCreateAndRepliesYouPostWillAppearHereLikes;
+  /// **'Topics, replies, and liked posts appear here.'**
+  String get activityHistoryDescription;
 
   /// English UI message used by shell/user_activity.dart. Keep placeholders intact.
   ///

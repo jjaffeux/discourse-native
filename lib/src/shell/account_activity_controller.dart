@@ -87,7 +87,31 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get otherNotificationsListenable => _otherNotificationChanges;
   Listenable get bookmarksListenable => _bookmarkChanges;
   Listenable get bookmarkListListenable => _bookmarkListOwner;
-  Listenable get userActivityListenable => _userActivityOwner;
+  final _personActivityChanges = _ActivityAspect();
+  final Map<(String, String), UserActivityOwner> _personActivityOwners = {};
+  late final _activityListenable = Listenable.merge([
+    _userActivityOwner,
+    _personActivityChanges,
+  ]);
+  Listenable get userActivityListenable => _activityListenable;
+
+  UserActivityOwner _activityOwner(String siteUrl, String? username) {
+    if (username == null) return _userActivityOwner;
+    final key = (siteUrl, username.toLowerCase());
+    return _personActivityOwners.putIfAbsent(
+      key,
+      () => UserActivityOwner(
+        api: api,
+        credentials: credentials,
+        lifecycle: lifecycle,
+        username: username,
+        changed: () {
+          _personActivityChanges.changed();
+          notifySafely();
+        },
+      ),
+    );
+  }
 
   final Map<String, NotificationReconciliation> _reconciliations = {};
   late final _notifications = NotificationFeedSlot.notifications(
@@ -184,8 +208,10 @@ final class AccountActivityController extends FrameSafeNotifier {
   BookmarkListFeed bookmarkListFor(String? siteUrl) =>
       _bookmarkListOwner.feedFor(siteUrl);
 
-  UserActivityFeed userActivityFor(String? siteUrl) =>
-      _userActivityOwner.feedFor(siteUrl);
+  UserActivityFeed userActivityFor(String? siteUrl, {String? username}) =>
+      siteUrl == null
+      ? const UserActivityFeed()
+      : _activityOwner(siteUrl, username).feedFor(siteUrl);
 
   static const int userActivityPageSize = UserActivityOwner.pageSize;
 
@@ -631,10 +657,11 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   Future<void> loadUserActivity(
     DiscourseInstance instance, {
+    String? username,
     bool refresh = false,
     bool loadMore = false,
     bool loadPrevious = false,
-  }) => _userActivityOwner.load(
+  }) => _activityOwner(instance.url, username).load(
     instance,
     refresh: refresh,
     loadMore: loadMore,
@@ -769,6 +796,13 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     final hadBookmarkList = _bookmarkListOwner.retire(siteUrl);
     final hadUserActivity = _userActivityOwner.retire(siteUrl);
+    final retired = _personActivityOwners.keys
+        .where((key) => key.$1 == siteUrl)
+        .toList();
+    for (final key in retired) {
+      _personActivityOwners.remove(key)!.dispose();
+    }
+    if (retired.isNotEmpty) _personActivityChanges.changed();
     _totalsRefreshes.remove(siteUrl)?.retire();
     _notificationLoads.remove(siteUrl)?.finish();
     _replyNotificationLoads.remove(siteUrl)?.finish();
@@ -839,6 +873,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     _bookmarkChanges.dispose();
     _bookmarkListOwner.dispose();
     _userActivityOwner.dispose();
+    for (final owner in _personActivityOwners.values) {
+      owner.dispose();
+    }
+    _personActivityOwners.clear();
+    _personActivityChanges.dispose();
     super.dispose();
   }
 }

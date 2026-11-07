@@ -61,8 +61,21 @@ final sheetExamples = ComponentExamples(
       'while waiting so placeholders do not trigger short-content margins. '
       'Set initiallyExpanded: true to open at the content height, capped by '
       'the available viewport, without a lower detent for that opening. '
+      'A card can set restAt to the GlobalKey on its content: the lower detent '
+      'ends six points above the bottom safe area. DSheetSwipeHint below that '
+      'content peeks by 40 points after 700ms, holds for 3700ms, and returns '
+      'on the 460ms spring. Interaction cancels the automatic motion. '
+      'Card expansion hands excess movement to the content in the same gesture. '
       'Other snap-point compositions use Drawer.',
   examples: [
+    StyleguideExample(
+      title: 'Resting card with activity',
+      description:
+          'The sheet initially ends at the card. Swipe or scroll upward to reveal more.',
+      code:
+          'DSheetContent(variant: DSheetVariant.adaptiveMenu, restAt: cardKey, scrollWholeSheet: true, children: [cardAndActivity])',
+      builder: (_) => const _RestingCardSheet(),
+    ),
     StyleguideExample(
       title: 'Corner actions',
       description:
@@ -1077,6 +1090,66 @@ class _AccessorySheetState extends State<_AccessorySheet> {
           child: Text(
             'Move between items with the arrows beside this sheet. Both controls keep their place at either end.',
           ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _RestingCardSheet extends StatefulWidget {
+  const _RestingCardSheet();
+  @override
+  State<_RestingCardSheet> createState() => _RestingCardSheetState();
+}
+
+class _RestingCardSheetState extends State<_RestingCardSheet> {
+  final _card = GlobalKey();
+  @override
+  Widget build(BuildContext context) => DSheet<void>(
+    trigger: DSheetTrigger(
+      builder: (_, open) =>
+          DButton(label: const Text('Open card'), onPressed: open),
+    ),
+    content: DSheetContent(
+      side: DSheetSide.bottom,
+      variant: DSheetVariant.adaptiveMenu,
+      restAt: _card,
+      card: true,
+      showCloseButton: false,
+      scrollWholeSheet: true,
+      children: [
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              key: _card,
+              padding: const EdgeInsets.fromLTRB(16, 32, 16, 8),
+              child: const DEmpty(
+                children: [
+                  DEmptyHeader(
+                    children: [
+                      DEmptyTitle('Sam Example'),
+                      DEmptyDescription('@sam · Community guide'),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const DSheetSwipeHint(label: 'Swipe up to view activity'),
+            for (var i = 0; i < 12; i++)
+              DItem(
+                children: [
+                  DItemContent(
+                    children: [
+                      DItemTitle(child: Text('Activity ${i + 1}')),
+                      const DItemDescription(
+                        child: Text('A post in the community'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+          ],
         ),
       ],
     ),

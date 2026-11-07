@@ -367,7 +367,8 @@ final class DiscourseAccountApi {
         'username': username,
         'filter':
             '${UserActivityItem.topicActionType},'
-            '${UserActivityItem.replyActionType}',
+            '${UserActivityItem.replyActionType},'
+            '${UserActivityItem.likeActionType}',
         'limit': '$limit',
       },
     );

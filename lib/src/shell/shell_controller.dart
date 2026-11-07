@@ -2949,9 +2949,11 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<void> loadUserActivity(String siteUrl) async {
+  Future<void> loadUserActivity(String siteUrl, {String? username}) async {
     final instance = _instanceAt(siteUrl);
-    if (instance != null) await accountActivity.loadUserActivity(instance);
+    if (instance != null) {
+      await accountActivity.loadUserActivity(instance, username: username);
+    }
   }
 
   late final _topicTracking = TopicTrackingDirectory(
@@ -9215,15 +9217,24 @@ class ShellController extends FrameSafeNotifier
     pushContent(ContentRoute.appearance());
   }
 
-  void openUserActivity(String siteUrl) {
+  void openUserActivity(
+    String siteUrl, {
+    String? username,
+    String? displayName,
+  }) {
     final index = _instances.indexWhere((instance) => instance.url == siteUrl);
     if (index < 0) return;
     if (index != _instanceIndex) selectInstance(index);
-    if (_instances[index].isConnected != true ||
-        currentContent?.isPage(CorePage.activity) == true) {
-      return;
-    }
-    pushContent(ContentRoute.userActivity());
+    if (_instances[index].isConnected != true) return;
+    final own =
+        _instances[index].user?.username.toLowerCase() ==
+        username?.toLowerCase();
+    pushContent(
+      ContentRoute.userActivity(
+        username: own ? null : username,
+        displayName: displayName,
+      ),
+    );
   }
 
   Future<void> resumeDraft(
