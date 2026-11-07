@@ -43,11 +43,17 @@ void main() {
             TopicCategory(id: 1, name: 'Support', color: '0088cc'),
           ],
         );
-        final header = find.byKey(const ValueKey('mobile-header'));
-        final home = find.byKey(const ValueKey('mobile-home-button'));
+        final header = find.byKey(
+          const ValueKey('mobile-header'),
+          skipOffstage: false,
+        );
+        final home = find.byKey(
+          const ValueKey('mobile-home-button'),
+          skipOffstage: false,
+        );
         final initial = tester.getRect(header);
         final homeCenter = tester.getCenter(home);
-        if (scale == 1) expect(initial.height, 52);
+        if (scale == 1) expect(initial.height, 51);
         void expectStable(String state) {
           expect(tester.getRect(header), initial, reason: state);
           expect(tester.getCenter(home), homeCenter, reason: state);

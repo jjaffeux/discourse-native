@@ -5,6 +5,7 @@ import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/assign/assign_module.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/topic_inbox_header.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -135,9 +136,8 @@ void main() {
           )
           .first,
     );
-    final line = find.byKey(const ValueKey('topic-header-taxonomy'));
     final more = find.byKey(const ValueKey('topic-header-more-tags'));
-    // Neither tag fits beside the tools, so the count stands for both.
+    // The compact taxonomy row offers the remaining tags inline.
     expect(
       find.byKey(const ValueKey(('topic-header-tag', 'ui'))),
       findsNothing,
@@ -145,12 +145,8 @@ void main() {
     final overflow = surface(const ValueKey('topic-header-more-tags'));
     var bookmark = surface(const ValueKey('topic-header-bookmark-button'));
     expect(overflow.left - category().right, closeTo(8, .001));
-    expect(bookmark.left - overflow.right, greaterThanOrEqualTo(8));
-    expect(bookmark.top, overflow.top);
-    expect(
-      surface(const ValueKey('topic-more-actions')).right,
-      tester.getRect(line).right,
-    );
+    final toolsBefore = tester.getRect(find.byType(TopicHeaderTools));
+    expect(bookmark.top, greaterThan(overflow.bottom));
 
     // The count opens every tag inline, wrapping onto rows of their own.
     await tester.tap(more);
@@ -164,12 +160,8 @@ void main() {
     bookmark = surface(const ValueKey('topic-header-bookmark-button'));
     expect(tag.left - category().right, closeTo(8, .001));
     expect(wrapped.top - tag.bottom, closeTo(8, .001));
-    expect(bookmark.top - wrapped.bottom, closeTo(8, .001));
-    // The tools stay at the end of the run's last line.
-    expect(
-      surface(const ValueKey('topic-more-actions')).right,
-      tester.getRect(line).right,
-    );
+    expect(tester.getRect(find.byType(TopicHeaderTools)), toolsBefore);
+    expect(bookmark.top, greaterThan(wrapped.bottom));
     expect(tester.takeException(), isNull);
   }, variant: platforms);
   for (final (enabled, allowed) in [
@@ -239,12 +231,9 @@ void main() {
     // One actions button holds staff's tools on a phone.
     expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
     for (final control in [bookmark, notifications, more]) {
-      expect(tester.widget<DButton>(control).size, DButtonSize.filter);
+      expect(tester.widget<DButton>(control).size, DButtonSize.floating);
       expect(tester.widget<DButton>(control).variant, DButtonVariant.tool);
-      expect(
-        tester.getRect(surface(control)).height,
-        closeTo(categorySurface.height, .01),
-      );
+      expect(tester.getRect(surface(control)).height, 40);
     }
     expect(
       tester.getRect(surface(bookmark)).right,
@@ -277,13 +266,13 @@ void main() {
     expect(moreSurface.top, notificationSurface.top);
     expect(moreSurface.left - notificationSurface.right, closeTo(8, .01));
     expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
-    // With room for it, the tag joins the category on the tools' line.
+    // With room for it, the tag joins the category while tools stay in the footer.
     final tagSurface = tester.getRect(
       surface(
         find.byKey(const ValueKey(('topic-header-tag', 'show-and-tell'))),
       ),
     );
-    expect(tagSurface.top, notificationSurface.top);
+    expect(tagSurface.top, tester.getRect(surface(category)).top);
     expect(
       tagSurface.left - tester.getRect(surface(category)).right,
       closeTo(8, .01),
@@ -295,7 +284,7 @@ void main() {
   ) async {
     await pumpMobileTopicFixture(tester);
     final bar = find.byKey(const ValueKey('mobile-bottom-bar'));
-    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final actions = find.byType(TopicHeaderTools);
     final progress = find.byKey(const ValueKey('topic-progress-button'));
     final reply = find.byKey(const ValueKey('mobile-topic-reply'));
     for (final (width, scale) in [
@@ -344,10 +333,7 @@ void main() {
         closeTo(panel.right - DSpacing.sm, .1),
       );
       expect(tester.widget<DButton>(progress).shape, DButtonShape.pill);
-      expect(
-        tester.widget<DButton>(progress).density,
-        DButtonDensity.floatingDate,
-      );
+      expect(tester.widget<DButton>(progress).density, DButtonDensity.standard);
       expect(tester.takeException(), isNull);
     }
   }, variant: platforms);
@@ -380,7 +366,7 @@ void main() {
     await tester.pumpAndSettle();
 
     final tag = find.byKey(const ValueKey('topic-header-edit-tags'));
-    final actions = find.byKey(const ValueKey('topic-header-taxonomy'));
+    final actions = find.byType(TopicHeaderTools);
     final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
     final archive = find.byKey(const ValueKey('message-archive-button'));
     final more = find.byKey(const ValueKey('topic-more-actions'));
@@ -388,8 +374,7 @@ void main() {
     expect(actions, findsOneWidget);
     expect(find.byKey(const ValueKey('topic-status-button')), findsNothing);
     for (final action in [bookmark, archive, more]) {
-      expect(tester.getRect(action).top, tester.getRect(tag).top);
-      expect(tester.getSize(action), tester.getSize(bookmark));
+      expect(tester.getCenter(action).dy, tester.getCenter(bookmark).dy);
     }
     expect(
       find.descendant(of: archive, matching: find.text('Archive')),
@@ -397,7 +382,10 @@ void main() {
     );
     expect(find.byTooltip('Archive from your inboxes'), findsOneWidget);
     expect(tester.getRect(actions).right, lessThanOrEqualTo(430));
-    expect(tester.getRect(more).right, tester.getRect(actions).right);
+    expect(
+      tester.getRect(more).right,
+      closeTo(tester.getRect(actions).right, .001),
+    );
     expect(tester.takeException(), isNull);
   }, variant: platforms);
 

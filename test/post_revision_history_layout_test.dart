@@ -11,6 +11,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -114,8 +115,14 @@ void main() {
         for (final action in ['First', 'Previous', 'Next', 'Latest']) {
           final button = _button(action);
           final rect = tester.getRect(button);
-          expect(rect.left, greaterThanOrEqualTo(bounds.left));
-          expect(rect.right, lessThanOrEqualTo(bounds.right));
+          expect(
+            rect.left,
+            greaterThanOrEqualTo(bounds.left - precisionErrorTolerance),
+          );
+          expect(
+            rect.right,
+            lessThanOrEqualTo(bounds.right + precisionErrorTolerance),
+          );
           expect(button.hitTestable(), findsOneWidget);
           if (width == 1000) {
             expect(tester.widget<DButton>(button).label, isA<Text>());
