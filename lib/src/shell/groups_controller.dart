@@ -933,8 +933,8 @@ final class GroupsController extends FrameSafeNotifier {
     try {
       final auth = await _credentialsFor(instance, token);
       if (auth == null || !_current(token)) return;
-      final before = more && held.posts.isNotEmpty
-          ? held.posts.last.createdAt
+      final beforePostId = more && held.posts.isNotEmpty
+          ? held.posts.last.id
           : null;
       final page = mentions
           ? await auth.run(
@@ -943,7 +943,7 @@ final class GroupsController extends FrameSafeNotifier {
                 groupName: groupName,
                 apiKey: auth.apiKey,
                 clientId: auth.apiKey == null ? null : auth.clientId,
-                before: before,
+                beforePostId: beforePostId,
               ),
             )
           : await auth.run(
@@ -952,7 +952,7 @@ final class GroupsController extends FrameSafeNotifier {
                 groupName: groupName,
                 apiKey: auth.apiKey,
                 clientId: auth.apiKey == null ? null : auth.clientId,
-                before: before,
+                beforePostId: beforePostId,
               ),
             );
       _commit(token, () {
@@ -960,13 +960,17 @@ final class GroupsController extends FrameSafeNotifier {
         if (current == null) return;
         final rows = more ? [...current.posts] : <GroupActivityPost>[];
         final seen = {for (final post in rows) post.id};
+        var added = 0;
         for (final post in page.posts) {
-          if (seen.add(post.id)) rows.add(post);
+          if (seen.add(post.id)) {
+            rows.add(post);
+            added++;
+          }
         }
         _activities[key] = GroupActivityState(
           posts: List.unmodifiable(rows),
           hasMore:
-              page.hasMore && (before == null || page.before!.isBefore(before)),
+              page.hasMore && added > 0 && page.beforePostId != beforePostId,
           loaded: true,
         );
       });

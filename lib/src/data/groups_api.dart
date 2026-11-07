@@ -170,7 +170,7 @@ final class GroupsApi {
     required String siteUrl,
     required String groupName,
     String? apiKey,
-    DateTime? before,
+    int? beforePostId,
     int? categoryId,
     String? clientId,
   }) => _activity(
@@ -178,7 +178,7 @@ final class GroupsApi {
     apiKey: apiKey,
     groupName: groupName,
     kind: 'posts',
-    before: before,
+    beforePostId: beforePostId,
     categoryId: categoryId,
     clientId: clientId,
   );
@@ -187,7 +187,7 @@ final class GroupsApi {
     required String siteUrl,
     required String groupName,
     String? apiKey,
-    DateTime? before,
+    int? beforePostId,
     int? categoryId,
     String? clientId,
   }) => _activity(
@@ -195,7 +195,7 @@ final class GroupsApi {
     apiKey: apiKey,
     groupName: groupName,
     kind: 'mentions',
-    before: before,
+    beforePostId: beforePostId,
     categoryId: categoryId,
     clientId: clientId,
   );
@@ -708,17 +708,18 @@ final class GroupsApi {
     required String? apiKey,
     required String groupName,
     required String kind,
-    required DateTime? before,
+    required int? beforePostId,
     required int? categoryId,
     required String? clientId,
   }) async {
+    if (beforePostId != null) _positiveId(beforePostId, 'beforePostId');
     if (categoryId != null) _positiveId(categoryId, 'categoryId');
     final body = await _get(
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
       path: _withQuery('/groups/${_groupName(groupName)}/$kind.json', {
-        if (before != null) 'before': before.toUtc().toIso8601String(),
+        if (beforePostId != null) 'before_post_id': '$beforePostId',
         if (categoryId != null) 'category_id': '$categoryId',
       }),
     );

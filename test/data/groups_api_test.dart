@@ -159,14 +159,14 @@ void main() {
       final activity = await api.mentions(
         siteUrl: siteUrl,
         groupName: 'support',
-        before: DateTime.utc(2026, 8, 28, 10, 30),
+        beforePostId: 42,
         categoryId: 4,
       );
 
       final activityUri = Uri.parse(transport.gets.single.path);
       expect(activityUri.path, '/groups/support/mentions.json');
       expect(activityUri.queryParameters, {
-        'before': '2026-08-28T10:30:00.000Z',
+        'before_post_id': '42',
         'category_id': '4',
       });
       expect(activity.posts.single.id, 5);

@@ -649,8 +649,9 @@ final class GroupActivityPage {
   final List<TopicCategory> categories;
   final int rawPostCount;
 
-  bool get hasMore => rawPostCount == pageSize && before != null;
-  DateTime? get before => posts.isEmpty ? null : posts.last.createdAt;
+  bool get hasMore => rawPostCount == pageSize && beforePostId != null;
+  int? get beforePostId =>
+      posts.isEmpty || posts.last.id <= 0 ? null : posts.last.id;
 }
 
 enum GroupPermissionType {

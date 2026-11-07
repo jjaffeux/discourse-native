@@ -1367,8 +1367,84 @@ void main() {
     },
   );
 
+  for (final mentions in [false, true]) {
+    test(
+      'activity paginates posts tied at the timestamp boundary, mentions=$mentions',
+      () async {
+        final transport = _ControlledGroupTransport();
+        transport.onGet = (path) {
+          final query = Uri.parse(path).queryParameters;
+          final beforeId = int.tryParse(query['before_post_id'] ?? '');
+          // Model the server's strict timestamp filter and its stable ID cursor.
+          final ids = query.containsKey('before')
+              ? <int>[]
+              : [
+                  for (var id = 41; id > 0; id--)
+                    if (beforeId == null || id < beforeId) id,
+                ];
+          transport.objects.add(
+            _completed({
+              'posts': [
+                for (final id in ids.take(20))
+                  {
+                    'id': id,
+                    'topic_id': id,
+                    'created_at': '2026-09-01T12:00:00Z',
+                  },
+              ],
+            }),
+          );
+        };
+        final controller = _controller(transport);
+        addTearDown(controller.dispose);
+        await controller.loadActivity(_instance, 'support', mentions: mentions);
+        await controller.loadActivity(
+          _instance,
+          'support',
+          mentions: mentions,
+          more: true,
+        );
+        expect(
+          controller.activityState(_site, 'support', mentions: mentions).posts,
+          hasLength(40),
+        );
+        expect(
+          controller
+              .activityState(_site, 'support', mentions: mentions)
+              .hasMore,
+          isTrue,
+        );
+        await controller.loadActivity(
+          _instance,
+          'support',
+          mentions: mentions,
+          more: true,
+        );
+        final state = controller.activityState(
+          _site,
+          'support',
+          mentions: mentions,
+        );
+        expect(state.posts.map((post) => post.id), [
+          for (var id = 41; id > 0; id--) id,
+        ]);
+        expect(state.hasMore, isFalse);
+        expect(
+          transport.gets.map(
+            (request) => Uri.parse(request.path).queryParameters,
+          ),
+          [
+            <String, String>{},
+            {'before_post_id': '22'},
+            {'before_post_id': '2'},
+          ],
+        );
+      },
+    );
+  }
+
   test(
-    'activity stops when a full page repeats the same timestamp cursor',
+    'activity stops when a full page repeats the same post cursor',
     () async {
       final payload = <String, dynamic>{
         'posts': [
@@ -1483,7 +1559,7 @@ void main() {
         expect(transport.gets, hasLength(2));
         final request = Uri.parse(transport.gets.last.path);
         expect(request.path, '/groups/support/$kind.json');
-        expect(request.queryParameters, {'before': '2026-09-01T12:00:00.000Z'});
+        expect(request.queryParameters, {'before_post_id': '20'});
 
         await controller.loadActivity(
           _instance,
@@ -1495,7 +1571,7 @@ void main() {
       },
     );
 
-    test('$kind stops when a mixed page has no final timestamp', () async {
+    test('$kind stops when a mixed page has no final post ID', () async {
       final transport = _ControlledGroupTransport()
         ..objects.add(
           _completed({
@@ -1505,9 +1581,9 @@ void main() {
                   null
                 else
                   {
-                    'id': id,
+                    if (id < 20) 'id': id,
                     'topic_id': id,
-                    if (id < 20) 'created_at': '2026-09-01T12:00:00Z',
+                    'created_at': '2026-09-01T12:00:00Z',
                   },
             ],
           }),
