@@ -368,6 +368,235 @@ void main() {
   }
 
   test(
+    'a matching replacement requested during retirement joins the pending target',
+    () async {
+      final fixture = _Fixture();
+      final incoming = _Fixture();
+      final runtime = _runtime(
+        fixture.dependencies(
+          store: FakeInstanceStore([instance('one.example')]),
+        ),
+      );
+      final next = incoming.dependencies();
+      final nested = <bool>[];
+      try {
+        await runtime.start(runtime.controller);
+        final original = runtime.controller;
+        original.lifecycle.capture('https://one.example').onRetire(() {
+          nested.add(runtime.replace(next));
+        });
+        expect(runtime.replace(next), isTrue);
+        expect(nested, [false]);
+        expect(runtime.controller, isNot(same(original)));
+        expect(runtime.controller.api.lifecycle, same(incoming.api));
+        await _turn();
+        expect(fixture.api.closeCalls, 1);
+        expect(incoming.api.closeCalls, 0);
+      } finally {
+        runtime.dispose();
+        await _turn();
+      }
+    },
+  );
+
+  test(
+    'failed replacement retires old resources without adopting incoming dependencies',
+    () async {
+      final events = <String>[];
+      final sessionGate = Completer<void>();
+      final pluginGate = Completer<void>();
+      final probe = _LifecycleProbe(
+        closeGate: pluginGate.future,
+        events: events,
+      );
+      final session = _SessionProbe(gate: sessionGate.future, events: events);
+      final fixture = _Fixture(api: _ClosingApi(events));
+      final runtime = _runtime(
+        fixture.dependencies(
+          store: FakeInstanceStore([instance('one.example')]),
+          manifest: PluginManifest([
+            _Module(
+              probe,
+              session: () => PluginSessionContribution(lifecycle: session),
+            ),
+          ]),
+        ),
+      );
+      final incoming = _Fixture();
+      final incomingProbe = _LifecycleProbe();
+      final nestedFixture = _Fixture();
+      final nestedTarget = nestedFixture.dependencies();
+      final nestedResults = <bool>[];
+      var incomingInstalled = 0;
+      final next = incoming.dependencies(
+        manifest: PluginManifest([
+          _Module(incomingProbe, onRegister: () => incomingInstalled++),
+        ]),
+      );
+      var cancellations = 0;
+      final urls = StreamController<String>(
+        sync: true,
+        onCancel: () => cancellations++,
+      );
+      runtime.listenNotificationOpens(urls.stream);
+      final oldController = runtime.controller;
+      final oldPlugins = oldController.plugins;
+      final failure = StateError('first retirement observer');
+      final originalStack = StackTrace.fromString(
+        'replacement-retirement-origin',
+      );
+      try {
+        await runtime.start(oldController);
+        final lease = oldController.lifecycle.capture('https://one.example');
+        lease.onRetire(() {
+          nestedResults.add(runtime.replace(nestedTarget));
+          runtime.dispose();
+          Error.throwWithStackTrace(failure, originalStack);
+        });
+        lease.onRetire(() => throw StateError('later retirement observer'));
+        Object? caught;
+        StackTrace? caughtStack;
+        try {
+          runtime.replace(next);
+        } catch (error, stackTrace) {
+          caught = error;
+          caughtStack = stackTrace;
+        }
+        expect(caught, same(failure));
+        expect(nestedResults, [false]);
+        expect(nestedFixture.api.closeCalls, 0);
+        expect(
+          caughtStack.toString(),
+          contains('replacement-retirement-origin'),
+        );
+        await _turn();
+        expect(cancellations, 1);
+        expect(runtime.controller, same(oldController));
+        expect(incomingInstalled, 0);
+        expect(incoming.api.closeCalls, 0);
+        expect(incomingProbe.closes, 0);
+        expect(events, ['session']);
+        final oldStates = List.of(probe.states);
+        final oldFlushes = probe.flushes;
+        runtime.observeAppState('paused', foreground: false);
+        await runtime.start(oldController);
+        expect(runtime.replace(next), isFalse);
+        runtime.dispose();
+        runtime.dispose();
+        await _turn();
+        expect(probe.states, oldStates);
+        expect(probe.flushes, oldFlushes);
+        expect(incomingInstalled, 0);
+        expect(fixture.api.closeCalls, 0);
+        sessionGate.complete();
+        await _turn();
+        expect(events, ['session', 'plugin']);
+        expect(fixture.api.closeCalls, 0);
+        pluginGate.complete();
+        await _turn();
+        expect(events, ['session', 'plugin', 'api']);
+        expect(fixture.api.closeCalls, 1);
+        expect(probe.closes, 1);
+        expect(incoming.api.closeCalls, 0);
+      } finally {
+        if (!sessionGate.isCompleted) sessionGate.complete();
+        if (!pluginGate.isCompleted) pluginGate.complete();
+        try {
+          runtime.dispose();
+        } catch (_) {}
+        await oldPlugins.close();
+        await urls.close();
+        await _turn();
+      }
+    },
+  );
+
+  test(
+    'disposal during replacement is completed by the transition owner',
+    () async {
+      final fixture = _Fixture();
+      final incoming = _Fixture();
+      final next = incoming.dependencies();
+      final runtime = _runtime(
+        fixture.dependencies(
+          store: FakeInstanceStore([instance('one.example')]),
+        ),
+      );
+      try {
+        await runtime.start(runtime.controller);
+        final oldController = runtime.controller;
+        oldController.lifecycle
+            .capture('https://one.example')
+            .onRetire(runtime.dispose);
+        expect(runtime.replace(next), isFalse);
+        expect(runtime.controller, same(oldController));
+        await oldController.pluginTeardown;
+        await _turn();
+        expect(fixture.api.closeCalls, 1);
+        expect(incoming.api.closeCalls, 0);
+        expect(runtime.replace(next), isFalse);
+        await runtime.start(oldController);
+        runtime.dispose();
+        await _turn();
+        expect(fixture.api.closeCalls, 1);
+        expect(incoming.api.closeCalls, 0);
+      } finally {
+        runtime.dispose();
+        await _turn();
+      }
+    },
+  );
+
+  test(
+    'failed replacement leaves injected plugin installations with their owners',
+    () async {
+      final oldProbe = _LifecycleProbe();
+      final incomingProbe = _LifecycleProbe();
+      final oldPlugins = PluginInstaller.install(
+        PluginManifest([_Module(oldProbe)]),
+      );
+      final incomingPlugins = PluginInstaller.install(
+        PluginManifest([_Module(incomingProbe)]),
+      );
+      final fixture = _Fixture();
+      final incoming = _Fixture();
+      final runtime = _runtime(
+        fixture.dependencies(
+          store: FakeInstanceStore([instance('one.example')]),
+          plugins: oldPlugins,
+        ),
+      );
+      try {
+        await runtime.start(runtime.controller);
+        final failure = StateError('retirement failed');
+        runtime.controller.lifecycle
+            .capture('https://one.example')
+            .onRetire(() => throw failure);
+        expect(
+          () =>
+              runtime.replace(incoming.dependencies(plugins: incomingPlugins)),
+          throwsA(same(failure)),
+        );
+        await runtime.controller.pluginTeardown;
+        await _turn();
+        expect(fixture.api.closeCalls, 1);
+        expect(oldProbe.closes, 0);
+        expect(incoming.api.closeCalls, 0);
+        expect(incomingProbe.closes, 0);
+        expect(incomingProbe.phases, isEmpty);
+        runtime.dispose();
+        await _turn();
+        expect(fixture.api.closeCalls, 1);
+      } finally {
+        runtime.dispose();
+        await oldPlugins.close();
+        await incomingPlugins.close();
+        await _turn();
+      }
+    },
+  );
+
+  test(
     'retirement waits for session then plugin before closing transport',
     () async {
       final events = <String>[];
@@ -458,10 +687,11 @@ final class _Fixture {
 }
 
 final class _Module implements PluginModule {
-  const _Module(this.lifecycle, {this.session});
+  const _Module(this.lifecycle, {this.session, this.onRegister});
 
   final PluginAppLifecycle lifecycle;
   final PluginSessionContribution Function()? session;
+  final void Function()? onRegister;
 
   @override
   PluginDescriptor get descriptor =>
@@ -469,6 +699,7 @@ final class _Module implements PluginModule {
 
   @override
   void register(PluginRegistrar registrar) {
+    onRegister?.call();
     registrar.addAppLifecycle(lifecycle);
     final build = session;
     if (build != null) registrar.addSession((_, _) => build());

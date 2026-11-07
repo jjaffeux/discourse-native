@@ -123,6 +123,7 @@ final class AppRuntime {
   bool _foreground;
   String _lifecycleState;
   bool _disposed = false;
+  bool _replacing = false;
   final _notificationIngress = _NotificationIngress();
 
   ShellController get controller => _controller;
@@ -150,74 +151,116 @@ final class AppRuntime {
         : _dependencies.initialRootMode,
   );
 
+  /// A retirement failure terminates this runtime without adopting new services.
+  /// Old resources still close in teardown order; the original failure is rethrown.
+  /// Reentrant requests return false without changing the pending target.
   bool replace(AppRuntimeDependencies dependencies) {
-    if (_disposed) return false;
+    if (_disposed || _replacing) return false;
     final previous = _dependencies;
+    // Record flag-only changes without adopting any service resources.
     _dependencies = dependencies;
     if (dependencies._hasSameServicesAs(previous)) return false;
 
-    _notificationIngress.unavailable();
-    final previousController = _controller;
-    final previousPlugins = _plugins;
-    final previousOwnsPlugins = _ownsPlugins;
-    previousController.dispose();
-    final pluginsChanged = !dependencies._hasSamePluginsAs(previous);
-    final previousTeardown = pluginsChanged && previousOwnsPlugins
-        ? _closePlugins(
-            previousPlugins,
-            after: previousController.pluginTeardown,
-          )
-        : _settled(previousController.pluginTeardown);
-    if (pluginsChanged) {
-      _plugins =
-          _dependencies.plugins ??
-          PluginInstaller.install(_dependencies.pluginManifest);
-      _ownsPlugins = _dependencies.plugins == null;
-    }
-    if (!identical(_dependencies.store, previous.store) ||
-        (pluginsChanged && _dependencies.store == null)) {
-      _store =
-          _dependencies.store ??
-          InstanceStore(
-            models: _plugins.models,
-            basicAuth: HttpBasicAuthStore.instance,
+    _replacing = true;
+    try {
+      _notificationIngress.unavailable();
+      final previousController = _controller;
+      final previousPlugins = _plugins;
+      final previousOwnsPlugins = _ownsPlugins;
+      final previousApi = _api;
+      try {
+        previousController.dispose();
+      } catch (error, stackTrace) {
+        // A disposed controller cannot be restored to service after a failure.
+        final retireIngress = !_disposed;
+        _disposed = true;
+        _dependencies = previous;
+        try {
+          if (retireIngress) _notificationIngress.dispose();
+        } finally {
+          _closeServices(
+            previousController,
+            plugins: previousPlugins,
+            ownsPlugins: previousOwnsPlugins,
+            api: previousApi,
           );
+          Error.throwWithStackTrace(error, stackTrace);
+        }
+      }
+      if (_disposed) {
+        _dependencies = previous;
+        _closeServices(
+          previousController,
+          plugins: previousPlugins,
+          ownsPlugins: previousOwnsPlugins,
+          api: previousApi,
+        );
+        return false;
+      }
+      final pluginsChanged = !dependencies._hasSamePluginsAs(previous);
+      final previousTeardown = pluginsChanged && previousOwnsPlugins
+          ? _closePlugins(
+              previousPlugins,
+              after: previousController.pluginTeardown,
+            )
+          : _settled(previousController.pluginTeardown);
+      if (pluginsChanged) {
+        _plugins =
+            _dependencies.plugins ??
+            PluginInstaller.install(_dependencies.pluginManifest);
+        _ownsPlugins = _dependencies.plugins == null;
+      }
+      if (!identical(_dependencies.store, previous.store) ||
+          (pluginsChanged && _dependencies.store == null)) {
+        _store =
+            _dependencies.store ??
+            InstanceStore(
+              models: _plugins.models,
+              basicAuth: HttpBasicAuthStore.instance,
+            );
+      }
+      if (!identical(_dependencies.api, previous.api) ||
+          (pluginsChanged && _dependencies.api == null)) {
+        _closeApiAfter(previousApi, previousTeardown);
+        _api = _dependencies.api ?? DiscourseApi(models: _plugins.models);
+      }
+      if (!identical(_dependencies.authenticator, previous.authenticator)) {
+        _authenticator = _dependencies.authenticator ?? Authenticator();
+      }
+      if (!identical(
+        _dependencies.appSettingsStore,
+        previous.appSettingsStore,
+      )) {
+        _appSettingsStore =
+            _dependencies.appSettingsStore ?? AppSettingsStore();
+      }
+      if (!identical(
+        _dependencies.forumSettingsStore,
+        previous.forumSettingsStore,
+      )) {
+        _forumSettingsStore =
+            _dependencies.forumSettingsStore ?? ForumSettingsStore();
+      }
+      if (!identical(_dependencies.drafts, previous.drafts)) {
+        _drafts = _dependencies.drafts ?? DraftStore();
+      }
+      if (!identical(_dependencies.forumTabs, previous.forumTabs)) {
+        _forumTabs = _dependencies.forumTabs ?? ForumTabStore();
+      }
+      if (!identical(_dependencies.trackers, previous.trackers)) {
+        _trackers = _dependencies.trackers ?? SiteTracker.new;
+      }
+      if (!identical(_dependencies.updater, previous.updater)) {
+        _updater = _dependencies.updater ?? const UnsupportedUpdater();
+      }
+      if (!identical(_dependencies.updateStore, previous.updateStore)) {
+        _updateStore = _dependencies.updateStore ?? UpdateStore();
+      }
+      _controller = _createController()..setForeground(_foreground);
+      return true;
+    } finally {
+      _replacing = false;
     }
-    if (!identical(_dependencies.api, previous.api) ||
-        (pluginsChanged && _dependencies.api == null)) {
-      _closeApiAfter(_api, previousTeardown);
-      _api = _dependencies.api ?? DiscourseApi(models: _plugins.models);
-    }
-    if (!identical(_dependencies.authenticator, previous.authenticator)) {
-      _authenticator = _dependencies.authenticator ?? Authenticator();
-    }
-    if (!identical(_dependencies.appSettingsStore, previous.appSettingsStore)) {
-      _appSettingsStore = _dependencies.appSettingsStore ?? AppSettingsStore();
-    }
-    if (!identical(
-      _dependencies.forumSettingsStore,
-      previous.forumSettingsStore,
-    )) {
-      _forumSettingsStore =
-          _dependencies.forumSettingsStore ?? ForumSettingsStore();
-    }
-    if (!identical(_dependencies.drafts, previous.drafts)) {
-      _drafts = _dependencies.drafts ?? DraftStore();
-    }
-    if (!identical(_dependencies.forumTabs, previous.forumTabs)) {
-      _forumTabs = _dependencies.forumTabs ?? ForumTabStore();
-    }
-    if (!identical(_dependencies.trackers, previous.trackers)) {
-      _trackers = _dependencies.trackers ?? SiteTracker.new;
-    }
-    if (!identical(_dependencies.updater, previous.updater)) {
-      _updater = _dependencies.updater ?? const UnsupportedUpdater();
-    }
-    if (!identical(_dependencies.updateStore, previous.updateStore)) {
-      _updateStore = _dependencies.updateStore ?? UpdateStore();
-    }
-    _controller = _createController()..setForeground(_foreground);
-    return true;
   }
 
   Future<void> start(ShellController expectedController) async {
@@ -293,15 +336,34 @@ final class AppRuntime {
     if (_disposed) return;
     _disposed = true;
     _notificationIngress.dispose();
+    // The active replacement owns retirement and service cleanup.
+    if (_replacing) return;
     final controller = _controller;
+    final plugins = _plugins;
+    final ownsPlugins = _ownsPlugins;
+    final api = _api;
     try {
       controller.dispose();
     } finally {
-      final teardown = _ownsPlugins
-          ? _closePlugins(_plugins, after: controller.pluginTeardown)
-          : _settled(controller.pluginTeardown);
-      _closeApiAfter(_api, teardown);
+      _closeServices(
+        controller,
+        plugins: plugins,
+        ownsPlugins: ownsPlugins,
+        api: api,
+      );
     }
+  }
+
+  void _closeServices(
+    ShellController controller, {
+    required InstalledPlugins plugins,
+    required bool ownsPlugins,
+    required ShellApiCapabilities api,
+  }) {
+    final teardown = ownsPlugins
+        ? _closePlugins(plugins, after: controller.pluginTeardown)
+        : _settled(controller.pluginTeardown);
+    _closeApiAfter(api, teardown);
   }
 
   Future<void> _observePluginAppState(
