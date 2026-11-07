@@ -151,7 +151,7 @@ final class _UploadProjection implements ComposerBlockSyntaxProjection {
         selected: context.highlighted,
         child: ListenableBuilder(
           key: context.pillKey,
-          listenable: composer,
+          listenable: composer.uploadChanges,
           builder: (context, _) {
             final upload = composer.uploads
                 .where((upload) => upload.id == id)

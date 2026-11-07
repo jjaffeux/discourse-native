@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/upload_attachment.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -297,6 +298,7 @@ void main() {
   ) async {
     final preparation = Completer<PreparedComposerUpload>();
     final transfer = Completer<ComposerUploadResult>();
+    late void Function(double) progress;
     final file = ComposerUploadFile(
       name: 'movie.mov',
       length: () async => 10,
@@ -312,6 +314,7 @@ void main() {
       ),
       prepareUpload: (file, {required abortTrigger}) => preparation.future,
       imageUploader: (file, {required onProgress, required abortTrigger}) {
+        progress = onProgress;
         onProgress(.4);
         return transfer.future;
       },
@@ -320,15 +323,7 @@ void main() {
     composer.addFiles([file], 0);
     await tester.pumpWidget(
       MaterialApp(
-        home: Scaffold(
-          body: ListenableBuilder(
-            listenable: composer,
-            builder: (context, _) => ComposerUploadAttachment(
-              composer: composer,
-              upload: composer.uploads.single,
-            ),
-          ),
-        ),
+        home: Scaffold(body: ComposerUploadQueue(composer: composer)),
       ),
     );
     expect(find.text('Optimizing video…'), findsOneWidget);
@@ -337,6 +332,15 @@ void main() {
     expect(find.text('Optimizing video…'), findsNothing);
     expect(find.textContaining('40%'), findsOneWidget);
     expect(find.byTooltip('Cancel upload'), findsOneWidget);
+    progress(.7);
+    await tester.pump();
+    expect(find.textContaining('70%'), findsOneWidget);
+    await tester.tap(find.byTooltip('Cancel upload'));
+    await tester.pump();
+    expect(find.byType(DAttachment), findsNothing);
+    progress(.9);
+    await tester.pump();
+    expect(find.byType(DAttachment), findsNothing);
   });
 
   testWidgets('an uploaded wide image decodes tall enough to cover its '

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
 import '../../../models/composer_upload.dart';
@@ -110,6 +111,8 @@ class ComposerDocumentBodyController extends ComposerController {
       parent.uploadPlaceholders;
   @override
   List<ComposerUploadItem> get uploads => parent.uploads;
+  @override
+  Listenable get uploadChanges => parent.uploadChanges;
   @override
   bool get hasActiveUploads => parent.hasActiveUploads;
 

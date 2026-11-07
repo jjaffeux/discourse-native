@@ -2386,13 +2386,13 @@ void main() {
       final editorField = find.byWidgetPredicate(
         (widget) => widget is TextField && widget.controller == composer.text,
       );
-      final fieldBeforePicker = tester.widget<TextField>(editorField);
+      final fieldBeforePicker = tester.element(editorField);
       await tester.tap(find.text('Upload new images'));
       await tester.pump();
       expect(
-        tester.widget<TextField>(editorField),
+        tester.element(editorField),
         same(fieldBeforePicker),
-        reason: 'picker progress should rebuild only the media overlay',
+        reason: 'picker progress preserves the editor element',
       );
 
       final captured = composer.text.galleryBlocks.single;
@@ -2418,6 +2418,16 @@ void main() {
       picker.complete([_file]);
       await tester.pump();
       expect(calls, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 300));
+      final fieldBeforeProgress = tester.widget<TextField>(editorField);
+      calls.single.onProgress(0.37);
+      await tester.pump();
+      expect(
+        tester.widget<TextField>(editorField),
+        same(fieldBeforeProgress),
+        reason: 'upload progress does not rebuild the editor',
+      );
+      expect(find.text('Uploading · 37%'), findsOneWidget);
       calls.single.result.complete(
         const ComposerUploadResult(
           id: 73,

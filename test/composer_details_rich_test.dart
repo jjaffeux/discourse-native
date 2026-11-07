@@ -36,6 +36,9 @@ final _file = ComposerUploadFile(
 );
 
 class _Upload {
+  _Upload(this.progress);
+
+  final void Function(double) progress;
   final result = Completer<ComposerUploadResult>();
   bool aborted = false;
 }
@@ -79,7 +82,7 @@ Future<({ComposerController root, List<_Upload> uploads})> _pump(
       topicTitle: 'Topic',
     ),
     imageUploader: (file, {required onProgress, required abortTrigger}) {
-      final upload = _Upload();
+      final upload = _Upload(onProgress);
       uploads.add(upload);
       unawaited(abortTrigger.then((_) => upload.aborted = true));
       return upload.result.future;
@@ -336,6 +339,9 @@ void main() {
       expect(fixture.root.hasActiveUploads, isTrue);
       expect(fixture.root.canSubmit, isFalse);
       expect(find.byType(DAttachment), findsOneWidget);
+      fixture.uploads.single.progress(.42);
+      await tester.pump();
+      expect(find.text('Uploading · 42%'), findsOneWidget);
       expect(fixture.root.draft.reply, isNot(contains('upload-')));
       expect(
         parseComposerDetails(fixture.root.text.text).single.body,

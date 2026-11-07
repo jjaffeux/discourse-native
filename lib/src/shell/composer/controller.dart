@@ -1095,6 +1095,13 @@ class ComposerController extends ChangeNotifier
       _uploadTransactions.uploadPlaceholders;
 
   List<ComposerUploadItem> get uploads => _uploadTransactions.uploads;
+  final _uploadProgress = ValueNotifier<int>(0);
+  late final _uploadChanges = Listenable.merge([this, _uploadProgress]);
+
+  /// Upload lifecycle and progress changes, without rebuilding the document
+  /// for each network progress update.
+  Listenable get uploadChanges => _uploadChanges;
+
   ComposerUploadPreview? uploadPreview(int id) =>
       _uploadTransactions.previewFor(id);
   List<ComposerUploadResult> get completedUploads =>
@@ -2598,6 +2605,7 @@ class ComposerController extends ChangeNotifier
     _disposed = true;
     _clearTagRemovalNotice();
     _uploadTransactions.dispose();
+    _uploadProgress.dispose();
     _wait?.cancel();
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
@@ -2639,6 +2647,8 @@ final class _ComposerUploadEditor {
 
   void amendHistory(VoidCallback change) => _composer.history.amend(change);
   void showNotice(String message) => _composer.showNotice(message);
+
+  void progressChanged() => _composer._uploadProgress.value++;
 
   void changed({bool affectsSubmission = false}) {
     if (affectsSubmission) _composer._recomputeCanSubmit();

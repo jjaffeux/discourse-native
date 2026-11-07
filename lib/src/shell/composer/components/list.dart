@@ -951,6 +951,8 @@ class ComposerListBodyController extends ComposerController {
   @override
   List<ComposerUploadItem> get uploads => parent.uploads;
   @override
+  Listenable get uploadChanges => parent.uploadChanges;
+  @override
   bool get hasActiveUploads => parent.hasActiveUploads;
   @override
   void addFiles(

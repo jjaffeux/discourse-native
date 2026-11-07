@@ -261,6 +261,7 @@ void main() {
                 ))
                 .load();
             final upload = Completer<ComposerUploadResult>();
+            late void Function(double) progress;
             final root = await pumpEditor(
               tester,
               '- [ ] Task',
@@ -271,8 +272,10 @@ void main() {
                 fontFamily: font,
               ),
               imageUploader:
-                  (file, {required onProgress, required abortTrigger}) =>
-                      upload.future,
+                  (file, {required onProgress, required abortTrigger}) {
+                    progress = onProgress;
+                    return upload.future;
+                  },
             );
             Rect textRect() {
               final render = tester
@@ -303,6 +306,9 @@ void main() {
             ], body.text.text.length);
             await tester.pump();
             final pending = textRect();
+            progress(.42);
+            await tester.pump();
+            expect(find.text('Uploading · 42%'), findsOneWidget);
             upload.complete(
               const ComposerUploadResult(
                 id: 1,

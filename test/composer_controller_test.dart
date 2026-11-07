@@ -3299,6 +3299,9 @@ void main() {
       }
 
       composer.dispose();
+      for (final call in calls) {
+        call.onProgress(.9);
+      }
       await tester.pump();
 
       expect(aborted, 2);

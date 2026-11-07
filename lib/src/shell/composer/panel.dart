@@ -4833,8 +4833,9 @@ class ComposerUploadQueue extends StatelessWidget {
   final ComposerController composer;
 
   @override
-  Widget build(BuildContext context) {
-    return Container(
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: composer.uploadChanges,
+    builder: (context, _) => Container(
       constraints: const BoxConstraints(maxHeight: 132),
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 6),
       child: ListView.separated(
@@ -4849,8 +4850,8 @@ class ComposerUploadQueue extends StatelessWidget {
           );
         },
       ),
-    );
-  }
+    ),
+  );
 }
 
 Color _composerFooterColor(BuildContext context) =>

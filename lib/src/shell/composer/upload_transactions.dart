@@ -358,7 +358,7 @@ final class _ComposerUploadTransactions {
             _uploads[current] = _uploads[current].copyWith(
               progress: progress.clamp(previous, 1),
             );
-            _editor.changed();
+            _editor.progressChanged();
           },
         );
       }).then(
