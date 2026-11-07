@@ -846,7 +846,8 @@ void main() {
 
     await tester.pumpWidget(app(newPlugins));
     await tester.pumpAndSettle();
-    expect(newOpened, isEmpty);
+    expect(newOpened, [url, url]);
+    expect(pending.isCompleted, isFalse);
     pending.complete(false);
     await tester.pumpAndSettle();
 

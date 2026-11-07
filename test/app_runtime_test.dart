@@ -272,6 +272,101 @@ void main() {
     },
   );
 
+  for (final lateFailure in [false, true]) {
+    test(
+      'replacement resumes notification delivery before retired navigation ${lateFailure ? 'fails' : 'finishes'}',
+      () async {
+        final connected = instance(
+          'one.example',
+        ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
+        final pending = Completer<bool>();
+        final currentDelivery = Completer<bool>();
+        const first = 'https://one.example/t/pending/42';
+        const second = 'https://one.example/t/queued/43';
+        const third = 'https://one.example/t/new/44';
+        const fourth = 'https://one.example/t/serial/45';
+        final opened = <(int, String)>[];
+        var session = 0;
+        final module = _Module(
+          _LifecycleProbe(),
+          session: () {
+            final identity = ++session;
+            return PluginSessionContribution(
+              lifecycle: _SessionProbe(),
+              capabilities: [
+                _LinkHandler((url) {
+                  opened.add((identity, url));
+                  if (identity == 1) return pending.future;
+                  return url == third
+                      ? currentDelivery.future
+                      : Future.value(true);
+                }),
+              ],
+            );
+          },
+        );
+        final manifest = PluginManifest([module]);
+        final fixture = _Fixture();
+        final auth = FakeAuthenticator.signedIn([connected], site: fixture.api);
+        final runtime = _runtime(
+          fixture.dependencies(
+            store: FakeInstanceStore([connected]),
+            authenticator: auth,
+            manifest: manifest,
+          ),
+        );
+        final urls = StreamController<String>(sync: true);
+        runtime.listenNotificationOpens(urls.stream);
+        try {
+          await runtime.start(runtime.controller);
+          urls.add(first);
+          await _turn();
+          expect(opened, [(1, first)]);
+          runtime.replace(
+            fixture.dependencies(
+              store: FakeInstanceStore([connected]),
+              authenticator: auth,
+              manifest: manifest,
+            ),
+          );
+          urls.add(second);
+          await runtime.start(runtime.controller);
+          await _turn();
+          expect(pending.isCompleted, isFalse);
+          expect(opened, [(1, first), (2, first), (2, second)]);
+          urls.add(third);
+          await _turn();
+          expect(opened, [(1, first), (2, first), (2, second), (2, third)]);
+          urls.add(fourth);
+          if (lateFailure) {
+            pending.completeError(
+              StateError('late retired navigation failure'),
+            );
+          } else {
+            pending.complete(true);
+          }
+          await _turn();
+          expect(opened, [(1, first), (2, first), (2, second), (2, third)]);
+          currentDelivery.complete(true);
+          await _turn();
+          expect(opened, [
+            (1, first),
+            (2, first),
+            (2, second),
+            (2, third),
+            (2, fourth),
+          ]);
+        } finally {
+          if (!pending.isCompleted) pending.complete(false);
+          if (!currentDelivery.isCompleted) currentDelivery.complete(false);
+          runtime.dispose();
+          await urls.close();
+          await _turn();
+        }
+      },
+    );
+  }
+
   test(
     'retirement waits for session then plugin before closing transport',
     () async {
