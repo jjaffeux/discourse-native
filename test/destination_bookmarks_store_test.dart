@@ -33,6 +33,42 @@ const _chat = ContentRoute(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('reload and mutations share one transaction order', () async {
+    final persistence = _HeldReadBookmarksPersistence();
+    final store = DestinationBookmarksStore(persistence: persistence);
+    await store.load();
+    persistence.hold = true;
+    final reload = store.load();
+    await persistence.started.future;
+    final mutation = store.set(
+      _site,
+      _account,
+      DestinationBookmark.fromRoute(_page)!,
+      bookmarked: true,
+    );
+    // Observe the result even on the old implementation, where it rejects
+    // instead of waiting for hydration.
+    Object? failure;
+    bool? changed;
+    final observed = mutation.then<void>(
+      (value) {
+        changed = value;
+      },
+      onError: (Object error) {
+        failure = error;
+      },
+    );
+    await pumpEventQueue();
+    persistence.release.complete();
+    await Future.wait([reload, observed]);
+    expect(failure, isNull);
+    expect(changed, isTrue);
+    final reopened = DestinationBookmarksStore(persistence: persistence);
+    persistence.hold = false;
+    await reopened.load();
+    expect(reopened.entriesFor(_site, _account).single.route, _page);
+  });
+
   test(
     'typed identities collapse category entrypoints and exclude server targets',
     () {
@@ -267,6 +303,30 @@ class _GatedPersistence implements DestinationBookmarksPersistence {
   @override
   Future<bool> write(String value) async {
     if (++writes == 1 && !await first.future) return false;
+    this.value = value;
+    return true;
+  }
+}
+
+final class _HeldReadBookmarksPersistence
+    implements DestinationBookmarksPersistence {
+  bool hold = false;
+  final started = Completer<void>();
+  final release = Completer<void>();
+  String? value;
+
+  @override
+  Future<String?> read() async {
+    final snapshot = value;
+    if (hold) {
+      started.complete();
+      await release.future;
+    }
+    return snapshot;
+  }
+
+  @override
+  Future<bool> write(String value) async {
     this.value = value;
     return true;
   }

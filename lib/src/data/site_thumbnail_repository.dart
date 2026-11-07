@@ -141,8 +141,10 @@ class SiteThumbnailRepository {
       final extraction = generator!(source.url);
       job.extraction = extraction;
       bytes = await Future.any([extraction.result, job.result.future]);
-      if (bytes != null && (bytes.isEmpty || bytes.length > 2 * 1024 * 1024)) {
-        bytes = null;
+      if (bytes != null) {
+        bytes = bytes.isEmpty || bytes.length > 2 * 1024 * 1024
+            ? null
+            : Uint8List.fromList(bytes).asUnmodifiableView();
       }
     } on Object {
       // Unavailable uploads, failed rendering and missing platform bridges
@@ -159,8 +161,7 @@ class SiteThumbnailRepository {
       if (!job.result.isCompleted) {
         job.result.complete(job.lease.isCurrent && !_disposed ? bytes : null);
       }
-      job.resolver?.close();
-      job.extraction?.dispose();
+      _releaseResources(job);
       _active--;
       _pump();
     }
@@ -195,8 +196,24 @@ class SiteThumbnailRepository {
     job.removeRetirement = null;
     if (identical(_jobs[job.key], job)) _jobs.remove(job.key);
     if (!job.result.isCompleted) job.result.complete(null);
-    job.resolver?.close();
-    job.extraction?.dispose();
+    _releaseResources(job);
+  }
+
+  void _releaseResources(_ThumbnailJob job) {
+    final resolver = job.resolver;
+    final extraction = job.extraction;
+    job.resolver = null;
+    job.extraction = null;
+    try {
+      resolver?.close();
+    } on Object {
+      // Still release the extraction if its resolver failed to close.
+    }
+    try {
+      extraction?.dispose();
+    } on Object {
+      // Optional bridge cleanup must not strand scheduler capacity.
+    }
   }
 
   void forget(String siteUrl) {

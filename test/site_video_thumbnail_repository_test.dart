@@ -14,6 +14,48 @@ final _source = Uri.parse('$_site/uploads/clip.mp4');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'cached thumbnails own immutable bytes independently of their generator',
+    () async {
+      final harness = _Harness();
+      final request = harness.acquire();
+      await _flush();
+      final nativeBytes = Uint8List.fromList([1, 2, 3]);
+      harness.jobs.single.result.complete(nativeBytes);
+      final published = (await request.result)!;
+      nativeBytes[0] = 9;
+      expect(await harness.acquire().result, [1, 2, 3]);
+      expect(() => published[1] = 9, throwsUnsupportedError);
+      expect(await harness.acquire().result, [1, 2, 3]);
+    },
+  );
+
+  test(
+    'failed extraction cleanup cannot strand the next queued thumbnail',
+    () async {
+      final errors = <Object>[];
+      var started = 0;
+      await runZonedGuarded<Future<void>>(() async {
+        final harness = _Harness(maxConcurrent: 1, failRelease: true);
+        final first = harness.acquire();
+        final next = harness.acquire('next');
+        await _flush();
+        harness.jobs.first.result.complete(Uint8List.fromList([1]));
+        await first.result;
+        await _flush();
+        started = harness.jobs.length;
+        if (started > 1) {
+          harness.jobs.last.result.complete(Uint8List.fromList([2]));
+          await next.result;
+          await _flush();
+        }
+        harness.repository.dispose();
+      }, (error, stack) => errors.add(error));
+      expect(started, 2);
+      expect(errors, isEmpty);
+    },
+  );
+
   test('coalesces consumers and reuses successful thumbnails', () async {
     final harness = _Harness();
     final first = harness.acquire();
@@ -24,10 +66,10 @@ void main() {
     expect(harness.jobs.single.cancelled, isFalse);
     final bytes = Uint8List.fromList([1, 2, 3]);
     harness.jobs.single.result.complete(bytes);
-    expect(await first.result, same(bytes));
-    expect(await second.result, same(bytes));
+    expect(await first.result, orderedEquals(bytes));
+    expect(await second.result, same(await first.result));
     second.dispose();
-    expect(await harness.acquire().result, same(bytes));
+    expect(await harness.acquire().result, same(await first.result));
     expect(harness.jobs, hasLength(1));
   });
 
@@ -311,6 +353,7 @@ final class _Harness {
     int maxPending = 32,
     int maxCachedBytes = 1024,
     ApiCredentialReader? credentials,
+    bool failRelease = false,
   }) {
     repository = SiteVideoThumbnailRepository(
       credentials: credentials ?? FakeApiCredentialReader(),
@@ -322,10 +365,10 @@ final class _Harness {
       generator: (source) {
         final job = _Extraction(source);
         jobs.add(job);
-        return VideoThumbnailRequest(
-          job.result.future,
-          () => job.cancelled = true,
-        );
+        return VideoThumbnailRequest(job.result.future, () {
+          job.cancelled = true;
+          if (failRelease) throw StateError('native release failed');
+        });
       },
     );
     addTearDown(repository.dispose);

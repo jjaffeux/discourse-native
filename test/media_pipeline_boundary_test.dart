@@ -18,6 +18,8 @@ void main() {
     () async {
       final release = Completer<void>();
       final firstWaveStarted = Completer<void>();
+      final secondOriginStarted = Completer<void>();
+      final releaseSecondOrigin = Completer<void>();
       var active = 0;
       var maximumActive = 0;
       final activeByOrigin = <String, int>{};
@@ -40,9 +42,16 @@ void main() {
           if (active == 3 && !firstWaveStarted.isCompleted) {
             firstWaveStarted.complete();
           }
-          await release.future;
+          if (origin == 'https://two.test') {
+            if (originActive == 2 && !secondOriginStarted.isCompleted) {
+              secondOriginStarted.complete();
+            }
+            await releaseSecondOrigin.future;
+          } else {
+            await release.future;
+          }
           active--;
-          activeByOrigin[origin] = originActive - 1;
+          activeByOrigin[origin] = activeByOrigin[origin]! - 1;
           return http.Response.bytes([1], 200);
         }),
       );
@@ -67,6 +76,10 @@ void main() {
       expect(requests, hasLength(3));
 
       release.complete();
+      await secondOriginStarted.future;
+      expect(activeByOrigin['https://two.test'], 2);
+      expect(maximumActive, 3);
+      releaseSecondOrigin.complete();
       expect(await Future.wait(loads), everyElement(isNotNull));
       expect(maximumActive, 3);
       expect(maximumByOrigin, {'https://one.test': 2, 'https://two.test': 2});

@@ -59,7 +59,7 @@ final class ScalarPreferenceRepository<T extends Object> {
     Object? owner,
   }) : owner = owner ?? persistence;
 
-  static final SerialOperationQueue _operations = SerialOperationQueue();
+  static final _operations = ReadAfterWriteOperationQueue();
 
   final ScalarPreferencePersistence<T> persistence;
   final Object owner;
@@ -68,7 +68,7 @@ final class ScalarPreferenceRepository<T extends Object> {
   final bool Function()? isCurrent;
 
   Future<T?> read() =>
-      _operations.run(owner: owner, key: key, operation: _read);
+      _operations.read(owner: owner, key: key, operation: _read);
 
   Future<T?> _read() async {
     if (isCurrent?.call() == false) return null;
@@ -80,7 +80,7 @@ final class ScalarPreferenceRepository<T extends Object> {
     }
   }
 
-  Future<void> write(T value) => _operations.run<void>(
+  Future<void> write(T value) => _operations.write<void>(
     owner: owner,
     key: key,
     operation: () => _write(value),

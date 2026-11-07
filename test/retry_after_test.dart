@@ -8,6 +8,33 @@ void main() {
     final now = DateTime.utc(2026, 8, 24, 12);
     const maximum = Duration(hours: 1);
 
+    test(
+      'numeric delays saturate before integer overflow and retain cap precision',
+      () {
+        for (final header in [
+          '9999999999999999999999999999999999999999999999999',
+          '000000000000000000000000000000000000000000000002',
+        ]) {
+          expect(
+            parseRetryAfter(
+              header,
+              maximum: const Duration(milliseconds: 1500),
+              now: now,
+            ),
+            const Duration(milliseconds: 1500),
+          );
+        }
+        expect(
+          parseRetryAfter(
+            '1',
+            maximum: const Duration(milliseconds: 1500),
+            now: now,
+          ),
+          const Duration(seconds: 1),
+        );
+      },
+    );
+
     for (final serverDate in [
       null,
       '',

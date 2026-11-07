@@ -17,9 +17,18 @@ Duration? parseRetryAfter(
   final value = header?.trim();
   if (value == null || value.isEmpty) return null;
 
-  final seconds = int.tryParse(value);
-  if (seconds != null && seconds >= 0) {
-    return Duration(seconds: seconds.clamp(0, maximum.inSeconds));
+  if (RegExp(r'^[0-9]+$').hasMatch(value)) {
+    // Compare before converting: a valid delta-seconds value can exceed the
+    // machine integer range. It still means the configured maximum, not a
+    // missing header. Keep subsecond precision when applying that maximum.
+    final digits = value.replaceFirst(RegExp(r'^0+'), '');
+    if (digits.isEmpty) return Duration.zero;
+    final limit = maximum.inSeconds.toString();
+    if (digits.length > limit.length ||
+        (digits.length == limit.length && digits.compareTo(limit) > 0)) {
+      return maximum;
+    }
+    return Duration(seconds: int.parse(digits));
   }
 
   final date = _tryParseHttpDate(value);

@@ -7,6 +7,20 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('ScalarPreferenceRepository', () {
+    test('an abandoned hydration read does not hold later saves', () async {
+      final persistence = _HeldReadPersistence();
+      final repository = _repository(persistence);
+      final hydration = repository.read();
+      await pumpEventQueue();
+      final save = repository.write(360);
+      await pumpEventQueue();
+      final savedBeforeHydration = persistence.value;
+      persistence.readResult.complete(240);
+      await Future.wait([hydration, save]);
+      expect(savedBeforeHydration, 360);
+      expect(await repository.read(), 360);
+    });
+
     test('a read observes every already-requested write in order', () async {
       final persistence = _MemoryScalarPersistence(
         firstWriteGate: Completer<void>(),
@@ -157,6 +171,28 @@ final class _SidebarWidthPersistence implements SidebarWidthPersistence {
   Future<bool> writeWidth(double width) async {
     attemptedWrites.add(width);
     value = width;
+    return true;
+  }
+}
+
+final class _HeldReadPersistence
+    implements ScalarPreferencePersistence<double> {
+  final readResult = Completer<double?>();
+  double? value;
+  bool first = true;
+
+  @override
+  Future<double?> read(String key) {
+    if (first) {
+      first = false;
+      return readResult.future;
+    }
+    return Future.value(value);
+  }
+
+  @override
+  Future<bool> write(String key, double value) async {
+    this.value = value;
     return true;
   }
 }

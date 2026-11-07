@@ -13,6 +13,26 @@ import 'package:http/http.dart' as http;
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test('GET identity keys do not inherit mutable domain hash codes', () {
+    final session = _MutableIdentity();
+    final authentication = _MutableIdentity();
+    DiscourseGetRequestKey key() => DiscourseGetRequestKey(
+      Uri.parse('https://forum.example/topic.json'),
+      headers: const {'User-Api-Key': 'key'},
+      timeout: const Duration(seconds: 10),
+      maxResponseBytes: 100,
+      session: session,
+      authentication: authentication,
+    );
+    final original = key();
+    final requests = {original: 'in flight'};
+    session.revision++;
+    authentication.revision++;
+    final successor = key();
+    expect(successor, original);
+    expect(requests[successor], 'in flight');
+  });
+
   test(
     'full safe GET backlog promotes only the joined exchange and preserves zones',
     () async {
@@ -780,3 +800,13 @@ const _lanes = [
   (name: 'ordinary', transfer: false),
   (name: 'transfer', transfer: true),
 ];
+
+final class _MutableIdentity {
+  int revision = 0;
+
+  @override
+  int get hashCode => revision;
+
+  @override
+  bool operator ==(Object other) => identical(this, other);
+}

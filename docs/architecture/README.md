@@ -89,3 +89,9 @@ successor before the old request completes, complete old success and failure,
 and reenter during publication when the owner permits callbacks. Keep the
 resulting contract with its owner so future changes can distinguish intentional
 behavior from incidental sequencing.
+
+## Verified refinements
+
+[Ten verified ownership improvements](verified-owner-improvements.md) records
+the storage, request identity, and media scheduling changes, with before/after
+behavior and focused commands to reproduce their proof.

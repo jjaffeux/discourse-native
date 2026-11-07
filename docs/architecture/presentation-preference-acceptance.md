@@ -7,8 +7,13 @@ choices. Otherwise a nested newer choice is queued first and the outer older
 choice overwrites it after notification returns.
 
 `ComposerPresentationController`, `TopicPresentationController`, and
-`HeaderPreferencesController` follow this rule. Their public APIs and existing
-write queues are unchanged. Header updates still return the completion of their
+`HeaderPreferencesController` follow this rule. Their public APIs preserve
+accepted-choice ordering. Composer layout saves
+use the shared coalescing snapshot writer: only the newest pending layout is
+written, and superseded callers await that write. Reads wait for accepted saves.
+Scalar preferences use the read-after-write queue so an older hydration read
+does not delay a later save; controllers retain their hydration revision guards.
+Header updates still return the completion of their
 own accepted write. Composer changes with `persist: false` remain transient.
 Delayed hydration still uses each controller's existing revision or edited
 barrier. Retired account preference writes retain their storage guards.
