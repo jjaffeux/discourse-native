@@ -3086,8 +3086,11 @@ class ChatController extends FrameSafeNotifier {
     );
     if (ready != null) local = local.withProvisionalCooked(ready);
     _store.put(siteUrl, local);
-    _conversationFor(siteUrl, target);
-    for (final owner in _windowsFor(siteUrl, target)) {
+    final sendOwner = _conversationFor(siteUrl, target);
+    for (final owner in [
+      sendOwner,
+      ..._windowsFor(siteUrl, target).where((owner) => owner != sendOwner),
+    ]) {
       final held = owner.snapshot;
       owner.publish(
         held.copyWith(
