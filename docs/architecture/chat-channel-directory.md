@@ -8,7 +8,7 @@ Local and live channel mutations go through the directory so an in-flight snapsh
 
 Star and notification projections and rollback rebase only their fields onto the current channel. Metadata and status share a settings lock with separate live-echo flags. Full serializer replies contribute only the submitted settings. Read cursors, tracking, unrelated settings, and conflicting live edits survive delayed replies. Unmuting obtains fresh detail cursors before the existing live coordinator resumes messages.
 
-Retiring a directory disowns list/detail/resume work and channel writes together. A later account gets a new owner, so old response cleanup cannot finish its requests or undo its optimistic fields. The plugin lease exposes `isCurrent` and `commit`; it has no retirement callback. Every asynchronous boundary therefore checks the captured lease and the owner lifetime. Lookup replaces stale owners.
+Retiring a directory disowns list/detail/resume work and channel writes together. A later account gets a new owner, so old response cleanup cannot finish its requests or undo its optimistic fields. The directory checks the captured lease and owner lifetime at every asynchronous boundary. Active lookup replaces stale owners.
 
 `ChatLiveSyncCoordinator` continues to own subscriptions and view claims. `ChatSendCoordinator` continues to own outgoing reconciliation. `_ChatConversationStream` continues to own retained windows, Store pins, notices and receipt owner lifetimes. Directory replacement does not retire retained conversations. Channel revocation asks the directory to remove its listing/detail/resume state, then the controller performs the existing thread and conversation revocation policy.
 

@@ -9,7 +9,7 @@ behavior its focused tests protect.
 
 | Responsibility | Owning code | Contracts |
 | --- | --- | --- |
-| Construct and replace application services | `AppRuntime` | [Runtime replacement](runtime-replacement.md), [shutdown errors](account-retirement-errors.md) |
+| Construct, replace and dispose application services | `AppRuntime`, `ShellController` | [Runtime replacement](runtime-replacement.md), [shutdown errors](account-retirement-errors.md) |
 | Retire an account and scope its HTTP work | `SiteLifecycle`, `AccountSessionCoordinator`, `AccountRequestSession` | [Account requests](account-request-sessions.md), [read sessions](account-read-sessions.md) |
 | Implement HTTP behavior and domain endpoints | `DiscourseTransport`, independent domain API libraries | [Domain libraries](api-domain-libraries.md), [plugin transport](plugin-http-transport.md), [client identity](http-client-identity.md) |
 | Install plugin contributions and close a session | `InstalledPlugins`, `PluginSession` | [Session teardown](plugin-session-retirement.md) |
@@ -17,7 +17,7 @@ behavior its focused tests protect.
 | Reconcile current-user snapshots and confirmed preferences | `CurrentUserReconciler`, preference and profile owners | [Current user](current-user-reconciliation.md), [profile writes](profile-write-transactions.md) |
 | Retain notification totals, feeds, and read authority | `AccountActivityController` and its private account/request owners | [Reconciliation](notification-reconciliation.md), [totals](notification-totals-refresh.md), [feed loading](notification-feed-loading.md), [reminders](bookmark-reminder-loading.md), [pause](notification-pause-ownership.md) |
 | Deliver external notification navigation | `AppRuntime` notification ingress | [Destination lifetime](notification-ingress-lifetime.md) |
-| Retain global search documents and account results | `GlobalSearchController`, plugin search owners | [Core search lifetime](core-global-search-lifetime.md), [Chat search lifetime](chat-global-search-lifetime.md) |
+| Retain global search documents, account results and recent history | `GlobalSearchController`, `RecentSearchHistory`, plugin search owners | [Core search lifetime](core-global-search-lifetime.md), [Chat search lifetime](chat-global-search-lifetime.md) |
 | Retain appearance, emoji catalogs, and cooking inputs | `SitePresentationController`, `CookingContextOwner` | [Presentation sessions](presentation-sessions.md), [cooked rendering](../cooked-rendering.md) |
 | Retain composers, prepare openings, and coordinate saves | Composer opening owners, registry, controller, draft coordinator | [Composer architecture](../composer-architecture.md), [draft accounts](draft-account-ownership.md) |
 | Persist workspaces, recent visits, and local choices | Their dedicated stores and write queues | [Workspace snapshots](workspace-storage-snapshots.md), [recent hydration](recent-destination-hydration.md), [choice acceptance](presentation-preference-acceptance.md), [welcome claims](welcome-claim-ownership.md) |
@@ -26,16 +26,25 @@ behavior its focused tests protect.
 
 ## Keep identity with the state it governs
 
-An account session is more precise than a site URL. Retained in-memory account state must
-belong to its captured lease; a new account at the same URL must receive its
-own state and request admission. Keep a request token or completion beside the
-state it protects, rather than maintaining matching entries in several maps.
+An account session is more precise than a site URL. Retained account state uses
+its captured lease for request and write authority; a new account at the same
+URL must receive its own authority and request admission. Keep a request token
+or completion beside the state it protects, rather than maintaining matching
+entries in several maps.
 
-Retirement removes the exact owner before publishing a change. A callback may
-synchronously admit its successor. Late success, failure, or cleanup from the
-old owner must not erase or settle the successor's request. A caller's future
+Retire the exact account or request authority before publishing a change.
+Document handles, documented display fallbacks and accepted projections can
+remain readable according to the feature's contract; they do not establish
+current account permissions or freshness. A callback may synchronously admit a
+successor. Late success, failure, or cleanup from the old owner must not erase
+or settle the successor's request. A caller's future
 may still wait for physical I/O where that is the documented contract; losing
 publication authority and completing transport work are separate events.
+
+Distinguish passive cache queries from explicit resource admission. Passive
+getters read cached values or documented fallbacks without starting requests.
+Acquiring a ref or handle, or an explicit consumer load or refresh, may admit an
+owner; the feature's contract determines when network work starts.
 
 For accepted writes, preserve field authority against older reads. Confirmed
 state can differ from a pending draft or optimistic projection. Reuse the
