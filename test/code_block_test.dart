@@ -73,19 +73,22 @@ Future<void> pumpUntilKeywordPainted(WidgetTester tester, Finder line) async {
 
 void main() {
   group('CodeBlockData', () {
-    test('reads a git blob onebox as numbered lines', () {
-      final lines = parseBlock(blobOnebox).lines;
+    test(
+      'reads numbered, selected and highlighted git blob lines verbatim',
+      () {
+        final lines = parseBlock(blobOnebox).lines;
 
-      expect(lines.length, 4);
-      expect(lines.first.text, 'def self.get_from_url(url)');
-      expect(lines.first.number, 78);
-      expect(lines.last.number, 81);
-      expect(lines[2].text, isEmpty);
-    });
-
-    test('keeps indentation, which is the whole point of a code block', () {
-      expect(parseBlock(blobOnebox).lines[1].text, '  return if url.blank?');
-    });
+        expect(lines.length, 4);
+        expect(lines.first.text, 'def self.get_from_url(url)');
+        expect(lines.first.number, 78);
+        expect(lines.last.number, 81);
+        expect(lines[2].text, isEmpty);
+        expect(lines[1].text, '  return if url.blank?');
+        expect(lines[1].isSelected, isTrue);
+        expect(lines[0].isSelected, isFalse);
+        expect(lines.first.tokens.any((token) => token.scope != null), isTrue);
+      },
+    );
 
     test('source copy preserves authored whitespace boundaries', () {
       for (final source in [
@@ -130,27 +133,10 @@ void main() {
       }
     });
 
-    test('marks the lines the link pointed at', () {
-      final lines = parseBlock(blobOnebox).lines;
-
-      expect(lines[1].isSelected, isTrue);
-      expect(lines[0].isSelected, isFalse);
-    });
-
     test('reads the language off the code element', () {
       expect(parseBlock(blobOnebox).language, 'rb');
       expect(parseBlock(codeFence).language, 'ruby');
       expect(parseBlock('<pre><code>x</code></pre>').language, isNull);
-    });
-
-    test('highlights, without disturbing the lines or their numbers', () {
-      final lines = parseBlock(blobOnebox).lines;
-
-      expect(lines.first.tokens.any((token) => token.scope != null), isTrue);
-      expect(lines.length, 4);
-      expect(lines.first.number, 78);
-      expect(lines.first.text, 'def self.get_from_url(url)');
-      expect(lines[1].isSelected, isTrue);
     });
 
     test('reads an ordinary code fence, unnumbered', () {
