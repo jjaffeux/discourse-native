@@ -40,19 +40,33 @@ final class AppBootstrap {
   }) => AppBootstrap(host: _ProductionAppBootstrapHost(manifest));
 
   final AppBootstrapHost _host;
+  bool _admitted = false;
+  ({Object error, StackTrace stack})? _failure;
 
   void start() {
-    _host.ensureFlutterInitialized();
-    _host.installPreferencesStore();
-    _host.initializePlugins();
-    _host.launchApplication();
-    _host.scheduleAfterFirstFrame(() async {
-      await Future.wait([
-        _runDeferredInitialization(_host.initializeTimezoneEnvironment),
-        _runDeferredInitialization(_host.initializePersistentMediaCache),
-        _runDeferredInitialization(_host.restrictApplicationDirectories),
-      ]);
-    });
+    if (_failure case final failure?) {
+      Error.throwWithStackTrace(failure.error, failure.stack);
+    }
+    if (_admitted) return;
+    _admitted = true;
+    try {
+      _host.ensureFlutterInitialized();
+      _host.installPreferencesStore();
+      _host.initializePlugins();
+      _host.launchApplication();
+      _host.scheduleAfterFirstFrame(() async {
+        await Future.wait([
+          _runDeferredInitialization(_host.initializeTimezoneEnvironment),
+          _runDeferredInitialization(_host.initializePersistentMediaCache),
+          _runDeferredInitialization(_host.restrictApplicationDirectories),
+        ]);
+      });
+    } catch (error, stack) {
+      // Startup is not transactional: repeating partial installation can
+      // construct a second runtime or assign the production plugin graph twice.
+      _failure = (error: error, stack: stack);
+      rethrow;
+    }
   }
 
   Future<void> _runDeferredInitialization(

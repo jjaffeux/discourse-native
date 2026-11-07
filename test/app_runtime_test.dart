@@ -13,6 +13,71 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 void main() {
+  for (final duringListen in [true, false]) {
+    test(
+      'notification source ownership survives replacement during ${duringListen ? 'listen' : 'cancel'}',
+      () async {
+        final runtime = _runtime(_Fixture().dependencies());
+        final newest = StreamController<String>();
+        final attempted = StreamController<String>(
+          onListen: duringListen
+              ? () => runtime.listenNotificationOpens(newest.stream)
+              : null,
+        );
+        final first = StreamController<String>(
+          onCancel: duringListen
+              ? null
+              : () => runtime.listenNotificationOpens(newest.stream),
+        );
+        try {
+          if (!duringListen) runtime.listenNotificationOpens(first.stream);
+          runtime.listenNotificationOpens(attempted.stream);
+          expect(newest.hasListener, isTrue);
+          runtime.dispose();
+          await _turn();
+          expect(newest.hasListener, isFalse);
+          expect(attempted.hasListener, isFalse);
+          expect(first.hasListener, isFalse);
+        } finally {
+          runtime.dispose();
+          // Close all stream fixtures even on the defective baseline.
+          unawaited(first.close());
+          unawaited(attempted.close());
+          unawaited(newest.close());
+        }
+      },
+    );
+  }
+
+  test(
+    'notification cancellation failures cannot escape or block replacement',
+    () async {
+      final captured = <Object>[];
+      final done = Completer<void>();
+      unawaited(
+        runZonedGuarded(() async {
+          final runtime = _runtime(_Fixture().dependencies());
+          final broken = StreamController<String>(
+            onCancel: () => Future<void>.error(StateError('native cancel')),
+          );
+          final current = StreamController<String>();
+          try {
+            runtime.listenNotificationOpens(broken.stream);
+            runtime.listenNotificationOpens(current.stream);
+            runtime.dispose();
+            await _turn();
+          } finally {
+            unawaited(broken.close());
+            unawaited(current.close());
+            done.complete();
+          }
+        }, (error, _) => captured.add(error)),
+      );
+      await done.future;
+      expect(captured, isEmpty);
+    },
+  );
+
   test(
     'constructs and replaces services without a scheduler binding',
     () async {

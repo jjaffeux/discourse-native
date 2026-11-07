@@ -2,6 +2,48 @@ import 'package:discourse_native/src/app_bootstrap.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('startup admits one launch even when reentered by a host callback', () {
+    final host = _BootstrapHost();
+    final bootstrap = AppBootstrap(host: host);
+    var reentered = false;
+    host.onStage = (stage) {
+      if (stage == 'plugins' && !reentered) {
+        reentered = true;
+        bootstrap.start();
+      }
+    };
+    bootstrap.start();
+    bootstrap.start();
+    expect(host.calls, ['binding', 'preferences', 'plugins', 'launch']);
+    expect(host.schedules, 1);
+  });
+
+  test('a fatal startup attempt cannot repeat partial initialization', () {
+    final host = _BootstrapHost(failAt: 'plugins');
+    final bootstrap = AppBootstrap(host: host);
+    Object? first;
+    StackTrace? firstStack;
+    try {
+      bootstrap.start();
+    } catch (error, stack) {
+      first = error;
+      firstStack = stack;
+    }
+    Object? second;
+    StackTrace? secondStack;
+    try {
+      bootstrap.start();
+    } catch (error, stack) {
+      second = error;
+      secondStack = stack;
+    }
+    expect(first, same(host.failure));
+    expect(second, same(first));
+    expect(secondStack.toString(), firstStack.toString());
+    expect(host.calls, ['binding', 'preferences', 'plugins']);
+    expect(host.schedules, 0);
+  });
+
   test('launches before optional startup operations', () async {
     final host = _BootstrapHost();
 
@@ -48,10 +90,13 @@ final class _BootstrapHost implements AppBootstrapHost {
   final String? failAt;
   final failure = StateError('startup failed');
   final calls = <String>[];
+  void Function(String)? onStage;
+  int schedules = 0;
   Future<void> Function()? deferred;
 
   void _call(String stage) {
     calls.add(stage);
+    onStage?.call(stage);
     if (failAt == stage) throw failure;
   }
 
@@ -68,7 +113,10 @@ final class _BootstrapHost implements AppBootstrapHost {
   void launchApplication() => _call('launch');
 
   @override
-  void scheduleAfterFirstFrame(Future<void> Function() work) => deferred = work;
+  void scheduleAfterFirstFrame(Future<void> Function() work) {
+    schedules++;
+    deferred = work;
+  }
 
   @override
   Future<void> initializeTimezoneEnvironment() async => _call('timezone');
