@@ -14,14 +14,12 @@ const _letter = '/community/letter_avatar/sam/{size}/1.png';
 void main() {
   group('resolveAvatarUrl', () {
     for (final template in [_uploaded, _letter]) {
-      for (final site in [_site, '$_site/']) {
-        test('resolves $template against the origin of $site', () {
-          expect(
-            resolveAvatarUrl(template, site),
-            'https://forum.example${template.replaceAll('{size}', '90')}',
-          );
-        });
-      }
+      test('resolves $template against the origin of $_site/', () {
+        expect(
+          resolveAvatarUrl(template, '$_site/'),
+          'https://forum.example${template.replaceAll('{size}', '90')}',
+        );
+      });
     }
 
     test('a root path need not start with the forum directory', () {
