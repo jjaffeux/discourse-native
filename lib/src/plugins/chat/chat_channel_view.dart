@@ -962,7 +962,9 @@ class _StreamState extends State<ChatMessageStream>
     final top = row == null ? null : _topScrollOffsetOf(row);
     if (row == null || top == null) return;
 
-    final hold = (row: row, top: top, pixels: _scroll.position.pixels);
+    final messageId = row.widget.messages.firstOrNull?.value?.id;
+    if (messageId == null) return;
+    final hold = (top: top, pixels: _scroll.position.pixels);
     final token = _viewport.beginArrivalHold();
     // The sliver estimates offscreen rows. A correction can bring a row into
     // layout and refine that estimate, so retain the same anchor until settled.
@@ -971,18 +973,39 @@ class _StreamState extends State<ChatMessageStream>
         if (!mounted || !_viewport.isCurrentArrival(token)) return;
         if (!_scroll.hasClients ||
             _scroll.position.isScrollingNotifier.value ||
-            !_list.isAttached ||
-            !hold.row.mounted) {
+            !_list.isAttached) {
           _viewport.cancelArrivalHold();
           return;
         }
         final range = _list.visibleRange;
-        final index = hold.row.widget.index;
-        if (range == null || index < range.$1 || index > range.$2) {
+        final index = _rowOf(messageId);
+        if (index == null) {
           _viewport.cancelArrivalHold();
           return;
         }
-        final top = _topScrollOffsetOf(hold.row);
+        final row = _recentMessages._mountedRows
+            .where((row) => row.widget.index == index)
+            .firstOrNull;
+        if (range == null ||
+            index < range.$1 ||
+            index > range.$2 ||
+            row == null) {
+          if (attemptsLeft <= 1) {
+            _viewport.cancelArrivalHold();
+            return;
+          }
+          // Window trimming can evict the anchor while estimates are revised.
+          // Mount the same message again before measuring its new offset.
+          _adjustingArrival = true;
+          try {
+            _jumpToRow(index, .5);
+          } finally {
+            _adjustingArrival = false;
+          }
+          restore(attemptsLeft - 1);
+          return;
+        }
+        final top = _topScrollOffsetOf(row);
         if (top == null) {
           _viewport.cancelArrivalHold();
           return;

@@ -182,11 +182,19 @@ void main() {
       if (label == 'Threads') {
         await tester.tap(sidebarDestination(label));
       } else {
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-back')));
+        await tester.tap(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('chat-inbox-back')),
+          ),
+        );
         await tester.pumpAndSettle();
         if (label == 'Channels') {
           await tester.tap(
-            find.byKey(const ValueKey('chat-inbox-channels-card')),
+            find.descendant(
+              of: primaryMainContent,
+              matching: find.byKey(const ValueKey('chat-inbox-channels-card')),
+            ),
           );
         }
       }

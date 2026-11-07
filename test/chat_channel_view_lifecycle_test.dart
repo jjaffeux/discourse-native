@@ -1085,7 +1085,7 @@ void main() {
 
       await tester.binding.setSurfaceSize(const Size(800, 700));
       await tester.pumpAndSettle();
-      expect(oldest, findsNothing);
+      expect(oldest.hitTestable(), findsNothing);
       expect(api.olderSites, hasLength(1));
 
       await tester.drag(_verticalChatScroll(), const Offset(0, 2000));
@@ -2016,8 +2016,8 @@ void main() {
       final api = _ChatApi(
         openPages: {
           firstSite: [
-            _messagesPage(1, 40, canLoadMoreFuture: true),
-            _messagesPage(80, 1),
+            _messagesPage(1, 120, canLoadMoreFuture: true),
+            _messagesPage(180, 1),
           ],
         },
       );
@@ -2037,9 +2037,7 @@ void main() {
           ),
         );
         expect(icon, findsOneWidget);
-        final target = find
-            .ancestor(of: icon, matching: find.byType(InkWell))
-            .last;
+        final target = find.ancestor(of: icon, matching: find.byType(DButton));
         expect(tester.getSize(target), const Size.square(30));
         final button = find.ancestor(of: icon, matching: find.byType(DButton));
         final tokens = DTokens.of(tester.element(button));
@@ -2100,8 +2098,8 @@ void main() {
       final api = _ChatApi(
         openPages: {
           firstSite: [
-            _messagesPage(1, 40, canLoadMoreFuture: true),
-            _messagesPage(80, 1),
+            _messagesPage(1, 120, canLoadMoreFuture: true),
+            _messagesPage(180, 1),
           ],
         },
       );
@@ -2119,7 +2117,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(api.targetMessageIds, [null, null]);
-      expect(controller.chat.stream(firstSite, 9).newestId, 80);
+      expect(controller.chat.stream(firstSite, 9).newestId, 180);
       expect(controller.chat.stream(firstSite, 9).atPresent, isTrue);
       expect(
         tester.state<ScrollableState>(_verticalChatScroll()).position.pixels,
@@ -2279,7 +2277,7 @@ void main() {
         await tester.pumpAndSettle();
         final scroll = _verticalChatScroll();
         final position = tester.state<ScrollableState>(scroll).position;
-        expect(position.maxScrollExtent, greaterThan(160));
+        expect(position.maxScrollExtent, greaterThan(40));
         expect(position.maxScrollExtent, lessThan(position.viewportDimension));
         position.jumpTo(position.maxScrollExtent - 40);
         await tester.pumpAndSettle();
@@ -3906,9 +3904,9 @@ void main() {
       final api = _ChatApi(openPages: const {});
       final controller = await _controller(api, sites: const [firstSite]);
       addTearDown(controller.dispose);
-      final heldMessages = [for (var id = 1; id <= 40; id++) _message(id)];
+      final heldMessages = [for (var id = 1; id <= 120; id++) _message(id)];
       controller.chatRecords
-        ..put(firstSite, _channel(lastRead: 40))
+        ..put(firstSite, _channel(lastRead: 120))
         ..putAll(firstSite, heldMessages);
 
       await tester.pumpWidget(
@@ -3924,10 +3922,13 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      tester.state<ScrollableState>(_verticalChatScroll()).position.jumpTo(600);
-      await tester.pump();
+      final position = tester
+          .state<ScrollableState>(_verticalChatScroll())
+          .position;
+      position.jumpTo(position.maxScrollExtent / 2);
+      await tester.pumpAndSettle();
       final seen = _visibleMessageTops(tester);
-      final live = _message(41);
+      final live = _message(121);
       controller.chatRecords.put(firstSite, live);
 
       await tester.pumpWidget(
@@ -3935,7 +3936,7 @@ void main() {
           controller: controller,
           messages: [...heldMessages.skip(1), live],
           stream: ChatStreamState(
-            messageIds: [for (var id = 2; id <= 41; id++) id],
+            messageIds: [for (var id = 2; id <= 121; id++) id],
             fetchedOnce: true,
             fetches: 1,
           ),

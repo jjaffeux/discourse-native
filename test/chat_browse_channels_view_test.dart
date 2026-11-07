@@ -25,6 +25,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/ui/foundation/app_text_scaler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -886,7 +887,7 @@ void main() {
 
   group('ChatBrowseChannelsView on a phone', () {
     _mobileTest(
-      'a normal height keeps filters visible while the title retracts',
+      'a normal height keeps the filters pinned while the channel list scrolls',
       (tester) async {
         final api = await _pumpMobileBrowse(tester, phone);
         final filter = tester.getRect(_filter);
@@ -899,7 +900,7 @@ void main() {
         await tester.drag(_list, const Offset(0, -200));
         await tester.pumpAndSettle();
         expect(tester.getRect(_card(3)).top, lessThan(card.top));
-        expect(tester.getRect(_filter).top, lessThan(filter.top));
+        expect(tester.getRect(_filter).top, closeTo(filter.top, .001));
         expect(_filter.hitTestable(), findsOneWidget);
 
         await tester.fling(_list, const Offset(0, -6000), 6000);
@@ -1066,7 +1067,7 @@ void main() {
               closeTo(
                 DControlStyle.scaledHeight(
                   DControlSize.filter,
-                  MediaQuery.textScalerOf(tester.element(select)),
+                  DReferenceTextScale.scalerOf(tester.element(select)),
                   context: tester.element(select),
                 ),
                 0.01,
