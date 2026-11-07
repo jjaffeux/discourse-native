@@ -693,18 +693,157 @@ void main() {
       final initial = controller.load(_instance);
       await pumpEventQueue();
       lifecycle.invalidate(_siteUrl);
-      await controller.load(_instance, refresh: true);
-
-      api.pages.single.complete(const [_draft]);
+      final replacement = controller.load(_instance, refresh: true);
+      await pumpEventQueue();
+      expect(api.pages, hasLength(2));
+      api.pages.first.complete(const [_draft]);
       await initial;
       await pumpEventQueue();
       expect(api.pages, hasLength(2));
       expect(controller.feedFor(_siteUrl).drafts, isEmpty);
       api.pages[1].complete(const []);
-      await pumpEventQueue();
+      await replacement;
       expect(controller.feedFor(_siteUrl).loaded, isTrue);
       expect(controller.feedFor(_siteUrl).loading, isFalse);
     });
+
+    test(
+      'retired cached drafts disappear without explicit forgetting',
+      () async {
+        final api = _GatedDraftsApi();
+        final lifecycle = SiteLifecycle();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: lifecycle,
+        );
+        addTearDown(controller.dispose);
+        final load = controller.load(_instance);
+        await pumpEventQueue();
+        api.pages.single.complete(const [_draft]);
+        await load;
+        expect(controller.feedFor(_siteUrl).drafts, const [_draft]);
+        lifecycle.invalidate(_siteUrl);
+        expect(controller.feedFor(_siteUrl).drafts, isEmpty);
+        expect(controller.feedFor(_siteUrl).loaded, isFalse);
+      },
+    );
+
+    test(
+      'retired errors and tombstones do not affect a successor cursor',
+      () async {
+        final api = _GatedDraftsApi();
+        final lifecycle = SiteLifecycle();
+        final controller = DraftListController(
+          api: api,
+          credentials: _ReadyApiKeys(),
+          lifecycle: lifecycle,
+          limit: 1,
+        );
+        addTearDown(controller.dispose);
+        final old = controller.load(_instance);
+        await pumpEventQueue();
+        controller.recordDeleted(_siteUrl, _draft.key);
+        lifecycle.invalidate(_siteUrl);
+        final replacement = controller.load(_instance);
+        await pumpEventQueue();
+        expect(api.pages, hasLength(2));
+        api.pages.first.completeError(StateError('retired page'));
+        await old;
+        final duplicate = controller.load(_instance);
+        await duplicate;
+        expect(api.pages, hasLength(2));
+        api.pages[1].complete(const [_draft]);
+        await replacement;
+        final feed = controller.feedFor(_siteUrl);
+        expect(feed.drafts, const [_draft]);
+        expect(feed.error, isNull);
+        expect(feed.nextOffset, 1);
+        final more = controller.load(_instance);
+        await pumpEventQueue();
+        expect(api.offsets, [0, 0, 1]);
+        api.pages[2].complete(const []);
+        await more;
+      },
+    );
+
+    test('replacement deletion does not join a retired draft key', () async {
+      final lifecycle = SiteLifecycle();
+      final gates = <Completer<void>>[];
+      final guards = <bool Function()>[];
+      final controller = DraftListController(
+        api: _RecordingDraftsApi(),
+        credentials: _ReadyApiKeys(),
+        lifecycle: lifecycle,
+        deleteDraft: (_, _, isCurrent) {
+          guards.add(isCurrent);
+          final gate = Completer<void>();
+          gates.add(gate);
+          return gate.future;
+        },
+      );
+      addTearDown(controller.dispose);
+      final old = controller.delete(_instance, _draft);
+      expect(controller.deleting(_siteUrl, _draft.key), isTrue);
+      lifecycle.invalidate(_siteUrl);
+      expect(controller.deleting(_siteUrl, _draft.key), isFalse);
+      final replacement = controller.delete(_instance, _draft);
+      expect(gates, hasLength(2));
+      expect(guards.first(), isFalse);
+      expect(guards.last(), isTrue);
+      gates.first.completeError(StateError('retired deletion'));
+      expect(await old, isFalse);
+      expect(controller.deleting(_siteUrl, _draft.key), isTrue);
+      gates.last.complete();
+      expect(await replacement, isTrue);
+      expect(controller.deleting(_siteUrl, _draft.key), isFalse);
+      expect(controller.feedFor(_siteUrl).error, isNull);
+    });
+
+    for (final earlierObserver in [false, true]) {
+      test(
+        'retirement preserves a reentrant successor from earlier observer=$earlierObserver',
+        () async {
+          final lifecycle = SiteLifecycle();
+          final api = _GatedDraftsApi();
+          late final DraftListController controller;
+          Future<void>? successor;
+          var dispatched = false;
+          void replace() {
+            if (dispatched) return;
+            dispatched = true;
+            successor = controller.load(_instance);
+          }
+
+          if (earlierObserver) lifecycle.capture(_siteUrl).onRetire(replace);
+          controller = DraftListController(
+            api: api,
+            credentials: _ReadyApiKeys(),
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+          final initial = controller.load(_instance);
+          await pumpEventQueue();
+          if (!earlierObserver) {
+            controller.addListener(() {
+              if (controller.feedFor(_siteUrl).loaded || successor != null) {
+                return;
+              }
+              replace();
+            });
+          }
+          lifecycle.invalidate(_siteUrl);
+          await pumpEventQueue();
+          expect(api.pages, hasLength(2));
+          api.pages.first.completeError(StateError('retired'));
+          await initial;
+          api.pages.last.complete(const [_draft]);
+          await successor;
+          expect(controller.feedFor(_siteUrl).drafts, const [_draft]);
+          expect(controller.feedFor(_siteUrl).error, isNull);
+        },
+      );
+    }
 
     test('queues a live refresh received while a page is in flight', () async {
       final api = _GatedDraftsApi();

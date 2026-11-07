@@ -13,8 +13,6 @@ import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/user_draft.dart';
 
-typedef _DraftDeletionKey = ({String siteUrl, String draftKey});
-typedef _PendingDraftRefresh = ({DiscourseInstance instance, SiteLease lease});
 typedef ListedDraftDeleter =
     Future<void> Function(
       String siteUrl,
@@ -40,20 +38,36 @@ final class DraftListController extends FrameSafeNotifier {
   final SiteLifecycle lifecycle;
   final ListedDraftDeleter? deleteDraft;
 
-  final Map<String, DraftFeed> _feeds = {};
-  final Map<String, Object> _requests = {};
-  final Map<String, _PendingDraftRefresh> _pendingRefreshes = {};
-  final Map<_DraftDeletionKey, Object> _deletions = {};
-  // Draft keys deleted while a page request was in flight. That response was
-  // produced against an older server state, so these keys outrank it.
-  final Map<String, Set<String>> _deletedWhileLoading = {};
+  final Map<String, _DraftAccount> _accounts = {};
+
+  _DraftAccount? _existingAccount(String siteUrl) {
+    final account = _accounts[siteUrl];
+    if (account == null || account.isCurrent) return account;
+    account.retire();
+    return null;
+  }
+
+  _DraftAccount _accountFor(String siteUrl) {
+    final held = _existingAccount(siteUrl);
+    if (held != null) return held;
+    final account = _DraftAccount(this, siteUrl, lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.observeRetirement();
+    return account;
+  }
+
+  void _retireAccount(_DraftAccount account) {
+    if (!identical(_accounts[account.siteUrl], account)) return;
+    account.retire();
+    notifySafely();
+  }
 
   DraftFeed feedFor(String? siteUrl) => siteUrl == null
       ? const DraftFeed()
-      : _feeds[siteUrl] ?? const DraftFeed();
+      : _existingAccount(siteUrl)?.feed ?? const DraftFeed();
 
   bool deleting(String siteUrl, String draftKey) =>
-      _deletions.containsKey((siteUrl: siteUrl, draftKey: draftKey));
+      _existingAccount(siteUrl)?.deletions.containsKey(draftKey) ?? false;
 
   /// Mirrors core's `draft:destroyed` cache propagation for drafts removed
   /// from outside this controller (for example, from the composer).
@@ -63,18 +77,17 @@ final class DraftListController extends FrameSafeNotifier {
     bool knownToExist = false,
   }) {
     if (isDisposed) return;
-    if (_requests.containsKey(siteUrl)) {
-      (_deletedWhileLoading[siteUrl] ??= {}).add(draftKey);
-    }
-    _feeds[siteUrl] = feedFor(
-      siteUrl,
-    ).without(draftKey, knownToExist: knownToExist);
+    final account = _accountFor(siteUrl);
+    if (account.request != null) account.deletedWhileLoading.add(draftKey);
+    account.feed = account.feed.without(draftKey, knownToExist: knownToExist);
     notifySafely();
   }
 
   void invalidateTotalCount(String siteUrl) {
-    if (isDisposed || !_feeds.containsKey(siteUrl)) return;
-    _feeds[siteUrl] = feedFor(siteUrl).withoutTotalCount();
+    if (isDisposed) return;
+    final account = _existingAccount(siteUrl);
+    if (account == null) return;
+    account.feed = account.feed.withoutTotalCount();
     notifySafely();
   }
 
@@ -86,32 +99,30 @@ final class DraftListController extends FrameSafeNotifier {
     assert(!(refresh && loadPrevious));
     if (isDisposed || !instance.isConnected) return;
     final siteUrl = instance.url;
-    if (_requests.containsKey(siteUrl)) {
+    final account = _accountFor(siteUrl);
+    final lease = account.lease;
+    if (account.request != null) {
       if (refresh) {
-        _pendingRefreshes[siteUrl] = (
-          instance: instance,
-          lease: lifecycle.capture(siteUrl),
-        );
+        account.pendingRefresh = instance;
       }
       return;
     }
     // A refresh keeps the held rows visible until its first page replaces
     // them: the feed is shared by every panel and menu that lists drafts, and
     // a failed refresh must not cost the rows already on screen.
-    final held = feedFor(siteUrl);
+    final held = account.feed;
     refresh = refresh || held.requiresRefresh;
     loadPrevious = loadPrevious && !refresh;
     if (!refresh && loadPrevious && !held.hasPrevious) return;
     if (!refresh && !loadPrevious && held.loaded && !held.hasMore) return;
 
     final request = Object();
-    final lease = lifecycle.capture(siteUrl);
-    _requests[siteUrl] = request;
-    _feeds[siteUrl] = held.loadingMore(prepend: loadPrevious);
+    account.request = request;
+    account.feed = held.loadingMore(prepend: loadPrevious);
     notifySafely();
     // Publishing can synchronously dispose this owner through a listener.
     // Do not let that replacement boundary cross into credential storage.
-    if (!_isCurrentLoad(lease, siteUrl, request)) return;
+    if (!_isCurrentLoad(account, request)) return;
 
     try {
       final auth = await AccountRequestSession(
@@ -119,16 +130,16 @@ final class DraftListController extends FrameSafeNotifier {
         lease,
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
-      if (!_isCurrentLoad(lease, siteUrl, request)) return;
+      if (!_isCurrentLoad(account, request)) return;
       if (apiKey == null) {
-        _commit(lease, siteUrl, request, () {
-          _feeds[siteUrl] = feedFor(siteUrl).withError(
+        _commit(account, request, () {
+          account.feed = account.feed.withError(
             appL10n.reconnectToToSeeYourDrafts((instance.host).toString()),
           );
         });
         return;
       }
-      final current = feedFor(siteUrl);
+      final current = account.feed;
       final offset = refresh
           ? 0
           : loadPrevious
@@ -147,8 +158,8 @@ final class DraftListController extends FrameSafeNotifier {
       // snapshot: a delete that landed during the request already removed its
       // row, and replaying the snapshot would put the row back. A refresh
       // restarts at the first page, so it replaces every held row instead.
-      _commit(lease, siteUrl, request, () {
-        final removed = _deletedWhileLoading[siteUrl] ?? const <String>{};
+      _commit(account, request, () {
+        final removed = account.deletedWhileLoading;
         // Deletions of already loaded rows adjusted the cursor in `without`.
         // Only newly encountered deleted keys still need that adjustment, and
         // a refresh starts a new cursor that no deletion has adjusted yet.
@@ -160,14 +171,14 @@ final class DraftListController extends FrameSafeNotifier {
             if (removed.contains(draft.key) && !heldKeys.contains(draft.key))
               draft.key,
         };
-        final base = refresh ? const DraftFeed() : feedFor(siteUrl);
+        final base = refresh ? const DraftFeed() : account.feed;
         if (loadPrevious &&
             page.rawItemCount - deletedFromPage.length < requestLimit) {
-          _feeds[siteUrl] = base.requiringRefresh();
-          _pendingRefreshes[siteUrl] = (instance: instance, lease: lease);
+          account.feed = base.requiringRefresh();
+          account.pendingRefresh = instance;
           return;
         }
-        _feeds[siteUrl] = base.withPage(
+        account.feed = base.withPage(
           UserDraftPage(
             drafts: [
               for (final draft in page.drafts)
@@ -183,44 +194,44 @@ final class DraftListController extends FrameSafeNotifier {
         );
       });
     } catch (error) {
-      if (!lease.isCurrent || !identical(_requests[siteUrl], request)) return;
+      if (!_isCurrentLoad(account, request)) return;
 
-      _commit(lease, siteUrl, request, () {
-        final current = feedFor(siteUrl);
-        _feeds[siteUrl] = current.withError(
+      _commit(account, request, () {
+        final current = account.feed;
+        account.feed = current.withError(
           refresh || current.drafts.isEmpty
               ? appL10n.couldnTLoadDraftsFrom((instance.host).toString())
               : appL10n.couldnTLoadMoreDraftsFrom((instance.host).toString()),
         );
       });
     } finally {
-      if (!isDisposed && identical(_requests[siteUrl], request)) {
-        _requests.remove(siteUrl);
-        _deletedWhileLoading.remove(siteUrl);
-        final pending = _pendingRefreshes.remove(siteUrl);
-        if (pending != null && pending.lease.isCurrent) {
-          unawaited(load(pending.instance, refresh: true));
-        }
+      if (_isCurrentLoad(account, request)) {
+        account.request = null;
+        account.deletedWhileLoading.clear();
+        final pending = account.pendingRefresh;
+        account.pendingRefresh = null;
+        if (pending != null) unawaited(load(pending, refresh: true));
       }
     }
   }
 
   Future<bool> delete(DiscourseInstance instance, UserDraft draft) async {
     if (isDisposed || !instance.isConnected) return false;
-    final identity = (siteUrl: instance.url, draftKey: draft.key);
-    if (_deletions.containsKey(identity)) return false;
+    final account = _accountFor(instance.url);
+    final identity = draft.key;
+    if (account.deletions.containsKey(identity)) return false;
     final request = Object();
-    final lease = lifecycle.capture(instance.url);
-    _deletions[identity] = request;
+    final lease = account.lease;
+    account.deletions[identity] = request;
     notifySafely();
-    if (!_isCurrentDeletion(lease, identity, request)) return false;
+    if (!_isCurrentDeletion(account, identity, request)) return false;
 
     try {
       if (deleteDraft case final delete?) {
         await delete(
           instance.url,
           draft,
-          () => _isCurrentDeletion(lease, identity, request),
+          () => _isCurrentDeletion(account, identity, request),
         );
       } else {
         final auth = await AccountRequestSession(
@@ -228,7 +239,7 @@ final class DraftListController extends FrameSafeNotifier {
           lease,
         ).keyCredentials(credentials);
         final apiKey = auth.apiKey;
-        if (!_isCurrentDeletion(lease, identity, request)) return false;
+        if (!_isCurrentDeletion(account, identity, request)) return false;
         if (apiKey == null) return false;
         await auth.run(
           () => api.deleteUserDraft(
@@ -239,67 +250,92 @@ final class DraftListController extends FrameSafeNotifier {
           ),
         );
       }
-      if (!_isCurrentDeletion(lease, identity, request)) return false;
+      if (!_isCurrentDeletion(account, identity, request)) return false;
       recordDeleted(instance.url, draft.key, knownToExist: true);
       return true;
     } catch (error) {
-      if (_isCurrentDeletion(lease, identity, request)) {
-        _feeds[instance.url] = feedFor(
-          instance.url,
-        ).withError(appL10n.couldnTRemoveThatDraftTryAgain);
+      if (_isCurrentDeletion(account, identity, request)) {
+        account.feed = account.feed.withError(
+          appL10n.couldnTRemoveThatDraftTryAgain,
+        );
       }
       return false;
     } finally {
-      if (!isDisposed && identical(_deletions[identity], request)) {
-        _deletions.remove(identity);
+      if (account.isCurrent &&
+          identical(account.deletions[identity], request)) {
+        account.deletions.remove(identity);
         notifySafely();
       }
     }
   }
 
   void forget(String siteUrl) {
-    var changed = _feeds.remove(siteUrl) != null;
-    changed = _requests.remove(siteUrl) != null || changed;
-    _pendingRefreshes.remove(siteUrl);
-    _deletedWhileLoading.remove(siteUrl);
-    final deletionsBefore = _deletions.length;
-    _deletions.removeWhere((identity, _) => identity.siteUrl == siteUrl);
-    changed = _deletions.length != deletionsBefore || changed;
-    if (changed) notifySafely();
+    final account = _accounts.remove(siteUrl);
+    account?.retire();
+    if (account != null) notifySafely();
   }
 
-  bool _isCurrentLoad(SiteLease lease, String siteUrl, Object request) =>
-      !isDisposed && lease.isCurrent && identical(_requests[siteUrl], request);
+  bool _isCurrentLoad(_DraftAccount account, Object request) =>
+      account.isCurrent && identical(account.request, request);
 
   bool _isCurrentDeletion(
-    SiteLease lease,
-    _DraftDeletionKey identity,
+    _DraftAccount account,
+    String draftKey,
     Object request,
-  ) =>
-      !isDisposed &&
-      lease.isCurrent &&
-      identical(_deletions[identity], request);
+  ) => account.isCurrent && identical(account.deletions[draftKey], request);
 
-  void _commit(
-    SiteLease lease,
-    String siteUrl,
-    Object request,
-    VoidCallback mutation,
-  ) {
-    if (isDisposed || !lease.isCurrent) return;
-    lease.commit(() {
-      if (!identical(_requests[siteUrl], request)) return;
-      mutation();
-      notifySafely();
-    });
+  void _commit(_DraftAccount account, Object request, VoidCallback mutation) {
+    if (!_isCurrentLoad(account, request)) return;
+    mutation();
+    notifySafely();
   }
 
   @override
   void dispose() {
-    _requests.clear();
-    _pendingRefreshes.clear();
-    _deletions.clear();
-    _deletedWhileLoading.clear();
+    final accounts = _accounts.values.toList();
+    _accounts.clear();
+    for (final account in accounts) {
+      account.retire();
+    }
     super.dispose();
+  }
+}
+
+final class _DraftAccount {
+  _DraftAccount(this.controller, this.siteUrl, this.lease);
+
+  final DraftListController controller;
+  final String siteUrl;
+  final SiteLease lease;
+  DraftFeed feed = const DraftFeed();
+  Object? request;
+  DiscourseInstance? pendingRefresh;
+  final deletions = <String, Object>{};
+  // Deletions outrank pages produced against an older server snapshot.
+  final deletedWhileLoading = <String>{};
+  void Function()? _detach;
+  bool _retired = false;
+
+  bool get isCurrent =>
+      !_retired &&
+      lease.isCurrent &&
+      identical(controller._accounts[siteUrl], this);
+
+  void observeRetirement() =>
+      _detach = lease.onRetire(() => controller._retireAccount(this));
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    _detach?.call();
+    _detach = null;
+    if (identical(controller._accounts[siteUrl], this)) {
+      controller._accounts.remove(siteUrl);
+    }
+    feed = const DraftFeed();
+    request = null;
+    pendingRefresh = null;
+    deletions.clear();
+    deletedWhileLoading.clear();
   }
 }

@@ -987,21 +987,24 @@ void main() {
   });
 
   group('draft-list boundaries', () {
-    testWidgets('reloads a mounted list after its account generation changes', (
-      tester,
-    ) async {
-      final fixture = await _pumpList(tester);
-      fixture.controller.lifecycle.invalidate(_siteUrl);
-      fixture.controller.draftList.forget(_siteUrl);
-      await tester.pump();
-      await tester.pump();
-      expect(fixture.api.userDraftRequests, [
-        (siteUrl: _siteUrl, offset: 0, limit: 30),
-        (siteUrl: _siteUrl, offset: 0, limit: 30),
-      ]);
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Remove draft'), findsOneWidget);
-    });
+    for (final explicitlyForget in [false, true]) {
+      testWidgets(
+        'reloads a mounted list after account rotation with forget=$explicitlyForget',
+        (tester) async {
+          final fixture = await _pumpList(tester);
+          fixture.controller.lifecycle.invalidate(_siteUrl);
+          if (explicitlyForget) fixture.controller.draftList.forget(_siteUrl);
+          await tester.pump();
+          await tester.pump();
+          expect(fixture.api.userDraftRequests, [
+            (siteUrl: _siteUrl, offset: 0, limit: 30),
+            (siteUrl: _siteUrl, offset: 0, limit: 30),
+          ]);
+          await tester.pumpAndSettle();
+          expect(find.byTooltip('Remove draft'), findsOneWidget);
+        },
+      );
+    }
 
     for (final fails in [false, true]) {
       testWidgets('keeps loaded rows on screen while a refresh '
