@@ -58,6 +58,9 @@ final class _ChatConversationStream {
 
   bool get isViewing => _viewTokens.isNotEmpty;
 
+  bool get isPassiveReader =>
+      _readers == 0 && key != ChatController._targetKey(siteUrl, target);
+
   bool get isCurrent =>
       !_retired && identical(_controller._conversations[key], this);
 
@@ -81,8 +84,9 @@ final class _ChatConversationStream {
 
   bool get preventsEviction =>
       _readers > 0 ||
-      (_window?.localMessageIds.isNotEmpty ?? false) ||
-      _pendingLiveMessageIds.isNotEmpty ||
+      (!isPassiveReader &&
+          ((_window?.localMessageIds.isNotEmpty ?? false) ||
+              _pendingLiveMessageIds.isNotEmpty)) ||
       _loading ||
       _olderRequest != null ||
       _newerRequest != null ||
@@ -119,6 +123,12 @@ final class _ChatConversationStream {
 
   void syncMessagePins() {
     if (!isCurrent) return;
+    if (isPassiveReader) {
+      _messagePins?.release();
+      _messagePins = null;
+      _completePinInputs = null;
+      return;
+    }
     final stream = snapshot;
     final viewing = isViewing;
     final previous = _completePinInputs;

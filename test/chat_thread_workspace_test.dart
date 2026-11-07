@@ -151,6 +151,34 @@ void main() {
     SharedPreferences.setMockInitialValues(const {});
   });
 
+  testWidgets('Back preserves a loaded channel when the network goes offline', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    addTearDown(fixture.shell.dispose);
+    fixture.shell.openChatChannel(_channelId);
+    await _pumpWorkspace(tester, fixture.shell, width: 1000);
+    final channelText = find.text(
+      'Open the existing thread',
+      findRichText: true,
+    );
+    expect(channelText, findsOneWidget);
+    expect(fixture.api.chatMessagesRequested, hasLength(1));
+
+    fixture.shell.openChatThread(
+      siteUrl: _siteUrl,
+      channelId: _channelId,
+      threadId: _threadId,
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatThreadView), findsOneWidget);
+    fixture.api.chatMessagesByKey.remove('9');
+    expect(fixture.shell.handleBack(canReturnToSidebar: false), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(channelText, findsOneWidget);
+  }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
