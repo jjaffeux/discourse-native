@@ -352,35 +352,40 @@ final class ComposerOpeningOwner {
       category?.topicTemplate,
       replacing: previous?.topicTemplate,
     );
-    if (composer.tags.isEmpty) return;
-    final kept = <TopicTag>[];
-    for (final selected in composer.tags) {
-      try {
-        final result = await _metadata.searchTags(composer, selected.name);
-        if (!_presentation.owns(composer) ||
-            composer.categoryId != categoryId) {
+    validateSelection:
+    while (_presentation.owns(composer) && composer.categoryId == categoryId) {
+      final selectedTags = composer.tags;
+      if (selectedTags.isEmpty) return;
+      final kept = <TopicTag>[];
+      for (final selected in selectedTags) {
+        try {
+          final result = await _metadata.searchTags(composer, selected.name);
+          if (!_presentation.owns(composer) ||
+              composer.categoryId != categoryId) {
+            return;
+          }
+          if (!identical(composer.tags, selectedTags)) {
+            continue validateSelection;
+          }
+          final match = result.results
+              .where(
+                (tag) =>
+                    tag.id == selected.id ||
+                    tag.name.toLowerCase() == selected.name.toLowerCase(),
+              )
+              .firstOrNull;
+          if (!result.isForbidden && match != null && !match.disabled) {
+            kept.add(match);
+          }
+        } catch (_) {
           return;
         }
-        final match = result.results
-            .where(
-              (tag) =>
-                  tag.id == selected.id ||
-                  tag.name.toLowerCase() == selected.name.toLowerCase(),
-            )
-            .firstOrNull;
-        if (!result.isForbidden && match != null && !match.disabled) {
-          kept.add(match);
-        }
-      } catch (_) {
-        return;
       }
-    }
-    if (!_presentation.owns(composer) || composer.categoryId != categoryId) {
+      if (kept.length != selectedTags.length) {
+        composer.setTags(kept);
+        composer.showTagRemovalNotice(categoryName: category?.name);
+      }
       return;
-    }
-    if (kept.length != composer.tags.length) {
-      composer.setTags(kept);
-      composer.showTagRemovalNotice(categoryName: category?.name);
     }
   }
 

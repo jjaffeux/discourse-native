@@ -486,6 +486,52 @@ void main() {
   );
 
   test(
+    'category tag validation preserves tags selected while checking',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      harness.categories[6] = _ideas;
+      final composer = harness.build(await harness.plan());
+      composer.setTags(const [TopicTag(id: 1, name: 'refused')]);
+      harness.tagGate = Completer<void>();
+      harness.tagResults = (term) => TopicTagSearch(
+        tags: [TopicTag(id: term == 'refused' ? 1 : 2, name: term)],
+        forbidden: term == 'refused',
+      );
+
+      final change = harness.owner.changeCategory(composer, 6);
+      await pumpEventQueue();
+      composer.setTags(const [
+        TopicTag(id: 1, name: 'refused'),
+        TopicTag(id: 2, name: 'chosen'),
+      ]);
+      harness.tagGate!.complete();
+      await change;
+
+      expect(composer.tags.map((tag) => tag.name), ['chosen']);
+    },
+  );
+
+  test('category tag validation does not restore a removed tag', () async {
+    final harness = _Harness();
+    addTearDown(harness.dispose);
+    harness.categories[6] = _ideas;
+    final composer = harness.build(await harness.plan());
+    composer.setTags(const [TopicTag(id: 1, name: 'removed')]);
+    harness.tagGate = Completer<void>();
+    harness.tagResults = (term) =>
+        TopicTagSearch(tags: [TopicTag(id: 1, name: term)]);
+
+    final change = harness.owner.changeCategory(composer, 6);
+    await pumpEventQueue();
+    composer.setTags(const []);
+    harness.tagGate!.complete();
+    await change;
+
+    expect(composer.tags, isEmpty);
+  });
+
+  test(
     'a superseded category change stops checking its remaining tags',
     () async {
       final harness = _Harness();
