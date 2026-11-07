@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
@@ -12,7 +13,9 @@ final class ChatChannelMembersSession extends ChangeNotifier {
     required String siteUrl,
     required int channelId,
     required this._membershipsCount,
-  }) : _query = _MemberQuery(_MemberTarget(chat, siteUrl, channelId), '');
+  }) : _query = _MemberQuery(_MemberTarget(chat, siteUrl, channelId), '') {
+    _observeTarget(_query.target);
+  }
 
   static const _pageSize = 20;
 
@@ -38,7 +41,8 @@ final class ChatChannelMembersSession extends ChangeNotifier {
   }) {
     if (_disposed) return;
     final target = _query.target;
-    if (identical(target.chat, chat) &&
+    if (target.lease.isCurrent &&
+        identical(target.chat, chat) &&
         target.siteUrl == siteUrl &&
         target.channelId == channelId &&
         _membershipsCount == membershipsCount) {
@@ -62,14 +66,33 @@ final class ChatChannelMembersSession extends ChangeNotifier {
 
   Future<void> _restart({_MemberTarget? target, String? filter}) {
     if (_disposed) return Future.value();
-    _query = _MemberQuery(target ?? _query.target, filter ?? _query.filter);
+    final held = _query.target;
+    target ??= held.lease.isCurrent
+        ? held
+        : _MemberTarget(held.chat, held.siteUrl, held.channelId);
+    held.detach?.call();
+    held.detach = null;
+    _query = _MemberQuery(target, filter ?? _query.filter);
+    _observeTarget(target);
     return loadMore();
+  }
+
+  void _observeTarget(_MemberTarget target) {
+    target.detach = target.lease.onRetire(() {
+      if (_disposed || !identical(_query.target, target)) return;
+      target.detach?.call();
+      target.detach = null;
+      _searchTimer?.cancel();
+      _query = _MemberQuery(target, _query.filter)..canLoadMore = false;
+      _notify();
+    });
   }
 
   Future<void> loadMore({bool prefetch = false}) async {
     if (_disposed) return;
     final query = _query;
-    if (query.request != null ||
+    if (!query.target.lease.isCurrent ||
+        query.request != null ||
         !query.canLoadMore ||
         (prefetch && query.error != null)) {
       return;
@@ -104,6 +127,7 @@ final class ChatChannelMembersSession extends ChangeNotifier {
 
   bool _isCurrent(_MemberRequest request) =>
       !_disposed &&
+      request.query.target.lease.isCurrent &&
       identical(_query, request.query) &&
       identical(_query.request, request);
 
@@ -122,16 +146,21 @@ final class ChatChannelMembersSession extends ChangeNotifier {
     if (_disposed) return;
     _disposed = true;
     _searchTimer?.cancel();
+    _query.target.detach?.call();
+    _query.target.detach = null;
     if (_notificationDepth == 0) super.dispose();
   }
 }
 
 final class _MemberTarget {
-  const _MemberTarget(this.chat, this.siteUrl, this.channelId);
+  _MemberTarget(this.chat, this.siteUrl, this.channelId)
+    : lease = chat.captureAccount(siteUrl);
 
   final ChatController chat;
   final String siteUrl;
   final int channelId;
+  final PluginSiteLease lease;
+  VoidCallback? detach;
 }
 
 final class _MemberQuery {

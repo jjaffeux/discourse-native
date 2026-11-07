@@ -15,3 +15,23 @@ Retiring a directory disowns list/detail/resume work and channel writes together
 The chosen private part keeps the implementation behind the established facade and uses the existing concrete live coordinator. An importable directory with a new activity interface was viable but added another public API for one collaborator. Both designs keep directory reads and writes together because they share refresh reconciliation and notification contribution policy.
 
 `chat_channel_directory_lifetime_test.dart` pins retirement, replacement, old cleanup, credential waits and retained conversation identity through the facade. Controller and settings response tests pin field reconciliation. Directory widget tests exercise mounted service replacement and can save rendered evidence through `NATIVE_UI_EVIDENCE_DIR`.
+
+## Retained member lists
+
+`ChatChannelMembersSession` captures an account lease in its channel target.
+The target owns a detachable retirement observation, independently of the
+controller's guarded HTTP fetch. Retirement immediately clears retained members,
+request/error/cursor state and pending search debounce. A controller, site,
+channel and membership count can remain equal across an account change; binding
+also requires the held account lease to remain current.
+
+Explicit refresh or binding may acquire a successor account lease. Old responses
+and old retirement callbacks cannot settle or clear that successor's query.
+Rebinding and disposal detach the old target's observation. Pagination, member
+ID deduplication and committed search behavior retain their existing policy.
+The mounted view supplies identifiers and listens to the session; it does not
+own account retirement or add another lifecycle listener.
+
+Member-session tests cover immediate retirement, equal-target successor binding,
+late success/failure and a prior retirement observer that binds the successor.
+Existing directory and channel-info tests cover account HTTP admission and UI use.

@@ -1,13 +1,100 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_members_session.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/fakes.dart';
+
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  testWidgets(
+    'account retirement clears rows and same-target binding admits a fresh account',
+    (tester) async {
+      final chat = _Chat();
+      final session = _session(chat);
+      final loaded = session.refresh();
+      chat.requests.single.complete([1]);
+      await loaded;
+      session.filterChanged('old pending search');
+      chat.accountRequests.lifecycle.invalidate(_site);
+      expect(_ids(session), isEmpty);
+      expect(session.loading, isFalse);
+      expect(session.canLoadMore, isFalse);
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(chat.requests.length, 1);
+      session.bind(
+        chat: chat,
+        siteUrl: _site,
+        channelId: 9,
+        membershipsCount: 100,
+      );
+      expect(chat.requests.length, 2);
+      chat.requests.last.complete([90]);
+      await tester.pump();
+      expect(_ids(session), [90]);
+    },
+  );
+
+  for (final failure in [false, true]) {
+    testWidgets(
+      'retired ${failure ? 'failure' : 'success'} cannot settle a successor request',
+      (tester) async {
+        final chat = _Chat();
+        final session = _session(chat);
+        final old = session.refresh();
+        final retired = chat.requests.single;
+        chat.accountRequests.lifecycle.invalidate(_site);
+        expect(session.loading, isFalse);
+        final successor = session.refresh();
+        expect(chat.requests.length, 2);
+        retired.result.complete(
+          failure
+              ? (page: null, error: 'old failure')
+              : (page: _page([1]), error: null),
+        );
+        await old;
+        expect(session.loading, isTrue);
+        expect(session.members, isEmpty);
+        expect(session.error, isNull);
+        chat.requests.last.complete([90]);
+        await successor;
+        expect(_ids(session), [90]);
+      },
+    );
+  }
+
+  testWidgets(
+    'an earlier retirement observer may bind a successor without old cleanup clearing it',
+    (tester) async {
+      final chat = _Chat();
+      late final ChatChannelMembersSession session;
+      chat.accountRequests.lifecycle.capture(_site).onRetire(() {
+        session.bind(
+          chat: chat,
+          siteUrl: _site,
+          channelId: 9,
+          membershipsCount: 100,
+        );
+      });
+      session = _session(chat);
+      final old = session.refresh();
+      chat.accountRequests.lifecycle.invalidate(_site);
+      expect(chat.requests.length, 2);
+      expect(session.loading, isTrue);
+      chat.requests.first.complete([1]);
+      await old;
+      expect(session.loading, isTrue);
+      chat.requests.last.complete([90]);
+      await tester.pump();
+      expect(_ids(session), [90]);
+    },
+  );
+
   testWidgets('debounces and trims searches without repeating the same query', (
     tester,
   ) async {
@@ -255,6 +342,13 @@ ChatChannelMembersPage _page(List<int> ids, {int? rows, bool more = false}) => (
 );
 
 class _Chat extends Fake implements ChatController {
+  final accountRequests = FakePluginRequestHost(
+    credentials: FakeApiCredentialReader(),
+  );
+  @override
+  PluginSiteLease captureAccount(String siteUrl) =>
+      accountRequests.capture(siteUrl);
+
   final requests = <_Request>[];
 
   @override

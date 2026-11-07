@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart' show DSpinner;
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_info_view.dart';
@@ -614,6 +615,10 @@ class _ReplacementChat extends Fake implements ChatController {
 
   final ChatController delegate;
   final requests = <(String, int)>[];
+
+  @override
+  PluginSiteLease captureAccount(String siteUrl) =>
+      delegate.captureAccount(siteUrl);
 
   @override
   Ref<ChatChannel> channelRef(String siteUrl, int channelId) =>
