@@ -127,6 +127,7 @@ final class AccountSessionCoordinator {
     String? previousKey;
     UserApiCredentials? credentials;
     var pendingPublished = false;
+    var credentialWriteStarted = false;
     var credentialsPersisted = false;
 
     try {
@@ -185,6 +186,7 @@ final class AccountSessionCoordinator {
         return const AccountConnectionStale();
       }
 
+      credentialWriteStarted = true;
       await authenticator.persistCredentials(siteUrl, credentials);
       credentialsPersisted = true;
       if (!_isCurrent(siteUrl, operation, pendingLease)) {
@@ -229,6 +231,8 @@ final class AccountSessionCoordinator {
           operation: operation,
           initial: initial,
           credentials: credentials,
+          previousKey: previousKey,
+          credentialWriteStarted: credentialWriteStarted,
           credentialsPersisted: credentialsPersisted,
           error: error,
         );
@@ -261,6 +265,8 @@ final class AccountSessionCoordinator {
         operation: operation,
         initial: initial,
         credentials: credentials,
+        previousKey: previousKey,
+        credentialWriteStarted: credentialWriteStarted,
         credentialsPersisted: credentialsPersisted,
         error: error,
       );
@@ -284,6 +290,8 @@ final class AccountSessionCoordinator {
         operation: operation,
         initial: initial,
         credentials: credentials,
+        previousKey: previousKey,
+        credentialWriteStarted: credentialWriteStarted,
         credentialsPersisted: credentialsPersisted,
         error: error,
       );
@@ -298,6 +306,8 @@ final class AccountSessionCoordinator {
     required Object operation,
     required DiscourseInstance initial,
     required UserApiCredentials credentials,
+    required String? previousKey,
+    required bool credentialWriteStarted,
     required bool credentialsPersisted,
     required Object error,
   }) async {
@@ -305,8 +315,22 @@ final class AccountSessionCoordinator {
       return const AccountConnectionStale();
     }
 
+    var canRestore = !credentialsPersisted;
+    if (canRestore && credentialWriteStarted) {
+      // A storage failure can follow a successful value write or deletion.
+      // Restore the old identity only when its credential survived unchanged.
+      try {
+        canRestore = await authenticator.apiKeyFor(siteUrl) == previousKey;
+      } catch (_) {
+        canRestore = false;
+      }
+    }
+    if (!_isCurrent(siteUrl, operation)) {
+      return const AccountConnectionStale();
+    }
+
     var refreshSignedOutPresentation = false;
-    if (!credentialsPersisted) {
+    if (canRestore) {
       final recoveryLease = _rotate(siteUrl, operation);
       if (recoveryLease == null) {
         return const AccountConnectionStale();
