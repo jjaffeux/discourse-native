@@ -246,15 +246,17 @@ void topicCompactActionsSheetTests({
             tester.widget<DDropdownMenuContent>(_menu).padding,
             const EdgeInsets.fromLTRB(8, 0, 8, 8),
           );
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')).last,
+            const Offset(0, -600),
+          );
+          await tester.pumpAndSettle();
           final bounds = tester.getRect(_menuSheet);
           expect(bounds.left, 0);
           expect(bounds.right, size.width);
           expect(bounds.bottom, size.height);
           expect(
-            find.descendant(
-              of: _menuSheet,
-              matching: find.byType(DSheetHeader),
-            ),
+            find.descendant(of: _menuSheet, matching: find.byType(DSheetTitle)),
             findsNothing,
           );
           // The plugin's commands, then anyone's, then staff's, a rule
@@ -302,8 +304,8 @@ void topicCompactActionsSheetTests({
             await tester.pumpAndSettle();
             expect(rows.at(index).hitTestable(), findsOneWidget);
             final row = tester.getRect(rows.at(index));
-            expect(row.left, bounds.left + 8);
-            expect(row.right, bounds.right - 8);
+            expect(row.left, closeTo(bounds.left + 8 * 17 / 13, .001));
+            expect(row.right, closeTo(bounds.right - 8 * 17 / 13, .001));
           }
           for (final label in [
             'Assign topic',

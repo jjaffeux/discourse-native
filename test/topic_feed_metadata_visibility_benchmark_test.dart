@@ -105,7 +105,10 @@ void main() {
         instances: [instance('meta.discourse.org')],
         api: api,
         beforeSettle: () async {
-          final row = find.byKey(const ValueKey('topic-card-1'));
+          final row = find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('topic-card-1')),
+          );
           for (var frame = 0; frame < 100; frame++) {
             await tester.pump(const Duration(milliseconds: 16));
             if (row.evaluate().isEmpty) continue;

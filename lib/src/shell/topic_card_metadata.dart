@@ -450,7 +450,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
             semanticLabel: context.l10n.moreTopiclistview(layout.remainingTags),
             label: Text(
               '+${layout.remainingTags}',
-              style: const TextStyle(fontSize: DiscourseTypography.xs),
+              style: _topicMetadataStyle(context),
             ),
             onPressed: () => setState(() => _allTags = true),
           ),
@@ -570,9 +570,10 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
                 label,
                 maxLines: 1,
                 softWrap: false,
-                style: TextStyle(
-                  fontSize: DiscourseTypography.xs,
-                  color: parent ? _topicMetadataStyle(context).color : null,
+                style: _topicMetadataStyle(context).copyWith(
+                  color: parent
+                      ? _topicMetadataStyle(context).color
+                      : DTokens.of(context).foreground,
                 ),
               ),
             ),
@@ -604,7 +605,7 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
           isLink: true,
           label: Text(
             label ?? '#${tag.name}',
-            style: const TextStyle(fontSize: DiscourseTypography.xs),
+            style: _topicMetadataStyle(context),
             maxLines: 1,
           ),
           onPressed: () => shell?.openTopicTag(

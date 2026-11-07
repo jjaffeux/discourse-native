@@ -138,7 +138,10 @@ void main() {
         );
         await tester.pump(const Duration(milliseconds: 500));
         await tester.pumpAndSettle();
-        final first = find.byKey(const ValueKey('topic-card-1'));
+        final first = find.descendant(
+          of: primaryMainContent,
+          matching: find.byKey(const ValueKey('topic-card-1')),
+        );
         expect(first, findsOneWidget);
         expect(shell.currentFeed?.topicIds, [1, 2, 3]);
 
@@ -147,7 +150,10 @@ void main() {
         ]);
         final before = tester.getRect(first);
         final activity = tester.getRect(
-          find.byKey(const ValueKey('topic-card-activity-1')),
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(const ValueKey('topic-card-activity-1')),
+          ),
         );
         await _capture(tester, 'pending-$width-$scale');
 
@@ -156,7 +162,12 @@ void main() {
         expect(tester.getRect(first), before);
         expect(
           tester
-              .getRect(find.byKey(const ValueKey('topic-card-activity-1')))
+              .getRect(
+                find.descendant(
+                  of: primaryMainContent,
+                  matching: find.byKey(const ValueKey('topic-card-activity-1')),
+                ),
+              )
               .top,
           activity.top,
         );
@@ -173,7 +184,12 @@ void main() {
         expect(tester.getRect(first), before);
         expect(
           tester
-              .getRect(find.byKey(const ValueKey('topic-card-activity-1')))
+              .getRect(
+                find.descendant(
+                  of: primaryMainContent,
+                  matching: find.byKey(const ValueKey('topic-card-activity-1')),
+                ),
+              )
               .top,
           activity.top,
         );
