@@ -1883,42 +1883,44 @@ class SearchFilterChip extends StatelessWidget {
             .join(', ');
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
-      child: DButtonGroup(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          DButtonGroupExpanded(
-            child: DButton(
-              label: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${filter.label}: ',
-                      style: TextStyle(color: DTokens.of(context).primary),
-                    ),
-                    TextSpan(text: value),
-                  ],
+      child: IntrinsicWidth(
+        child: DButtonGroup(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            DButtonGroupExpanded(
+              child: DButton(
+                label: Text.rich(
+                  TextSpan(
+                    children: [
+                      TextSpan(
+                        text: '${filter.label}: ',
+                        style: TextStyle(color: DTokens.of(context).primary),
+                      ),
+                      TextSpan(text: value),
+                    ],
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                shape: DButtonShape.pill,
+                size: DButtonSize.chip,
+                variant: DButtonVariant.secondary,
+                onPressed: onEdit,
+                focusNode: focusNode,
+                expanded: expanded,
+                hasPopup: hasPopup,
               ),
-              shape: DButtonShape.pill,
-              size: DButtonSize.chip,
-              variant: DButtonVariant.secondary,
-              onPressed: onEdit,
-              focusNode: focusNode,
-              expanded: expanded,
-              hasPopup: hasPopup,
             ),
-          ),
-          if (onRemove != null)
-            DButton.iconOnly(
-              icon: const DIcon(DIcons.xmark),
-              tooltip: context.l10n.removeCondition(filter.label),
-              size: DButtonSize.chip,
-              variant: DButtonVariant.secondary,
-              onPressed: onRemove,
-            ),
-        ],
+            if (onRemove != null)
+              DButton.iconOnly(
+                icon: const DIcon(DIcons.xmark),
+                tooltip: context.l10n.removeCondition(filter.label),
+                size: DButtonSize.chip,
+                variant: DButtonVariant.secondary,
+                onPressed: onRemove,
+              ),
+          ],
+        ),
       ),
     );
   }

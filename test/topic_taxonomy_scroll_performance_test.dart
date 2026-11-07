@@ -62,7 +62,12 @@ void main() {
     tester,
   ) async {
     await fixture.fixture(tester, filterOptions: fixture.filterMenuOptions);
-    await tester.tap(find.byKey(const ValueKey('topic-list-tag-filter')));
+    await tester.tap(
+      find.descendant(
+        of: primaryMainContent,
+        matching: find.byKey(const ValueKey('topic-list-tag-filter')),
+      ),
+    );
     await tester.pumpAndSettle();
     final command = tester
         .widget<DCommand<String>>(find.byType(DCommand<String>))
@@ -127,7 +132,12 @@ void main() {
           data.shell.forumSettings.shared.copyWith(),
         );
         await tester.pumpAndSettle();
-        await tester.tap(find.byKey(ValueKey('topic-list-$component-filter')));
+        await tester.tap(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byKey(ValueKey('topic-list-$component-filter')),
+          ),
+        );
         await tester.pumpAndSettle();
         if (platform == TargetPlatform.iOS) {
           await tester.drag(
