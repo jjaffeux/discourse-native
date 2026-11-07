@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'private_file_permissions.dart';
 
@@ -22,16 +23,19 @@ Future<T> withStagedPrivateFile<T>(
   required String prefix,
   required String filename,
   required Future<T> Function(File file) use,
-}) => withPrivateStagingPath(
-  parent,
-  prefix: prefix,
-  filename: filename,
-  use: (file) async {
-    await ensurePrivateFile(file);
-    await file.writeAsBytes(bytes, flush: true);
-    return use(file);
-  },
-);
+}) async {
+  final snapshot = Uint8List.fromList(bytes);
+  return withPrivateStagingPath(
+    parent,
+    prefix: prefix,
+    filename: filename,
+    use: (file) async {
+      await ensurePrivateFile(file);
+      await file.writeAsBytes(snapshot, flush: true);
+      return use(file);
+    },
+  );
+}
 
 /// Runs [use] with a not-yet-created file named [filename] in a fresh
 /// owner-only directory under [parent], then deletes that directory whether

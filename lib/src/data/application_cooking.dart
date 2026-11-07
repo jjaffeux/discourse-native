@@ -79,6 +79,11 @@ final class ApplicationCooking {
       (_generations[request.snapshot.siteId] ?? 0) ==
           request.snapshot.accountGeneration;
 
+  bool _accepts(CookingRequest request) =>
+      isCurrent(request) &&
+      jsonEncode(request.effectiveConfiguration.toJson()) ==
+          jsonEncode(configuration.toJson());
+
   CookingRequest _track(CookingRequest request) {
     _requestRevisions[request] = contextRevisionFor(request.snapshot.siteId);
     return request;
@@ -278,12 +283,7 @@ final class ApplicationCooking {
         readableFallback(request.raw, CookingFailure.inputLimit),
       );
     }
-    final snapshot = request.snapshot;
-    if (_disposed ||
-        _accounts[snapshot.siteId] != snapshot.accountId ||
-        (_generations[snapshot.siteId] ?? 0) != snapshot.accountGeneration ||
-        jsonEncode(request.effectiveConfiguration.toJson()) !=
-            jsonEncode(configuration.toJson())) {
+    if (!_accepts(request)) {
       return Future.value(
         readableFallback(
           request.raw,
@@ -309,18 +309,14 @@ final class ApplicationCooking {
     if (request.raw.length > 65536 || _inputLimited[request] == true) {
       return CookingResult(html: '', failure: CookingFailure.inputLimit);
     }
-    bool current() =>
-        isCurrent(request) &&
-        jsonEncode(request.effectiveConfiguration.toJson()) ==
-            jsonEncode(configuration.toJson());
-    if (!current()) {
+    if (!_accepts(request)) {
       return CookingResult(html: '', failure: CookingFailure.stale);
     }
     final result = await service.cookTransient(
       request,
       abortTrigger: abortTrigger,
     );
-    return current()
+    return _accepts(request)
         ? result
         : CookingResult(html: '', failure: CookingFailure.stale);
   }
