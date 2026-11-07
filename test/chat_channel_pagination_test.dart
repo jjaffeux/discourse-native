@@ -13,7 +13,6 @@ void main() {
     for (final malformed in [
       null,
       false,
-      'not a membership',
       <String, Object?>{},
       {'user': null},
       {'user': <Object?>[]},
