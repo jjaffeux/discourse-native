@@ -51,6 +51,18 @@ void main() {
         end: DateTime.utc(2026, 10, 3),
       ),
     );
+    final sixRows = EventCalendarPage(
+      EventCalendarView.month,
+      DateTime.utc(2026, 8, 15),
+    ).days(firstDay: 1);
+    expect(
+      sixRows,
+      DateTimeRange(
+        start: DateTime.utc(2026, 7, 27),
+        end: DateTime.utc(2026, 9, 7),
+      ),
+    );
+    expect(sixRows.duration, const Duration(days: 42));
   });
 
   DateTimeRange month(int year, int month, {required int firstDay}) =>
