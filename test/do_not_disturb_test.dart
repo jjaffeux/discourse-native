@@ -2,6 +2,24 @@ import 'package:discourse_native/src/models/do_not_disturb.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  group('doNotDisturbRemainingLabel', () {
+    final now = DateTime.utc(2030, 1, 1, 12);
+
+    for (final (remaining, label) in [
+      (const Duration(microseconds: 1), '1m'),
+      (const Duration(minutes: 1), '1m'),
+      (const Duration(minutes: 1, microseconds: 1), '2m'),
+      (const Duration(hours: 1), '1h'),
+      (const Duration(hours: 1, microseconds: 1), '2h'),
+      (const Duration(days: 1), '1d'),
+      (const Duration(days: 1, microseconds: 1), '2d'),
+    ]) {
+      test('rounds $remaining up to $label', () {
+        expect(doNotDisturbRemainingLabel(now.add(remaining), now: now), label);
+      });
+    }
+  });
+
   group('doNotDisturbDurationUntil', () {
     final now = DateTime.utc(2030, 1, 1, 12);
 
