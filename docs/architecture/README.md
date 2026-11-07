@@ -41,6 +41,10 @@ or settle the successor's request. A caller's future
 may still wait for physical I/O where that is the documented contract; losing
 publication authority and completing transport work are separate events.
 
+Deferred UI cleanup keeps its issuing account configuration. Completing an old
+search surface cannot clear a successor's query or filters; a synchronous
+publication between cleanup steps requires the same ownership check.
+
 Distinguish passive cache queries from explicit resource admission. Passive
 getters read cached values or documented fallbacks without starting requests.
 Acquiring a ref or handle, or an explicit consumer load or refresh, may admit an

@@ -25,7 +25,7 @@ final class SearchPresentation {
   SearchPresentationPhase _phase = SearchPresentationPhase.closed;
   bool _expandedWhileLeaving = false;
   Object? _leaving;
-  bool _clearWhenLeft = false;
+  ({GlobalSearchController owner, int configuration})? _clearWhenLeft;
   bool suppressFocus = false;
   TextEditingValue? _draft;
   String? _openingExpression;
@@ -61,11 +61,20 @@ final class SearchPresentation {
 
   void clearSubmittedSearch() {
     if (isLeaving) {
-      _clearWhenLeft = true;
+      _clearWhenLeft = (
+        owner: global,
+        configuration: global.configurationRevision,
+      );
       return;
     }
-    global.setQuery('');
-    global.clearAllConditions();
+    final owner = global;
+    final configuration = owner.configurationRevision;
+    owner.setQuery('');
+    if (!identical(global, owner) ||
+        owner.configurationRevision != configuration) {
+      return;
+    }
+    owner.clearAllConditions();
   }
 
   bool finishLeaving({Object? surface}) {
@@ -74,8 +83,11 @@ final class SearchPresentation {
     _phase = _expandedWhileLeaving
         ? SearchPresentationPhase.open
         : SearchPresentationPhase.closed;
-    if (_clearWhenLeft) {
-      _clearWhenLeft = false;
+    final cleanup = _clearWhenLeft;
+    _clearWhenLeft = null;
+    if (cleanup != null &&
+        identical(cleanup.owner, global) &&
+        cleanup.configuration == global.configurationRevision) {
       clearSubmittedSearch();
     }
     return true;

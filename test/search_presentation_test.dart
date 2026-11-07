@@ -9,6 +9,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/global_search_fixtures.dart';
 
 void main() {
+  test('query cleanup stops when its publication replaces the account', () {
+    final shell = createGlobalSearchFixtureController();
+    addTearDown(shell.dispose);
+    final global = shell.globalSearch;
+    const capabilities = GlobalSearchCapabilities(authenticated: true);
+    global.configure(
+      siteUrl: globalSearchFixtureSite,
+      capabilities: capabilities,
+    );
+    global.setQuery('keyboard');
+    var replaced = false;
+    global.addListener(() {
+      if (replaced || global.query.isNotEmpty) return;
+      replaced = true;
+      global.configure(
+        siteUrl: globalSearchFixtureOtherSite,
+        capabilities: capabilities,
+      );
+      global.setQuery('design');
+      global.addCondition(
+        const GlobalSearchCondition(filterId: 'author', value: ['mira']),
+      );
+    });
+    SearchPresentation(global).clearSubmittedSearch();
+    expect(replaced, isTrue);
+    expect(global.query, 'design');
+    expect(global.conditions.map((condition) => condition.filterId), [
+      'author',
+    ]);
+  });
+
+  test('deferred query cleanup belongs to its original account', () {
+    final shell = createGlobalSearchFixtureController();
+    addTearDown(shell.dispose);
+    final global = shell.globalSearch;
+    const capabilities = GlobalSearchCapabilities(authenticated: true);
+    global.configure(
+      siteUrl: globalSearchFixtureSite,
+      capabilities: capabilities,
+    );
+    global.setQuery('keyboard');
+    final owner = SearchPresentation(global);
+    owner.surfaceChanged(true, const TextEditingValue(text: 'keyboard'));
+    final surface = Object();
+    owner.beginLeaving(surface);
+    owner.clearSubmittedSearch();
+    global.configure(
+      siteUrl: globalSearchFixtureOtherSite,
+      capabilities: capabilities,
+    );
+    global.setQuery('design');
+    owner.finishLeaving(surface: surface);
+    expect(global.query, 'design');
+  });
+
   test('opening reads plugin context and seed after canonical publication', () {
     final shell = createGlobalSearchFixtureController();
     addTearDown(shell.dispose);
