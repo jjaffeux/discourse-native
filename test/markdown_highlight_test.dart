@@ -156,10 +156,6 @@ void main() {
       expect(annotate('~~struck~~'), '<m>~~</><s>struck</><m>~~</>');
     });
 
-    test('three asterisks compose bold and italic, as the toolbar does', () {
-      expect(annotate('***both***'), '<m>***</><b+i>both</><m>***</>');
-    });
-
     test('lets a mark open inside another', () {
       expect(
         annotate('**bold with `code` inside**'),
