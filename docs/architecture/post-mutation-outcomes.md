@@ -96,3 +96,26 @@ cannot publish feedback into a successor reader.
 A successful move navigates to its destination without a source-reader refresh
 toast. If source repair failed, its next opening requests fresh data. All controls
 use existing Native components.
+
+## Optimistic likes
+
+The shell retains gesture admission, credentials and the per-post write holder.
+After credentials resolve, `TopicDataSession.beginLike` compares the rendered
+liked state with the current canonical post before admitting a `PostLikeWrite`.
+A gesture whose state already changed sends no duplicate request. An admitted
+gesture still uses updated counts and permissions from the current post; changed
+permissions alone do not revoke an already accepted gesture.
+
+The account session owns each like ticket and its optimistic projection. Failure
+restores the captured current liked state, count and like/unlike permissions only
+while those four fields still equal the ticket's guess. A newer differing like
+projection keeps authority; unrelated body edits survive rollback. This is exact
+optimistic-field ownership, not an additional read freshness epoch. Retirement
+and a successor ticket cannot inherit an earlier ticket's settlement authority.
+An empty successful response retains the guess until the next canonical read.
+
+A shell-only guard would close duplicate dispatch but leave rollback decisions
+split between the shell and canonical post owner. The bounded ticket keeps these
+decisions together without adding a general mutation transaction framework.
+`post_like_write_ownership_test.dart`, stale-activation and post write-lock tests
+cover credential races, rollback, account retirement and gesture compatibility.

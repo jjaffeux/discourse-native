@@ -7537,54 +7537,40 @@ class ShellController extends FrameSafeNotifier
     final data = _topicData.forLease(siteUrl, lease);
     if (data == null) return null;
 
-    final liked = !post.liked;
-    // Apply the guess to the current store value: a re-read can land during
-    // credential lookup, and a 204 response will not correct a stale put.
-    final applied = lease.commit(() {
-      data.guessLike(post.id, liked);
-      _notify();
-    });
-    if (!applied || !lease.isCurrent) return null;
-
-    void revert() {
-      lease.commit(() {
-        data.rejectLike(post.id, guessed: liked, original: post.liked);
-        _notify();
-      });
-    }
-
+    final write = data.beginLike(post);
+    if (write == null) return null;
     try {
-      final fresh = liked
-          ? await credential.request!.run(
-              () => api.postMutations.likePost(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                postId: post.id,
-              ),
-            )
-          : await credential.request!.run(
-              () => api.postMutations.unlikePost(
-                siteUrl: siteUrl,
-                apiKey: apiKey,
-                postId: post.id,
-              ),
-            );
-      // A route that answered with nothing still did the thing it was asked to
-      // — the guess above stands until the post is read again.
-      if (fresh != null) {
-        lease.commit(() {
-          data.acceptPostAction(fresh);
-          _notify();
-        });
+      _notify();
+      if (!write.isCurrent) return null;
+      try {
+        final fresh = write.liked
+            ? await credential.request!.run(
+                () => api.postMutations.likePost(
+                  siteUrl: siteUrl,
+                  apiKey: apiKey,
+                  postId: post.id,
+                ),
+              )
+            : await credential.request!.run(
+                () => api.postMutations.unlikePost(
+                  siteUrl: siteUrl,
+                  apiKey: apiKey,
+                  postId: post.id,
+                ),
+              );
+        // An empty response confirms the guess until the post is read again.
+        if (fresh != null && write.accept(fresh)) _notify();
+      } on WriteException catch (e) {
+        if (write.reject()) _notify();
+        return e.message;
+      } catch (error) {
+        if (write.reject()) _notify();
+        return const WriteException(WriteFailure.unreachable).message;
       }
-    } on WriteException catch (e) {
-      revert();
-      return e.message;
-    } catch (error) {
-      revert();
-      return const WriteException(WriteFailure.unreachable).message;
+      return null;
+    } finally {
+      write.finish();
     }
-    return null;
   }
 
   bool postWriteInFlight(int postId, {String? siteUrl}) {

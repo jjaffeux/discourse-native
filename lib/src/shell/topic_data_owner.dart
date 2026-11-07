@@ -187,6 +187,44 @@ final class _PostState {
   bool refreshPending = false;
   int? topicId;
   bool deletion = false;
+  PostLikeWrite? likeWrite;
+}
+
+/// One optimistic like, admitted against the latest post in this account.
+final class PostLikeWrite {
+  PostLikeWrite._(this._session, this._state, this._original, this._guess);
+
+  final TopicDataSession _session;
+  final _PostState _state;
+  final Post _original;
+  final Post _guess;
+
+  bool get liked => _guess.liked;
+  bool get isCurrent => _session.isCurrent && identical(_state.likeWrite, this);
+
+  bool accept(Post post) {
+    if (!isCurrent) return false;
+    _session.acceptPostAction(post);
+    return isCurrent;
+  }
+
+  bool reject() {
+    if (!isCurrent) return false;
+    _session._update<Post>(_original.id, (held) {
+      // Unrelated edits retain the guess; a newer like projection owns itself.
+      return _likes(held) == _likes(_guess)
+          ? held.withLikesOf(_original)
+          : held;
+    });
+    return isCurrent;
+  }
+
+  void finish() {
+    if (identical(_state.likeWrite, this)) _state.likeWrite = null;
+  }
+
+  static (bool, int, bool, bool) _likes(Post post) =>
+      (post.liked, post.likeCount, post.canLike, post.canUnlike);
 }
 
 typedef _ReadStamp = ({
@@ -2065,15 +2103,18 @@ final class TopicDataSession implements BookmarkTopicData {
     _put(_bookmarks.preservePost(post));
   }
 
-  void guessLike(int postId, bool liked) {
-    _update<Post>(postId, (post) => post.withLike(liked));
-  }
-
-  void rejectLike(int postId, {required bool guessed, required bool original}) {
-    _update<Post>(
-      postId,
-      (held) => held.liked == guessed ? held.withLike(original) : held,
-    );
+  PostLikeWrite? beginLike(Post source) {
+    if (!isCurrent) return null;
+    final current = _store.read<Post>(siteUrl, source.id);
+    if (current != null && current.liked != source.liked) return null;
+    final state = _post(source.id);
+    if (state.likeWrite != null) return null;
+    final original = current ?? source;
+    final guess = original.withLike(!source.liked);
+    final write = PostLikeWrite._(this, state, original, guess);
+    state.likeWrite = write;
+    _update<Post>(source.id, (_) => guess);
+    return write;
   }
 
   bool publishChecklist(Post previous, Post next) {
