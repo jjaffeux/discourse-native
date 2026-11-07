@@ -462,9 +462,6 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
 
   Widget _handle(ComposerBodyBlock block) {
     final position = composer.blocks.index.blocks.indexOf(block);
-    // Only the selected handle can have an open menu. Avoid reparsing the
-    // entire draft for both actions on every block.
-    final active = composer.blocks.selected?.id == block.id;
     final drag = _drag?.id == block.id
         ? _drag!
         : _BlockDrag(composer, block.id, composer.blocks.revision, position);
@@ -475,29 +472,47 @@ class _ComposerBlockSurfaceState extends State<ComposerBlockSurface> {
           block.label.toString(),
         ),
         children: [
-          DDropdownMenuItem(
-            onPressed:
-                active &&
-                    composer.blocks.enabled &&
-                    composer.blocks.index.move(block.id, position - 1) != null
-                ? () {
-                    composer.blocks.select(block.id);
-                    _move(position - 1);
-                  }
-                : null,
-            child: Text(appL10n.moveUp),
+          Builder(
+            builder: (context) {
+              final index = composer.blocks.index;
+              final position = index.blocks.indexWhere(
+                (candidate) => candidate.id == block.id,
+              );
+              final active = composer.blocks.selected?.id == block.id;
+              return DDropdownMenuItem(
+                onPressed:
+                    active &&
+                        composer.blocks.enabled &&
+                        index.move(block.id, position - 1) != null
+                    ? () {
+                        composer.blocks.select(block.id);
+                        _move(position - 1);
+                      }
+                    : null,
+                child: Text(appL10n.moveUp),
+              );
+            },
           ),
-          DDropdownMenuItem(
-            onPressed:
-                active &&
-                    composer.blocks.enabled &&
-                    composer.blocks.index.move(block.id, position + 2) != null
-                ? () {
-                    composer.blocks.select(block.id);
-                    _move(position + 2);
-                  }
-                : null,
-            child: Text(appL10n.moveDown),
+          Builder(
+            builder: (context) {
+              final index = composer.blocks.index;
+              final position = index.blocks.indexWhere(
+                (candidate) => candidate.id == block.id,
+              );
+              final active = composer.blocks.selected?.id == block.id;
+              return DDropdownMenuItem(
+                onPressed:
+                    active &&
+                        composer.blocks.enabled &&
+                        index.move(block.id, position + 2) != null
+                    ? () {
+                        composer.blocks.select(block.id);
+                        _move(position + 2);
+                      }
+                    : null,
+                child: Text(appL10n.moveDown),
+              );
+            },
           ),
         ],
       ),

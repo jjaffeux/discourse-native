@@ -2063,6 +2063,29 @@ void main() {
     expect(composer.text.text, '$original changed');
   });
 
+  testWidgets(
+    'block menu disables the boundary and focuses its enabled action',
+    (tester) async {
+      await mount(tester);
+      final id = composer.blocks.index.blocks.first.id;
+      await tester.tap(find.byKey(ValueKey('composer-block-handle-$id')));
+      await tester.pumpAndSettle();
+      final up = tester.widget<DDropdownMenuItem>(
+        find.widgetWithText(DDropdownMenuItem, 'Move up'),
+      );
+      final down = tester.widget<DDropdownMenuItem>(
+        find.widgetWithText(DDropdownMenuItem, 'Move down'),
+      );
+      expect(up.onPressed, isNull);
+      expect(down.onPressed, isNotNull);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(composer.raw, '## A heading\n\nFirst paragraph\n\nLast paragraph');
+      expect(find.text('Move down'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('handle menus move blocks up and down', (tester) async {
     await mount(tester);
     final id = composer.blocks.index.blocks.first.id;

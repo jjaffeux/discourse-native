@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer' as developer;
 import 'dart:io';
+import 'dart:isolate';
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -17,6 +18,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:vm_service/vm_service.dart' as vm;
+import 'package:vm_service/vm_service_io.dart';
 
 import '../test/support/fakes.dart';
 
@@ -28,6 +31,7 @@ void main() {
       defaultTargetPlatform == TargetPlatform.iOS ||
       defaultTargetPlatform == TargetPlatform.android;
   final diagnostic = Platform.environment['PROFILE_COMPOSER_WIDGETS'] == '1';
+  final profileCpu = Platform.environment['PROFILE_COMPOSER_CPU'] == '1';
   final iterations = int.parse(
     Platform.environment['COMPOSER_ITERATIONS'] ?? '6',
   );
@@ -121,12 +125,24 @@ void main() {
       await tester.pumpAndSettle();
     }
     final reports = <Map<String, Object?>>[];
+    final vm.VmService? cpuService;
+    final isolateId = developer.Service.getIsolateId(Isolate.current);
+    if (profileCpu) {
+      final uri = (await developer.Service.getInfo()).serverWebSocketUri!;
+      cpuService = await vmServiceConnectUri(uri.toString());
+      await cpuService.setFlag('profiler', 'true');
+      await cpuService.setFlag('profile_period', '250');
+      addTearDown(cpuService.dispose);
+    } else {
+      cpuService = null;
+    }
 
     Future<void> measure(
       String phase,
       int iteration,
       Future<void> Function() action,
     ) async {
+      await cpuService?.clearCpuSamples(isolateId!);
       final frames = <ui.FrameTiming>[];
       void collect(List<ui.FrameTiming> batch) => frames.addAll(batch);
       binding.addTimingsCallback(collect);
@@ -161,6 +177,30 @@ void main() {
             },
         ],
       };
+      if (cpuService != null) {
+        final samples = await cpuService.getCpuSamples(
+          isolateId!,
+          start,
+          end - start,
+        );
+        binding.reportData ??= {};
+        final functions = samples.functions!;
+        final usedFunctions = {
+          for (final sample in samples.samples!) ...?sample.stack,
+        };
+        binding.reportData!['cpu_${phase}_$iteration'] = {
+          'sampleCount': samples.sampleCount,
+          'samplePeriod': samples.samplePeriod,
+          'timeOriginMicros': samples.timeOriginMicros,
+          'timeExtentMicros': samples.timeExtentMicros,
+          'functions': [
+            for (var index = 0; index < functions.length; index++)
+              if (usedFunctions.contains(index))
+                {'index': index, ...functions[index].toJson()},
+          ],
+          'samples': [for (final sample in samples.samples!) sample.toJson()],
+        };
+      }
       reports.add(report);
       debugPrint('COMPOSER_LIFECYCLE_PROFILE ${jsonEncode(report)}');
     }
@@ -225,7 +265,7 @@ void main() {
       }
     }
 
-    if (diagnostic) {
+    if (diagnostic || profileCpu) {
       await binding.traceAction(run, reportKey: 'composerTimeline');
     } else {
       await run();
@@ -235,7 +275,7 @@ void main() {
       'label': Platform.environment['PROFILE_LABEL'] ?? 'current',
       'mobile': mobile,
       'debug': kDebugMode,
-      'instrumented': diagnostic,
+      'instrumented': diagnostic || profileCpu,
       'retainedDrafts': retainedDrafts,
       'closeInactive': closeInactive,
       'hostPlatform': defaultTargetPlatform.name,

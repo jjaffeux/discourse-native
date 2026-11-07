@@ -72,6 +72,7 @@ Runtime environment variables configure macOS captures:
 | `COMPOSER_CLOSE_INACTIVE=1` | Save and close an inactive draft while keeping the current editor visible; requires retained drafts. |
 | `COMPOSER_ITERATIONS=1` | Number of lifecycle repetitions; defaults to six. |
 | `PROFILE_COMPOSER_WIDGETS=1` | Separate diagnostic timeline with build, layout and paint instrumentation. |
+| `PROFILE_COMPOSER_CPU=1` | Separate sampled CPU capture for each action; excluded from timing comparisons. |
 
 For example:
 
@@ -130,3 +131,45 @@ Focused verification passes for composer opening, docking, close safety,
 retained draft tabs, static control painting, embedded scrolling, panel controls
 and mobile sheets. Static analysis reports no issues in the six changed Dart
 files. The full test suite is left to CI, per the project instructions.
+
+## Deferred block action validation
+
+A second pass compares against `ddeb58520`. A separate CPU capture finds
+22 of 299 closing samples under `_handle → move → _validatedMove`, including
+16 regex-containing stacks. The two block-menu enabled checks each construct
+and parse a hypothetical reordered draft, even while their menu is closed.
+Opening also samples that validation path. Scrolling does not; its largest
+sampled stack is paragraph painting.
+
+The existing Native menu now mounts each move row through a `Builder`. Enabled
+state and the block's position are resolved from the current index when the row
+mounts. Actual moves retain the same semantic validation. The change adds no
+menu API, state cache or alternative control. The new keyboard regression
+checks the disabled boundary action and activates the first enabled action.
+
+The candidate CPU capture has no samples in block-move validation during
+opening, scrolling or closing. These are sampled work observations, not a
+latency measurement. The directly related block suites pass 151 tests and
+static analysis reports no issues in the three changed Dart files.
+
+The CPU option stores samples and only the functions present in sampled stacks.
+Each function retains its original VM function-table `index`, which identifies
+entries in sample stacks. This avoids exporting tens of thousands of unused
+native symbols. Captures and comparisons for this pass are retained in
+`/tmp/composer-performance-round-two/`.
+
+The frame-timing result is inconclusive. The first five alternating processes
+per side report total closing UI work medians of 100.19 ms before and 89.31 ms
+after, with overlapping ranges of 92.28 to 107.93 ms and 88.47 to 107.75 ms.
+The largest closing frame does not measurably improve. Five more pairs reverse
+the build order; those remain variable, and one baseline closing action is
+interrupted for 32.69 seconds. That entire pair is excluded from the final
+summary, using interruption limits of two seconds for opening/closing and four
+seconds for the fixed two-second scroll. All raw captures remain available.
+
+Two existing Brigantine processes consume roughly 250% CPU each during the
+repeat pass. They remain running. No additional opening, scrolling, closing
+latency or frame-rate speedup is claimed from these timings. This pass establishes
+removal of unused desktop block-menu parsing while preserving move behavior.
+The final CPU capture also verifies exact coverage of all sample stack indices
+in its exported function table.
