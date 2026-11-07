@@ -349,22 +349,19 @@ void main() {
                         .shape!
                         .resolve({})!
                     as RoundedRectangleBorder;
-            // Icon-only pills resolve the sentinel to their visible circle.
-            final expected = iconOnly
-                ? tester
-                          .getSize(
-                            find.descendant(
-                              of: find.byType(FilledButton),
-                              matching: find.byType(Material),
-                            ),
-                          )
-                          .shortestSide /
-                      2
-                : DRadius.pill;
-            final radius = shape.borderRadius.resolve(TextDirection.ltr);
-            expect(radius.topLeft.x, closeTo(expected, .000001));
-            expect(radius, BorderRadius.circular(radius.topLeft.x));
-            expect(buttonSurface(tester).borderRadius, radius);
+            final bounds = Offset.zero & tester.getSize(find.byType(DButton));
+            final radius = shape.borderRadius
+                .resolve(TextDirection.ltr)
+                .toRRect(bounds)
+                .scaleRadii();
+            expect(
+              radius.tlRadius.x,
+              closeTo(bounds.shortestSide / 2, .000001),
+            );
+            expect(
+              buttonSurface(tester).borderRadius.toRRect(bounds).scaleRadii(),
+              radius,
+            );
           }
         }
       }

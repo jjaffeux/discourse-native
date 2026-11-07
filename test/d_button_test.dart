@@ -13,6 +13,92 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets(
+    'equivalent pill corners preserve an unfinished fill transition',
+    (tester) async {
+      var color = Colors.blue;
+      var radius = 999.0;
+      late StateSetter update;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: StatefulBuilder(
+            builder: (context, setState) {
+              update = setState;
+              return Center(
+                child: DButton(
+                  shape: DButtonShape.pill,
+                  borderRadius: BorderRadius.circular(radius),
+                  backgroundColor: color,
+                  label: const Text('Button'),
+                  onPressed: () {},
+                ),
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final surface = find.byWidgetPredicate(
+        (widget) =>
+            widget is DecoratedBox && widget.decoration is DButtonDecoration,
+      );
+      Color paintedColor() =>
+          (tester.renderObject<RenderDecoratedBox>(surface).decoration
+                  as DButtonDecoration)
+              .color;
+      update(() => color = Colors.red);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 60));
+      final midway = paintedColor();
+      expect(midway, isNot(Colors.blue));
+      expect(midway, isNot(Colors.red));
+      update(() => radius = tester.getSize(find.byType(DButton)).height / 2);
+      await tester.pump();
+      expect(paintedColor(), midway);
+      await tester.pumpAndSettle();
+      expect(paintedColor(), Colors.red);
+    },
+  );
+
+  testWidgets('avatar labels keep pill corners at their actual height', (
+    tester,
+  ) async {
+    for (final scale in [1.0, 2.0]) {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: MediaQuery(
+            data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+            child: Center(
+              child: DButton(
+                variant: DButtonVariant.ghost,
+                borderRadius: BorderRadius.circular(999),
+                label: const DAvatar(
+                  decorative: true,
+                  fallback: DAvatarFallback(child: Text('CN')),
+                ),
+                onPressed: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final bounds = tester.getRect(find.byType(DButton));
+      expect(bounds.height, greaterThan(30));
+      expect(
+        buttonSurface(tester).borderRadius
+            .toRRect(Offset.zero & bounds.size)
+            .scaleRadii()
+            .tlRadius
+            .x,
+        bounds.height / 2,
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('timeline icon buttons preserve their glyph bounds', (
     tester,
   ) async {

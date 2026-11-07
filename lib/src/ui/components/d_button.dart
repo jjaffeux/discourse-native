@@ -782,25 +782,22 @@ class DButton extends StatelessWidget {
     var radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
-    // Interpolate the visible corners, not the oversized pill sentinel.
-    // Equivalent text and icon pills must not start a shape tween while a
-    // fit row measures their full and shortened labels.
-    // Text width is measured later; two heights leave room for both corners
-    // while applying the known vertical bound.
-    final visible = radius
-        .toRRect(
-          Offset.zero &
-              (_iconOnly
-                  ? iconOnlySurfaceSize
-                  : Size(2 * surfaceHeight, surfaceHeight)),
-        )
-        .scaleRadii();
-    radius = BorderRadius.only(
-      topLeft: visible.tlRadius,
-      topRight: visible.trRadius,
-      bottomLeft: visible.blRadius,
-      bottomRight: visible.brRadius,
-    );
+    // The transparent Material must not tween between equivalent pill shapes
+    // when a fit row changes labeled controls to icons.
+    final materialRadius = radius;
+    if (_iconOnly) {
+      // Interpolate the visible corners, not the oversized pill sentinel.
+      // A 999px radius stays circular until the very end of a shape tween.
+      final visible = radius
+          .toRRect(Offset.zero & iconOnlySurfaceSize)
+          .scaleRadii();
+      radius = BorderRadius.only(
+        topLeft: visible.tlRadius,
+        topRight: visible.trRadius,
+        bottomLeft: visible.blRadius,
+        bottomRight: visible.brRadius,
+      );
+    }
     final effectiveAnimationDuration = DMotion.duration(
       context,
       DControlStyle.duration,
@@ -1134,7 +1131,7 @@ class DButton extends StatelessWidget {
       backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
       side: const WidgetStatePropertyAll(BorderSide.none),
       shape: WidgetStatePropertyAll(
-        RoundedRectangleBorder(borderRadius: radius),
+        RoundedRectangleBorder(borderRadius: materialRadius),
       ),
       overlayColor: const WidgetStatePropertyAll(Colors.transparent),
       elevation: const WidgetStatePropertyAll(0),
@@ -1567,7 +1564,25 @@ class _DButtonSurfaceState extends State<_DButtonSurface> {
   @override
   void didUpdateWidget(_DButtonSurface oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final box = context.findRenderObject() as RenderDecoratedBox;
+    final old = box.decoration as DButtonDecoration;
+    final next = widget.decoration;
+    // Fit passes can alternate a pill's sentinel and resolved radius. Compare
+    // the painted shape so this cannot start an invisible transition.
+    final equivalentSurface =
+        box.hasSize &&
+        old.color == next.color &&
+        old.borderColor == next.borderColor &&
+        old.ringColor == next.ringColor &&
+        old.ringWidth == next.ringWidth &&
+        old.ringOffset == next.ringOffset &&
+        old.joinedAxis == next.joinedAxis &&
+        old.strokeWidth == next.strokeWidth &&
+        old.dashed == next.dashed &&
+        old.borderRadius.toRRect(Offset.zero & box.size).scaleRadii() ==
+            next.borderRadius.toRRect(Offset.zero & box.size).scaleRadii();
     _skipTransition =
+        equivalentSurface ||
         oldWidget.hovered != widget.hovered ||
         (oldWidget.expanded && !widget.expanded);
   }
