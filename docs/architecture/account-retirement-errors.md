@@ -33,6 +33,12 @@ tests exercise actual cancellation and resource cleanup on retirement.
 
 ## Application shutdown
 
+The shell owns disposal from its first entry, before retiring components or
+calling account observers. Recursive and later disposal calls join that terminal
+phase without repeating cleanup. Its notifier's disposed flag is still set by
+the final base disposal; the private entry guard governs cleanup ownership only
+and does not change other mutation or admission policies.
+
 The shell retires a captured list of its forums, retaining the first retirement
 failure while continuing later forums and remaining component cleanup. It
 rethrows that failure only after disposing its notifier and any transport it
@@ -48,3 +54,9 @@ transport responsibilities.
 `app_shutdown_ownership_test.dart` reproduces both the skipped second forum and
 the runtime transport left open by a retirement failure. Disposal and runtime
 lifecycle suites retain pending-draft preservation and teardown-order coverage.
+
+The shutdown suite also enters raw shell disposal again from a retirement
+observer. It verifies later forums still retire, transport closes once, repeated
+calls do nothing, and recursive disposal cannot replace the original observer
+failure or its stack. Runtime disposal retains its separate transition guard and
+session/plugin/transport ordering.

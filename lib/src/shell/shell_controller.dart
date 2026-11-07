@@ -503,6 +503,7 @@ class ShellController extends FrameSafeNotifier
   final bool _ownsPlugins;
 
   Future<void>? _pluginTeardownFuture;
+  bool _disposalStarted = false;
 
   Future<void> get pluginTeardown =>
       _pluginTeardownFuture ?? Future<void>.value();
@@ -9454,6 +9455,8 @@ class ShellController extends FrameSafeNotifier
 
   @override
   void dispose() {
+    if (_disposalStarted) return;
+    _disposalStarted = true;
     unawaited(_readerEvents.close());
     _composerOpening.dispose();
     _existingTopicOpening.dispose();

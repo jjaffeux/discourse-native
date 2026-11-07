@@ -12,6 +12,64 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  for (final fails in [false, true]) {
+    test(
+      'shell disposal joins retirement reentry with observer failure $fails',
+      () async {
+        final sites = [instance('one.example'), instance('two.example')];
+        final api = FakeDiscourseApi();
+        final plugins = PluginInstaller.install(const PluginManifest([]));
+        addTearDown(plugins.close);
+        final shell = ShellController(
+          instanceStore: FakeInstanceStore(sites),
+          api: api,
+          authenticator: FakeAuthenticator(),
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+          plugins: plugins,
+        );
+        await shell.load();
+        await pumpEventQueue();
+        final observed = <String>[];
+        final failure = StateError('original retirement failure');
+        final origin = StackTrace.fromString('recursive-shutdown-origin');
+        shell.lifecycle.capture(sites.first.url).onRetire(() {
+          observed.add('reenter');
+          shell.dispose();
+        });
+        shell.lifecycle.capture(sites.first.url).onRetire(() {
+          observed.add('first retired');
+          if (fails) Error.throwWithStackTrace(failure, origin);
+        });
+        shell.lifecycle.capture(sites.last.url).onRetire(() {
+          observed.add('second retired');
+          if (fails) throw StateError('later retirement failure');
+        });
+        if (fails) {
+          try {
+            shell.dispose();
+            fail('Expected the original retirement failure.');
+          } catch (error, stackTrace) {
+            expect(error, same(failure));
+            expect(
+              stackTrace.toString(),
+              contains('recursive-shutdown-origin'),
+            );
+          }
+        } else {
+          expect(shell.dispose, returnsNormally);
+        }
+        expect(observed, ['reenter', 'first retired', 'second retired']);
+        expect(api.closeCalls, 1);
+        expect(() => shell.addListener(() {}), throwsA(isA<FlutterError>()));
+        await shell.pluginTeardown;
+        expect(shell.dispose, returnsNormally);
+        expect(api.closeCalls, 1);
+      },
+    );
+  }
+
   test(
     'shell shutdown retires every forum and closes transport before rethrowing',
     () async {
