@@ -96,7 +96,6 @@ void main() {
       final old = _ensureResource(controller, kind, site);
       await started.future;
       lifecycle.invalidate(site);
-      controller.forget(site);
       final current = _ensureResource(controller, kind, site);
       await pumpEventQueue();
       expect(calls, 2);
@@ -126,6 +125,125 @@ void main() {
           });
       }
     });
+  }
+
+  test(
+    'retirement drops account authority while retaining persisted display fallback',
+    () async {
+      const site = 'https://fallback.example';
+      final stored = siteAppearance(accent: const Color(0xFF112233));
+      final fetched = siteAppearance(accent: const Color(0xFF445566));
+      const storedConfig = SiteConfig(emojiSet: 'apple');
+      final api = _PresentationApi()
+        ..appearance = fetched
+        ..config = const SiteConfig(emojiSet: 'google')
+        ..custom = {'party': '/party.png'}
+        ..emojis = const [SiteEmoji(name: 'wave', url: 'wave.png')]
+        ..emojiAliases = const {
+          'wave': ['hello'],
+        };
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(
+        api,
+        lifecycle: lifecycle,
+        persistedAppearances: {site: stored},
+        persisted: {site: storedConfig},
+      );
+      await controller.refreshAppearance(site);
+      await controller.ensureConfig(site);
+      await controller.ensureCustomEmojis(site);
+      await controller.ensureEmojiCatalog(site);
+      await controller.ensureEmojiSearchAliases(site);
+      expect(controller.appearanceFor(site), fetched);
+      expect(controller.emojiNameFor(site, 'hello'), 'wave');
+      var emojiNotifications = 0;
+      controller.emojiChangesFor(site).addListener(() => emojiNotifications++);
+      lifecycle.invalidate(site);
+      expect(controller.appearanceFor(site), stored);
+      expect(controller.configFor(site), storedConfig);
+      expect(controller.accountConfigFor(site), isNull);
+      expect(controller.cookingSettingsAreStale(site), isTrue);
+      expect(controller.cachedCustomEmojiFor(site), isEmpty);
+      expect(controller.emojiCatalogFor(site), isNull);
+      expect(controller.emojiSearchAliasesFor(site), isNull);
+      expect(controller.emojiNameFor(site, 'hello'), isNull);
+      expect(emojiNotifications, 1);
+      await controller.ensureAppearance(site);
+      expect(api.appearanceCalls, 2);
+    },
+  );
+
+  test(
+    'persisted account authority observes retirement before any HTTP request',
+    () {
+      const site = 'https://persisted.example';
+      const config = SiteConfig(emojiSet: 'apple');
+      final lifecycle = SiteLifecycle();
+      final api = _PresentationApi();
+      final controller = _controller(
+        api,
+        lifecycle: lifecycle,
+        persisted: {site: config},
+      );
+      expect(controller.accountConfigFor(site), config);
+      lifecycle.invalidate(site);
+      expect(controller.accountConfigFor(site), isNull);
+      expect(controller.configFor(site), config);
+      expect(api.configCalls, 0);
+    },
+  );
+
+  test(
+    'forgetting a session during credential IO prevents its dispatch',
+    () async {
+      const site = 'https://forgotten.example';
+      final gate = Completer<String?>();
+      final credentials = _Credentials()..apiKeyGate = gate;
+      final api = _PresentationApi();
+      final controller = _controller(api, credentials: credentials);
+      final old = controller.ensureConfig(site);
+      await pumpEventQueue();
+      expect(credentials.apiKeySites, [site]);
+      controller.forget(site);
+      gate.complete('key');
+      await old;
+      expect(api.configCalls, 0);
+      await controller.ensureConfig(site);
+      expect(api.configCalls, 1);
+    },
+  );
+
+  for (final earlierObserver in [false, true]) {
+    test(
+      'presentation retirement preserves successor from earlier observer=$earlierObserver',
+      () async {
+        const site = 'https://reentrant.example';
+        final lifecycle = SiteLifecycle();
+        final api = _PresentationApi()
+          ..config = const SiteConfig(emojiSet: 'google');
+        late final SitePresentationController controller;
+        Future<void>? successor;
+        var dispatched = false;
+        void replace() {
+          if (dispatched) return;
+          dispatched = true;
+          successor = controller.ensureConfig(site);
+        }
+
+        if (earlierObserver) lifecycle.capture(site).onRetire(replace);
+        controller = _controller(api, lifecycle: lifecycle);
+        await controller.ensureConfig(site);
+        final gate = api.configGate = Completer<SiteConfig>();
+        if (!earlierObserver) controller.addListener(replace);
+        lifecycle.invalidate(site);
+        await pumpEventQueue();
+        expect(api.configCalls, 2);
+        gate.complete(const SiteConfig(emojiSet: 'apple'));
+        await successor;
+        expect(controller.accountConfigFor(site)?.emojiSet, 'apple');
+        expect(controller.cookingSettingsAreStale(site), isFalse);
+      },
+    );
   }
 
   for (final kind in ['catalog', 'aliases']) {
@@ -264,30 +382,33 @@ void main() {
   });
 
   for (final kind in ['config', 'appearance', 'custom', 'catalog', 'aliases']) {
-    test('$kind invalidation requires forget before readmission', () async {
-      const site = 'https://meta.example';
-      final gate = Completer<void>();
-      final started = Completer<void>();
-      var calls = 0;
-      final api = _PresentationApi()
-        ..beforeLoad = (_) async {
-          calls++;
-          if (!started.isCompleted) started.complete();
-          await gate.future;
-        };
-      final lifecycle = SiteLifecycle();
-      final controller = _controller(api, lifecycle: lifecycle);
-      final pending = _ensureResource(controller, kind, site);
-      await started.future;
-      lifecycle.invalidate(site);
-      gate.complete();
-      await pending;
-      await _ensureResource(controller, kind, site);
-      expect(calls, 1);
-      controller.forget(site);
-      await _ensureResource(controller, kind, site);
-      expect(calls, 2);
-    });
+    test(
+      '$kind invalidation readmits a fresh session without forgetting',
+      () async {
+        const site = 'https://meta.example';
+        final gate = Completer<void>();
+        final started = Completer<void>();
+        var calls = 0;
+        final api = _PresentationApi()
+          ..beforeLoad = (_) async {
+            calls++;
+            if (!started.isCompleted) started.complete();
+            await gate.future;
+          };
+        final lifecycle = SiteLifecycle();
+        final controller = _controller(api, lifecycle: lifecycle);
+        final pending = _ensureResource(controller, kind, site);
+        await started.future;
+        lifecycle.invalidate(site);
+        gate.complete();
+        await pending;
+        await _ensureResource(controller, kind, site);
+        expect(calls, 2);
+        controller.forget(site);
+        await _ensureResource(controller, kind, site);
+        expect(calls, 3);
+      },
+    );
   }
 
   TestWidgetsFlutterBinding.ensureInitialized();

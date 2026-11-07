@@ -91,19 +91,70 @@ final class SitePresentationController extends FrameSafeNotifier {
   final Set<String> _invalidatedPersistedAppearances = {};
   final Set<String> _invalidatedPersistedConfigs = {};
 
-  late final _appearances = _PresentationResource<SiteAppearance>(this);
-
-  late final _configs = _PresentationResource<SiteConfig>(this);
-  late final _customEmojis = _PresentationResource<Map<String, String>>(this);
+  final Map<String, _PresentationSession> _sessions = {};
+  late final _appearances = _PresentationResource<SiteAppearance>(
+    this,
+    (session) => session.appearance,
+  );
+  late final _configs = _PresentationResource<SiteConfig>(
+    this,
+    (session) => session.config,
+  );
+  late final _customEmojis = _PresentationResource<Map<String, String>>(
+    this,
+    (session) => session.custom,
+  );
   late final _emojiCatalogs = _PresentationResource<SiteEmojiCatalog>(
     this,
+    (session) => session.catalog,
     suppressFailedReads: true,
   );
   late final _emojiSearchAliases =
       _PresentationResource<Map<String, List<String>>>(
         this,
+        (session) => session.aliases,
         suppressFailedReads: true,
       );
+
+  _PresentationSession? _existingSession(String siteUrl) {
+    final session = _sessions[siteUrl];
+    if (session == null || session.isCurrent) return session;
+    _retireSession(session);
+    return _sessions[siteUrl];
+  }
+
+  _PresentationSession _sessionFor(String siteUrl) {
+    final held = _existingSession(siteUrl);
+    if (held != null) return held;
+    final session = _PresentationSession(
+      this,
+      siteUrl,
+      lifecycle.capture(siteUrl),
+    );
+    _sessions[siteUrl] = session;
+    session.observeRetirement();
+    return session;
+  }
+
+  void _retireSession(_PresentationSession session) {
+    if (!identical(_sessions[session.siteUrl], session)) {
+      session.retire();
+      return;
+    }
+    final siteUrl = session.siteUrl;
+    final appearanceChanged =
+        session.appearance.value != null &&
+        session.appearance.value != readPersistedAppearance(siteUrl);
+    final configChanged = session.config.value != null;
+    final customChanged = session.custom.value?.isNotEmpty == true;
+    _invalidatedPersistedAppearances.add(siteUrl);
+    _invalidatedPersistedConfigs.add(siteUrl);
+    session.retire();
+    _presentationTokens.remove(siteUrl);
+    _notifyEmojiChanged(siteUrl);
+    if (appearanceChanged || configChanged || customChanged) notifySafely();
+  }
+
   static final Object _unchangedPresentation = Object();
   final Map<String, Object> _presentationTokens = {};
 
@@ -124,6 +175,11 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    final sessions = _sessions.values.toList();
+    _sessions.clear();
+    for (final session in sessions) {
+      session.retire();
+    }
     for (final changes in _emojiChanges.values) {
       changes.dispose();
     }
@@ -138,11 +194,14 @@ final class SitePresentationController extends FrameSafeNotifier {
   SiteAppearance? appearanceFor(String siteUrl) =>
       _appearances[siteUrl] ?? readPersistedAppearance(siteUrl);
 
-  SiteConfig? accountConfigFor(String siteUrl) =>
-      _configs[siteUrl] ??
-      (_invalidatedPersistedConfigs.contains(siteUrl)
-          ? null
-          : readPersistedConfig(siteUrl));
+  SiteConfig? accountConfigFor(String siteUrl) {
+    if (isDisposed) return null;
+    _sessionFor(siteUrl);
+    return _configs[siteUrl] ??
+        (_invalidatedPersistedConfigs.contains(siteUrl)
+            ? null
+            : readPersistedConfig(siteUrl));
+  }
 
   SiteConfig configFor(String siteUrl) =>
       _configs[siteUrl] ??
@@ -418,27 +477,11 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   void forget(String siteUrl) {
     if (isDisposed) return;
-    // Forget marks an identity/lifecycle boundary in the shell. A value still
-    // present on the immutable instance may belong to the account that was
-    // just disconnected, so it must not regain warm-start status.
     _invalidatedPersistedAppearances.add(siteUrl);
     _invalidatedPersistedConfigs.add(siteUrl);
-    final oldAppearance = appearanceFor(siteUrl);
-    final oldConfig = configFor(siteUrl);
-    final customChanged = _customEmojis[siteUrl]?.isNotEmpty ?? false;
-
-    _appearances.forget(siteUrl);
-    _configs.forget(siteUrl);
-    _customEmojis.forget(siteUrl);
-    _emojiCatalogs.forget(siteUrl);
-    _emojiSearchAliases.forget(siteUrl);
-    _presentationTokens.remove(siteUrl);
-    _notifyEmojiChanged(siteUrl);
-
-    if (oldAppearance != appearanceFor(siteUrl) ||
-        oldConfig != configFor(siteUrl) ||
-        customChanged) {
-      notifySafely();
+    final session = _sessions[siteUrl];
+    if (session != null) {
+      _retireSession(session);
     }
   }
 
@@ -450,14 +493,14 @@ final class SitePresentationController extends FrameSafeNotifier {
 
   Future<T?> _withCredentials<T>(
     String siteUrl,
-    SiteLease lease,
+    _PresentationSession session,
     Future<T> Function(String? apiKey, String? clientId) load,
   ) async {
     final auth = await AccountRequestSession(
       siteUrl,
-      lease,
+      session.lease,
     ).credentials(credentials);
-    if (isDisposed || !lease.isCurrent) return null;
+    if (!session.isCurrent) return null;
     return auth.run(
       () => load(auth.apiKey, auth.apiKey == null ? null : auth.clientId),
     );
@@ -471,13 +514,20 @@ final class SitePresentationController extends FrameSafeNotifier {
 }
 
 final class _PresentationResource<T extends Object> {
-  _PresentationResource(this.owner, {this.suppressFailedReads = false});
+  _PresentationResource(
+    this.owner,
+    this.entryFor, {
+    this.suppressFailedReads = false,
+  });
 
   final SitePresentationController owner;
   final bool suppressFailedReads;
-  final Map<String, _ResourceEntry<T>> _entries = {};
+  final _ResourceEntry<T> Function(_PresentationSession) entryFor;
 
-  T? operator [](String siteUrl) => _entries[siteUrl]?.value;
+  T? operator [](String siteUrl) {
+    final session = owner._existingSession(siteUrl);
+    return session == null ? null : entryFor(session).value;
+  }
 
   Future<T?> request(
     String siteUrl, {
@@ -489,8 +539,9 @@ final class _PresentationResource<T extends Object> {
     Future<void> Function(T value)? persist,
     bool persistOnlyChanges = false,
   }) {
-    if (suppressFailedReads && owner._isDisposed) return Future.value(null);
-    final entry = _entries.putIfAbsent(siteUrl, _ResourceEntry<T>.new);
+    if (owner._isDisposed) return Future.value(null);
+    final session = owner._sessionFor(siteUrl);
+    final entry = entryFor(session);
     if (suppressFailedReads && !refresh && entry.value != null) {
       return Future.value(entry.value);
     }
@@ -502,7 +553,7 @@ final class _PresentationResource<T extends Object> {
     if (refresh) entry.failed = false;
 
     final request = RequestIntentOperation<T?>(() async {
-      if (owner._isDisposed || (!refresh && (isWarm?.call() ?? false))) {
+      if (!session.isCurrent || (!refresh && (isWarm?.call() ?? false))) {
         return null;
       }
       if (entry.loading || (!refresh && entry.value != null)) {
@@ -512,10 +563,10 @@ final class _PresentationResource<T extends Object> {
       if (entry.attempts >= owner.maxAttempts) return entry.value;
       entry.attempts++;
       entry.loading = true;
-      final lease = owner.lifecycle.capture(siteUrl);
+      final lease = session.lease;
       try {
-        final value = await owner._withCredentials(siteUrl, lease, load);
-        if (value == null || owner._isDisposed) return null;
+        final value = await owner._withCredentials(siteUrl, session, load);
+        if (value == null || !session.isCurrent) return null;
         var changed = false;
         final accepted = lease.commit(() {
           changed = hasChanged?.call(value) ?? false;
@@ -529,21 +580,21 @@ final class _PresentationResource<T extends Object> {
             }
           }
         });
-        if (!accepted || !lease.isCurrent || owner._isDisposed) return null;
+        if (!accepted || !session.isCurrent) return null;
         if (persist != null && (!persistOnlyChanges || changed)) {
           try {
             await persist(value);
           } catch (_) {
-            if (owner._isDisposed || !lease.isCurrent) return null;
+            if (!session.isCurrent) return null;
           }
         }
         return value;
       } catch (_) {
-        if (owner._isDisposed || !lease.isCurrent) return null;
+        if (!session.isCurrent) return null;
         entry.failed = true;
         return null;
       } finally {
-        if (!owner._isDisposed) lease.commit(() => entry.loading = false);
+        entry.loading = false;
       }
     });
     entry.request = request;
@@ -552,13 +603,11 @@ final class _PresentationResource<T extends Object> {
   }
 
   void forgiveAttempts(String siteUrl) {
-    final entry = _entries[siteUrl];
-    if (entry == null || entry.loading || entry.value != null) return;
+    final session = owner._existingSession(siteUrl);
+    if (session == null) return;
+    final entry = entryFor(session);
+    if (entry.loading || entry.value != null) return;
     entry.attempts = 0;
-  }
-
-  void forget(String siteUrl) {
-    _entries.remove(siteUrl)?.request?.future.ignore();
   }
 }
 
@@ -568,4 +617,47 @@ final class _ResourceEntry<T extends Object> {
   bool loading = false;
   bool failed = false;
   RequestIntentOperation<T?>? request;
+
+  void clear() {
+    request?.future.ignore();
+    request = null;
+    value = null;
+    loading = false;
+  }
+}
+
+final class _PresentationSession {
+  _PresentationSession(this.owner, this.siteUrl, this.lease);
+
+  final SitePresentationController owner;
+  final String siteUrl;
+  final SiteLease lease;
+  final appearance = _ResourceEntry<SiteAppearance>();
+  final config = _ResourceEntry<SiteConfig>();
+  final custom = _ResourceEntry<Map<String, String>>();
+  final catalog = _ResourceEntry<SiteEmojiCatalog>();
+  final aliases = _ResourceEntry<Map<String, List<String>>>();
+  void Function()? _detach;
+  bool _retired = false;
+
+  bool get isCurrent =>
+      !_retired && lease.isCurrent && identical(owner._sessions[siteUrl], this);
+
+  void observeRetirement() =>
+      _detach = lease.onRetire(() => owner._retireSession(this));
+
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    _detach?.call();
+    _detach = null;
+    if (identical(owner._sessions[siteUrl], this)) {
+      owner._sessions.remove(siteUrl);
+    }
+    appearance.clear();
+    config.clear();
+    custom.clear();
+    catalog.clear();
+    aliases.clear();
+  }
 }
