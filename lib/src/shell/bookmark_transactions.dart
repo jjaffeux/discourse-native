@@ -289,7 +289,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   final BookmarkTransactions _owner;
   final String siteUrl;
   final SiteLease lease;
-  final Set<int> _postBookmarkWritesInFlight = {};
+  final Map<int, int> _postBookmarkWritesInFlight = {};
+  final Set<int> _topicBookmarkClearsInFlight = {};
   final Set<int> _topicBookmarkWritesInFlight = {};
   final Set<(BookmarkTargetType, int)> _pluginBookmarkWritesInFlight = {};
   final Map<int, int> _revisions = {};
@@ -305,7 +306,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   @override
   int revision(int topicId) => _revisions[topicId] ?? 0;
   bool postBookmarkWriting(int postId) =>
-      isCurrent && _postBookmarkWritesInFlight.contains(postId);
+      isCurrent && _postBookmarkWritesInFlight.containsKey(postId);
 
   void _retire() {
     if (_retired) return;
@@ -314,6 +315,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     _detach = null;
     _postBookmarkWritesInFlight.clear();
     _topicBookmarkWritesInFlight.clear();
+    _topicBookmarkClearsInFlight.clear();
     _pluginBookmarkWritesInFlight.clear();
     _revisions.clear();
     _strategies.clear();
@@ -521,7 +523,8 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
   }) {
     if (!isCurrent) return false;
     if (targetType == BookmarkTargetType.post) {
-      return _postBookmarkWriteInFlight(targetId);
+      return _topicBookmarkClearsInFlight.contains(topicId) ||
+          _postBookmarkWriteInFlight(targetId);
     }
     if (targetType == BookmarkTargetType.topic) {
       return topicId != null && _topicBookmarkWritesInFlight.contains(topicId);
@@ -531,7 +534,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
 
   bool _postBookmarkWriteInFlight(int postId) {
     final key = postId;
-    return _postBookmarkWritesInFlight.contains(key) ||
+    return _postBookmarkWritesInFlight.containsKey(key) ||
         ((_topicData?.postWriting(postId) ?? false) &&
             !_owner.checklistWriting(siteUrl, key));
   }
@@ -875,6 +878,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
             .toSet() ??
         const <int>{};
     if (_topicBookmarkWritesInFlight.contains(key) ||
+        _postBookmarkWritesInFlight.containsValue(topicId) ||
         postIds.any((id) => _postBookmarkWriteInFlight(id))) {
       return BookmarkWriteResult.refused(
         appL10n.anotherBookmarkActionIsStillFinishing,
@@ -883,7 +887,10 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     final data = _topicData;
     if (!isCurrent || data == null) return _retiredResult();
     _topicBookmarkWritesInFlight.add(key);
-    _postBookmarkWritesInFlight.addAll(postIds);
+    _topicBookmarkClearsInFlight.add(key);
+    _postBookmarkWritesInFlight.addEntries(
+      postIds.map((id) => MapEntry(id, topicId)),
+    );
     final releases = [
       for (final id in postIds) data.holdPostWrite(id, notifyOnRelease: false),
     ];
@@ -894,6 +901,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
       topicId,
       () {
         _topicBookmarkWritesInFlight.remove(key);
+        _topicBookmarkClearsInFlight.remove(key);
         for (final postId in postIds) {
           _postBookmarkWritesInFlight.remove(postId);
         }
@@ -984,8 +992,11 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
     if (!isCurrent) return busy;
     final _AdmittedBookmarkTarget target;
     if (targetType == BookmarkTargetType.post) {
-      if (_postBookmarkWriteInFlight(targetId)) return busy;
-      _postBookmarkWritesInFlight.add(targetId);
+      if (_topicBookmarkClearsInFlight.contains(topicId) ||
+          _postBookmarkWriteInFlight(targetId)) {
+        return busy;
+      }
+      _postBookmarkWritesInFlight[targetId] = topicId!;
       final data = _topicData;
       if (data == null) {
         _postBookmarkWritesInFlight.remove(targetId);
@@ -996,7 +1007,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         this,
         targetType,
         targetId,
-        topicId!,
+        topicId,
         () {
           _postBookmarkWritesInFlight.remove(targetId);
           release();

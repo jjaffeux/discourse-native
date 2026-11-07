@@ -126,6 +126,17 @@ final class _UnconfirmedDeleteApi extends FakeDiscourseApi {
   }
 }
 
+final class _PendingClearApi extends FakeDiscourseApi {
+  final ready = Completer<void>();
+  @override
+  Future<void> deleteTopicBookmarks({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    String? clientId,
+  }) => ready.future;
+}
+
 final class _PendingWriteApi extends FakeDiscourseApi {
   _PendingWriteApi({super.writeFailure});
   final ready = Completer<void>();
@@ -790,6 +801,42 @@ void main() {
       ),
       isFalse,
     );
+  });
+
+  test('a topic clear blocks a new post bookmark', () async {
+    final api = _PendingClearApi();
+    final f = _Fixture(api: api);
+    final clearing = f.account.deleteAllTopicBookmarks(topicId: 7);
+    await pumpEventQueue();
+    final created = await f.create();
+    api.ready.complete();
+    await clearing;
+    expect(created.saved, isFalse);
+    expect(f.api.createdBookmarks, isEmpty);
+  });
+
+  test('a topic clear permits a post bookmark in another topic', () async {
+    final api = _PendingClearApi();
+    final f = _Fixture(api: api);
+    final clearing = f.account.deleteAllTopicBookmarks(topicId: 8);
+    await pumpEventQueue();
+    final created = await f.create();
+    api.ready.complete();
+    await clearing;
+    expect(created.saved, isTrue);
+    expect(f.store.read<Post>(_site, 12)?.bookmark, isNotNull);
+  });
+
+  test('a new post bookmark blocks a topic clear', () async {
+    final api = _PendingWriteApi();
+    final f = _Fixture(api: api);
+    final creating = f.create();
+    await pumpEventQueue();
+    final cleared = await f.account.deleteAllTopicBookmarks(topicId: 7);
+    api.ready.complete();
+    await creating;
+    expect(cleared.saved, isFalse);
+    expect(cleared.message, 'Another bookmark action is still finishing.');
   });
 
   test('an uncertain topic clear is re-read instead of applied', () async {
