@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
+import 'package:discourse_native/discourse_plugin_sdk.dart' show freezeJson;
+
 typedef VoiceSignalBatchRequest =
     Future<void> Function(Map<String, Object?> payload);
 
@@ -40,7 +42,12 @@ final class VoiceSignalBatcher {
       );
     }
 
-    final events = _eventsFrom(event);
+    final List<Map<String, Object?>> events;
+    try {
+      events = _eventsFrom(event);
+    } catch (error, stackTrace) {
+      return Future.error(error, stackTrace);
+    }
     if (events.isEmpty) return Future<void>.value();
     final completions = <Future<void>>[];
     var offset = 0;
@@ -100,12 +107,15 @@ final class VoiceSignalBatcher {
     final waiters = _pendingWaiters;
     _pending = LinkedHashMap();
     _pendingWaiters = [];
-    final payload = <String, Object?>{
-      'messages': [
+    final payload = Map<String, Object?>.unmodifiable({
+      'messages': List<Map<String, Object?>>.unmodifiable([
         for (final entry in batches.entries)
-          {'recipient_id': entry.key, 'events': entry.value},
-      ],
-    };
+          Map<String, Object?>.unmodifiable({
+            'recipient_id': entry.key,
+            'events': List<Map<String, Object?>>.unmodifiable(entry.value),
+          }),
+      ]),
+    });
     _queuedWaiters.addAll(waiters);
     final operation = _sendTail.then<void>((_) {
       _queuedWaiters.removeAll(waiters);
@@ -134,12 +144,20 @@ final class VoiceSignalBatcher {
 
   static List<Map<String, Object?>> _eventsFrom(Map<String, Object?> event) {
     final batched = event['events'];
-    if (batched is Iterable) {
-      return [
-        for (final value in batched)
-          if (value is Map) Map<String, Object?>.from(value),
-      ];
+    final events = batched is Iterable
+        ? [
+            for (final value in batched)
+              if (value is Map) value,
+          ]
+        : [event];
+    return [for (final value in events) _ownEvent(value)];
+  }
+
+  static Map<String, Object?> _ownEvent(Object? event) {
+    final frozen = freezeJson(event);
+    if (!frozen.valid || frozen.value is! Map<String, Object?>) {
+      throw const FormatException('Voice signals must contain JSON values.');
     }
-    return [Map<String, Object?>.from(event)];
+    return frozen.value! as Map<String, Object?>;
   }
 }

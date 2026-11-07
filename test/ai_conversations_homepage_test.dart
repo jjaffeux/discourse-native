@@ -60,6 +60,65 @@ Map<String, dynamic> _page({
 };
 
 void main() {
+  testWidgets(
+    'account retirement clears visible AI rows without a parent rebuild',
+    (tester) async {
+      final setup = _service(
+        RecordingPluginTransport(responses: {'GET $_path': _page()}),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: AiConversationsPage(siteUrl: _site, service: setup.service),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Conversation 42'), findsOneWidget);
+      final open = tester
+          .widget<DItem>(find.byKey(const ValueKey('ai-conversation-42')))
+          .onPressed!;
+      setup.requests.lifecycle.invalidate(_site);
+      open();
+      expect(setup.navigation.currentContent?.topicId, isNull);
+      await tester.pump();
+      expect(find.text('Conversation 42'), findsNothing);
+      expect(
+        find.text('AI conversations are unavailable for this account.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('retained load-more callbacks admit one AI page', (tester) async {
+    final gate = Completer<Object?>();
+    final transport = RecordingPluginTransport(
+      responses: {'GET $_path': _page(more: true)},
+      responders: {'GET $_nextPath': (_) => gate.future},
+    );
+    final setup = _service(transport);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: AiConversationsPage(siteUrl: _site, service: setup.service),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final loadMore = tester
+        .widget<DButton>(find.widgetWithText(DButton, 'Load more'))
+        .onPressed!;
+    loadMore();
+    loadMore();
+    await tester.pump();
+    expect(transport.reads.where((r) => r.path == _nextPath), hasLength(1));
+    gate.complete(_page(page: 1, ids: [44]));
+    await tester.pumpAndSettle();
+    expect(find.text('Conversation 44'), findsOneWidget);
+  });
+
   test(
     'a same-key core feed does not own the AI private-message source',
     () async {

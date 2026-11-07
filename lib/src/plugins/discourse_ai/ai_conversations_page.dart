@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'ai_conversations_service.dart';
+import 'ai_conversations_session.dart';
 import 'discourse_ai_icons.dart';
 
 class AiConversationsPage extends StatefulWidget {
@@ -20,15 +21,14 @@ class AiConversationsPage extends StatefulWidget {
 }
 
 class _AiConversationsPageState extends State<AiConversationsPage> {
-  List<AiConversation> _conversations = [];
-  bool _loading = true;
-  bool _hasMore = false;
-  bool _unavailable = false;
-  bool _error = false;
-  bool _retryMore = false;
-  int _page = -1;
-  Object? _request;
-  late PluginSiteLease _account;
+  AiConversationsSession? _session;
+
+  AiConversationsState get _state => _session!.state;
+  List<AiConversation> get _conversations => _state.conversations;
+  bool get _loading => _state.loading;
+  bool get _hasMore => _state.hasMore;
+  bool get _unavailable => _state.unavailable;
+  bool get _error => _state.error;
 
   @override
   void initState() {
@@ -41,58 +41,35 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.service, widget.service) ||
-        !_account.isCurrent) {
+        !_session!.isCurrent) {
       _bind();
     }
   }
 
   void _bind() {
-    _account = widget.service.requests.capture(widget.siteUrl);
-    _conversations = [];
-    _page = -1;
-    _hasMore = false;
-    unawaited(_load());
+    _session?.removeListener(_changed);
+    _session?.dispose();
+    final service = widget.service;
+    final siteUrl = widget.siteUrl;
+    final session = AiConversationsSession(
+      account: service.requests.capture(siteUrl),
+      load: (page) => service.load(siteUrl, page: page),
+      open: (conversation) => service.open(siteUrl, conversation),
+    );
+    _session = session;
+    session.addListener(_changed);
+    unawaited(session.refresh());
   }
 
-  Future<void> _load({bool more = false}) async {
-    final request = Object();
-    final account = _account;
-    _request = request;
-    setState(() {
-      _loading = true;
-      _retryMore = more;
-      _error = false;
-      _unavailable = false;
-    });
-    try {
-      final result = await widget.service.load(
-        widget.siteUrl,
-        page: more ? _page + 1 : 0,
-      );
-      if (!mounted ||
-          _request != request ||
-          !account.isCurrent ||
-          result == null) {
-        return;
-      }
-      setState(() {
-        final rows = more
-            ? [..._conversations, ...result.conversations]
-            : result.conversations;
-        final seen = <int>{};
-        _conversations = rows.where((row) => seen.add(row.id)).toList();
-        _page = result.page;
-        _hasMore = result.hasMore;
-        _loading = false;
-      });
-    } catch (error) {
-      if (!mounted || _request != request || !account.isCurrent) return;
-      setState(() {
-        _loading = false;
-        _error = true;
-        _unavailable = error is AiConversationsUnavailable;
-      });
-    }
+  void _changed() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _session?.removeListener(_changed);
+    _session?.dispose();
+    super.dispose();
   }
 
   @override
@@ -105,13 +82,14 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
         icon: const DIcon(DIcons.arrowsRotate),
         tooltip: context.l10n.refresh,
         variant: DButtonVariant.ghost,
-        onPressed: _loading ? null : () => _load(),
+        onPressed: _loading ? null : _session!.refresh,
       ),
     ),
     child: ContentReadingLaneBox(widthLimit: 820, child: _body(context)),
   );
 
   Widget _body(BuildContext context) {
+    final session = _session!;
     if (!widget.service.available(widget.siteUrl)) {
       return SingleChildScrollView(
         child: DEmpty(
@@ -181,7 +159,7 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
                 if (_error && !_unavailable)
                   DButton(
                     label: Text(context.l10n.retry),
-                    onPressed: () => _load(),
+                    onPressed: session.retry,
                   ),
                 DButton(
                   label: Text(context.l10n.aiConversationsOpenForum),
@@ -217,7 +195,7 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
           return DItem(
             key: ValueKey('ai-conversation-${conversation.id}'),
             shape: DItemShape.fullWidth,
-            onPressed: () => widget.service.open(widget.siteUrl, conversation),
+            onPressed: () => session.open(conversation),
             children: [
               DItemMedia(
                 child: DIcon(
@@ -245,7 +223,9 @@ class _AiConversationsPageState extends State<AiConversationsPage> {
             loading: _loading,
             onPressed: _loading
                 ? null
-                : () => _load(more: _error ? _retryMore : true),
+                : _error
+                ? session.retry
+                : session.loadMore,
           ),
         );
       },

@@ -27,13 +27,26 @@ class ComposerUploadFile {
 
 /// A prepared upload owns its temporary data until it succeeds or is removed.
 class PreparedComposerUpload {
-  PreparedComposerUpload(this.file, {this.release});
+  PreparedComposerUpload(this.file, {this._release});
 
   final ComposerUploadFile file;
-  final Future<void> Function()? release;
+  final Future<void> Function()? _release;
   Future<void>? _disposal;
 
-  Future<void> dispose() => _disposal ??= release?.call() ?? Future.value();
+  Future<void> dispose() {
+    final pending = _disposal;
+    if (pending != null) return pending;
+    final result = Completer<void>();
+    _disposal = result.future;
+    unawaited(
+      Future<void>.sync(() => _release?.call()).then<void>(
+        (_) => result.complete(),
+        onError: (Object error, StackTrace stack) =>
+            result.completeError(error, stack),
+      ),
+    );
+    return result.future;
+  }
 }
 
 typedef ComposerUploadPreparer =

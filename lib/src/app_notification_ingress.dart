@@ -14,13 +14,31 @@ final class _NotificationIngress {
     if (_disposed) return;
     final source = Object();
     _source = source;
-    unawaited(_subscription?.cancel());
-    _subscription = urls.listen((url) {
-      if (_disposed || !identical(_source, source) || url.isEmpty) return;
+    final previous = _subscription;
+    _subscription = null;
+    _cancelSource(previous);
+    if (!_ownsSource(source)) return;
+    final subscription = urls.listen((url) {
+      if (!_ownsSource(source) || url.isEmpty) return;
       _pending.addLast(_PendingNotificationUrl(url));
       if (_pending.length > _maximumPendingUrls) _pending.removeFirst();
       _drain();
     }, onError: (Object error, StackTrace stackTrace) {});
+    if (_ownsSource(source)) {
+      _subscription = subscription;
+    } else {
+      _cancelSource(subscription);
+    }
+  }
+
+  bool _ownsSource(Object source) => !_disposed && identical(_source, source);
+
+  void _cancelSource(StreamSubscription<String>? subscription) {
+    try {
+      subscription?.cancel().ignore();
+    } catch (_) {
+      // A retired source cannot veto replacement or shutdown.
+    }
   }
 
   void unavailable() {
@@ -42,7 +60,9 @@ final class _NotificationIngress {
     _source = null;
     unavailable();
     _pending.clear();
-    unawaited(_subscription?.cancel());
+    final subscription = _subscription;
+    _subscription = null;
+    _cancelSource(subscription);
   }
 
   void _drain() {

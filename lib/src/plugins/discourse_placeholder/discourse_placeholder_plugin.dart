@@ -83,7 +83,7 @@ class _PlaceholderPostBody extends StatefulWidget {
 class _PlaceholderPostBodyState extends State<_PlaceholderPostBody> {
   late PlaceholderDocument _document;
   PlaceholderSession? _session;
-  PlaceholderValues? _values;
+  PlaceholderLease? _values;
   final _fields = <_FieldEditing>[];
   Timer? _debounce;
   late String _displayed;
@@ -177,7 +177,7 @@ class _PlaceholderPostBodyState extends State<_PlaceholderPostBody> {
     _values = null;
     if (values != null) {
       values.removeListener(_changed);
-      _session!.release(values);
+      values.release();
     }
     for (final field in _fields) {
       _retire(field);
@@ -228,7 +228,7 @@ class _PlaceholderScope extends InheritedWidget {
   final String siteUrl;
   final PlaceholderDocument document;
   final List<_FieldEditing> fields;
-  final PlaceholderValues values;
+  final PlaceholderLease values;
 
   _FieldEditing? field(int index, String? name) =>
       index >= 0 && index < fields.length && fields[index].name == name
@@ -254,7 +254,7 @@ class _PlaceholderField extends StatelessWidget {
   final String descriptionHtml;
   final String? siteUrl;
   final PlaceholderDefinition definition;
-  final PlaceholderValues values;
+  final PlaceholderLease values;
 
   @override
   Widget build(BuildContext context) {

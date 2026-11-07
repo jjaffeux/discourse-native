@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../models/discourse_user.dart';
+import 'request_intent.dart';
 import 'site_lifecycle.dart';
 
 final class CurrentUserRefresh {
@@ -11,8 +12,8 @@ final class CurrentUserRefresh {
 
   final SiteLease _lease;
   final Future<DiscourseUser?> Function() _read;
-  Completer<DiscourseUser?>? _active;
-  Completer<DiscourseUser?>? _pending;
+  _CurrentUserRead? _active;
+  _CurrentUserRead? _pending;
   void Function()? _removeRetirementObserver;
   bool _retired = false;
 
@@ -22,27 +23,27 @@ final class CurrentUserRefresh {
     if (!isCurrent) return Future.value();
     final active = _active;
     if (active != null) {
-      if (!force) return active.future;
-      return (_pending ??= Completer<DiscourseUser?>()).future;
+      if (!force) return active.join();
+      return (_pending ??= _CurrentUserRead()).join();
     }
-    final task = Completer<DiscourseUser?>();
+    final task = _CurrentUserRead();
     _start(task);
     return task.future;
   }
 
-  void _start(Completer<DiscourseUser?> task) {
+  void _start(_CurrentUserRead task) {
     _active = task;
     unawaited(_run(task));
   }
 
-  Future<void> _run(Completer<DiscourseUser?> task) async {
+  Future<void> _run(_CurrentUserRead task) async {
     try {
-      final user = await _read();
+      final user = await task.intent.run(_read);
       if (!isCurrent) return;
-      task.complete(user);
+      task.result.complete(user);
     } catch (error, stackTrace) {
       if (!isCurrent) return;
-      task.completeError(error, stackTrace);
+      task.result.completeError(error, stackTrace);
     } finally {
       if (isCurrent) {
         _active = null;
@@ -58,9 +59,21 @@ final class CurrentUserRefresh {
     _retired = true;
     _removeRetirementObserver?.call();
     _removeRetirementObserver = null;
-    _active?.complete();
-    _pending?.complete();
+    _active?.result.complete();
+    _pending?.result.complete();
     _active = null;
     _pending = null;
+  }
+}
+
+final class _CurrentUserRead {
+  final result = Completer<DiscourseUser?>();
+  final intent = RequestIntentGroup(RequestIntent.current);
+
+  Future<DiscourseUser?> get future => result.future;
+
+  Future<DiscourseUser?> join() {
+    intent.join(RequestIntent.current);
+    return future;
   }
 }
