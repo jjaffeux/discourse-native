@@ -229,6 +229,8 @@ class GlobalSearchController extends ChangeNotifier {
   List<GlobalSearchSection> get sections {
     final ordered = _execution.sections.toList();
     int rank(GlobalSearchSection section) => section.topicId != null
+        ? -3
+        : section.scope == GlobalSearchScope.forum
         ? -2
         : section.scope == _preferredScope
         ? -1

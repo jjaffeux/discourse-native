@@ -6609,6 +6609,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'Try different words or remove a condition.';
 
   @override
+  String get seeAllSearchResults => 'See all';
+
+  @override
   String viewAllResults(String sectionScopeLabel) {
     return 'View all $sectionScopeLabel results';
   }

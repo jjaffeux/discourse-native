@@ -967,22 +967,17 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         clear: controller.conditions.isNotEmpty,
       );
     }
+    final all = controller.scope == GlobalSearchScope.all;
+    final phone = DControlStyle.isTouch(context);
     var sectionIndex = 0;
     final children = <Object>[
       if (controller.hintedFilters.isNotEmpty) ..._filterRows(context),
       for (final section in controller.sections.where(
         (section) =>
-            controller.scope != GlobalSearchScope.all ||
-            section.results.isNotEmpty ||
-            section.error != null,
+            !all || section.results.isNotEmpty || section.error != null,
       )) ...[
-        if (sectionIndex++ > 0)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 6),
-            child: DSeparator(),
-          ),
-        if (controller.scope == GlobalSearchScope.all)
-          _sectionHeader(context, section),
+        if (sectionIndex++ > 0) SizedBox(height: phone ? 16 : 8),
+        _sectionHeader(context, section),
         if (section.error != null)
           Padding(
             padding: const EdgeInsets.all(12),
@@ -1002,11 +997,17 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ],
             ),
           ),
-        for (final result
-            in controller.scope == GlobalSearchScope.all
-                ? section.results.take(3)
-                : section.results)
-          _prepareResult(result),
+        if (_inLine(context, section)) ...[
+          const SizedBox(height: 2),
+          _resultLine(context, section),
+        ] else
+          for (final result
+              in all
+                  ? section.results.take(_sectionLimit(section))
+                  : section.results) ...[
+            const SizedBox(height: 2),
+            _prepareResult(result),
+          ],
       ],
       if (controller.error != null &&
           results.isNotEmpty &&
@@ -1048,22 +1049,37 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     for (var index = 0; index < children.length; index++) {
       final child = children[index];
       final key = child is _PreparedSearchResult
-          ? _resultKeys[child.result.id]
-          : (child as Widget).key;
+          ? ValueKey('search-row:${child.result.id}')
+          : (child as Widget).key == null
+          ? null
+          : ValueKey(child.key);
       if (key != null) childIndices[key] = index;
     }
     final content = DScrollBar(
       controller: _scroll,
       child: ListView.builder(
         controller: _scroll,
-        padding: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+        padding: const EdgeInsets.symmetric(vertical: 6),
         itemCount: children.length,
         findChildIndexCallback: (key) => childIndices[key],
         itemBuilder: (context, index) {
           final child = children[index];
-          return child is _PreparedSearchResult
+          final widget = child is _PreparedSearchResult
               ? _result(child)
               : child as Widget;
+          return Padding(
+            key: child is _PreparedSearchResult
+                ? ValueKey('search-row:${child.result.id}')
+                : widget.key == null
+                ? null
+                : ValueKey(widget.key),
+            padding:
+                widget is SingleChildScrollView &&
+                    widget.scrollDirection == Axis.horizontal
+                ? EdgeInsets.zero
+                : const EdgeInsets.symmetric(horizontal: 6),
+            child: widget,
+          );
         },
       ),
     );
@@ -1126,6 +1142,112 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     ),
   );
 
+  int _sectionLimit(GlobalSearchSection section) =>
+      section.scope == GlobalSearchScope.forum ? 3 : 2;
+
+  bool _inLine(BuildContext context, GlobalSearchSection section) =>
+      widget.controller.scope == GlobalSearchScope.all &&
+      DControlStyle.isTouch(context) &&
+      const [
+        GlobalSearchScope.places,
+        GlobalSearchScope.users,
+        GlobalSearchScope.groups,
+      ].contains(section.scope);
+
+  Widget _resultLine(BuildContext context, GlobalSearchSection section) =>
+      SingleChildScrollView(
+        key: ValueKey('global-search-line-${section.scope.keyName}'),
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.fromLTRB(55, 2, 12, 4),
+        child: Row(
+          spacing: 8,
+          children: [
+            for (final result in section.results)
+              Builder(
+                builder: (context) => Focus(
+                  canRequestFocus: false,
+                  onFocusChange: (focused) {
+                    if (focused) _revealResultPill(context);
+                  },
+                  child: _resultPill(context, result),
+                ),
+              ),
+          ],
+        ),
+      );
+
+  void _revealResultPill(BuildContext context) {
+    final position = Scrollable.of(context, axis: Axis.horizontal).position;
+    final target = context.findRenderObject()!;
+    final width = (target as RenderBox).size.width;
+    // CSS scroll-padding-left keeps a focused pill aligned with result text.
+    final available = position.viewportDimension - width;
+    position.ensureVisible(
+      target,
+      alignment: available > 0 ? (55 / available).clamp(0, 1) : 0,
+    );
+  }
+
+  Widget _resultPill(BuildContext context, GlobalSearchResult result) {
+    final tokens = DTokens.of(context);
+    final source = result.source;
+    final label = source is SearchGroupHit ? source.name : result.title;
+    final color = source is SearchCategoryHit ? Color(source.colorValue) : null;
+    final surface = color == null ? null : tokens.categoryControlSurface(color);
+    return DButton(
+      key: ValueKey('global-search-result-${result.id}'),
+      variant: DButtonVariant.outline,
+      density: DButtonDensity.filterPill,
+      backgroundColor:
+          surface?.background ?? tokens.quietControlSurface().background,
+      foregroundColor:
+          surface?.foreground ?? tokens.quietControlSurface().foreground,
+      borderColor: surface?.border ?? Colors.transparent,
+      interactiveBackgroundColor:
+          surface?.hover ?? tokens.quietControlSurface().hover,
+      semanticLabel: label,
+      tooltip: label,
+      icon: result.scope == GlobalSearchScope.users
+          ? DAvatar(
+              dimension: 18,
+              border: false,
+              child: AvatarImage(
+                url: result.avatarUrl,
+                size: 18,
+                fallback: DAvatarFallback(
+                  child: Text(result.title.characters.first),
+                ),
+              ),
+            )
+          : color != null
+          ? SizedBox.square(
+              dimension: 9,
+              child: DCard(
+                backgroundColor: color,
+                spacing: 0,
+                border: false,
+                borderRadius: BorderRadius.circular(2),
+                child: const SizedBox(height: 9),
+              ),
+            )
+          : DIcon(
+              result.scope == GlobalSearchScope.groups
+                  ? DIcons.userGroup
+                  : DIcons.tag,
+              size: 11,
+            ),
+      label: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 220),
+        child: _SearchHighlight(
+          siteUrl: widget.controller.siteUrl!,
+          text: label,
+          query: widget.controller.query,
+        ),
+      ),
+      onPressed: () => widget.onOpen(result),
+    );
+  }
+
   Widget _sectionHeader(BuildContext context, GlobalSearchSection section) {
     void open() {
       if (section.topicId != null && section.results.isNotEmpty) {
@@ -1152,7 +1274,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         key: ValueKey(id),
         size: DItemSize.artwork,
         shape: DItemShape.menu,
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6.5),
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
         selected: _selected == id,
         selectionStyle: DItemSelectionStyle.strongNeutral,
         showSelectionIndicator: false,
@@ -1189,14 +1311,36 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                           : section.scope.label,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: DiscourseTypography.control,
                         height: 1.35,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
+                        color: DTokens.of(context).mutedForeground,
                       ),
                     ),
                   ),
-                  if (section.results.isNotEmpty) const DNavigationPill(),
+                  if (widget.controller.scope == GlobalSearchScope.all &&
+                      !_inLine(context, section) &&
+                      section.results.length > _sectionLimit(section))
+                    ExcludeSemantics(
+                      child: Row(
+                        spacing: 6,
+                        children: [
+                          Text(
+                            context.l10n.seeAllSearchResults,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: DTokens.of(context).mutedForeground,
+                            ),
+                          ),
+                          DIcon(
+                            DIcons.chevronRight,
+                            size: 9,
+                            color: DTokens.of(context).mutedForeground,
+                          ),
+                        ],
+                      ),
+                    ),
                 ],
               ),
             ],
@@ -1981,7 +2125,7 @@ class _SearchHighlight extends StatelessWidget {
   final TextStyle? style;
   @override
   Widget build(BuildContext context) {
-    final words = searchWords(query);
+    final words = searchWords(query).where((word) => word.length > 1).toList();
     if (words.isEmpty) {
       return SiteEmojiText.plain(text, siteUrl: siteUrl, style: style);
     }
@@ -2000,7 +2144,8 @@ class _SearchHighlight extends StatelessWidget {
           match.group(0)!,
           style: TextStyle(
             color: DTokens.of(context).primary,
-            backgroundColor: DTokens.of(context).primary.withValues(alpha: .13),
+            backgroundColor: DTokens.of(context).primary.withValues(alpha: .18),
+            fontWeight: FontWeight.w700,
           ),
         ),
       );

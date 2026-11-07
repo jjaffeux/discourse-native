@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:io';
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/foundation/calendar_day.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
@@ -17,6 +20,7 @@ import 'package:discourse_native/src/shell/site_emoji_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -26,6 +30,170 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  setUpAll(() async {
+    if (Platform.environment['SEARCH_CAPTURE'] == '1') {
+      await (FontLoader('Lato')
+            ..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))
+            ..addFont(rootBundle.load('assets/fonts/Lato-Bold.ttf')))
+          .load();
+    }
+  });
+
+  for (final phone in [false, true]) {
+    testWidgets(
+      'quiet search sections and result activation on ${phone ? "phone" : "desktop"}',
+      (tester) async {
+        final opened = <GlobalSearchResult>[];
+        final controller = await _pump(
+          tester,
+          api: _SectionsPanelApi(),
+          onOpen: opened.add,
+          width: phone ? 390 : 600,
+          height: 1500,
+          viewport: Size(phone ? 390 : 1000, 1600),
+          platform: phone ? TargetPlatform.iOS : TargetPlatform.macOS,
+          showConditions: false,
+        );
+        controller.setPageContext(preferredScope: GlobalSearchScope.users);
+        controller.setQuery('design');
+        await tester.pumpAndSettle();
+        expect(controller.sections.map((s) => s.scope), [
+          GlobalSearchScope.forum,
+          GlobalSearchScope.users,
+          GlobalSearchScope.places,
+          GlobalSearchScope.messages,
+          GlobalSearchScope.groups,
+          chatSearchScope,
+        ]);
+        Finder header(GlobalSearchScope scope) =>
+            _key('section:${scope.keyName}:');
+        Finder result(GlobalSearchScope scope, int i) =>
+            _key('global-search-result-${scope.keyName}:$i');
+        expect(result(GlobalSearchScope.forum, 2), findsOneWidget);
+        expect(result(GlobalSearchScope.forum, 3), findsNothing);
+        expect(result(GlobalSearchScope.messages, 1), findsOneWidget);
+        expect(result(GlobalSearchScope.messages, 2), findsNothing);
+        expect(result(chatSearchScope, 1), findsOneWidget);
+        expect(result(chatSearchScope, 2), findsNothing);
+        expect(
+          find.byType(DSeparator),
+          findsOneWidget,
+          reason: 'Only the existing footer rule remains.',
+        );
+        if (Platform.environment['SEARCH_CAPTURE'] == '1') {
+          await tester.runAsync(() async {
+            final boundary = tester.renderObject<RenderRepaintBoundary>(
+              find.byType(RepaintBoundary).first,
+            );
+            final image = await boundary.toImage();
+            final bytes = await image.toByteData(
+              format: ui.ImageByteFormat.png,
+            );
+            await File(
+              '/private/tmp/quieter-search-${phone ? "phone" : "desktop"}.png',
+            ).writeAsBytes(bytes!.buffer.asUint8List());
+            image.dispose();
+          });
+        }
+        for (final scope in [
+          GlobalSearchScope.users,
+          GlobalSearchScope.places,
+          GlobalSearchScope.groups,
+        ]) {
+          expect(result(scope, phone ? 3 : 1), findsOneWidget);
+          expect(result(scope, phone ? 4 : 2), findsNothing);
+          final mark = find.descendant(
+            of: header(scope),
+            matching: find.text('See all'),
+          );
+          expect(mark, phone ? findsNothing : findsOneWidget);
+          if (phone) {
+            final line = _key('global-search-line-${scope.keyName}');
+            expect(
+              tester.getTopLeft(result(scope, 0)).dx -
+                  tester.getTopLeft(find.byType(GlobalSearchPanel)).dx,
+              55,
+            );
+            expect(
+              tester.getTopLeft(result(scope, 1)).dx -
+                  tester.getTopRight(result(scope, 0)).dx,
+              closeTo(8, .01),
+            );
+            final firstX = tester.getTopLeft(result(scope, 0)).dx;
+            await tester.tap(result(scope, 0));
+            expect(opened.last.id, '${scope.keyName}:0');
+            await tester.drag(line, const Offset(-200, 0));
+            await tester.pumpAndSettle();
+            expect(tester.getTopLeft(result(scope, 0)).dx, lessThan(firstX));
+          }
+        }
+        expect(find.text('See all'), findsNWidgets(phone ? 3 : 6));
+        final forumLast = tester.getRect(result(GlobalSearchScope.forum, 2));
+        expect(
+          tester.getRect(header(GlobalSearchScope.users)).top -
+              forumLast.bottom,
+          phone ? 16 : 8,
+        );
+        final title = tester.widget<Text>(
+          find.descendant(
+            of: header(GlobalSearchScope.users),
+            matching: find.text('Users'),
+          ),
+        );
+        expect(title.style!.fontWeight, FontWeight.w500);
+        if (phone) {
+          final user = result(GlobalSearchScope.users, 0);
+          final avatar = find.descendant(
+            of: user,
+            matching: find.byType(DAvatar),
+          );
+          expect(tester.getSize(avatar), const Size(18, 18));
+          final longLabel = tester.renderObject<RenderParagraph>(
+            find
+                .descendant(
+                  of: result(GlobalSearchScope.users, 3),
+                  matching: find.byType(RichText),
+                )
+                .last,
+          );
+          expect(longLabel.size.width, lessThanOrEqualTo(220));
+          expect(longLabel.maxLines, 1);
+          expect(longLabel.overflow, TextOverflow.ellipsis);
+          for (final i in [3, 1]) {
+            final label = find
+                .descendant(
+                  of: result(GlobalSearchScope.users, i),
+                  matching: find.byType(RichText),
+                )
+                .last;
+            Focus.of(tester.element(label)).requestFocus();
+            await tester.pumpAndSettle();
+          }
+          expect(
+            tester.getTopLeft(result(GlobalSearchScope.users, 1)).dx,
+            closeTo(55, .01),
+          );
+        }
+        await tester.tap(header(GlobalSearchScope.users));
+        await tester.pumpAndSettle();
+        expect(controller.scope, GlobalSearchScope.users);
+        expect(_key('global-search-line-users'), findsNothing);
+        expect(find.text('See all'), findsNothing);
+        expect(result(GlobalSearchScope.users, 3), findsOneWidget);
+        expect(
+          tester.widget(
+            find.byKey(const ValueKey('global-search-result-users:3')),
+          ),
+          isA<DItem>(),
+        );
+        await tester.tap(result(GlobalSearchScope.users, 3));
+        expect(opened.last.id, 'users:3');
+        expect(controller.query, 'design');
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final scope in [GlobalSearchScope.all, GlobalSearchScope.forum]) {
     testWidgets('pending ${scope.name} results show a skeleton until ready', (
       tester,
@@ -153,6 +321,9 @@ void main() {
     state.resetSelection();
     expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
     await tester.pumpAndSettle();
+    expect(tester.widget<DItem>(_key('section:forum:')).selected, isTrue);
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
     expect(selected, findsOneWidget);
     expect(
       tester.widget<DItem>(selected).key,
@@ -168,40 +339,38 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('keyboard wrap schedules reveal when selection is unchanged', (
-    tester,
-  ) async {
-    final controller = await _pump(
-      tester,
-      api: _PanelApi(
-        results: const [
-          GlobalSearchResult(
-            id: 'single',
-            scope: GlobalSearchScope.forum,
-            title: 'Single result',
-            path: '/t/single/1',
-          ),
-        ],
-      ),
-    );
-    controller.setScope(GlobalSearchScope.forum);
-    controller.setQuery('single');
-    await tester.pumpAndSettle();
-    final state = tester.state<GlobalSearchPanelState>(
-      find.byType(GlobalSearchPanel),
-    );
-    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
-    await tester.pumpAndSettle();
-    expect(tester.binding.hasScheduledFrame, isFalse);
-    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
-    expect(tester.binding.hasScheduledFrame, isTrue);
-    await tester.pumpAndSettle();
-    expect(
-      tester.widget<DItem>(_key('global-search-result-single')).selected,
-      isTrue,
-    );
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'keyboard wraps through a filtered heading and its single result',
+    (tester) async {
+      final controller = await _pump(
+        tester,
+        api: _PanelApi(
+          results: const [
+            GlobalSearchResult(
+              id: 'single',
+              scope: GlobalSearchScope.forum,
+              title: 'Single result',
+              path: '/t/single/1',
+            ),
+          ],
+        ),
+      );
+      controller.setScope(GlobalSearchScope.forum);
+      controller.setQuery('single');
+      await tester.pumpAndSettle();
+      final state = tester.state<GlobalSearchPanelState>(
+        find.byType(GlobalSearchPanel),
+      );
+      expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+      expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+      expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pumpAndSettle();
+      expect(tester.widget<DItem>(_key('section:forum:')).selected, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('keyboard selection crosses result and section actions', (
     tester,
@@ -286,6 +455,9 @@ void main() {
         );
         expect(state.handleKey(LogicalKeyboardKey.enter), isTrue);
         expect(opened.single.id, 'prepared-119');
+        expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+        await tester.pumpAndSettle();
+        expect(_key('section:forum:').hitTestable(), findsOneWidget);
         expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
         await tester.pumpAndSettle();
         expect(first.hitTestable(), findsOneWidget);
@@ -1371,6 +1543,11 @@ Future<GlobalSearchController> _pump(
       child: MaterialApp(
         theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
           platform: platform,
+          textTheme: Platform.environment['SEARCH_CAPTURE'] == '1'
+              ? (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+                  fontFamily: 'Lato',
+                )
+              : null,
         ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
@@ -1378,15 +1555,17 @@ Future<GlobalSearchController> _pump(
           ).copyWith(textScaler: TextScaler.linear(textScale)),
           child: child!,
         ),
-        home: Align(
-          alignment: Alignment.topCenter,
-          child: SizedBox(
-            width: width,
-            height: height,
-            child: GlobalSearchPanel(
-              showConditions: showConditions,
-              controller: controller,
-              onOpen: onOpen ?? (_) {},
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: GlobalSearchPanel(
+                showConditions: showConditions,
+                controller: controller,
+                onOpen: onOpen ?? (_) {},
+              ),
             ),
           ),
         ),
@@ -1567,5 +1746,51 @@ class _PagedPanelApi extends _PanelApi {
     ],
     hasMore: request.offset + 30 < pages * 30,
     consumedCount: 30,
+  );
+}
+
+class _SectionsPanelApi extends _PanelApi {
+  @override
+  Future<GlobalSearchPage> search({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
+  }) async => GlobalSearchPage(
+    sections: [
+      for (final scope in [
+        GlobalSearchScope.places,
+        GlobalSearchScope.messages,
+        GlobalSearchScope.users,
+        GlobalSearchScope.groups,
+        chatSearchScope,
+        GlobalSearchScope.forum,
+      ])
+        if (request.scope == GlobalSearchScope.all || request.scope == scope)
+          GlobalSearchSection(
+            scope: scope,
+            results: [
+              for (var i = 0; i < 4; i++)
+                GlobalSearchResult(
+                  id: '${scope.keyName}:$i',
+                  scope: scope,
+                  title: scope == GlobalSearchScope.users && i == 3
+                      ? 'Design ${'long user name ' * 30}'
+                      : 'Design ${scope.name} $i',
+                  path: '/${scope.name}/$i',
+                  source: scope == GlobalSearchScope.places
+                      ? SearchCategoryHit(
+                          categoryId: i + 1,
+                          name: 'Design place $i',
+                          slug: 'design',
+                          color: 'A787CB',
+                        )
+                      : null,
+                ),
+            ],
+          ),
+    ],
   );
 }

@@ -78,6 +78,10 @@ enum DButtonShape { rounded, pill }
 enum DButtonDensity {
   standard,
 
+  /// Mockup filter pills: 30px surfaces, 12.5px regular text, 9px horizontal
+  /// insets and pill corners on every platform. Icon artwork retains its size.
+  filterPill,
+
   /// Header-menu text action: 12.5px semibold, 4px/8px insets and 7px corners.
   menuAction,
 
@@ -563,6 +567,7 @@ class DButton extends StatelessWidget {
     final buttons = theme.discourseButtons;
     final tokens = DTokens.of(context);
     final dark = theme.brightness == Brightness.dark;
+    final filterPill = density == DButtonDensity.filterPill;
     final postAction = density == DButtonDensity.postAction;
 
     final floatingCall = density == DButtonDensity.floatingCall;
@@ -610,7 +615,9 @@ class DButton extends StatelessWidget {
         (size == DControlSize.chip || size == DControlSize.chrome) &&
         density == DButtonDensity.standard;
     final composerBlock = _iconOnly && density == DButtonDensity.composerBlock;
-    final effectiveSize = postReaction || postAction
+    final effectiveSize = filterPill
+        ? DButtonSize.regular
+        : postReaction || postAction
         ? DButtonSize.post
         : backLink
         ? DButtonSize.toolbar
@@ -739,6 +746,7 @@ class DButton extends StatelessWidget {
     final enabled = onPressed != null && !loading;
     final baseRadius =
         borderRadius ??
+        (filterPill ? BorderRadius.circular(DRadius.pill) : null) ??
         BorderRadius.circular(
           resume
               ? 16
@@ -1020,7 +1028,9 @@ class DButton extends StatelessWidget {
           ? WidgetStatePropertyAll(iconOnlySurfaceSize)
           : const WidgetStatePropertyAll(Size.infinite),
       padding: WidgetStatePropertyAll(
-        (timeline
+        (filterPill
+            ? const EdgeInsets.symmetric(horizontal: 9)
+            : timeline
             ? (_iconOnly
                   ? EdgeInsets.zero
                   : EdgeInsets.symmetric(horizontal: floatingCall ? 11 : 7))
@@ -1089,7 +1099,12 @@ class DButton extends StatelessWidget {
         (states) => theme.textTheme.labelLarge!.copyWith(
           fontSize: mobileDock ? 11 : fontSize,
           height:
-              timeline || postReaction || header || menuAction || inlineMetadata
+              filterPill ||
+                  timeline ||
+                  postReaction ||
+                  header ||
+                  menuAction ||
+                  inlineMetadata
               ? 1.5
               : mobileDock
               ? 13 / 11
