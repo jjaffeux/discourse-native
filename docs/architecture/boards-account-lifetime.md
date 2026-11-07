@@ -12,8 +12,13 @@ Account retirement preserves mounted references and the bounded released-handle
 registry, while clearing their account data and active read/write tokens. Every
 handle's state is cleared before subscriptions are canceled or listeners are
 notified. A listener may explicitly refresh under a successor account without a
-later old reset erasing that request. Retirement itself does not fetch a new
-account or subscribe on its behalf.
+later old reset erasing that request. The controller's retirement reset does
+not start a successor refresh or subscription. A mounted directory consumer
+may call `loadDirectory` when its observed revision changes; that explicit
+consumer admission reloads current permissions while old rows remain withdrawn.
+Same-account lease rotation therefore retains the directory's automatic refresh
+behavior. Account transitions clear user/config synchronously, so request
+credentials and availability checks still govern any consumer admission.
 
 Acquire, directory loading, eligible-choice loading and explicit handle refresh
 admit an account owner. Read and write settlement retains the existing captured
@@ -35,3 +40,5 @@ retention on bare request-session retirement. Gated tests cover late reads and
 writes, successor coalescing, batched listener readmission and an earlier
 retirement observer. Existing tests cover public access, permission refresh,
 settings, tracker attachment, composition and released-handle retention.
+A mounted-directory regression gates the consumer's successor response and
+verifies old rows withdraw before fresh rows render.

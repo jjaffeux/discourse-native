@@ -106,6 +106,38 @@ void boardsDirectoryWidgetTests({
     };
   }
 
+  testWidgets(
+    'account retirement withdraws directory rows while its consumer loads fresh permissions',
+    (tester) async {
+      final fixture = BoardsFixture();
+      addTearDown(fixture.dispose);
+      respond(fixture, [directoryBoard(1, 'Before retirement')]);
+      await tester.pumpWidget(page(fixture));
+      await tester.pumpAndSettle();
+      expect(find.text('Before retirement'), findsOneWidget);
+      final pending = Completer<Map<String, dynamic>>();
+      addTearDown(() {
+        if (!pending.isCompleted) pending.complete({'boards': <Object>[]});
+      });
+      fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
+          pending.future;
+      final previousReads = fixture.transport.reads.length;
+      fixture.requests.forget(boardsSite);
+      expect(fixture.controller.directory(boardsSite), isNull);
+      await tester.pump();
+      expect(find.text('Before retirement'), findsNothing);
+      expect(fixture.transport.reads.length, previousReads + 1);
+      pending.complete({
+        'boards': [directoryBoard(2, 'Fresh permissions')],
+      });
+      await tester.pumpAndSettle();
+      expect(find.text('Before retirement'), findsNothing);
+      expect(find.text('Fresh permissions'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('directory status uses a bottom sheet on $platform', (
       tester,
