@@ -47,6 +47,151 @@ const _caps = GlobalSearchCapabilities(
 );
 
 void main() {
+  testWidgets(
+    'history submit observes capability sanitization before admission',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final search = _controller(api);
+      addTearDown(search.dispose);
+      search.addCondition(
+        const GlobalSearchCondition(
+          filterId: 'tags',
+          operator: 'any',
+          value: ['private'],
+        ),
+      );
+      var admitted = false;
+      search.history.addListener(() {
+        if (admitted) return;
+        admitted = true;
+        search.setQuery('intent');
+        search.submit();
+      });
+      search.configure(
+        siteUrl: _site,
+        capabilities: const GlobalSearchCapabilities(
+          authenticated: true,
+          username: 'mira',
+          tagging: false,
+          logSearchQueries: false,
+        ),
+      );
+      await tester.pump();
+      expect(search.conditions, isEmpty);
+      expect(api.requests, hasLength(1));
+      expect(api.requests.single.conditions, isEmpty);
+      api.pending.single.complete(_page('Intent'));
+      await tester.pump();
+      expect(search.results.single.title, 'Intent');
+    },
+  );
+
+  testWidgets(
+    'account retirement withdraws core global search before notification',
+    (tester) async {
+      final lifecycle = SiteLifecycle();
+      final api = _EngineApi()..hold = true;
+      final opening = lifecycle.capture(_site);
+      final search = _controller(api, lifecycle: lifecycle);
+      addTearDown(search.dispose);
+      search.setQuery('private results');
+      await tester.pump(const Duration(milliseconds: 5));
+      api.pending.single.complete(_page('Private result', hasMore: true));
+      await tester.pump();
+      expect(search.results.single.title, 'Private result');
+      final retiredPublications = <List<String>>[];
+      search.addListener(() {
+        if (opening.isCurrent) return;
+        retiredPublications.add(
+          search.results.map((result) => result.title).toList(),
+        );
+      });
+      lifecycle.invalidate(_site);
+      expect(search.results, isEmpty);
+      expect(search.query, isEmpty);
+      expect(search.phase, GlobalSearchPhase.idle);
+      expect(search.capabilities.authenticated, isFalse);
+      expect(retiredPublications, isNotEmpty);
+      expect(retiredPublications, everyElement(isEmpty));
+    },
+  );
+
+  for (final fails in [false, true]) {
+    testWidgets(
+      'retirement publication can admit a successor while old append fails $fails',
+      (tester) async {
+        final lifecycle = SiteLifecycle();
+        final api = _EngineApi()..hold = true;
+        final opening = lifecycle.capture(_site);
+        final search = _controller(api, lifecycle: lifecycle);
+        addTearDown(search.dispose);
+        search.setQuery('private results');
+        await tester.pump(const Duration(milliseconds: 5));
+        api.pending.single.complete(_page('Private result', hasMore: true));
+        await tester.pump();
+        search.loadMore();
+        await tester.pump();
+        expect(api.pending, hasLength(2));
+        var admitted = false;
+        search.addListener(() {
+          if (opening.isCurrent || admitted) return;
+          admitted = true;
+          search.configure(siteUrl: _site, capabilities: _caps);
+          search.setQuery('successor');
+          search.rememberSearch();
+        });
+        lifecycle.invalidate(_site);
+        expect(search.query, 'successor');
+        expect(search.recentSearches, ['successor']);
+        await tester.pump(const Duration(milliseconds: 5));
+        expect(api.pending, hasLength(3));
+        if (fails) {
+          api.pending[1].completeError(StateError('Retired append'));
+        } else {
+          api.pending[1].complete(_page('Retired append'));
+        }
+        await tester.pump();
+        expect(search.results, isEmpty);
+        api.pending[2].complete(_page('Successor result'));
+        await tester.pump();
+        expect(search.results.single.title, 'Successor result');
+        expect(search.recentSearches, ['successor']);
+      },
+    );
+  }
+
+  testWidgets(
+    'configuration history publication preserves an admitted search',
+    (tester) async {
+      final api = _EngineApi()..hold = true;
+      final search = _controller(api);
+      addTearDown(search.dispose);
+      await tester.pump();
+      var admitted = false;
+      search.history.addListener(() {
+        if (admitted) return;
+        admitted = true;
+        search.setQuery('accepted intent');
+        search.submit();
+      });
+      search.configure(
+        siteUrl: _site,
+        capabilities: const GlobalSearchCapabilities(
+          authenticated: true,
+          username: 'other',
+        ),
+      );
+      await tester.pump();
+      expect(api.requests, hasLength(1));
+      await tester.pump(const Duration(milliseconds: 5));
+      expect(api.requests, hasLength(1));
+      expect(api.requests.single.query, 'accepted intent');
+      api.pending.single.complete(_page('Accepted intent'));
+      await tester.pump();
+      expect(search.results.single.title, 'Accepted intent');
+    },
+  );
+
   testWidgets('unchanged recent rows do not reread the filter catalogue', (
     tester,
   ) async {

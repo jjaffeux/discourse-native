@@ -17,11 +17,12 @@ behavior its focused tests protect.
 | Reconcile current-user snapshots and confirmed preferences | `CurrentUserReconciler`, preference and profile owners | [Current user](current-user-reconciliation.md), [profile writes](profile-write-transactions.md) |
 | Retain notification totals, feeds, and read authority | `AccountActivityController` and its private account/request owners | [Reconciliation](notification-reconciliation.md), [totals](notification-totals-refresh.md), [feed loading](notification-feed-loading.md), [reminders](bookmark-reminder-loading.md), [pause](notification-pause-ownership.md) |
 | Deliver external notification navigation | `AppRuntime` notification ingress | [Destination lifetime](notification-ingress-lifetime.md) |
+| Retain global search documents and account results | `GlobalSearchController`, plugin search owners | [Core search lifetime](core-global-search-lifetime.md), [Chat search lifetime](chat-global-search-lifetime.md) |
 | Retain appearance, emoji catalogs, and cooking inputs | `SitePresentationController`, `CookingContextOwner` | [Presentation sessions](presentation-sessions.md), [cooked rendering](../cooked-rendering.md) |
 | Retain composers, prepare openings, and coordinate saves | Composer opening owners, registry, controller, draft coordinator | [Composer architecture](../composer-architecture.md), [draft accounts](draft-account-ownership.md) |
 | Persist workspaces, recent visits, and local choices | Their dedicated stores and write queues | [Workspace snapshots](workspace-storage-snapshots.md), [recent hydration](recent-destination-hydration.md), [choice acceptance](presentation-preference-acceptance.md), [welcome claims](welcome-claim-ownership.md) |
 | Retain reader geometry, cursor, and tracking state | Topic viewport, cursor, and tracking owners | [Geometry](keyed-reader-geometry.md), [cursor](topic-list-cursor.md), [tracking](topic-tracking-reconciliation.md), [tab context](tab-presentation-context.md) |
-| Own optional feature data and behavior | The feature's plugin module, using public SDK contracts | [Chat directory](chat-channel-directory.md), [Chat streams](chat-conversation-streams.md), [thread catalog](chat-thread-catalog.md), [voice lifetime](voice-call-lifetime.md) |
+| Own optional feature data and behavior | The feature's plugin module, using public SDK contracts | [Chat directory](chat-channel-directory.md), [Chat streams](chat-conversation-streams.md), [thread catalog](chat-thread-catalog.md), [voice lifetime](voice-call-lifetime.md), [assigned group queries](assigned-group-queries.md), [board accounts](boards-account-lifetime.md) |
 
 ## Keep identity with the state it governs
 

@@ -85,6 +85,7 @@ class RecentSearchHistory extends ChangeNotifier {
       _authenticated = authenticated;
       _lease = lease;
       _detach = lease?.onRetire(() {
+        if (!identical(_lease?.session, lease.session)) return;
         _reset();
         _notify();
       });

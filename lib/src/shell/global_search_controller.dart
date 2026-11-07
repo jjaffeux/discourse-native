@@ -56,6 +56,7 @@ class GlobalSearchController extends ChangeNotifier {
   final Duration debounceDuration;
   String? _siteUrl;
   SiteLease? _lease;
+  VoidCallback? _detachLease;
   String _baseFingerprint = '';
   GlobalSearchCapabilities _capabilities = const GlobalSearchCapabilities();
   GlobalSearchScope _scope = GlobalSearchScope.all;
@@ -357,7 +358,9 @@ class GlobalSearchController extends ChangeNotifier {
         _lease?.session != lease?.session ||
         _capabilities.username != capabilities.username;
     if (!changedSite && _baseFingerprint == capabilities.fingerprint) return;
-    _configuration++;
+    final configuration = ++_configuration;
+    _detachLease?.call();
+    _detachLease = null;
     _recentExpressions.clear();
     _invalidateLookups();
     _tagChoices.clear();
@@ -365,12 +368,10 @@ class GlobalSearchController extends ChangeNotifier {
     _siteUrl = siteUrl;
     _lease = lease;
     _capabilities = capabilities;
-    history.configure(
-      siteUrl: siteUrl,
-      username: capabilities.username,
-      authenticated: capabilities.authenticated,
-      logSearchQueries: capabilities.logSearchQueries,
-    );
+    _detachLease = lease?.onRetire(() {
+      if (_disposed || !identical(_lease?.session, lease.session)) return;
+      configure(capabilities: const GlobalSearchCapabilities());
+    });
     if (changedSite) {
       _query = '';
       _contextTopicId = null;
@@ -385,11 +386,21 @@ class GlobalSearchController extends ChangeNotifier {
       _pendingContext = null;
     }
     _sanitize();
-    _schedule();
+    // History publication may synchronously configure a successor search.
+    _execution.reset();
+    _execution.phase = GlobalSearchPhase.idle;
+    history.configure(
+      siteUrl: siteUrl,
+      username: capabilities.username,
+      authenticated: capabilities.authenticated,
+      logSearchQueries: capabilities.logSearchQueries,
+    );
+    if (_disposed || configuration != _configuration) return;
+    // A history listener may already have submitted without debounce.
+    if (_execution.phase == GlobalSearchPhase.idle) _schedule();
+    if (_disposed || configuration != _configuration) return;
     if (siteUrl != null && lease != null) {
-      unawaited(
-        _loadCapabilities(siteUrl, lease, _configuration, capabilities),
-      );
+      unawaited(_loadCapabilities(siteUrl, lease, configuration, capabilities));
     }
   }
 
@@ -1058,6 +1069,8 @@ class GlobalSearchController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _detachLease?.call();
+    _detachLease = null;
     _configuration++;
     _recentExpressions.clear();
     _invalidateLookups();
