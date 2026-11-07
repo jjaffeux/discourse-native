@@ -9,7 +9,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Popover registers every frozen documentation and edge example', () {
+  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['popover'], same(popoverExamples));
     expect(popoverExamples.status, ComponentStatus.implemented);
     expect(popoverExamples.examples.map((example) => example.title), [
@@ -21,11 +23,6 @@ void main() {
       'Anchor, collision and movement',
       'Reference demo',
     ]);
-  });
-
-  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
-    tester,
-  ) async {
     for (final example in popoverExamples.examples) {
       for (final theme in [
         AppTheme.light,

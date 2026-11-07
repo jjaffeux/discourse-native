@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('starts with one top-level kitchen-sink example', () {
+  testWidgets('all Attachment examples render at narrow 200 percent RTL', (
+    tester,
+  ) async {
     expect(attachmentExamples.omittedSections, contains('Features'));
     expect(
       attachmentExamples.examples.where((example) => example.topLevel),
@@ -12,11 +14,6 @@ void main() {
     );
     expect(attachmentExamples.examples.first.title, 'Overview');
     expect(attachmentExamples.examples.first.topLevel, isTrue);
-  });
-
-  testWidgets('all Attachment examples render at narrow 200 percent RTL', (
-    tester,
-  ) async {
     tester.view.physicalSize = const Size(320, 720);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

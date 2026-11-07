@@ -11,7 +11,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Menubar registers every frozen documented example', () {
+  testWidgets('all examples mount in live palettes at narrow 200 percent RTL', (
+    tester,
+  ) async {
     expect(componentExamples['menubar'], same(menubarExamples));
     expect(menubarExamples.status, ComponentStatus.implemented);
     expect(menubarExamples.examples.map((example) => example.title), [
@@ -22,11 +24,6 @@ void main() {
       'With Icons',
       'RTL',
     ]);
-  });
-
-  testWidgets('all examples mount in live palettes at narrow 200 percent RTL', (
-    tester,
-  ) async {
     await tester.binding.setSurfaceSize(const Size(360, 640));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     for (final example in menubarExamples.examples) {
