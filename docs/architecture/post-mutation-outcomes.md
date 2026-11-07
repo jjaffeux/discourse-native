@@ -16,8 +16,27 @@ dispatch has its own result.
 The shell copies transport failure details into domain problems. Application
 localization belongs to `post_mutation_feedback.dart`. Server-localized messages
 remain verbatim. Permanent-delete eligibility and move destination search are
-reads and retain their existing read contracts. Notice, flag, like, checklist,
-bookmark and composer protocols keep their existing owners.
+reads and retain their existing read contracts. Flag, like, checklist, bookmark
+and composer protocols keep their existing owners.
+
+Single-post moderation commands, including staff notices, share
+`_PostCommandOwner` for account admission, per-post locking, credential lookup,
+dispatch, uncertain-write recovery and projection repair. Notice commands retain
+their captured site, topic, post and lease across navigation. `_PostMutationPolicy`
+owns both the notice permission selector used by presentation and its repeated
+write admission checks. Shell captures targets and forwards commands.
+
+Notice normalization turns absent or all-whitespace input into removal while
+preserving nonempty raw Markdown exactly. An unresolved recovery barrier wins
+over an otherwise matching notice. With no unresolved operation, a matching raw
+value answers no-change before acquiring a post lock and is checked again after
+credential lookup. This preserves idempotent no-op behavior when another write
+holds the post or a concurrent read supplies the desired value. Accepted writes
+use the same canonical repair and typed freshness outcomes as other post commands.
+
+A separate notice transaction would duplicate the shared dispatch/recovery
+protocol. The typed command case keeps notice-specific admission and HTTP inputs
+explicit without adding a callback-based mutation framework.
 
 ## Projection ownership
 

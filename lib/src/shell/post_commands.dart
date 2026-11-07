@@ -62,6 +62,17 @@ final class _PermanentlyDeleteReply extends _PostCommand {
   int get postId => target.postId;
 }
 
+final class _SetPostNotice extends _PostCommand {
+  _SetPostNotice(this.target, String? notice)
+    : notice = notice == null || notice.trim().isEmpty ? null : notice;
+
+  final PostNoticeTarget target;
+  final String? notice;
+
+  @override
+  int get postId => target.postId;
+}
+
 final class _AdmittedPostCommand {
   const _AdmittedPostCommand({
     required this.command,
@@ -97,6 +108,9 @@ final class _PostCommandOwner {
             )
           : shell._topicPostOwnerRefusal(target, [target.postId!], username),
     _PermanentlyDeleteReply(:final target) => shell._permanentPostDeletionBlock(
+      target,
+    ),
+    _SetPostNotice(:final target) => shell._postMutationPolicy.noticeRefusal(
       target,
     ),
     _PostSnapshotCommand() => null,
@@ -172,8 +186,25 @@ final class _PostCommandOwner {
         topicId: topicId,
         postId: postId,
       ),
+      _SetPostNotice(:final notice) => mutations.updatePostNotice(
+        siteUrl: siteUrl,
+        apiKey: apiKey,
+        postId: postId,
+        notice: notice,
+      ),
     };
   }
+
+  bool _alreadyApplied(_AdmittedPostCommand attempt) =>
+      switch (attempt.command) {
+        _SetPostNotice(:final notice) =>
+          notice ==
+              shell.store
+                  .read<Post>(attempt.siteUrl, attempt.postId)
+                  ?.notice
+                  ?.raw,
+        _ => false,
+      };
 
   Future<PostMutationOutcome> run(_PostCommand command) async {
     if (_admissionBlock(command) case final refusal?) return refusal;
@@ -184,6 +215,11 @@ final class _PostCommandOwner {
         lease: target._lease,
       ),
       _PermanentlyDeleteReply(:final target) => (
+        siteUrl: target.siteUrl,
+        topicId: target.topicId,
+        lease: target._lease,
+      ),
+      _SetPostNotice(:final target) => (
         siteUrl: target.siteUrl,
         topicId: target.topicId,
         lease: target._lease,
@@ -213,6 +249,7 @@ final class _PostCommandOwner {
     if (unresolved != null) {
       return PostMutationNotSent.recoveryRequired(unresolved);
     }
+    if (_alreadyApplied(attempt)) return const PostMutationNoChange();
     final release = attempt.data.beginPostWrite(attempt.postId);
     if (release == null) {
       return const PostMutationNotSent(
@@ -232,6 +269,7 @@ final class _PostCommandOwner {
       if (credential.failure case final failure?) {
         return PostMutationNotSent(shell._postMutationPolicy.problem(failure));
       }
+      if (_alreadyApplied(attempt)) return const PostMutationNoChange();
       var sent = false;
       try {
         await credential.request!.run(() {

@@ -15,6 +15,37 @@ final class _PostMutationPolicy {
   final bool Function(String siteUrl, int topicId, int postId) containsPost;
   final bool Function() isDisposed;
 
+  bool canEditNotice({
+    required String siteUrl,
+    required int topicId,
+    required int postId,
+  }) {
+    final topic = store.read<TopicDetail>(siteUrl, topicId);
+    return instanceFor(siteUrl)?.isConnected == true &&
+        topic?.canEditStaffNotes == true &&
+        containsPost(siteUrl, topic!.id, postId) &&
+        store.read<Post>(siteUrl, postId) != null;
+  }
+
+  PostMutationOutcome? noticeRefusal(PostNoticeTarget target) {
+    if (isDisposed() || !target._lease.isCurrent) {
+      return const PostMutationRetired();
+    }
+    if (!canEditNotice(
+      siteUrl: target.siteUrl,
+      topicId: target.topicId,
+      postId: target.postId,
+    )) {
+      return PostMutationNotSent(
+        PostMutationProblem(
+          PostMutationProblemKind.invalidTarget,
+          serverMessages: [appL10n.thisPostNoticeCanNoLongerBeEdited],
+        ),
+      );
+    }
+    return null;
+  }
+
   PostMutationProblem problem(WriteException error) => PostMutationProblem(
     switch (error.failure) {
       WriteFailure.validation => PostMutationProblemKind.validation,

@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/post_notice_editor.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -183,6 +184,68 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
   }
+
+  testWidgets('an unchanged notice remains a no-op while the post is locked', (
+    tester,
+  ) async {
+    final api = _NoticeApi();
+    final auth = _GatedAuthenticator();
+    final controller = await _openEditor(tester, api, authenticator: auth);
+    final target = controller.capturePostNoticeTarget(
+      siteUrl: _siteA,
+      topicId: 7,
+      postId: 1,
+    );
+    final original = api.postFor(_siteA).notice!.raw;
+    final credential = Completer<String?>();
+    auth.nextRead = credential;
+    final writing = controller.setPostNotice(target, 'New notice');
+    await tester.pump();
+    expect(auth.nextRead, isNull);
+    expect(controller.postWriteInFlight(1, siteUrl: _siteA), isTrue);
+    expect(
+      await controller.setPostNotice(target, original),
+      isA<PostMutationNoChange>(),
+    );
+    expect(api.writes, isEmpty);
+    credential.complete('a-key');
+    expect(await writing, isA<PostMutationAccepted>());
+    expect(api.writes.single.notice, 'New notice');
+    expect(controller.postWriteInFlight(1, siteUrl: _siteA), isFalse);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets(
+    'notice writes recheck a matching raw value after credential lookup',
+    (tester) async {
+      final api = _NoticeApi();
+      final auth = _GatedAuthenticator();
+      final controller = await _openEditor(tester, api, authenticator: auth);
+      final target = controller.capturePostNoticeTarget(
+        siteUrl: _siteA,
+        topicId: 7,
+        postId: 1,
+      );
+      const desired = '    A notice with raw whitespace\n';
+      final credential = Completer<String?>();
+      auth.nextRead = credential;
+      final writing = controller.setPostNotice(target, desired);
+      await tester.pump();
+      expect(auth.nextRead, isNull);
+      controller.store.update<Post>(
+        _siteA,
+        1,
+        (post) => post.copyWith(
+          notice: const PostNotice(type: 'custom', raw: desired),
+        ),
+      );
+      credential.complete('a-key');
+      expect(await writing, isA<PostMutationNoChange>());
+      expect(api.writes, isEmpty);
+      expect(api.refreshes, isEmpty);
+      expect(controller.postWriteInFlight(1, siteUrl: _siteA), isFalse);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.linux),
+  );
 
   testWidgets('a phone edits the notice in its sheet above the keyboard', (
     tester,

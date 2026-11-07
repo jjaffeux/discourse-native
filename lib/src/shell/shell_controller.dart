@@ -7420,13 +7420,11 @@ class ShellController extends FrameSafeNotifier
     required String siteUrl,
     required int topicId,
     required int postId,
-  }) {
-    final topic = store.read<TopicDetail>(siteUrl, topicId);
-    return _instanceAt(siteUrl)?.isConnected == true &&
-        topic?.canEditStaffNotes == true &&
-        topicContainsPost(siteUrl, topic!.id, postId) &&
-        store.read<Post>(siteUrl, postId) != null;
-  }
+  }) => _postMutationPolicy.canEditNotice(
+    siteUrl: siteUrl,
+    topicId: topicId,
+    postId: postId,
+  );
 
   PostNoticeTarget capturePostNoticeTarget({
     required String siteUrl,
@@ -7439,98 +7437,10 @@ class ShellController extends FrameSafeNotifier
     lease: lifecycle.capture(siteUrl),
   );
 
-  PostMutationOutcome? _postNoticeRefusal(PostNoticeTarget target) {
-    if (isDisposed || !target._lease.isCurrent) {
-      return const PostMutationRetired();
-    }
-    if (!canEditPostNotice(
-      siteUrl: target.siteUrl,
-      topicId: target.topicId,
-      postId: target.postId,
-    )) {
-      return PostMutationNotSent(
-        PostMutationProblem(
-          PostMutationProblemKind.invalidTarget,
-          serverMessages: [appL10n.thisPostNoticeCanNoLongerBeEdited],
-        ),
-      );
-    }
-    return null;
-  }
-
   Future<PostMutationOutcome> setPostNotice(
     PostNoticeTarget target,
     String? notice,
-  ) async {
-    if (_postNoticeRefusal(target) case final refusal?) return refusal;
-    final siteUrl = target.siteUrl;
-    final postId = target.postId;
-    final lease = target._lease;
-    final data = _topicData.forLease(siteUrl, lease);
-    if (data == null) return const PostMutationRetired();
-    final unresolved = data.moderationRecoveryFor(target.topicId, [postId]);
-    if (unresolved != null) {
-      return PostMutationNotSent.recoveryRequired(unresolved);
-    }
-    final next = notice == null || notice.trim().isEmpty ? null : notice;
-    if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) {
-      return const PostMutationNoChange();
-    }
-    final releasePost = data.beginPostWrite(postId);
-    if (releasePost == null) {
-      return const PostMutationNotSent(
-        PostMutationProblem(PostMutationProblemKind.busyPost),
-      );
-    }
-
-    try {
-      if (_postNoticeRefusal(target) case final refusal?) return refusal;
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (_postNoticeRefusal(target) case final refusal?) return refusal;
-      if (credential.failure case final failure?) {
-        return PostMutationNotSent(_postMutationPolicy.problem(failure));
-      }
-      if (next == store.read<Post>(siteUrl, postId)?.notice?.raw) {
-        return const PostMutationNoChange();
-      }
-
-      var sent = false;
-      try {
-        await credential.request!.run(() {
-          sent = true;
-          return api.postMutations.updatePostNotice(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            postId: postId,
-            notice: next,
-          );
-        });
-      } catch (error, stackTrace) {
-        return await _postMutationPolicy.failed(
-          data,
-          target.topicId,
-          [postId],
-          credential.apiKey,
-          error,
-          stackTrace,
-          sent: sent,
-        );
-      }
-      if (!lease.isCurrent) return const PostMutationAccepted.retired();
-      final projection = await data.repairPost(
-        target.topicId,
-        postId,
-        credential.apiKey,
-        lease,
-      );
-      return _postMutationPolicy.accepted(
-        projection,
-        data.postMutationRecovery(target.topicId, [postId], credential.apiKey),
-      );
-    } finally {
-      lease.commit(releasePost);
-    }
-  }
+  ) => _postCommands.run(_SetPostNotice(target, notice));
 
   late final FlagTransactions _flags = FlagTransactions(
     store: store,
