@@ -1,13 +1,8 @@
 import 'dart:async';
-import 'dart:convert' show HtmlEscape;
 
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
 
-import '../foundation/redacted_uri.dart';
 import '../models/bookmark.dart';
-import '../models/bookmark_reminder.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
@@ -17,14 +12,12 @@ import '../models/forum_about.dart';
 import '../models/found_group.dart';
 import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
-import '../models/json.dart';
 import '../models/notification.dart';
 import '../models/notification_totals.dart';
 import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
 import '../models/post_creation.dart';
-import '../models/post_flag.dart';
 import '../models/post_likers.dart';
 import '../models/post_revision.dart';
 import '../models/search_results.dart';
@@ -42,30 +35,23 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
-import '../plugin_api/composer_metadata.dart';
 import '../plugin_api/discourse_model_codec.dart';
-import '../plugin_api/topic_reading_policy.dart';
+import 'discourse_account_api.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_composer_api.dart';
 import 'discourse_plugin_transport.dart';
-import 'discourse_request_coordinator.dart';
+import 'discourse_search_api.dart';
+import 'discourse_site_api.dart';
+import 'discourse_topic_api.dart';
 import 'discourse_transport.dart';
 import 'dsa_notices_api.dart';
 import 'http_basic_auth.dart';
-import 'http_transport.dart';
-import 'json_decode.dart';
 import 'plugin_transport.dart';
-import 'sidebar_icon_loader.dart';
 import 'site_message_bus_bootstrap.dart';
 
 export 'discourse_api_contracts.dart';
 export 'plugin_transport.dart';
 export 'shell_api_ports.dart';
-
-part 'discourse_account_api.dart';
-part 'discourse_composer_api.dart';
-part 'discourse_search_api.dart';
-part 'discourse_site_api.dart';
-part 'discourse_topic_api.dart';
 
 class DiscourseApi
     implements

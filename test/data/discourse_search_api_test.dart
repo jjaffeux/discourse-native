@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_search_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:flutter_test/flutter_test.dart';

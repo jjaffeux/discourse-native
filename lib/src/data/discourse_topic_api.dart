@@ -1,4 +1,20 @@
-part of 'discourse_api.dart';
+import 'dart:async';
+import 'dart:convert' show HtmlEscape;
+
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:intl/intl.dart';
+
+import '../models/json.dart';
+import '../models/post.dart';
+import '../models/post_checklist.dart';
+import '../models/post_likers.dart';
+import '../models/post_revision.dart';
+import '../models/search_results.dart';
+import '../models/topic.dart';
+import '../plugin_api/discourse_model_codec.dart';
+import 'discourse_api_contracts.dart';
+import 'discourse_transport.dart';
+import 'json_decode.dart';
 
 final class DiscourseTopicApi {
   const DiscourseTopicApi(this._transport, this._models);

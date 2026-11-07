@@ -1,4 +1,18 @@
-part of 'discourse_api.dart';
+import 'dart:async';
+
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:http/http.dart' as http;
+
+import '../models/found_group.dart';
+import '../models/found_hashtag.dart';
+import '../models/found_user.dart';
+import '../models/json.dart';
+import '../models/search_results.dart';
+import '../models/topic.dart';
+import '../models/topic_filter.dart';
+import 'discourse_api_contracts.dart';
+import 'discourse_transport.dart';
+import 'json_decode.dart';
 
 final class DiscourseSearchApi {
   const DiscourseSearchApi(

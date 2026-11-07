@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/discourse_account_api.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/models/bookmark.dart';

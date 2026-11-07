@@ -1,4 +1,28 @@
-part of 'discourse_api.dart';
+import 'dart:async';
+
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:http/http.dart' as http;
+
+import '../foundation/redacted_uri.dart';
+import '../models/discourse_instance.dart';
+import '../models/forum_about.dart';
+import '../models/json.dart';
+import '../models/notification.dart';
+import '../models/post_flag.dart';
+import '../models/sidebar_tag.dart';
+import '../models/site_appearance.dart';
+import '../models/site_basic_info.dart';
+import '../models/site_config.dart';
+import '../models/site_emoji.dart';
+import '../models/topic.dart';
+import '../plugin_api/discourse_model_codec.dart';
+import '../plugin_api/topic_reading_policy.dart';
+import 'discourse_api_contracts.dart';
+import 'discourse_transport.dart';
+import 'http_basic_auth.dart';
+import 'http_transport.dart';
+import 'json_decode.dart';
+import 'site_message_bus_bootstrap.dart';
 
 final class DiscourseSiteApi {
   const DiscourseSiteApi(this._transport, this._models);

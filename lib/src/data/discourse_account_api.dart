@@ -1,4 +1,27 @@
-part of 'discourse_api.dart';
+import 'dart:async';
+
+import 'package:discourse_native/l10n/strings.dart';
+import 'package:http/http.dart' as http;
+
+import '../models/bookmark.dart';
+import '../models/bookmark_reminder.dart';
+import '../models/discourse_user.dart';
+import '../models/do_not_disturb.dart';
+import '../models/json.dart';
+import '../models/notification.dart';
+import '../models/notification_totals.dart';
+import '../models/sidebar.dart';
+import '../models/topic_tracking_state.dart';
+import '../models/user_activity.dart';
+import '../models/user_card.dart';
+import '../models/user_draft.dart';
+import '../models/user_preferences.dart';
+import '../models/user_summary.dart';
+import '../plugin_api/discourse_model_codec.dart';
+import 'discourse_api_contracts.dart';
+import 'discourse_transport.dart';
+import 'json_decode.dart';
+import 'sidebar_icon_loader.dart';
 
 final class DiscourseAccountApi {
   DiscourseAccountApi(
