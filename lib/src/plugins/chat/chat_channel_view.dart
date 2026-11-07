@@ -52,15 +52,18 @@ class ChatChannelView extends StatelessWidget {
         builder: (context, inputs, _) {
           if (inputs == null) return const SizedBox.shrink();
           final chat = PluginUiScope.require(context, chatControllerService);
-          return _ChatChannelBody(
-            key: ValueKey((inputs.siteUrl, channelId, chat)),
-            siteUrl: inputs.siteUrl,
-            channelId: channelId,
-            showTimeGapDays: inputs.showTimeGapDays,
-            chat: chat,
-            autofocusMessageStream: autofocusMessageStream,
-            autofocusComposer: autofocusComposer,
-            showHeader: showHeader,
+          // Sheet and history motion can reuse the live pane's painted layer.
+          return RepaintBoundary(
+            child: _ChatChannelBody(
+              key: ValueKey((inputs.siteUrl, channelId, chat)),
+              siteUrl: inputs.siteUrl,
+              channelId: channelId,
+              showTimeGapDays: inputs.showTimeGapDays,
+              chat: chat,
+              autofocusMessageStream: autofocusMessageStream,
+              autofocusComposer: autofocusComposer,
+              showHeader: showHeader,
+            ),
           );
         },
       );
@@ -253,25 +256,27 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     if (hasMessages) {
       // Local sends remain visible while the first page loads or has failed.
       _syncProjection(stream);
-      return ChatMessageStream(
-        reader: _viewing.reader,
-        siteUrl: widget.siteUrl,
-        target: ChatChannelTarget(widget.channelId),
-        items: _items,
-        stream: stream,
-        highlightMessageId: _highlightMessageId,
-        highlightRequest: _highlightRequest,
-        onHighlightComplete: _clearHighlight,
-        onOpenThread: (preview) =>
-            _openThread(context, widget.siteUrl, widget.channelId, preview),
-        onJumpToMessage: _jumpToMessage,
-        onReply: (message) => _replyToMessage(context, message),
-        onEdit: _editMessage,
-        selectingMessages: _selectingMessages,
-        selectedMessageIds: _selectedMessageIds,
-        onStartSelecting: _startSelecting,
-        onSelectionChanged: _setMessageSelected,
-        autofocus: widget.autofocusMessageStream,
+      return RepaintBoundary(
+        child: ChatMessageStream(
+          reader: _viewing.reader,
+          siteUrl: widget.siteUrl,
+          target: ChatChannelTarget(widget.channelId),
+          items: _items,
+          stream: stream,
+          highlightMessageId: _highlightMessageId,
+          highlightRequest: _highlightRequest,
+          onHighlightComplete: _clearHighlight,
+          onOpenThread: (preview) =>
+              _openThread(context, widget.siteUrl, widget.channelId, preview),
+          onJumpToMessage: _jumpToMessage,
+          onReply: (message) => _replyToMessage(context, message),
+          onEdit: _editMessage,
+          selectingMessages: _selectingMessages,
+          selectedMessageIds: _selectedMessageIds,
+          onStartSelecting: _startSelecting,
+          onSelectionChanged: _setMessageSelected,
+          autofocus: widget.autofocusMessageStream,
+        ),
       );
     } else if (stream.loading) {
       return const DPageReadingLaneBox(
@@ -373,18 +378,24 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                   allowMove: true,
                 )
               : stream.error == null || hasMessages
-              ? ChatComposer(
-                  reader: _viewing.reader,
-                  key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
-                  siteUrl: widget.siteUrl,
-                  channelId: widget.channelId,
-                  uploadDropController: _uploadDropController,
-                  focusRequest:
-                      _composerFocusRequest +
-                      (widget.autofocusComposer && !context.isTouch ? 1 : 0),
-                  editingMessage: _editingMessage,
-                  onEditMessage: _editMessage,
-                  onEditFinished: _finishEditing,
+              ? RepaintBoundary(
+                  child: ChatComposer(
+                    reader: _viewing.reader,
+                    key: ValueKey((
+                      widget.siteUrl,
+                      widget.channelId,
+                      'composer',
+                    )),
+                    siteUrl: widget.siteUrl,
+                    channelId: widget.channelId,
+                    uploadDropController: _uploadDropController,
+                    focusRequest:
+                        _composerFocusRequest +
+                        (widget.autofocusComposer && !context.isTouch ? 1 : 0),
+                    editingMessage: _editingMessage,
+                    onEditMessage: _editMessage,
+                    onEditFinished: _finishEditing,
+                  ),
                 )
               : null,
           bodyBuilder: (_, header) =>
