@@ -3,6 +3,34 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test(
+    'regression fifth: chat summaries never truncate part of a grapheme',
+    () {
+      expect(
+        chatMessageSummary(raw: '${'a' * 239}e\u0301tail'),
+        '${'a' * 239}e\u0301…',
+      );
+      expect(
+        chatMessageSummary(raw: '${'a' * 239}👩‍💻tail'),
+        '${'a' * 239}👩‍💻…',
+      );
+      expect(
+        chatMessageSummary(cooked: '<!--${'x' * 19992}-->e\u0301tail'),
+        isNull,
+      );
+    },
+  );
+
+  test('regression fifth: inbox summaries separate headings and table cells', () {
+    expect(
+      chatMessageSummary(
+        cooked:
+            '<h2>Results</h2><table><tr><td>Sam</td><td>2</td></tr></table><p>Done</p>',
+      ),
+      'Results Sam 2 Done',
+    );
+  });
+
+  test(
     'turns an excerpt into one line while preserving emoji and entities',
     () {
       expect(

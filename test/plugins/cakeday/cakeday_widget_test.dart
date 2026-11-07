@@ -18,6 +18,43 @@ Widget frame(Widget child) => MaterialApp(
 );
 void main() {
   testWidgets(
+    'regression fifth: birthday avatar initials preserve Unicode characters',
+    (tester) async {
+      final f = CakedayFixture();
+      addTearDown(f.dispose);
+      f
+              .transport
+              .responders['GET /cakeday/birthdays.json?page=0&filter=today'] =
+          (_) => page([
+            {
+              ...celebration(1),
+              'username': 'a𐐀',
+              'name': null,
+              'avatar_template': null,
+            },
+          ]);
+      try {
+        await tester.pumpWidget(
+          frame(
+            CakedayDirectory(
+              site: cakedaySite,
+              query: birthdayQuery,
+              controller: f.controller,
+              navigation: f.navigation,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('A𐐀'), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      } finally {
+        f.controller.setForeground(false);
+        await tester.pumpWidget(const SizedBox.shrink());
+      }
+    },
+  );
+
+  testWidgets(
     'birthday editor holds invalid draft without authorizing clear and can recover',
     (tester) async {
       var value = CakedayPreferences(CakedayBirthday.create(1, 30));

@@ -83,6 +83,7 @@ List<ComposerLinkBlock> parseComposerLinks(
     final bracket = candidate.labelEnd;
     final end = candidate.tokenEnd;
     final urlStart = bracket + 2;
+    final destination = source.substring(urlStart, end - 1);
     offset = end;
     markdownRanges.add(TextRange(start: start, end: end));
     if (code.overlaps(start, end)) continue;
@@ -93,7 +94,9 @@ List<ComposerLinkBlock> parseComposerLinks(
         end: end,
         source: source.substring(start, end),
         anchor: source.substring(start + 1, bracket),
-        url: source.substring(urlStart, end - 1),
+        url: destination.startsWith('<') && destination.endsWith('>')
+            ? destination.substring(1, destination.length - 1)
+            : destination,
         kind: ComposerLinkKind.markdown,
       ),
     );
@@ -778,7 +781,10 @@ TextEditingValue? composerLinkValue({
           preserveMarkdownEscapes: preserveSource,
         );
   final sourceUrl = preserveSource && normalizedUrl == existingLink!.url
-      ? normalizedUrl
+      ? existingLink.source.substring(
+          existingLink.anchor.length + 3,
+          existingLink.source.length - 1,
+        )
       : _serializedComposerLinkPart(
           normalizedUrl,
           destination: true,

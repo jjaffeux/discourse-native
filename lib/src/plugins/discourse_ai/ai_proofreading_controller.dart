@@ -107,7 +107,6 @@ final class AiProofreadingController extends FrameSafeNotifier
     _advanceRevision(account.siteUrl);
     _loadedAccounts.add(account);
     _enabledByAccount[account] = enabled;
-    notifySafely();
     unawaited(
       preferences.write(
         siteUrl: account.siteUrl,
@@ -115,6 +114,7 @@ final class AiProofreadingController extends FrameSafeNotifier
         enabled: enabled,
       ),
     );
+    notifySafely();
   }
 
   /// Drops what was read for the forum's accounts when its account changes or

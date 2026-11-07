@@ -405,6 +405,32 @@ final class _RawProofreadingWireApi extends FakeDiscourseApi
 }
 
 void main() {
+  test(
+    'regression fifth: the newest proofreading preference remains durable',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final controller = _controller();
+      final composer = ComposerController(_replyTarget);
+      addTearDown(controller.dispose);
+      addTearDown(composer.dispose);
+      void chooseAgain() {
+        controller.removeListener(chooseAgain);
+        controller.setEnabled(composer, false);
+      }
+
+      controller.addListener(chooseAgain);
+      controller.setEnabled(composer, true);
+      expect(controller.isEnabled(composer), isFalse);
+      expect(
+        await const AiProofreadingPreferenceStore().read(
+          siteUrl: _siteUrl,
+          userId: _readerId,
+        ),
+        isFalse,
+      );
+    },
+  );
+
   const markdown = '    code\n\ntext  \nnext\n';
   const original = 'Original reply before proofreading.';
   for (final scenario in [

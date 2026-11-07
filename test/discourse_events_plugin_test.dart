@@ -16,6 +16,66 @@ import 'support/event_fixtures.dart';
 const _siteUrl = 'https://forum.example';
 
 void main() {
+  test(
+    'regression fifth: event navigation rejects non-web and credential URLs',
+    () async {
+      final host = await PluginHostHarness.open(
+        transport: RecordingPluginTransport(),
+        manifest: const PluginManifest([discourseEventsModule]),
+        sites: [
+          PluginHostSite(
+            url: eventSite,
+            config: SiteConfig(
+              plugins: PluginData.none.withValue(
+                eventSettingsKey,
+                const EventSettings(enabled: true),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(host.close);
+      final navigation = host.require(eventNavigationKey);
+      for (final url in [
+        '$eventSite/upcoming-events'.replaceFirst('https:', 'ftp:'),
+        '$eventSite/upcoming-events'.replaceFirst(
+          'https://',
+          'https://reader:secret@',
+        ),
+      ]) {
+        expect(await navigation.openPluginUrl(url), isFalse);
+      }
+    },
+  );
+
+  test(
+    'regression fifth: trailing-slash event directory links open natively',
+    () async {
+      final host = await PluginHostHarness.open(
+        transport: RecordingPluginTransport(),
+        manifest: const PluginManifest([discourseEventsModule]),
+        sites: [
+          PluginHostSite(
+            url: eventSite,
+            config: SiteConfig(
+              plugins: PluginData.none.withValue(
+                eventSettingsKey,
+                const EventSettings(enabled: true),
+              ),
+            ),
+          ),
+        ],
+      );
+      addTearDown(host.close);
+      final navigation = host.require(eventNavigationKey);
+      expect(
+        await navigation.openPluginUrl('$eventSite/upcoming-events/'),
+        isTrue,
+      );
+      expect(host.currentContent?.id, 'events-upcoming');
+    },
+  );
+
   for (final connected in [false, true]) {
     test(
       'a subfolder event link keeps its own access (connected: $connected)',

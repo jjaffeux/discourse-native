@@ -24,8 +24,9 @@ final class CachedImageBytes {
 
   /// A declared image type wins; disk-cache responses are classified by bytes.
   static bool looksLikeSvg(Uint8List bytes, {String? contentType}) {
-    if (contentType != null && contentType.contains('image/svg')) return true;
-    if (contentType != null && contentType.startsWith('image/')) return false;
+    final mediaType = contentType?.split(';').first.trim().toLowerCase();
+    if (mediaType != null && mediaType.startsWith('image/svg')) return true;
+    if (mediaType != null && mediaType.startsWith('image/')) return false;
     var start = 0;
     if (bytes.length >= 3 &&
         bytes[0] == 0xEF &&
