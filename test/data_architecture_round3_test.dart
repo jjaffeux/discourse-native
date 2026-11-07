@@ -104,33 +104,16 @@ void main() {
     },
   );
 
-  for (final detail in [false, true]) {
-    for (final reserved in [false, true]) {
-      test(
-        '${detail ? 'detail' : 'dashboard'} sources reject ${reserved ? 'core shadowing' : 'duplicate claims'}',
-        () {
-          final transport = DiscourseApi(
-            client: MockClient((_) async => http.Response('{}', 200)),
-          );
-          addTearDown(transport.close);
-          final declarations = reserved
-              ? [_Source('core_report')]
-              : [_Source('extension'), _Source('extension')];
-          expect(
-            () => detail
-                ? DiscourseReportApi(
-                    transport,
-                    sources: DashboardReportSources(declarations),
-                  )
-                : DiscourseDashboardApi(
-                    transport,
-                    sources: DashboardReportSources(declarations),
-                  ),
-            throwsArgumentError,
-          );
-        },
-      );
-    }
+  for (final reserved in [false, true]) {
+    test(
+      'report composition rejects ${reserved ? 'core shadowing' : 'duplicate claims'}',
+      () {
+        final declarations = reserved
+            ? [_Source('core_report')]
+            : [_Source('extension'), _Source('extension')];
+        expect(() => DashboardReportSources(declarations), throwsArgumentError);
+      },
+    );
   }
 
   test(
