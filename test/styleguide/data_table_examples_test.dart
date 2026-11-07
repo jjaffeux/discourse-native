@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Data Table registers the accepted documented compositions', () {
+  testWidgets('all examples mount at narrow 200 percent RTL in live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['data-table'], same(dataTableExamples));
     expect(dataTableExamples.status, ComponentStatus.implemented);
     expect(dataTableExamples.examples.map((example) => example.title), [
@@ -21,11 +23,6 @@ void main() {
       'RTL',
       'Editable cell surface',
     ]);
-  });
-
-  testWidgets('all examples mount at narrow 200 percent RTL in live palettes', (
-    tester,
-  ) async {
     for (final example in dataTableExamples.examples) {
       for (final theme in StyleguideTheme.values) {
         await tester.pumpWidget(

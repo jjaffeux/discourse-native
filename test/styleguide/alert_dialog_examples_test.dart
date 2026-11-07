@@ -4,7 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('covers every frozen documented example', () {
+  testWidgets('all examples open at narrow 200 percent RTL without overflow', (
+    tester,
+  ) async {
     expect(
       alertDialogExamples.examples.map((example) => example.title),
       containsAll(<String>[
@@ -22,11 +24,6 @@ void main() {
       contains('Outside presses never dismiss'),
     );
     expect(alertDialogExamples.notes, contains('no Dialog corner close'));
-  });
-
-  testWidgets('all examples open at narrow 200 percent RTL without overflow', (
-    tester,
-  ) async {
     tester.view.physicalSize = const Size(320, 760);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);

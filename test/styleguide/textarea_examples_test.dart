@@ -24,7 +24,9 @@ Widget _host(StyleguideExample example, {double width = 640}) => MaterialApp(
 );
 
 void main() {
-  test('all frozen Textarea examples are registered', () {
+  testWidgets('actual examples support 216px 200 percent RTL and live themes', (
+    tester,
+  ) async {
     expect(componentExamples['textarea'], same(textareaExamples));
     expect(textareaExamples.status, ComponentStatus.implemented);
     expect(textareaExamples.examples.map((example) => example.title), [
@@ -37,11 +39,6 @@ void main() {
       'Form',
       'Bounded editing and read-only',
     ]);
-  });
-
-  testWidgets('actual examples support 216px 200 percent RTL and live themes', (
-    tester,
-  ) async {
     for (final example in textareaExamples.examples) {
       for (final theme in [
         StyleguideTheme.light,

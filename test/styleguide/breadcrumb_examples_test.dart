@@ -8,7 +8,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Breadcrumb registers every frozen documented example', () {
+  testWidgets('every example mounts in live narrow large-text palettes', (
+    tester,
+  ) async {
     expect(componentExamples['breadcrumb'], same(breadcrumbExamples));
     expect(breadcrumbExamples.status, ComponentStatus.implemented);
     expect(breadcrumbExamples.examples.map((example) => example.title), [
@@ -22,11 +24,6 @@ void main() {
       'Reference demo',
       'Inline metadata',
     ]);
-  });
-
-  testWidgets('every example mounts in live narrow large-text palettes', (
-    tester,
-  ) async {
     for (final example in breadcrumbExamples.examples) {
       for (final theme in [
         AppTheme.light,
