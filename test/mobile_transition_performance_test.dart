@@ -91,9 +91,10 @@ void main() {
             ),
           );
           expect(scrollable, findsOneWidget);
-          final position = tester.state<ScrollableState>(scrollable).position;
-          expect(position.maxScrollExtent, greaterThan(3000));
-          position.jumpTo(1600);
+          ScrollPosition position() =>
+              tester.state<ScrollableState>(scrollable).position;
+          expect(position().maxScrollExtent, greaterThan(3000));
+          position().jumpTo(1600);
           await tester.pumpAndSettle();
           final chrome = DScrollChrome.maybeOf(tester.element(body))!;
           final dock = find.byType(DMobileDock);
@@ -119,15 +120,17 @@ void main() {
             final rooms = <double>{};
             final composerRects = <Rect>{};
             final viewportHeights = <double>{};
-            final before = position.pixels;
+            final before = position().pixels;
             try {
               trigger();
               for (var frame = 0; frame < 40; frame++) {
                 onFrame?.call(frame);
-                if (scrollPerFrame != 0) position.pointerScroll(scrollPerFrame);
+                if (scrollPerFrame != 0) {
+                  position().pointerScroll(scrollPerFrame);
+                }
                 await tester.pump(const Duration(milliseconds: 16));
                 widths.add(tester.getSize(surface).width);
-                viewportHeights.add(position.viewportDimension);
+                viewportHeights.add(position().viewportDimension);
                 // Read the existing notifier without subscribing a new element.
                 final room = tester
                     .widget<InheritedNotifier<ValueNotifier<double>>>(
@@ -152,7 +155,7 @@ void main() {
               'devicePixelRatio': tester.view.devicePixelRatio,
               'phase': phase,
               'frames': 40,
-              'scrollDelta': position.pixels - before,
+              'scrollDelta': position().pixels - before,
               'dockWidths': widths.length,
               'clearanceValues': rooms.length,
               'clearanceRange': [
@@ -176,22 +179,25 @@ void main() {
           // Trigger the same physical downward/upward intent on reversed chat.
           final down = chat ? -1.0 : 1.0;
           await record('idle', () {});
-          await record('hide', () => position.pointerScroll(180 * down));
+          await record('hide', () => position().pointerScroll(180 * down));
           expect(tester.widget<DMobileDock>(dock).collapsed, isTrue);
           await record('settled-scroll', () {}, scrollPerFrame: 3 * down);
-          await record('show', chrome.reveal);
+          await record(
+            'show',
+            chat ? () => position().jumpTo(0) : chrome.reveal,
+          );
           expect(tester.widget<DMobileDock>(dock).collapsed, isFalse);
           await record(
             'hide-while-scrolling',
-            () => position.pointerScroll(180 * down),
+            () => position().pointerScroll(180 * down),
             scrollPerFrame: 3 * down,
           );
           await record(
             'show-while-scrolling',
-            () => position.pointerScroll(-180 * down),
+            () => position().pointerScroll(-180 * down),
             scrollPerFrame: -3 * down,
           );
-          expect(tester.widget<DMobileDock>(dock).collapsed, isFalse);
+          expect(tester.widget<DMobileDock>(dock).collapsed, chat);
           if (composer != null) {
             await record('focus-reposition', composer.focus.requestFocus);
             await record(

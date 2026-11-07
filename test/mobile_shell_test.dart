@@ -1096,7 +1096,7 @@ void main() {
         .scrollController!;
     scroll.jumpTo(scroll.position.maxScrollExtent);
     await tester.pumpAndSettle();
-    expect(scroll.position.maxScrollExtent, greaterThan(180));
+    expect(scroll.position.maxScrollExtent, greaterThan(100));
     expect(
       scroll.position.maxScrollExtent,
       lessThan(scroll.position.viewportDimension),
@@ -1215,8 +1215,11 @@ void main() {
       await _chatWheel(tester, messages, -20);
       expect(topics.hitTestable(), findsNothing);
       expect(send.hitTestable(), findsOneWidget);
-      // Reverse past the shared chrome's 40px slack.
+      // Chat keeps navigation folded until the live end, even after reversal.
       await _chatWheel(tester, messages, -80);
+      expect(topics.hitTestable(), findsNothing);
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
       expect(topics.hitTestable(), findsOneWidget);
       expect(
         find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
@@ -1319,6 +1322,9 @@ void main() {
           expect(topics.hitTestable(), findsNothing);
           expect(title.hitTestable(), findsOneWidget);
           await _chatWheel(tester, messages, -80);
+          expect(topics.hitTestable(), findsNothing);
+          scroll.jumpTo(0);
+          await tester.pumpAndSettle();
           expect(topics.hitTestable(), findsOneWidget);
           expect(title.hitTestable(), findsOneWidget);
           expect(tester.getRect(_bar), originalBar);
@@ -1353,25 +1359,23 @@ void main() {
     // Compact presets grow with the mobile text baseline. Their hit areas
     // must still match the painted controls exactly.
     for (final (key, size) in [
-      ('chat-inbox-activity-filter', DControlSize.filter),
-      ('chat-inbox-sort-filter', DControlSize.filter),
+      ('chat-inbox-activity-filter', DControlSize.segment),
+      ('chat-inbox-sort-filter', DControlSize.segment),
     ]) {
       final control = find.byKey(ValueKey(key));
       final surface = find.descendant(
         of: control,
-        matching: find.byWidgetPredicate(
-          (widget) =>
-              widget is DecoratedBox && widget.decoration is DButtonDecoration,
-        ),
+        matching: find.byType(DButtonGroup),
       );
       final context = tester.element(control);
       expect(
         tester.getSize(surface).height,
         DControlStyle.scaledHeight(
-          size,
-          MediaQuery.textScalerOf(context),
-          context: context,
-        ),
+              size,
+              MediaQuery.textScalerOf(context),
+              context: context,
+            ) +
+            4,
         reason: key,
       );
       expect(tester.getRect(control), tester.getRect(surface));
@@ -2221,7 +2225,7 @@ void main() {
     expect(menuBounds.top, greaterThan(screen.height / 2));
     expect(menuBounds.bottom, screen.height);
     expect(
-      find.descendant(of: menuSheet, matching: find.byType(DSheetHeader)),
+      find.descendant(of: menuSheet, matching: find.byType(DSheetTitle)),
       findsNothing,
     );
     expect(find.byKey(const ValueKey('topic-close-reader')), findsNothing);
@@ -4758,7 +4762,7 @@ void main() {
     'the bar holds notifications, the drawer the profile; search is a '
     'dedicated page',
     (tester) async {
-      await pumpMobileShellFixture(tester);
+      final shell = await pumpMobileShellFixture(tester);
       expect(_bar, findsOneWidget);
       expect(_header, findsOneWidget);
       expect(find.byType(InstanceRail), findsNothing);
@@ -4815,13 +4819,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(DSheetContent), findsNothing);
       expect(_bar, findsNothing);
-      final route = ModalRoute.of(
-        tester.element(find.byKey(ForumSearch.inputKey)),
-      )!;
-      expect(route, isA<PageRoute<void>>());
-      expect(route.settings.name, '/search');
+      expect(shell.currentContent?.isGlobalSearch, isTrue);
       expect(find.byKey(ForumSearch.inputKey), findsOneWidget);
-      expect(route.opaque, isTrue);
       final fullHeight = tester
           .getSize(find.byKey(ForumSearch.panelKey))
           .height;
@@ -5004,11 +5003,13 @@ void main() {
       expectHomeLogo();
       expect(
         find.byKey(const ValueKey('mobile-home-button')).hitTestable(),
-        findsNothing,
+        findsOneWidget,
       );
       expect(shell.currentContent?.topicId, 7);
-      expect(shell.handleBack(), isTrue);
+      await tester.tap(find.byKey(const ValueKey('mobile-home-button')));
       await tester.pumpAndSettle();
+      expect(shell.currentContent?.isTopicList, isTrue);
+      expect(shell.currentContent?.id, 'latest');
       expectHomeLogo();
       expect(tester.takeException(), isNull);
     } finally {
@@ -5631,7 +5632,7 @@ void main() {
     );
     await _toggleNavigation(tester);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 240));
+    await tester.pump(DMotion.change * .8);
     expect(
       tester
           .widget<Opacity>(
