@@ -3433,12 +3433,6 @@ class ShellController extends FrameSafeNotifier
 
     final path = _feedPath(destinationId, instance, context: context);
     if (path == null) return;
-    unawaited(
-      _taxonomy.ensureScopedSidebarTags(
-        instance.url,
-        (context ?? focusedTabContext).sidebarFilterRoute?.categoryId,
-      ),
-    );
     await topicFeeds.load(
       instance: instance,
       destinationId: destinationId,

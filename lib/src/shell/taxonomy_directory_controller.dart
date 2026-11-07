@@ -42,8 +42,6 @@ final class _TaxonomySite {
   Object? tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
   List<SidebarTag> anonymousDefaultTags = const [];
-  final Map<int, List<TopicFilterLookupValue>> scopedSidebarTags = {};
-  final Map<int, Object> scopedSidebarTagRequests = {};
   _CategorySidebarCache? categorySidebarCache;
   _TagSidebarCache? tagSidebarCache;
   _TopicListFilterTagsCache? topicListFilterTagsCache;
@@ -133,36 +131,6 @@ final class _TaxonomyDirectoryController
     site.categorySidebarCache = null;
     _shell.store.put(siteUrl, category);
     if (lease.isCurrent && !_shell.accountSessionDisposed) _shell._notify();
-  }
-
-  Future<void> ensureScopedSidebarTags(String siteUrl, int? categoryId) async {
-    if (categoryId == null || !_shell.siteConfigFor(siteUrl).taggingEnabled) {
-      return;
-    }
-    final site = _site(siteUrl);
-    if (!site.lease.isCurrent) return;
-    final key = categoryId;
-    if (site.scopedSidebarTags.containsKey(key) ||
-        site.scopedSidebarTagRequests.containsKey(key)) {
-      return;
-    }
-    final lease = site.lease;
-    final request = Object();
-    site.scopedSidebarTagRequests[key] = request;
-    try {
-      final tags = await searchFilterTags(
-        siteUrl: siteUrl,
-        term: '',
-        categoryId: categoryId,
-      );
-      if (!lease.isCurrent || _shell.accountSessionDisposed) return;
-      site.scopedSidebarTags[key] = tags;
-      _shell._notify();
-    } finally {
-      if (identical(site.scopedSidebarTagRequests[key], request)) {
-        site.scopedSidebarTagRequests.remove(key);
-      }
-    }
   }
 
   SidebarSection? categorySidebarSectionFor(String siteUrl) {

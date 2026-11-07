@@ -67,6 +67,34 @@ void main() {
     );
   }
 
+  test(
+    'category navigation leaves tag lookup to an explicit selector',
+    () async {
+      final api = _TagSearchApi()
+        ..remote = const [TopicFilterLookupValue(name: 'chosen-tag')];
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      await shell.loadCategories(_site);
+      expect(shell.siteConfigFor(_site).taggingEnabled, isTrue);
+
+      shell.changeSidebarScope(categoryId: _directoryRoot.id);
+      await pumpEventQueue();
+      expect(shell.sidebarFilterRoute?.categoryId, _directoryRoot.id);
+      expect(api.filterTagRequests, isEmpty);
+
+      expect(
+        await shell.searchFilterTags(
+          siteUrl: _site,
+          term: 'chosen',
+          categoryId: _directoryRoot.id,
+        ),
+        api.remote,
+      );
+      expect(api.filterTagRequests.single.term, 'chosen');
+      expect(api.filterTagRequests.single.categoryId, _directoryRoot.id);
+    },
+  );
+
   test('tag searches preserve remote precedence and numeric ranking', () async {
     final api = _TagSearchApi()
       ..directory = const [

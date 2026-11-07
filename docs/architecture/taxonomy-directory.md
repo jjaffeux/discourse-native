@@ -1,6 +1,6 @@
 # Shared category and tag knowledge
 
-The private taxonomy collaborator in `taxonomy_directory_controller.dart` owns category and tag knowledge for `ShellController`. One site record groups the directory feeds, category completeness, request ownership, known category snapshot, site tag sources, scoped tags, and derived sidebar and filter caches. Account teardown removes the record as one unit.
+The private taxonomy collaborator in `taxonomy_directory_controller.dart` owns category and tag knowledge for `ShellController`. One site record groups the directory feeds, category completeness, request ownership, known category snapshot, site tag sources, and derived sidebar and filter caches. Account teardown removes the record as one unit.
 
 Existing consumers use the shell facade.
 
@@ -22,7 +22,7 @@ The existing pure directory, category path, and sidebar algorithms retain their 
 
 ## Request and account lifetime
 
-The owner uses the existing account request capability and its key, client-ID, anonymous, cancellation, and priority policies. Initial category loads share their request intent. Targeted category IDs register their pending result before credential IO. Directory and scoped-tag requests retain their exact request tokens.
+The owner uses the existing account request capability and its key, client-ID, anonymous, cancellation, and priority policies. Initial category loads share their request intent. Targeted category IDs register their pending result before credential IO. Directory requests retain their exact request tokens.
 
 A site record retains readable projections after its lease is revoked. New asynchronous work and late publication require current authority. Explicit account teardown discards the record, so a replacement account cannot inherit its requests or cache. Revoking a lease alone must not erase a category projection staged immediately before a synchronous Store listener.
 
@@ -32,7 +32,7 @@ Full category loading waits for site presentation settings before publishing nav
 
 Known tag precedence is personal sidebar tags, site top tags, anonymous defaults, then directory tags. Filter tags exclude PM-only entries before case-insensitive deduplication. The cache tracks account identity and source-list identities. Equal results within the same account retain the previous immutable list, including after counter-only user updates.
 
-Sidebar projection keeps its separate connected-user preferences, anonymous defaults, scoped lookup, and selected-tag rules. Category-scoped lookup does not add global tag fallback values. Anonymous directory loading excludes PM-only tags. Composer policy continues to own authoring permission, selected tags, templates, minimum tags, and editor lifetime.
+Sidebar projection keeps connected users' saved tags, with site top tags as their fallback, across category scopes. Anonymous projection uses configured defaults or site top tags. Display preferences and transient selected-tag rules remain separate from category scope. Category-scoped queries belong to explicit filter selector lookups and do not add global tag fallback values; feed navigation does not start a background tag lookup. Anonymous directory loading excludes PM-only tags. Composer policy continues to own authoring permission, selected tags, templates, minimum tags, and editor lifetime.
 
 ## Category preference writes
 
@@ -44,4 +44,4 @@ Two independent designs compared a standalone service with injected callbacks an
 
 The architecture follows Model the Domain by grouping one account's taxonomy knowledge. It follows Laziness Protocol by reusing Store, feed types, pure algorithms, and the established shell-part pattern. No new public SDK or endpoint repository is introduced.
 
-`taxonomy_directory_test.dart` exercises overlapping category lookup, cyclic and inaccessible ancestors, root membership, and stale category and tag refreshes after account replacement. Existing category, tag, sidebar, filter, composer, request-consumer, and notification ownership tests preserve the surrounding contracts. Rendered directory and filter tests cover the existing desktop and mobile Native components. No performance gain is claimed.
+`taxonomy_directory_test.dart` exercises overlapping category lookup, cyclic and inaccessible ancestors, root membership, stale category and tag refreshes after account replacement, and explicit tag lookup without navigation warmup. Existing category, tag, sidebar, filter, composer, request-consumer, and notification ownership tests preserve the surrounding contracts. Rendered directory and filter tests cover the existing desktop and mobile Native components. No performance gain is claimed.
