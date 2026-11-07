@@ -76,7 +76,10 @@ final class DestinationBookmarksStore {
     String accountIdentity,
   ) => List.unmodifiable(_entries[(siteUrl, accountIdentity)] ?? const []);
 
-  Future<void> load() async {
+  Future<void> load() =>
+      _operations.run(owner: this, key: storageKey, operation: _load);
+
+  Future<void> _load() async {
     _readable = false;
     final raw = await _snapshots.read(_persistence.read);
     final entries = <(String, String), List<DestinationBookmark>>{};

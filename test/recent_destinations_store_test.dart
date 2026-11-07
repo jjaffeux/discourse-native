@@ -37,6 +37,51 @@ const _other = ContentRoute(
 );
 
 void main() {
+  test(
+    'account identities cannot collide through delimiter characters',
+    () async {
+      final persistence = MemoryRecentDestinationsPersistence();
+      final store = RecentDestinationsStore(persistence: persistence);
+      store.remember(_site, 'user:1\u0000other', _fromSidebar);
+      store.remember('$_site\u0000user:1', 'other', _other);
+      await store.save();
+      final restored = RecentDestinationsStore(persistence: persistence);
+      await restored.load();
+      expect(restored.categoriesFor(_site, 'user:1\u0000other'), [
+        _fromSidebar,
+      ]);
+      expect(restored.categoriesFor('$_site\u0000user:1', 'other'), [_other]);
+    },
+  );
+
+  test(
+    'superseded history is never serialized and accepted snapshots stay fixed',
+    () async {
+      final persistence = _HeldWritePersistence();
+      final store = RecentDestinationsStore(persistence: persistence);
+      var serializations = 0;
+      final counted = _CountedRoute(() => serializations++);
+      store.remember(_site, _account, counted);
+      final first = store.save();
+      await persistence.started.future;
+      final saves = <Future<void>>[];
+      for (var index = 0; index < 100; index++) {
+        saves.add(store.save());
+      }
+      // A visit after save is not part of any accepted snapshot.
+      store.remember(_site, _account, _other);
+      persistence.release.complete();
+      await Future.wait([first, ...saves]);
+      expect(serializations, 2);
+      expect(persistence.writes, 2);
+      final restored = RecentDestinationsStore(persistence: persistence);
+      await restored.load();
+      expect(restored.categoriesFor(_site, _account).map((r) => r.id), [
+        'category-12',
+      ]);
+    },
+  );
+
   group('RecentDestinationsStore categories', () {
     test(
       'a renamed category updates its single recent visit and saved title',
@@ -443,6 +488,46 @@ final class _HeldRecentPersistence implements RecentDestinationsPersistence {
   @override
   Future<bool> write(String value) async {
     written = value;
+    return true;
+  }
+}
+
+final class _CountedRoute extends ContentRoute {
+  const _CountedRoute(this.onEncode)
+    : super(
+        destination: const FeedDestination(
+          key: 'category-12',
+          sourcePath: '/c/12.json',
+        ),
+        title: 'Counted',
+        icon: DIcons.folder,
+      );
+
+  final void Function() onEncode;
+
+  @override
+  Map<String, Object?> toJson() {
+    onEncode();
+    return super.toJson();
+  }
+}
+
+final class _HeldWritePersistence implements RecentDestinationsPersistence {
+  final started = Completer<void>();
+  final release = Completer<void>();
+  String? value;
+  int writes = 0;
+
+  @override
+  Future<String?> read() async => value;
+
+  @override
+  Future<bool> write(String value) async {
+    if (++writes == 1) {
+      started.complete();
+      await release.future;
+    }
+    this.value = value;
     return true;
   }
 }

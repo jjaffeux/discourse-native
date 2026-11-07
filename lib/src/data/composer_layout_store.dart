@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/composer_placement.dart';
+import 'coalescing_snapshot_writer.dart';
 import 'preference_storage_scope.dart';
-import 'serial_operation_queue.dart';
 
 class ComposerLayoutPreference {
   const ComposerLayoutPreference({
@@ -88,11 +88,16 @@ final class ComposerLayoutStore {
     : _persistence =
           persistence ?? const SharedPreferencesComposerLayoutPersistence();
   static const storageKey = 'discourse_native.composer_layout';
-  static final _operations = SerialOperationQueue();
   final ComposerLayoutPersistence _persistence;
 
-  Future<ComposerLayoutPreference> read() =>
-      _operations.run(owner: _persistence, key: storageKey, operation: _read);
+  CoalescingSnapshotWriter<ComposerLayoutPreference> get _snapshots =>
+      CoalescingSnapshotWriter(
+        owner: _persistence,
+        key: storageKey,
+        writeSnapshot: _write,
+      );
+
+  Future<ComposerLayoutPreference> read() => _snapshots.read(_read);
 
   Future<ComposerLayoutPreference> _read() async {
     try {
@@ -106,15 +111,13 @@ final class ComposerLayoutStore {
     }
   }
 
-  Future<void> write(ComposerLayoutPreference value) => _operations.run<void>(
-    owner: _persistence,
-    key: storageKey,
-    operation: () async {
-      try {
-        if (!await _persistence.writeLayout(jsonEncode(value.toJson()))) {
-          throw StateError('Could not save composer layout.');
-        }
-      } catch (_) {}
-    },
-  );
+  Future<void> write(ComposerLayoutPreference value) => _snapshots.save(value);
+
+  Future<void> _write(ComposerLayoutPreference value) async {
+    try {
+      if (!await _persistence.writeLayout(jsonEncode(value.toJson()))) {
+        throw StateError('Could not save composer layout.');
+      }
+    } catch (_) {}
+  }
 }

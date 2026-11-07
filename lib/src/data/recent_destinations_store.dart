@@ -60,13 +60,13 @@ class RecentDestinationsStore {
   static const _limit = 5;
 
   final RecentDestinationsPersistence _persistence;
-  late final CoalescingSnapshotWriter<String> _snapshots =
-      CoalescingSnapshotWriter(
-        owner: _persistence,
-        key: storageKey,
-        writeSnapshot: _persistSnapshot,
-      );
-  final Map<String, _RecentDestinations> _entries = {};
+  late final CoalescingSnapshotWriter<List<_RecentDestinationsSnapshot>>
+  _snapshots = CoalescingSnapshotWriter(
+    owner: _persistence,
+    key: storageKey,
+    writeSnapshot: _persistSnapshot,
+  );
+  final Map<(String, String), _RecentDestinations> _entries = {};
   bool _unreadable = false;
   _RecentDestinationsHydration? _hydration;
 
@@ -153,7 +153,7 @@ class RecentDestinationsStore {
       _unreadable = true;
       return;
     }
-    final entries = <String, _RecentDestinations>{};
+    final entries = <(String, String), _RecentDestinations>{};
     try {
       if (raw != null && raw.isNotEmpty) {
         final document = jsonDecode(raw);
@@ -185,15 +185,18 @@ class RecentDestinationsStore {
       return pending.future.then((_) => save());
     }
     if (_unreadable) return Future<void>.value();
-    return _snapshots.save(
-      jsonEncode({
-        'version': formatVersion,
-        'entries': [for (final entry in _entries.values) entry.toJson()],
-      }),
-    );
+    return _snapshots.save([
+      for (final entry in _entries.values) _RecentDestinationsSnapshot(entry),
+    ]);
   }
 
-  Future<void> _persistSnapshot(String encoded) async {
+  Future<void> _persistSnapshot(
+    List<_RecentDestinationsSnapshot> entries,
+  ) async {
+    final encoded = jsonEncode({
+      'version': formatVersion,
+      'entries': [for (final entry in entries) entry.toJson()],
+    });
     try {
       if (!await _persistence.write(encoded)) {
         throw StateError('Could not persist recent destinations.');
@@ -202,15 +205,15 @@ class RecentDestinationsStore {
   }
 }
 
-String _accountKey(String siteUrl, String accountIdentity) =>
-    '$siteUrl\u0000$accountIdentity';
+(String, String) _accountKey(String siteUrl, String accountIdentity) =>
+    (siteUrl, accountIdentity);
 
 /// Records only interactions accepted after this read began. Each visit list
 /// remains bounded like the published list; removals also exclude unseen disk
 /// entries, without preventing a later explicit visit from re-adding a site.
 final class _RecentDestinationsHydration {
   Completer<void>? pending;
-  final Map<String, _RecentDestinations> _visits = {};
+  final Map<(String, String), _RecentDestinations> _visits = {};
   final Set<String> _forgottenSites = {};
   Set<String>? _retainedSites;
 
@@ -248,7 +251,7 @@ final class _RecentDestinationsHydration {
         _visits.length != heldVisits;
   }
 
-  void applyTo(Map<String, _RecentDestinations> entries) {
+  void applyTo(Map<(String, String), _RecentDestinations> entries) {
     entries.removeWhere(
       (_, entry) =>
           _forgottenSites.contains(entry.siteUrl) ||
@@ -327,14 +330,6 @@ final class _RecentDestinations {
     return true;
   }
 
-  Map<String, Object?> toJson() => {
-    'site_url': siteUrl,
-    'account_identity': accountIdentity,
-    'categories': [for (final route in categories) route.toJson()],
-    'channels': [for (final route in channels) route.toJson()],
-    'topics': [for (final route in topics) route.toJson()],
-  };
-
   static _RecentDestinations? tryFromJson(Object? value) {
     if (value is! Map) return null;
     final siteUrl = value['site_url'];
@@ -371,4 +366,27 @@ final class _RecentDestinations {
     read('topics', entry.topics, _RecentKind.topic);
     return entry;
   }
+}
+
+final class _RecentDestinationsSnapshot {
+  _RecentDestinationsSnapshot(_RecentDestinations entry)
+    : siteUrl = entry.siteUrl,
+      accountIdentity = entry.accountIdentity,
+      categories = List.unmodifiable(entry.categories),
+      channels = List.unmodifiable(entry.channels),
+      topics = List.unmodifiable(entry.topics);
+
+  final String siteUrl;
+  final String accountIdentity;
+  final List<ContentRoute> categories;
+  final List<ContentRoute> channels;
+  final List<ContentRoute> topics;
+
+  Map<String, Object?> toJson() => {
+    'site_url': siteUrl,
+    'account_identity': accountIdentity,
+    'categories': [for (final route in categories) route.toJson()],
+    'channels': [for (final route in channels) route.toJson()],
+    'topics': [for (final route in topics) route.toJson()],
+  };
 }

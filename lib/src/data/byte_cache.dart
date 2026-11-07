@@ -811,13 +811,25 @@ final class ByteCacheRequestPool {
     final pending = _inFlight[url];
     if (pending != null) return pending;
 
-    late final Future<ByteCacheDownload> request;
-    request = download().whenComplete(() {
-      if (identical(_inFlight[url], request)) {
-        final _ = _inFlight.remove(url);
-      }
-    });
+    final result = Completer<ByteCacheDownload>();
+    final request = result.future;
     _inFlight[url] = request;
+    unawaited(
+      Future<ByteCacheDownload>.sync(download).then<void>(
+        (value) {
+          if (identical(_inFlight[url], request)) {
+            final _ = _inFlight.remove(url);
+          }
+          result.complete(value);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (identical(_inFlight[url], request)) {
+            final _ = _inFlight.remove(url);
+          }
+          result.completeError(error, stackTrace);
+        },
+      ),
+    );
     return request;
   }
 
