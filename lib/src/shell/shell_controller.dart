@@ -7809,48 +7809,21 @@ class ShellController extends FrameSafeNotifier
     _notify();
   }
 
-  bool hideComposerForClose(ComposerController composer) {
-    if (!_composerRegistry.owns(composer) || !composer.beginClose()) {
-      return false;
-    }
-    _notify();
-    return true;
-  }
-
-  void restoreComposerAfterFailedClose(ComposerController composer) {
-    if (!_composerRegistry.owns(composer) || composer.isDisposed) return;
-    composer.cancelClose();
-    _notify();
-  }
-
   Future<bool> finishComposerDraftRestore(ComposerController composer) =>
       _composerDrafts.finishRestore(composer);
 
-  /// Preserves a draft before closing its composer. False leaves
-  /// the session open for retry or an explicit discard choice by the UI.
-  Future<bool> prepareComposerForClose(ComposerController composer) async {
-    if (!_composerRegistry.owns(composer)) return true;
-    if (_composerHasPendingOperation(composer)) return false;
-    if (!composer.canSaveDraft) {
-      return !composer.hasChanges && !composer.metadataChanged;
-    }
-    if (!await finishComposerDraftRestore(composer)) return false;
-    if (!_composerRegistry.owns(composer)) return true;
-    if (_composerHasPendingOperation(composer)) return false;
-    if (composer.hasUnappliedDraft && !composer.hasChanges) return true;
+  /// Preserves a draft without closing its retained editor.
+  Future<bool> prepareComposerForClose(ComposerController composer) =>
+      _composerRegistry.prepareForClose(composer);
 
-    if (composer.hasChanges || composer.localDraftFailed) {
-      await composer.flushDraft();
-    }
-    await composer.finishDraftSaves();
-    return !_composerRegistry.owns(composer) ||
-        (!_composerHasPendingOperation(composer) &&
-            !composer.localDraftFailed &&
-            !composer.draftPersistencePending);
-  }
-
-  bool _composerHasPendingOperation(ComposerController composer) =>
-      ComposerOpeningOwner.hasPendingOperation(composer);
+  Future<ComposerCloseResult> saveComposerAndClose(
+    ComposerController composer, {
+    required Future<void> Function() afterHide,
+  }) => _composerRegistry.saveAndClose(
+    composer,
+    afterHide: afterHide,
+    changed: _notify,
+  );
 
   Future<({int? revision, String? error})> rollbackSavedComposerDraft(
     ComposerController composer, {

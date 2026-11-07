@@ -2928,8 +2928,18 @@ final class _InteractionTrackingShellController extends ShellController {
   void closeComposer({ComposerController? composer}) => closeCalls++;
 
   @override
-  bool hideComposerForClose(ComposerController composer) =>
-      composer.beginClose();
+  Future<ComposerCloseResult> saveComposerAndClose(
+    ComposerController composer, {
+    required Future<void> Function() afterHide,
+  }) async {
+    if (composer.hasPendingOperation) {
+      return const ComposerCloseBlocked(
+        ComposerCloseBlockReason.pendingOperation,
+      );
+    }
+    closeCalls++;
+    return const ComposerClosed();
+  }
 
   @override
   Future<bool> finishComposerDraftRestore(ComposerController composer) async =>

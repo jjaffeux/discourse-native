@@ -307,3 +307,35 @@ would split those rules again. Plans expose only the target, source ownership,
 and required tag count needed to construct the editor. Direct owner tests and
 `topic_reply_as_new_topic_test.dart`, `group_message_composer_test.dart`, and the
 composer opening/draft integration tests pin these contracts.
+
+## Saving and closing a retained editor
+
+The retained-composer registry owns `saveAndClose`: admission, the closing state,
+draft preservation, deciding whether an empty draft must be deleted, retiring
+the editor, and restoring it when closure fails. Shell exposes that command as
+`saveComposerAndClose`. The panel provides only a presentation callback that
+waits for its closing dock to paint, then renders the typed outcome as a toast,
+notice, or discard confirmation. It no longer coordinates separate hide,
+prepare, close/delete, and restore operations.
+
+The command checks exact registry membership after synchronous closing-state
+publication and every await. Closing a previous account or editor cannot close
+its successor. Failure restoration applies only to the original retained editor,
+including when the presentation callback itself fails. A successful remote draft
+save may remove the redundant local snapshot; preservation is established by the
+draft coordinator's existing storage contract, not by retaining both copies.
+
+`ComposerController.hasPendingOperation` is the shared admission fact for close,
+opening replacement, and discard presentation. Submission, body loading, uploads,
+discard and checking must settle first. Closing and discarding requests already
+in progress remain silent; another pending operation can produce a user notice.
+Draftless changed editors return a confirmation outcome without being hidden.
+`prepareComposerForClose` remains available for callers that only need to ensure
+a draft is safe while retaining its editor.
+
+The registry already owns membership and draft detach/retire, so it can make the
+save-or-delete decision without a second close owner forwarding those operations.
+The draft coordinator still owns storage, draft conflict handling and persistence
+ordering. Close safety, docking, navigation and draft integration tests cover the
+transaction, including publication retirement and replacement during the paint
+boundary.

@@ -403,7 +403,7 @@ void main() {
       h.shell.liveComposers.where((c) => c.target.isPrivateMessage),
       hasLength(1),
     );
-    h.shell.restoreComposerAfterFailedClose(message);
+    message.cancelClose();
     h.shell.openPrivateMessage(
       siteUrl: 'https://meta.discourse.org',
       targetRecipients: 'second',

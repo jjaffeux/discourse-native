@@ -89,6 +89,127 @@ void main() {
   setUp(createShell);
   tearDown(disposeShell);
 
+  test(
+    'save and close waits for presentation before persisting its draft',
+    () async {
+      final composer = await openReply(7);
+      composer.text.text = 'Preserve this exact editor';
+      final frame = Completer<void>();
+      final closing = shell.saveComposerAndClose(
+        composer,
+        afterHide: () => frame.future,
+      );
+      expect(composer.closing, isTrue);
+      expect(composer.isDisposed, isFalse);
+      expect(api.draftsSaved, isEmpty);
+      frame.complete();
+      expect(await closing, isA<ComposerClosed>());
+      expect(composer.isDisposed, isTrue);
+      expect(
+        api.draftsSaved.last['data'],
+        contains('Preserve this exact editor'),
+      );
+    },
+  );
+
+  test(
+    'failed save and close restores the retained editor for retry',
+    () async {
+      disposeShell();
+      await createShell(
+        draftFailure: const WriteException(WriteFailure.unreachable),
+      );
+      final composer = await openReply(7);
+      composer.text.text = 'Keep until storage succeeds';
+      drafts.failWrites = true;
+      expect(
+        await shell.saveComposerAndClose(composer, afterHide: () async {}),
+        isA<ComposerCloseFailed>(),
+      );
+      expect(composer.closing, isFalse);
+      expect(composer.isDisposed, isFalse);
+      expect(shell.visibleComposer, same(composer));
+      drafts.failWrites = false;
+      expect(
+        await shell.saveComposerAndClose(composer, afterHide: () async {}),
+        isA<ComposerClosed>(),
+      );
+      expect(composer.isDisposed, isTrue);
+      expect(
+        ComposerDraft.decode(await drafts.read(_firstSite, 'topic_7'))?.reply,
+        'Keep until storage succeeds',
+      );
+    },
+  );
+
+  test('close publication cannot run work against a retired editor', () async {
+    final composer = await openReply(7);
+    composer.text.text = 'An abandoned close';
+    ComposerController? successor;
+    shell.addListener(() {
+      if (!composer.closing || composer.isDisposed) return;
+      shell.closeComposer(composer: composer);
+      shell.openReply();
+      successor = shell.visibleComposer;
+    });
+    var frameRequested = false;
+    expect(
+      await shell.saveComposerAndClose(
+        composer,
+        afterHide: () async {
+          frameRequested = true;
+        },
+      ),
+      isA<ComposerClosed>(),
+    );
+    expect(frameRequested, isFalse);
+    expect(composer.isDisposed, isTrue);
+    expect(successor, isNotNull);
+    expect(successor!.isDisposed, isFalse);
+    expect(shell.visibleComposer, same(successor));
+  });
+
+  test(
+    'close resumes only its original editor after the presentation boundary',
+    () async {
+      final composer = await openReply(7);
+      composer.text.text = 'First draft';
+      final frame = Completer<void>();
+      final closing = shell.saveComposerAndClose(
+        composer,
+        afterHide: () => frame.future,
+      );
+      shell.closeComposer(composer: composer);
+      final successor = await openReply(8);
+      successor.text.text = 'Second draft';
+      frame.complete();
+      expect(await closing, isA<ComposerClosed>());
+      expect(successor.isDisposed, isFalse);
+      expect(successor.closing, isFalse);
+      expect(shell.visibleComposer, same(successor));
+      expect(successor.raw, 'Second draft');
+    },
+  );
+
+  test(
+    'a failed presentation boundary restores the editor before propagating',
+    () async {
+      final composer = await openReply(7);
+      composer.text.text = 'Still here';
+      final failure = StateError('frame failed');
+      await expectLater(
+        shell.saveComposerAndClose(
+          composer,
+          afterHide: () => Future.error(failure),
+        ),
+        throwsA(same(failure)),
+      );
+      expect(composer.isDisposed, isFalse);
+      expect(composer.closing, isFalse);
+      expect(shell.visibleComposer, same(composer));
+    },
+  );
+
   test('close preparation refuses unsafe storage and supports retry', () async {
     disposeShell();
     await createShell(
@@ -167,6 +288,18 @@ void main() {
     await api.uploadStarted.future;
     final upload = composer.uploads.single;
 
+    var frameRequested = false;
+    expect(
+      await shell.saveComposerAndClose(
+        composer,
+        afterHide: () async {
+          frameRequested = true;
+        },
+      ),
+      isA<ComposerCloseBlocked>(),
+    );
+    expect(frameRequested, isFalse);
+    expect(composer.closing, isFalse);
     expect(await shell.prepareComposerForClose(composer), isFalse);
     expect(composer.uploads.single, same(upload));
     expect(composer.text, same(editor));

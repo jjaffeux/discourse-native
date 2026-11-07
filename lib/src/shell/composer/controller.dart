@@ -756,6 +756,14 @@ class ComposerController extends ChangeNotifier
   bool _discarding = false;
   bool get discarding => _discarding;
 
+  /// An operation that must settle before the editor can be replaced or closed.
+  bool get hasPendingOperation =>
+      discarding ||
+      submitting ||
+      loadingBody ||
+      hasActiveUploads ||
+      state == ComposerState.checking;
+
   bool _closing = false;
   bool get closing => _closing;
 

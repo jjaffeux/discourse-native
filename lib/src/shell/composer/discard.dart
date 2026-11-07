@@ -41,51 +41,38 @@ Future<void> saveComposerFromPanel({
   bool showFailureToast = true,
 }) async {
   final shell = controller ?? ShellScope.read(context);
-  if (composer.isDisposed || composer.discarding || composer.closing) return;
-  if (_hasPendingOperation(composer)) {
-    if (context.mounted && showFailureToast) {
-      _showDiscardError(context, _pendingOperationMessage);
-    }
-    return;
-  }
-  if (composer.canSaveDraft) {
-    if (!shell.hideComposerForClose(composer)) return;
-    try {
-      // Paint the closed dock before restoration, encoding or network work.
-      // The presentation host retains this editor until persistence is safe.
-      await WidgetsBinding.instance.endOfFrame;
-      if (!await shell.prepareComposerForClose(composer)) {
-        if (context.mounted && showFailureToast) {
-          DToast.show(
-            context,
-            appL10n.thisDraftCouldNotBeSavedYetPleaseTryAgain,
-            type: DToastType.error,
-          );
-        }
-        return;
-      }
-      if (composer.hasUnappliedDraft || composer.hasChanges) {
-        shell.closeComposer(composer: composer);
-        return;
-      }
-      final error = await shell.discardComposer(composer);
-      if (!composer.isDisposed && error != null) composer.showNotice(error);
-    } finally {
-      shell.restoreComposerAfterFailedClose(composer);
-    }
-    return;
-  }
-  if (!context.mounted) return;
-  if (!composer.hasChanges && !composer.metadataChanged) {
-    shell.closeComposer(composer: composer);
-    return;
-  }
-
-  await requestComposerDiscard(
-    context: context,
-    composer: composer,
-    controller: shell,
+  if (!composer.canSaveDraft && !context.mounted) return;
+  final result = await shell.saveComposerAndClose(
+    composer,
+    afterHide: () => WidgetsBinding.instance.endOfFrame,
   );
+  switch (result) {
+    case ComposerClosed():
+      return;
+    case ComposerCloseBlocked(:final reason):
+      if (context.mounted &&
+          showFailureToast &&
+          reason == ComposerCloseBlockReason.pendingOperation) {
+        _showDiscardError(context, _pendingOperationMessage);
+      }
+    case ComposerCloseFailed(:final message):
+      if (message != null) {
+        if (!composer.isDisposed) composer.showNotice(message);
+      } else if (context.mounted && showFailureToast) {
+        DToast.show(
+          context,
+          appL10n.thisDraftCouldNotBeSavedYetPleaseTryAgain,
+          type: DToastType.error,
+        );
+      }
+    case ComposerCloseNeedsConfirmation():
+      if (!context.mounted) return;
+      await requestComposerDiscard(
+        context: context,
+        composer: composer,
+        controller: shell,
+      );
+  }
 }
 
 Future<void> requestComposerDiscard({
@@ -96,7 +83,7 @@ Future<void> requestComposerDiscard({
 }) async {
   final shell = controller ?? ShellScope.read(context);
   if (composer.isDisposed || composer.discarding || composer.closing) return;
-  if (_hasPendingOperation(composer)) {
+  if (composer.hasPendingOperation) {
     if (context.mounted) _showDiscardError(context, _pendingOperationMessage);
     return;
   }
@@ -105,7 +92,7 @@ Future<void> requestComposerDiscard({
     return;
   }
   if (!context.mounted || composer.isDisposed) return;
-  if (_hasPendingOperation(composer)) {
+  if (composer.hasPendingOperation) {
     _showDiscardError(context, _pendingOperationMessage);
     return;
   }
@@ -171,13 +158,6 @@ Future<void> requestComposerDiscard({
 String get _pendingOperationMessage =>
     appL10n.finishTheCurrentOperationBeforeClosingThisDraft;
 
-bool _hasPendingOperation(ComposerController composer) =>
-    composer.submitting ||
-    composer.discarding ||
-    composer.loadingBody ||
-    composer.hasActiveUploads ||
-    composer.state == ComposerState.checking;
-
 void _showDiscardError(BuildContext context, String error) {
   DToast.show(context, error, type: DToastType.error);
 }
@@ -236,7 +216,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
   Future<void> _rollback() async {
     if (_restoring || _discarding || _saving) return;
     final composer = widget.composer;
-    if (_hasPendingOperation(composer)) {
+    if (composer.hasPendingOperation) {
       setState(() => _error = _pendingOperationMessage);
       return;
     }
@@ -324,7 +304,7 @@ class _DiscardComposerDialogState extends State<_DiscardComposerDialog>
 
   Future<void> _discard() async {
     if (_discarding || _saving || _restoring) return;
-    if (_hasPendingOperation(widget.composer)) {
+    if (widget.composer.hasPendingOperation) {
       setState(() => _error = _pendingOperationMessage);
       return;
     }

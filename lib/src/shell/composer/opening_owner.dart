@@ -179,7 +179,7 @@ final class ComposerOpeningOwner {
   Future<bool> prepareReplacement() async {
     final existing = _presentation.selectedComposer;
     if (existing == null) return true;
-    if (existing.closing || hasPendingOperation(existing)) {
+    if (existing.closing || existing.hasPendingOperation) {
       return false;
     }
     if (existing.canSaveDraft && !await _drafts.finishRestore(existing)) {
@@ -187,7 +187,7 @@ final class ComposerOpeningOwner {
     }
     if (!identical(_presentation.selectedComposer, existing) ||
         existing.closing ||
-        hasPendingOperation(existing)) {
+        existing.hasPendingOperation) {
       return false;
     }
     if (existing.canSaveDraft) return true;
@@ -231,7 +231,7 @@ final class ComposerOpeningOwner {
         )
         .firstOrNull;
     if (held != null) {
-      if (held.closing || hasPendingOperation(held)) return null;
+      if (held.closing || held.hasPendingOperation) return null;
       if (!identical(held, _presentation.selectedComposer)) {
         _creation.selectComposer(held);
       }
@@ -597,11 +597,4 @@ final class ComposerOpeningOwner {
       return;
     }
   }
-
-  static bool hasPendingOperation(ComposerController composer) =>
-      composer.discarding ||
-      composer.submitting ||
-      composer.loadingBody ||
-      composer.hasActiveUploads ||
-      composer.state == ComposerState.checking;
 }

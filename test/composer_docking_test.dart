@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:ui' show PointerDeviceKind;
 
@@ -393,13 +394,19 @@ void main() {
     final composer = harness.shell.visibleComposer!;
     expect(composer.focus.hasFocus, isTrue);
 
-    harness.shell.hideComposerForClose(composer);
+    final frame = Completer<void>();
+    final closing = harness.shell.saveComposerAndClose(
+      composer,
+      afterHide: () => frame.future,
+    );
+    final closeFailure = expectLater(closing, throwsStateError);
     await tester.pumpAndSettle();
     readerFocus.requestFocus();
     await tester.pump();
     expect(readerFocus.hasFocus, isTrue);
 
-    harness.shell.restoreComposerAfterFailedClose(composer);
+    frame.completeError(StateError('presentation cancelled'));
+    await closeFailure;
     await tester.pumpAndSettle();
     expect(composer.focus.hasFocus, isTrue);
 
