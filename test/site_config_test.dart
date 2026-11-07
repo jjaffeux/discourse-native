@@ -1159,6 +1159,7 @@ void main() {
       final decoded = restorePluginSettings(full);
 
       expect(decoded, full);
+      expect(full, isNot(const SiteConfig.unknown()));
     });
 
     test('reads a stored copy that predates a field', () {
@@ -1178,19 +1179,6 @@ void main() {
         SiteConfig.fromJson(const {}).minPersonalMessagePostLength,
         SiteConfig.defaultMinPersonalMessagePostLength,
       );
-    });
-
-    test('compares by value, so an unchanged answer is not rewritten', () {
-      expect(
-        SiteConfig.fromJson(
-              full.toJson(extensions: pluginRegistry),
-              extensions: pluginRegistry,
-            ) ==
-            full,
-        isTrue,
-        reason: 'a decoded copy must equal what it was encoded from',
-      );
-      expect(full == const SiteConfig.unknown(), isFalse);
     });
   });
 }
