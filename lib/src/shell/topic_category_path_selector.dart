@@ -10,6 +10,8 @@ import 'topic_category_path.dart';
 
 /// A joined category path with a searchable sibling menu at every level.
 class TopicCategoryPathSelector extends StatelessWidget {
+  static const _maxSegmentWidth = 180.0;
+
   const TopicCategoryPathSelector({
     super.key,
     required this.siteUrl,
@@ -44,7 +46,9 @@ class TopicCategoryPathSelector extends StatelessWidget {
   segmentBuilder;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => LayoutBuilder(builder: _buildPath);
+
+  Widget _buildPath(BuildContext context, BoxConstraints constraints) {
     final byId = {for (final category in categories) category.id: category};
     final selected = byId[selectedCategoryId];
     final path = selected == null
@@ -66,7 +70,16 @@ class TopicCategoryPathSelector extends StatelessWidget {
         (path.isEmpty || path.length < maxCategoryNesting && deeper.isNotEmpty
             ? 1
             : 0);
-    final short = DFitRow.tightOf(context);
+    final desktop = !DControlStyle.isTouch(context);
+    final maximumWidth = (MediaQuery.sizeOf(context).width - 32).clamp(
+      0.0,
+      double.infinity,
+    );
+    final short =
+        DFitRow.tightOf(context) ||
+        desktop &&
+            constraints.constrainWidth(maximumWidth) <
+                levels * _maxSegmentWidth;
 
     Widget segment(int level) {
       final category = level < path.length ? path[level] : null;
@@ -102,7 +115,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
           : const DIcon(DIcons.plus);
       if (segmentBuilder case final builder?) {
         return ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 180),
+          constraints: const BoxConstraints(maxWidth: _maxSegmentWidth),
           child: builder(context, level, category, label, iconOnly),
         );
       }
@@ -148,7 +161,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
               });
             },
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 180),
+              constraints: const BoxConstraints(maxWidth: _maxSegmentWidth),
               child: iconOnly
                   ? DButton.iconOnly(
                       size: DButtonSize.filter,
@@ -192,47 +205,47 @@ class TopicCategoryPathSelector extends StatelessWidget {
       );
     }
 
-    return ConstrainedBox(
-      constraints: BoxConstraints(
-        maxWidth: (MediaQuery.sizeOf(context).width - 32).clamp(
-          0,
-          double.infinity,
-        ),
-      ),
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DButtonGroup.quiet(
-          selected: path.isNotEmpty,
-          semanticLabel: context.l10n.filterByCategory,
-          children: [
-            for (var level = 0; level < levels; level++) ...[
-              if (level > 0)
-                DButtonGroupText(
-                  padding: EdgeInsets.symmetric(
-                    horizontal:
-                        DControlStyle.isTouch(context) &&
-                            DFitRow.compactOf(context)
-                        ? 2
-                        : 5,
-                  ),
-                  child: Transform.rotate(
-                    angle: .3141592653589793,
-                    child: DSeparator(
-                      orientation: Axis.vertical,
-                      length: 14,
-                      thickness: 1.5,
-                      radius: BorderRadius.circular(1),
-                      color: DTokens.of(
-                        context,
-                      ).mutedForeground.withValues(alpha: .45),
-                    ),
-                  ),
+    final group = DButtonGroup.quiet(
+      selected: path.isNotEmpty,
+      semanticLabel: context.l10n.filterByCategory,
+      children: [
+        for (var level = 0; level < levels; level++) ...[
+          if (level > 0)
+            DButtonGroupText(
+              padding: EdgeInsets.symmetric(
+                horizontal:
+                    DControlStyle.isTouch(context) && DFitRow.compactOf(context)
+                    ? 2
+                    : 5,
+              ),
+              child: Transform.rotate(
+                angle: .3141592653589793,
+                child: DSeparator(
+                  orientation: Axis.vertical,
+                  length: 14,
+                  thickness: 1.5,
+                  radius: BorderRadius.circular(1),
+                  color: DTokens.of(
+                    context,
+                  ).mutedForeground.withValues(alpha: .45),
                 ),
-              segment(level),
-            ],
-          ],
-        ),
-      ),
+              ),
+            ),
+          if (desktop && level == path.length - 1)
+            DButtonGroupExpanded(child: segment(level))
+          else
+            segment(level),
+        ],
+      ],
+    );
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maximumWidth),
+      child: desktop
+          ? IntrinsicWidth(child: group)
+          : SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: group,
+            ),
     );
   }
 }

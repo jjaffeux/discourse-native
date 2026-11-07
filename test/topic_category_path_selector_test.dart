@@ -97,6 +97,66 @@ Future<ValueNotifier<int?>> _pump(
 }
 
 void main() {
+  for (final direction in TextDirection.values) {
+    testWidgets(
+      'desktop path keeps its last control inside a narrow panel $direction',
+      (tester) async {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Directionality(
+              textDirection: direction,
+              child: Scaffold(
+                body: Align(
+                  alignment: AlignmentDirectional.topStart,
+                  child: SizedBox(
+                    width: 218,
+                    child: DFitRow(
+                      children: [
+                        TopicCategoryPathSelector(
+                          siteUrl: 'https://example.invalid',
+                          categories: const [
+                            TopicCategory(
+                              id: 1,
+                              name: 'Discourse Native App',
+                              color: '663399',
+                              styleType: 'icon',
+                              icon: 'folder',
+                              readRestricted: true,
+                            ),
+                            TopicCategory(
+                              id: 2,
+                              name: 'Design',
+                              color: 'BF3B7B',
+                              parentCategoryId: 1,
+                            ),
+                          ],
+                          selectedCategoryId: 1,
+                          onSelected: (_) {},
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final path = tester.getRect(find.byType(TopicCategoryPathSelector));
+        for (var level = 0; level < 2; level++) {
+          final bounds = tester.getRect(_segment(level));
+          expect(bounds.left, greaterThanOrEqualTo(path.left));
+          expect(bounds.right, lessThanOrEqualTo(path.right));
+        }
+        await tester.tap(_segment(1));
+        await tester.pumpAndSettle();
+        expect(_option(1, 2), findsOneWidget);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final exact in [false, true]) {
     testWidgets(
       'short paths keep the last name and meaningful deeper glyph ($exact)',
