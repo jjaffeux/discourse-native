@@ -340,6 +340,7 @@ Future<_Fixture> _fixture({
   final shell = ChatShellService(
     chat: chat,
     host: host,
+    routeNavigation: host,
     composerHost: PluginComposerHost(
       buildComposer: (_) => null,
       openNewTopic: (_) async => OpenComposerResult.unavailable,
@@ -379,7 +380,8 @@ final class _Fixture {
   }
 }
 
-final class _NavigationHost implements PluginNavigationHost {
+final class _NavigationHost
+    implements PluginNavigationHost, PluginRouteNavigationHost {
   @override
   bool get desktopPanelsEnabled => false;
   _NavigationHost({required this.instance, required this.totals})
@@ -414,6 +416,16 @@ final class _NavigationHost implements PluginNavigationHost {
 
   @override
   DiscourseInstance get currentInstance => instance;
+
+  @override
+  List<PluginRouteSite> get sites => [currentSite];
+
+  @override
+  PluginRouteSite get currentSite => PluginRouteSite(
+    url: instance.url,
+    title: instance.title,
+    isConnected: instance.isConnected,
+  );
 
   @override
   bool get forumActive => true;
@@ -461,14 +473,34 @@ final class _NavigationHost implements PluginNavigationHost {
   void openPageTab(ContentRoute route) => pushContent(route, newTab: true);
 
   @override
-  void pushContent(
+  bool pushContent(
     ContentRoute route, {
     bool newTab = false,
     ForumPanel? panel,
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) {
     _contentStack = [..._contentStack, route];
     _changes.notifyListeners();
+    onNavigated?.call();
+    return true;
   }
+
+  @override
+  void openTopicPost({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    bool highlight = false,
+  }) => pushContent(
+    ContentRoute.topic(
+      topicId: topicId,
+      slug: '',
+      title: 'Topic',
+      postNumber: postNumber,
+    ),
+  );
 
   @override
   void replaceCurrentContent(ContentRoute route) {

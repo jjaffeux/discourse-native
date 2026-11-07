@@ -40,11 +40,13 @@ final class ChatShellService
   ChatShellService({
     required this.chat,
     required PluginNavigationHost host,
+    required PluginRouteNavigationHost routeNavigation,
     required this.composerHost,
     required this.store,
     required PluginPostFlagCatalogReader postFlagCatalog,
     PluginRoutePresentationHost? presentationHost,
   }) : _host = host,
+       _routeNavigation = routeNavigation,
        _presentationHost = presentationHost,
        _postFlagCatalog = postFlagCatalog {
     _rememberHeaderRoutes();
@@ -56,6 +58,7 @@ final class ChatShellService
   final PluginComposerHost composerHost;
   final Store store;
   final PluginNavigationHost _host;
+  final PluginRouteNavigationHost _routeNavigation;
   final PluginRoutePresentationHost? _presentationHost;
   final PluginPostFlagCatalogReader _postFlagCatalog;
   final ChatNavigationHandoff navigation = ChatNavigationHandoff();
@@ -323,6 +326,30 @@ final class ChatShellService
       (instance) => instance.url == siteUrl,
     );
     if (index < 0 || !_host.instances[index].isConnected) return false;
+    if (newTab && desktopPanelsEnabled) {
+      final channel = chat.channel(siteUrl, link.route.channelId);
+      if (channel == null) return false;
+      final opened = _routeNavigation.pushContent(
+        ContentRoute(
+          destination: ExtensionDestination(link.route.routeId),
+          title: link.route.isThread ? appL10n.thread : channel.title,
+          subtitle: link.route.isThread ? channel.title : null,
+          icon: link.route.isThread ? DIcons.comments : DIcons.comment,
+        ),
+        siteUrl: siteUrl,
+        origin: origin,
+      );
+      if (opened) {
+        navigation.offer(
+          ChatNavigationTarget(
+            siteUrl: siteUrl,
+            route: link.route,
+            messageId: link.messageId,
+          ),
+        );
+      }
+      return true;
+    }
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
     final opened = _openRoute(
       siteUrl,
