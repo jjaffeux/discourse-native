@@ -335,6 +335,79 @@ void main() {
     });
   }
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets('IME Escape preserves the composing anchor on $platform', (
+      tester,
+    ) async {
+      final controller = DComboboxController<String>();
+      final text = TextEditingController();
+      addTearDown(controller.dispose);
+      addTearDown(text.dispose);
+      final selected = <String?>[];
+      var ancestorEscapes = 0;
+      await tester.pumpWidget(
+        _app(
+          CallbackShortcuts(
+            bindings: {
+              const SingleActivator(LogicalKeyboardKey.escape): () {
+                ancestorEscapes++;
+              },
+            },
+            child: DCombobox<String>(
+              controller: controller,
+              textController: text,
+              options: _options,
+              filterLocally: false,
+              autoHighlight: true,
+              onChanged: (value, _) => selected.add(value),
+              anchor: const DComboboxInput<String>(),
+              content: const DComboboxContent(
+                children: [DComboboxList<String>()],
+              ),
+            ),
+          ),
+          theme: ThemeData(platform: platform),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '変更',
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange(start: 0, end: 2),
+        ),
+      );
+      await tester.pump();
+      expect(
+        tester
+            .widget<EditableText>(find.byType(EditableText))
+            .focusNode
+            .hasPrimaryFocus,
+        isTrue,
+      );
+      expect(text.value.composing, const TextRange(start: 0, end: 2));
+      expect(controller.isOpen, isTrue);
+
+      final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+      expect(text.text, '変更');
+      expect(selected, isEmpty);
+      expect(handled, isFalse);
+      expect(ancestorEscapes, 0);
+
+      tester.testTextInput.updateEditingValue(
+        text.value.copyWith(composing: const TextRange.collapsed(2)),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(ancestorEscapes, 0);
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
   testWidgets('keyboard Done selects the highlighted result once', (
     tester,
   ) async {

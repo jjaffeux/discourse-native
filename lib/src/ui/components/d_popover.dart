@@ -688,6 +688,7 @@ class _DPopoverState extends State<DPopover>
         _DPopoverLayers.isTopmost(this) &&
         event is KeyDownEvent &&
         event.logicalKey == LogicalKeyboardKey.escape) {
+      if (_focusedEditorIsComposing) return KeyEventResult.ignored;
       final menus = _openDescendantMenus();
       if (menus.isNotEmpty) {
         menus.last.close();
@@ -699,6 +700,26 @@ class _DPopoverState extends State<DPopover>
         DPopoverInteraction.keyboard,
       );
       return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  bool get _focusedEditorIsComposing {
+    final editor = FocusManager.instance.primaryFocus?.context
+        ?.findAncestorStateOfType<EditableTextState>();
+    final value = editor?.widget.controller.value;
+    return value != null &&
+        value.isComposingRangeValid &&
+        !value.composing.isCollapsed;
+  }
+
+  KeyEventResult _guardComposingEscape(FocusNode node, KeyEvent event) {
+    if (_open &&
+        !_sheet &&
+        _DPopoverLayers.isTopmost(this) &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        _focusedEditorIsComposing) {
+      return KeyEventResult.skipRemainingHandlers;
     }
     return KeyEventResult.ignored;
   }
@@ -798,18 +819,7 @@ class _DPopoverState extends State<DPopover>
             direction: Directionality.of(context),
             animation: _curve,
             child: Actions(
-              actions: {
-                DismissIntent: CallbackAction<DismissIntent>(
-                  onInvoke: (intent) {
-                    _request(
-                      false,
-                      DPopoverChangeReason.escape,
-                      DPopoverInteraction.keyboard,
-                    );
-                    return null;
-                  },
-                ),
-              },
+              actions: {DismissIntent: _PopoverDismissAction(this)},
               child: FocusScope(
                 node: _surfaceFocus,
                 canRequestFocus: _open,
@@ -1002,11 +1012,15 @@ class _DPopoverState extends State<DPopover>
     return _PopoverRootScope(
       state: this,
       open: _open,
-      child: OverlayPortal.overlayChildLayoutBuilder(
-        controller: _portal,
-        overlayChildBuilder: (context, info) =>
-            Theme(data: Theme.of(context), child: _overlay(context, info)),
-        child: widget.child,
+      child: Focus(
+        canRequestFocus: false,
+        onKeyEvent: _guardComposingEscape,
+        child: OverlayPortal.overlayChildLayoutBuilder(
+          controller: _portal,
+          overlayChildBuilder: (context, info) =>
+              Theme(data: Theme.of(context), child: _overlay(context, info)),
+          child: widget.child,
+        ),
       ),
     );
   }
@@ -1024,6 +1038,25 @@ class _DPopoverState extends State<DPopover>
     _allocatedMenuFocus?.dispose();
     _allocatedController?.dispose();
     super.dispose();
+  }
+}
+
+class _PopoverDismissAction extends Action<DismissIntent> {
+  _PopoverDismissAction(this.owner);
+
+  final _DPopoverState owner;
+
+  @override
+  bool isEnabled(DismissIntent intent) => !owner._focusedEditorIsComposing;
+
+  @override
+  Object? invoke(DismissIntent intent) {
+    owner._request(
+      false,
+      DPopoverChangeReason.escape,
+      DPopoverInteraction.keyboard,
+    );
+    return null;
   }
 }
 
