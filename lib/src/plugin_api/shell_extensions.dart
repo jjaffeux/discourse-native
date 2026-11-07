@@ -184,7 +184,8 @@ enum PluginLinkOrigin {
 }
 
 abstract interface class PluginLinkHandler implements PluginSessionCapability {
-  /// Reports a foreground native navigation commit, never retired work.
+  /// Returns whether the URL was handled. [onNavigated] reports only a
+  /// committed foreground navigation, never background or retired work.
   Future<bool> openPluginUrl(
     String url, {
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
