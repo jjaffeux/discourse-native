@@ -97,6 +97,37 @@ Future<ValueNotifier<int?>> _pump(
 }
 
 void main() {
+  testWidgets(
+    'an empty category path fits a narrow desktop slot at double text size',
+    (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: Scaffold(
+            body: MediaQuery(
+              data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: SizedBox(
+                  width: 117.5,
+                  child: TopicCategoryPathSelector(
+                    siteUrl: 'https://example.invalid',
+                    categories: _categories,
+                    selectedCategoryId: null,
+                    onSelected: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(tester.getSize(_segment(0)).width, lessThanOrEqualTo(117.5));
+    },
+  );
+
   for (final direction in TextDirection.values) {
     testWidgets(
       'desktop path keeps its last control inside a narrow panel $direction',

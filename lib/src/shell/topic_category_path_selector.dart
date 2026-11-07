@@ -231,7 +231,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
                 ),
               ),
             ),
-          if (desktop && level == path.length - 1)
+          if (desktop && level == (path.isEmpty ? 0 : path.length - 1))
             DButtonGroupExpanded(child: segment(level))
           else
             segment(level),

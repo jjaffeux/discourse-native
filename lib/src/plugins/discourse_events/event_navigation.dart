@@ -101,7 +101,11 @@ final class EventNavigation implements PluginLinkHandler {
     void Function()? onNavigated,
   }) async {
     final target = Uri.tryParse(url);
-    if (target == null) return false;
+    if (target == null ||
+        !{'http', 'https'}.contains(target.scheme) ||
+        target.userInfo.isNotEmpty) {
+      return false;
+    }
     final sites = host.sites;
     final owner = mostSpecificServingForum(
       sites,
@@ -110,7 +114,7 @@ final class EventNavigation implements PluginLinkHandler {
     );
     if (owner == null) return false;
     final site = owner.forum;
-    final path = site.pathWithin(target);
+    final path = site.pathWithin(target)?.replaceFirst(RegExp(r'/+$'), '');
     if (path == null || !path.startsWith('/upcoming-events')) return false;
     final route = EventCalendarPage.readRoute(
       path.startsWith('/upcoming-events/mine')

@@ -223,7 +223,11 @@ int? parseYoutubeTime(String? value) {
   final minutes = int.tryParse(match.group(2) ?? '0');
   final remainingSeconds = int.tryParse(match.group(3) ?? '0');
   if (hours == null || minutes == null || remainingSeconds == null) return null;
-  return hours * 3600 + minutes * 60 + remainingSeconds;
+  final total =
+      BigInt.from(hours) * BigInt.from(3600) +
+      BigInt.from(minutes) * BigInt.from(60) +
+      BigInt.from(remainingSeconds);
+  return total.isValidInt ? total.toInt() : null;
 }
 
 extension on String {

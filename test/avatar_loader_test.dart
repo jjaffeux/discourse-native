@@ -21,6 +21,26 @@ final Uint8List pngBytes = Uint8List.fromList([
 ]);
 
 void main() {
+  test('regression fifth: image media types are case insensitive', () {
+    final svg = bytes(
+      '<!--${'metadata ' * 300}--><svg xmlns="http://www.w3.org/2000/svg"/>',
+    );
+    expect(
+      CachedImageBytes.fromResponse(
+        http.Response.bytes(
+          svg,
+          200,
+          headers: {'content-type': 'IMAGE/SVG+XML; charset=UTF-8'},
+        ),
+      ).isSvg,
+      isTrue,
+    );
+    expect(
+      CachedImageBytes.looksLikeSvg(bytes('<svg/>'), contentType: 'IMAGE/PNG'),
+      isFalse,
+    );
+  });
+
   group('CachedImageBytes.looksLikeSvg', () {
     test('recognizes an SVG content type without sniffing', () {
       expect(

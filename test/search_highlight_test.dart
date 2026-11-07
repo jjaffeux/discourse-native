@@ -4,6 +4,16 @@ import 'package:html/parser.dart' as html_parser;
 
 void main() {
   test(
+    'regression fifth: search highlighting matches supplementary case pairs',
+    () {
+      expect(
+        highlightSearchHtml('<p>𐐀</p>', '𐐨'),
+        '<p><mark class="native-search-hit">𐐀</mark></p>',
+      );
+    },
+  );
+
+  test(
     'regression fourth: clock times are searchable text rather than filters',
     () {
       expect(searchWords('10:30 category:support -tags:hidden @sam'), [

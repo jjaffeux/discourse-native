@@ -27,6 +27,15 @@ const _video = YoutubeVideoData(
 
 void main() {
   test(
+    'regression fifth: overflowing YouTube timestamps never become negative',
+    () {
+      expect(parseYoutubeTime('2562047788015216h'), isNull);
+      expect(parseYoutubeTime('9223372036854775807m'), isNull);
+      expect(parseYoutubeTime('9223372036854775807s'), 9223372036854775807);
+    },
+  );
+
+  test(
     'regression: an explicit zero YouTube time overrides fallback timestamps',
     () {
       final video = YoutubeVideoData.tryParseUrl(

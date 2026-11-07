@@ -38,7 +38,11 @@ RegExp? searchWordPattern(String query) {
   final words = searchWords(query);
   return words.isEmpty
       ? null
-      : RegExp(words.map(RegExp.escape).join('|'), caseSensitive: false);
+      : RegExp(
+          words.map(RegExp.escape).join('|'),
+          caseSensitive: false,
+          unicode: true,
+        );
 }
 
 bool searchWordsMatch(String query, Iterable<String> fields) =>

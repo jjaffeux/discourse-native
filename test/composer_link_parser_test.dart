@@ -16,6 +16,27 @@ typedef _ExpectedLink = ({
 
 void main() {
   test(
+    'regression fifth: angle-delimited Markdown destinations expose usable URLs',
+    () {
+      const source = '[manual](<https://example.com/manual.pdf>)';
+      final link = parseComposerLinks(source, enableLinkify: false).single;
+      expect(link.url, 'https://example.com/manual.pdf');
+      final edited = composerLinkValue(
+        current: const TextEditingValue(text: source),
+        expectedText: source,
+        selection: const TextSelection(
+          baseOffset: 0,
+          extentOffset: source.length,
+        ),
+        url: link.url,
+        anchor: 'guide',
+        existingLink: link,
+      );
+      expect(edited!.text, '[guide](<https://example.com/manual.pdf>)');
+    },
+  );
+
+  test(
     'regression fourth: nested closing punctuation stays outside pasted URLs',
     () {
       final links = parseComposerLinks('See {[https://example.com/path]}.');
