@@ -836,10 +836,17 @@ class _ChatComposerState extends State<ChatComposer> {
     return KeyEventResult.handled;
   }
 
-  KeyEventResult _handleEditLastMessage(
+  KeyEventResult _handleComposerShortcut(
     KeyEvent event,
     ComposerController composer,
   ) {
+    final value = composer.text.value;
+    if (event.logicalKey == LogicalKeyboardKey.escape &&
+        composer.focus.hasPrimaryFocus &&
+        value.isComposingRangeValid &&
+        !value.composing.isCollapsed) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
     if (event is! KeyDownEvent ||
         event.logicalKey != LogicalKeyboardKey.arrowUp ||
         HardwareKeyboard.instance.isAltPressed ||
@@ -963,7 +970,7 @@ class _ChatComposerState extends State<ChatComposer> {
                             canRequestFocus: false,
                             skipTraversal: true,
                             onKeyEvent: (_, event) =>
-                                _handleEditLastMessage(event, composer),
+                                _handleComposerShortcut(event, composer),
                             child: ComposerEditor(
                               composer: composer,
                               autofocus: !mobile,

@@ -79,6 +79,80 @@ const _gif = GifResult(
 );
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    for (final editing in [false, true]) {
+      testWidgets(
+        'IME Escape preserves chat ${editing ? 'edit' : 'reply'} on $platform',
+        (tester) async {
+          final fixture = await _fixture(
+            pages: {
+              FakeDiscourseApi.chatMessagesKey(9): (
+                messages: [
+                  ChatMessage(
+                    id: 7,
+                    channelId: 9,
+                    raw: 'Original message',
+                    cooked: '<p>Original message</p>',
+                    author: const ChatMessageAuthor(id: 2, username: 'sam'),
+                    createdAt: DateTime.utc(2026, 8, 11),
+                  ),
+                ],
+                canLoadMorePast: false,
+                canLoadMoreFuture: false,
+                targetMessageId: null,
+              ),
+            },
+            sessionUser: const DiscourseUser(id: 2, username: 'sam'),
+            threadingEnabled: false,
+          );
+          addTearDown(fixture.shell.dispose);
+          await tester.pumpWidget(
+            _TestView(shell: fixture.shell, platform: platform),
+          );
+          await tester.pumpAndSettle();
+          if (editing) {
+            _field(tester).focusNode!.requestFocus();
+            await tester.pump();
+            await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+            await tester.pumpAndSettle();
+          } else {
+            await _hoverReply(tester, 7);
+          }
+          final mode = find.byKey(
+            ValueKey(
+              editing ? 'chat-composer-edit-cancel' : 'chat-composer-reply',
+            ),
+          );
+          expect(mode, findsOneWidget);
+          await tester.showKeyboard(_composerField());
+          const composing = TextEditingValue(
+            text: '変更',
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange(start: 0, end: 2),
+          );
+          tester.testTextInput.updateEditingValue(composing);
+          await tester.pump();
+          expect(_field(tester).focusNode!.hasPrimaryFocus, isTrue);
+          final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(mode, findsOneWidget);
+          expect(_field(tester).controller!.value, composing);
+          expect(handled, isFalse);
+          expect(fixture.api.chatMessagesEdited, isEmpty);
+          expect(fixture.api.chatMessagesSent, isEmpty);
+
+          tester.testTextInput.updateEditingValue(
+            composing.copyWith(composing: const TextRange.collapsed(2)),
+          );
+          await tester.pump();
+          await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+          await tester.pumpAndSettle();
+          expect(mode, findsNothing);
+        },
+        variant: TargetPlatformVariant.only(platform),
+      );
+    }
+  }
   testWidgets('chat composer visual reference states', (tester) async {
     await prepareNativeUiEvidence(tester);
     await tester.binding.setSurfaceSize(const Size(393, 852));
