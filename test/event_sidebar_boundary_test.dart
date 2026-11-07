@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/discourse_events/event_directory.da
 import 'package:discourse_native/src/plugins/discourse_events/event_notifications.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -87,14 +88,19 @@ void main() {
           final header = find.byKey(const ValueKey('event-calendar-header'));
           expect(header, findsOneWidget);
           expect(
-            find.descendant(of: header, matching: find.byType(DSelect<bool>)),
+            find.descendant(
+              of: header,
+              matching: find.byType(DToggleGroup<bool>),
+            ),
             findsOneWidget,
           );
           expect(
-            find.descendant(
-              of: find.byType(EventCalendar),
-              matching: find.text('Events'),
-            ),
+            defaultTargetPlatform == TargetPlatform.iOS
+                ? find.text('Events').hitTestable()
+                : find.descendant(
+                    of: find.byType(EventCalendar),
+                    matching: find.text('Events'),
+                  ),
             findsOneWidget,
           );
         }
@@ -233,8 +239,6 @@ void main() {
         expect(requests.single.url.queryParameters, _query());
 
         if (user != null) {
-          await tester.tap(find.byType(DSelect<bool>));
-          await tester.pumpAndSettle();
           await tester.tap(find.text('My events').last);
           await tester.pumpAndSettle();
 

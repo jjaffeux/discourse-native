@@ -360,7 +360,7 @@ void main() {
 
     final rail = tester.element(find.byType(InstanceRail));
     final content = tester.element(primaryMainContent);
-    final list = tester.element(find.byType(TopicListView));
+    final list = tester.element(_primaryTopicList);
     final rowTitle = tester.element(_realTopicTitle);
     final railSelector = _onlyChild(rail);
     final contentSelector = _onlyChild(content);
@@ -466,7 +466,7 @@ void main() {
       // The desktop's secondary panel shows its own Latest list.
       final primaryList = find.descendant(
         of: primaryMainContent,
-        matching: find.byType(TopicListView),
+        matching: _primaryTopicList,
       );
       final rail = tester.element(find.byType(InstanceRail));
       final sidebar = tester.element(find.byType(InstanceSidebar));
@@ -929,7 +929,7 @@ void main() {
       );
 
       final bar = tester.element(_forumTabsBar);
-      final viewport = tester.element(find.byType(TopicListView));
+      final viewport = tester.element(_primaryTopicList);
       final viewportSelector = _onlyChild(viewport);
       final rowTitle = tester.element(_realTopicTitle);
       final rebuilt = <Element>{};
@@ -955,7 +955,7 @@ void main() {
       for (final isolated in [viewport, viewportSelector, rowTitle]) {
         expect(rebuilt, isNot(contains(isolated)));
       }
-      expect(tester.element(find.byType(TopicListView)), same(viewport));
+      expect(tester.element(_primaryTopicList), same(viewport));
     },
   );
 
@@ -996,23 +996,20 @@ void main() {
     await tester.pumpAndSettle();
 
     final firstTabId = controller.activeTabId!;
-    final firstViewport = tester.element(find.byType(TopicListView));
+    final firstViewport = tester.element(_primaryTopicList);
 
     _createTopicsTab(controller);
     await tester.pumpAndSettle();
 
-    expect(find.byType(TopicListView), findsOneWidget);
-    final secondViewport = tester.element(find.byType(TopicListView));
+    expect(_primaryTopicList, findsOneWidget);
+    final secondViewport = tester.element(_primaryTopicList);
     expect(secondViewport, isNot(same(firstViewport)));
 
     controller.selectTab(firstTabId);
     await tester.pumpAndSettle();
 
-    expect(find.byType(TopicListView), findsOneWidget);
-    expect(
-      tester.element(find.byType(TopicListView)),
-      isNot(same(secondViewport)),
-    );
+    expect(_primaryTopicList, findsOneWidget);
+    expect(tester.element(_primaryTopicList), isNot(same(secondViewport)));
   });
 
   group('a chat message in a followed channel', () {
@@ -1275,10 +1272,13 @@ final _sideloaded = ValueVariant<List<TopicCategory>>({
   _knownCategories,
 });
 
-Finder get _realTopicTitle => find.descendant(
-  of: find.byType(TopicListView),
-  matching: find.text('A real topic'),
+Finder get _primaryTopicList => find.descendant(
+  of: primaryMainContent,
+  matching: find.byType(TopicListView),
 );
+
+Finder get _realTopicTitle =>
+    find.descendant(of: _primaryTopicList, matching: find.text('A real topic'));
 
 Finder get _forumTabsBar => find.descendant(
   of: find.byWidgetPredicate(

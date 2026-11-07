@@ -8,6 +8,8 @@ import 'math_composer_card.dart';
 import 'math_settings.dart';
 import 'math_source.dart';
 
+const _mathSourceExample = r'E=mc^2';
+
 const mathSyntaxKind = ComposerSyntaxKind(
   owner: PluginId('discourse-math'),
   name: 'expression',
@@ -86,7 +88,7 @@ class _MathSourceDialogState extends State<_MathSourceDialog> {
       DTextarea(
         controller: controller,
         labelText: context.l10n.mathSource,
-        hintText: r'E=mc^2',
+        hintText: _mathSourceExample,
         autofocus: true,
         autocorrect: false,
         enableSuggestions: false,

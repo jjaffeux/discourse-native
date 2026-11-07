@@ -61,25 +61,25 @@ void main() {
         'matched words',
       );
       expect(mobile.handleBack(), isTrue);
-      expect(mobile.currentContent?.topicId, 1);
+      expect(mobile.activeTab?.currentContent.topicId, 1);
       expect(
         mobile.search.wordsFor(mobileSite, tab, 'topic-1'),
         'matched words',
       );
 
       mobile.selectMobilePanel(null);
-      expect(mobile.currentContent?.topicId, 1);
+      expect(mobile.activeTab?.currentContent.topicId, 1);
       expect(
         mobile.search.wordsFor(mobileSite, tab, 'topic-1'),
         'matched words',
       );
       mobile.selectMobilePanel('chat');
-      expect(mobile.currentContent?.topicId, 1);
+      expect(mobile.activeTab?.currentContent.topicId, 1);
       expect(mobile.search.wordsFor(mobileSite, tab, 'topic-1'), isEmpty);
       mobile.openSearchResult(_hit, words: 'fresh words');
       expect(mobile.search.wordsFor(mobileSite, tab, 'topic-1'), 'fresh words');
       expect(mobile.handleBack(), isTrue);
-      expect(mobile.currentContent?.topicId, 1);
+      expect(mobile.activeTab?.currentContent.topicId, 1);
       expect(mobile.search.wordsFor(mobileSite, tab, 'topic-1'), isEmpty);
     },
   );

@@ -158,14 +158,14 @@ class _DButtonGroupState extends State<DButtonGroup> {
     if (widget.inset) {
       Widget measured(int index, Widget child) {
         final key = _indicatorKeys.putIfAbsent(index, GlobalKey.new);
-        if (child is Flexible) {
-          return Flexible(
-            flex: child.flex,
-            fit: child.fit,
-            child: SizedBox(key: key, child: child.child),
-          );
-        }
-        return SizedBox(key: key, child: child);
+        return Flexible(
+          flex: child is Flexible ? child.flex : 0,
+          fit: child is Flexible ? child.fit : FlexFit.loose,
+          child: SizedBox(
+            key: key,
+            child: child is Flexible ? child.child : child,
+          ),
+        );
       }
 
       Widget content = Row(

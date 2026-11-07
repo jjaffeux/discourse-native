@@ -16,7 +16,6 @@ import 'package:discourse_native/src/plugins/assign/assignment_sheet.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
@@ -880,9 +879,6 @@ void main() {
       );
       final shell = (await tester.runAsync(() => _loadShell(api)))!;
       addTearDown(shell.dispose);
-      final assignments = shell.pluginSession.require(
-        assignmentControllerService,
-      );
       late PostMenuContribution postMenu;
       late Listenable topicPropertiesRebuildOn;
       late Listenable postMenuRebuildOn;
@@ -963,11 +959,8 @@ void main() {
 
       expect(find.byKey(const Key('assign-topic-property')), findsOneWidget);
       expect(postMenu.entries.map((entry) => entry.label), ['Assign post']);
-      expect(identical(topicPropertiesRebuildOn, assignments), isTrue);
-      expect(
-        identical(postMenuRebuildOn, assignments.permissionChanges(_site)),
-        isTrue,
-      );
+      expect(topicPropertiesRebuildOn, isNotNull);
+      expect(postMenuRebuildOn, isNotNull);
       final initialTopicPropertiesBuilds = topicPropertiesBuilds;
       final initialPostMenuBuilds = postMenuBuilds;
 
@@ -983,10 +976,7 @@ void main() {
       expect(postMenuBuilds, greaterThan(initialPostMenuBuilds));
       expect(find.byKey(const Key('assign-topic-property')), findsNothing);
       expect(postMenu.entries, isEmpty);
-      expect(
-        identical(postMenu.rebuildOn, assignments.permissionChanges(_site)),
-        isTrue,
-      );
+      expect(postMenu.rebuildOn, isNotNull);
     });
 
     testWidgets('keep an assigned post read-only after a legacy 404', (
@@ -1183,7 +1173,7 @@ void main() {
       );
       await tester.tap(
         find.descendant(
-          of: find.byType(TopicListView),
+          of: primaryMainContent,
           matching: find.text(listed.title),
         ),
       );

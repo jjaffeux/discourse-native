@@ -160,8 +160,8 @@ void main() {
     ) async {
       final controller = await _loadCategories(FakeDiscourseApi());
       for (final (appScale, platformScale, height, textSize) in [
-        (AppTextScale.percent100, 1.0, 44.0, 16.0),
-        (AppTextScale.percent125, 2.0, 80.0, 40.0),
+        (AppTextScale.percent100, 1.0, 36.0, 14.0),
+        (AppTextScale.percent125, 2.0, 67.5, 35.0),
       ]) {
         await controller.appSettings.setTextScale(appScale);
         tester.platformDispatcher.textScaleFactorTestValue = platformScale;

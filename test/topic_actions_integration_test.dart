@@ -143,7 +143,13 @@ void _registerTopicLinkTests() {
 
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byType(TopicListView),
+        ),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: find.byType(InstanceSidebar),
@@ -222,7 +228,13 @@ void _registerTopicLinkTests() {
       expect(find.text('A bug report'), findsOneWidget);
       expect(launched, isEmpty);
 
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(
+        find.descendant(
+          of: primaryMainContent,
+          matching: find.byType(TopicListView),
+        ),
+        findsOneWidget,
+      );
       expect(find.byType(TopicView), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 

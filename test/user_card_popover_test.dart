@@ -591,8 +591,8 @@ void main() {
     final api = await _pumpTarget(tester);
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
     await tester.pump();
-    final action = tester.widget<InkWell>(
-      find.descendant(of: _target, matching: find.byType(InkWell)),
+    final action = tester.widget<DButton>(
+      find.descendant(of: _target, matching: find.byType(DButton)),
     );
     expect(action.focusNode!.hasFocus, isTrue);
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);

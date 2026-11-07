@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 const postVotingPluginId = PluginId('discourse-post-voting');
 const postVotingSettingsKey = PluginDataKey<PostVotingSettings>(
@@ -72,6 +73,27 @@ final class PostVotingSettings {
   final int commentMinRawLength;
   final bool answerLikesEnabled;
   final bool dsaReportingEnabled;
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingSettings &&
+      enabled == other.enabled &&
+      commentsEnabled == other.commentsEnabled &&
+      commentLimitPerPost == other.commentLimitPerPost &&
+      commentMaxRawLength == other.commentMaxRawLength &&
+      commentMinRawLength == other.commentMinRawLength &&
+      answerLikesEnabled == other.answerLikesEnabled &&
+      dsaReportingEnabled == other.dsaReportingEnabled;
+
+  @override
+  int get hashCode => Object.hash(
+    enabled,
+    commentsEnabled,
+    commentLimitPerPost,
+    commentMaxRawLength,
+    commentMinRawLength,
+    answerLikesEnabled,
+    dsaReportingEnabled,
+  );
 
   bool allowsTopic(
     PostVotingTopicData? topic, {
@@ -124,6 +146,12 @@ final class PostVotingCategoryData {
   }
   final bool defaultOn;
   final bool requiredOn;
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingCategoryData &&
+      (defaultOn, requiredOn) == (other.defaultOn, other.requiredOn);
+  @override
+  int get hashCode => Object.hash(defaultOn, requiredOn);
 }
 
 final class PostVotingActor {
@@ -133,11 +161,22 @@ final class PostVotingActor {
         canFlagComments: json['can_flag_post_voting_comments'] == true,
       );
   final bool canFlagComments;
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingActor && canFlagComments == other.canFlagComments;
+  @override
+  int get hashCode => canFlagComments.hashCode;
 }
 
 final class PostVotingUserScore {
   const PostVotingUserScore(this.receivedNetScore);
   final int receivedNetScore;
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingUserScore &&
+      receivedNetScore == other.receivedNetScore;
+  @override
+  int get hashCode => receivedNetScore.hashCode;
   static PostVotingUserScore? fromJson(Map<String, dynamic> json) =>
       json['vote_count'] is int
       ? PostVotingUserScore(json['vote_count'] as int)
@@ -372,6 +411,28 @@ final class PostVotingPostData {
   final int? commentsCount;
   final List<PostVotingComment>? initialComments;
   final int? replyToPostNumber;
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingPostData &&
+      score == other.score &&
+      hasVotes == other.hasVotes &&
+      myVote == other.myVote &&
+      myVoteKnown == other.myVoteKnown &&
+      commentsCount == other.commentsCount &&
+      listEquals(initialComments, other.initialComments) &&
+      replyToPostNumber == other.replyToPostNumber;
+
+  @override
+  int get hashCode => Object.hash(
+    score,
+    hasVotes,
+    myVote,
+    myVoteKnown,
+    commentsCount,
+    initialComments == null ? null : Object.hashAll(initialComments!),
+    replyToPostNumber,
+  );
+
   bool get canHaveComments => replyToPostNumber == null;
   bool get hasData =>
       replyToPostNumber != null ||
@@ -496,6 +557,56 @@ final class PostVotingComment {
   final List<String> availableFlags;
   final int? reviewableId;
   final Uri url;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PostVotingComment &&
+      (
+            id,
+            parentPostId,
+            authorId,
+            username,
+            name,
+            createdAt,
+            raw,
+            cooked,
+            score,
+            myUpvote,
+            reviewableId,
+            url,
+          ) ==
+          (
+            other.id,
+            other.parentPostId,
+            other.authorId,
+            other.username,
+            other.name,
+            other.createdAt,
+            other.raw,
+            other.cooked,
+            other.score,
+            other.myUpvote,
+            other.reviewableId,
+            other.url,
+          ) &&
+      listEquals(availableFlags, other.availableFlags);
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    parentPostId,
+    authorId,
+    username,
+    name,
+    createdAt,
+    raw,
+    cooked,
+    score,
+    myUpvote,
+    reviewableId,
+    url,
+    Object.hashAll(availableFlags),
+  );
 
   PostVotingComment copyWith({
     String? raw,

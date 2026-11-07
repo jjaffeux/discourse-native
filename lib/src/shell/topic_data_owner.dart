@@ -413,10 +413,7 @@ final class TopicDataSession implements BookmarkTopicData {
 
   _ReadStamp _stamp(int topicId) {
     final state = _topic(topicId);
-    final postIds = {
-      ...?_store.read<TopicDetail>(siteUrl, topicId)?.stream,
-      ...state.readerPosts,
-    };
+    final stream = _store.read<TopicDetail>(siteUrl, topicId)?.stream;
     return (
       notification: _owner.notificationReads?.call(siteUrl, lease, topicId),
       bookmarks: _bookmarks.revision(topicId),
@@ -425,10 +422,12 @@ final class TopicDataSession implements BookmarkTopicData {
       removals: state.removals,
       streams: state.streams,
       redacted: {
-        for (final id in postIds)
-          if (_store.read<Post>(siteUrl, id) case final post?
-              when post.contentRedacted)
-            id: post,
+        for (final post in _store.retainedRecords<Post>(siteUrl))
+          if (post != null &&
+              post.contentRedacted &&
+              (state.readerPosts.contains(post.id) ||
+                  stream?.contains(post.id) == true))
+            post.id: post,
       },
     );
   }

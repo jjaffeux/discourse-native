@@ -10,7 +10,6 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_change_owner.dart';
-import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show LogicalKeyboardKey;
@@ -777,7 +776,7 @@ Future<ShellController> _openDialog(
   );
   await tester.tap(
     find.descendant(
-      of: find.byType(TopicListView),
+      of: primaryMainContent,
       matching: find.text('A real topic'),
     ),
   );

@@ -33,17 +33,18 @@ void main() {
         final shell = ShellScope.read(
           tester.element(find.byType(MainContent).first),
         );
-        expect(find.text(_firstTopic.title), findsOneWidget);
+        expect(contentText(_firstTopic.title), findsOneWidget);
 
         shell.selectInstance(1);
         await tester.pump();
 
         expect(shell.currentInstance?.url, _secondSite);
-        expect(shell.currentFeed, isNull);
+        expect(shell.currentFeed?.topicIds ?? const [], isEmpty);
         expect(api.siteConfigsRequested, contains(_secondSite));
-        expect(api.secondFeedRequested, isFalse);
+        // Desktop also hydrates its explicit Latest reference pane.
+        expect(api.secondFeedRequested, platform == TargetPlatform.macOS);
         _expectLoading();
-        expect(find.text(_firstTopic.title), findsNothing);
+        expect(contentText(_firstTopic.title), findsNothing);
         await tester.pump(const Duration(seconds: 2));
         _expectLoading();
 
@@ -58,14 +59,26 @@ void main() {
         api.feed.complete(const TopicList(topics: [_secondTopic]));
         await tester.pumpAndSettle();
 
-        expect(find.byType(TopicListLoadingSkeleton), findsNothing);
-        expect(find.text(_secondTopic.title), findsOneWidget);
+        expect(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byType(TopicListLoadingSkeleton),
+          ),
+          findsNothing,
+        );
+        expect(contentText(_secondTopic.title), findsOneWidget);
         expect(find.text(appL10n.notFound), findsNothing);
 
         shell.selectInstance(0);
         await tester.pumpAndSettle();
-        expect(find.text(_firstTopic.title), findsOneWidget);
-        expect(find.byType(TopicListLoadingSkeleton), findsNothing);
+        expect(contentText(_firstTopic.title), findsOneWidget);
+        expect(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byType(TopicListLoadingSkeleton),
+          ),
+          findsNothing,
+        );
         expect(tester.takeException(), isNull);
       },
       variant: TargetPlatformVariant.only(platform),
@@ -94,14 +107,26 @@ void main() {
         }
         await tester.pumpAndSettle();
 
-        expect(find.byType(TopicListLoadingSkeleton), findsNothing);
+        expect(
+          find.descendant(
+            of: primaryMainContent,
+            matching: find.byType(TopicListLoadingSkeleton),
+          ),
+          findsNothing,
+        );
         expect(find.text(appL10n.notFound), findsNothing);
         if (fails) {
           expect(shell.currentFeed?.error, isNotNull);
-          expect(find.text(shell.currentFeed!.error!), findsOneWidget);
-          expect(find.text(appL10n.retry), findsOneWidget);
+          expect(contentText(shell.currentFeed!.error!), findsOneWidget);
+          expect(
+            find.descendant(
+              of: primaryMainContent,
+              matching: find.text(appL10n.retry),
+            ),
+            findsOneWidget,
+          );
         } else {
-          expect(find.text(appL10n.nothingHereYet), findsOneWidget);
+          expect(contentText(appL10n.nothingHereYet), findsOneWidget);
         }
         expect(tester.takeException(), isNull);
       },
@@ -125,13 +150,25 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text(appL10n.notFound), findsOneWidget);
-    expect(find.byType(TopicListLoadingSkeleton), findsNothing);
+    expect(
+      find.descendant(
+        of: primaryMainContent,
+        matching: find.byType(TopicListLoadingSkeleton),
+      ),
+      findsNothing,
+    );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 void _expectLoading() {
-  expect(find.byType(TopicListLoadingSkeleton), findsOneWidget);
+  expect(
+    find.descendant(
+      of: primaryMainContent,
+      matching: find.byType(TopicListLoadingSkeleton),
+    ),
+    findsOneWidget,
+  );
   expect(find.text(appL10n.notFound), findsNothing);
   expect(find.text(appL10n.theRequestedPageCouldNotBeFound), findsNothing);
 }

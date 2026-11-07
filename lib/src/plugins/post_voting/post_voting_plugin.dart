@@ -267,8 +267,14 @@ final class PostVotingPostPlugin
 }
 
 final class PostVotingCategoryPlugin
-    implements SitePlugin, CategoryRecordPlugin<PostVotingCategoryData> {
+    implements
+        SitePlugin,
+        IsolateTopicDecoderPlugin,
+        CategoryRecordPlugin<PostVotingCategoryData> {
   const PostVotingCategoryPlugin();
+  @override
+  SitePlugin Function()? get isolateTopicDecoderFactory =>
+      PostVotingCategoryPlugin.new;
   @override
   String get name => postVotingPluginId.value;
   @override

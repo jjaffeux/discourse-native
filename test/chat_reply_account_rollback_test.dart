@@ -182,7 +182,9 @@ Finder get _field => find
 
 Future<void> _pump(WidgetTester tester) async {
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
+  for (var frame = 0; frame < 10; frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {

@@ -321,7 +321,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
             Text(
               context.l10n.filters,
               style: TextStyle(
-                fontSize: 13,
+                fontSize: DiscourseTypography.control,
                 fontWeight: FontWeight.w600,
                 color: DTokens.of(context).mutedForeground,
               ),
@@ -367,7 +367,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     DItemTitle(
                       child: Text(
                         filter.label,
-                        style: const TextStyle(fontSize: 13, height: 1.35),
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.control,
+                          height: 1.35,
+                        ),
                       ),
                     ),
                   ],
@@ -841,7 +844,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                     Text(
                                       '${controller.sections.where((section) => section.scope == scope && section.topicId == null).fold<int>(0, (count, section) => count + section.results.length)}',
                                       style: const TextStyle(
-                                        fontSize: 11,
+                                        fontSize: DiscourseTypography.micro,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
@@ -1187,7 +1190,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 13,
+                        fontSize: DiscourseTypography.control,
                         height: 1.35,
                         fontWeight: FontWeight.w600,
                       ),
@@ -1290,7 +1293,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   DItemContent(
                     children: [
                       DefaultTextStyle.merge(
-                        style: const TextStyle(fontSize: 13, height: 1.35),
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.control,
+                          height: 1.35,
+                        ),
                         child: _RecentQuery(controller, query),
                       ),
                     ],
@@ -1346,14 +1352,20 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   child: Text(
                     title,
                     textAlign: TextAlign.start,
-                    style: const TextStyle(fontSize: 13, height: 1.35),
+                    style: const TextStyle(
+                      fontSize: DiscourseTypography.control,
+                      height: 1.35,
+                    ),
                   ),
                 ),
                 DEmptyDescription.child(
                   child: Text(
                     description,
                     textAlign: TextAlign.start,
-                    style: const TextStyle(fontSize: 12.5, height: 1.35),
+                    style: const TextStyle(
+                      fontSize: DiscourseTypography.preview,
+                      height: 1.35,
+                    ),
                   ),
                 ),
               ],
@@ -1505,7 +1517,10 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                             siteUrl: controller.siteUrl!,
                             text: result.title,
                             query: controller.query,
-                            style: const TextStyle(fontSize: 13, height: 1.35),
+                            style: const TextStyle(
+                              fontSize: DiscourseTypography.control,
+                              height: 1.35,
+                            ),
                           ),
                         ),
                         if (parents.isNotEmpty)
@@ -1513,7 +1528,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                             maxLines: 1,
                             child: Text(
                               parents.join(' › '),
-                              style: const TextStyle(fontSize: 11.5),
+                              style: const TextStyle(
+                                fontSize: DiscourseTypography.metadata,
+                              ),
                             ),
                           ),
                       ],
@@ -1523,7 +1540,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     Text(
                       '$count',
                       style: TextStyle(
-                        fontSize: 11.5,
+                        fontSize: DiscourseTypography.metadata,
                         color: tokens.mutedForeground,
                       ),
                     ),
@@ -1649,7 +1666,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                 ],
                                 siteUrl: controller.siteUrl!,
                                 style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: DiscourseTypography.control,
                                   height: 1.35,
                                 ),
                               )
@@ -1658,7 +1675,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                 text: result.title,
                                 query: controller.query,
                                 style: const TextStyle(
-                                  fontSize: 13,
+                                  fontSize: DiscourseTypography.control,
                                   height: 1.35,
                                   fontWeight: FontWeight.w600,
                                 ),
@@ -1678,7 +1695,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                             ),
                             query: controller.query,
                             style: TextStyle(
-                              fontSize: 12.5,
+                              fontSize: DiscourseTypography.preview,
                               height: 1.35,
                               fontWeight: FontWeight.w400,
                               color: tokens.mutedForeground,
@@ -1690,7 +1707,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                           padding: const EdgeInsets.only(top: 2),
                           child: DefaultTextStyle.merge(
                             style: TextStyle(
-                              fontSize: 11.5,
+                              fontSize: DiscourseTypography.metadata,
                               height: 1.35,
                               color: tokens.mutedForeground,
                             ),
@@ -1772,7 +1789,7 @@ class GlobalSearchChips extends StatelessWidget {
             icon: const DIcon(DIcons.xmark),
             iconPosition: DButtonIconPosition.end,
             tooltip: context.l10n.removeCondition(controller.scope.label),
-            size: DButtonSize.small,
+            size: DButtonSize.chip,
             variant: DButtonVariant.secondary,
             onPressed: () {
               controller.setContext(null);
@@ -1869,7 +1886,7 @@ class SearchFilterChip extends StatelessWidget {
       child: DButtonGroup(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Flexible(
+          DButtonGroupExpanded(
             child: DButton(
               label: Text.rich(
                 TextSpan(
@@ -1885,7 +1902,7 @@ class SearchFilterChip extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               shape: DButtonShape.pill,
-              size: DButtonSize.small,
+              size: DButtonSize.chip,
               variant: DButtonVariant.secondary,
               onPressed: onEdit,
               focusNode: focusNode,
@@ -1897,7 +1914,7 @@ class SearchFilterChip extends StatelessWidget {
             DButton.iconOnly(
               icon: const DIcon(DIcons.xmark),
               tooltip: context.l10n.removeCondition(filter.label),
-              size: DButtonSize.small,
+              size: DButtonSize.chip,
               variant: DButtonVariant.secondary,
               onPressed: onRemove,
             ),

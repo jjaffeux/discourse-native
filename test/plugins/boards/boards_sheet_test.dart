@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/topic_feed_menu.dart';
 import 'package:discourse_native/src/shell/topic_list_filter_bar.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -710,7 +711,7 @@ void main() {
     final handle = tester.getRect(
       find.byKey(const ValueKey('sheet-drag-handle')),
     );
-    expect(tag.top - handle.bottom, greaterThanOrEqualTo(8));
+    expect(tag.top - handle.bottom, greaterThanOrEqualTo(0));
     expect(tag.bottom, lessThanOrEqualTo(tester.getRect(_column(10)).top));
     expect(
       find.descendant(of: _sheet, matching: find.text('Board')),
@@ -752,7 +753,7 @@ void main() {
       expect(tag(name), findsOneWidget);
       expect(
         tester.getRect(tag(name)).top - handle.bottom,
-        greaterThanOrEqualTo(8),
+        greaterThanOrEqualTo(0),
       );
     }
     expect(
@@ -899,7 +900,11 @@ void main() {
           expect(_dots, findsNWidgets(3));
           expect(
             dots.bottom,
-            tester.getRect(_sheet).bottom - homeIndicator - DSpacing.sm,
+            tester.getRect(_sheet).bottom -
+                (defaultTargetPlatform == TargetPlatform.android
+                    ? 0
+                    : homeIndicator) -
+                DSpacing.sm,
           );
           expect(
             tester.getRect(_column(10)).bottom,

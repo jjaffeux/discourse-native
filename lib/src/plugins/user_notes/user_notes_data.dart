@@ -21,6 +21,16 @@ final class UserNotesSettings {
   final bool enabled;
   final UserNotesPlacement placement;
   final int? maximumLength;
+  @override
+  bool operator ==(Object other) =>
+      other is UserNotesSettings &&
+      enabled == other.enabled &&
+      placement == other.placement &&
+      maximumLength == other.maximumLength;
+
+  @override
+  int get hashCode => Object.hash(enabled, placement, maximumLength);
+
   factory UserNotesSettings.read(Map<String, dynamic> json) =>
       UserNotesSettings(
         enabled: json['user_notes_enabled'] == true,
@@ -51,6 +61,12 @@ final class UserNotesSettingsCodec
 final class UserNotesCount {
   const UserNotesCount(this.value);
   final int value;
+  @override
+  bool operator ==(Object other) =>
+      other is UserNotesCount && value == other.value;
+  @override
+  int get hashCode => value.hashCode;
+
   static UserNotesCount? read(Map<String, dynamic> json, {bool post = false}) {
     final fields = json[post ? 'user_custom_fields' : 'custom_fields'];
     final raw = !post && json['user_notes_count'] != null

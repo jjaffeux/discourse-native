@@ -628,6 +628,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
 
   void activateSubmenu(_DDropdownMenuSubState submenu) {
     if (identical(_activeSubmenu, submenu)) return;
+    submenu._focusNode.requestFocus();
     closeActiveSubmenu();
     _activeSubmenu = submenu;
     _refreshItemHighlights();

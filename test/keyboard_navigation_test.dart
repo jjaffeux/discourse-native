@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -9,6 +10,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -33,6 +35,12 @@ void main() {
     (tester) async {
       final setup = await _setup(tester, longPosts: {});
       final shell = setup.shell;
+      final sourceTab = shell.activeTabId!;
+      final reference = shell.selectedTabIn(ForumPanel.secondary)!;
+      shell.selectTab(reference.id);
+      shell.replaceCurrentContent(ContentRoute.dashboard());
+      shell.selectTab(sourceTab);
+      await tester.pumpAndSettle();
       shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
       await tester.pumpAndSettle();
       await _fillLongFeed(shell, setup.api);
@@ -1369,5 +1377,10 @@ Future<({ShellController shell, FakeDiscourseApi api})> _setup(
       ..keys.addAll({if (signedIn) site.url: 'key'}),
   );
   final shell = ShellScope.read(tester.element(find.byType(AdaptiveShell)));
+  final panels = find.byType(DesktopPanels);
+  if (panels.evaluate().isNotEmpty) {
+    tester.widget<DesktopPanels>(panels).layout!.toggleSplit();
+    await tester.pumpAndSettle();
+  }
   return (shell: shell, api: api);
 }

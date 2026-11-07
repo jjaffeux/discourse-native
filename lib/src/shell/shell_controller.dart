@@ -3070,6 +3070,7 @@ class ShellController extends FrameSafeNotifier
       tab.panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main,
     );
     return other != null &&
+        _visibleForumPanels.contains(other.panel) &&
         other.id != tab.id &&
         other.currentContent.sameDestinationAs(source);
   }

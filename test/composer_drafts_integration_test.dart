@@ -583,7 +583,8 @@ void _registerTopicReplyTests() {
       expect(
         tester.getSemantics(refusal),
         isSemantics(
-          label: 'Body is too short (minimum is 20 characters)',
+          label:
+              "Couldn't complete this action\nBody is too short (minimum is 20 characters)",
           isLiveRegion: true,
         ),
       );

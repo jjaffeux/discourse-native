@@ -108,7 +108,7 @@ void main() {
                   expect(content.variant, DSheetVariant.adaptiveMenu);
                   expect(content.semanticLabel, 'Profile');
                   expect(content.showCloseButton, isFalse);
-                  expect(find.byType(DSheetHeader), findsNothing);
+                  expect(find.byType(DSheetHeader), findsOneWidget);
                   final sheetBounds = tester.getRect(sheet);
                   expect(sheetBounds.left, 0);
                   expect(sheetBounds.right, screen.width);

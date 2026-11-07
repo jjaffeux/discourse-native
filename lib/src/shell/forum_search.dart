@@ -14,6 +14,7 @@ import '../models/forum_workspace.dart';
 import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import 'content_navigation_controls.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';
@@ -985,7 +986,7 @@ class _ForumSearchState extends State<ForumSearch> {
                       ),
                       child: DefaultTextStyle.merge(
                         style: TextStyle(
-                          fontSize: 11.5,
+                          fontSize: DiscourseTypography.metadata,
                           color: DTokens.of(context).mutedForeground,
                         ),
                         child: Wrap(

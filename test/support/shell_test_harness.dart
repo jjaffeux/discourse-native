@@ -184,7 +184,11 @@ Finder contentText(String label) => find.byElementPredicate((element) {
     inForumTabs |= ancestor.widget is ForumTabsBar;
     return true;
   });
-  return inMainContent && !inForumTabs && !(widget is Text && insideTopicTitle);
+  return inMainContent &&
+      !inForumTabs &&
+      element.getInheritedWidgetOfExactType<ForumTabScope>()?.panel !=
+          ForumPanel.secondary &&
+      !(widget is Text && insideTopicTitle);
 }, description: 'content text labelled "$label"');
 
 Future<TestGesture> hoverPost(
@@ -251,8 +255,13 @@ Finder get primaryMainContent => find.byElementPredicate(
 );
 
 Finder topicListTitle(String title) => find.descendant(
-  of: find.byType(TopicListView),
+  of: primaryTopicList,
   matching: find.byWidgetPredicate(
     (widget) => widget is TopicTitle && widget.title == title,
   ),
+);
+
+Finder get primaryTopicList => find.descendant(
+  of: primaryMainContent,
+  matching: find.byType(TopicListView),
 );

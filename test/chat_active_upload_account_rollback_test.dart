@@ -186,7 +186,9 @@ void main() {
 Future<void> _pick(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('chat-composer-add')));
   await tester.pump();
-  await tester.pump(const Duration(milliseconds: 300));
+  for (var frame = 0; frame < 10; frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
   await tester.tap(find.byKey(const ValueKey('chat-composer-upload')));
   await tester.pump();
   await tester.pump(const Duration(milliseconds: 300));

@@ -2,7 +2,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
@@ -59,7 +61,15 @@ void main() {
         testWidgets(
           'Native ${control.name} control ${operation.name} ${repaint ? 'after repaint' : 'before repaint'} owns its rendered account',
           (tester) async {
-            final site = instance('meta.discourse.org').copyWith(user: _user);
+            final site = instance('meta.discourse.org').copyWith(
+              user: _user,
+              config: SiteConfig(
+                plugins: PluginData.none.withValue(
+                  chatSettingsDataKey,
+                  const ChatSettings(),
+                ),
+              ),
+            );
             final store = _FailingStore([site]);
             final api = FakeDiscourseApi(
               user: _user,

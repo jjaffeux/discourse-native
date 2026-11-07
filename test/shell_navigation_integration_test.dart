@@ -82,12 +82,7 @@ Finder get _railUpdateButton => find.descendant(
 /// Grows the bar into its panel and picks the place called [label].
 Future<void> _openFromPanel(WidgetTester tester, String label) async {
   await openDockPanel(tester);
-  await tester.tap(
-    find.descendant(
-      of: find.byKey(DMobileDock.panelKey),
-      matching: find.widgetWithText(DMobileDockItem, label),
-    ),
-  );
+  await tester.tap(find.widgetWithText(DMobileDockItem, label).hitTestable());
   await tester.pumpAndSettle();
 }
 
@@ -464,7 +459,9 @@ void _registerShellNavigationTests() {
           await tester.tap(
             target ??
                 (shell.currentContent!.id == 'latest'
-                    ? find.byKey(const ValueKey('topic-list-filter-bar'))
+                    ? _primaryContent(
+                        find.byKey(const ValueKey('topic-list-filter-bar')),
+                      )
                     : contentText(shell.currentContent!.title).last),
             buttons: button,
             kind: PointerDeviceKind.mouse,
@@ -544,7 +541,11 @@ void _registerShellNavigationTests() {
         avatar.bottom,
         lessThanOrEqualTo(
           tester
-              .getRect(find.byKey(const ValueKey('topic-list-heading')))
+              .getRect(
+                _primaryContent(
+                  find.byKey(const ValueKey('topic-list-heading')),
+                ),
+              )
               .bottom,
         ),
       );
@@ -614,7 +615,7 @@ void _registerShellNavigationTests() {
     await tester.tap(_sidebarMore);
     await tester.pumpAndSettle();
 
-    expect(sidebarDestination('Groups'), findsNothing);
+    expect(sidebarDestination('Groups'), findsOneWidget);
     expect(sidebarDestination('Filter'), findsNothing);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -1333,11 +1334,11 @@ void _registerShellNavigationTests() {
     expect(controller.topicListContent?.categoryId, 2);
     expect(controller.currentContent?.feedPath, '/c/parent/child/2.json');
     expect(controller.contentStack, hasLength(1));
-    final parentFilter = find.byKey(
-      const ValueKey('topic-list-category-filter'),
+    final parentFilter = _primaryContent(
+      find.byKey(const ValueKey('topic-list-category-filter')),
     );
-    final subcategoryFilter = find.byKey(
-      const ValueKey('topic-list-subcategory-filter-1'),
+    final subcategoryFilter = _primaryContent(
+      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
     );
     expect(parentFilter, findsOneWidget);
     expect(subcategoryFilter, findsOneWidget);
@@ -1534,7 +1535,9 @@ void _registerShellNavigationTests() {
     await tester.pumpAndSettle();
 
     final filterIcon = find.descendant(
-      of: find.byKey(const ValueKey('topic-list-category-filter')),
+      of: _primaryContent(
+        find.byKey(const ValueKey('topic-list-category-filter')),
+      ),
       matching: find.byWidgetPredicate(
         (widget) => widget is DIcon && widget.icon == DIcons.folderOpen,
       ),
@@ -1667,25 +1670,34 @@ void _registerShellNavigationTests() {
     controller.openCategory(parent);
     await tester.pumpAndSettle();
 
-    expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
+    expect(
+      _primaryContent(find.byKey(const ValueKey('topic-list-filter-bar'))),
+      findsOneWidget,
+    );
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('topic-list-filter-bar')),
+        of: _primaryContent(
+          find.byKey(const ValueKey('topic-list-filter-bar')),
+        ),
         matching: find.descendant(
-          of: find.byKey(const ValueKey('topic-list-category-filter')),
+          of: _primaryContent(
+            find.byKey(const ValueKey('topic-list-category-filter')),
+          ),
           matching: find.text('Discourse Native App'),
         ),
       ),
       findsOneWidget,
     );
     expect(
-      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+      _primaryContent(
+        find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+      ),
       findsOneWidget,
     );
     // Shortened to fit the panel, the unchosen level is a plus that keeps
     // its name for assistive technology.
-    final unchosen = find.byKey(
-      const ValueKey('topic-list-subcategory-filter-1'),
+    final unchosen = _primaryContent(
+      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
     );
     expect(
       find.descendant(of: unchosen, matching: find.text('Subcategory')),
@@ -1706,8 +1718,8 @@ void _registerShellNavigationTests() {
       findsNothing,
     );
 
-    final subcategoryFilter = find.byKey(
-      const ValueKey('topic-list-subcategory-filter-1'),
+    final subcategoryFilter = _primaryContent(
+      find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
     );
     await tester.ensureVisible(subcategoryFilter);
     await tester.pumpAndSettle();
@@ -1723,12 +1735,17 @@ void _registerShellNavigationTests() {
     );
     expect(
       find.descendant(
-        of: find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+        of: _primaryContent(
+          find.byKey(const ValueKey('topic-list-subcategory-filter-1')),
+        ),
         matching: find.text('Bugs'),
       ),
       findsOneWidget,
     );
-    expect(find.byKey(const ValueKey('topic-list-filter-bar')), findsOneWidget);
+    expect(
+      _primaryContent(find.byKey(const ValueKey('topic-list-filter-bar'))),
+      findsOneWidget,
+    );
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
   testWidgets('retries an incomplete category supplement on feed refresh', (
@@ -3795,3 +3812,6 @@ Future<void> _selectCategoryFilter(WidgetTester tester, String label) async {
   await tester.tap(choice);
   await tester.pumpAndSettle();
 }
+
+Finder _primaryContent(Finder finder) =>
+    find.descendant(of: primaryMainContent, matching: finder);

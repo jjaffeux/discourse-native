@@ -71,9 +71,13 @@ void main() {
           );
           await tester.pumpAndSettle();
           final origin = tester.getTopLeft(find.byKey(_capture));
+          final canvasInterior =
+              (Offset.zero & tester.getSize(find.byKey(_capture))).deflate(.5);
           final group = tester.getRect(find.byType(DCard)).shift(-origin);
           final refresh = find.byKey(ContentNavigationControls.refreshKey);
           final button = tester.getRect(refresh).shift(-origin);
+          final home = find.byKey(ContentNavigationControls.homeKey);
+          final homeBounds = tester.getRect(home).shift(-origin);
           final back = find.byKey(ContentNavigationControls.backKey);
           expect(tester.widget<DButton>(back).onPressed, isNull);
           expect(tester.widget<DButton>(refresh).onPressed, isNotNull);
@@ -125,7 +129,7 @@ void main() {
               final point = Offset((x + .5) / 2, (y + .5) / 2);
               final index = (y * rest.width + x) * 4;
               for (var channel = 0; channel < 4; channel++) {
-                if (button.contains(point)) {
+                if (button.inflate(.5).contains(point)) {
                   if (rest.bytes[index + channel] !=
                       hovered.bytes[index + channel]) {
                     changed++;
@@ -138,7 +142,9 @@ void main() {
                   );
                 }
               }
-              if (!group.inflate(1).contains(point)) {
+              if (canvasInterior.contains(point) &&
+                  !group.inflate(1).contains(point) &&
+                  !homeBounds.inflate(1).contains(point)) {
                 expect(rest.bytes.sublist(index, index + 4), [
                   0x16,
                   0x45,
@@ -163,6 +169,9 @@ void main() {
           expect(buttonSurface(tester, of: refresh).color.a, 0);
           await mouse.removePointer();
           // The inset action remains reachable and visibly focused by keyboard.
+          await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+          await tester.pumpAndSettle();
+          expect(buttonSurface(tester, of: home).ringWidth, greaterThan(0));
           await tester.sendKeyEvent(LogicalKeyboardKey.tab);
           await tester.pumpAndSettle();
           expect(buttonSurface(tester, of: refresh).ringWidth, greaterThan(0));

@@ -426,11 +426,8 @@ extension _NestedRepliesReaderView on _NestedRepliesReaderState {
                     DButton(
                       variant: DButtonVariant.inline,
                       size: DButtonSize.chip,
-                      label: Text(
-                        _revealing.contains(node.postId)
-                            ? appL10n.loading
-                            : appL10n.nestedRepliesRevealIgnored,
-                      ),
+                      label: Text(appL10n.nestedRepliesRevealIgnored),
+                      loading: _revealing.contains(node.postId),
                       onPressed: _revealing.contains(node.postId)
                           ? null
                           : () => _reveal(node),

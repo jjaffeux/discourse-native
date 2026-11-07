@@ -219,10 +219,15 @@ class _DInputGroupState extends State<DInputGroup> {
       builder: (context, constraints) {
         // Keep both addon lanes shrinkable at large text sizes while reserving
         // space for the editor between them.
+        final addonWidth =
+            (constraints.maxWidth -
+                    (search && inlineStart.isNotEmpty ? 8 : 0) -
+                    (search && inlineEnd.isNotEmpty ? 8 : 0))
+                .clamp(0.0, double.infinity);
         Widget side(List<Widget> children, {bool leading = false}) =>
             ConstrainedBox(
               constraints: BoxConstraints(
-                maxWidth: constraints.maxWidth * (search && leading ? .55 : .4),
+                maxWidth: addonWidth * (search && leading ? .55 : .4),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,

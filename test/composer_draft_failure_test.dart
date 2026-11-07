@@ -108,7 +108,8 @@ void main() {
     expect(
       tester.getSemantics(failure),
       isSemantics(
-        label: "Couldn't save this draft on this device.",
+        label:
+            "Couldn't complete this action\nCouldn't save this draft on this device.",
         isLiveRegion: false,
       ),
     );

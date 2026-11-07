@@ -499,8 +499,20 @@ void main() {
       mode: TopicListMode.latest,
       newIds: {3},
     );
-    expect(find.byType(TopicUnreadBadge), findsNWidgets(2));
-    expect(find.byType(TopicStateDot), findsOneWidget);
+    expect(
+      find.descendant(
+        of: primaryTopicList,
+        matching: find.byType(TopicUnreadBadge),
+      ),
+      findsNWidgets(2),
+    );
+    expect(
+      find.descendant(
+        of: primaryTopicList,
+        matching: find.byType(TopicStateDot),
+      ),
+      findsOneWidget,
+    );
     final tracker = FakeSiteTracker.built.single;
     tracker.deliverTopicTracking(const {
       'message_type': 'dismiss_new',
@@ -581,7 +593,7 @@ void main() {
       await tester.pumpAndSettle();
       final list = tester.widget<SuperListView>(
         find.descendant(
-          of: find.byType(TopicListView),
+          of: primaryTopicList,
           matching: find.byType(SuperListView),
         ),
       );
@@ -631,7 +643,7 @@ void main() {
         );
         await shell.appSettings.setLimitContentSize(limited);
         await tester.pumpAndSettle();
-        final viewport = tester.getRect(find.byType(TopicListView));
+        final viewport = tester.getRect(primaryTopicList);
         expect(viewport.width, greaterThan(825));
         await shell.markTopicRead(_site, 1, 10, caughtUp: true);
         await tester.pump();
@@ -690,7 +702,10 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }
 
-Finder _card(int id) => find.byKey(ValueKey('topic-card-$id'));
+Finder _card(int id) => find.descendant(
+  of: primaryTopicList,
+  matching: find.byKey(ValueKey('topic-card-$id')),
+);
 
 void _expectDismissed(ShellController shell, List<int> ids) {
   for (final id in ids) {

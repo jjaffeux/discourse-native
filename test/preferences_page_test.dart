@@ -80,7 +80,17 @@ Future<_Fixture> _fixture({
   WriteException? writeFailure,
   FakeDiscourseApi? apiOverride,
 }) async {
-  final selectedSite = site ?? _chatSite;
+  var selectedSite = site ?? _chatSite;
+  if (!selectedSite.config.plugins.contains(chatSettingsDataKey)) {
+    selectedSite = selectedSite.copyWith(
+      config: selectedSite.config.withPlugins(
+        selectedSite.config.plugins.withValue(
+          chatSettingsDataKey,
+          const ChatSettings(),
+        ),
+      ),
+    );
+  }
   final api =
       apiOverride ??
       FakeDiscourseApi(

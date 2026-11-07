@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 
 const cakedayPluginId = PluginId('discourse-cakeday');
 const cakedaySettingsKey = PluginDataKey<CakedaySettings>(
@@ -23,6 +24,22 @@ final class CakedaySettings {
   });
   final bool enabled, birthdays;
   final List<String> anniversaryEmoji, birthdayEmoji;
+  @override
+  bool operator ==(Object other) =>
+      other is CakedaySettings &&
+      enabled == other.enabled &&
+      birthdays == other.birthdays &&
+      listEquals(anniversaryEmoji, other.anniversaryEmoji) &&
+      listEquals(birthdayEmoji, other.birthdayEmoji);
+
+  @override
+  int get hashCode => Object.hash(
+    enabled,
+    birthdays,
+    Object.hashAll(anniversaryEmoji),
+    Object.hashAll(birthdayEmoji),
+  );
+
   factory CakedaySettings.read(Map<String, dynamic> json) => CakedaySettings(
     enabled: json['cakeday_enabled'] == true,
     birthdays: json['cakeday_birthday_enabled'] == true,
@@ -115,6 +132,16 @@ final class CakedayDates {
   const CakedayDates({this.joined, this.birthday});
   final CakedayDate? joined;
   final CakedayBirthday? birthday;
+
+  @override
+  bool operator ==(Object other) =>
+      other is CakedayDates &&
+      joined == other.joined &&
+      birthday == other.birthday;
+
+  @override
+  int get hashCode => Object.hash(joined, birthday);
+
   static CakedayDates? read(Map<String, dynamic> json, {bool post = false}) {
     final joinKey = post ? 'user_cakedate' : 'cakedate';
     final birthKey = post ? 'user_birthdate' : 'birthdate';

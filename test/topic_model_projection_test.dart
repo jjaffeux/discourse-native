@@ -490,6 +490,14 @@ Map<String, dynamic> _topicPayload({required bool large}) => {
           'cooked': '<p>Post $i</p>',
           'accepted_answer': true,
           'can_accept_answer': true,
+          'policy_can_accept': true,
+          'policy_can_revoke': false,
+          'policy_accepted': false,
+          'policy_revoked': false,
+          'post_voting_vote_count': 2,
+          'user_cakedate': '2020-01-01',
+          'user_birthdate': '1990-06-15',
+          'user_custom_fields': {'user_notes_count': 3},
           'polls': [
             {
               'name': 'poll',

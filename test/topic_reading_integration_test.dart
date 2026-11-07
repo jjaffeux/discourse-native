@@ -924,7 +924,7 @@ void _registerTopicReadingTests() {
         forumTabs: forumTabs,
       );
 
-      expect(api.feedPaths, [groupInbox]);
+      expect(api.feedPaths, [groupInbox, '/latest.json']);
       expect(find.text('tech-advocates'), findsOneWidget);
       expect(find.text('Restored group message'), findsOneWidget);
       expect(
@@ -1125,7 +1125,9 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final row = find.byKey(const ValueKey('topic-card-9')).first;
+      final row = _primaryContent(
+        find.byKey(const ValueKey('topic-card-9')),
+      ).first;
       final title = find.descendant(of: row, matching: find.byType(TopicTitle));
       final lock = find.descendant(of: row, matching: find.dIcon(DIcons.lock));
       final lockGlyph = find.descendant(
@@ -1202,7 +1204,7 @@ void _registerTopicReadingTests() {
       // softened foreground rather than the wide row's whisper.
       expect(
         tester.widget<TopicTitle>(contentText('Caught up')).style?.color,
-        Color.lerp(tokens.background, tokens.foreground, .9),
+        tokens.titleRead,
       );
       expect(
         tester.widget<TopicTitle>(contentText('Not caught up')).style?.color,
@@ -1229,17 +1231,24 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       expect(
-        find.byWidgetPredicate(
-          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        _primaryContent(
+          find.byWidgetPredicate(
+            (widget) => widget is TopicStateDot && widget.label == 'New topic',
+          ),
         ),
         findsOneWidget,
       );
-      expect(find.bySemanticsLabel('New topic'), findsOneWidget);
       expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is TopicStateDot &&
-              widget.label == 'Topic has new replies',
+        _primaryContent(find.bySemanticsLabel('New topic')),
+        findsOneWidget,
+      );
+      expect(
+        _primaryContent(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is TopicStateDot &&
+                widget.label == 'Topic has new replies',
+          ),
         ),
         findsNothing,
       );
@@ -1269,8 +1278,10 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      final dots = find.byWidgetPredicate(
-        (widget) => widget is TopicStateDot && widget.label == 'New topic',
+      final dots = _primaryContent(
+        find.byWidgetPredicate(
+          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        ),
       );
       expect(dots, findsNWidgets(2));
       final firstDot = tester.getRect(dots.first);
@@ -1313,8 +1324,10 @@ void _registerTopicReadingTests() {
 
       final titleRect = tester.getRect(contentText(title));
       final dot = tester.getRect(
-        find.byWidgetPredicate(
-          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        _primaryContent(
+          find.byWidgetPredicate(
+            (widget) => widget is TopicStateDot && widget.label == 'New topic',
+          ),
         ),
       );
       expect(titleRect.height, greaterThan(36));
@@ -1384,17 +1397,24 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       expect(
-        find.byWidgetPredicate(
-          (widget) =>
-              widget is TopicStateDot &&
-              widget.label == 'Topic has new replies',
+        _primaryContent(
+          find.byWidgetPredicate(
+            (widget) =>
+                widget is TopicStateDot &&
+                widget.label == 'Topic has new replies',
+          ),
         ),
         findsOneWidget,
       );
-      expect(find.bySemanticsLabel('Topic has new replies'), findsOneWidget);
       expect(
-        find.byWidgetPredicate(
-          (widget) => widget is TopicStateDot && widget.label == 'New topic',
+        _primaryContent(find.bySemanticsLabel('Topic has new replies')),
+        findsOneWidget,
+      );
+      expect(
+        _primaryContent(
+          find.byWidgetPredicate(
+            (widget) => widget is TopicStateDot && widget.label == 'New topic',
+          ),
         ),
         findsNothing,
       );
@@ -1414,10 +1434,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       expect(
-        find.descendant(
-          of: find.byType(TopicListView),
-          matching: find.text('Feature'),
-        ),
+        find.descendant(of: primaryTopicList, matching: find.text('Feature')),
         findsOneWidget,
       );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
@@ -1465,27 +1482,26 @@ void _registerTopicReadingTests() {
       await tester.pumpAndSettle();
 
       expect(
-        find.descendant(
-          of: find.byType(TopicListView),
-          matching: find.text(parent.name),
-        ),
+        find.descendant(of: primaryTopicList, matching: find.text(parent.name)),
         findsOneWidget,
       );
       expect(
         find.descendant(
-          of: find.byType(TopicListView),
+          of: primaryTopicList,
           matching: find.text(category.name),
         ),
         findsOneWidget,
       );
       final parentLink = find.descendant(
-        of: find.byKey(const ValueKey('topic-card-3')),
+        of: _primaryContent(find.byKey(const ValueKey('topic-card-3'))),
         matching: find.bySemanticsLabel('Parent category: ${parent.name}'),
       );
-      final categoryLink = find.bySemanticsLabel('Category: ${category.name}');
+      final categoryLink = _primaryContent(
+        find.bySemanticsLabel('Category: ${category.name}'),
+      );
       expect(parentLink, findsOneWidget);
       expect(categoryLink, findsOneWidget);
-      final row = find.byKey(const ValueKey('topic-card-3'));
+      final row = _primaryContent(find.byKey(const ValueKey('topic-card-3')));
       final parentLabel = find.descendant(
         of: row,
         matching: find.text(parent.name),
@@ -1584,10 +1600,12 @@ void _registerTopicReadingTests() {
         const Offset(500, 0),
       );
       await tester.pumpAndSettle();
-      final firstTag = find.text('#ai');
-      final secondTag = find.text('#in-progress');
-      final firstTagLink = find.bySemanticsLabel('Tag: ai');
-      final secondTagLink = find.bySemanticsLabel('Tag: in-progress');
+      final firstTag = _primaryContent(find.text('#ai'));
+      final secondTag = _primaryContent(find.text('#in-progress'));
+      final firstTagLink = _primaryContent(find.bySemanticsLabel('Tag: ai'));
+      final secondTagLink = _primaryContent(
+        find.bySemanticsLabel('Tag: in-progress'),
+      );
       await _revealTopicTags(tester);
       expect(firstTag, findsOneWidget);
       expect(secondTag, findsOneWidget);
@@ -1595,7 +1613,9 @@ void _registerTopicReadingTests() {
       expect(secondTagLink, findsOneWidget);
       // The list lane is narrow, so tags use the compact card's inline pill
       // geometry and share the metadata row's 5 px gap with the category.
-      final categoryLink = find.bySemanticsLabel('Category: Feature');
+      final categoryLink = _primaryContent(
+        find.bySemanticsLabel('Category: Feature'),
+      );
       expect(tester.getSize(firstTagLink).height, greaterThan(0));
       expect(
         tester.getCenter(categoryLink).dy,
@@ -1613,7 +1633,7 @@ void _registerTopicReadingTests() {
         closeTo(5, 0.01),
       );
       final category = find.descendant(
-        of: find.byType(TopicListView),
+        of: primaryTopicList,
         matching: find.text('Feature'),
       );
       expect(
@@ -1683,7 +1703,9 @@ void _registerTopicReadingTests() {
         authenticator: authenticator,
       );
 
-      final tagLinks = find.bySemanticsLabel('Tag: ${tag.name}');
+      final tagLinks = _primaryContent(
+        find.bySemanticsLabel('Tag: ${tag.name}'),
+      );
       expect(tagLinks, findsNWidgets(2));
       await tester.tap(tagLinks.first);
       await tester.pumpAndSettle();
@@ -1747,7 +1769,9 @@ void _registerTopicReadingTests() {
       );
 
       await pumpShell(tester, desktop, api: api);
-      await tester.tap(find.bySemanticsLabel('Tag: ${tag.name}'));
+      await tester.tap(
+        _primaryContent(find.bySemanticsLabel('Tag: ${tag.name}')),
+      );
       await tester.pumpAndSettle();
 
       final controller = ShellScope.read(tester.element(primaryMainContent));
@@ -1806,7 +1830,9 @@ void _registerTopicReadingTests() {
       await tester.tap(find.text('Feature'));
       await tester.pumpAndSettle();
       expect(controller.currentContent?.id, 'category-5');
-      await tester.tap(find.bySemanticsLabel('Tag: ${tag.name}'));
+      await tester.tap(
+        _primaryContent(find.bySemanticsLabel('Tag: ${tag.name}')),
+      );
       await tester.pump();
       expect(api.hashtagSearchesRequested, ['2024']);
 
@@ -1852,7 +1878,9 @@ void _registerTopicReadingTests() {
       // Phone cards list every tag and wrap them rather than folding the
       // rest into an overflow token.
       await _revealTopicTags(tester);
-      final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
+      final card = tester.getRect(
+        _primaryContent(find.byKey(const ValueKey('topic-card-3'))),
+      );
       for (final name in [
         'design',
         longName,
@@ -1860,7 +1888,7 @@ void _registerTopicReadingTests() {
         'mobile',
         'support',
       ]) {
-        final link = find.bySemanticsLabel('Tag: $name');
+        final link = _primaryContent(find.bySemanticsLabel('Tag: $name'));
         expect(link, findsOneWidget);
         expect(tester.getRect(link).left, greaterThanOrEqualTo(card.left));
         expect(tester.getRect(link).right, lessThanOrEqualTo(card.right));
@@ -1869,7 +1897,7 @@ void _registerTopicReadingTests() {
         find.byKey(const ValueKey('topic-row-tag-overflow')),
         findsNothing,
       );
-      expect(find.text('#support'), findsOneWidget);
+      expect(_primaryContent(find.text('#support')), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -1886,7 +1914,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(const ValueKey('mobile-mode-topics')));
       await tester.pumpAndSettle();
 
-      final list = find.byType(TopicListView);
+      final list = primaryTopicList;
       final label = find.descendant(
         of: list,
         matching: find.byWidgetPredicate(
@@ -1949,9 +1977,11 @@ void _registerTopicReadingTests() {
       // Phone cards list every tag as a compact pill and wrap them onto
       // further lines rather than folding the rest into an overflow token.
       await _revealTopicTags(tester);
-      final card = tester.getRect(find.byKey(const ValueKey('topic-card-3')));
-      final firstTag = find.bySemanticsLabel('Tag: sea2');
-      final secondTag = find.bySemanticsLabel('Tag: sea1');
+      final card = tester.getRect(
+        _primaryContent(find.byKey(const ValueKey('topic-card-3'))),
+      );
+      final firstTag = _primaryContent(find.bySemanticsLabel('Tag: sea2'));
+      final secondTag = _primaryContent(find.bySemanticsLabel('Tag: sea1'));
       expect(
         find.byKey(const ValueKey('topic-row-tag-overflow')),
         findsNothing,
@@ -1959,7 +1989,7 @@ void _registerTopicReadingTests() {
       expect(tester.getCenter(secondTag).dy, tester.getCenter(firstTag).dy);
       final rows = <double>{};
       for (final tag in tags) {
-        final link = find.bySemanticsLabel('Tag: ${tag.name}');
+        final link = _primaryContent(find.bySemanticsLabel('Tag: ${tag.name}'));
         expect(link, findsOneWidget);
         final rect = tester.getRect(link);
         expect(rect.height, 22);
@@ -1967,7 +1997,10 @@ void _registerTopicReadingTests() {
         expect(rect.right, lessThanOrEqualTo(card.right));
         rows.add(rect.center.dy);
         expect(
-          tester.widget<Text>(find.text('#${tag.name}')).style!.fontSize,
+          tester
+              .widget<Text>(_primaryContent(find.text('#${tag.name}')))
+              .style!
+              .fontSize,
           12,
         );
       }
@@ -1982,8 +2015,11 @@ void _registerTopicReadingTests() {
 
       await pumpShell(tester, desktop, api: api);
 
-      expect(find.byType(TopicListView), findsOneWidget);
-      expect(find.textContaining("Couldn't reach"), findsOneWidget);
+      expect(primaryTopicList, findsOneWidget);
+      expect(
+        _primaryContent(find.textContaining("Couldn't reach")),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2105,12 +2141,15 @@ void _registerTopicReadingTests() {
       final api = FakeDiscourseApi(feeds: {'/latest.json': onList});
       await pumpWithFeeds(tester, api);
 
-      expect(find.textContaining('See '), findsNothing);
+      expect(_primaryContent(find.textContaining('See ')), findsNothing);
 
       tracker().deliver(created(99));
       await tester.pumpAndSettle();
 
-      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 1 new or updated topic')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('the count is of topics, not of messages', (tester) async {
@@ -2123,7 +2162,10 @@ void _registerTopicReadingTests() {
         ..deliver(bumped(99));
       await tester.pumpAndSettle();
 
-      expect(find.text('See 2 new or updated topics'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 2 new or updated topics')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic in a muted category does not announce itself', (
@@ -2137,12 +2179,15 @@ void _registerTopicReadingTests() {
         ..deliver(created(99, categoryId: 5));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('See '), findsNothing);
+      expect(_primaryContent(find.textContaining('See ')), findsNothing);
 
       tracker().deliver(bumped(1, categoryId: 6));
       await tester.pumpAndSettle();
 
-      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 1 new or updated topic')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic the reader muted does not announce itself', (
@@ -2156,7 +2201,7 @@ void _registerTopicReadingTests() {
         ..deliver(bumped(2, categoryId: 6));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('See '), findsNothing);
+      expect(_primaryContent(find.textContaining('See ')), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a deleted topic withdraws its announcement', (tester) async {
@@ -2166,12 +2211,18 @@ void _registerTopicReadingTests() {
         ..deliver(created(99, categoryId: 6))
         ..deliver(created(100, categoryId: 6));
       await tester.pumpAndSettle();
-      expect(find.text('See 2 new or updated topics'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 2 new or updated topics')),
+        findsOneWidget,
+      );
 
       tracker().deliverDelete(const {'topic_id': 99, 'message_type': 'delete'});
       await tester.pumpAndSettle();
 
-      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 1 new or updated topic')),
+        findsOneWidget,
+      );
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('tapping it fetches those topics and puts them on top', (
@@ -2189,13 +2240,15 @@ void _registerTopicReadingTests() {
 
       tracker().deliver(created(99));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('See 1 new or updated topic'));
+      await tester.tap(
+        _primaryContent(find.text('See 1 new or updated topic')),
+      );
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, contains('/latest.json?topic_ids=99'));
       expect(contentText('Just posted'), findsOneWidget);
       expect(contentText('Welcome to the forum'), findsOneWidget);
-      expect(find.textContaining('See '), findsNothing);
+      expect(_primaryContent(find.textContaining('See ')), findsNothing);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
     testWidgets('a topic that was only bumped is moved, not duplicated', (
@@ -2211,7 +2264,9 @@ void _registerTopicReadingTests() {
 
       tracker().deliver(bumped(2));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('See 1 new or updated topic'));
+      await tester.tap(
+        _primaryContent(find.text('See 1 new or updated topic')),
+      );
       await tester.pumpAndSettle();
 
       expect(contentText('Something else'), findsOneWidget);
@@ -2271,23 +2326,28 @@ void _registerTopicReadingTests() {
         await pumpWithFeeds(tester, api);
         await openFeature(tester);
 
-        expect(find.textContaining('See '), findsNothing);
+        expect(_primaryContent(find.textContaining('See ')), findsNothing);
 
         tracker()
           ..deliver(created(99, categoryId: 5))
           ..deliver(created(101, categoryId: 6));
         await tester.pumpAndSettle();
 
-        expect(find.text('See 2 new or updated topics'), findsOneWidget);
+        expect(
+          _primaryContent(find.text('See 2 new or updated topics')),
+          findsOneWidget,
+        );
 
-        await tester.tap(find.text('See 2 new or updated topics'));
+        await tester.tap(
+          _primaryContent(find.text('See 2 new or updated topics')),
+        );
         await tester.pumpAndSettle();
 
         expect(api.feedPaths, contains('$categoryPath?topic_ids=99,101'));
         expect(find.text('Asked in Feature'), findsOneWidget);
         expect(find.text('Asked in Ideas'), findsOneWidget);
         expect(contentText('Welcome to the forum'), findsOneWidget);
-        expect(find.textContaining('See '), findsNothing);
+        expect(_primaryContent(find.textContaining('See ')), findsNothing);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('a topic in another category does not announce itself', (
@@ -2302,7 +2362,7 @@ void _registerTopicReadingTests() {
           ..deliver(created(102));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('See '), findsNothing);
+        expect(_primaryContent(find.textContaining('See ')), findsNothing);
         expect(controller.incomingCount('category-5'), 0);
         // Latest, which holds every category, still counts them.
         expect(controller.incomingCount('latest'), 3);
@@ -2319,7 +2379,7 @@ void _registerTopicReadingTests() {
           ..deliver(bumped(1, categoryId: 5));
         await tester.pumpAndSettle();
 
-        expect(find.textContaining('See '), findsNothing);
+        expect(_primaryContent(find.textContaining('See ')), findsNothing);
         expect(controller.incomingCount('category-5'), 0);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2350,7 +2410,10 @@ void _registerTopicReadingTests() {
         tracker().deliver(created(99, categoryId: 5));
         await tester.pumpAndSettle();
 
-        expect(find.text('See 1 new or updated topic'), findsOneWidget);
+        expect(
+          _primaryContent(find.text('See 1 new or updated topic')),
+          findsOneWidget,
+        );
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
     });
 
@@ -2382,9 +2445,14 @@ void _registerTopicReadingTests() {
         ..deliver(created(101));
       await tester.pumpAndSettle();
 
-      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 1 new or updated topic')),
+        findsOneWidget,
+      );
 
-      await tester.tap(find.text('See 1 new or updated topic'));
+      await tester.tap(
+        _primaryContent(find.text('See 1 new or updated topic')),
+      );
       await tester.pumpAndSettle();
 
       expect(api.feedPaths, contains('$tagPath?topic_ids=99'));
@@ -2399,10 +2467,15 @@ void _registerTopicReadingTests() {
 
       tracker().deliver(created(99));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('See 1 new or updated topic'));
+      await tester.tap(
+        _primaryContent(find.text('See 1 new or updated topic')),
+      );
       await tester.pumpAndSettle();
 
-      expect(find.text('See 1 new or updated topic'), findsOneWidget);
+      expect(
+        _primaryContent(find.text('See 1 new or updated topic')),
+        findsOneWidget,
+      );
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -2744,7 +2817,7 @@ void _registerTopicReadingTests() {
 
   group('infinite scroll', () {
     final topicList = find.descendant(
-      of: find.byType(TopicListView),
+      of: primaryTopicList,
       matching: find.byType(SuperListView),
     );
 
@@ -2772,7 +2845,7 @@ void _registerTopicReadingTests() {
         find.text('Topic 31'),
         400,
         scrollable: find.descendant(
-          of: find.byType(TopicListView),
+          of: primaryTopicList,
           matching: find.byType(Scrollable),
         ),
       );
@@ -3027,7 +3100,7 @@ void _registerTopicReadingTests() {
 
       expect(api.topicsOpened, [7]);
       expect(find.byType(TopicView), findsOneWidget);
-      expect(find.byType(TopicListView), findsNothing);
+      expect(primaryTopicList, findsNothing);
       expect(find.byType(InlineTopicTitleEditor), findsNothing);
       expect(
         find.byKey(const ValueKey('topic-header-title-field')),
@@ -4096,7 +4169,9 @@ void _registerTopicReadingTests() {
         authenticator: authenticator,
       );
       // A pinned title carries an inline pin marker, so open its card.
-      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.tap(
+        _primaryContent(find.byKey(const ValueKey('topic-card-7'))),
+      );
       await tester.pumpAndSettle();
 
       final trigger = find.byTooltip('More topic actions');
@@ -4163,7 +4238,9 @@ void _registerTopicReadingTests() {
         authenticator: authenticator,
       );
       // A pinned title carries an inline pin marker, so open its card.
-      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.tap(
+        _primaryContent(find.byKey(const ValueKey('topic-card-7'))),
+      );
       await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('More topic actions'));
       await tester.pumpAndSettle();
@@ -4463,7 +4540,7 @@ void _registerTopicReadingTests() {
       await tester.tap(find.byKey(ContentNavigationControls.backKey));
       await tester.pumpAndSettle();
 
-      expect(find.byType(TopicListView), findsOneWidget);
+      expect(primaryTopicList, findsOneWidget);
       expect(api.feedPaths, ['/latest.json']);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
@@ -4519,7 +4596,7 @@ void _registerTopicReadingTests() {
       await pumpShell(tester, desktop, api: api);
 
       final list = find.descendant(
-        of: find.byType(TopicListView),
+        of: primaryTopicList,
         matching: find.byType(Scrollable),
       );
       final row = find.text('Topic 40');
@@ -4916,7 +4993,10 @@ void _registerTopicReadingTests() {
         );
         expect(find.text('Suggested'), findsNothing);
         expect(find.text('Related'), findsNothing);
-        expect(find.byKey(const ValueKey('topic-card-8')), findsOneWidget);
+        expect(
+          _primaryContent(find.byKey(const ValueKey('topic-card-8'))),
+          findsOneWidget,
+        );
         final compactTitle = tester.widget<TopicTitle>(
           find.byWidgetPredicate(
             (widget) =>
@@ -4927,10 +5007,10 @@ void _registerTopicReadingTests() {
         expect(compactTitle.style?.fontSize, DiscourseTypography.rowTitle);
         expect(compactTitle.style?.fontSize, lessThan(DiscourseTypography.lg));
         final first = tester.widget<DItem>(
-          find.byKey(const ValueKey('topic-card-8')),
+          _primaryContent(find.byKey(const ValueKey('topic-card-8'))),
         );
         final second = tester.widget<DItem>(
-          find.byKey(const ValueKey('topic-card-9')),
+          _primaryContent(find.byKey(const ValueKey('topic-card-9'))),
         );
         expect(first.closed, isTrue);
         expect(first.closedRuleAbove, isFalse);
@@ -4939,7 +5019,9 @@ void _registerTopicReadingTests() {
         expect(second.closedRuleAbove, isTrue);
         expect(second.closedRuleBelow, isTrue);
         final shell = ShellScope.read(
-          tester.element(find.byKey(const ValueKey('topic-card-8'))),
+          tester.element(
+            _primaryContent(find.byKey(const ValueKey('topic-card-8'))),
+          ),
         );
         final original = recommendations.sources.first.topics;
         Finder rules() => find.descendant(
@@ -4954,13 +5036,17 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
         expect(
           tester
-              .widget<DItem>(find.byKey(const ValueKey('topic-card-9')))
+              .widget<DItem>(
+                _primaryContent(find.byKey(const ValueKey('topic-card-9'))),
+              )
               .closed,
           isFalse,
         );
         expect(
           tester
-              .widget<DItem>(find.byKey(const ValueKey('topic-card-8')))
+              .widget<DItem>(
+                _primaryContent(find.byKey(const ValueKey('topic-card-8'))),
+              )
               .closedRuleBelow,
           isTrue,
         );
@@ -4972,7 +5058,9 @@ void _registerTopicReadingTests() {
         await tester.pumpAndSettle();
         expect(
           tester
-              .widget<DItem>(find.byKey(const ValueKey('topic-card-8')))
+              .widget<DItem>(
+                _primaryContent(find.byKey(const ValueKey('topic-card-8'))),
+              )
               .closed,
           isFalse,
         );
@@ -5629,3 +5717,6 @@ double _inlineTitleGap(WidgetTester tester, Finder title) {
           box.localToGlobal(Offset.zero))
       .dx;
 }
+
+Finder _primaryContent(Finder finder) =>
+    find.descendant(of: primaryMainContent, matching: finder);
