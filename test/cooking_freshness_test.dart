@@ -108,8 +108,13 @@ void main() {
       );
       expect(shell.cookingRequestIsCurrent(request), isTrue);
       shell.store.put(_site, const UserCard(username: 'unrelated'));
+      shell.store.put(
+        _site,
+        const TopicDetail(id: 99, title: 'Unrelated', stream: []),
+      );
       await pumpEventQueue();
       expect(calls, 0);
+      expect(shell.cookingRequestIsCurrent(request), isTrue);
       shell.store.put(
         _site,
         const UserCard(username: 'Alice', avatarUrl: '/a.png'),
@@ -138,6 +143,85 @@ void main() {
       stop();
       await pumpEventQueue();
       expect(calls, 2);
+    },
+  );
+
+  test('referenced cooking fields share watch and request freshness', () async {
+    final shell = _shell();
+    shell.store.put(
+      _site,
+      const UserCard(username: 'Alice', avatarUrl: '/a.png'),
+    );
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 12, title: 'Topic', stream: []),
+    );
+    const raw = '@Alice [quote="Alice, topic:12"]body[/quote]';
+    final request = shell.cookingRequest(siteUrl: _site, raw: raw);
+    var calls = 0;
+    final stop = shell.watchCooking(
+      siteUrl: _site,
+      raw: raw,
+      onChanged: () => calls++,
+    );
+    addTearDown(stop);
+    shell.store.put(
+      _site,
+      const UserCard(
+        username: 'Alice',
+        name: 'New display name',
+        avatarUrl: '/a.png',
+      ),
+    );
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 12, title: 'Topic', stream: [1, 2]),
+    );
+    await pumpEventQueue();
+    expect(calls, 0);
+    expect(shell.cookingRequestIsCurrent(request), isTrue);
+    shell.store.put(
+      _site,
+      const UserCard(username: 'Alice', avatarUrl: '/b.png'),
+    );
+    expect(shell.cookingRequestIsCurrent(request), isFalse);
+    await pumpEventQueue();
+    expect(calls, 1);
+    final next = shell.cookingRequest(siteUrl: _site, raw: raw);
+    expect(next.snapshot.avatars['Alice'], contains('b.png'));
+    shell.store.put(
+      _site,
+      const TopicDetail(id: 12, title: 'Updated topic', stream: []),
+    );
+    expect(shell.cookingRequestIsCurrent(next), isFalse);
+    await pumpEventQueue();
+    expect(calls, 2);
+    final fresh = shell.cookingRequest(siteUrl: _site, raw: raw);
+    expect(fresh.snapshot.topics['12'], containsPair('title', 'Updated topic'));
+    expect(shell.cookingRequestIsCurrent(fresh), isTrue);
+  });
+
+  test(
+    'references beyond the existing bound do not silently stale a request',
+    () async {
+      final shell = _shell();
+      final raw = List.generate(129, (index) => '@user$index').join(' ');
+      final request = shell.cookingRequest(siteUrl: _site, raw: raw);
+      var calls = 0;
+      final stop = shell.watchCooking(
+        siteUrl: _site,
+        raw: raw,
+        onChanged: () => calls++,
+      );
+      addTearDown(stop);
+      shell.store.put(_site, const UserCard(username: 'user128'));
+      await pumpEventQueue();
+      expect(calls, 0);
+      expect(shell.cookingRequestIsCurrent(request), isTrue);
+      shell.store.put(_site, const UserCard(username: 'user127'));
+      expect(shell.cookingRequestIsCurrent(request), isFalse);
+      await pumpEventQueue();
+      expect(calls, 1);
     },
   );
 

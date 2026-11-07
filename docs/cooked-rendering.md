@@ -84,3 +84,29 @@ Focused coverage lives in `test/cooked_render_context_test.dart`,
 `test/cooked_html_test.dart`, `test/posted_todos_test.dart`, the
 `test/cooked_{details,spoiler,table,site_identity,markup_totality}_test.dart`
 suites, and the selection, code, site-image and progressive rendering suites.
+
+## Cooking source dependencies
+
+`CookingContextOwner` parses each raw source's bounded topic and user references
+once for its request or watch. Snapshot assembly, preflight freshness and watch
+notifications share that selection. Entity freshness compares only the cached
+fields projected into cooking metadata: topic titles and referenced user
+usernames/avatar URLs, including missing values that can arrive later.
+
+A change to an unrelated record, or to an unused field on a referenced record,
+does not stale a prepared request. Previously requests compared whole-site entity
+generations while watchers observed selected refs, so unrelated arrivals could
+silently discard cooked work without scheduling a replacement. Relevant metadata
+arrival or change now invalidates the request and notifies its watch consistently.
+
+Source snapshots retain small immutable scalar tuples, not entity objects or
+new per-request listeners. Request tracking remains weakly keyed by the original
+`CookingRequest`. Existing 65,536-character and 128-reference bounds remain in
+force. Account generations, application context revisions, settings, identity,
+presentation and timezone checks retain their existing authority.
+
+Using broad Store notifications instead would recook all watched sources for
+unrelated records. Registered structural dependencies would need an explicit
+request disposal lifetime. The bounded source snapshot avoids both changes.
+Freshness, headless context and Chat cooking tests pin the shared selection,
+relevant arrivals, immutable worker requests and consumer lifetime.

@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
-import 'package:flutter/foundation.dart' show Listenable, VoidCallback;
+import 'package:flutter/foundation.dart'
+    show Listenable, VoidCallback, listEquals;
 
 import '../data/application_cooking.dart';
 import '../data/store.dart';
@@ -34,11 +35,12 @@ final class CookingContextOwner {
   final TimezoneEnvironment _timezones;
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
   final CookingIdentityMetadata Function(String siteUrl) _identitiesFor;
-  final _requestStamps = Expando<_CookingSourceStamp>();
+  final _requestSources =
+      Expando<({_CookingReferences references, _CookingSourceStamp stamp})>();
   final Set<_CookingWatch> _watches = {};
   bool _disposed = false;
 
-  _CookingSourceStamp _stamp(String siteUrl) {
+  _CookingSourceStamp _stamp(String siteUrl, _CookingReferences references) {
     final user = _currentUserFor(siteUrl);
     return (
       revision: _cooking.contextRevisionFor(siteUrl),
@@ -47,16 +49,18 @@ final class CookingContextOwner {
       staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
       user: (user?.id, user?.username, user?.timezone),
       readerTimezone: _timezones.readerTimezone(user?.timezone),
-      users: _store.generationOf<UserCard>(siteUrl),
-      topics: _store.generationOf<TopicDetail>(siteUrl),
+      entities: references.snapshot(_store, siteUrl),
     );
   }
 
   /// Original request identity is retained for host preflight decisions.
-  bool isCurrent(CookingRequest request) =>
-      !_disposed &&
-      _cooking.isCurrent(request) &&
-      _requestStamps[request] == _stamp(request.snapshot.siteId);
+  bool isCurrent(CookingRequest request) {
+    final source = _requestSources[request];
+    return !_disposed &&
+        _cooking.isCurrent(request) &&
+        source != null &&
+        source.stamp == _stamp(request.snapshot.siteId, source.references);
+  }
 
   VoidCallback watch({
     required String siteUrl,
@@ -64,20 +68,15 @@ final class CookingContextOwner {
     required VoidCallback onChanged,
   }) {
     if (_disposed) return () {};
-    final topicIds = raw.length <= 65536
-        ? _topicIds(raw).toList(growable: false)
-        : const <int>[];
-    final usernames = raw.length <= 65536
-        ? _usernames(raw).toList(growable: false)
-        : const <String>[];
+    final references = _CookingReferences(raw);
     final watch = _CookingWatch(
       siteUrl: siteUrl,
-      read: () => _stamp(siteUrl),
+      read: () => _stamp(siteUrl, references),
       readReferences: () sync* {
-        for (final id in topicIds) {
+        for (final id in references.topics) {
           yield _store.ref<TopicDetail>(siteUrl, id);
         }
-        for (final name in usernames) {
+        for (final name in references.users) {
           yield _store.ref<UserCard>(siteUrl, name.toLowerCase());
         }
       },
@@ -101,8 +100,12 @@ final class CookingContextOwner {
     CookingContext context = const CookingContext(),
     CookingCachedMetadata? cachedMetadata,
   }) {
+    final references = _CookingReferences(raw);
     CookingRequest track(CookingRequest request) {
-      _requestStamps[request] = _stamp(siteUrl);
+      _requestSources[request] = (
+        references: references,
+        stamp: _stamp(siteUrl, references),
+      );
       return request;
     }
 
@@ -125,7 +128,7 @@ final class CookingContextOwner {
         raw: raw,
         profile: profile,
         context: context,
-        cachedMetadata: cachedMetadata ?? _cachedMetadata(siteUrl, raw),
+        cachedMetadata: cachedMetadata ?? _cachedMetadata(siteUrl, references),
         config: _presentation.configFor(siteUrl),
         staleSettings: _presentation.cookingSettingsAreStale(siteUrl),
         mentions: identities.mentions,
@@ -135,23 +138,12 @@ final class CookingContextOwner {
     );
   }
 
-  static Iterable<int> _topicIds(String raw) => RegExp(r'topic:(\d+)')
-      .allMatches(raw)
-      .take(128)
-      .map((match) => int.tryParse(match[1]!))
-      .whereType<int>()
-      .toSet();
-
-  static Set<String> _usernames(String raw) => {
-    for (final match in RegExp(
-      r'(?:@|quote="|\[quote=")([\w.-]+)',
-    ).allMatches(raw).take(128))
-      match[1]!,
-  };
-
-  CookingCachedMetadata _cachedMetadata(String siteUrl, String raw) {
+  CookingCachedMetadata _cachedMetadata(
+    String siteUrl,
+    _CookingReferences references,
+  ) {
     final topics = <String, CookingTopic>{};
-    for (final id in _topicIds(raw)) {
+    for (final id in references.topics) {
       final topic = _store.read<TopicDetail>(siteUrl, id);
       if (topic != null) {
         topics['${topic.id}'] = CookingTopic(
@@ -160,10 +152,9 @@ final class CookingContextOwner {
         );
       }
     }
-    final names = _usernames(raw);
     final mentions = <String, CookingMention>{};
     final avatars = <String, String>{};
-    for (final name in names) {
+    for (final name in references.users) {
       final card = _store.read<UserCard>(siteUrl, name.toLowerCase());
       if (card == null) continue;
       mentions[name] = CookingMention(
@@ -206,9 +197,71 @@ typedef _CookingSourceStamp = ({
   bool staleSettings,
   (int?, String?, String?) user,
   String readerTimezone,
-  int users,
-  int topics,
+  _CookingEntityStamp entities,
 });
+
+/// The bounded source references shared by snapshot assembly and freshness.
+final class _CookingReferences {
+  _CookingReferences(String raw)
+    : topics = raw.length <= 65536
+          ? _topicIds(raw).toList(growable: false)
+          : const [],
+      users = raw.length <= 65536
+          ? _usernames(raw).toList(growable: false)
+          : const [];
+
+  final List<int> topics;
+  final List<String> users;
+
+  _CookingEntityStamp snapshot(Store store, String siteUrl) =>
+      _CookingEntityStamp(
+        [
+          for (final id in topics)
+            (id, store.read<TopicDetail>(siteUrl, id)?.title),
+        ],
+        [for (final name in users) _userStamp(store, siteUrl, name)],
+      );
+
+  static (String, String?, String?) _userStamp(
+    Store store,
+    String siteUrl,
+    String name,
+  ) {
+    final card = store.read<UserCard>(siteUrl, name.toLowerCase());
+    return (name, card?.username, card?.avatarUrl);
+  }
+
+  static Iterable<int> _topicIds(String raw) => RegExp(r'topic:(\d+)')
+      .allMatches(raw)
+      .take(128)
+      .map((match) => int.tryParse(match[1]!))
+      .whereType<int>()
+      .toSet();
+
+  static Set<String> _usernames(String raw) => {
+    for (final match in RegExp(
+      r'(?:@|quote="|\[quote=")([\w.-]+)',
+    ).allMatches(raw).take(128))
+      match[1]!,
+  };
+}
+
+final class _CookingEntityStamp {
+  const _CookingEntityStamp(this.topics, this.users);
+
+  final List<(int, String?)> topics;
+  final List<(String, String?, String?)> users;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _CookingEntityStamp &&
+      listEquals(topics, other.topics) &&
+      listEquals(users, other.users);
+
+  @override
+  int get hashCode =>
+      Object.hash(Object.hashAll(topics), Object.hashAll(users));
+}
 
 final class _CookingWatch {
   _CookingWatch({
