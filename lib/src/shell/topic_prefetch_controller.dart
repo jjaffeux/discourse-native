@@ -73,7 +73,7 @@ final class TopicPrefetchController {
     final held = _candidate;
     if (held == null || held.key != key || !_usable(held)) {
       _discardCandidate();
-      final next = _Prefetch(key, load, isCurrent, intent);
+      final next = _Prefetch(key, load, isCurrent);
       _candidate = next;
       next.ready = intent == TopicPrefetchIntent.trajectory;
       if (!next.ready) {
@@ -103,7 +103,6 @@ final class TopicPrefetchController {
       return null;
     }
     entry.requestIntent.promote();
-    entry.adopted = true;
 
     _candidate = null;
     _hoverOwner = null;
@@ -130,14 +129,7 @@ final class TopicPrefetchController {
   void _discardCandidate() {
     _timer?.cancel();
     _timer = null;
-    final entry = _candidate;
-    if (entry != null) {
-      if (entry.started && entry.completedAt == null) {
-      } else {
-        entry.discarded = true;
-      }
-      entry.cancellation.cancel();
-    }
+    _candidate?.cancellation.cancel();
     _candidate = null;
     _hoverOwner = null;
   }
@@ -151,7 +143,6 @@ final class TopicPrefetchController {
       return;
     }
     entry.started = true;
-    entry.startedAt = _clock();
 
     _active = entry;
     unawaited(_load(entry));
@@ -168,7 +159,6 @@ final class TopicPrefetchController {
     } finally {
       if (entry.cancellation.isCancelled) result = null;
       entry.completedAt = _clock();
-      entry.hasResult = result != null;
 
       entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
@@ -181,25 +171,15 @@ final class TopicPrefetchController {
   /// cancellation of a request already adopted by navigation.
   void clear() {
     _discardCandidate();
-    final active = _active;
-    if (active != null && !active.discarded) {
-      active.discarded = true;
-      active.cancellation.cancel();
-    }
+    _active?.cancellation.cancel();
   }
 }
 
 final class _Prefetch {
-  _Prefetch(this.key, this.load, this.isCurrent, this.intent);
+  _Prefetch(this.key, this.load, this.isCurrent);
 
   final requestIntent = RequestIntent.background();
   final TopicPrefetchKey key;
-  final TopicPrefetchIntent intent;
-
-  DateTime? startedAt;
-  bool adopted = false;
-  bool discarded = false;
-  bool hasResult = false;
   final TopicPrefetchLoader load;
   final bool Function() isCurrent;
   final cancellation = TopicPrefetchCancellation();

@@ -26,6 +26,13 @@ time, aborts displaced work, retains one completed result for 15 seconds, and
 keys reuse by site, account session, topic, and unread post position. No topic
 content is published or marked read until real navigation consumes it.
 
+The candidate tracks reusable list interest separately from the physical active
+request. Dropping the candidate cancels its interest; the active slot remains
+occupied until that request settles. Navigation removes the candidate and
+promotes its existing `RequestIntent`, while window/account cleanup can still
+cancel that adopted physical request. Completed-result expiry uses completion
+time, and cancellation itself is idempotent.
+
 ## Measuring the tradeoff
 
 Run a desktop profile with both `--dart-define=TRACE_TOPIC_PREFETCH=true` and
