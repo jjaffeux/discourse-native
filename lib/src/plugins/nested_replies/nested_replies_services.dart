@@ -49,7 +49,7 @@ final class NestedRepliesServices extends ChangeNotifier
   final PluginTopicRecordsHost records;
   final PluginTopicRefreshHost topics;
   final PluginTargetHost targets;
-  final PluginNavigationHost navigation;
+  final PluginRouteNavigationHost navigation;
   final PluginFreshAccountHost accounts;
 
   bool staffFor(String site) => accounts.profileFor(site)?.staff == true;
@@ -172,11 +172,13 @@ final class NestedRepliesServices extends ChangeNotifier
     if (_disposed || url.length > TopicLink.maximumUrlLength) return false;
     final uri = Uri.tryParse(url);
     if (uri == null || uri.userInfo.isNotEmpty) return false;
-    final index = navigation.instances.indexWhere(
-      (site) => DiscourseInstance.urlServes(site.url, uri),
+    final owner = mostSpecificServingForum(
+      navigation.sites,
+      uri,
+      siteUrl: (site) => site.url,
     );
-    if (index < 0) return false;
-    final site = navigation.instances[index].url;
+    if (owner == null) return false;
+    final site = owner.forum.url;
     final segments = DiscourseInstance.pathSegmentsWithin(site, uri);
     if (segments == null || segments.length < 3 || segments.first != 'n') {
       return false;
@@ -207,11 +209,7 @@ final class NestedRepliesServices extends ChangeNotifier
     }
     final lease = _watch(site).lease;
     if (!lease.isCurrent || _disposed) return false;
-    if (navigation.currentInstance?.url != site) {
-      navigation.selectInstance(index);
-    }
-    if (!lease.isCurrent || _disposed) return false;
-    navigation.pushContent(
+    final committed = navigation.pushContent(
       ContentRoute.topic(
         topicId: topicId,
         slug: segments[1],
@@ -219,22 +217,14 @@ final class NestedRepliesServices extends ChangeNotifier
         postNumber: number,
         query: query.isEmpty ? null : Uri(queryParameters: query).query,
       ),
-      newTab: const {
-        PluginLinkOrigin.newTab,
-        PluginLinkOrigin.mainPanelNewTab,
-        PluginLinkOrigin.secondaryPanelNewTab,
-      }.contains(origin),
-      panel: switch (origin) {
-        PluginLinkOrigin.mainPanel ||
-        PluginLinkOrigin.mainPanelNewTab => ForumPanel.main,
-        PluginLinkOrigin.secondaryPanel ||
-        PluginLinkOrigin.secondaryPanelNewTab => ForumPanel.secondary,
-        _ => null,
-      },
+      siteUrl: site,
+      origin: origin,
+      onNavigated: onNavigated,
     );
-    onNavigated?.call();
-    if (lease.isCurrent && !_disposed) await topics.reloadTopic(site, topicId);
-    return lease.isCurrent && !_disposed;
+    if (committed && lease.isCurrent && !_disposed) {
+      await topics.reloadTopic(site, topicId);
+    }
+    return true;
   }
 
   Future<void> showSettings(

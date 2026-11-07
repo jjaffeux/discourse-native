@@ -14,6 +14,53 @@ const _credentials = PluginRequestCredentials(
 );
 
 void main() {
+  test(
+    'a refused nested-link commit does not reload or report navigation',
+    () async {
+      final h = _Harness();
+      addTearDown(h.dispose);
+      h.navigation.accept = false;
+      var navigated = 0;
+
+      expect(
+        await h.service.openPluginUrl(
+          '$_site/n/tree/7/context/4?sort=new&collapse_replies=true&context=1',
+          origin: PluginLinkOrigin.secondaryPanelNewTab,
+          onNavigated: () => navigated++,
+        ),
+        isTrue,
+      );
+
+      expect(h.reloads, 0);
+      expect(navigated, 0);
+      expect(h.navigation.site, _site);
+      expect(h.navigation.origin, PluginLinkOrigin.secondaryPanelNewTab);
+      expect(h.navigation.route?.postNumber, 4);
+      expect(
+        h.navigation.route?.topicQuery,
+        'sort=new&collapse_replies=true&context=1',
+      );
+    },
+  );
+
+  test(
+    'account retirement in navigation prevents reload and browser fallback',
+    () async {
+      final h = _Harness();
+      addTearDown(h.dispose);
+
+      expect(
+        await h.service.openPluginUrl(
+          '$_site/n/tree/7',
+          onNavigated: () => h.requests.lease.current = false,
+        ),
+        isTrue,
+      );
+
+      expect(h.reloads, 0);
+    },
+  );
+
   test('pin writes serialize and publish the returned pin state', () async {
     final h = _Harness();
     addTearDown(h.dispose);
@@ -99,6 +146,8 @@ final class _Harness implements PluginTopicReaderHost {
   final transport = _Transport();
   final requests = _Requests();
   final records = _Records();
+  final navigation = _Navigation();
+  int reloads = 0;
   bool staff = true;
   int closedReaders = 0;
   TopicDetail topic =
@@ -127,9 +176,9 @@ final class _Harness implements PluginTopicReaderHost {
     ),
     readers: this,
     records: records,
-    topics: PluginTopicRefreshHost(reloadTopic: (_, _) async {}),
+    topics: PluginTopicRefreshHost(reloadTopic: (_, _) async => reloads++),
     targets: _UnusedTarget(),
-    navigation: _UnusedNavigation(),
+    navigation: navigation,
     accounts: _UnusedAccount(),
   );
   @override
@@ -238,7 +287,31 @@ final class _Records implements PluginTopicRecordsHost {
   void invalidate(String siteUrl, PluginSiteLease originalLease) {}
 }
 
-final class _UnusedNavigation implements PluginNavigationHost {
+final class _Navigation implements PluginRouteNavigationHost {
+  bool accept = true;
+  String? site;
+  ContentRoute? route;
+  PluginLinkOrigin? origin;
+
+  @override
+  List<PluginRouteSite> get sites => const [
+    PluginRouteSite(url: _site, title: 'Forum', isConnected: true),
+  ];
+
+  @override
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    this.route = route;
+    site = siteUrl;
+    this.origin = origin;
+    if (accept) onNavigated?.call();
+    return accept;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

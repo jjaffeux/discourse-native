@@ -27,6 +27,7 @@ import '../../support/fakes.dart';
 import '../../support/shell_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
+const _sourceSite = 'https://source.example';
 const _title = 'A harbour conversation';
 const _manifest = PluginManifest([nestedRepliesModule]);
 const _registry = PluginRegistry([
@@ -1392,6 +1393,43 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.linux),
   );
 
+  testWidgets('a cross-forum nested link opens in the requested background tab', (
+    tester,
+  ) async {
+    final fixture = await _pump(tester, desktop, otherSite: true);
+    fixture.shell.desktopTopicTabs = true;
+    await _frames(tester);
+    final source = fixture.shell.activeTab!;
+    var navigated = 0;
+
+    expect(
+      await openLink(
+        tester.element(primaryMainContent),
+        '$_site/n/harbour/7/context/4?sort=new&collapse_replies=true&context=1',
+        newTab: true,
+        panel: ForumPanel.secondary,
+        onNavigated: () => navigated++,
+      ),
+      isTrue,
+    );
+    await _frames(tester);
+
+    expect(fixture.shell.currentInstance!.url, _sourceSite);
+    expect(fixture.shell.activeTab!.id, source.id);
+    expect(fixture.shell.currentContent, source.currentContent);
+    expect(navigated, 0);
+    final opened = fixture.shell.workspaceFor(_site)!.tabs.last;
+    expect(opened.panel, ForumPanel.secondary);
+    expect(opened.currentContent.topicId, 7);
+    expect(opened.currentContent.postNumber, 4);
+    expect(
+      opened.currentContent.topicQuery,
+      'sort=new&collapse_replies=true&context=1',
+    );
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
   testWidgets(
     'an explicit context link retains query intent in the canonical route',
     (tester) async {
@@ -1571,6 +1609,7 @@ Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
   bool privateMessage = false,
   bool activityLog = false,
   bool installed = true,
+  bool otherSite = false,
   Completer<void>? configGate,
   bool postExtension = false,
   Future<void> Function(ShellController shell, FakeDiscourseApi api, Topic row)?
@@ -1616,10 +1655,14 @@ Future<({ShellController shell, FakeDiscourseApi api, Topic row})> _pump(
     tester,
     size,
     instances: [
+      if (otherSite)
+        instance('source.example').copyWith(user: user, config: config),
       instance('meta.discourse.org').copyWith(user: user, config: config),
     ],
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'key',
+    authenticator: FakeAuthenticator()
+      ..keys[_site] = 'key'
+      ..keys[_sourceSite] = 'source-key',
     beforeSettle: beforeSettle == null
         ? null
         : () async {
