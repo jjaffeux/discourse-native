@@ -50,9 +50,10 @@ class ChatMessageBlocks extends StatelessWidget {
       constraints: BoxConstraints(
         maxWidth:
             40 *
-            MediaQuery.textScalerOf(
-              context,
-            ).scale(Theme.of(context).textTheme.bodyMedium?.fontSize ?? 14),
+            MediaQuery.textScalerOf(context).scale(
+              Theme.of(context).textTheme.bodyMedium?.fontSize ??
+                  DiscourseTypography.base,
+            ),
       ),
       child: DCard(
         size: DCardSize.small,

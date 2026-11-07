@@ -29,7 +29,7 @@ class MobilePageTitle extends StatefulWidget {
     height: 1.2,
   );
   static const _metadataStyle = TextStyle(
-    fontSize: 12.5,
+    fontSize: DiscourseTypography.preview,
     fontWeight: FontWeight.w400,
     height: 1.3,
   );

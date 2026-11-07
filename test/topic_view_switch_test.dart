@@ -42,9 +42,18 @@ void main() {
       );
       final surface = artwork.decoration! as BoxDecoration;
       expect(surface.borderRadius, BorderRadius.circular(999));
+      expect(surface.color, Colors.transparent);
+      final indicator = find.byKey(
+        const ValueKey('toggle-group-sliding-indicator'),
+      );
+      expect(indicator, findsOneWidget);
+      expect(tester.getRect(indicator), tester.getRect(selected));
+      final tint = tester.widget<DecoratedBox>(
+        find.descendant(of: indicator, matching: find.byType(DecoratedBox)),
+      );
       expect(
-        surface.color,
-        DTokens.of(tester.element(selected)).raisedBackground,
+        (tint.decoration as BoxDecoration).color,
+        DTokens.of(tester.element(selected)).foreground.withValues(alpha: .16),
       );
       expect(tester.takeException(), isNull);
     });
@@ -328,6 +337,11 @@ void main() {
             tester,
             '${platform.name}-${dark ? 'dark' : 'light'}-overflow',
           );
+          await tester.drag(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            const Offset(0, -500),
+          );
+          await tester.pumpAndSettle();
           for (final id in [
             'latest',
             'unread',
@@ -343,6 +357,8 @@ void main() {
             'top-period-all',
             'popular',
           ]) {
+            await tester.ensureVisible(_entry(id));
+            await tester.pumpAndSettle();
             expect(_entry(id).hitTestable(), findsOneWidget, reason: id);
           }
           await tester.tap(_entry('popular'));

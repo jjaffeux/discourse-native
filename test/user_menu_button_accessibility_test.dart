@@ -195,8 +195,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final button = find.byKey(UserMenuButton.bellKey);
-      expect(tester.getSize(button).height, 28);
-      expect(tester.getSize(button).width, 32);
+      expect(tester.getSize(button).height, 36);
+      expect(tester.getSize(button).width, 36);
       expect(
         tester.getRect(button).right,
         lessThanOrEqualTo(

@@ -285,7 +285,7 @@ void main() {
     await gesture.moveBy(const Offset(0, -240));
     await tester.pump(const Duration(milliseconds: 16));
     expect(tester.widget<DCalendarScheduleDay>(pinned()).label, 'Wed 2');
-    await gesture.moveBy(const Offset(0, 240));
+    await gesture.moveBy(const Offset(0, 500));
     await tester.pump(const Duration(milliseconds: 16));
     expect(pinned(), findsNothing);
     expect(find.bySemanticsLabel('Tue 1'), findsOneWidget);

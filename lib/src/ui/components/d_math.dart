@@ -257,7 +257,9 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
           '#${background.toARGB32().toRadixString(16).padLeft(8, '0').substring(2)}',
       'fontSize':
           widget.fontSize ??
-          MediaQuery.textScalerOf(context).scale(style.fontSize ?? 16),
+          MediaQuery.textScalerOf(context).scale(
+            style.fontSize ?? Theme.of(context).textTheme.bodyLarge!.fontSize!,
+          ),
     };
     final identity = jsonEncode(request);
     if (_requestIdentity == identity) return;
@@ -377,9 +379,10 @@ class _DMathState extends State<DMath> with WidgetsBindingObserver {
   Future<void> _expand({double scale = 1.75}) async {
     final fontSize =
         widget.fontSize ??
-        MediaQuery.textScalerOf(
-          context,
-        ).scale(DefaultTextStyle.of(context).style.fontSize ?? 16);
+        MediaQuery.textScalerOf(context).scale(
+          DefaultTextStyle.of(context).style.fontSize ??
+              Theme.of(context).textTheme.bodyLarge!.fontSize!,
+        );
     await showDDialog<void>(
       context: context,
       builder: (context, controller) => DDialogContent(

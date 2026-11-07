@@ -83,7 +83,7 @@ class DAlert extends StatelessWidget {
                 child: DefaultTextStyle(
                   style: Theme.of(context).textTheme.bodyMedium!.copyWith(
                     color: tokens.foreground,
-                    fontSize: 14,
+                    fontSize: DiscourseTypography.base,
                     height: 1.5,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0,
