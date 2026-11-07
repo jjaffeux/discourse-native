@@ -24,3 +24,30 @@ abstract interface class ReportApi {
     required Map<String, Object?> filters,
   });
 }
+
+/// One admitted owner for each optional report wire format and detail API.
+final class DashboardReportSources {
+  factory DashboardReportSources(Iterable<DashboardReportSource> sources) {
+    final admitted = <String, DashboardReportSource>{};
+    for (final source in sources) {
+      final name = source.source;
+      if (name.isEmpty || name == coreSource || admitted.containsKey(name)) {
+        throw ArgumentError.value(
+          name,
+          'source',
+          'Report source is reserved or already owned.',
+        );
+      }
+      admitted[name] = source;
+    }
+    return DashboardReportSources._(Map.unmodifiable(admitted));
+  }
+
+  const DashboardReportSources.empty() : _sources = const {};
+  const DashboardReportSources._(this._sources);
+
+  static const coreSource = 'core_report';
+  final Map<String, DashboardReportSource> _sources;
+
+  DashboardReportSource? operator [](String? source) => _sources[source];
+}

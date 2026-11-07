@@ -37,9 +37,12 @@ abstract interface class DashboardApi {
 }
 
 final class DiscourseDashboardApi implements DashboardApi {
-  const DiscourseDashboardApi(this.transport, {this.sources = const []});
+  const DiscourseDashboardApi(
+    this.transport, {
+    this.sources = const DashboardReportSources.empty(),
+  });
   final PluginApiTransport transport;
-  final Iterable<DashboardReportSource> sources;
+  final DashboardReportSources sources;
 
   @override
   Future<DashboardSnapshot> load({
@@ -147,10 +150,10 @@ final class DiscourseDashboardApi implements DashboardApi {
         .where((item) => item.key == payload['key'])
         .firstOrNull
         ?.source;
-    if (source == 'core_report') return DashboardReportResult.fromJson(payload);
-    final extension = sources
-        .where((extension) => extension.source == source)
-        .firstOrNull;
+    if (source == DashboardReportSources.coreSource) {
+      return DashboardReportResult.fromJson(payload);
+    }
+    final extension = sources[source];
     return extension?.decode(payload) ??
         DashboardReportResult(
           unsupported: true,

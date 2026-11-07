@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:mime/mime.dart';
 
 import 'api_credentials.dart';
-import 'avatar_loader.dart';
 import 'avif.dart';
 import 'byte_cache.dart';
+import 'cached_image_bytes.dart';
 import 'media_request_coordinator.dart';
 import 'site_asset_account.dart';
 import 'site_lifecycle.dart';
@@ -394,7 +394,7 @@ SiteImageMediaType? _imageMediaType(Uint8List bytes, String? contentType) {
     return declared;
   }
   if (detected != null) return SiteImageMediaType._fromMimeType(detected);
-  if (AvatarLoader.looksLikeSvg(bytes)) return SiteImageMediaType.svg;
+  if (CachedImageBytes.looksLikeSvg(bytes)) return SiteImageMediaType.svg;
   return declared;
 }
 

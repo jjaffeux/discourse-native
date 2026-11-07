@@ -42,12 +42,13 @@ final class SitePreferenceKey {
   }
 
   void _retire(ForgottenSites sites) {
-    onForget?.call(sites);
+    final forget = onForget;
+    if (forget != null) _retirePreferenceOwner(() => forget(sites));
     final observers = _observers[this];
     if (observers == null) return;
     observers.removeWhere((observer) => observer.target == null);
     for (final observer in List.of(observers)) {
-      observer.retire(sites);
+      _retirePreferenceOwner(() => observer.retire(sites));
     }
   }
 
@@ -183,6 +184,14 @@ Future<void> forgetSitePreferences(
       throw StateError('Could not remove a forgotten forum\'s preferences.');
     }
   } catch (_) {}
+}
+
+void _retirePreferenceOwner(void Function() retire) {
+  try {
+    retire();
+  } catch (_) {
+    // Every owner must retire before durable removal, even if a peer fails.
+  }
 }
 
 abstract class _PreferenceRetirementObserver {

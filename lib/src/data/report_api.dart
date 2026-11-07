@@ -5,9 +5,12 @@ import 'plugin_transport.dart';
 export '../plugin_api/dashboard_report_source.dart' show ReportApi;
 
 final class DiscourseReportApi implements ReportApi {
-  const DiscourseReportApi(this.transport, {this.sources = const []});
+  const DiscourseReportApi(
+    this.transport, {
+    this.sources = const DashboardReportSources.empty(),
+  });
   final PluginApiTransport transport;
-  final Iterable<DashboardReportSource> sources;
+  final DashboardReportSources sources;
 
   @override
   Future<ReportDetails> load({
@@ -24,10 +27,8 @@ final class DiscourseReportApi implements ReportApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    if (report.source != 'core_report') {
-      final source = sources
-          .where((source) => source.source == report.source)
-          .firstOrNull;
+    if (report.source != DashboardReportSources.coreSource) {
+      final source = sources[report.source];
       if (source == null) {
         return ReportDetails(result: DashboardReportResult(unsupported: true));
       }

@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/json.dart';
+import 'package:discourse_native/src/plugin_api/dashboard_report_source.dart';
 import 'package:discourse_native/src/plugins/data_explorer/data_explorer_reports.dart';
 import 'package:discourse_native/src/shell/dashboard_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -50,7 +51,7 @@ void main() {
       addTearDown(raw.close);
       final api = DiscourseDashboardApi(
         raw,
-        sources: const [DataExplorerReports()],
+        sources: DashboardReportSources(const [DataExplorerReports()]),
       );
       final result = await api.reports(
         siteUrl: site,

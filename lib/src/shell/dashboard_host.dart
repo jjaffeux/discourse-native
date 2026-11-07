@@ -37,6 +37,7 @@ class DashboardHostState extends State<DashboardHost> {
   DashboardController? _controller;
   Object? _identity;
   ReportController? _report;
+  DashboardReportSources _sources = const DashboardReportSources.empty();
   final _dashboardKey = GlobalKey();
 
   void _closeReport() {
@@ -87,11 +88,13 @@ class DashboardHostState extends State<DashboardHost> {
             final SiteLease lease = owner.shell.lifecycle.capture(
               widget.siteUrl,
             );
+            _sources = DashboardReportSources(
+              owner.shell.plugins.capabilities<DashboardReportSource>(),
+            );
             final controller = DashboardController(
               api: DiscourseDashboardApi(
                 owner.shell.api.pluginTransport,
-                sources: owner.shell.plugins
-                    .capabilities<DashboardReportSource>(),
+                sources: _sources,
               ),
               credentials: owner.shell.credentials,
               lease: lease,
@@ -128,8 +131,7 @@ class DashboardHostState extends State<DashboardHost> {
                 final detail = ReportController(
                   api: DiscourseReportApi(
                     owner.shell.api.pluginTransport,
-                    sources: owner.shell.plugins
-                        .capabilities<DashboardReportSource>(),
+                    sources: _sources,
                   ),
                   credentials: owner.shell.credentials,
                   lease: owner.shell.lifecycle.capture(widget.siteUrl),

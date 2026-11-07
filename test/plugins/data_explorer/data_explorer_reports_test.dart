@@ -50,7 +50,7 @@ void main() {
       final loaded =
           await DiscourseReportApi(
             transport,
-            sources: const [DataExplorerReports()],
+            sources: DashboardReportSources(const [DataExplorerReports()]),
           ).load(
             siteUrl: 'https://forum.example/discuss',
             apiKey: 'staff-key',
@@ -115,7 +115,7 @@ void main() {
       final extended =
           await DiscourseDashboardApi(
             transport,
-            sources: const [DataExplorerReports()],
+            sources: DashboardReportSources(const [DataExplorerReports()]),
           ).reports(
             siteUrl: 'https://forum.example',
             apiKey: 'key',
