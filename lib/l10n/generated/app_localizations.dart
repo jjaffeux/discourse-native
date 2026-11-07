@@ -11285,6 +11285,12 @@ abstract class AppLocalizations {
   /// **'Try different words or remove a condition.'**
   String get tryDifferentWordsOrRemoveACondition;
 
+  /// Search section action when more results are available
+  ///
+  /// In en, this message translates to:
+  /// **'See all'**
+  String get seeAllSearchResults;
+
   /// English UI message used by shell/global_search_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

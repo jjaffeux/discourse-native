@@ -630,6 +630,20 @@ DButton(
           "DButton(label: Text('Enable'), size: DButtonSize.large, onPressed: enable)",
       builder: (_) => const LinearControlsExample(),
     ),
+    StyleguideExample(
+      title: 'Filter pills',
+      description:
+          '30px filter pills with 9px horizontal insets, pill corners and regular 12.5px labels on phone and desktop.',
+      code:
+          "DButton(density: DButtonDensity.filterPill, variant: DButtonVariant.tool, icon: DIcon(DIcons.tag, size: 11), label: Text('design'), onPressed: openDesign)",
+      builder: (_) => DButton(
+        density: DButtonDensity.filterPill,
+        variant: DButtonVariant.tool,
+        icon: const DIcon(DIcons.tag, size: 11),
+        label: const Text('design'),
+        onPressed: () {},
+      ),
+    ),
   ],
 );
 

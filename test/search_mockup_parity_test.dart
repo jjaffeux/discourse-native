@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
@@ -93,7 +94,8 @@ void main() {
           .postNumber,
       7,
     );
-    expect(controller.sections[1].scope, GlobalSearchScope.users);
+    expect(controller.sections[1].scope, GlobalSearchScope.forum);
+    expect(controller.sections[2].scope, GlobalSearchScope.users);
     expect(
       controller.results.map((row) => row.scope),
       containsAll([
@@ -364,6 +366,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 450));
       await tester.pumpAndSettle();
       expect(find.byType(GlobalSearchPanel), findsOneWidget);
+      expect(find.text('See all'), findsNothing);
+      expect(find.byType(DNavigationPill), findsNothing);
       expect(
         MediaQuery.textScalerOf(
           tester.element(find.byType(GlobalSearchPanel)),

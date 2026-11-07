@@ -35,6 +35,7 @@ void main() {
       'Custom colors',
       'Transparent background',
       'Linear settings controls',
+      'Filter pills',
     ]);
   });
 

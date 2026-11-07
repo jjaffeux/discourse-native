@@ -8580,6 +8580,8 @@
   "@tryDifferentWordsOrRemoveACondition": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact."
   },
+  "seeAllSearchResults": "See all",
+  "@seeAllSearchResults": {"description": "Search section action when more results are available"},
   "viewAllResults": "View all {sectionScopeLabel} results",
   "@viewAllResults": {
     "description": "English UI message used by shell/global_search_panel.dart. Keep placeholders intact.",

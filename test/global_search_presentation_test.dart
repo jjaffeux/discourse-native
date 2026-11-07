@@ -427,7 +427,7 @@ void main({bool useDeviceMetrics = false}) {
 
           expect(
             shell.globalSearch.sections.first.scope.name,
-            GlobalSearchScope.places.name,
+            GlobalSearchScope.forum.name,
             reason: shell.globalSearch.sections
                 .map((section) => section.scope.name)
                 .join(', '),
