@@ -8,15 +8,6 @@ import '../data/store.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/topic.dart';
 
-typedef _TopicReadKey = (String siteUrl, int topicId);
-
-typedef _TopicReadReceipt = ({
-  String siteUrl,
-  int topicId,
-  Set<int> postNumbers,
-  SiteLease lease,
-});
-
 final class TopicReadController extends FrameSafeNotifier {
   TopicReadController({
     required this.api,
@@ -29,19 +20,36 @@ final class TopicReadController extends FrameSafeNotifier {
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final Store store;
+  final Map<String, _TopicReadAccount> _accounts = {};
 
-  final Map<_TopicReadKey, int> _positions = {};
-  final Map<_TopicReadKey, _TopicReadCredits> _credits = {};
-  final Map<_TopicReadKey, _TopicReadReceipt> _retries = {};
-  final Map<_TopicReadKey, _TopicReadReceipt> _queued = {};
-  final Map<_TopicReadKey, Future<void>> _tasks = {};
-  final Map<_TopicReadKey, Object> _runs = {};
-  final Map<_TopicReadKey, Object> _resets = {};
+  _TopicReadAccount? _accountFor(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return account?.lease.isCurrent == true ? account : null;
+  }
 
-  bool _disposed = false;
+  _TopicReadAccount _ensureAccount(String siteUrl, {SiteLease? lease}) {
+    final held = _accounts[siteUrl];
+    if (held?.lease.isCurrent == true) return held!;
+    held?.retire();
+    final account = _TopicReadAccount(lease ?? lifecycle.capture(siteUrl));
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(() {
+      if (!identical(_accounts[siteUrl], account)) return;
+      _accounts.remove(siteUrl);
+      final hadPositions = account.hasPositions;
+      account.retire();
+      if (hadPositions) notifySafely();
+    });
+    return account;
+  }
+
+  bool _isCurrent(String siteUrl, _TopicReadAccount account) =>
+      !isDisposed &&
+      account.lease.isCurrent &&
+      identical(_accounts[siteUrl], account);
 
   int? lastReadPostNumberFor(String siteUrl, int topicId) =>
-      _positions[(siteUrl, topicId)];
+      _accountFor(siteUrl)?.topics[topicId]?.position;
 
   /// A stale list response must not roll back this session's read progress.
   Topic project(String siteUrl, Topic incoming) {
@@ -68,26 +76,17 @@ final class TopicReadController extends FrameSafeNotifier {
     required bool caughtUp,
     Iterable<int> readPostNumbers = const [],
   }) {
-    if (_disposed || topicId <= 0 || postNumber <= 0) return Future.value();
-
-    final key = (siteUrl, topicId);
-    if (_resets.containsKey(key)) return Future.value();
-    final lease = lifecycle.capture(siteUrl);
+    if (isDisposed || topicId <= 0 || postNumber <= 0) return Future.value();
+    final account = _ensureAccount(siteUrl);
+    final state = account.topic(topicId);
+    if (state.reset != null) return Future.value();
     final held = store.read<Topic>(siteUrl, topicId);
-    final local = _positions[key] ?? 0;
+    final local = state.position ?? 0;
     final server = held?.lastReadPostNumber ?? 0;
     final position = local > server ? local : server;
-    // The position only drives the optimistic row: a jump raises it over
-    // unread posts the reader may scroll back to. Core clears notifications
-    // and counts reads only for the exact timing keys, so every post read on
-    // screen that this session has not already admitted is sent, in reading
-    // order. The new position must still cover each of them.
-    var credits = _credits[key];
-    if (credits == null || !identical(credits.session, lease.session)) {
-      // This controller's projections raise the held row, so its server
-      // position is only trustworthy before the first one.
-      credits = _credits[key] = _TopicReadCredits(lease.session, server);
-    }
+    // A jump raises the row over unread posts the reader may scroll back to.
+    // Timing credits therefore track the exact posts observed, independently.
+    final credits = state.credits ??= _TopicReadCredits(server);
     if (held?.readingPolicy.usesPositionForCatchUp == false) {
       credits.serverPosition = 0;
     }
@@ -95,10 +94,9 @@ final class TopicReadController extends FrameSafeNotifier {
       ...readPostNumbers.where((read) => read < postNumber).toList()..sort(),
       postNumber,
     }.where(credits.admit).toList();
-    final failed = _retries[key];
-    final retryPosts = failed != null && failed.lease.isCurrent
-        ? failed.postNumbers.where((post) => post <= postNumber).toSet()
-        : <int>{};
+    final retryPosts = state.retries
+        .where((post) => post <= postNumber)
+        .toSet();
     if (unread.isEmpty && retryPosts.isEmpty) {
       if (caughtUp) {
         store.update<Topic>(
@@ -111,43 +109,39 @@ final class TopicReadController extends FrameSafeNotifier {
     }
 
     final nextPosition = postNumber > position ? postNumber : position;
-    _positions[key] = nextPosition;
-    failed?.postNumbers.removeAll(retryPosts);
-    if (failed != null && failed.postNumbers.isEmpty) _retries.remove(key);
-    // Store listeners may advance this topic again, forget it, or replace its
-    // account. Accept this receipt before publishing the optimistic position.
-    _retain(_queued, key, (
-      siteUrl: siteUrl,
-      topicId: topicId,
-      postNumbers: {...unread, ...retryPosts},
-      lease: lease,
-    ));
+    state.position = nextPosition;
+    state.retries.removeAll(retryPosts);
+    // Install receipts before store listeners can reset or replace this account.
+    state.queued.addAll({...unread, ...retryPosts});
     store.update<Topic>(
       siteUrl,
       topicId,
       (row) => _projectRead(row, nextPosition, postNumber, caughtUp: caughtUp),
     );
-
-    if (_disposed || !lease.isCurrent) return Future.value();
+    if (!_isCurrent(siteUrl, account)) return Future.value();
     if (nextPosition != local) notifySafely();
-    return _drainPending(key);
+    return _drainPending(siteUrl, topicId, account, state);
   }
 
-  Future<void> _drainPending(_TopicReadKey key) {
-    final running = _tasks[key];
-    if (running != null) return running;
-    if (!_queued.containsKey(key)) return Future.value();
-
-    final run = Object();
-    final completion = Completer<void>();
-    _runs[key] = run;
-    _tasks[key] = completion.future;
-    completion.complete(_drain(key, run));
-    return completion.future;
+  Future<void> _drainPending(
+    String siteUrl,
+    int topicId,
+    _TopicReadAccount account,
+    _TopicReadState state,
+  ) {
+    final running = state.run;
+    if (running != null) return running.completion.future;
+    if (!_isCurrent(siteUrl, account) || state.queued.isEmpty) {
+      return Future.value();
+    }
+    final run = _TopicReadRun();
+    state.run = run;
+    run.completion.complete(_drain(siteUrl, topicId, account, state, run));
+    return run.completion.future;
   }
 
   bool resetInFlight(String siteUrl, int topicId) =>
-      _resets.containsKey((siteUrl, topicId));
+      _accountFor(siteUrl)?.topics[topicId]?.reset != null;
 
   Future<void> reset(
     String siteUrl,
@@ -158,65 +152,49 @@ final class TopicReadController extends FrameSafeNotifier {
     required void Function(Object error, StackTrace stackTrace) onError,
     required void Function() onChanged,
   }) async {
-    final key = (siteUrl, topicId);
-    if (_disposed || !lease.isCurrent || _resets.containsKey(key)) return;
+    if (isDisposed || !lease.isCurrent) return;
+    final account = _ensureAccount(siteUrl, lease: lease);
+    final state = account.topic(topicId);
+    if (state.reset != null) return;
     final operation = Object();
-    _resets[key] = operation;
+    state.reset = operation;
     bool isCurrent() =>
-        !_disposed && lease.isCurrent && identical(_resets[key], operation);
+        _isCurrent(siteUrl, account) && identical(state.reset, operation);
     try {
       onChanged();
       if (!isCurrent()) return;
-      await _drainPending(key);
+      await _drainPending(siteUrl, topicId, account, state);
       if (!isCurrent()) return;
       await write();
       if (!isCurrent()) return;
-      final hadPosition = _positions.containsKey(key);
-      _forgetTopic(key);
+      final hadPosition = state.position != null;
+      state.clearReads();
       await accepted();
       if (isCurrent() && hadPosition) notifySafely();
     } catch (error, stackTrace) {
       onError(error, stackTrace);
     } finally {
-      if (identical(_resets[key], operation)) {
-        _resets.remove(key);
-        if (!_disposed) onChanged();
+      if (identical(state.reset, operation)) {
+        state.reset = null;
+        if (_isCurrent(siteUrl, account)) onChanged();
       }
     }
   }
 
-  void _forgetTopic(_TopicReadKey key) {
-    _positions.remove(key);
-    _credits.remove(key);
-    _retries.remove(key);
-    _queued.remove(key);
-    final _ = _tasks.remove(key);
-    _runs.remove(key);
-  }
-
   void forget(String siteUrl) {
-    final hadPositions = _positions.keys.any((key) => key.$1 == siteUrl);
-    _positions.removeWhere((key, _) => key.$1 == siteUrl);
-    _credits.removeWhere((key, _) => key.$1 == siteUrl);
-    _retries.removeWhere((key, _) => key.$1 == siteUrl);
-    _queued.removeWhere((key, _) => key.$1 == siteUrl);
-    _tasks.removeWhere((key, _) => key.$1 == siteUrl);
-    _runs.removeWhere((key, _) => key.$1 == siteUrl);
-    _resets.removeWhere((key, _) => key.$1 == siteUrl);
+    final account = _accounts.remove(siteUrl);
+    final hadPositions = account?.hasPositions ?? false;
+    account?.retire();
     if (hadPositions) notifySafely();
   }
 
   @override
   void dispose() {
-    if (_disposed) return;
-    _disposed = true;
-    _positions.clear();
-    _credits.clear();
-    _retries.clear();
-    _queued.clear();
-    _tasks.clear();
-    _runs.clear();
-    _resets.clear();
+    if (isDisposed) return;
+    for (final account in _accounts.values) {
+      account.retire();
+    }
+    _accounts.clear();
     super.dispose();
   }
 
@@ -250,104 +228,107 @@ final class TopicReadController extends FrameSafeNotifier {
         : updated.copyWith(lastReadPostNumber: position);
   }
 
-  Future<void> _drain(_TopicReadKey key, Object run) async {
-    while (_isCurrentRun(key, run)) {
-      final pending = _queued[key];
-      if (pending == null) {
-        _finishRun(key, run);
+  Future<void> _drain(
+    String siteUrl,
+    int topicId,
+    _TopicReadAccount account,
+    _TopicReadState state,
+    _TopicReadRun run,
+  ) async {
+    bool ownsRun() => _isCurrent(siteUrl, account) && identical(state.run, run);
+    while (ownsRun()) {
+      if (state.queued.isEmpty) {
+        state.run = null;
         return;
       }
-      final posts = pending.postNumbers
+      final posts = state.queued
           .take(TopicReadsApi.maximumPostsPerRequest)
           .toSet();
-      pending.postNumbers.removeAll(posts);
-      if (pending.postNumbers.isEmpty) _queued.remove(key);
-      final receipt = (
-        siteUrl: pending.siteUrl,
-        topicId: pending.topicId,
-        postNumbers: posts,
-        lease: pending.lease,
-      );
-
+      state.queued.removeAll(posts);
       try {
         final auth = await AccountRequestSession(
-          receipt.siteUrl,
-          receipt.lease,
+          siteUrl,
+          account.lease,
         ).credentials(credentials);
         final apiKey = auth.apiKey;
-        if (!_canSend(key, run, receipt.lease)) continue;
+        if (!ownsRun()) return;
         if (apiKey == null) {
-          // Defer all admitted posts until another observation can retry with
-          // credentials. Do not spin through the remaining batches.
-          _retain(_retries, key, receipt);
-          final remaining = _queued.remove(key);
-          if (remaining != null) _retain(_retries, key, remaining);
-          _finishRun(key, run);
+          // Retry admitted posts on a later observation, without spinning
+          // through more batches while credentials remain unavailable.
+          state.retries.addAll({...posts, ...state.queued});
+          state.queued.clear();
+          state.run = null;
           return;
         }
-
-        final clientId = auth.clientId;
-        if (!_canSend(key, run, receipt.lease)) continue;
-
         await auth.run(
           () => api.recordTopicReads(
-            siteUrl: receipt.siteUrl,
+            siteUrl: siteUrl,
             apiKey: apiKey,
-            clientId: clientId,
-            topicId: receipt.topicId,
-            postNumbers: receipt.postNumbers.toList(),
+            clientId: auth.clientId,
+            topicId: topicId,
+            postNumbers: posts.toList(),
           ),
         );
-      } catch (error) {
-        if (_canSend(key, run, receipt.lease)) {
-          // Notifications are cleared for exact timing keys. A newer local or
-          // server position cannot acknowledge these posts. Retry only after
-          // another observation, while still attempting pending newer reads.
-          _retain(_retries, key, receipt);
-        }
-        // A newer queued position must still be attempted after this failure.
+      } catch (_) {
+        // A position cannot acknowledge exact timing keys. A later observation
+        // retries failed posts, while newer queued batches continue now.
+        if (ownsRun()) state.retries.addAll(posts);
       }
     }
   }
+}
 
-  void _retain(
-    Map<_TopicReadKey, _TopicReadReceipt> queue,
-    _TopicReadKey key,
-    _TopicReadReceipt receipt,
-  ) {
-    final pending = queue[key];
-    if (pending != null &&
-        identical(pending.lease.session, receipt.lease.session)) {
-      pending.postNumbers.addAll(receipt.postNumbers);
-    } else {
-      queue[key] = receipt;
+final class _TopicReadAccount {
+  _TopicReadAccount(this.lease);
+
+  final SiteLease lease;
+  final Map<int, _TopicReadState> topics = {};
+  void Function()? detach;
+
+  _TopicReadState topic(int id) => topics.putIfAbsent(id, _TopicReadState.new);
+  bool get hasPositions => topics.values.any((state) => state.position != null);
+
+  void retire() {
+    detach?.call();
+    detach = null;
+    for (final state in topics.values) {
+      state.clearReads();
+      state.reset = null;
     }
+    topics.clear();
   }
+}
 
-  bool _canSend(_TopicReadKey key, Object run, SiteLease lease) =>
-      !_disposed && lease.isCurrent && _isCurrentRun(key, run);
+final class _TopicReadState {
+  int? position;
+  _TopicReadCredits? credits;
+  final Set<int> retries = {};
+  final Set<int> queued = {};
+  _TopicReadRun? run;
+  Object? reset;
 
-  bool _isCurrentRun(_TopicReadKey key, Object run) =>
-      identical(_runs[key], run);
-
-  void _finishRun(_TopicReadKey key, Object run) {
-    if (!_isCurrentRun(key, run)) return;
-    _runs.remove(key);
-    final _ = _tasks.remove(key);
+  void clearReads() {
+    position = null;
+    credits = null;
+    retries.clear();
+    queued.clear();
+    run = null;
   }
+}
+
+final class _TopicReadRun {
+  final completion = Completer<void>();
 }
 
 /// The posts one account session has admitted for a timing in one topic.
 final class _TopicReadCredits {
-  _TopicReadCredits(this.session, this.serverPosition);
+  _TopicReadCredits(this.serverPosition);
 
   // Reading is mostly contiguous, but posts left out of the readable set, such
   // as small actions and deleted or filtered posts, split the ranges.
   // Forgetting a range only sends a duplicate timing, so the one farthest from
   // the reader is dropped.
   static const _maximumRanges = 64;
-
-  final Object session;
 
   /// The server's last read post when this session first observed the topic.
   /// Chronological readers skip earlier posts. An activity reader removes

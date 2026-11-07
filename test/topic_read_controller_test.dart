@@ -1135,6 +1135,100 @@ void main() {
   });
 
   group('site and account invalidation', () {
+    test(
+      'an earlier retirement observer can install the next account',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'old-key';
+        Future<void>? replacement;
+        lifecycle.capture(siteUrl).onRetire(() {
+          credentials.keys[siteUrl] = 'new-key';
+          store.put(siteUrl, _topic());
+          replacement = controller.mark(siteUrl, 1, 2, caughtUp: false);
+        });
+        store.put(siteUrl, _topic());
+        final retired = controller.mark(siteUrl, 1, 8, caughtUp: false);
+        await pumpEventQueue();
+        lifecycle.invalidate(siteUrl);
+        await pumpEventQueue();
+        expect(api.requests, hasLength(2));
+        expect(api.requests.last.apiKey, 'new-key');
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 2);
+        api.requests.first.response.completeError(StateError('old failure'));
+        await retired;
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 2);
+        api.requests.last.response.complete();
+        await replacement;
+      },
+    );
+
+    test(
+      'retirement releases positions and admits successor reads immediately',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'old-key';
+        store.put(siteUrl, _topic());
+        final retired = controller.mark(siteUrl, 1, 8, caughtUp: false);
+        await pumpEventQueue();
+        expect(api.requests, hasLength(1));
+
+        lifecycle.invalidate(siteUrl);
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), isNull);
+        expect(controller.project(siteUrl, _topic()).lastReadPostNumber, 0);
+        credentials.keys[siteUrl] = 'new-key';
+        store.put(siteUrl, _topic());
+        final replacement = controller.mark(siteUrl, 1, 2, caughtUp: false);
+        await pumpEventQueue();
+        expect(api.requests, hasLength(2));
+        expect(api.requests.last.apiKey, 'new-key');
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 2);
+
+        api.requests.first.response.completeError(StateError('old failure'));
+        await retired;
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 2);
+        api.requests.last.response.complete();
+        await replacement;
+        expect(
+          await sent(() => controller.mark(siteUrl, 1, 2, caughtUp: false)),
+          isEmpty,
+        );
+      },
+    );
+
+    test(
+      'a retired reset cannot block a successor without explicit forget',
+      () async {
+        const siteUrl = 'https://one.example';
+        credentials.keys[siteUrl] = 'old-key';
+        final oldWrite = Completer<void>();
+        var accepted = 0;
+        final reset = controller.reset(
+          siteUrl,
+          1,
+          lease: lifecycle.capture(siteUrl),
+          write: () => oldWrite.future,
+          accepted: () async => accepted++,
+          onError: (error, stack) => fail('$error'),
+          onChanged: () {},
+        );
+        await pumpEventQueue();
+        lifecycle.invalidate(siteUrl);
+        expect(controller.resetInFlight(siteUrl, 1), isFalse);
+        credentials.keys[siteUrl] = 'new-key';
+        store.put(siteUrl, _topic());
+        expect(
+          await sent(() => controller.mark(siteUrl, 1, 2, caughtUp: false)),
+          [
+            [2],
+          ],
+        );
+        oldWrite.complete();
+        await reset;
+        expect(accepted, 0);
+        expect(controller.lastReadPostNumberFor(siteUrl, 1), 2);
+      },
+    );
+
     for (final (invalidate, forget) in [
       (true, true),
       (true, false),

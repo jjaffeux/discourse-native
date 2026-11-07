@@ -145,3 +145,28 @@ This stays within the existing metadata field epoch; a separate translation
 revision or new title value object would split one authority or widen the model
 migration without improving the rule. Topic data tests pin changed/unchanged
 writes, unrelated metadata, old detail/feed replies and fresh translations.
+
+### Read progress belongs to an account session
+
+`TopicReadController` retains one account owner per site lease. Its topic states
+hold optimistic positions, exact timing credits, retry and queued posts, the
+active drain, and any unread-reset operation. Retirement removes that owner
+before notifying readers and releases all retained topic state. Explicit
+`forget` remains useful when clearing a site without replacing its lease.
+
+A successor account can send receipts immediately while an old HTTP request
+is still finishing. The old caller's future still waits for that physical
+request, but its completion cannot restore retries, positions, or a reset in
+the successor. Retirement observers that admit the successor before the old
+owner's observer runs are handled by exact owner identity.
+
+Reset keeps its own token while draining prior timings and accepting the
+server write. Store listeners can start that reset during an optimistic row
+publication because the timing receipt is installed before the row changes.
+The account owner does not alter exact-post crediting, bounded credit ranges,
+request batch size, failed receipt retry, or reading-policy projection.
+
+Focused checks cover `topic_read_controller_test.dart`,
+`topic_read_shell_notifications_test.dart`, `topic_mark_unread_test.dart`,
+`topic_reading_integration_test.dart`, and
+`topic_read_receipts_transport_test.dart`.
