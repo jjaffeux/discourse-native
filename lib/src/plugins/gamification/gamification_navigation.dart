@@ -107,7 +107,12 @@ final class GamificationNavigation implements PluginLinkHandler {
     if (site != null) openForSite(site.url, route);
   }
 
-  void openForSite(String site, GamificationRoute route) {
+  void openForSite(
+    String site,
+    GamificationRoute route, {
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
     final index = host.sites.indexWhere((entry) => entry.url == site);
     if (index < 0 ||
         !(route.admin
@@ -115,13 +120,15 @@ final class GamificationNavigation implements PluginLinkHandler {
             : controller.enabled(site))) {
       return;
     }
-    if (host.currentSite?.url != site) host.selectInstance(index);
     host.pushContent(
       ContentRoute(
         destination: ExtensionDestination(route.id),
         title: appL10n.gamificationTitle,
         icon: gamificationIcon,
       ),
+      siteUrl: site,
+      origin: origin,
+      onNavigated: onNavigated,
     );
   }
 
@@ -172,11 +179,12 @@ final class GamificationNavigation implements PluginLinkHandler {
             : controller.enabled(owner.forum.url))) {
       return false;
     }
-    if (host.currentSite?.url != owner.forum.url) {
-      host.selectInstance(owner.index);
-    }
-    open(route);
-    onNavigated?.call();
+    openForSite(
+      owner.forum.url,
+      route,
+      origin: origin,
+      onNavigated: onNavigated,
+    );
     return true;
   }
 }

@@ -282,7 +282,21 @@ final class _RecordingRouteHost implements PluginRouteNavigationHost {
   }
 
   @override
-  void pushContent(ContentRoute route) => currentContent = route;
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite?.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    currentContent = route;
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
 
   @override
   void replaceCurrentContent(ContentRoute route) => currentContent = route;

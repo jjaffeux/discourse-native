@@ -49,6 +49,40 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   group('Assign routes', () {
+    test(
+      'an assigned group URL opens a background tab without replacing its source',
+      () async {
+        final user = _assignUser(canAssignGlobally: true);
+        final shell = await _loadListShell(
+          FakeDiscourseApi(
+            user: user,
+            feeds: const {'/latest.json': <Topic>[]},
+          ),
+          user: user,
+        );
+        addTearDown(shell.dispose);
+        final before = shell.activeTab;
+        final count = shell.tabsForCurrentForum.length;
+        var navigated = 0;
+
+        expect(
+          await shell.openPluginUrl(
+            '/g/support/assigned/support',
+            origin: PluginLinkOrigin.newTab,
+            onNavigated: () => navigated++,
+          ),
+          isTrue,
+        );
+        expect(shell.activeTab, before);
+        expect(shell.tabsForCurrentForum, hasLength(count + 1));
+        expect(
+          shell.tabsForCurrentForum.last.currentContent.groupRoute?.pluginOwner,
+          'discourse-assign',
+        );
+        expect(navigated, 0);
+      },
+    );
+
     test('a root forum does not shadow a subfolder assignment link', () async {
       const subfolder = '$_site/forum';
       final user = _assignUser(canAssignGlobally: true);

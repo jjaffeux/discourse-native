@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
     show
         ContentRoute,
         PluginRouteSite,
+        PluginLinkOrigin,
         PluginRouteNavigationHost,
         PluginTopicListNavigationHost;
 import 'package:discourse_native/discourse_ui.dart';
@@ -1418,7 +1419,22 @@ final class _SummaryNavigation
   @override
   void selectInstance(int index) {}
   @override
-  void pushContent(ContentRoute route) {}
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite?.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
+
   @override
   void replaceCurrentContent(ContentRoute route) {}
   @override

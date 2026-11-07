@@ -51,6 +51,9 @@ final class EventNavigation implements PluginLinkHandler {
     bool mine = false,
     EventCalendarPage? page,
     bool replace = false,
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
   }) {
     // The route id names the view the directory will actually show.
     final route = ContentRoute(
@@ -61,11 +64,22 @@ final class EventNavigation implements PluginLinkHandler {
       title: mine ? appL10n.myEvents : appL10n.events,
       icon: EventIcons.calendar,
     );
-    if (route.sameDestinationAs(host.currentContent)) return;
+    if ((origin == PluginLinkOrigin.direct ||
+            origin == PluginLinkOrigin.inApp) &&
+        (siteUrl == null || host.currentSite?.url == siteUrl) &&
+        route.sameDestinationAs(host.currentContent)) {
+      onNavigated?.call();
+      return;
+    }
     if (replace) {
       host.replaceCurrentContent(route);
     } else {
-      host.pushContent(route);
+      host.pushContent(
+        route,
+        siteUrl: siteUrl,
+        origin: origin,
+        onNavigated: onNavigated,
+      );
     }
   }
 
@@ -95,7 +109,6 @@ final class EventNavigation implements PluginLinkHandler {
       siteUrl: (site) => site.url,
     );
     if (owner == null) return false;
-    final index = owner.index;
     final site = owner.forum;
     final path = site.pathWithin(target);
     if (path == null || !path.startsWith('/upcoming-events')) return false;
@@ -107,15 +120,13 @@ final class EventNavigation implements PluginLinkHandler {
     if (route == null) return false;
     if (!controller.settings(site.url).enabled) return false;
     if (route.mine && !site.isConnected) return false;
-    if (host.currentSite?.url != site.url) host.selectInstance(index);
-    openDirectory(mine: route.mine, page: route.page);
-    final destinationId =
-        route.page?.directoryPage.routeId(route.mine) ??
-        (route.mine ? 'events-mine' : 'events-upcoming');
-    if (host.currentSite?.url == site.url &&
-        host.currentContent?.id == destinationId) {
-      onNavigated?.call();
-    }
+    openDirectory(
+      mine: route.mine,
+      page: route.page,
+      siteUrl: site.url,
+      origin: origin,
+      onNavigated: onNavigated,
+    );
     return true;
   }
 }

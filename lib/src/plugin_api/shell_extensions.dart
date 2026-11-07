@@ -54,7 +54,16 @@ abstract interface class PluginRouteNavigationHost {
   ContentRoute? get currentContent;
 
   void selectInstance(int index);
-  void pushContent(ContentRoute route);
+
+  /// Opens a route with the link's site and tab/panel intent. Background opens
+  /// preserve the selected forum and do not call [onNavigated]. Returns false
+  /// when the destination cannot be committed, including a full workspace.
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  });
   void replaceCurrentContent(ContentRoute route);
 
   /// Opens [postNumber] and briefly emphasizes its rendered post when

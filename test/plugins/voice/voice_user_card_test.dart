@@ -372,7 +372,21 @@ final class _RouteHost implements PluginRouteNavigationHost {
   ContentRoute? get currentContent => opened.lastOrNull;
 
   @override
-  void pushContent(ContentRoute route) => opened.add(route);
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    opened.add(route);
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
 
   @override
   void replaceCurrentContent(ContentRoute route) => opened.last = route;

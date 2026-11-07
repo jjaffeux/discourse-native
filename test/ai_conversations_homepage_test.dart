@@ -806,6 +806,54 @@ void main() {
     );
   }
 
+  test(
+    'an AI conversation URL opens a background tab without replacing its source',
+    () async {
+      final setup = await _shell(openConversations: false, tabsEnabled: true);
+      addTearDown(setup.shell.dispose);
+      final before = setup.shell.activeTab;
+      final count = setup.shell.tabsForCurrentForum.length;
+      var navigated = 0;
+
+      expect(
+        await setup.shell.openPluginUrl(
+          '$_site/discourse-ai/ai-bot/conversations',
+          origin: PluginLinkOrigin.newTab,
+          onNavigated: () => navigated++,
+        ),
+        isTrue,
+      );
+      expect(setup.shell.activeTab, before);
+      expect(setup.shell.tabsForCurrentForum, hasLength(count + 1));
+      expect(
+        setup.shell.tabsForCurrentForum.last.currentContent.id,
+        'ai-conversations',
+      );
+      expect(navigated, 0);
+    },
+  );
+
+  test(
+    'AI new-tab links use foreground navigation when tabs are disabled',
+    () async {
+      final setup = await _shell(openConversations: false);
+      addTearDown(setup.shell.dispose);
+      var navigated = 0;
+
+      expect(
+        await setup.shell.openPluginUrl(
+          '$_site/discourse-ai/ai-bot/conversations',
+          origin: PluginLinkOrigin.newTab,
+          onNavigated: () => navigated++,
+        ),
+        isTrue,
+      );
+      expect(setup.shell.currentContent!.id, 'ai-conversations');
+      expect(setup.shell.tabsForCurrentForum, hasLength(1));
+      expect(navigated, 1);
+    },
+  );
+
   test('registered conversation URLs open the Native list', () async {
     final setup = _service(RecordingPluginTransport());
     expect(
@@ -936,7 +984,22 @@ class _Navigation
   @override
   void selectInstance(int index) => _selectedIndex = index;
   @override
-  void pushContent(ContentRoute route) => currentContent = route;
+  bool pushContent(
+    ContentRoute route, {
+    String? siteUrl,
+    PluginLinkOrigin origin = PluginLinkOrigin.direct,
+    void Function()? onNavigated,
+  }) {
+    if (siteUrl != null && currentSite.url != siteUrl) {
+      final index = sites.indexWhere((site) => site.url == siteUrl);
+      if (index < 0) return false;
+      selectInstance(index);
+    }
+    currentContent = route;
+    if (currentContent?.sameDestinationAs(route) == true) onNavigated?.call();
+    return true;
+  }
+
   @override
   void replaceCurrentContent(ContentRoute route) => currentContent = route;
   @override
@@ -954,6 +1017,7 @@ class _Navigation
 
 Future<({ShellController shell, FakeDiscourseApi api})> _shell({
   bool openConversations = true,
+  bool tabsEnabled = false,
   DiscourseUser? storedUser,
   Completer<void>? configGate,
   bool mobile = false,
@@ -1009,7 +1073,7 @@ Future<({ShellController shell, FakeDiscourseApi api})> _shell({
     trackers: FakeSiteTracker.reset(),
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
-    forumTabsEnabled: false,
+    forumTabsEnabled: tabsEnabled,
     mobileNavigationEnabled: mobile,
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
