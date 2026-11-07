@@ -29,6 +29,10 @@ final class DiscourseGetSender {
     final safe = _client is SafeHttpClient ? _client : null;
     safe?.authenticate(request);
     final authentication = safe?.basicAuth.identityFor(request.url);
+    final headers = Map<String, String>.of(request.headers);
+    final followRedirects = request.followRedirects;
+    final maxRedirects = request.maxRedirects;
+    final persistentConnection = request.persistentConnection;
     void requireAuthentication() {
       if (safe != null &&
           !identical(authentication, safe.basicAuth.identityFor(request.url))) {
@@ -47,10 +51,10 @@ final class DiscourseGetSender {
         }
         final outgoing =
             http.AbortableRequest('GET', request.url, abortTrigger: sharedAbort)
-              ..headers.addAll(request.headers)
-              ..followRedirects = request.followRedirects
-              ..maxRedirects = request.maxRedirects
-              ..persistentConnection = request.persistentConnection;
+              ..headers.addAll(headers)
+              ..followRedirects = followRedirects
+              ..maxRedirects = maxRedirects
+              ..persistentConnection = persistentConnection;
         return sendBoundedHttpRequest(
           _client,
           outgoing,
@@ -64,7 +68,7 @@ final class DiscourseGetSender {
       abortTrigger: cancellation,
       coalesce: DiscourseGetRequestKey(
         request.url,
-        headers: request.headers,
+        headers: headers,
         timeout: effectiveTimeout,
         maxResponseBytes: _maxResponseBytes,
         session: scope?.session,

@@ -46,6 +46,7 @@ final class MemoryDestinationBookmarksPersistence
   }
 }
 
+/// Stores sharing persistence share one committed snapshot and transaction lane.
 /// Mutations publish only after their complete account-scoped snapshot is durable.
 final class DestinationBookmarksStore {
   DestinationBookmarksStore({DestinationBookmarksPersistence? persistence})
@@ -58,18 +59,16 @@ final class DestinationBookmarksStore {
 
   static const storageKey = 'discourse_native.destination_bookmarks';
   final DestinationBookmarksPersistence _persistence;
-  final _operations = SerialOperationQueue();
-  final Map<(String, String), List<DestinationBookmark>> _entries = {};
-  bool _readable = false;
-  late final _snapshots = CoalescingSnapshotWriter<String>(
-    owner: _persistence,
-    key: storageKey,
-    writeSnapshot: (encoded) async {
-      if (!await _persistence.write(encoded)) {
-        throw StateError('Could not persist destination bookmarks.');
-      }
-    },
-  );
+  static final Expando<_DestinationBookmarksOwner> _owners = Expando();
+  late final _DestinationBookmarksOwner _owner = _owners[_persistence] ??=
+      _DestinationBookmarksOwner(_persistence);
+
+  SerialOperationQueue get _operations => _owner.operations;
+  Map<(String, String), List<DestinationBookmark>> get _entries =>
+      _owner.entries;
+  bool get _readable => _owner.readable;
+  set _readable(bool value) => _owner.readable = value;
+  CoalescingSnapshotWriter<String> get _snapshots => _owner.snapshots;
 
   List<DestinationBookmark> entriesFor(
     String siteUrl,
@@ -77,7 +76,7 @@ final class DestinationBookmarksStore {
   ) => List.unmodifiable(_entries[(siteUrl, accountIdentity)] ?? const []);
 
   Future<void> load() =>
-      _operations.run(owner: this, key: storageKey, operation: _load);
+      _operations.run(owner: _owner, key: storageKey, operation: _load);
 
   Future<void> _load() async {
     _readable = false;
@@ -132,7 +131,7 @@ final class DestinationBookmarksStore {
     required bool bookmarked,
     bool Function()? isCurrent,
   }) => _operations.run(
-    owner: this,
+    owner: _owner,
     key: storageKey,
     operation: () async {
       if (!_readable) {
@@ -161,7 +160,7 @@ final class DestinationBookmarksStore {
   );
 
   Future<void> forgetSite(String siteUrl) => _operations.run(
-    owner: this,
+    owner: _owner,
     key: storageKey,
     operation: () async {
       if (!_readable) {
@@ -177,7 +176,7 @@ final class DestinationBookmarksStore {
   );
 
   Future<void> flush() =>
-      _operations.run(owner: this, key: storageKey, operation: () async {});
+      _operations.run(owner: _owner, key: storageKey, operation: () async {});
 
   String _encode(Map<(String, String), List<DestinationBookmark>> entries) =>
       jsonEncode({
@@ -193,4 +192,22 @@ final class DestinationBookmarksStore {
             },
         ],
       });
+}
+
+final class _DestinationBookmarksOwner {
+  _DestinationBookmarksOwner(DestinationBookmarksPersistence persistence)
+    : snapshots = CoalescingSnapshotWriter<String>(
+        owner: persistence,
+        key: DestinationBookmarksStore.storageKey,
+        writeSnapshot: (encoded) async {
+          if (!await persistence.write(encoded)) {
+            throw StateError('Could not persist destination bookmarks.');
+          }
+        },
+      );
+
+  final operations = SerialOperationQueue();
+  final Map<(String, String), List<DestinationBookmark>> entries = {};
+  bool readable = false;
+  final CoalescingSnapshotWriter<String> snapshots;
 }

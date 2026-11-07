@@ -324,6 +324,58 @@ void main() {
     },
   );
 
+  test(
+    'shared owner keeps queued GET identity equal to its admitted wire snapshot',
+    () async {
+      final blocker = Completer<http.Response>();
+      final started = Completer<void>();
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/blocker') {
+          started.complete();
+          return blocker.future;
+        }
+        return http.Response(request.headers['accept']!, 200);
+      });
+      final coordinator = DiscourseRequestCoordinator(
+        maxConcurrentPerOrigin: 1,
+      );
+      addTearDown(client.close);
+      addTearDown(coordinator.close);
+      final sender = DiscourseGetSender(
+        client,
+        coordinator,
+        const Duration(seconds: 5),
+        1024,
+      );
+      Future<http.Response> send(http.Request request) =>
+          sender.send(request, scope: null, cancellation: null);
+      final active = send(
+        http.Request('GET', Uri.parse('https://forum.example/blocker')),
+      );
+      await started.future;
+      final original = http.Request(
+        'GET',
+        Uri.parse('https://forum.example/queued'),
+      )..headers['accept'] = 'application/json';
+      final queued = send(original);
+      original.headers['accept'] = 'text/html';
+      final joined = send(
+        http.Request('GET', original.url)
+          ..headers['accept'] = 'application/json',
+      );
+      blocker.complete(http.Response('{}', 200));
+      await active;
+      expect((await queued).body, 'application/json');
+      expect((await joined).body, 'application/json');
+      expect(
+        requests.where((request) => request.url.path == '/queued'),
+        hasLength(1),
+      );
+    },
+  );
+
   test('queued anonymous GET is retired when credentials change', () async {
     final store = HttpBasicAuthStore(storage: BasicAuthMemoryStorage());
     final gate = Completer<http.Response>();

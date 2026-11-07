@@ -8,6 +8,25 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   test(
+    'shared owner joins pending settings hydration and permits later refresh',
+    () async {
+      final persistence = _ControlledAppSettingsPersistence(
+        limitContentSize: false,
+      );
+      final store = AppSettingsStore(persistence: persistence);
+      final results = await Future.wait([store.read(), store.read()]);
+      expect(results, [
+        const AppSettings(limitContentSize: false),
+        const AppSettings(limitContentSize: false),
+      ]);
+      expect(persistence.totalReadCount, 7);
+      persistence.limitContentSize = true;
+      expect((await store.read()).limitContentSize, isTrue);
+      expect(persistence.totalReadCount, 14);
+    },
+  );
+
+  test(
     'write outcomes distinguish acknowledgement from retained session choices',
     () async {
       final error = StateError('text scale storage unavailable');
@@ -548,9 +567,11 @@ final class _ControlledAppSettingsPersistence
   final List<String> attemptedTextScaleWrites = [];
   final List<String> attemptedThemeModeWrites = [];
   int readCount = 0;
+  int totalReadCount = 0;
 
   @override
   Future<bool?> readLimitContentSize() async {
+    totalReadCount++;
     readCount++;
     if (failReads) throw StateError('preferences unavailable');
     return limitContentSize;
@@ -558,12 +579,16 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<bool?> readDisableGifAnimations() async {
+    totalReadCount++;
     if (failReads) throw StateError('preferences unavailable');
     return disableGifAnimations;
   }
 
   @override
-  Future<bool?> readReduceMotion() async => reduceMotion;
+  Future<bool?> readReduceMotion() async {
+    totalReadCount++;
+    return reduceMotion;
+  }
 
   @override
   Future<bool> writeReduceMotion(bool value) async {
@@ -574,12 +599,14 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<bool?> readRawMarkdownComposers() async {
+    totalReadCount++;
     if (failReads) throw StateError('preferences unavailable');
     return rawMarkdownComposers;
   }
 
   @override
   Future<String?> readTextScale() async {
+    totalReadCount++;
     if (failReads || failTextScaleRead) {
       throw StateError('preferences unavailable');
     }
@@ -588,6 +615,7 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<String?> readThemeMode() async {
+    totalReadCount++;
     if (failReads) throw StateError('preferences unavailable');
     return themeMode;
   }
@@ -636,6 +664,7 @@ final class _ControlledAppSettingsPersistence
 
   @override
   Future<String?> readTopicListMode() async {
+    totalReadCount++;
     if (failReads) throw StateError('preferences unavailable');
     return topicListMode;
   }

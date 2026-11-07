@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/app_settings.dart';
@@ -272,6 +274,7 @@ final class AppSettingsStore {
   AppThemeMode? _sessionThemeMode;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
+  Future<AppSettings>? _pendingRead;
 
   bool get _hasSessionChanges =>
       _sessionLimitContentSize != null ||
@@ -296,11 +299,7 @@ final class AppSettingsStore {
         _sessionTopicListMode != null) {
       return _withSessionSettings(AppSettings.defaults);
     }
-    final persisted = await _operations.read(
-      owner: _persistence,
-      key: _operationKey,
-      operation: _read,
-    );
+    final persisted = await _readShared();
     // Retain known preferences with session edits if storage later fails.
     // An older read must not replace a session another read already hydrated.
     final settings = _hasSessionChanges
@@ -308,6 +307,28 @@ final class AppSettingsStore {
         : persisted;
     _lastReadSettings = settings;
     return _withSessionSettings(settings);
+  }
+
+  Future<AppSettings> _readShared() {
+    final pending = _pendingRead;
+    if (pending != null) return pending;
+    final result = Completer<AppSettings>();
+    final request = _pendingRead = result.future;
+    unawaited(
+      _operations
+          .read(owner: _persistence, key: _operationKey, operation: _read)
+          .then<void>(
+            (value) {
+              if (identical(_pendingRead, request)) _pendingRead = null;
+              result.complete(value);
+            },
+            onError: (Object error, StackTrace stack) {
+              if (identical(_pendingRead, request)) _pendingRead = null;
+              result.completeError(error, stack);
+            },
+          ),
+    );
+    return request;
   }
 
   AppSettings _withSessionSettings(AppSettings settings) => settings.copyWith(
