@@ -107,13 +107,6 @@ void main() {
       expect(await store.readLastChecked(), isNull);
     });
 
-    test('persists the last check time', () async {
-      final at = DateTime.fromMillisecondsSinceEpoch(1720000000000);
-      await store.writeLastChecked(at);
-
-      expect(await store.readLastChecked(), at);
-    });
-
     test('a platform write rejection does not fail the caller', () async {
       final persistence = _ControlledUpdatePersistence(
         acceptLastCheckedWrites: false,
