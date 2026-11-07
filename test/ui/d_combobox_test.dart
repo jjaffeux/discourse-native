@@ -285,6 +285,56 @@ void main() {
     expect(selected, 'remix');
   });
 
+  for (final key in [
+    LogicalKeyboardKey.enter,
+    LogicalKeyboardKey.numpadEnter,
+    LogicalKeyboardKey.arrowDown,
+    LogicalKeyboardKey.arrowUp,
+  ]) {
+    testWidgets('${key.keyLabel} leaves active IME composition to the editor', (
+      tester,
+    ) async {
+      final selected = <String?>[];
+      final highlighted = <String?>[];
+      final text = TextEditingController();
+      addTearDown(text.dispose);
+      await tester.pumpWidget(
+        _app(
+          DCombobox<String>(
+            options: _options,
+            textController: text,
+            autoHighlight: true,
+            filterLocally: false,
+            onChanged: (value, _) => selected.add(value),
+            onHighlightChanged: (value, _) => highlighted.add(value),
+            anchor: const DComboboxInput<String>(),
+            content: const DComboboxContent(
+              children: [DComboboxList<String>()],
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pumpAndSettle();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: 'に',
+          selection: TextSelection.collapsed(offset: 1),
+          composing: TextRange(start: 0, end: 1),
+        ),
+      );
+      await tester.pump();
+      highlighted.clear();
+
+      await tester.sendKeyEvent(key);
+      await tester.pump();
+
+      expect(selected, isEmpty);
+      expect(highlighted, isEmpty);
+      expect(text.text, 'に');
+    });
+  }
+
   testWidgets('keyboard Done selects the highlighted result once', (
     tester,
   ) async {

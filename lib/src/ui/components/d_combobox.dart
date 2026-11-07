@@ -767,6 +767,10 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       return KeyEventResult.ignored;
     }
     if (!enabled) return KeyEventResult.ignored;
+    final editing = textController.value;
+    if (editing.isComposingRangeValid && !editing.composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
     switch (event.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
         _moveHighlight(1);
