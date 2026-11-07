@@ -274,7 +274,9 @@ final class AppSettingsStore {
   AppThemeMode? _sessionThemeMode;
   TopicListDisplayMode? _sessionTopicListMode;
   AppSettings? _lastReadSettings;
-  Future<AppSettings>? _pendingRead;
+  static final Expando<Object> _mutationVersions = Expando();
+  Object get _mutationVersion => _mutationVersions[_persistence] ??= Object();
+  ({Object version, Future<AppSettings> result})? _pendingRead;
 
   bool get _hasSessionChanges =>
       _sessionLimitContentSize != null ||
@@ -310,20 +312,24 @@ final class AppSettingsStore {
   }
 
   Future<AppSettings> _readShared() {
+    final version = _mutationVersion;
     final pending = _pendingRead;
-    if (pending != null) return pending;
+    if (pending != null && identical(pending.version, version)) {
+      return pending.result;
+    }
     final result = Completer<AppSettings>();
-    final request = _pendingRead = result.future;
+    final request = result.future;
+    _pendingRead = (version: version, result: request);
     unawaited(
       _operations
           .read(owner: _persistence, key: _operationKey, operation: _read)
           .then<void>(
             (value) {
-              if (identical(_pendingRead, request)) _pendingRead = null;
+              if (identical(_pendingRead?.result, request)) _pendingRead = null;
               result.complete(value);
             },
             onError: (Object error, StackTrace stack) {
-              if (identical(_pendingRead, request)) _pendingRead = null;
+              if (identical(_pendingRead?.result, request)) _pendingRead = null;
               result.completeError(error, stack);
             },
           ),
@@ -415,6 +421,7 @@ final class AppSettingsStore {
     AppThemeMode? themeMode,
     TopicListDisplayMode? topicListMode,
   }) {
+    _mutationVersions[_persistence] = Object();
     _sessionLimitContentSize = limitContentSize ?? _sessionLimitContentSize;
     _sessionDisableGifAnimations =
         disableGifAnimations ?? _sessionDisableGifAnimations;

@@ -7,6 +7,23 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
+  test('accepted replacement writes revoke older hydration sharing', () async {
+    final release = Completer<void>();
+    final persistence = _ControlledAppSettingsPersistence(
+      limitContentSize: false,
+    )..firstReadGate = release;
+    final reader = AppSettingsStore(persistence: persistence);
+    final replacement = AppSettingsStore(persistence: persistence);
+    final older = reader.read();
+    await persistence.firstReadStarted.future;
+    await replacement.update(limitContentSize: true);
+    final newer = reader.read();
+    await pumpEventQueue();
+    release.complete();
+    expect((await older).limitContentSize, isFalse);
+    expect((await newer).limitContentSize, isTrue);
+  });
+
   test(
     'shared owner joins pending settings hydration and permits later refresh',
     () async {
@@ -568,13 +585,20 @@ final class _ControlledAppSettingsPersistence
   final List<String> attemptedThemeModeWrites = [];
   int readCount = 0;
   int totalReadCount = 0;
+  Completer<void>? firstReadGate;
+  final firstReadStarted = Completer<void>();
 
   @override
   Future<bool?> readLimitContentSize() async {
     totalReadCount++;
     readCount++;
+    final snapshot = limitContentSize;
+    if (readCount == 1 && firstReadGate != null) {
+      firstReadStarted.complete();
+      await firstReadGate!.future;
+    }
     if (failReads) throw StateError('preferences unavailable');
-    return limitContentSize;
+    return snapshot;
   }
 
   @override
