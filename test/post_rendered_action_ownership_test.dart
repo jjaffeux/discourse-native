@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -174,6 +175,62 @@ void main() {
       await _settle(tester);
       expect(tester.takeException(), isNull);
     }, variant: const TargetPlatformVariant({TargetPlatform.macOS}));
+  }
+
+  for (final action in ['Like', 'quick reaction']) {
+    for (final change in ['topic', 'tab', 'account', 'unchanged']) {
+      testWidgets('pending $action feedback stays with its $change owner', (
+        tester,
+      ) async {
+        final fixture = await _Fixture.open(tester);
+        final response = Completer<http.Response>();
+        fixture.api.likeResponse = response;
+        if (action == 'Like') {
+          await tester.tap(await _control(tester, action));
+        } else {
+          final body = renderedText('Original reply');
+          await tester.tap(body);
+          await tester.pump(const Duration(milliseconds: 50));
+          await tester.tap(body);
+        }
+        await tester.runAsync(() => pumpEventQueue());
+        expect(fixture.api.writes, hasLength(1));
+        switch (change) {
+          case 'topic':
+            fixture.shell.openTopicPost(
+              siteUrl: _siteA,
+              topicId: 8,
+              postNumber: 1,
+            );
+          case 'tab':
+            fixture.shell.createTab();
+            fixture.shell.openTopicPost(
+              siteUrl: _siteA,
+              topicId: 7,
+              postNumber: 2,
+            );
+          case 'account':
+            fixture.shell.lifecycle.invalidate(_siteA);
+          case 'unchanged':
+            break;
+        }
+        response.complete(
+          http.Response(
+            jsonEncode({
+              'errors': ['Like feedback probe'],
+            }),
+            403,
+          ),
+        );
+        await tester.runAsync(() => pumpEventQueue());
+        await _settle(tester);
+        expect(
+          renderedText('Like feedback probe'),
+          change == 'unchanged' ? findsOneWidget : findsNothing,
+        );
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+    }
   }
 
   group('PostActionOwner', () {
@@ -417,9 +474,13 @@ class _Api extends FakeDiscourseApi {
         },
       );
   final writes = <http.Request>[];
+  Completer<http.Response>? likeResponse;
   late final httpApi = DiscourseApi(
     client: MockClient((request) async {
       writes.add(request);
+      if (request.url.path == '/post_actions.json' && likeResponse != null) {
+        return likeResponse!.future;
+      }
       return http.Response(
         jsonEncode(
           request.url.path == '/post_actions.json'

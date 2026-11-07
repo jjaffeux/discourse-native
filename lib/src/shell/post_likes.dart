@@ -49,7 +49,14 @@ class _PostLikesState extends State<PostLikes> {
     }
     final controller = ShellScope.read(context);
     final error = await controller.toggleLike(post, siteUrl: widget.siteUrl);
-    if (!mounted || !identical(ShellScope.read(context), controller)) return;
+    if (!mounted ||
+        !owner.isCurrent(
+          context,
+          siteUrl: widget.siteUrl,
+          postId: widget.post.id,
+        )) {
+      return;
+    }
 
     // Either way, and before the failure is reported: the names on screen are
     // one out if the like went through, and worth confirming if it did not.

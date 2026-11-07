@@ -119,3 +119,17 @@ split between the shell and canonical post owner. The bounded ticket keeps these
 decisions together without adding a general mutation transaction framework.
 `post_like_write_ownership_test.dart`, stale-activation and post write-lock tests
 cover credential races, rollback, account retirement and gesture compatibility.
+
+## Feedback belongs to the rendered action owner
+
+Likes and quick reactions use `PostActionOwner` for both admission and feedback,
+matching the owner check used for typed moderation feedback. Their asynchronous
+work is invoked only after capturing its owner. A completion may still update
+its account's data, but a toast or liker-panel refresh requires the originating
+account lease, tab, destination identity, and post to remain current.
+
+A mounted widget and unchanged shell alone do not establish that authority:
+account retirement or navigation can occur before the next Flutter frame.
+`post_rendered_action_ownership_test.dart` holds the HTTP response through those
+transitions and verifies that current actions still report errors while retired
+ones remain silent.

@@ -321,8 +321,7 @@ class _PostActionsState extends State<PostActions> {
             tooltip: post.liked ? appL10n.removeYourLike : appL10n.likeThisPost,
             tint: post.liked ? Theme.of(context).discourse.love : null,
             onInvoke: () => _report(
-              controller,
-              controller.toggleLike(post, siteUrl: widget.siteUrl),
+              () => controller.toggleLike(post, siteUrl: widget.siteUrl),
             ),
           ),
         if (postUrl case final url?)
@@ -818,13 +817,22 @@ class _PostActionsState extends State<PostActions> {
     );
   }
 
-  Future<void> _report(ShellController controller, Future<String?> work) async {
-    final error = await work;
-    if (error == null ||
-        !mounted ||
-        !identical(ShellScope.maybeRead(context), controller)) {
-      return;
-    }
+  Future<void> _report(Future<String?> Function() action) async {
+    final owner = PostActionOwner.capture(
+      context,
+      siteUrl: widget.siteUrl,
+      postId: widget.post.id,
+    );
+    bool isCurrent() =>
+        mounted &&
+        owner.isCurrent(
+          context,
+          siteUrl: widget.siteUrl,
+          postId: widget.post.id,
+        );
+    if (!isCurrent()) return;
+    final error = await action();
+    if (error == null || !mounted || !isCurrent()) return;
     DToast.show(context, error, type: DToastType.error);
   }
 
@@ -989,7 +997,7 @@ class _PostActionsState extends State<PostActions> {
         return;
       }
       unawaited(HapticFeedback.selectionClick());
-      unawaited(_report(ShellScope.read(context), quickReaction!()));
+      unawaited(_report(quickReaction!));
     }
 
     void invoke(PostAction action, BuildContext anchorContext) =>
