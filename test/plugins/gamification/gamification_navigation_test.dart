@@ -38,6 +38,36 @@ void main() {
     expect(GamificationRoute.web('/leaderboard/0', {}), isNull);
     expect(GamificationRoute.web('/leaderboard/42/other', {}), isNull);
   });
+  test('native routes decline malformed query bytes', () {
+    for (final value in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
+      expect(GamificationRoute.parse('gamification/7?period=$value'), isNull);
+    }
+  });
+  test('malformed web queries decline without navigating', () async {
+    final f = GamificationFixture();
+    addTearDown(f.dispose);
+    final host = GamificationTestNavigationHost();
+    final navigation = GamificationNavigation(
+      host: host,
+      controller: f.controller,
+    );
+    var navigated = false;
+
+    for (final path in ['/leaderboard/7', '/unrelated']) {
+      for (final value in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
+        expect(
+          await navigation.openPluginUrl(
+            'https://second.example/forum$path?period=$value',
+            onNavigated: () => navigated = true,
+          ),
+          isFalse,
+        );
+      }
+    }
+    expect(host.selected, 0);
+    expect(host.currentContent, isNull);
+    expect(navigated, isFalse);
+  });
   test(
     'subfolder links select the serving forum and admin links retain new/edit identity',
     () async {

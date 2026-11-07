@@ -55,12 +55,13 @@ final class GamificationRoute {
     ).firstMatch(uri.path);
     if (match == null) return null;
     try {
+      final period = uri.queryParameters['period'];
       return GamificationRoute(
         boardId: int.tryParse(match[1] ?? ''),
-        period: uri.queryParameters['period'] == null
-            ? null
-            : GamificationPeriod.decode(uri.queryParameters['period']),
+        period: period == null ? null : GamificationPeriod.decode(period),
       );
+    } on FormatException {
+      return null;
     } on GamificationUnsupportedResponse {
       return null;
     }
@@ -159,7 +160,12 @@ final class GamificationNavigation implements PluginLinkHandler {
     if (owner == null) return false;
     final path = owner.forum.pathWithin(target);
     if (path == null) return false;
-    final route = GamificationRoute.web(path, target.queryParameters);
+    final GamificationRoute? route;
+    try {
+      route = GamificationRoute.web(path, target.queryParameters);
+    } on FormatException {
+      return false;
+    }
     if (route == null ||
         !(route.admin
             ? controller.canManage(owner.forum.url)
