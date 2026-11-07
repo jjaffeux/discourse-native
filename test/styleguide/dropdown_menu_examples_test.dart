@@ -10,7 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Dropdown Menu registers every frozen documented example', () {
+  testWidgets('every example mounts in narrow large-text live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['dropdown-menu'], same(dropdownMenuExamples));
     expect(dropdownMenuExamples.status, ComponentStatus.implemented);
     expect(dropdownMenuExamples.examples.map((example) => example.title), [
@@ -33,11 +35,6 @@ void main() {
       'Adaptive sheet on mobile',
       'Sheet on mobile',
     ]);
-  });
-
-  testWidgets('every example mounts in narrow large-text live palettes', (
-    tester,
-  ) async {
     for (final example in dropdownMenuExamples.examples) {
       for (final theme in [
         AppTheme.light,

@@ -10,7 +10,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Hover Card registers the frozen documentation examples', () {
+  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['hover-card'], same(hoverCardExamples));
     expect(hoverCardExamples.status, ComponentStatus.implemented);
     expect(hoverCardExamples.examples.map((example) => example.title), [
@@ -23,11 +25,6 @@ void main() {
       'Multiple triggers and payloads',
       'Controlled and controller',
     ]);
-  });
-
-  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
-    tester,
-  ) async {
     for (final example in hoverCardExamples.examples) {
       for (final theme in [
         AppTheme.light,

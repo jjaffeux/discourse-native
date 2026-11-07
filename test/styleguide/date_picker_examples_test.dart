@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Date Picker registers the complete frozen example matrix', () {
+  testWidgets('Date Picker examples fit narrow 200 percent text', (
+    tester,
+  ) async {
     expect(componentExamples['date-picker'], same(datePickerExamples));
     expect(datePickerExamples.examples.map((example) => example.title), [
       'Composition',
@@ -18,11 +20,6 @@ void main() {
       'Natural Language Picker',
       'RTL',
     ]);
-  });
-
-  testWidgets('Date Picker examples fit narrow 200 percent text', (
-    tester,
-  ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(360, 900);
     addTearDown(tester.view.reset);

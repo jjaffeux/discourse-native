@@ -9,7 +9,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('registers every frozen Combobox composition and example', () {
+  testWidgets('all examples mount narrow at 200 percent in live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['combobox'], same(comboboxExamples));
     expect(comboboxExamples.status, ComponentStatus.implemented);
     expect(comboboxExamples.examples.map((example) => example.title), [
@@ -32,11 +34,6 @@ void main() {
       'Sheet on mobile',
       'Full-screen mobile picker',
     ]);
-  });
-
-  testWidgets('all examples mount narrow at 200 percent in live palettes', (
-    tester,
-  ) async {
     for (final example in comboboxExamples.examples) {
       for (final theme in [
         AppTheme.light,
