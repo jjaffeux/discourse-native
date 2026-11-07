@@ -35,6 +35,34 @@ class _Persistence implements ScalarPreferencePersistence<String> {
 }
 
 void main() {
+  test('a reentrant header choice remains the durable preference', () async {
+    final persistence = _Persistence();
+    final controller = HeaderPreferencesController(
+      'https://headers.example',
+      '7:reader',
+      persistence: persistence,
+    );
+    addTearDown(controller.dispose);
+    const latest = DHeaderTuning(settle: DHeaderSettle.halfway);
+    var replaced = false;
+    controller.addListener(() {
+      if (replaced) return;
+      replaced = true;
+      unawaited(controller.set(latest));
+    });
+
+    await controller.set(const DHeaderTuning(settle: DHeaderSettle.stay));
+    expect(controller.tuning, latest);
+    final reopened = HeaderPreferencesController(
+      'https://headers.example',
+      '7:reader',
+      persistence: persistence,
+    );
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.tuning, latest);
+  });
+
   for (final removed in [false, true]) {
     test(
       'queued header preference retires on ${removed ? 'forum removal' : 'disposal'}',

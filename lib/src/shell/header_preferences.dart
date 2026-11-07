@@ -79,8 +79,10 @@ class HeaderPreferencesController extends FrameSafeNotifier {
     if (isDisposed || _retired || value == tuning) return Future.value();
     _edited = true;
     tuning = value;
+    // Listeners can accept another choice before this call returns.
+    final saving = _store.write(jsonEncode(value.toJson()));
     notifySafely();
-    return _store.write(jsonEncode(value.toJson()));
+    return saving;
   }
 }
 

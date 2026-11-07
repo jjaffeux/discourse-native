@@ -23,6 +23,24 @@ void main() {
     });
   }
 
+  test('a reentrant choice remains the durable preference', () async {
+    final controller = TopicPresentationController();
+    addTearDown(controller.dispose);
+    var replaced = false;
+    controller.addListener(() {
+      if (replaced) return;
+      replaced = true;
+      controller.select(TopicPresentation.split);
+    });
+
+    controller.select(TopicPresentation.merged);
+    expect(controller.preference, TopicPresentation.split);
+    final reopened = TopicPresentationController();
+    addTearDown(reopened.dispose);
+    await reopened.load();
+    expect(reopened.preference, TopicPresentation.split);
+  });
+
   test('legacy sheet and dock modes migrate to merged and split', () async {
     for (final (stored, expected) in [
       ('sheet', TopicPresentation.merged),

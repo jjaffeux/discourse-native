@@ -28,8 +28,9 @@ class TopicPresentationController extends ChangeNotifier {
   void select(TopicPresentation value) {
     _revision++;
     _preference = value;
-    notifyListeners();
+    // Listeners can accept another choice before this call returns.
     unawaited(store.write(value));
+    notifyListeners();
   }
 
   @override

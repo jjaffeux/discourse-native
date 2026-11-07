@@ -64,8 +64,9 @@ class ComposerPresentationController extends ChangeNotifier {
   void _update(ComposerLayoutPreference value, {bool persist = true}) {
     _revision++;
     _preference = value;
-    notifyListeners();
+    // Listeners can accept another choice before this call returns.
     if (persist) unawaited(store.write(value));
+    notifyListeners();
   }
 
   @override
