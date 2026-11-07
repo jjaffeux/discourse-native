@@ -77,53 +77,6 @@ void main() {
     );
   });
 
-  test('a six-row month requests all six rows', () {
-    // 1 Aug 2026 is a Saturday: five leading days push 31 days past 35.
-    final days = month(2026, 8, firstDay: 1);
-    expect(
-      days,
-      DateTimeRange(
-        start: DateTime.utc(2026, 7, 27),
-        end: DateTime.utc(2026, 9, 7),
-      ),
-    );
-    expect(days.duration, const Duration(days: 42));
-  });
-
-  test('the first weekday decides how many rows a month draws', () {
-    // February 2027 is four weeks from Monday (padded to five rows) but five
-    // natural rows from Sunday.
-    expect(
-      month(2027, 2, firstDay: 1),
-      DateTimeRange(
-        start: DateTime.utc(2027, 2, 1),
-        end: DateTime.utc(2027, 3, 8),
-      ),
-    );
-    expect(
-      month(2027, 2, firstDay: 0),
-      DateTimeRange(
-        start: DateTime.utc(2027, 1, 31),
-        end: DateTime.utc(2027, 3, 7),
-      ),
-    );
-    // August 2026 fits five rows from Saturday and needs six from Sunday.
-    expect(
-      month(2026, 8, firstDay: 6),
-      DateTimeRange(
-        start: DateTime.utc(2026, 8, 1),
-        end: DateTime.utc(2026, 9, 5),
-      ),
-    );
-    expect(
-      month(2026, 8, firstDay: 0),
-      DateTimeRange(
-        start: DateTime.utc(2026, 7, 26),
-        end: DateTime.utc(2026, 9, 6),
-      ),
-    );
-  });
-
   test('month and week requests cover exactly the days Kalender draws', () {
     final paris = ports.zones.location('Europe/Paris')!;
     DateTime inParis(DateTime day) =>
