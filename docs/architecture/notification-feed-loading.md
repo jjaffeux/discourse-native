@@ -45,3 +45,40 @@ the formerly persistent token left after an old request completed. The eight
 new cases failed before this ownership change. Existing cases cover
 coalescing, loaded-feed refresh, failure messages, read reconciliation,
 dismissal, and account forgetting.
+
+## Retained bookmark and activity pages
+
+`BookmarkListOwner` and `UserActivityOwner` retain each feed in a private
+`_PagedFeedAccount<F>` alongside its captured lease and active request. The record
+shares account and request ownership only; bookmark pages, activity offsets,
+previous-page recovery and bounded window policies stay in their concrete owners.
+It replaces the separate retained-feed and active-request maps, so completed
+private rows cannot outlive the lease that admitted them.
+
+Bare account retirement removes the exact record and clears its feed before
+publishing the aspect and aggregate changes. Getters return an empty feed until
+an explicit initial or refresh load admits a successor. Pagination and
+`refreshLoaded` cannot create a replacement account by themselves. A retirement
+observer may synchronously start a successor load; old publication, failure and
+cleanup cannot remove its record or settle its request slot.
+
+Retirement withdraws publication authority without completing dispatched I/O.
+An old caller's future still waits for its physical request to finish, while a
+successor has an independent slot and new credentials. Refresh within one account
+continues to supersede the current request, and ordinary concurrent loads share
+that account's active future as before.
+
+Explicit `retire` stays silent and returns whether it removed a record.
+`AccountActivityController.forget` uses it with `publishRetirement` to batch its
+aspect changes. If lease retirement already removed and published the feed, a
+later explicit retirement returns false and produces no duplicate publication.
+The former test requiring an additional manual retirement after invalidation was
+updated to this deliberate self-contained lifetime contract.
+
+The history-owner tests first reproduced six old-source failures: retained rows,
+default reload and pending-slot reuse for both feed types. They also pin new
+credentials, physical completion timing, aspect/aggregate/earlier-observer
+reentrancy, successor success followed by old failure, and silent explicit
+retirement. Controller and bookmark-page suites retain pagination and presentation
+contracts. Two independent account classes would duplicate this existing shared
+request protocol; the private record keeps its limited common responsibility.

@@ -24,12 +24,47 @@ final class BookmarkListOwner extends FrameSafeNotifier {
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final VoidCallback changed;
-  final Map<String, BookmarkListFeed> _feeds = {};
-  late final _requests = _PagedRequestSlot(lifecycle);
+  final _accounts = <String, _PagedFeedAccount<BookmarkListFeed>>{};
+
+  _PagedFeedAccount<BookmarkListFeed>? _currentAccount(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return !isDisposed && account?.isCurrent == true ? account : null;
+  }
+
+  _PagedFeedAccount<BookmarkListFeed>? _accountFor(String siteUrl) {
+    if (isDisposed) return null;
+    final previous = _accounts[siteUrl];
+    if (previous != null && !previous.isCurrent) {
+      _retireAccount(previous, publish: true);
+    }
+    if (isDisposed) return null;
+    if (_currentAccount(siteUrl) case final held?) return held;
+    final account = _PagedFeedAccount(
+      siteUrl,
+      lifecycle.capture(siteUrl),
+      const BookmarkListFeed(),
+    );
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(
+      () => _retireAccount(account, publish: true),
+    );
+    return account.isCurrent ? account : null;
+  }
+
+  bool _retireAccount(
+    _PagedFeedAccount<BookmarkListFeed> account, {
+    bool publish = false,
+  }) {
+    final owns = identical(_accounts[account.siteUrl], account);
+    if (owns) _accounts.remove(account.siteUrl);
+    account.retire();
+    if (owns && publish) _publish();
+    return owns;
+  }
 
   BookmarkListFeed feedFor(String? siteUrl) => siteUrl == null
       ? const BookmarkListFeed()
-      : _feeds[siteUrl] ?? const BookmarkListFeed();
+      : _currentAccount(siteUrl)?.feed ?? const BookmarkListFeed();
 
   Future<void> load(
     DiscourseInstance instance, {
@@ -43,7 +78,12 @@ final class BookmarkListOwner extends FrameSafeNotifier {
     if (isDisposed || !instance.isConnected) return Future<void>.value();
 
     final siteUrl = instance.url;
-    final held = feedFor(siteUrl);
+    if ((loadMore || loadPrevious) && _currentAccount(siteUrl) == null) {
+      return Future<void>.value();
+    }
+    final account = _accountFor(siteUrl);
+    if (account == null) return Future<void>.value();
+    final held = account.feed;
     if (!refresh && !loadMore && !loadPrevious && held.loaded) {
       return Future<void>.value();
     }
@@ -61,11 +101,10 @@ final class BookmarkListOwner extends FrameSafeNotifier {
         : loadPrevious
         ? held.previousPage
         : held.nextPage;
-    return _requests.run(
-      siteUrl,
+    return account.run(
       refresh: refresh,
       publishLoading: () {
-        _feeds[siteUrl] = held.loadingPage(prepend: loadPrevious);
+        account.feed = held.loadingPage(prepend: loadPrevious);
         _publish();
       },
       load: (request) => _loadPage(
@@ -82,13 +121,13 @@ final class BookmarkListOwner extends FrameSafeNotifier {
   /// otherwise show again unchanged. A list never opened is left for the page
   /// to load when it is.
   Future<void> refreshLoaded(DiscourseInstance instance) {
-    if (!_feeds.containsKey(instance.url)) return Future<void>.value();
+    if (_currentAccount(instance.url) == null) return Future<void>.value();
     return load(instance, refresh: true);
   }
 
   Future<void> _loadPage(
     DiscourseInstance instance, {
-    required _PagedRequest request,
+    required _PagedRequest<BookmarkListFeed> request,
     required int page,
     required bool replace,
     required bool prepend,
@@ -98,8 +137,8 @@ final class BookmarkListOwner extends FrameSafeNotifier {
     if (username == null) return;
 
     void fail(String message) {
-      final held = feedFor(siteUrl);
-      _feeds[siteUrl] = held.withError(message, retryFromStart: replace);
+      final held = request.account.feed;
+      request.account.feed = held.withError(message, retryFromStart: replace);
     }
 
     try {
@@ -133,7 +172,7 @@ final class BookmarkListOwner extends FrameSafeNotifier {
         return;
       }
       request.commit(() {
-        _feeds[siteUrl] = feedFor(siteUrl).withPage(
+        request.account.feed = request.account.feed.withPage(
           loaded,
           replace: replace,
           prepend: prepend,
@@ -167,9 +206,8 @@ final class BookmarkListOwner extends FrameSafeNotifier {
   }
 
   bool retire(String siteUrl) {
-    final hadFeed = _feeds.remove(siteUrl) != null;
-    _requests.forget(siteUrl);
-    return hadFeed;
+    final account = _accounts[siteUrl];
+    return account != null && _retireAccount(account);
   }
 
   void publishRetirement() => notifySafely();
@@ -181,8 +219,9 @@ final class BookmarkListOwner extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _requests.clear();
-    _feeds.clear();
+    for (final account in _accounts.values.toList()) {
+      _retireAccount(account);
+    }
     super.dispose();
   }
 }
@@ -201,14 +240,49 @@ final class UserActivityOwner extends FrameSafeNotifier {
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
   final VoidCallback changed;
-  final Map<String, UserActivityFeed> _feeds = {};
-  late final _requests = _PagedRequestSlot(lifecycle);
+  final _accounts = <String, _PagedFeedAccount<UserActivityFeed>>{};
+
+  _PagedFeedAccount<UserActivityFeed>? _currentAccount(String siteUrl) {
+    final account = _accounts[siteUrl];
+    return !isDisposed && account?.isCurrent == true ? account : null;
+  }
+
+  _PagedFeedAccount<UserActivityFeed>? _accountFor(String siteUrl) {
+    if (isDisposed) return null;
+    final previous = _accounts[siteUrl];
+    if (previous != null && !previous.isCurrent) {
+      _retireAccount(previous, publish: true);
+    }
+    if (isDisposed) return null;
+    if (_currentAccount(siteUrl) case final held?) return held;
+    final account = _PagedFeedAccount(
+      siteUrl,
+      lifecycle.capture(siteUrl),
+      const UserActivityFeed(),
+    );
+    _accounts[siteUrl] = account;
+    account.detach = account.lease.onRetire(
+      () => _retireAccount(account, publish: true),
+    );
+    return account.isCurrent ? account : null;
+  }
+
+  bool _retireAccount(
+    _PagedFeedAccount<UserActivityFeed> account, {
+    bool publish = false,
+  }) {
+    final owns = identical(_accounts[account.siteUrl], account);
+    if (owns) _accounts.remove(account.siteUrl);
+    account.retire();
+    if (owns && publish) _publish();
+    return owns;
+  }
 
   static const int pageSize = 30;
 
   UserActivityFeed feedFor(String? siteUrl) => siteUrl == null
       ? const UserActivityFeed()
-      : _feeds[siteUrl] ?? const UserActivityFeed();
+      : _currentAccount(siteUrl)?.feed ?? const UserActivityFeed();
 
   Future<void> load(
     DiscourseInstance instance, {
@@ -222,7 +296,12 @@ final class UserActivityOwner extends FrameSafeNotifier {
     if (isDisposed || !instance.isConnected) return Future<void>.value();
 
     final siteUrl = instance.url;
-    final held = feedFor(siteUrl);
+    if ((loadMore || loadPrevious) && _currentAccount(siteUrl) == null) {
+      return Future<void>.value();
+    }
+    final account = _accountFor(siteUrl);
+    if (account == null) return Future<void>.value();
+    final held = account.feed;
     if (!refresh && !loadMore && !loadPrevious && held.loaded) {
       return Future<void>.value();
     }
@@ -241,11 +320,10 @@ final class UserActivityOwner extends FrameSafeNotifier {
         ? held.previousOffset(pageSize)
         : held.nextOffset;
     final limit = loadPrevious ? held.firstOffset - offset : pageSize;
-    return _requests.run(
-      siteUrl,
+    return account.run(
       refresh: refresh,
       publishLoading: () {
-        _feeds[siteUrl] = held.loadingPage(
+        account.feed = held.loadingPage(
           replace: replace,
           prepend: loadPrevious,
         );
@@ -264,7 +342,7 @@ final class UserActivityOwner extends FrameSafeNotifier {
 
   Future<void> _loadPage(
     DiscourseInstance instance, {
-    required _PagedRequest request,
+    required _PagedRequest<UserActivityFeed> request,
     required int offset,
     required bool replace,
     required bool prepend,
@@ -275,8 +353,8 @@ final class UserActivityOwner extends FrameSafeNotifier {
     if (username == null) return;
 
     void fail(String message) {
-      final held = feedFor(siteUrl);
-      _feeds[siteUrl] = held.withError(message, retryFromStart: replace);
+      final held = request.account.feed;
+      request.account.feed = held.withError(message, retryFromStart: replace);
     }
 
     try {
@@ -311,7 +389,7 @@ final class UserActivityOwner extends FrameSafeNotifier {
         return;
       }
       request.commit(() {
-        _feeds[siteUrl] = feedFor(siteUrl).withPage(
+        request.account.feed = request.account.feed.withPage(
           page,
           limit: limit,
           replace: replace,
@@ -346,9 +424,8 @@ final class UserActivityOwner extends FrameSafeNotifier {
   }
 
   bool retire(String siteUrl) {
-    final hadFeed = _feeds.remove(siteUrl) != null;
-    _requests.forget(siteUrl);
-    return hadFeed;
+    final account = _accounts[siteUrl];
+    return account != null && _retireAccount(account);
   }
 
   void publishRetirement() => notifySafely();
@@ -360,34 +437,41 @@ final class UserActivityOwner extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    _requests.clear();
-    _feeds.clear();
+    for (final account in _accounts.values.toList()) {
+      _retireAccount(account);
+    }
     super.dispose();
   }
 }
 
-final class _PagedRequestSlot {
-  _PagedRequestSlot(this.lifecycle);
+/// Retains one feed and its physical request lane for one captured account.
+final class _PagedFeedAccount<F extends Object> {
+  _PagedFeedAccount(this.siteUrl, this.lease, F empty)
+    : _empty = empty,
+      feed = empty;
 
-  final SiteLifecycle lifecycle;
-  final Map<String, _PagedRequest> _requests = {};
+  final String siteUrl;
+  final SiteLease lease;
+  final F _empty;
+  F feed;
+  void Function()? detach;
+  _PagedRequest<F>? _active;
+  bool _retired = false;
+  bool get isCurrent => !_retired && lease.isCurrent;
 
-  Future<void> run(
-    String siteUrl, {
+  Future<void> run({
     required bool refresh,
     required void Function() publishLoading,
-    required Future<void> Function(_PagedRequest request) load,
+    required Future<void> Function(_PagedRequest<F> request) load,
   }) {
-    final active = _requests[siteUrl];
+    if (!isCurrent) return Future<void>.value();
+    final active = _active;
     if (active != null && !refresh) return active.future;
-
-    final request = _PagedRequest(this, siteUrl, lifecycle.capture(siteUrl));
-    _requests[siteUrl] = request;
+    final request = _PagedRequest(this);
+    _active = request;
 
     void finish([Object? error, StackTrace? stackTrace]) {
-      if (identical(_requests[siteUrl], request)) {
-        _requests.remove(siteUrl);
-      }
+      if (identical(_active, request)) _active = null;
       if (error == null) {
         request._result.complete();
       } else {
@@ -414,23 +498,26 @@ final class _PagedRequestSlot {
     return request.future;
   }
 
-  void forget(String siteUrl) => _requests.remove(siteUrl)?.future.ignore();
-
-  void clear() => _requests.clear();
+  void retire() {
+    if (_retired) return;
+    _retired = true;
+    detach?.call();
+    detach = null;
+    feed = _empty;
+    _active?.future.ignore();
+    _active = null;
+  }
 }
 
-final class _PagedRequest {
-  _PagedRequest(this._slot, this.siteUrl, this.lease);
+final class _PagedRequest<F extends Object> {
+  _PagedRequest(this.account);
 
-  final _PagedRequestSlot _slot;
-  final String siteUrl;
-  final SiteLease lease;
+  final _PagedFeedAccount<F> account;
   final _result = Completer<void>();
 
+  SiteLease get lease => account.lease;
   Future<void> get future => _result.future;
-
-  bool get isCurrent =>
-      lease.isCurrent && identical(_slot._requests[siteUrl], this);
+  bool get isCurrent => account.isCurrent && identical(account._active, this);
 
   bool commit(SiteMutation mutation) => isCurrent && lease.commit(mutation);
 }
