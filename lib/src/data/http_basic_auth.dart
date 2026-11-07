@@ -164,15 +164,17 @@ final class HttpBasicAuthStore {
         );
       });
 
-  Future<void> retainOrigins(Iterable<String> siteUrls) => _mutate(() async {
-    await load();
+  Future<void> retainOrigins(Iterable<String> siteUrls) async {
     final origins = {for (final url in siteUrls) Uri.parse(url).origin};
-    final retained = {
-      for (final entry in _credentials.entries)
-        if (origins.contains(entry.key)) entry.key: entry.value,
-    };
-    if (retained.length != _credentials.length) await _write(retained);
-  });
+    await _mutate(() async {
+      await load();
+      final retained = {
+        for (final entry in _credentials.entries)
+          if (origins.contains(entry.key)) entry.key: entry.value,
+      };
+      if (retained.length != _credentials.length) await _write(retained);
+    });
+  }
 
   Future<void> _rollback(HttpBasicAuthChange change) => _mutate(() async {
     if (!identical(_versions[change._origin], change._version)) return;

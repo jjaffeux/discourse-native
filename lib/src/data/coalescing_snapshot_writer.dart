@@ -35,7 +35,18 @@ final class CoalescingSnapshotWriter<T> {
   /// write has been extracted from that slot, later saves form the next slot;
   /// the extracted save settles only after its own physical write.
   Future<void> save(T value) {
-    _lane.pendingWrite = () => _write(value);
+    final submitter = Zone.current;
+    _lane.pendingWrite = () {
+      final completion = Completer<void>();
+      unawaited(
+        submitter.run(
+          () => Future<void>.sync(
+            () => _write(value),
+          ).then<void>(completion.complete, onError: completion.completeError),
+        ),
+      );
+      return completion.future;
+    };
     final result = _lane.pendingResult ??= Completer<void>();
     _lane.latestResult = result.future;
     if (!_lane.saving) {

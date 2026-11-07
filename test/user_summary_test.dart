@@ -68,7 +68,7 @@ const _person = UserSummaryUser(
   name: 'Sam Example',
   count: 4,
 );
-const _summary = UserSummary(
+final _summary = UserSummary(
   canSeeSummaryStats: true,
   canSeeUserActions: true,
   likesGiven: 7,
@@ -81,9 +81,11 @@ const _summary = UserSummary(
   timeRead: 100000,
   recentTimeRead: 1000,
   bookmarkCount: 1,
-  topics: [_topTopic],
-  replies: [UserSummaryReply(topic: _replyTopic, postNumber: 4, likeCount: 3)],
-  links: [
+  topics: const [_topTopic],
+  replies: const [
+    UserSummaryReply(topic: _replyTopic, postNumber: 4, likeCount: 3),
+  ],
+  links: const [
     UserSummaryLink(
       topic: _topTopic,
       url: 'https://example.com/helpful',
@@ -92,10 +94,10 @@ const _summary = UserSummary(
       postNumber: 2,
     ),
   ],
-  mostRepliedToUsers: [_person],
-  mostLikedByUsers: [_person],
-  mostLikedUsers: [_person],
-  topCategories: [
+  mostRepliedToUsers: const [_person],
+  mostLikedByUsers: const [_person],
+  mostLikedUsers: const [_person],
+  topCategories: const [
     UserSummaryCategory(
       id: 5,
       name: 'Support',
@@ -105,7 +107,7 @@ const _summary = UserSummary(
       postCount: 7,
     ),
   ],
-  badges: [
+  badges: const [
     UserSummaryBadge(
       id: 3,
       name: 'Helpful',
@@ -682,7 +684,7 @@ void main() {
         await tester.pumpWidget(const SizedBox.shrink());
         await tester.pumpAndSettle();
 
-        final failed = await _pump(tester, summary: null);
+        final failed = await _pump(tester, summaryUnavailable: true);
         await _openSummaryFromMenu(tester);
         expect(
           find.text("Couldn't load your summary from meta.discourse.org."),
@@ -706,7 +708,7 @@ void main() {
     testWidgets('shows a focused empty state in each summary tab', (
       tester,
     ) async {
-      await _pump(tester, summary: const UserSummary(canSeeSummaryStats: true));
+      await _pump(tester, summary: UserSummary(canSeeSummaryStats: true));
       await _openSummaryFromMenu(tester);
 
       expect(
@@ -861,7 +863,8 @@ Future<void> _captureReview(WidgetTester tester, String name) async {
 Future<_Fixture> _pump(
   WidgetTester tester, {
   Size size = const Size(1440, 900),
-  UserSummary? summary = _summary,
+  UserSummary? summary,
+  bool summaryUnavailable = false,
   Completer<void>? summaryGate,
   FakeForumTabStore? forumTabs,
   bool badgesEnabled = true,
@@ -884,7 +887,7 @@ Future<_Fixture> _pump(
   final api = FakeDiscourseApi(
     user: site.user,
     totals: const NotificationTotals(),
-    summary: summary,
+    summary: summaryUnavailable ? null : summary ?? _summary,
     cards: cards,
     userSummaryGate: summaryGate,
     feeds: const {'/latest.json': []},

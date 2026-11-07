@@ -371,7 +371,7 @@ final class _AuthenticatedSiteImageCache extends ByteCache<SiteImageBytes> {
       response.headers['content-type'],
     );
     return SiteImageBytes(
-      response.bodyBytes,
+      Uint8List.fromList(response.bodyBytes).asUnmodifiableView(),
       mediaType: mediaType,
       isAnimated: _looksAnimated(
         response.bodyBytes,

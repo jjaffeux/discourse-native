@@ -2,8 +2,10 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/badges_api.dart';
+import 'package:discourse_native/src/data/discourse_badges_api.dart';
 import 'package:discourse_native/src/data/plugin_transport.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -27,12 +29,38 @@ void main() {
     transport = _Transport();
     lifecycle = SiteLifecycle();
     controller = BadgesController(
-      api: BadgesApi(transport),
+      api: DiscourseBadgesApi(transport),
       credentials: const _Credentials(),
       lifecycle: lifecycle,
     );
   });
   tearDown(() => controller.dispose());
+
+  test(
+    'badge presentation consumes a domain API without HTTP or wire fixtures',
+    () async {
+      final catalog = BadgeCatalog([
+        BadgeGroup(
+          id: 1,
+          name: 'Community',
+          badges: const [DiscourseBadge(id: 1, name: 'Welcome')],
+        ),
+      ]);
+      final fake = _DomainBadgesApi(catalog);
+      final presentation = BadgesController(
+        api: fake,
+        credentials: const _Credentials(),
+        lifecycle: SiteLifecycle(),
+      );
+      addTearDown(presentation.dispose);
+      await presentation.load(site, directory);
+      final state = presentation.stateFor(site.url, directory);
+      expect(state.loaded, isTrue);
+      expect(state.catalog, same(catalog));
+      expect(state.catalog!.groups.single.badges.single.name, 'Welcome');
+      expect(fake.sites, [site.url]);
+    },
+  );
 
   test(
     'keeps paging older recipients after a mass award shifts a full page',
@@ -370,4 +398,37 @@ final class _Credentials implements ApiCredentialReader {
   Future<String?> apiKeyFor(String siteUrl) async => 'secret';
   @override
   Future<String> clientId() async => 'client';
+}
+
+final class _DomainBadgesApi implements BadgesApi {
+  _DomainBadgesApi(this.value);
+  final BadgeCatalog value;
+  final List<String> sites = [];
+
+  @override
+  Future<BadgeCatalog> catalog({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    sites.add(siteUrl);
+    return value;
+  }
+
+  @override
+  Future<DiscourseBadge> badge({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async => value.groups.single.badges.single;
+
+  @override
+  Future<BadgeGrantPage> grants({
+    required String siteUrl,
+    required BadgeRoute route,
+    int offset = 0,
+    String? apiKey,
+    String? clientId,
+  }) => throw UnimplementedError();
 }

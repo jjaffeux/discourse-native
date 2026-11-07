@@ -1,0 +1,74 @@
+import 'package:discourse_native/l10n/strings.dart';
+
+import '../models/badge.dart';
+import '../models/badge_route.dart';
+import '../models/json.dart';
+import 'badges_api.dart';
+import 'plugin_transport.dart';
+
+final class DiscourseBadgesApi implements BadgesApi {
+  const DiscourseBadgesApi(this._transport);
+
+  final PluginApiTransport _transport;
+
+  @override
+  Future<BadgeCatalog> catalog({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async => BadgeCatalog.fromJson(
+    await _get(siteUrl, '/badges.json?only_listable=true', apiKey, clientId),
+    siteUrl,
+  );
+
+  @override
+  Future<DiscourseBadge> badge({
+    required String siteUrl,
+    required int id,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (id <= 0) throw ArgumentError.value(id, 'id');
+    final body = await _get(siteUrl, '/badges/$id.json', apiKey, clientId);
+    final badge = DiscourseBadge.fromJson(jsonObject(body['badge']), siteUrl);
+    if (badge.id != id) throw FormatException(appL10n.missingBadge);
+    return badge;
+  }
+
+  @override
+  Future<BadgeGrantPage> grants({
+    required String siteUrl,
+    required BadgeRoute route,
+    int offset = 0,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    if (route.isDirectory || offset < 0) {
+      throw ArgumentError('Invalid badge grants request');
+    }
+    final path = Uri(
+      path: '/user_badges.json',
+      queryParameters: {
+        'badge_id': '${route.badgeId}',
+        'offset': '$offset',
+        if (route.username != null) 'username': route.username!,
+      },
+    ).toString();
+    return BadgeGrantPage.fromJson(
+      await _get(siteUrl, path, apiKey, clientId),
+      siteUrl,
+    );
+  }
+
+  Future<Map<String, dynamic>> _get(
+    String siteUrl,
+    String path,
+    String? apiKey,
+    String? clientId,
+  ) => _transport.pluginGetJson(
+    siteUrl: siteUrl,
+    path: path,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
+}

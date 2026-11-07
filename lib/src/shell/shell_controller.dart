@@ -24,13 +24,13 @@ import '../data/api_credentials.dart';
 import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
-import '../data/badges_api.dart';
 import '../data/composer_media_optimizer.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/current_user_refresh.dart';
 import '../data/custom_sidebar_sections.dart';
 import '../data/destination_bookmarks_store.dart';
 import '../data/discourse_api_contracts.dart';
+import '../data/discourse_badges_api.dart';
 import '../data/discover_sites.dart';
 import '../data/draft_store.dart';
 import '../data/emoji_picker_store.dart';
@@ -1016,7 +1016,7 @@ class ShellController extends FrameSafeNotifier
   );
 
   late final BadgesController badges = BadgesController(
-    api: BadgesApi(api.pluginTransport),
+    api: DiscourseBadgesApi(api.pluginTransport),
     credentials: credentials,
     lifecycle: lifecycle,
   );
