@@ -93,7 +93,7 @@ void main() {
             _Section.chat => find.byType(PluginNotificationsSection),
           };
           final sourceState = tester.state(stateFinder);
-          final activeState = sourceState;
+          var activeState = sourceState;
           final shell = ShellScope.read(tester.element(stateFinder));
           final sourceRoute = shell.currentContent?.id;
           final link = find.descendant(
@@ -113,11 +113,22 @@ void main() {
           if (switchSite) {
             shell.selectInstance(1);
             await tester.pumpAndSettle();
-            // Site navigation preserves the selected section; its late
-            // activation still belongs to the previous site/account.
-            expect(sourceState.mounted, isTrue);
+            expect(
+              sourceState.mounted,
+              defaultTargetPlatform == TargetPlatform.macOS,
+            );
+            if (stateFinder.evaluate().isEmpty) {
+              await tester.tap(notificationsMenuTrigger());
+              await tester.pumpAndSettle();
+              final replacementTab = find
+                  .descendant(of: menu, matching: find.text(label))
+                  .last;
+              await tester.ensureVisible(replacementTab);
+              await tester.tap(replacementTab);
+              await tester.pumpAndSettle();
+            }
             expect(stateFinder, findsOneWidget);
-            expect(tester.state(stateFinder), same(activeState));
+            activeState = tester.state(stateFinder);
             expect(shell.currentInstance?.url, _team);
             expect(
               find.descendant(

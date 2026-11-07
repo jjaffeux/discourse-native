@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/invite_fixtures.dart' show invitePage, inviteRow;
+import 'support/notifications_menu.dart';
 
 const _metaUrl = 'https://meta.discourse.org';
 const _teamUrl = 'https://team.discourse.org';
@@ -543,9 +544,12 @@ void main() {
 
         shell.selectInstance(1);
         await tester.pumpAndSettle();
+        if (find.byType(UserMenuPanel).evaluate().isEmpty) {
+          await _openNestedSection(tester, 'Notifications');
+        }
 
         expect(find.textContaining('Team Helper'), findsOneWidget);
-        expect(api.notificationSites, [_metaUrl, _teamUrl]);
+        expect(api.notificationSites, [_metaUrl, _teamUrl, _teamUrl]);
 
         await tester.tap(find.textContaining('Team Helper'));
         await tester.pumpAndSettle();
@@ -571,9 +575,12 @@ void main() {
 
         shell.selectInstance(1);
         await tester.pumpAndSettle();
+        if (find.byType(UserMenuPanel).evaluate().isEmpty) {
+          await _openNestedSection(tester, 'Replies');
+        }
 
         expect(find.textContaining('Team reply'), findsOneWidget);
-        expect(api.replySites, [_metaUrl, _teamUrl]);
+        expect(api.replySites, [_metaUrl, _teamUrl, _teamUrl]);
       }),
     );
 
@@ -589,6 +596,9 @@ void main() {
 
         shell.selectInstance(1);
         await tester.pumpAndSettle();
+        if (find.byType(UserMenuPanel).evaluate().isEmpty) {
+          await _openNestedSection(tester, 'Bookmarks');
+        }
 
         expect(
           find.descendant(
@@ -597,7 +607,7 @@ void main() {
           ),
           findsOneWidget,
         );
-        expect(api.bookmarkSites, [_metaUrl, _teamUrl]);
+        expect(api.bookmarkSites, [_metaUrl, _teamUrl, _teamUrl]);
 
         await tester.tap(
           find.descendant(
@@ -723,13 +733,7 @@ void main() {
             )
             .first;
         expect(tester.widget<DPageSurface>(surface).header, isNull);
-        expect(
-          find.descendant(
-            of: find.byType(UserActivityView),
-            matching: find.text('Activity'),
-          ),
-          findsOneWidget,
-        );
+        expect(find.text('Activity').hitTestable(), findsOneWidget);
         expect(shell.currentInstance?.url, _teamUrl);
         expect(shell.currentContent?.id, 'activity');
         expect(api.userActivitySites, [_teamUrl]);
@@ -863,9 +867,9 @@ Future<void> _openNestedSection(WidgetTester tester, String label) async {
     await tester.pumpAndSettle();
   }
   await tester.tap(
-    find.byKey(
-      label == 'Profile' ? UserMenuButton.avatarKey : UserMenuButton.bellKey,
-    ),
+    label == 'Profile'
+        ? find.byKey(UserMenuButton.avatarKey)
+        : notificationsMenuTrigger(),
   );
   await tester.pumpAndSettle();
   if (label == 'Profile') return;

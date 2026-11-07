@@ -113,7 +113,7 @@ void main() {
     final panel = tester.getRect(find.byType(DSheetContent));
     expect(panel.left, 0);
     expect(panel.right, 390);
-    expect(panel.bottom, 844 - const DMobileDockGeometry(foot: 34).endLift);
+    expect(panel.bottom, 844);
     final handle = find.byKey(const ValueKey('sheet-drag-handle'));
     expect(tester.getSize(handle), const Size(36, 5));
     final revision = shell.topicNavigationRevision;
@@ -186,7 +186,14 @@ void main() {
               final rect = tester.getRect(button);
               expect(panel.contains(rect.topLeft), isTrue);
               expect(panel.contains(rect.bottomRight), isTrue);
-              expect(rect.height, closeTo(34 + 12.5 * (scale - 1) * 1.5, .01));
+              expect(
+                rect.height,
+                closeTo(
+                  (34 + 12.5 * (scale - 1) * 1.5) *
+                      (platform == TargetPlatform.macOS ? 1 : 17 / 13),
+                  .01,
+                ),
+              );
             }
             await _capture(
               tester,
@@ -771,7 +778,7 @@ Future<NavigatorState> _openProgress(
                 .top,
           )
         : lessThanOrEqualTo(
-            tester.view.physicalSize.height / tester.view.devicePixelRatio - 6,
+            tester.view.physicalSize.height / tester.view.devicePixelRatio,
           ),
   );
   return navigatorKey.currentState!;

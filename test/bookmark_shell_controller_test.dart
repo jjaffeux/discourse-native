@@ -1576,7 +1576,9 @@ final class _ChatBookmarkFakeApi extends FakeDiscourseApi {
           '/latest.json': [Topic(id: 7, title: 'Topic', slug: 'topic')],
         },
         topics: {7: _payload()},
-        siteConfigs: const {_site: SiteConfig.unknown()},
+        siteConfigs: {
+          _site: installedPlugins.models.siteConfig({'chat_enabled': true}, _site),
+        },
         bookmarkList: const [],
       );
 

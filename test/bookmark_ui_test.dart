@@ -150,6 +150,8 @@ void main() {
         final set = find.widgetWithText(DButton, 'Set');
         final bounds = tester.getRect(find.byType(Form));
         for (final control in [amount, unit, set]) {
+          await tester.ensureVisible(control);
+          await tester.pumpAndSettle();
           final rect = tester.getRect(control);
           expect(rect.left, greaterThanOrEqualTo(bounds.left));
           expect(rect.right, lessThanOrEqualTo(bounds.right));
@@ -306,6 +308,13 @@ void main() {
       ),
     );
     await tester.tap(find.text('Open bookmark'));
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+      const Offset(0, -400),
+    );
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('Delete bookmark'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Delete bookmark'));
     await tester.pumpAndSettle();

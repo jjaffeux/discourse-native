@@ -82,4 +82,66 @@ void main() {
       isNot(settings),
     );
   });
+  test('plugin record values survive independent decoding', () {
+    final dates = CakedayDates.read({
+      'cakedate': '2020-02-29',
+      'birthdate': '1904-04-12',
+    });
+    final sameDates = CakedayDates.read({
+      'cakedate': '2020-02-29',
+      'birthdate': '1904-04-12',
+    });
+    expect(dates, isNotNull);
+    expect(dates, sameDates);
+    expect(dates.hashCode, sameDates.hashCode);
+    expect(dates, isNot(CakedayDates.read({'cakedate': '2020-03-01'})));
+    expect(UserNotesCount.read({'user_notes_count': 7})?.value, 7);
+    expect(
+      UserNotesCount.read({'user_notes_count': 7}),
+      UserNotesCount.read({'user_notes_count': 7}),
+    );
+    expect(
+      UserNotesCount.read({'user_notes_count': 7}),
+      isNot(UserNotesCount.read({'user_notes_count': 8})),
+    );
+    expect(
+      PostVotingCategoryData.fromJson({'create_as_post_voting_default': true}),
+      PostVotingCategoryData.fromJson({'create_as_post_voting_default': true}),
+    );
+    expect(
+      PostVotingActor.fromJson({'can_flag_post_voting_comments': true}),
+      PostVotingActor.fromJson({'can_flag_post_voting_comments': true}),
+    );
+    expect(
+      PostVotingUserScore.fromJson({'vote_count': 7}),
+      PostVotingUserScore.fromJson({'vote_count': 7}),
+    );
+  });
+
+  test(
+    'post-voting equality includes independently decoded comment content and votes',
+    () {
+      PostVotingPostData post({String raw = 'Comment', int score = 1}) =>
+          PostVotingPostData.fromJson({
+            'id': 9,
+            'comments_count': 1,
+            'comments': [
+              {
+                'id': 7,
+                'post_id': 9,
+                'created_at': '2026-01-02T12:00:00Z',
+                'raw': raw,
+                'cooked': '<p>Comment</p>',
+                'post_voting_vote_count': score,
+              },
+            ],
+          });
+      final value = post();
+      final sameValue = post();
+      expect(value, sameValue);
+      expect(value.hashCode, sameValue.hashCode);
+      expect(value, isNot(post(raw: 'Edited')));
+      expect(value, isNot(post(score: 2)));
+    },
+  );
 }
