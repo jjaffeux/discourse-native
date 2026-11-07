@@ -9,12 +9,15 @@ final class ReportFilter {
       disabled = json['disabled'] == true,
       allowAny = json['auto_insert_none_item'] != false,
       choices = Map.unmodifiable({
-        for (final choice in jsonObjects(switch (json['type']) {
+        for (final choice in jsonArray(switch (json['type']) {
           'category' || 'category_list' => site['categories'],
           'group' || 'groups' => site['groups'],
           _ => json['choices'],
         }))
-          choice['id'].toString(): jsonString(choice['name']),
+          if (choice is String)
+            choice: choice
+          else if (choice is Map<String, dynamic>)
+            choice['id'].toString(): jsonString(choice['name']),
       });
   final String id;
   final String type;

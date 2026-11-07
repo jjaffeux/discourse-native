@@ -1,7 +1,9 @@
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 
+import '../models/json.dart';
 import '../models/post.dart';
+import 'composer/markdown_highlight.dart';
 
 /// What a post says as plain words, its blocks run together with a space
 /// between them. A post held only as markup, with nothing cooked, gives its
@@ -20,6 +22,13 @@ String _read(Post post) {
       if (child is dom.Text) {
         words.write(child.data);
       } else if (child is dom.Element && !_unread.contains(child.localName)) {
+        if (child.localName == 'img' && child.classes.contains('emoji')) {
+          words.write(
+            jsonText(child.attributes['alt']) ??
+                jsonText(child.attributes['title']) ??
+                '',
+          );
+        }
         walk(child);
         if (_blocks.contains(child.localName)) words.write(' ');
       }
@@ -38,7 +47,19 @@ String _collapse(String text) => text.replaceAll(RegExp(r'\s+'), ' ').trim();
 // Each bracket class excludes both brackets, so no match rescans past the
 // next one: the scan stays linear on unbalanced markup.
 final _link = RegExp(r'\[([^\[\]]+)\]\([^()]*\)');
-final _marks = RegExp(r'\[date=[^\[\]]*\]|\[/?\w[^\[\]]*\]|[*_~`#>]');
+final _tags = RegExp(r'\[date=[^\[\]]*\]|\[/?\w[^\[\]]*\]');
 
-String _unmark(String markup) =>
-    markup.replaceAllMapped(_link, (match) => match[1]!).replaceAll(_marks, '');
+String _unmark(String markup) {
+  final source = markup
+      .replaceAllMapped(_link, (match) => match[1]!)
+      .replaceAll(_tags, '');
+  final words = StringBuffer();
+  for (final run in scanMarkdown(
+    source,
+    shared: false,
+    deferHighlight: (_, _) {},
+  )) {
+    if (!run.has(Md.marker)) words.write(source.substring(run.start, run.end));
+  }
+  return words.toString();
+}

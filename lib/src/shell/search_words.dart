@@ -48,7 +48,7 @@ String searchSnippet(String text, String query) {
   final match = searchWordPattern(query)?.firstMatch(text);
   return match == null || match.start < 60
       ? text
-      : '…${text.substring(match.start - 40)}';
+      : '…${CharacterRange.at(text, match.start - 40, text.length).current}';
 }
 
 TextStyle searchHitStyle(BuildContext context) => TextStyle(

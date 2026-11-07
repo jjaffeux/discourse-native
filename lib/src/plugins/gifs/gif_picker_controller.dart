@@ -36,6 +36,7 @@ final class GifPickerController extends ChangeNotifier {
   String _query = '';
   String? _activeQuery;
   String? _nextPosition;
+  final _completedPositions = <String>{};
   String? _categoriesError;
   String? _searchError;
   bool _loadingCategories = false;
@@ -177,6 +178,7 @@ final class GifPickerController extends ChangeNotifier {
     _searchError = null;
     _results = const [];
     _nextPosition = null;
+    _completedPositions.clear();
     _notify();
     await _loadPage(query, request: pageRequest, position: '0', replace: true);
   }
@@ -248,7 +250,13 @@ final class GifPickerController extends ChangeNotifier {
         results = results.take(limit).toList(growable: false);
       }
       _results = List.unmodifiable(results);
-      _nextPosition = page.hasMore && !_atLimit ? page.nextPosition : null;
+      _completedPositions.add(position);
+      _nextPosition =
+          page.hasMore &&
+              !_atLimit &&
+              !_completedPositions.contains(page.nextPosition)
+          ? page.nextPosition
+          : null;
       _searchError = null;
     } catch (error) {
       if (_searchIsCurrent(request)) {

@@ -6,6 +6,26 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 void main() {
+  test('regression: Unix seconds floor instants before the epoch', () {
+    final instant = DateTime.utc(1969, 12, 31, 23, 59, 59, 500);
+    expect(
+      LocalDateFormatter.formatMoment(instant, 'X', const Locale('en')),
+      '-1',
+    );
+    expect(
+      LocalDateFormatter.formatMoment(instant, 'x', const Locale('en')),
+      '-500',
+    );
+    expect(
+      LocalDateFormatter.formatMoment(
+        DateTime.utc(1970, 1, 1, 0, 0, 0, 500),
+        'X',
+        const Locale('en'),
+      ),
+      '0',
+    );
+  });
+
   final environment = LocalDateEnvironment.instance;
   environment.ensureDatabase();
 

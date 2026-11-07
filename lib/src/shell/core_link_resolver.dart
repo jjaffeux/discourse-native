@@ -42,6 +42,10 @@ final class CoreLinkTarget {
     String? title,
     String? specializedTitle,
   }) {
+    if (_target.userInfo.isNotEmpty ||
+        !{'http', 'https'}.contains(_target.scheme)) {
+      return null;
+    }
     if (isHomepage) {
       return homepage ?? ContentRoute.homepage();
     }

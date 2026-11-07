@@ -73,6 +73,20 @@ MockClient discourseServing({
 }
 
 void main() {
+  test('regression: forum discovery rejects explicit non-HTTP schemes', () {
+    for (final address in [
+      'ftp://example.com',
+      'file:///tmp/forum',
+      'wss://example.com',
+    ]) {
+      expect(
+        () => DiscourseApi.normalize(address),
+        throwsA(isA<SiteLookupException>()),
+      );
+    }
+    expect(DiscourseApi.normalize('localhost:4200').host, 'localhost');
+  });
+
   group('user preferences', () {
     test(
       'sidebar preferences use flat server fields, preserve empty arrays and accept server normalization',

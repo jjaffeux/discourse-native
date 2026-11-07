@@ -2,6 +2,17 @@ import 'package:discourse_native/src/models/json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('regression: table excerpts separate header and body cells', () {
+    expect(
+      jsonHtmlText(
+        '<table><thead><tr><th>Name</th><th>Value</th></tr></thead>'
+        '<tbody><tr><td>alpha</td><td>beta</td></tr></tbody></table>',
+      ),
+      'Name Value alpha beta',
+    );
+    expect(jsonHtmlText('<b>hel</b><i>lo</i>'), 'hello');
+  });
+
   test('plain excerpts retain word boundaries at HTML line breaks', () {
     expect(
       jsonHtmlText('<p>Hello<br>world</p><p>Again</p>'),
