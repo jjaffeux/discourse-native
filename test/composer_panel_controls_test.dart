@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/composer_placement.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
@@ -1175,10 +1176,10 @@ void main() {
       testWidgets(
         'title focus retains global submit and close with $modifier',
         (tester) async {
-          final composer = ComposerController(_newTopicTarget);
           final shell = await _InteractionTrackingShellController.create();
-          addTearDown(composer.dispose);
           addTearDown(shell.dispose);
+          await shell.openNewTopicFromSidebar();
+          final composer = shell.visibleComposer!;
           await _pumpPanel(tester, shell, composer);
           await tester.enterText(
             find.byKey(const ValueKey('composer-topic-title')),
@@ -2578,14 +2579,27 @@ final class _ComposerColorShell extends ShellController {
 final class _InteractionTrackingShellController extends ShellController {
   _InteractionTrackingShellController()
     : super(
-        instanceStore: FakeInstanceStore(),
-        api: FakeDiscourseApi(),
-        authenticator: FakeAuthenticator(),
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: _writer),
+        ]),
+        api: FakeDiscourseApi(
+          user: _writer,
+          feeds: const {'/latest.json': []},
+          creatableFeedPaths: const {'/latest.json'},
+        ),
+        authenticator: FakeAuthenticator()
+          ..keys['https://meta.discourse.org'] = 'key',
         drafts: FakeDraftStore(),
         trackers: FakeSiteTracker.reset(),
       );
 
   int submitCalls = 0;
+
+  static const _writer = DiscourseUser(
+    id: 7,
+    username: 'sam',
+    canCreateTopic: true,
+  );
 
   static Future<_InteractionTrackingShellController> create() async {
     final shell = _InteractionTrackingShellController();

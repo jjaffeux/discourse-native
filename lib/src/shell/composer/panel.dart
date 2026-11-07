@@ -521,7 +521,7 @@ class ComposerPanel extends StatelessWidget {
                 absorbing: composer.discarding,
                 child: Column(
                   children: [
-                    if (!mobile || minimized) header,
+                    if (!mobile || minimized) RepaintBoundary(child: header),
                     if (!minimized)
                       Expanded(
                         child: LayoutBuilder(
@@ -977,7 +977,7 @@ class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
         const Positioned.fill(
           child: DGradientBlur(key: ValueKey('composer-header-blur')),
         ),
-        child,
+        RepaintBoundary(child: child),
       ],
     );
   }
@@ -1003,23 +1003,25 @@ class _ComposerBottom extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final showRecipients = mobile && composer.target.isPrivateMessage;
-    final content = Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (showRecipients) ComposerRecipients(composer: composer),
-        if (showTaxonomy)
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: SingleChildScrollView(
-              key: const ValueKey('composer-taxonomy-scroll'),
-              scrollDirection: Axis.horizontal,
-              child: _TopicTaxonomy(composer: composer),
+    final content = RepaintBoundary(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showRecipients) ComposerRecipients(composer: composer),
+          if (showTaxonomy)
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: SingleChildScrollView(
+                key: const ValueKey('composer-taxonomy-scroll'),
+                scrollDirection: Axis.horizontal,
+                child: _TopicTaxonomy(composer: composer),
+              ),
             ),
-          ),
-        if (composer.target.isPlugin && composer.uploads.isNotEmpty)
-          ComposerUploadQueue(composer: composer),
-        child,
-      ],
+          if (composer.target.isPlugin && composer.uploads.isNotEmpty)
+            ComposerUploadQueue(composer: composer),
+          child,
+        ],
+      ),
     );
     if (!mobile) return content;
 

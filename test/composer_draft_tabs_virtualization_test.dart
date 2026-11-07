@@ -366,6 +366,228 @@ void composerDraftTabsVirtualizationTests() {
     );
   }
 
+  testWidgets('opening a draft retains inactive editor builds and state', (
+    tester,
+  ) async {
+    final shell = await _pumpTabs(tester, count: 3, hosted: true);
+    final retained = shell.liveComposers.toList();
+    final editors = find.byType(ComposerEditor, skipOffstage: false);
+    final states = {
+      for (final element in editors.evaluate())
+        (element.widget as ComposerEditor).composer:
+            (element as StatefulElement).state,
+    };
+    final inactive = editors
+        .evaluate()
+        .where(
+          (element) => !identical(
+            (element.widget as ComposerEditor).composer,
+            shell.visibleComposer,
+          ),
+        )
+        .toSet();
+    final rebuilt = <Element>[];
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      previous?.call(element, builtOnce);
+      if (inactive.contains(element)) rebuilt.add(element);
+    };
+    try {
+      final opening = shell.openNewTopicFromSidebar();
+      await tester.pump();
+      await opening;
+      await tester.pumpAndSettle();
+    } finally {
+      debugOnRebuildDirtyWidget = previous;
+    }
+    expect(
+      rebuilt,
+      isEmpty,
+      reason: '${rebuilt.length} inactive editor rebuilds during opening',
+    );
+    final app = tester.widget<MaterialApp>(find.byType(MaterialApp));
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.linux),
+          builder: app.builder,
+          home: app.home,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final retainedInput = find.descendant(
+      of: find.byWidgetPredicate(
+        (widget) =>
+            widget is ComposerEditor &&
+            identical(widget.composer, retained.first),
+        skipOffstage: false,
+      ),
+      matching: find.byType(EditableText, skipOffstage: false),
+      skipOffstage: false,
+    );
+    expect(
+      tester.widget<EditableText>(retainedInput).style.color,
+      AppTheme.dark.textTheme.bodyLarge!.color,
+    );
+    final opened = shell.visibleComposer!;
+    shell.closeComposer(composer: opened);
+    await tester.pumpAndSettle();
+    for (final composer in retained) {
+      final editor = find.byWidgetPredicate(
+        (widget) =>
+            widget is ComposerEditor && identical(widget.composer, composer),
+        skipOffstage: false,
+      );
+      expect(tester.state(editor), same(states[composer]));
+    }
+    expect(retained.first.text.text, 'First draft source');
+    expect(
+      retained.first.text.selection,
+      const TextSelection.collapsed(offset: 5),
+    );
+    shell.selectComposer(retained.first);
+    await tester.pumpAndSettle();
+    await tester.enterText(retainedInput, 'First draft source extended');
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(retained.first.history.undo(), isTrue);
+    await tester.pump();
+    expect(retained.first.raw, 'First draft source');
+    await tester.runAsync(retained.first.flushDraft);
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets(
+      'closing an inactive draft retains other editor builds on $platform',
+      (tester) async {
+        final shell = await _pumpTabs(
+          tester,
+          count: 3,
+          hosted: true,
+          platform: platform,
+        );
+        final drafts = shell.liveComposers.toList();
+        final visible = shell.visibleComposer;
+        final survivorElements = find
+            .byType(ComposerEditor, skipOffstage: false)
+            .evaluate()
+            .where(
+              (element) => !identical(
+                (element.widget as ComposerEditor).composer,
+                drafts[1],
+              ),
+            )
+            .toSet();
+        final states = {
+          for (final element in survivorElements)
+            (element.widget as ComposerEditor).composer:
+                (element as StatefulElement).state,
+        };
+        final rebuilt = <Element>[];
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          if (survivorElements.contains(element)) rebuilt.add(element);
+        };
+        try {
+          shell.closeComposer(composer: drafts[1]);
+          await tester.pumpAndSettle();
+        } finally {
+          debugOnRebuildDirtyWidget = previous;
+        }
+        expect(
+          rebuilt,
+          isEmpty,
+          reason:
+              '${rebuilt.length} survivor editor rebuilds during inactive close',
+        );
+        expect(shell.visibleComposer, same(visible));
+        expect(drafts[1].isDisposed, isTrue);
+        for (final entry in states.entries) {
+          final editor = find.byWidgetPredicate(
+            (widget) =>
+                widget is ComposerEditor &&
+                identical(widget.composer, entry.key),
+            skipOffstage: false,
+          );
+          expect(tester.state(editor), same(entry.value));
+        }
+        expect(drafts.first.raw, 'First draft source');
+        expect(
+          drafts.first.text.selection,
+          const TextSelection.collapsed(offset: 5),
+        );
+        expect(tester.takeException(), isNull);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+    );
+  }
+
+  testWidgets(
+    'closing an inactive draft while changing dock preserves survivors',
+    (tester) async {
+      final shell = await _pumpTabs(tester, count: 3, hosted: true);
+      await tester.binding.setSurfaceSize(const Size(1280, 850));
+      final presentation = tester
+          .widget<ComposerPresentationHost>(
+            find.byType(ComposerPresentationHost),
+          )
+          .controller!;
+      presentation.dock(ComposerPlacement.right);
+      await tester.pumpAndSettle();
+      final drafts = shell.liveComposers.toList();
+      final editor = tester.state(find.byType(ComposerEditor).hitTestable());
+      shell.closeComposer(composer: drafts[1]);
+      presentation.dock(ComposerPlacement.fullScreen);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      expect(
+        tester.state(find.byType(ComposerEditor).hitTestable()),
+        same(editor),
+      );
+      expect(shell.visibleComposer, same(drafts.first));
+      expect(drafts.first.raw, 'First draft source');
+      await tester.pumpWidget(const SizedBox.shrink());
+    },
+  );
+
+  testWidgets('closing the visible mobile draft preserves surviving editors', (
+    tester,
+  ) async {
+    final shell = await _pumpTabs(
+      tester,
+      count: 3,
+      hosted: true,
+      platform: TargetPlatform.iOS,
+    );
+    final drafts = shell.liveComposers.toList();
+    final nextEditor = find.byWidgetPredicate(
+      (widget) =>
+          widget is ComposerEditor && identical(widget.composer, drafts[1]),
+      skipOffstage: false,
+    );
+    final state = tester.state(nextEditor);
+    shell.closeComposer(composer: drafts.first);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(shell.visibleComposer, same(drafts[1]));
+    expect(tester.state(nextEditor), same(state));
+    expect(nextEditor.hitTestable(), findsOneWidget);
+    await tester.enterText(
+      find.descendant(of: nextEditor, matching: find.byType(EditableText)),
+      'The surviving mobile draft',
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(drafts[1].history.undo(), isTrue);
+    await tester.pump();
+    expect(drafts[1].raw, isEmpty);
+    await tester.runAsync(drafts[1].flushDraft);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'closing the first tab promotes its neighbor without replacing Native state',
     (tester) async {
@@ -424,6 +646,7 @@ Future<ShellController> _pumpTabs(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   bool hosted = false,
+  TargetPlatform platform = TargetPlatform.linux,
   Completer<void>? draftGate,
 }) async {
   const siteUrl = 'https://meta.discourse.org';
@@ -474,7 +697,7 @@ Future<ShellController> _pumpTabs(
       controller: shell,
       child: MaterialApp(
         theme: AppTheme.light.copyWith(
-          platform: hosted ? TargetPlatform.linux : TargetPlatform.iOS,
+          platform: hosted ? platform : TargetPlatform.iOS,
         ),
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(

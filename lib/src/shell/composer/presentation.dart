@@ -86,6 +86,7 @@ class _ComposerEntry {
   _ComposerEntry(this.composer);
   final ComposerController composer;
   final surfaceKey = GlobalKey();
+  _ComposerSurface? surface;
   bool closeMenuOpen = false;
   bool minimized = false;
   bool moving = false;
@@ -107,6 +108,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   ComposerController? _knownVisibleComposer;
   int _knownRevealRevision = 0;
   GlobalKey _surfacesKey = GlobalKey();
+  BuildContext? _surfacesParentContext;
+  bool _retiredSurfacesPending = false;
   final _sheetCovers = ValueNotifier(false);
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
@@ -177,9 +180,7 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
       return;
     }
     if (_knownComposers.any((composer) => !composers.contains(composer))) {
-      // A closing controller is already disposed. Rebuild the group before it
-      // can reattach, retaining only the surviving editor surfaces by key.
-      _surfacesKey = GlobalKey();
+      _retiredSurfacesPending = true;
     }
     _knownComposers = composers;
     _knownVisibleComposer = visible;
@@ -290,21 +291,32 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     // Move the retained editor stack as a unit between docks. Individual draft
     // switches only change visibility, so editor and semantics ancestry stay
     // stable while selection, scroll position, and editing history are retained.
-    return Stack(
-      key: _surfacesKey,
-      fit: StackFit.expand,
-      children: [
-        for (final candidate in _entries.values)
-          _retainedSurface(
-            candidate,
-            shown: !parked && identical(candidate, entry),
-            placement: placement,
-            mobile: mobile,
-            size: identical(candidate, entry) && !parked
-                ? size
-                : candidate.size,
-          ),
-      ],
+    return Builder(
+      builder: (context) {
+        if (_retiredSurfacesPending &&
+            !identical(_surfacesParentContext, context)) {
+          // Reparenting attaches the old subtree before pruning disposed editors.
+          _surfacesKey = GlobalKey();
+        }
+        _retiredSurfacesPending = false;
+        _surfacesParentContext = context;
+        return Stack(
+          key: _surfacesKey,
+          fit: StackFit.expand,
+          children: [
+            for (final candidate in _entries.values)
+              _retainedSurface(
+                candidate,
+                shown: !parked && identical(candidate, entry),
+                placement: placement,
+                mobile: mobile,
+                size: identical(candidate, entry) && !parked
+                    ? size
+                    : candidate.size,
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -314,49 +326,67 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     required ComposerPlacement placement,
     required bool mobile,
     required Size size,
-  }) => Offstage(
-    key: ObjectKey(entry.composer),
-    offstage: !shown,
-    child: ExcludeFocus(
-      excluding: !shown,
-      child: TickerMode(
-        enabled: shown,
-        child: OverflowBox(
-          alignment: Alignment.topLeft,
-          minWidth: size.width,
-          maxWidth: size.width,
-          minHeight: size.height,
-          maxHeight: size.height,
-          child: _ComposerSurface(
-            key: entry.surfaceKey,
-            entry: entry,
-            parked: !shown,
-            placement: placement,
-            mobile: mobile,
-            size: size,
-            onPlacement: (value) => unawaited(_place(entry, value)),
-            onExitFullScreen: () =>
-                unawaited(_place(entry, _previousDockPlacement)),
-            onMinimize: () =>
-                mobile ? unawaited(_dismissMobile(entry)) : _minimize(entry),
-            onRestore: () {
-              setState(() => entry.minimized = false);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!entry.composer.isDisposed) {
-                  entry.composer.focus.requestFocus();
-                }
-              });
-            },
-            onCloseMenuOpenChanged: (open) {
-              if (mounted && entry.closeMenuOpen != open) {
-                setState(() => entry.closeMenuOpen = open);
-              }
-            },
+  }) {
+    final minimized = entry.minimized && shown;
+    final presentation = (
+      minimized: minimized,
+      moving: entry.moving,
+      mobile: mobile,
+      placement: placement,
+      editorSize: minimized ? entry.size : size,
+      closeMenuOpen: mobile ? entry.closeMenuOpen : null,
+      canDockSide:
+          placement.isSide ||
+          size.width >=
+              ComposerPresentationController.sideMinimum +
+                  ComposerPresentationController.readerMinimum +
+                  workspacePanelGap,
+    );
+    var surface = entry.surface;
+    if (surface == null || surface.presentation != presentation) {
+      surface = entry.surface = _ComposerSurface(
+        key: entry.surfaceKey,
+        composer: entry.composer,
+        presentation: presentation,
+        onPlacement: (value) => unawaited(_place(entry, value)),
+        onExitFullScreen: () =>
+            unawaited(_place(entry, _previousDockPlacement)),
+        onMinimize: () =>
+            mobile ? unawaited(_dismissMobile(entry)) : _minimize(entry),
+        onRestore: () {
+          setState(() => entry.minimized = false);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!entry.composer.isDisposed) {
+              entry.composer.focus.requestFocus();
+            }
+          });
+        },
+        onCloseMenuOpenChanged: (open) {
+          if (mounted && entry.closeMenuOpen != open) {
+            setState(() => entry.closeMenuOpen = open);
+          }
+        },
+      );
+    }
+    return Offstage(
+      key: ObjectKey(entry.composer),
+      offstage: !shown,
+      child: ExcludeFocus(
+        excluding: !shown,
+        child: TickerMode(
+          enabled: shown,
+          child: OverflowBox(
+            alignment: Alignment.topLeft,
+            minWidth: size.width,
+            maxWidth: size.width,
+            minHeight: size.height,
+            maxHeight: size.height,
+            child: surface,
           ),
         ),
       ),
-    ),
-  );
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -901,19 +931,11 @@ class _ComposerDockState extends State<ComposerDock> {
                 child: Container(
                   padding: EdgeInsets.only(top: dividerInset),
                   child: LayoutBuilder(
-                    builder: (context, bounds) => Column(
-                      children: [
-                        Expanded(
-                          child: LayoutBuilder(
-                            builder: (context, bounds) => owner._surface(
-                              entry,
-                              placement: placement,
-                              mobile: mobile,
-                              size: bounds.biggest,
-                            ),
-                          ),
-                        ),
-                      ],
+                    builder: (context, bounds) => owner._surface(
+                      entry,
+                      placement: placement,
+                      mobile: mobile,
+                      size: bounds.biggest,
                     ),
                   ),
                 ),
@@ -974,38 +996,44 @@ class _ComposerDockState extends State<ComposerDock> {
   }
 }
 
+typedef _ComposerSurfacePresentation = ({
+  bool minimized,
+  bool moving,
+  bool mobile,
+  ComposerPlacement placement,
+  Size editorSize,
+  bool? closeMenuOpen,
+  bool canDockSide,
+});
+
 /// The full editor stays mounted and laid out while its compact strip is shown.
 class _ComposerSurface extends StatelessWidget {
   const _ComposerSurface({
     super.key,
-    required this.entry,
-    required this.parked,
-    required this.placement,
-    required this.mobile,
-    required this.size,
+    required this.composer,
+    required this.presentation,
     required this.onPlacement,
     required this.onExitFullScreen,
     required this.onMinimize,
     required this.onRestore,
     required this.onCloseMenuOpenChanged,
   });
-  final _ComposerEntry entry;
-  final bool parked;
-  final ComposerPlacement placement;
-  final bool mobile;
-  final Size size;
+  final ComposerController composer;
+  final _ComposerSurfacePresentation presentation;
   final ValueChanged<ComposerPlacement> onPlacement;
   final VoidCallback onMinimize, onRestore, onExitFullScreen;
   final ValueChanged<bool> onCloseMenuOpenChanged;
 
   @override
   Widget build(BuildContext context) {
-    final composer = entry.composer;
-    final minimized = entry.minimized && !parked;
+    final minimized = presentation.minimized;
+    final mobile = presentation.mobile;
+    final placement = presentation.placement;
+    final size = presentation.editorSize;
     return Material(
       type: MaterialType.transparency,
       child: AbsorbPointer(
-        absorbing: entry.moving,
+        absorbing: presentation.moving,
         child: Stack(
           children: [
             ExcludeFocus(
@@ -1014,23 +1042,18 @@ class _ComposerSurface extends StatelessWidget {
                 offstage: minimized,
                 child: OverflowBox(
                   alignment: Alignment.topLeft,
-                  minWidth: minimized ? entry.size.width : size.width,
-                  maxWidth: minimized ? entry.size.width : size.width,
-                  minHeight: minimized ? entry.size.height : size.height,
-                  maxHeight: minimized ? entry.size.height : size.height,
+                  minWidth: size.width,
+                  maxWidth: size.width,
+                  minHeight: size.height,
+                  maxHeight: size.height,
                   child: ComposerPanel(
                     composer: composer,
-                    closeMenuOpen: mobile ? entry.closeMenuOpen : null,
+                    closeMenuOpen: presentation.closeMenuOpen,
                     onCloseMenuOpenChanged: onCloseMenuOpenChanged,
-                    height: minimized ? entry.size.height : size.height,
+                    height: size.height,
                     placement: placement,
                     onPlacementChanged: mobile ? null : onPlacement,
-                    canDockSide:
-                        placement.isSide ||
-                        size.width >=
-                            ComposerPresentationController.sideMinimum +
-                                ComposerPresentationController.readerMinimum +
-                                workspacePanelGap,
+                    canDockSide: presentation.canDockSide,
                     onExitFullScreen: mobile ? null : onExitFullScreen,
                     onMinimize: onMinimize,
                   ),
