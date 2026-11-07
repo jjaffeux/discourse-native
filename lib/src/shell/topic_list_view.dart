@@ -1702,6 +1702,50 @@ class TopicListRow extends StatelessWidget {
   }
 }
 
+/// The topic list's participant, taxonomy and count strip without topic loading
+/// or prefetch. [timeLabel] belongs to the displayed action, not the topic bump.
+class TopicListMetadata extends StatelessWidget {
+  const TopicListMetadata({
+    super.key,
+    required this.topic,
+    required this.siteUrl,
+    required this.timeLabel,
+    this.category,
+  });
+
+  final Topic topic;
+  final String siteUrl;
+  final String timeLabel;
+  final TopicCategory? category;
+
+  @override
+  Widget build(BuildContext context) {
+    if (ShellScope.maybeRead(context) == null) {
+      return _metadata(category, const []);
+    }
+    return ShellSelector<_TopicCategoryPresentation>(
+      select: (controller) =>
+          _topicCategoryPresentation(controller, topic.categoryId, siteUrl),
+      builder: (context, presentation, _) =>
+          _metadata(presentation.category ?? category, presentation.ancestors),
+    );
+  }
+
+  Widget _metadata(TopicCategory? category, List<TopicCategory> ancestors) =>
+      _TopicCardFooter(
+        allowSort: false,
+        timeLabel: timeLabel,
+        row: _TopicRowBody(
+          topic: topic,
+          siteUrl: siteUrl,
+          category: category,
+          categoryAncestors: ancestors,
+          showCategoryBreadcrumb: true,
+          onTap: () {},
+        ),
+      );
+}
+
 @immutable
 class _TopicCategoryPresentation {
   const _TopicCategoryPresentation(this.category, this.ancestors);

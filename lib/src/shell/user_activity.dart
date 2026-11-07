@@ -19,7 +19,9 @@ import 'account_feed_viewport.dart';
 import 'content_reading_lane.dart';
 import 'relative_time.dart';
 import 'shell_controller.dart';
+import 'shell_scope.dart';
 import 'skeleton_fill.dart';
+import 'topic_list_view.dart';
 import 'topic_title.dart';
 
 class UserActivityView extends StatelessWidget {
@@ -622,7 +624,6 @@ class UserActivityRow extends StatelessWidget {
   };
 
   Widget _row(BuildContext context, String? when) {
-    final theme = Theme.of(context);
     final category = this.category;
     final semanticLabel = [
       item.title,
@@ -712,48 +713,125 @@ class UserActivityRow extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (category != null ||
-                    when != null ||
-                    item.closed ||
-                    item.archived ||
-                    item.deleted ||
-                    item.hidden) ...[
-                  const SizedBox(height: 7),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        child: Wrap(
-                          spacing: DSpacing.sm,
-                          runSpacing: DSpacing.xs,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            if (item.closed || item.archived)
-                              const DIcon(DIcons.lock, size: 12),
-                            if (category != null)
-                              _ActivityCategory(
-                                siteUrl: siteUrl,
-                                category: category,
-                              ),
-                            if (item.deleted || item.hidden)
-                              Text(
-                                item.deleted
-                                    ? context.l10n.deleted
-                                    : context.l10n.hidden,
-                              ),
-                          ],
-                        ),
-                      ),
-                      if (when != null)
-                        Text(when, style: theme.textTheme.labelMedium),
-                    ],
-                  ),
-                ],
+                _ActivityTopicMetadata(
+                  siteUrl: siteUrl,
+                  item: item,
+                  category: category,
+                  when: when,
+                ),
               ],
             ),
           ],
         ),
       ],
+    );
+  }
+}
+
+/// Cache misses deliberately remain misses: this strip never loads a topic.
+class _ActivityTopicMetadata extends StatelessWidget {
+  const _ActivityTopicMetadata({
+    required this.siteUrl,
+    required this.item,
+    required this.category,
+    required this.when,
+  });
+  final String siteUrl;
+  final UserActivityItem item;
+  final TopicCategory? category;
+  final String? when;
+
+  @override
+  Widget build(BuildContext context) {
+    if (ShellScope.maybeRead(context) == null) return _fallback(context);
+    return ShellSelector<({ShellController controller, Object session})>(
+      select: (controller) => (
+        controller: controller,
+        session: controller.lifecycle.capture(siteUrl).session,
+      ),
+      builder: (context, owner, _) => ListenableBuilder(
+        listenable: owner.controller.topicRef(siteUrl, item.topicId),
+        builder: (context, _) {
+          final topic = owner.controller.store.read<Topic>(
+            siteUrl,
+            item.topicId,
+          );
+          if (topic == null) return _fallback(context);
+          return Padding(
+            padding: const EdgeInsets.only(top: 7),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TopicListMetadata(
+                  topic: topic,
+                  siteUrl: siteUrl,
+                  timeLabel: when ?? '',
+                  category: category,
+                ),
+                if (item.closed ||
+                    item.archived ||
+                    item.deleted ||
+                    item.hidden) ...[
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: DSpacing.sm,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      if (item.closed || item.archived)
+                        const DIcon(DIcons.lock, size: 12),
+                      if (item.deleted || item.hidden)
+                        Text(
+                          item.deleted
+                              ? context.l10n.deleted
+                              : context.l10n.hidden,
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _fallback(BuildContext context) {
+    if (category == null &&
+        when == null &&
+        !item.closed &&
+        !item.archived &&
+        !item.deleted &&
+        !item.hidden) {
+      return const SizedBox.shrink();
+    }
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Wrap(
+              spacing: DSpacing.sm,
+              runSpacing: DSpacing.xs,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (item.closed || item.archived)
+                  const DIcon(DIcons.lock, size: 12),
+                if (category != null)
+                  _ActivityCategory(siteUrl: siteUrl, category: category!),
+                if (item.deleted || item.hidden)
+                  Text(
+                    item.deleted ? context.l10n.deleted : context.l10n.hidden,
+                  ),
+              ],
+            ),
+          ),
+          if (when != null)
+            Text(when!, style: Theme.of(context).textTheme.labelMedium),
+        ],
+      ),
     );
   }
 }

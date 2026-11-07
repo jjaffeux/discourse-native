@@ -35,6 +35,37 @@
   ],
   "limits": [
     "No physical-device or signed-in live-forum session was exercised.",
-    "The activity endpoint does not supply topic participant strips, tag lists, or aggregate topic counts. Those mockup details are not fabricated. Category and action-time metadata are shown when supplied."
-  ]
+    "Participant strips, tags, and aggregate counts are shown only for topics already cached for the current site/account. Uncached rows keep the activity response fields; no metadata requests are added."
+  ],
+  "cache_only_metadata": {
+    "added_metadata_api_requests": 0,
+    "source": "Current site/account Topic refs already populated by normal topic/list loading",
+    "presentation": "Shared topic-list participant/taxonomy/count strip with the action timestamp; action title/excerpt and read styling stay unchanged",
+    "cache_misses": "Remain misses; do not request individual topics or batches",
+    "verification": {
+      "focused_tests": 90,
+      "flutter_analyze": "No issues found",
+      "test_files": [
+        "test/activity_cached_metadata_test.dart",
+        "test/user_card_activity_test.dart",
+        "test/account_activity_paging_loading_test.dart",
+        "test/account_activity_rows_accessibility_test.dart",
+        "test/mobile_topic_card_test.dart",
+        "test/topic_card_components_test.dart",
+        "test/topic_card_taxonomy_layout_test.dart",
+        "test/topic_row_status_alignment_test.dart",
+        "test/closed_topic_row_test.dart",
+        "test/full_width_topic_row_test.dart"
+      ]
+    },
+    "covered": [
+      "Zero metadata API calls for twenty uncached topics",
+      "Cached phone and desktop participant/tag/count rendering",
+      "Cache updates without repeat activity loading",
+      "Site isolation and removal on account-cache retirement",
+      "Action-specific words, timestamp, post navigation, and non-bold titles",
+      "Cached metadata in the expanded phone card and full Activity page",
+      "Existing topic-card layout, tag overflow, large text, and row states"
+    ]
+  }
 }

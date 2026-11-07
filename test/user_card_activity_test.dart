@@ -5,6 +5,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_activity.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
@@ -205,6 +206,50 @@ void main() {
       expect(find.byKey(const ValueKey('user-card-surface')), findsNothing);
       expect(shell.currentContent?.topicId, 13);
       expect(shell.currentContent?.postNumber, 7);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'phone card activity uses cached metadata without requesting another feed',
+    (tester) async {
+      final (shell, api) = await pumpCard(tester);
+      final existingFeeds = List<String>.of(api.feedPaths);
+      shell.store.put(
+        site,
+        const Topic(
+          id: 13,
+          title: 'Cached topic title',
+          slug: 'reply',
+          postsCount: 48,
+          likeCount: 19,
+          tags: [
+            TopicTag(name: 'design'),
+            TopicTag(name: 'mobile'),
+          ],
+          posters: [
+            TopicPoster(userId: 2, username: 'alice'),
+            TopicPoster(userId: 3, username: 'bob', latest: true),
+          ],
+        ),
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, -700),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Likes').last);
+      await tester.pumpAndSettle();
+      expect(find.text('47'), findsOneWidget);
+      expect(find.text('19'), findsOneWidget);
+      expect(find.byType(DAvatarGroup), findsOneWidget);
+      expect(find.text('#design'), findsOneWidget);
+      expect(find.text("Liked alice's post"), findsOneWidget);
+      expect(find.text('A post Sam liked'), findsOneWidget);
+      expect(find.text('Cached topic title'), findsNothing);
+      expect(api.userActivityRequests, hasLength(1));
+      expect(api.feedPaths, existingFeeds);
+      await export(tester, 'phone-card-cached-metadata');
       expect(tester.takeException(), isNull);
     },
   );

@@ -79,7 +79,9 @@ class _TopicCardFooter extends StatefulWidget {
     required this.row,
     required this.allowSort,
     this.measurements,
+    this.timeLabel,
   });
+  final String? timeLabel;
   final _TopicRowBody row;
   final bool allowSort;
   final TopicTextMeasurements? measurements;
@@ -167,13 +169,15 @@ class _TopicCardFooterState extends State<_TopicCardFooter> {
   }
 
   @override
-  Widget build(BuildContext context) => switch (row.topic.bumpedAt) {
-    final bumpedAt? => RelativeTimeBuilder(
-      when: bumpedAt,
-      builder: (context, age) => _build(context, age),
-    ),
-    null => _build(context, '—'),
-  };
+  Widget build(BuildContext context) => widget.timeLabel != null
+      ? _build(context, widget.timeLabel!)
+      : switch (row.topic.bumpedAt) {
+          final bumpedAt? => RelativeTimeBuilder(
+            when: bumpedAt,
+            builder: (context, age) => _build(context, age),
+          ),
+          null => _build(context, '—'),
+        };
 
   Widget _build(BuildContext context, String age) {
     final measure = _resolveMeasure(context);
