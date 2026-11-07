@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/plugins/discourse_placeholder/placeholder_session.dart';
+import 'package:discourse_native/src/plugins/discourse_placeholder/placeholder_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support.dart';
@@ -89,4 +90,75 @@ void main() {
     session.release(values);
     await session.close();
   });
+
+  test('replacement account edits survive an unfinished forget', () async {
+    var user = 1;
+    final store = _HeldWritePersistence();
+    final session = PlaceholderSession(
+      persistence: store,
+      currentUser: (_) => user,
+    );
+    final old = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    old.change('X', 'old account');
+    await store.writeStarted.future;
+
+    final forgetting = session.forget('https://example.com');
+    user = 2;
+    final replacement = session.acquire('https://example.com', 2, 3);
+    expect(old.isCurrent, isFalse);
+    expect(replacement.isCurrent, isTrue);
+    replacement.change('X', 'new account');
+    store.writeGate.complete();
+    await forgetting;
+    await session.flush();
+    session.release(old);
+    session.release(replacement);
+
+    final remounted = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    expect(remounted.overrides, {'X': 'new account'});
+    session.release(remounted);
+    await session.close();
+  });
+
+  test('a replacement lease does not restore values being forgotten', () async {
+    final store = _HeldWritePersistence();
+    final session = PlaceholderSession(
+      persistence: store,
+      currentUser: (_) => 1,
+    );
+    final old = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    store.values[old.id] = {'X': 'saved'};
+    old.change('X', 'pending');
+    await store.writeStarted.future;
+
+    final forgetting = session.forget('https://example.com');
+    final replacement = session.acquire('https://example.com', 2, 3);
+    await pumpEventQueue();
+    store.writeGate.complete();
+    await forgetting;
+    await session.flush();
+
+    expect(replacement.overrides, isEmpty);
+    expect(store.values, isEmpty);
+    session.release(old);
+    session.release(replacement);
+    await session.close();
+  });
+}
+
+final class _HeldWritePersistence extends MemoryPlaceholderPersistence {
+  final writeStarted = Completer<void>();
+  final writeGate = Completer<void>();
+
+  @override
+  Future<void> write(PlaceholderPostId post, String key, String? value) async {
+    if (post.userId == 1) {
+      writeStarted.complete();
+      await writeGate.future;
+    }
+    await super.write(post, key, value);
+  }
 }
