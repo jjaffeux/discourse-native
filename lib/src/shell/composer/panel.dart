@@ -2821,6 +2821,13 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   KeyEventResult _onEditorKeyEvent(FocusNode _, KeyEvent event) {
+    final composingValue = widget.composer.text.value;
+    if (widget.composer.focus.hasPrimaryFocus &&
+        event.logicalKey == LogicalKeyboardKey.escape &&
+        composingValue.isComposingRangeValid &&
+        !composingValue.composing.isCollapsed) {
+      return KeyEventResult.skipRemainingHandlers;
+    }
     if (_slashMenu.currentState?.handleKeyEvent(event) ==
         KeyEventResult.handled) {
       return KeyEventResult.handled;
