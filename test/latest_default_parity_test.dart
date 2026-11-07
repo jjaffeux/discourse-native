@@ -94,7 +94,7 @@ void main() {
           ],
         });
       final store = ForumTabStore(persistence: persistence);
-      final workspaces = await store.load();
+      final workspaces = (await store.load()).workspaces;
       expect(workspaces, hasLength(2));
       for (final workspace in workspaces) {
         expect(workspace.tabs, hasLength(2));

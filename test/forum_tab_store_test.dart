@@ -12,6 +12,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
+  test(
+    'loaded selection and workspaces stay immutable across later IO',
+    () async {
+      final persistence = MemoryForumTabPersistence();
+      final store = ForumTabStore(persistence: persistence);
+      final first = _workspace('first');
+      final second = _workspace('second');
+      await store.save([first], selectedSiteUrl: first.siteUrl);
+      final snapshot = await store.load();
+      await store.save([second], selectedSiteUrl: second.siteUrl);
+      final replacement = await store.load();
+      expect(snapshot.workspaces, [first]);
+      expect(snapshot.selectedSiteUrl, first.siteUrl);
+      expect(replacement.workspaces, [second]);
+      expect(replacement.selectedSiteUrl, second.siteUrl);
+      expect(() => snapshot.workspaces.clear(), throwsUnsupportedError);
+    },
+  );
+
   test('restores the selected forum alongside its tabs', () async {
     final persistence = MemoryForumTabPersistence();
     final first = ForumTabStore(persistence: persistence);
@@ -19,12 +38,12 @@ void main() {
     await first.save([workspace], selectedSiteUrl: workspace.siteUrl);
 
     final restarted = ForumTabStore(persistence: persistence);
-    expect(await restarted.load(), [workspace]);
-    expect(restarted.selectedSiteUrl, workspace.siteUrl);
+    expect((await restarted.load()).workspaces, [workspace]);
+    expect((await restarted.load()).selectedSiteUrl, workspace.siteUrl);
 
     await restarted.save([]);
-    expect(await first.load(), isEmpty);
-    expect(first.selectedSiteUrl, isNull);
+    expect((await first.load()).workspaces, isEmpty);
+    expect((await first.load()).selectedSiteUrl, isNull);
   });
 
   test('older documents and malformed selection keep their tabs', () async {
@@ -37,8 +56,8 @@ void main() {
         'workspaces': [workspace.toJson()],
         'selectedSiteUrl': selection,
       });
-      expect(await store.load(), [workspace]);
-      expect(store.selectedSiteUrl, isNull);
+      expect((await store.load()).workspaces, [workspace]);
+      expect((await store.load()).selectedSiteUrl, isNull);
     }
   });
 
@@ -51,7 +70,11 @@ void main() {
         });
       final store = ForumTabStore(persistence: persistence);
 
-      expect(await store.load(), isEmpty, reason: 'version $version');
+      expect(
+        (await store.load()).workspaces,
+        isEmpty,
+        reason: 'version $version',
+      );
       expect(persistence.writeCount, 0, reason: 'version $version');
     }
   });
@@ -65,7 +88,7 @@ void main() {
       ..readError = StateError('preferences unavailable');
     final store = ForumTabStore(persistence: persistence);
 
-    expect(await store.load(), isEmpty);
+    expect((await store.load()).workspaces, isEmpty);
     await store.save([_workspace('fresh')]);
     expect(persistence.writeCount, 0);
     expect(
@@ -77,21 +100,21 @@ void main() {
     );
 
     persistence.readError = null;
-    expect(await store.load(), [_workspace('persisted')]);
+    expect((await store.load()).workspaces, [_workspace('persisted')]);
     await store.save([_workspace('fresh')]);
     expect(persistence.writeCount, 1);
-    expect(await store.load(), [_workspace('fresh')]);
+    expect((await store.load()).workspaces, [_workspace('fresh')]);
   });
 
   test('content the reader cannot use is written over', () async {
     final persistence = _ControlledPersistence()..stored = 'not json at all';
     final store = ForumTabStore(persistence: persistence);
 
-    expect(await store.load(), isEmpty);
+    expect((await store.load()).workspaces, isEmpty);
     await store.save([_workspace('fresh')]);
 
     expect(persistence.writeCount, 1);
-    expect(await store.load(), [_workspace('fresh')]);
+    expect((await store.load()).workspaces, [_workspace('fresh')]);
   });
 
   test('overlapping saves coalesce to the latest snapshot', () async {
@@ -121,8 +144,8 @@ void main() {
     await Future.wait([firstSave, secondSave, latestSave]);
 
     expect(persistence.writeCount, 2);
-    expect(await store.load(), [latest]);
-    expect(store.selectedSiteUrl, 'https://latest.example');
+    expect((await store.load()).workspaces, [latest]);
+    expect((await store.load()).selectedSiteUrl, 'https://latest.example');
   });
 
   test('replacement stores preserve request order', () async {
@@ -142,7 +165,7 @@ void main() {
     await Future.wait([oldSave, replacementSave]);
 
     expect(persistence.writeCount, 2);
-    expect(await replacementStore.load(), [_workspace('latest')]);
+    expect((await replacementStore.load()).workspaces, [_workspace('latest')]);
   });
 
   test(
@@ -165,7 +188,9 @@ void main() {
       await Future.wait([inFlightSave, staleSave, latestSave]);
 
       expect(persistence.writeCount, 2);
-      expect(await replacementStore.load(), [_workspace('latest')]);
+      expect((await replacementStore.load()).workspaces, [
+        _workspace('latest'),
+      ]);
     },
   );
 
@@ -189,7 +214,7 @@ void main() {
       gate.complete();
       await Future.wait([inFlightSave, latestSave]);
 
-      expect(await loading, [latest]);
+      expect((await loading).workspaces, [latest]);
       expect(persistence.readCount, 1);
       expect(persistence.writeCount, 2);
     },

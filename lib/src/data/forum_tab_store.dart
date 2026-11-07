@@ -57,7 +57,7 @@ class ForumTabStore {
   static const String storageKey = 'discourse_native.forum_tabs';
   static const int formatVersion = 1;
   final ForumTabPersistence _persistence;
-  late final CoalescingSnapshotWriter<_ForumTabSnapshot> _snapshots =
+  late final CoalescingSnapshotWriter<ForumTabSnapshot> _snapshots =
       CoalescingSnapshotWriter(
         owner: _persistence,
         key: storageKey,
@@ -69,11 +69,7 @@ class ForumTabStore {
   /// later [load] clears it.
   bool _unreadable = false;
 
-  String? _selectedSiteUrl;
-  String? get selectedSiteUrl => _selectedSiteUrl;
-
-  Future<List<ForumWorkspace>> load() async {
-    _selectedSiteUrl = null;
+  Future<ForumTabSnapshot> load() async {
     final String? raw;
     try {
       raw = await _snapshots.read(_persistence.read);
@@ -81,23 +77,25 @@ class ForumTabStore {
     } catch (error) {
       _unreadable = true;
 
-      return const [];
+      return const ForumTabSnapshot.empty();
     }
 
     // Past here the document was read. Whatever it holds is either usable or
     // already lost, so a save over it is the repair rather than the damage.
     try {
-      if (raw == null || raw.isEmpty) return const [];
+      if (raw == null || raw.isEmpty) return const ForumTabSnapshot.empty();
       final decoded = jsonDecode(raw);
       if (decoded is! Map || decoded['version'] != formatVersion) {
-        return const [];
+        return const ForumTabSnapshot.empty();
       }
       final selected = decoded['selectedSiteUrl'];
-      if (selected is String && selected.isNotEmpty) {
-        _selectedSiteUrl = selected;
-      }
+      final selectedSiteUrl = selected is String && selected.isNotEmpty
+          ? selected
+          : null;
       final entries = decoded['workspaces'];
-      if (entries is! List) return const [];
+      if (entries is! List) {
+        return ForumTabSnapshot(const [], selectedSiteUrl: selectedSiteUrl);
+      }
 
       final workspaces = <ForumWorkspace>[];
       final seenSites = <String>{};
@@ -107,9 +105,9 @@ class ForumTabStore {
           workspaces.add(workspace);
         }
       }
-      return workspaces;
+      return ForumTabSnapshot(workspaces, selectedSiteUrl: selectedSiteUrl);
     } catch (error) {
-      return const [];
+      return const ForumTabSnapshot.empty();
     }
   }
 
@@ -119,14 +117,13 @@ class ForumTabStore {
     Iterable<ForumWorkspace> workspaces, {
     String? selectedSiteUrl,
   }) {
-    _selectedSiteUrl = selectedSiteUrl;
     if (_unreadable) return Future<void>.value();
     // Workspaces are immutable, so copying the list captures the snapshot.
     // It is encoded only when its write starts: navigation and scrolling save
     // far more often than a write completes, and a snapshot superseded before
     // then is never encoded at all.
     return _snapshots.save(
-      _ForumTabSnapshot(List.unmodifiable(workspaces), selectedSiteUrl),
+      ForumTabSnapshot(workspaces, selectedSiteUrl: selectedSiteUrl),
     );
   }
 
@@ -152,7 +149,7 @@ class ForumTabStore {
     return out.toString();
   }
 
-  Future<void> _persistSnapshot(_ForumTabSnapshot snapshot) async {
+  Future<void> _persistSnapshot(ForumTabSnapshot snapshot) async {
     try {
       final saved = await _persistence.write(
         encode(snapshot.workspaces, selectedSiteUrl: snapshot.selectedSiteUrl),
@@ -162,8 +159,14 @@ class ForumTabStore {
   }
 }
 
-final class _ForumTabSnapshot {
-  const _ForumTabSnapshot(this.workspaces, this.selectedSiteUrl);
+/// One workspace document, including the selection captured with its tabs.
+final class ForumTabSnapshot {
+  ForumTabSnapshot(Iterable<ForumWorkspace> workspaces, {this.selectedSiteUrl})
+    : workspaces = List.unmodifiable(workspaces);
+
+  const ForumTabSnapshot.empty()
+    : workspaces = const [],
+      selectedSiteUrl = null;
 
   final List<ForumWorkspace> workspaces;
   final String? selectedSiteUrl;

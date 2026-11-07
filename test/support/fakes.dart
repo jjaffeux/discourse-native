@@ -100,20 +100,20 @@ class FakeForumTabStore implements ForumTabStore {
   List<ForumWorkspace> _workspaces;
   int saveCount = 0;
 
-  @override
-  String? selectedSiteUrl;
+  String? _selectedSiteUrl;
 
   List<ForumWorkspace> get workspaces => List.unmodifiable(_workspaces);
 
   @override
-  Future<List<ForumWorkspace>> load() async => List.of(_workspaces);
+  Future<ForumTabSnapshot> load() async =>
+      ForumTabSnapshot(_workspaces, selectedSiteUrl: _selectedSiteUrl);
 
   @override
   Future<void> save(
     Iterable<ForumWorkspace> workspaces, {
     String? selectedSiteUrl,
   }) async {
-    this.selectedSiteUrl = selectedSiteUrl;
+    _selectedSiteUrl = selectedSiteUrl;
     _workspaces = List.of(workspaces);
     saveCount++;
   }

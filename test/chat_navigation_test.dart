@@ -1555,7 +1555,12 @@ void main() {
             });
           final forumTabs = ForumTabStore(persistence: persistence);
           expect(
-            (await forumTabs.load()).single.activeTab.currentContent.id,
+            (await forumTabs.load())
+                .workspaces
+                .single
+                .activeTab
+                .currentContent
+                .id,
             routeId,
           );
           final restored = ShellController(

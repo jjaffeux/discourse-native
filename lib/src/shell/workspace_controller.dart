@@ -20,6 +20,7 @@ final class _WorkspaceController {
   bool _anchorPersistencePending = false;
   Future<void> _writesSettled = Future<void>.value();
   bool _disposed = false;
+  String? _lastRequestedSelection;
 
   bool get canCreateTab =>
       _shell.forumTabsEnabled &&
@@ -47,7 +48,12 @@ final class _WorkspaceController {
   bool awaitsHomepage(String id) => _pendingHomepageTabs.contains(id);
   void consumeHomepage(String? id) => _pendingHomepageTabs.remove(id);
 
-  bool restore(Iterable<ForumWorkspace> workspaces) {
+  bool get selectionNeedsPersistence =>
+      _lastRequestedSelection != _shell.currentInstance?.url;
+
+  bool restore(ForumTabSnapshot snapshot) {
+    _lastRequestedSelection = snapshot.selectedSiteUrl;
+    final workspaces = snapshot.workspaces;
     for (final workspace in _forumWorkspaces.values) {
       _shell._readerProjections.retainTabs(
         workspace.siteUrl,
@@ -261,11 +267,9 @@ final class _WorkspaceController {
   void persist() {
     _tabSelectionPersistencePending = false;
     _anchorPersistencePending = false;
+    _lastRequestedSelection = _shell.currentInstance?.url;
     _writesSettled = _shell.forumTabs
-        .save(
-          _forumWorkspaces.values,
-          selectedSiteUrl: _shell.currentInstance?.url,
-        )
+        .save(_forumWorkspaces.values, selectedSiteUrl: _lastRequestedSelection)
         .then<void>((_) {}, onError: (Object _, StackTrace _) {});
   }
 

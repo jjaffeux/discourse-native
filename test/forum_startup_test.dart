@@ -74,7 +74,10 @@ void main() {
     await shell.load();
     await shell.flushForExit();
     expect(shell.currentInstance?.url, 'https://one.example');
-    expect(shell.forumTabs.selectedSiteUrl, 'https://one.example');
+    expect(
+      (await shell.forumTabs.load()).selectedSiteUrl,
+      'https://one.example',
+    );
   });
 
   test('removing the last forum clears the saved selection', () async {
@@ -90,7 +93,7 @@ void main() {
     addTearDown(restarted.dispose);
     await restarted.load();
     expect(restarted.hasInstances, isFalse);
-    expect(restarted.forumTabs.selectedSiteUrl, isNull);
+    expect((await restarted.forumTabs.load()).selectedSiteUrl, isNull);
   });
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {

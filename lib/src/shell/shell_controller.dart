@@ -2062,13 +2062,13 @@ class ShellController extends FrameSafeNotifier
       _forgetStoredPreferences(),
     ]);
     if (isDisposed) return;
-    final workspaces = await storedWorkspaces;
+    final workspaceSnapshot = await storedWorkspaces;
     if (isDisposed) return;
     final selectedIndex = _instances.indexWhere(
-      (instance) => instance.url == forumTabs.selectedSiteUrl,
+      (instance) => instance.url == workspaceSnapshot.selectedSiteUrl,
     );
     _instanceIndex = selectedIndex < 0 ? 0 : selectedIndex;
-    final workspacesNormalized = _workspace.restore(workspaces);
+    final workspacesNormalized = _workspace.restore(workspaceSnapshot);
     // Only forums on the rail keep Recent visits: a removal may have ended
     // before its visits were saved away, and older builds kept them. An empty
     // rail may be a list that could not be decoded, so it must not erase every
@@ -9361,7 +9361,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   void _notifyCurrentWorkspace() {
-    if (loaded && forumTabs.selectedSiteUrl != currentInstance?.url) {
+    if (loaded && _workspace.selectionNeedsPersistence) {
       _workspace.persist();
     }
     _rememberCurrentContent();
