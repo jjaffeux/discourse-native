@@ -14,6 +14,56 @@ void main() {
   const site = 'https://example.com';
 
   test(
+    'a retired focus registration cannot detach its replacement even with the same callback',
+    () {
+      final search = _search(
+        api: _SearchApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      addTearDown(search.dispose);
+      final field = Object();
+      var focused = 0;
+      void focus(SearchFocusRequest _) => focused++;
+      final old = search.registerFocus(field, focus);
+      final current = search.registerFocus(field, focus);
+      search.activateField(field);
+      old();
+      old();
+      expect(search.ownsPanel(field), isTrue);
+      expect(search.panelOpen, isTrue);
+      search.requestFocus();
+      expect(focused, 1);
+      current();
+      expect(search.ownsPanel(field), isFalse);
+      expect(search.panelOpen, isFalse);
+    },
+  );
+
+  test(
+    'closed search owners cannot admit new focus registrations or reopen panels',
+    () {
+      final search = _search(
+        api: _SearchApi(),
+        credentials: FakeApiCredentialReader(),
+        lifecycle: SiteLifecycle(),
+      )..selectSite(site);
+      final field = Object();
+      search.activateField(field);
+      search.dispose();
+      var focused = 0;
+      final detach = search.registerFocus(field, (_) => focused++);
+      search.activateField(field);
+      search.requestFocus();
+      expect(search.canSearch, isFalse);
+      expect(search.panelOpen, isFalse);
+      expect(search.ownsPanel(field), isFalse);
+      expect(focused, 0);
+      detach();
+    },
+  );
+
+  test(
     'tab retention keeps only reachable compound owners without notifying',
     () {
       const otherSite = 'https://other.example';
