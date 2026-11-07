@@ -18,6 +18,7 @@ final class PlaceholderSession {
   final PluginUserIdReader currentUser;
   final _posts = <PlaceholderPostId, PlaceholderValues>{};
   final _pending = <Future<void>>{};
+  final _persistenceOperations = SerialOperationQueue();
   bool _closed = false;
 
   PlaceholderValues acquire(String siteUrl, int topicId, int postId) {
@@ -29,7 +30,7 @@ final class PlaceholderSession {
     );
     final values = _posts.putIfAbsent(id, () => PlaceholderValues._(this, id));
     values._readers++;
-    if (values._readers == 1) _track(values._restore);
+    if (values._readers == 1) unawaited(_track(values._restore));
     return values;
   }
 
@@ -44,12 +45,13 @@ final class PlaceholderSession {
       identical(_posts[values.id], values) &&
       currentUser(values.id.siteUrl) == values.id.userId;
 
-  void _track(Future<void> Function() operation) {
+  Future<void> _track(Future<void> Function() operation) {
     late final Future<void> future;
     future = Future<void>.sync(operation)
         .catchError((Object error, StackTrace stack) {})
         .whenComplete(() => _pending.remove(future));
     _pending.add(future);
+    return future;
   }
 
   Future<void> flush() async {
@@ -58,7 +60,14 @@ final class PlaceholderSession {
     }
   }
 
-  Future<void> forget(String siteUrl) async {
+  Future<void> forget(String siteUrl) {
+    final removal = _track(
+      () => _persistenceOperations.run(
+        owner: persistence,
+        key: siteUrl,
+        operation: () => persistence.forget(siteUrl),
+      ),
+    );
     final removed = _posts.values
         .where((v) => v.id.siteUrl == siteUrl)
         .toList();
@@ -66,11 +75,7 @@ final class PlaceholderSession {
       _posts.remove(values.id);
       values._forget();
     }
-    // Accepted writes finish before removal, and detached leases reject new ones.
-    await flush();
-    try {
-      await persistence.forget(siteUrl);
-    } catch (_) {}
+    return removal;
   }
 
   Future<void> close() async {
@@ -97,7 +102,11 @@ final class PlaceholderValues extends ChangeNotifier {
   }
 
   Future<void> _restore() async {
-    final restored = await _session.persistence.read(id);
+    final restored = await _session._persistenceOperations.run(
+      owner: _session.persistence,
+      key: id.siteUrl,
+      operation: () => _session.persistence.read(id),
+    );
     if (!isCurrent) return;
     for (final entry in restored.entries) {
       if (!_edited.contains(entry.key)) _overrides[entry.key] = entry.value;
@@ -114,7 +123,15 @@ final class PlaceholderValues extends ChangeNotifier {
     } else {
       _overrides[key] = override;
     }
-    _session._track(() => _session.persistence.write(id, key, override));
+    unawaited(
+      _session._track(
+        () => _session._persistenceOperations.run(
+          owner: _session.persistence,
+          key: id.siteUrl,
+          operation: () => _session.persistence.write(id, key, override),
+        ),
+      ),
+    );
     notifyListeners();
   }
 }
