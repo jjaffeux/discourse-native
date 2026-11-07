@@ -52,6 +52,7 @@ import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_deletion_event.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_blocks.dart';
@@ -2033,6 +2034,34 @@ void main() {
             snapshot.sections.isNotEmpty ||
             snapshot.problems.isNotEmpty ||
             snapshot.configuration != null,
+      );
+
+      probe(
+        'ChatDeletionEvent.delete',
+        () => ChatDeletionEvent.decode(
+          withFields({
+            'type': gate('delete'),
+            'deleted_id': gate(7),
+            'deleted_at': loose,
+            'deleted_by_id': loose,
+            'latest_not_deleted_message_id': loose,
+          }),
+          clock: () => DateTime.utc(2026),
+        ),
+        (event) => event is ChatMessageDeleted && event.messageId == 7,
+      );
+      probe(
+        'ChatDeletionEvent.bulk_delete',
+        () => ChatDeletionEvent.decode(
+          withFields({
+            'type': gate('bulk_delete'),
+            'deleted_ids': gate([7, loose]),
+            'deleted_at': loose,
+            'deleted_by_id': loose,
+          }),
+          clock: () => DateTime.utc(2026),
+        ),
+        (event) => event is ChatMessagesDeleted && event.messageIds.contains(7),
       );
 
       probe(

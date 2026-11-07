@@ -2,6 +2,17 @@ import 'package:discourse_native/src/shell/site_url.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('path-relative cooked links stay inside a subfolder forum', () {
+    expect(
+      resolveSiteUrl('t/topic/7', 'https://example.com/forum'),
+      'https://example.com/forum/t/topic/7',
+    );
+    expect(
+      resolveSiteUrl('/uploads/a.png', 'https://example.com/forum'),
+      'https://example.com/uploads/a.png',
+    );
+  });
+
   group('resolveSitePath', () {
     test('keeps a subfolder site prefix for an app-built path', () {
       expect(

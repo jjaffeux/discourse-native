@@ -9,6 +9,16 @@ import 'package:http/testing.dart';
 import 'support/discover_sites.dart';
 
 void main() {
+  test('Discover retains logo query parameters and trailing slashes', () {
+    const logo = 'https://cdn.example/logo/?width=128&token=abc';
+    final site = DiscoverSite.tryParse({
+      'title': 'Community',
+      'featured_link': 'https://forum.example',
+      'discover_entry_logo_url': logo,
+    });
+    expect(site?.logoUrl, logo);
+  });
+
   test(
     'fetches one public batch of 50 and caches concurrent and later reads',
     () async {

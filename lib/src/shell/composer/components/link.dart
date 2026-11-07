@@ -86,7 +86,7 @@ List<ComposerLinkBlock> parseComposerLinks(
     offset = end;
     markdownRanges.add(TextRange(start: start, end: end));
     if (code.overlaps(start, end)) continue;
-    if (start > 0 && source[start - 1] == '!') continue;
+    if (candidate.openerStart < start) continue;
     links.add(
       ComposerLinkBlock(
         start: start,

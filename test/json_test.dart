@@ -2,6 +2,14 @@ import 'package:discourse_native/src/models/json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('plain excerpts retain word boundaries at HTML line breaks', () {
+    expect(
+      jsonHtmlText('<p>Hello<br>world</p><p>Again</p>'),
+      'Hello world Again',
+    );
+    expect(jsonHtmlText('<b>hel</b><i>lo</i>'), 'hello');
+  });
+
   group('jsonInt', () {
     test('passes numbers through, rounding down a double', () {
       expect(jsonInt(7), 7);

@@ -151,7 +151,8 @@ class LocalDateComposerBlock {
         LocalDateComposerKind.date =>
           attribute('from') == null &&
               attribute('to') == null &&
-              _validDate(attribute('date')),
+              _validDate(attribute('date')) &&
+              (attribute('time') == null || _validTime(attribute('time')!)),
         LocalDateComposerKind.range =>
           attribute('date') == null &&
               attribute('time') == null &&
@@ -182,7 +183,11 @@ List<LocalDateComposerBlock> parseLocalDateComposerBlocks(
     final opening = source.indexOf('[', offset);
     if (opening == -1) break;
     final header = _tagAt(source, opening);
-    if (header == null || codeRanges.contains(opening)) {
+    var slashes = 0;
+    for (var at = opening - 1; at >= 0 && source[at] == '\\'; at--) {
+      slashes++;
+    }
+    if (header == null || slashes.isOdd || codeRanges.contains(opening)) {
       offset = opening + 1;
       continue;
     }
@@ -480,7 +485,11 @@ bool _validDateTime(String? value) {
   final pieces = value.split('T');
   if (pieces.length > 2 || !_validDate(pieces.first)) return false;
   if (pieces.length == 1) return true;
-  final match = _timePattern.firstMatch(pieces[1]);
+  return _validTime(pieces[1]);
+}
+
+bool _validTime(String value) {
+  final match = _timePattern.firstMatch(value);
   if (match == null) return false;
   return int.parse(match.group(1)!) <= 23 &&
       int.parse(match.group(2)!) <= 59 &&
