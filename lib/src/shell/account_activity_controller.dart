@@ -23,6 +23,7 @@ import 'notification_reconciliation.dart';
 
 part 'account_totals_refresh.dart';
 part 'notification_feed_load.dart';
+part 'account_bookmark_refresh.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
@@ -109,12 +110,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final Map<String, _NotificationFeedLoad> _replyNotificationLoads = {};
   final Map<String, _NotificationFeedLoad> _likeNotificationLoads = {};
   final Map<String, _NotificationFeedLoad> _otherNotificationLoads = {};
-  final Map<String, Future<void>> _bookmarkTasks = {};
-  final Map<String, ({DiscourseInstance instance, SiteLease lease})>
-  _pendingBookmarks = {};
-  final Map<String, Completer<void>> _pendingBookmarkWaiters = {};
-  final Map<String, Completer<void>> _replayingBookmarkWaiters = {};
-  final Map<String, Object> _bookmarkRequests = {};
+  final Map<String, _AccountBookmarkRefresh> _bookmarkRefreshes = {};
   final Map<(String, int), Object> _notificationReadRequests = {};
   final Map<(String, PluginNotificationFeedId), Future<void>>
   _pluginNotificationDismissTasks = {};
@@ -603,168 +599,19 @@ final class AccountActivityController extends FrameSafeNotifier {
   }
 
   Future<void> loadBookmarks(DiscourseInstance instance, {bool force = false}) {
+    if (isDisposed) return Future<void>.value();
     final lease = lifecycle.capture(instance.url);
-    final active = _bookmarkTasks[instance.url];
-    if (active != null) {
-      if (!force) return active;
-      _pendingBookmarks[instance.url] = (instance: instance, lease: lease);
-      return _pendingBookmarkWaiters
-          .putIfAbsent(instance.url, Completer<void>.new)
-          .future;
+    var account = _bookmarkRefreshes[instance.url];
+    if (account != null && !account.isCurrent) {
+      account.retire();
+      account = _bookmarkRefreshes[instance.url];
     }
-    return _startBookmarksLoad(instance, lease);
-  }
-
-  Future<void> _startBookmarksLoad(
-    DiscourseInstance instance,
-    SiteLease lease,
-  ) {
-    if (isDisposed || !lease.isCurrent) return Future<void>.value();
-    final result = Completer<void>();
-    final task = result.future;
-    _bookmarkTasks[instance.url] = task;
-    try {
-      unawaited(
-        _loadBookmarks(instance, lease).then<void>(
-          (_) {
-            _finishBookmarksLoad(instance.url, task);
-            if (!result.isCompleted) result.complete();
-          },
-          onError: (Object error, StackTrace stackTrace) {
-            _finishBookmarksLoad(instance.url, task);
-            if (!result.isCompleted) result.completeError(error, stackTrace);
-          },
-        ),
-      );
-    } catch (error, stackTrace) {
-      _finishBookmarksLoad(instance.url, task);
-      result.completeError(error, stackTrace);
+    if (account == null) {
+      account = _AccountBookmarkRefresh(this, instance.url, lease);
+      _bookmarkRefreshes[instance.url] = account;
+      account.observeRetirement();
     }
-    return task;
-  }
-
-  void _finishBookmarksLoad(String siteUrl, Future<void> task) {
-    if (!identical(_bookmarkTasks[siteUrl], task)) return;
-    final _ = _bookmarkTasks.remove(siteUrl);
-    final pending = _pendingBookmarks.remove(siteUrl);
-    final waiter = _pendingBookmarkWaiters.remove(siteUrl);
-    if (pending == null ||
-        waiter == null ||
-        isDisposed ||
-        !pending.lease.isCurrent) {
-      if (waiter != null && !waiter.isCompleted) waiter.complete();
-      return;
-    }
-
-    _replayingBookmarkWaiters[siteUrl] = waiter;
-    final replay = _startBookmarksLoad(pending.instance, pending.lease);
-    unawaited(
-      replay.then<void>(
-        (_) {
-          if (identical(_replayingBookmarkWaiters[siteUrl], waiter)) {
-            _replayingBookmarkWaiters.remove(siteUrl);
-          }
-          if (!waiter.isCompleted) waiter.complete();
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (identical(_replayingBookmarkWaiters[siteUrl], waiter)) {
-            _replayingBookmarkWaiters.remove(siteUrl);
-          }
-          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
-        },
-      ),
-    );
-  }
-
-  Future<void> _loadBookmarks(
-    DiscourseInstance instance,
-    SiteLease lease,
-  ) async {
-    if (isDisposed || !lease.isCurrent) return;
-    final username = instance.user?.username;
-    if (username == null) return;
-    if (_bookmarkRequests.containsKey(instance.url)) return;
-    final request = Object();
-    _bookmarkRequests[instance.url] = request;
-    final owner = _reconciliationFor(instance.url, lease: lease);
-    final held = owner.hasPublished(_bookmarks) ? owner.feed(_bookmarks) : null;
-
-    if (held == null || held.error != null) {
-      owner.publish(_bookmarks, const BookmarkFeed.loading());
-    }
-
-    void fail(String message) {
-      // Rows that arrived while the request was out stay on screen.
-      final current = owner.feed(_bookmarks);
-      if (current.hasRows) {
-        owner.publish(_bookmarks, current);
-        return;
-      }
-      owner.publish(_bookmarks, BookmarkFeed.failed(message));
-    }
-
-    try {
-      final auth = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).keyCredentials(credentials);
-      final apiKey = auth.apiKey;
-      if (!_ownsRequest(lease, _bookmarkRequests[instance.url], request)) {
-        return;
-      }
-      if (apiKey == null) {
-        _commit(lease, () {
-          if (!identical(_bookmarkRequests[instance.url], request)) return;
-          fail(
-            appL10n.reconnectToToSeeYourBookmarks((instance.host).toString()),
-          );
-        });
-        return;
-      }
-      final bookmarks = await auth.run(
-        () => api.bookmarks(
-          siteUrl: instance.url,
-          apiKey: apiKey,
-          username: username,
-        ),
-      );
-      _commit(lease, () {
-        if (!identical(_bookmarkRequests[instance.url], request)) return;
-        owner.publish(_bookmarks, BookmarkFeed.of(bookmarks));
-      });
-    } on SiteLookupException catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_bookmarkRequests[instance.url], request)) {
-        return;
-      }
-
-      _commit(lease, () {
-        if (!identical(_bookmarkRequests[instance.url], request)) return;
-        fail(
-          error.failure == SiteLookupFailure.notDiscourse
-              ? appL10n.notAllowedTryReconnectingTo((instance.host).toString())
-              : appL10n.couldnTReach((instance.host).toString()),
-        );
-      });
-    } catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_bookmarkRequests[instance.url], request)) {
-        return;
-      }
-
-      _commit(lease, () {
-        if (!identical(_bookmarkRequests[instance.url], request)) return;
-        fail(appL10n.couldnTLoadBookmarksFrom((instance.host).toString()));
-      });
-    } finally {
-      _commit(lease, () {
-        if (identical(_bookmarkRequests[instance.url], request)) {
-          _bookmarkRequests.remove(instance.url);
-        }
-      });
-    }
+    return account.load(instance, force: force);
   }
 
   Future<void> loadBookmarkList(
@@ -927,15 +774,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _replyNotificationLoads.remove(siteUrl)?.finish();
     _likeNotificationLoads.remove(siteUrl)?.finish();
     _otherNotificationLoads.remove(siteUrl)?.finish();
-    _bookmarkTasks.remove(siteUrl)?.ignore();
-    _pendingBookmarks.remove(siteUrl);
-    _pendingBookmarkWaiters.remove(siteUrl)?.complete();
-    final replayingBookmarkWaiter = _replayingBookmarkWaiters.remove(siteUrl);
-    if (replayingBookmarkWaiter != null &&
-        !replayingBookmarkWaiter.isCompleted) {
-      replayingBookmarkWaiter.complete();
-    }
-    _bookmarkRequests.remove(siteUrl);
+    _bookmarkRefreshes.remove(siteUrl)?.retire();
     _notificationReadRequests.removeWhere((key, _) => key.$1 == siteUrl);
     _pluginNotificationDismissTasks.removeWhere((key, task) {
       if (key.$1 != siteUrl) return false;
@@ -964,15 +803,11 @@ final class AccountActivityController extends FrameSafeNotifier {
     for (final account in totalsRefreshes) {
       account.retire();
     }
-    for (final waiter in _pendingBookmarkWaiters.values) {
-      if (!waiter.isCompleted) waiter.complete();
+    final bookmarkRefreshes = _bookmarkRefreshes.values.toList();
+    _bookmarkRefreshes.clear();
+    for (final account in bookmarkRefreshes) {
+      account.retire();
     }
-    for (final waiter in _replayingBookmarkWaiters.values) {
-      if (!waiter.isCompleted) waiter.complete();
-    }
-    _pendingBookmarkWaiters.clear();
-    _replayingBookmarkWaiters.clear();
-    _pendingBookmarks.clear();
     for (final load in _notificationLoads.values.toList()) {
       load.finish();
     }
@@ -990,8 +825,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     _pluginNotifications.clear();
     _pluginNotificationSources.clear();
-    _bookmarkTasks.clear();
-    _bookmarkRequests.clear();
     _notificationReadRequests.clear();
     for (final owner in _reconciliations.values) {
       owner.retire();

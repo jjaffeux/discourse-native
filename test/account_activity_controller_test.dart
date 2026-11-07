@@ -601,6 +601,144 @@ void main() {
       },
     );
 
+    for (final oldCompletesFirst in [false, true]) {
+      test(
+        'bookmark account replacement proceeds when old HTTP finishes ${oldCompletesFirst ? 'before' : 'after'} replacement starts',
+        () async {
+          final api = _SequencedBookmarksApi(2);
+          final lifecycle = SiteLifecycle();
+          final controller = _controller(
+            api,
+            FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+          final initial = controller.loadBookmarks(_connectedInstance());
+          await api.started[0].future;
+          final forced = controller.loadBookmarks(
+            _connectedInstance(),
+            force: true,
+          );
+          lifecycle.invalidate(_siteUrl);
+          if (oldCompletesFirst) {
+            api.answers[0].completeError(StateError('retired response'));
+            await pumpEventQueue();
+          }
+          final replacement = controller.loadBookmarks(_connectedInstance());
+          await api.started[1].future.timeout(const Duration(seconds: 1));
+          await Future.wait([
+            initial,
+            forced,
+          ]).timeout(const Duration(seconds: 1));
+          final joined = controller.loadBookmarks(_connectedInstance());
+          if (!oldCompletesFirst) {
+            api.answers[0].completeError(StateError('retired response'));
+            await pumpEventQueue();
+          }
+          const fresh = Bookmark(id: 77, title: 'Replacement');
+          api.answers[1].complete((
+            reminders: const <DiscourseNotification>[],
+            bookmarks: const [fresh],
+          ));
+          await Future.wait([replacement, joined]);
+          expect(controller.bookmarksFor(_siteUrl).bookmarks, const [fresh]);
+          expect(api.calls, 2);
+        },
+      );
+    }
+
+    test(
+      'forced bookmark replay keeps the latest instance and one shared completion',
+      () async {
+        final api = _SequencedBookmarksApi(3);
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        );
+        addTearDown(controller.dispose);
+        final first = controller.loadBookmarks(_connectedInstance());
+        await api.started[0].future;
+        final forced = controller.loadBookmarks(
+          _connectedInstance(),
+          force: true,
+        );
+        final updated = _connectedInstance().copyWith(
+          user: const DiscourseUser(id: 7, username: 'renamed'),
+        );
+        final duplicate = controller.loadBookmarks(updated, force: true);
+        expect(identical(forced, duplicate), isTrue);
+        api.answers[0].complete((
+          reminders: const <DiscourseNotification>[],
+          bookmarks: const <Bookmark>[],
+        ));
+        await first;
+        await api.started[1].future;
+        final next = controller.loadBookmarks(updated, force: true);
+        api.answers[1].complete((
+          reminders: const <DiscourseNotification>[],
+          bookmarks: const <Bookmark>[],
+        ));
+        await Future.wait([forced, duplicate]);
+        await api.started[2].future;
+        api.answers[2].complete((
+          reminders: const <DiscourseNotification>[],
+          bookmarks: const [_bookmark],
+        ));
+        await next;
+        expect(api.usernames, ['sam', 'renamed', 'renamed']);
+        expect(controller.bookmarksFor(_siteUrl).bookmarks, const [_bookmark]);
+      },
+    );
+
+    for (final duringLoading in [true, false]) {
+      test(
+        'bookmark ${duringLoading ? 'loading' : 'publication'} can synchronously replace its account',
+        () async {
+          final api = _SequencedBookmarksApi(duringLoading ? 1 : 2);
+          final lifecycle = SiteLifecycle();
+          final controller = _controller(
+            api,
+            FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+            lifecycle: lifecycle,
+          );
+          addTearDown(controller.dispose);
+          var rotated = false;
+          Future<void>? replacement;
+          controller.bookmarksListenable.addListener(() {
+            if (rotated ||
+                controller.bookmarksFor(_siteUrl).loading != duringLoading) {
+              return;
+            }
+            rotated = true;
+            lifecycle.invalidate(_siteUrl);
+            replacement = controller.loadBookmarks(_connectedInstance());
+          });
+          final initial = controller.loadBookmarks(_connectedInstance());
+          if (!duringLoading) {
+            await api.started[0].future;
+            api.answers[0].complete((
+              reminders: const <DiscourseNotification>[],
+              bookmarks: const [_bookmark],
+            ));
+          }
+          final successor = duringLoading ? 0 : 1;
+          await api.started[successor].future.timeout(
+            const Duration(seconds: 1),
+          );
+          const fresh = Bookmark(id: 78, title: 'Successor');
+          api.answers[successor].complete((
+            reminders: const <DiscourseNotification>[],
+            bookmarks: const [fresh],
+          ));
+          await initial;
+          await replacement;
+          expect(rotated, isTrue);
+          expect(api.calls, duringLoading ? 1 : 2);
+          expect(controller.bookmarksFor(_siteUrl).bookmarks, const [fresh]);
+        },
+      );
+    }
+
     test('a forced bookmark load replays behind an older request', () async {
       final api = _SequencedBookmarksApi(2);
       final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
@@ -3760,6 +3898,7 @@ final class _SequencedBookmarksApi extends _AccountApi {
   final List<Completer<BookmarkPayload>> answers;
   final List<Completer<void>> started;
   int calls = 0;
+  final List<String> usernames = [];
 
   @override
   Future<BookmarkPayload> bookmarks({
@@ -3768,6 +3907,7 @@ final class _SequencedBookmarksApi extends _AccountApi {
     required String username,
     String? clientId,
   }) {
+    usernames.add(username);
     final call = calls++;
     started[call].complete();
     return answers[call].future;
