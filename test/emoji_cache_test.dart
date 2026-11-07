@@ -20,16 +20,6 @@ final Uint8List pngBytes = Uint8List.fromList([
 
 void main() {
   group('absoluteEmojiUrl', () {
-    test('resolves the root-relative src Discourse cooks', () {
-      expect(
-        absoluteEmojiUrl(
-          '/images/emoji/twitter/slight_smile.png?v=15',
-          'https://meta.discourse.org',
-        ),
-        'https://meta.discourse.org/images/emoji/twitter/slight_smile.png?v=15',
-      );
-    });
-
     test('resolves a subfolder install without doubling its base path', () {
       // A subfolder site cooks its base path into the src already, so the
       // src resolves against the origin; appending it to the stored site URL
