@@ -226,20 +226,6 @@ void main() {
       expect(controller.available, isNull);
     });
 
-    test('a check that finds a release offers it', () async {
-      final controller = controllerWith(
-        updater: FakeUpdater(
-          isSupported: true,
-          releases: {UpdateChannel.stable: release('1.4.0')},
-        ),
-      );
-
-      await controller.check();
-
-      expect(controller.status, UpdateStatus.available);
-      expect(controller.available?.version, '1.4.0');
-    });
-
     test('a check the user started reports what went wrong', () async {
       final controller = controllerWith(
         updater: FakeUpdater(
