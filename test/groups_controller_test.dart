@@ -1856,6 +1856,107 @@ void main() {
     );
   });
 
+  for (final refreshFails in [false, true]) {
+    test(
+      'owner demotion refreshes the reordered member page before paging, refreshFails=$refreshFails',
+      () async {
+        final transport = _ControlledGroupTransport()
+          ..objects.add(
+            _completed({
+              'members': [
+                {'id': 4, 'username': 'zoe'},
+                {'id': 1, 'username': 'alice'},
+              ],
+              'owners': [
+                {'id': 4, 'username': 'zoe'},
+              ],
+              'meta': {'total': 4, 'limit': 2, 'offset': 0},
+            }),
+          );
+        final controller = _controller(
+          transport,
+          credentials: FakeApiCredentialReader()..keys[_site] = 'secret',
+        );
+        addTearDown(controller.dispose);
+        await controller.loadMembers(_connectedInstance, 'support');
+        final owner = controller.membersState(_site, 'support').members.first;
+        transport.objects.add(
+          _completed({
+            'members': [
+              {'id': 1, 'username': 'alice'},
+              {'id': 2, 'username': 'bob'},
+            ],
+            'owners': <Object?>[],
+            'meta': {'total': 4, 'limit': 2, 'offset': 0},
+          }),
+        );
+
+        if (refreshFails) {
+          transport.onGet = (_) => throw StateError('Refresh offline');
+        }
+        final saved = await controller.setMemberOwner(
+          _connectedInstance,
+          const Group(id: 7, name: 'support'),
+          owner,
+          owner: false,
+        );
+
+        expect(saved.canApplyLocally, isTrue);
+        if (refreshFails) {
+          final retained = controller.membersState(_site, 'support');
+          expect(retained.members.map((row) => row.username), ['zoe', 'alice']);
+          expect(retained.members.first.owner, isFalse);
+          expect(retained.error, isNotNull);
+          expect(retained.pageError, isFalse);
+          expect(
+            (saved as GroupWriteAccepted<void>).projection,
+            GroupProjectionFreshness.stale,
+          );
+          transport.onGet = null;
+          await controller.loadMembers(
+            _connectedInstance,
+            'support',
+            more: true,
+          );
+        }
+        expect(
+          controller
+              .membersState(_site, 'support')
+              .members
+              .map((row) => row.username),
+          ['alice', 'bob'],
+        );
+        transport.objects.add(
+          _completed({
+            'members': [
+              {'id': 3, 'username': 'carol'},
+              {'id': 4, 'username': 'zoe'},
+            ],
+            'owners': <Object?>[],
+            'meta': {'total': 4, 'limit': 2, 'offset': 2},
+          }),
+        );
+        await controller.loadMembers(_connectedInstance, 'support', more: true);
+
+        final state = controller.membersState(_site, 'support');
+        expect(state.members.map((row) => row.username), [
+          'alice',
+          'bob',
+          'carol',
+          'zoe',
+        ]);
+        expect(state.members.every((row) => !row.owner), isTrue);
+        expect(state.hasMore, isFalse);
+        expect(
+          transport.gets.map(
+            (request) => Uri.parse(request.path).queryParameters['offset'],
+          ),
+          refreshFails ? ['0', '0', '0', '2'] : ['0', '0', '2'],
+        );
+      },
+    );
+  }
+
   test(
     'member roles update every sorted cache after a confirmed write',
     () async {
