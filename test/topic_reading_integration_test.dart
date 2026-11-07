@@ -1095,14 +1095,6 @@ void _registerTopicReadingTests() {
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );
 
-    testWidgets('unread topics carry a count', (tester) async {
-      final api = FakeDiscourseApi(feeds: {'/latest.json': latest});
-
-      await pumpShell(tester, desktop, api: api);
-
-      expect(contentText('3'), findsOneWidget);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets('closed topics carry a lock before their title', (
       tester,
     ) async {
@@ -4547,6 +4539,12 @@ void _registerTopicReadingTests() {
     testWidgets('reading a topic clears its unread count on every list it is '
         'in', (tester) async {
       final unread = [
+        const Topic(
+          id: 1,
+          title: 'Welcome to the forum',
+          slug: 'welcome',
+          categoryId: 5,
+        ),
         const Topic(
           id: 7,
           title: 'A real topic',

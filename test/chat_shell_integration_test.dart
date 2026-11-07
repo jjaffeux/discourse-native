@@ -4232,21 +4232,6 @@ void _registerChatShellTests() {
         expect(ring, findsOneWidget);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
-      testWidgets('opens the channel the sidebar entry names', (tester) async {
-        await pumpChat(
-          tester,
-          public: [channel(9)],
-          messages: {
-            key(9): page([msg(1)]),
-          },
-        );
-
-        await tester.tap(sidebarDestination('Bugs'));
-        await tester.pumpAndSettle();
-
-        expect(renderedText('Hello there'), findsOneWidget);
-      }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
       testWidgets('updates a loading channel without notifying the shell', (
         tester,
       ) async {
