@@ -5252,7 +5252,7 @@ void _meshPrivacyTests() {
 }
 
 void _mobileVoiceFormTests() {
-  group('mobile Voice inset forms', () {
+  group('mobile Voice forms', () {
     for (final inviting in [false, true]) {
       final name = inviting ? 'invite' : 'media settings';
       for (final dark in [false, true]) {
@@ -5276,18 +5276,21 @@ void _mobileVoiceFormTests() {
           expect(tester.testTextInput.isVisible, isFalse);
           final sheet = find.byType(DSheetContent);
           final bounds = tester.getRect(sheet);
-          expect(bounds.left, greaterThan(0));
-          expect(bounds.right, lessThan(390));
+          expect(bounds.left, 0);
+          expect(bounds.right, 390);
           expect(bounds.top, greaterThan(59));
           expect(bounds.top, lessThan(140));
-          expect(bounds.bottom, lessThanOrEqualTo(810));
+          expect(bounds.bottom, 844);
           expect(bounds.height, greaterThan(650));
           final close = find.byTooltip('Close');
           final closeButton = tester.widget<DButton>(
             find.ancestor(of: close, matching: find.byType(DButton)),
           );
-          expect(closeButton.variant, DButtonVariant.secondary);
-          expect(closeButton.shape, DButtonShape.pill);
+          expect(closeButton.variant, DButtonVariant.quiet);
+          expect(
+            find.ancestor(of: close, matching: find.byType(DSheetHeaderAction)),
+            findsOneWidget,
+          );
           expect(closeButton.size, DButtonSize.small);
           expect(close.hitTestable(), findsOneWidget);
           final footerButtons = find.descendant(

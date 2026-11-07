@@ -59,7 +59,9 @@ Future<ShellController> chatScrollController({
           : null);
   final api = _ChatScrollApi(
     sessionUser: sessionUser,
-    user: const DiscourseUser(id: 1, username: 'reader1'),
+    user:
+        reader ??
+        const DiscourseUser(id: 1, username: 'reader1', timezone: 'Etc/UTC'),
     chatMessagesByKey: {
       '9': (
         messages: [
@@ -106,7 +108,7 @@ Future<ShellController> chatScrollController({
                 id: (id ~/ 3) % 4 + 1,
                 username: 'reader${(id ~/ 3) % 4 + 1}',
               ),
-              createdAt: DateTime(
+              createdAt: DateTime.utc(
                 2026,
                 8,
                 1,

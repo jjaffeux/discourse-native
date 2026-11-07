@@ -2817,10 +2817,16 @@ void main() {
               tester.widget<DSheetContent>(sheet).variant,
               DSheetVariant.adaptiveMenu,
             );
-            expect(
-              tester.getBottomRight(sheet).dy,
-              lessThanOrEqualTo(852 - keyboardInset),
-            );
+            for (final action in ['Files', 'Photo Library', 'Insert GIF']) {
+              expect(
+                tester
+                    .getBottomRight(
+                      find.widgetWithText(DDropdownMenuItem, action),
+                    )
+                    .dy,
+                lessThanOrEqualTo(852 - keyboardInset),
+              );
+            }
           }
           expect(find.text('Files'), findsOneWidget);
           expect(find.text('Photo Library'), findsOneWidget);

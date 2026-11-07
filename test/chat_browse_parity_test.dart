@@ -1371,7 +1371,7 @@ void _expectMenuPresentation(WidgetTester tester, {required bool mobile}) {
 
   expect(tester.widget<DSheetContent>(sheet).side, DSheetSide.bottom);
   expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
-  expect(find.byType(DSheetHeader), findsNothing);
+  expect(find.byType(DSheetHeader), findsOneWidget);
   expect(find.byTooltip('Close'), findsNothing);
   expect(tester.widget<DSheetContent>(sheet).showCloseButton, isFalse);
   final viewport = tester.getRect(

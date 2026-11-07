@@ -81,7 +81,7 @@ class _SiteIdentityApi extends FakeDiscourseApi {
     required String apiKey,
     String? clientId,
   }) async => siteUrl == _site
-      ? const DiscourseUser(id: 1, username: 'user1')
+      ? const DiscourseUser(id: 1, username: 'user1', timezone: 'Etc/UTC')
       : const DiscourseUser(id: 2, username: 'user2');
 }
 
@@ -96,7 +96,7 @@ Future<ShellController> _controller(
         url: _site,
         title: 'DMs',
         apiVersion: 4,
-        user: DiscourseUser(id: 1, username: 'user1'),
+        user: DiscourseUser(id: 1, username: 'user1', timezone: 'Etc/UTC'),
       ),
       DiscourseInstance(
         url: _otherSite,
@@ -468,7 +468,7 @@ void main() {
       tester,
     ) async {
       final controller = await _controller(_message());
-      final local = DateTime.utc(2026, 9, 11).toLocal();
+      final local = DateTime.utc(2026, 9, 11);
       String two(int value) => value.toString().padLeft(2, '0');
       final hour12 = local.hour % 12 == 0 ? 12 : local.hour % 12;
       final expected = {

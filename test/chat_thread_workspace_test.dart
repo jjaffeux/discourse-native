@@ -697,12 +697,11 @@ void main() {
         FakeSiteTracker.built
             .lastWhere((tracker) => tracker.siteUrl == _siteUrl)
             .deliverNotification(const {'all_unread_notifications_count': 3});
-        // New totals reach Chat with the shell's next notification, whatever
-        // that notification was for.
+        // Forum totals do not change the Chat shell projection.
         fixture.shell.notifyListeners();
         await tester.pumpAndSettle();
 
-        expect(shellChanges, 1);
+        expect(shellChanges, 0);
         expect(rebuilt, isEmpty);
         expect(
           find.byType(CookedHtml, skipOffstage: false).evaluate().toSet(),

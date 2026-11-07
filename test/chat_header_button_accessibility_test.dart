@@ -137,8 +137,11 @@ void main() {
         final search = tester.getRect(
           find.byKey(const ValueKey('mobile-search-button')),
         );
-        final bell = tester.getRect(find.byKey(UserMenuButton.bellKey));
-        expect(search.overlaps(bell), isFalse);
+        final notifications = tester.getRect(
+          find.byKey(const ValueKey('mobile-mode-notifications')),
+        );
+        expect(search.overlaps(notifications), isFalse);
+        expect(find.byKey(UserMenuButton.bellKey), findsNothing);
         expect(
           find.descendant(
             of: find.byKey(const ValueKey('mobile-header')),
@@ -146,7 +149,7 @@ void main() {
           ),
           findsNothing,
         );
-        for (final rect in [search, bell]) {
+        for (final rect in [search, notifications]) {
           expect(rect.left, greaterThanOrEqualTo(0));
           expect(rect.right, lessThanOrEqualTo(width));
         }
@@ -373,22 +376,15 @@ void main() {
 }
 
 void _expectMobileHeaderGaps(WidgetTester tester) {
-  final controls = [
-    find.byKey(const ValueKey('mobile-search-button')),
-    find.byKey(UserMenuButton.bellKey),
-  ];
-  for (var index = 1; index < controls.length; index++) {
-    final previous = tester.getRect(controls[index - 1]);
-    final current = tester.getRect(controls[index]);
-    expect(
-      current.left - previous.right,
-      closeTo(index == 1 ? 10 : DSpacing.controlGap, .01),
-      reason: 'Gap before mobile control $index',
-    );
-  }
-  for (final control in controls) {
-    expect(control.hitTestable(), findsOneWidget);
-  }
+  final search = find.byKey(const ValueKey('mobile-search-button'));
+  final header = tester.getRect(find.byKey(const ValueKey('mobile-header')));
+  expect(tester.getRect(search).right, closeTo(header.right - 14, .01));
+  expect(search.hitTestable(), findsOneWidget);
+  expect(find.byKey(UserMenuButton.bellKey), findsNothing);
+  expect(
+    find.byKey(const ValueKey('mobile-mode-notifications')).hitTestable(),
+    findsOneWidget,
+  );
   expect(tester.takeException(), isNull);
 }
 
@@ -476,12 +472,12 @@ Future<ShellController> _pump(
     ),
   );
   await tester.pumpAndSettle();
-  final menu = find.byKey(const ValueKey('mobile-menu-button'));
-  if (menu.evaluate().isNotEmpty) {
-    await tester.tap(menu);
-    await tester.pumpAndSettle();
-  }
-  return tester.widget<ShellScope>(find.byType(ShellScope).first).notifier!;
+  final shell = tester
+      .widget<ShellScope>(find.byType(ShellScope).first)
+      .notifier!;
+  shell.closeMobileSidebar();
+  await tester.pumpAndSettle();
+  return shell;
 }
 
 FocusNode _focusButton(WidgetTester tester, Finder button) {

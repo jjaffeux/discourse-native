@@ -806,7 +806,7 @@ void main() {
                   channelId: message.channelId,
                   author: message.author,
                   cooked: message.cooked,
-                  createdAt: DateTime(2026, 8, 1, 0, message.id),
+                  createdAt: DateTime.utc(2026, 8, 1, 0, message.id),
                 ),
               )
               .toList();
@@ -946,7 +946,7 @@ void main() {
         channelId: 9,
         author: messages.last.author,
         cooked: '<p>A newest row with a different day.</p>',
-        createdAt: DateTime(2026, 8, 5),
+        createdAt: DateTime.utc(2026, 8, 5),
       ),
     ];
     controller.chatRecords.put(chatScrollSite, messages.last);

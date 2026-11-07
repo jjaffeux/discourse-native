@@ -3,9 +3,12 @@ import 'dart:async';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -14,6 +17,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'chat_controller_test.dart' as fixtures;
 import 'support/fakes.dart';
 
+final _chatConfig = SiteConfig(
+  plugins: PluginData.none.withValue(chatSettingsDataKey, const ChatSettings()),
+);
+
 void main() {
   const user = DiscourseUser(id: 2, username: 'sam');
 
@@ -21,7 +28,11 @@ void main() {
     'an old channel read preserves accepted edit content and preview',
     () async {
       final api = _SnapshotApi(fixtures.message(12, raw: 'Original text'));
-      final subject = fixtures.build(api: api, currentUser: user);
+      final subject = fixtures.build(
+        siteConfigFor: (_) => _chatConfig,
+        api: api,
+        currentUser: user,
+      );
       addTearDown(subject.chat.dispose);
       await subject.chat.loadChannels(fixtures.site);
       await subject.chat.openChannel(fixtures.site, 9);
@@ -61,7 +72,11 @@ void main() {
 
   test('an old channel read cannot resurrect an accepted deletion', () async {
     final api = _SnapshotApi(fixtures.message(12, raw: 'Original text'));
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);
@@ -91,7 +106,11 @@ void main() {
         deletedById: user.id,
       ),
     );
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);
@@ -113,7 +132,11 @@ void main() {
 
   test('an old channel read preserves accepted bulk deletion', () async {
     final api = _SnapshotApi(fixtures.message(12, raw: 'Original text'));
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);
@@ -144,7 +167,11 @@ void main() {
               ? const WriteException(WriteFailure.forbidden)
               : null,
         );
-        final subject = fixtures.build(api: api, currentUser: user);
+        final subject = fixtures.build(
+          siteConfigFor: (_) => _chatConfig,
+          api: api,
+          currentUser: user,
+        );
         addTearDown(subject.chat.dispose);
         await subject.chat.loadChannels(fixtures.site);
         await subject.chat.openChannel(fixtures.site, 9);
@@ -180,7 +207,11 @@ void main() {
         final api = _SnapshotApi(fixtures.message(older ? 14 : 10))
           ..canLoadMorePast = older
           ..canLoadMoreFuture = !older;
-        final subject = fixtures.build(api: api, currentUser: user);
+        final subject = fixtures.build(
+          siteConfigFor: (_) => _chatConfig,
+          api: api,
+          currentUser: user,
+        );
         addTearDown(subject.chat.dispose);
         await subject.chat.loadChannels(fixtures.site);
         await subject.chat.openChannel(fixtures.site, 9);
@@ -218,7 +249,11 @@ void main() {
 
   test('an old thread window preserves an accepted edit', () async {
     final api = _SnapshotApi(fixtures.threadRoot());
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     const target = ChatThreadTarget(channelId: 9, threadId: 3);
     await subject.chat.loadChannels(fixtures.site);
@@ -240,7 +275,11 @@ void main() {
 
   test('an old pinned-message read preserves an accepted edit', () async {
     final api = _SnapshotApi(fixtures.message(12, raw: 'Original text'));
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);
@@ -282,7 +321,11 @@ void main() {
 
   test('an old bookmark message read preserves an accepted edit', () async {
     final api = _SnapshotApi(fixtures.message(12, raw: 'Original text'));
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);
@@ -316,7 +359,11 @@ void main() {
       'an old thread ${detail ? 'detail' : 'list'} read preserves accepted root deletion',
       () async {
         final api = _SnapshotApi(fixtures.threadRoot());
-        final subject = fixtures.build(api: api, currentUser: user);
+        final subject = fixtures.build(
+          siteConfigFor: (_) => _chatConfig,
+          api: api,
+          currentUser: user,
+        );
         addTearDown(subject.chat.dispose);
         const target = ChatThreadTarget(channelId: 9, threadId: 3);
         await subject.chat.loadChannels(fixtures.site);
@@ -373,6 +420,7 @@ void main() {
           editFailure: const WriteException(WriteFailure.forbidden),
         );
         final subject = fixtures.build(
+          siteConfigFor: (_) => _chatConfig,
           api: api,
           currentUser: user,
           store: evictAfterEcho
@@ -452,6 +500,7 @@ void main() {
         canModerate: false,
       );
       final subject = fixtures.build(
+        siteConfigFor: (_) => _chatConfig,
         api: api,
         currentUser: fixtures.currentUser,
       );
@@ -496,6 +545,7 @@ void main() {
         );
         final api = _SnapshotApi(original, mutationGate: mutationGate);
         final subject = fixtures.build(
+          siteConfigFor: (_) => _chatConfig,
           api: api,
           currentUser: user,
           store: Store(
@@ -554,6 +604,7 @@ void main() {
         editFailure: const WriteException(WriteFailure.forbidden),
       );
       final subject = fixtures.build(
+        siteConfigFor: (_) => _chatConfig,
         api: api,
         currentUser: user,
         store: Store(
@@ -597,6 +648,7 @@ void main() {
       final original = fixtures.message(12, raw: 'Original text');
       final api = _SnapshotApi(original, editGate: editGate);
       final subject = fixtures.build(
+        siteConfigFor: (_) => _chatConfig,
         api: api,
         currentUser: user,
         store: Store(
@@ -634,7 +686,11 @@ void main() {
       fixtures.message(12, raw: 'Original text'),
       editFailure: const WriteException(WriteFailure.forbidden),
     );
-    final subject = fixtures.build(api: api, currentUser: user);
+    final subject = fixtures.build(
+      siteConfigFor: (_) => _chatConfig,
+      api: api,
+      currentUser: user,
+    );
     addTearDown(subject.chat.dispose);
     await subject.chat.loadChannels(fixtures.site);
     await subject.chat.openChannel(fixtures.site, 9);

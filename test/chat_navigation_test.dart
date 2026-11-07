@@ -822,7 +822,15 @@ void main() {
         final gated = ShellController(
           plugins: installedPlugins,
           instanceStore: FakeInstanceStore([
-            instance('meta.discourse.org').copyWith(user: currentUser),
+            instance('meta.discourse.org').copyWith(
+              user: currentUser,
+              config: SiteConfig(
+                plugins: PluginData.none.withValue(
+                  chatSettingsDataKey,
+                  const ChatSettings(),
+                ),
+              ),
+            ),
             instance('other.example').copyWith(user: currentUser),
           ]),
           api: gatedApi,

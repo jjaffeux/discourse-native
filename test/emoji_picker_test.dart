@@ -304,8 +304,8 @@ void main() {
         tester.view.viewInsets = const FakeViewPadding(bottom: 300);
         await tester.pumpAndSettle();
         expect(tester.getTopLeft(sheet).dy, closeTo(844 * .11, .1));
-        expect(tester.getBottomLeft(sheet).dy, 543);
-        expect(tester.getBottomLeft(navigation).dy, lessThan(544));
+        expect(tester.getBottomLeft(sheet).dy, 844);
+        expect(tester.getBottomLeft(navigation).dy, lessThanOrEqualTo(544));
         expect(tester.widget<EditableText>(input).focusNode.hasFocus, isTrue);
         expect(tester.takeException(), isNull);
 

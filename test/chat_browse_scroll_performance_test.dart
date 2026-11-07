@@ -1,4 +1,3 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/app.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -135,12 +134,7 @@ void main() {
       position.jumpTo(1000);
       await tester.pumpAndSettle();
       final viewport = tester.getRect(browseScrollable);
-      final page = tester.widget<DPageSurface>(
-        find
-            .ancestor(of: browseList, matching: find.byType(DPageSurface))
-            .first,
-      );
-      final titleHeight = tester.getSize(find.byWidget(page.header!)).height;
+      final titleHeight = tester.getSize(find.text('Browse channels')).height;
       final filters = find.byKey(const ValueKey('chat-browse-joined'));
       final controlsGap = viewport.top - tester.getRect(filters).bottom;
       final header = _artwork(find.byKey(const ValueKey('chat-browse-filter')))
