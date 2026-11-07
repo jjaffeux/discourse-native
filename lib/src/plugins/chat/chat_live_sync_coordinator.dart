@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
+import 'chat_deletion_event.dart';
 import 'chat_message.dart';
 import 'chat_message_contract.dart';
 import 'chat_message_summary.dart';
@@ -134,14 +135,14 @@ final class ChatLiveSyncHost {
   scheduleThreadDetailRefresh;
   final void Function(
     String siteUrl,
-    Map<String, dynamic> data,
+    ChatMessageDeleted event,
     int? channelId,
     ChatThread? thread,
   )
   applyDeleteMutation;
   final void Function(
     String siteUrl,
-    Map<String, dynamic> data,
+    ChatMessagesDeleted event,
     int? channelId,
     ChatThread? thread,
     int? skipMessageId,
@@ -688,33 +689,29 @@ final class ChatLiveSyncCoordinator {
         );
         break;
       case 'delete':
-        _host.applyDeleteMutation(siteUrl, data, channelId, null);
-        if (jsonIntOrNull(data['deleted_id']) case final originalId?) {
+        final event = ChatDeletionEvent.decode(data, clock: _host.clock);
+        if (event is! ChatMessageDeleted) return;
+        _host.applyDeleteMutation(siteUrl, event, channelId, null);
+        _host.setLoadedThreadOriginalDeleted(
+          siteUrl,
+          channelId,
+          event.messageId,
+          event.deletedAt,
+          false,
+        );
+        break;
+      case 'bulk_delete':
+        final event = ChatDeletionEvent.decode(data, clock: _host.clock);
+        if (event is! ChatMessagesDeleted) return;
+        _host.applyBulkDeleteMutation(siteUrl, event, channelId, null, null);
+        for (final originalId in event.messageIds) {
           _host.setLoadedThreadOriginalDeleted(
             siteUrl,
             channelId,
             originalId,
-            jsonDate(data['deleted_at']) ?? _host.clock().toUtc(),
+            event.deletedAt,
             false,
           );
-        }
-        break;
-      case 'bulk_delete':
-        _host.applyBulkDeleteMutation(siteUrl, data, channelId, null, null);
-        final deletedAt = jsonDate(data['deleted_at']) ?? _host.clock().toUtc();
-        for (final value
-            in data['deleted_ids'] is List
-                ? data['deleted_ids'] as List
-                : const []) {
-          if (jsonIntOrNull(value) case final originalId?) {
-            _host.setLoadedThreadOriginalDeleted(
-              siteUrl,
-              channelId,
-              originalId,
-              deletedAt,
-              false,
-            );
-          }
         }
         break;
       case 'reaction':
@@ -773,13 +770,18 @@ final class ChatLiveSyncCoordinator {
     }
     switch (data['type']) {
       case 'delete':
-        if (jsonIntOrNull(data['deleted_id']) == originalId) return;
-        _host.applyDeleteMutation(siteUrl, data, target.channelId, heldThread);
+        final event = ChatDeletionEvent.decode(data, clock: _host.clock);
+        if (event is! ChatMessageDeleted || event.messageId == originalId) {
+          return;
+        }
+        _host.applyDeleteMutation(siteUrl, event, target.channelId, heldThread);
         break;
       case 'bulk_delete':
+        final event = ChatDeletionEvent.decode(data, clock: _host.clock);
+        if (event is! ChatMessagesDeleted) return;
         _host.applyBulkDeleteMutation(
           siteUrl,
-          data,
+          event,
           target.channelId,
           heldThread,
           originalId,

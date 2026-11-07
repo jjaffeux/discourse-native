@@ -17,3 +17,25 @@ The controller arbitrates conversation retention across the ordered stream regis
 Focused controller, thread, conversation, timeline, stream, and viewport lifecycle tests pin these contracts. The controller suite includes seeded event corpora and controlled request races. These tests verify behavior through the public facade without inspecting owner fields.
 
 `ChatViewLifetime` owns the mounted channel, thread, and channel-thread-list panes' shell subscription and viewing claim. Each pane keeps its own target and token. Channels acquire after the frame because acquisition can update a sibling header; threads keep their immediate initial acquisition. Reactivation calls the pane's existing refresh action. Navigation requests, timezone listeners, and read dwell remain with their existing feature owners.
+
+## Deletion event boundary
+
+`ChatDeletionEvent` decodes single and bulk MessageBus deletion deliveries inside
+the Chat module. The live coordinator passes immutable typed IDs, deletion time,
+actor and single-delete successor cursor to the existing canonical reducers.
+Raw deletion JSON stops at that decoder. Missing or malformed deletion times use
+one clock sample per delivery, shared by canonical message tombstones and retained
+thread-original projections. Bulk IDs retain their delivery order and duplicates;
+invalid entries are ignored as before.
+
+The root/thread delivery rules are unchanged. Thread deliveries skip the original
+message because the root owns its non-idempotent mutations. Bulk thread delivery
+retains the explicit original-message skip. Canonical reducers still decide
+whether deleted records remain inspectable, preserve hidden paging slots, update
+read/last-message cursors and record write/read authority. A typed single/bulk
+boundary removes duplicated wire parsing without introducing a general event
+framework or changing subscriptions, account admission or durable call work.
+
+Live-sync, Chat controller and thread-controller tests exercise these reducers.
+An advancing-clock regression pins the shared fallback timestamp for single and
+bulk deletions; boundary tests pin invalid IDs, server timestamps and snapshots.

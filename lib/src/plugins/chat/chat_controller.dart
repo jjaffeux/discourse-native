@@ -14,6 +14,7 @@ import 'chat_channel_list_controller.dart';
 import 'chat_channel_list_preferences.dart';
 import 'chat_channel_refresh.dart';
 import 'chat_cooking_coordinator.dart';
+import 'chat_deletion_event.dart';
 import 'chat_direct_message_search.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_live_sync_coordinator.dart';
@@ -2497,7 +2498,7 @@ class ChatController extends FrameSafeNotifier {
   /// was held, or null when it was not held at all.
   ChatMessage? _applyDeletedId(
     String siteUrl,
-    Map<String, dynamic> data,
+    ChatDeletionEvent event,
     int deletedId,
   ) {
     final message = _store.read<ChatMessage>(siteUrl, deletedId);
@@ -2505,10 +2506,7 @@ class ChatController extends FrameSafeNotifier {
     if (_canInspectDeletedMessage(siteUrl, message)) {
       _store.put(
         siteUrl,
-        message.withDeletedAt(
-          jsonDate(data['deleted_at']) ?? _clock().toUtc(),
-          deletedById: jsonIntOrNull(data['deleted_by_id']),
-        ),
+        message.withDeletedAt(event.deletedAt, deletedById: event.deletedById),
       );
     } else {
       _store.remove<ChatMessage>(siteUrl, deletedId);
@@ -2537,15 +2535,14 @@ class ChatController extends FrameSafeNotifier {
 
   void _applyDeleteEvent(
     String siteUrl,
-    Map<String, dynamic> data, {
+    ChatMessageDeleted event, {
     int? channelId,
     ChatThread? thread,
   }) {
-    final deletedId = jsonIntOrNull(data['deleted_id']);
-    if (deletedId == null) return;
-    final message = _applyDeletedId(siteUrl, data, deletedId);
+    final deletedId = event.messageId;
+    final message = _applyDeletedId(siteUrl, event, deletedId);
 
-    final latest = jsonIntOrNull(data['latest_not_deleted_message_id']);
+    final latest = event.latestNotDeletedMessageId;
     final resolvedChannelId = channelId ?? message?.channelId;
     _clearDeletedChannelPreview(siteUrl, resolvedChannelId, [deletedId]);
     final heldChannel = resolvedChannelId == null
@@ -2577,20 +2574,16 @@ class ChatController extends FrameSafeNotifier {
 
   void _applyBulkDeleteEvent(
     String siteUrl,
-    Map<String, dynamic> data, {
+    ChatMessagesDeleted event, {
     int? channelId,
     ChatThread? thread,
     int? skipMessageId,
   }) {
     final deletedIds = <int>{};
-    for (final value
-        in data['deleted_ids'] is List
-            ? data['deleted_ids'] as List
-            : const []) {
-      final deletedId = jsonIntOrNull(value);
-      if (deletedId == null || deletedId == skipMessageId) continue;
+    for (final deletedId in event.messageIds) {
+      if (deletedId == skipMessageId) continue;
       deletedIds.add(deletedId);
-      _applyDeletedId(siteUrl, data, deletedId);
+      _applyDeletedId(siteUrl, event, deletedId);
     }
     _clearDeletedChannelPreview(siteUrl, channelId, deletedIds);
     final heldChannel = channelId == null ? null : channel(siteUrl, channelId);

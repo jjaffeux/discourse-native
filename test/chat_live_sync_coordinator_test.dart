@@ -2,6 +2,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
+import 'package:discourse_native/src/plugins/chat/chat_deletion_event.dart';
 import 'package:discourse_native/src/plugins/chat/chat_live_sync_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_contract.dart';
@@ -457,7 +458,7 @@ void main() {
     });
 
     test(
-      'root and thread retain mutation payloads, ownership and bulk skip ids',
+      'root and thread retain typed deletion values, other payloads and bulk skip ids',
       () {
         final fixture = _Fixture();
         final tracker = _viewStreams(fixture);
@@ -476,6 +477,8 @@ void main() {
             'deleted_ids': [90, '101', 'invalid'],
             'chat_message_id': '101',
             'deleted_at': '2026-08-07T10:00:00.000Z',
+            'deleted_by_id': '7',
+            'latest_not_deleted_message_id': '99',
           };
           final mutation = switch (type) {
             'pin' || 'unpin' => 'pin',
@@ -488,15 +491,28 @@ void main() {
               event,
               messageId: 100,
             );
+            final received = fixture.effects.first[1];
             expect(fixture.effects.first, [
               mutation,
-              event,
+              received,
               if (['delete', 'bulk_delete', 'pin', 'unpin'].contains(type)) 9,
               if (['delete', 'bulk_delete'].contains(type))
                 threadStream ? fixture.heldThread : null,
               if (type == 'bulk_delete') threadStream ? 90 : null,
             ]);
-            expect(identical(fixture.effects.first[1], event), isTrue);
+            if (type == 'delete' || type == 'bulk_delete') {
+              final deletion = received! as ChatDeletionEvent;
+              expect(deletion.deletedAt, DateTime.utc(2026, 8, 7, 10));
+              expect(deletion.deletedById, 7);
+              if (deletion is ChatMessageDeleted) {
+                expect(deletion.messageId, 101);
+                expect(deletion.latestNotDeletedMessageId, 99);
+              } else {
+                expect((deletion as ChatMessagesDeleted).messageIds, [90, 101]);
+              }
+            } else {
+              expect(identical(received, event), isTrue);
+            }
             expect(
               fixture.effects.skip(1),
               !threadStream && type == 'delete'

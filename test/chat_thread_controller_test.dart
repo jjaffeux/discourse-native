@@ -1754,6 +1754,48 @@ void main() {
     },
   );
 
+  for (final bulk in [false, true]) {
+    test(
+      'one ${bulk ? 'bulk' : 'single'} deletion shares its fallback timestamp with thread originals',
+      () async {
+        final api = FakeDiscourseApi(
+          chatChannelsBySite: {
+            site: ChatChannels(public: [followedChannel()]),
+          },
+          chatChannelThreadPagesByKey: {
+            FakeDiscourseApi.chatChannelThreadPageKey(9, 0): ChatThreadPage(
+              threads: [listedThread(22, originalMessageId: 100)],
+            ),
+          },
+        );
+        final store = Store()..put(site, threadMessage(100));
+        var ticks = 0;
+        final subject = _controllerFor(
+          api,
+          store: store,
+          user: const DiscourseUser(id: 7, username: 'reader', staff: true),
+          clock: () =>
+              DateTime.utc(2026, 8, 12).add(Duration(seconds: ticks++)),
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+        await subject.chat.loadChannelThreads(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': bulk ? 'bulk_delete' : 'delete',
+          if (bulk) 'deleted_ids': [100] else 'deleted_id': 100,
+        });
+        final deletedAt = subject.store.read<ChatMessage>(site, 100)?.deletedAt;
+        expect(deletedAt, isNotNull);
+        expect(
+          subject.chat.thread(site, 22)?.originalMessage?.deletedAt,
+          deletedAt,
+        );
+      },
+    );
+  }
+
   test(
     'live tracking, deletion, and restoration reproject channel threads',
     () async {
