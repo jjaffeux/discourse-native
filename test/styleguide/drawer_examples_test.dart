@@ -6,7 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Drawer is registered with every frozen example family', () {
+  testWidgets('all Drawer examples open at narrow 200 percent RTL', (
+    tester,
+  ) async {
     expect(componentExamples['drawer'], same(drawerExamples));
     expect(drawerExamples.status, ComponentStatus.implemented);
     expect(
@@ -23,11 +25,6 @@ void main() {
         'RTL and logical placement',
       ]),
     );
-  });
-
-  testWidgets('all Drawer examples open at narrow 200 percent RTL', (
-    tester,
-  ) async {
     tester.view.physicalSize = const Size(320, 640);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);

@@ -8,7 +8,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Context Menu registers every frozen documentation example', () {
+  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
+    tester,
+  ) async {
     expect(componentExamples['context-menu'], same(contextMenuExamples));
     expect(contextMenuExamples.status, ComponentStatus.implemented);
     expect(contextMenuExamples.examples.map((example) => example.title), [
@@ -24,11 +26,6 @@ void main() {
       'RTL',
       'Reference demo',
     ]);
-  });
-
-  testWidgets('examples mount at narrow 200 percent RTL in live palettes', (
-    tester,
-  ) async {
     for (final example in contextMenuExamples.examples) {
       for (final theme in [
         AppTheme.light,
