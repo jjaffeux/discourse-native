@@ -84,8 +84,6 @@ final class SiteAppearanceLoader {
     maxResponseBytes,
   );
 
-  static const String _userAgent = 'DiscourseNative/1.0';
-
   /// [apiKey] and [clientId] are sent only to forum JSON endpoints and their
   /// same-origin redirects. [username] identifies that key's stored theme
   /// preferences. In particular, an authentication refusal is final: this
@@ -113,7 +111,7 @@ final class SiteAppearanceLoader {
     }
 
     final forumHeaders = {
-      'User-Agent': _userAgent,
+      'User-Agent': discourseUserAgent,
       if (apiKey != null) ...{
         'User-Api-Key': apiKey,
         if (clientId case final id? when id.isNotEmpty)
@@ -229,7 +227,7 @@ final class SiteAppearanceLoader {
           _loadText(
             url,
             accept: 'text/css',
-            headers: const {'User-Agent': _userAgent},
+            headers: const {'User-Agent': discourseUserAgent},
           ),
       ]);
       final sources = {

@@ -8,7 +8,7 @@ import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
 import '../plugin_api/live_channels.dart';
 import '../plugin_api/plugin_manifest.dart';
-import 'discourse_api.dart';
+import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
 
 typedef SiteTrackerFactory =
@@ -386,7 +386,7 @@ class SiteTracker {
   }
 
   static Map<String, String> _headers(String? apiKey, String? clientId) => {
-    'User-Agent': DiscourseApi.userAgent,
+    'User-Agent': discourseUserAgent,
     'User-Api-Key': ?apiKey,
     if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
   };

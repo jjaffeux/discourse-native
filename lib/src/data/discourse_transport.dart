@@ -76,12 +76,6 @@ final class DiscourseTransport {
         : 2 * 1024 * 1024,
   );
 
-  /// Sent on every request, credentialed or not. Discourse classifies an
-  /// agent outside `non_crawler_user_agents` as a crawler, and a site that
-  /// restricts crawlers refuses key-less GETs with a 403 — which would break
-  /// adding the forum, signed-out reads and public sidebar icons. This agent
-  /// matches that list's default `discourse` entry; dart:io's does not.
-  static const String userAgent = 'DiscourseNative/1.0';
   static const _redirectStatusCodes = {301, 302, 303, 307, 308};
   static const int _maxGetRedirects = 5;
 
@@ -218,7 +212,7 @@ final class DiscourseTransport {
     final intent = RequestIntent.current;
     try {
       requireSafeHttpUrl(request.url);
-      request.headers.putIfAbsent('User-Agent', () => userAgent);
+      request.headers.putIfAbsent('User-Agent', () => discourseUserAgent);
       final scope = AccountRequestScope.current;
       scope?.validateRequest(request.url, request.headers);
       final explicitAbort = switch (request) {
@@ -327,7 +321,7 @@ final class DiscourseTransport {
           throw http.RequestAbortedException(requestUrl);
         }
         final request = http.Request('GET', requestUrl);
-        request.headers['User-Agent'] = userAgent;
+        request.headers['User-Agent'] = discourseUserAgent;
         if (accept != null) request.headers['Accept'] = accept;
         if (apiKey != null) {
           request.headers.addAll(authHeaders(apiKey, clientId: clientId));
@@ -440,7 +434,7 @@ final class DiscourseTransport {
       if (apiKey == null) {
         _requireCredentialOrigin(url, siteUrl);
         request.headers.addAll({
-          'User-Agent': userAgent,
+          'User-Agent': discourseUserAgent,
           'Content-Type': 'application/json',
           'Dont-Chunk': 'true',
         });
@@ -625,7 +619,7 @@ final class DiscourseTransport {
   static Map<String, String> authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
     if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
-    'User-Agent': userAgent,
+    'User-Agent': discourseUserAgent,
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',
   };

@@ -64,7 +64,7 @@ void main() {
       expect(jsonDecode(sent.body), {'present': true, 'missing': null});
       expect(sent.headers, containsPair('User-Api-Key', 'secret'));
       expect(sent.headers, containsPair('User-Api-Client-Id', 'client'));
-      expect(sent.headers, containsPair('User-Agent', DiscourseApi.userAgent));
+      expect(sent.headers, containsPair('User-Agent', discourseUserAgent));
       expect(sent.headers, containsPair('Content-Type', 'application/json'));
       expect(sent.headers, containsPair('Dont-Chunk', 'true'));
     });
@@ -624,7 +624,7 @@ void main() {
       expect(sent.method, 'GET');
       expect(sent.headers, containsPair('User-Api-Key', 'secret'));
       expect(sent.headers, containsPair('User-Api-Client-Id', 'client'));
-      expect(sent.headers, containsPair('User-Agent', DiscourseApi.userAgent));
+      expect(sent.headers, containsPair('User-Agent', discourseUserAgent));
       expect(sent.headers, containsPair('Content-Type', 'application/json'));
       expect(sent.headers, containsPair('Dont-Chunk', 'true'));
     });
@@ -676,7 +676,7 @@ void main() {
       for (final request in sent) {
         expect(
           request.headers,
-          containsPair('User-Agent', DiscourseApi.userAgent),
+          containsPair('User-Agent', discourseUserAgent),
           reason: '${request.method} ${request.url}',
         );
         expect(

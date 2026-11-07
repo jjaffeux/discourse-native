@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'byte_cache_store.dart';
-import 'discourse_api.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
 import 'media_request_coordinator.dart';
@@ -589,7 +588,7 @@ abstract class ByteCache<T extends Object> {
       final remaining = _remaining(elapsed);
       final request =
           http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
-            ..headers['User-Agent'] = DiscourseApi.userAgent
+            ..headers['User-Agent'] = discourseUserAgent
             ..followRedirects = false;
       request.headers.addAll(requestHeaders(url, original));
       _syncAuthentication();

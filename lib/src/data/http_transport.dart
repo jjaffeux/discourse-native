@@ -8,6 +8,10 @@ import '../foundation/loopback_host.dart';
 import '../foundation/redacted_uri.dart';
 import 'http_basic_auth.dart';
 
+/// Discourse's crawler policy must recognize anonymous native requests too.
+/// Shared by API, appearance, live-update, and media HTTP producers.
+const discourseUserAgent = 'DiscourseNative/1.0';
+
 final class UnsafeHttpTransportException implements Exception {
   UnsafeHttpTransportException(Uri url) : url = Uri.parse(redactUri(url));
 
