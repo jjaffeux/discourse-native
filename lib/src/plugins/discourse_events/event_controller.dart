@@ -442,9 +442,13 @@ final class EventController extends FrameSafeNotifier
   @override
   void attachPluginTracker(String siteUrl, PluginLiveChannelHandle channels) {
     _trackers[siteUrl] = channels;
-    for (final entry in _entries.values.where((e) => e.site == siteUrl)) {
-      entry.subscription?.cancel();
+    final entries = _entries.values.where((e) => e.site == siteUrl).toList();
+    for (final entry in entries) {
+      if (!_current(entry)) continue;
+      final previous = entry.subscription;
       entry.subscription = null;
+      previous?.cancel();
+      if (!_current(entry)) continue;
       _subscribe(entry);
       unawaited(_refresh(entry));
     }
@@ -458,13 +462,15 @@ final class EventController extends FrameSafeNotifier
       _topicEvents.clear();
       _readerChanges.changed();
     }
-    for (final entry in _entries.values) {
+    for (final entry in _entries.values.toList()) {
+      if (!_current(entry)) continue;
       if (foreground) {
         _subscribe(entry);
         unawaited(_refresh(entry));
       } else {
-        entry.subscription?.cancel();
+        final previous = entry.subscription;
         entry.subscription = null;
+        previous?.cancel();
       }
     }
     notifySafely();

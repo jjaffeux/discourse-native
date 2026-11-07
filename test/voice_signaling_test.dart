@@ -5,6 +5,85 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('signal batching', () {
+    for (final batched in [false, true]) {
+      test('admitted signals own nested data (batched=$batched)', () async {
+        final started = Completer<void>();
+        final response = Completer<void>();
+        final payloads = <Map<String, Object?>>[];
+        final batcher = VoiceSignalBatcher(
+          flushEventThreshold: 1,
+          sendBatch: (payload) {
+            payloads.add(payload);
+            if (payloads.length == 1) {
+              started.complete();
+              return response.future;
+            }
+            return Future.value();
+          },
+        );
+        addTearDown(batcher.close);
+        final first = batcher.send(2, {'type': 'offer', 'sdp': 'first'});
+        await started.future;
+        final labels = <String>['original'];
+        final candidate = <String, Object?>{
+          'candidate': 'original',
+          'labels': labels,
+        };
+        final event = <String, Object?>{
+          'type': 'candidate',
+          'candidate': candidate,
+        };
+        final next = batcher.send(
+          3,
+          batched
+              ? {
+                  'events': [event],
+                }
+              : event,
+        );
+        candidate['candidate'] = 'mutated';
+        labels[0] = 'mutated';
+        response.complete();
+        await Future.wait([first, next]);
+        final messages = payloads.last['messages']! as List;
+        final events = (messages.single as Map)['events'] as List;
+        final accepted = (events.single as Map)['candidate'] as Map;
+        expect(accepted, {
+          'candidate': 'original',
+          'labels': ['original'],
+        });
+        expect(() => accepted['candidate'] = 'changed', throwsUnsupportedError);
+        expect(
+          () => (accepted['labels'] as List).clear(),
+          throwsUnsupportedError,
+        );
+        expect(messages.clear, throwsUnsupportedError);
+      });
+    }
+
+    test('invalid signal JSON fails its Future before admission', () async {
+      var sends = 0;
+      final batcher = VoiceSignalBatcher(
+        batchDelay: const Duration(hours: 1),
+        sendBatch: (_) async {
+          sends++;
+        },
+      );
+      addTearDown(batcher.close);
+      Future<void>? request;
+      expect(
+        () => request = batcher.send(2, {
+          'type': 'candidate',
+          'candidate': {'invalid': Object()},
+        }),
+        returnsNormally,
+      );
+      final rejected = expectLater(request!, throwsFormatException);
+      await batcher.flush();
+      await rejected;
+      expect(sends, 0);
+    });
+
     test('rejects event thresholds outside the server bounds', () {
       for (final threshold in [0, 26]) {
         expect(

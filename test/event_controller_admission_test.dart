@@ -7,6 +7,64 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/event_fixtures.dart';
 
 void main() {
+  for (final trackerChange in [false, true]) {
+    test(
+      'lifecycle dispatch survives entry release (tracker=$trackerChange)',
+      () async {
+        final ports = EventTestPorts();
+        addTearDown(ports.close);
+        final firstEvent = PostEvent.decode(eventJson())!;
+        final secondWire = eventJson(
+          overrides: {
+            'id': 43,
+            'post': {
+              'id': 43,
+              'post_number': 1,
+              'topic': {'id': 701},
+            },
+          },
+        );
+        ports.transport.responses['GET /discourse-post-event/events/42.json'] =
+            {'event': eventJson()};
+        ports.transport.responses['GET /discourse-post-event/events/43.json'] =
+            {'event': secondWire};
+        final first = ports.controller.acquire(eventSite, firstEvent);
+        final second = ports.controller.acquire(
+          eventSite,
+          PostEvent.decode(secondWire)!,
+        );
+        addTearDown(first.dispose);
+        addTearDown(second.dispose);
+        await pumpEventQueue();
+        first.changes.addListener(() {
+          if (first.loading) first.dispose();
+        });
+        final replacement = RecordingPluginLiveChannels();
+        if (trackerChange) {
+          expect(
+            () => ports.controller.attachPluginTracker(eventSite, replacement),
+            returnsNormally,
+          );
+        } else {
+          ports.controller.setForeground(false);
+          expect(() => ports.controller.setForeground(true), returnsNormally);
+        }
+        await pumpEventQueue();
+        expect(first.isCurrent, isFalse);
+        expect(second.isCurrent, isTrue);
+        expect(
+          ports.transport.requests.where(
+            (r) => r.path == '/discourse-post-event/events/43.json',
+          ),
+          hasLength(2),
+        );
+        final channels = trackerChange ? replacement : ports.channels;
+        expect(channels.subscriberCount('/discourse-post-event/700'), 0);
+        expect(channels.subscriberCount('/discourse-post-event/701'), 1);
+      },
+    );
+  }
+
   test(
     'a closed event controller rejects new handles without subscriptions',
     () {

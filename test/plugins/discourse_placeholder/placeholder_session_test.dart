@@ -7,6 +7,61 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support.dart';
 
 void main() {
+  test('duplicate release cannot retire another acquisition', () async {
+    final session = PlaceholderSession(
+      persistence: MemoryPlaceholderPersistence(),
+      currentUser: (_) => 1,
+    );
+    final first = session.acquire('https://example.com', 2, 3);
+    final second = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    first.release();
+    first.release();
+    second.change('X', 'peer');
+    expect(second.isCurrent, isTrue);
+    expect(second.overrides, {'X': 'peer'});
+    second.release();
+    await session.close();
+  });
+
+  test('closing clears and notifies retained values', () async {
+    final session = PlaceholderSession(
+      persistence: MemoryPlaceholderPersistence(),
+      currentUser: (_) => 1,
+    );
+    final values = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    values.change('X', 'private');
+    await session.flush();
+    var changes = 0;
+    values.addListener(() => changes++);
+    await session.close();
+    expect(values.overrides, isEmpty);
+    expect(changes, 1);
+    expect(values.isCurrent, isFalse);
+    values.release();
+  });
+
+  test(
+    'a closed session rejects acquisition before consulting persistence',
+    () async {
+      var identities = 0;
+      final session = PlaceholderSession(
+        persistence: MemoryPlaceholderPersistence(),
+        currentUser: (_) {
+          identities++;
+          return 1;
+        },
+      );
+      await session.close();
+      expect(
+        () => session.acquire('https://example.com', 2, 3),
+        throwsStateError,
+      );
+      expect(identities, 0);
+    },
+  );
+
   test(
     'late restoration never overwrites newer input or resurrects a reset',
     () async {
@@ -21,7 +76,7 @@ void main() {
       store.readGate!.complete({'X': 'old', 'Y': 'old', 'Z': 'restored'});
       await session.flush();
       expect(values.overrides, {'X': 'new', 'Z': 'restored'});
-      session.release(values);
+      values.release();
       await session.close();
     },
   );
@@ -37,8 +92,8 @@ void main() {
     await session.flush();
     first.change('X', 'local');
     expect(second.overrides, {'X': 'local'});
-    session.release(first);
-    session.release(second);
+    first.release();
+    second.release();
     await session.flush();
     final remounted = session.acquire('https://example.com', 2, 3);
     await session.flush();
@@ -46,8 +101,26 @@ void main() {
     remounted.change('X', 'default', defaultValue: 'default');
     await session.flush();
     expect(store.values[remounted.id], isEmpty);
-    session.release(remounted);
+    remounted.release();
     await session.close();
+  });
+
+  test('close notifications can release their own acquisitions', () async {
+    final session = PlaceholderSession(
+      persistence: MemoryPlaceholderPersistence(),
+      currentUser: (_) => 1,
+    );
+    final first = session.acquire('https://example.com', 2, 3);
+    final second = session.acquire('https://example.com', 2, 3);
+    await session.flush();
+    first.change('X', 'private');
+    first.addListener(first.release);
+    second.addListener(second.release);
+    await session.close();
+    expect(first.isCurrent, isFalse);
+    expect(second.isCurrent, isFalse);
+    first.release();
+    second.release();
   });
 
   test('account replacement rejects stale reads and writes', () async {
@@ -68,8 +141,8 @@ void main() {
     final replacement = session.acquire('https://example.com', 2, 3);
     await session.flush();
     expect(replacement.overrides, isEmpty);
-    session.release(old);
-    session.release(replacement);
+    old.release();
+    replacement.release();
     await session.close();
   });
 
@@ -87,7 +160,7 @@ void main() {
     expect(values.overrides, isEmpty);
     expect(store.values, isEmpty);
     expect(store.writes, hasLength(1));
-    session.release(values);
+    values.release();
     await session.close();
   });
 
@@ -112,13 +185,13 @@ void main() {
     store.writeGate.complete();
     await forgetting;
     await session.flush();
-    session.release(old);
-    session.release(replacement);
+    old.release();
+    replacement.release();
 
     final remounted = session.acquire('https://example.com', 2, 3);
     await session.flush();
     expect(remounted.overrides, {'X': 'new account'});
-    session.release(remounted);
+    remounted.release();
     await session.close();
   });
 
@@ -143,8 +216,8 @@ void main() {
 
     expect(replacement.overrides, isEmpty);
     expect(store.values, isEmpty);
-    session.release(old);
-    session.release(replacement);
+    old.release();
+    replacement.release();
     await session.close();
   });
 }
