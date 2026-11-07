@@ -90,7 +90,8 @@ void main() {
         ),
       );
       await _waitForImage(tester);
-      final first = _image(tester).clone();
+      final firstFrame = _image(tester);
+      final first = firstFrame.clone();
       addTearDown(first.dispose);
       expect(first.width, switch (sizing) {
         'fit' => 20,
@@ -99,7 +100,13 @@ void main() {
       });
       expect(first.height, first.width);
       final firstPixels = await tester.runAsync(() => first.toByteData());
-      await _nextFrame(tester);
+      for (
+        var attempt = 0;
+        attempt < 50 && identical(_image(tester), firstFrame);
+        attempt++
+      ) {
+        await _nextFrame(tester);
+      }
       final secondPixels = await tester.runAsync(
         () => _image(tester).toByteData(),
       );

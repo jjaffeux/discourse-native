@@ -105,6 +105,7 @@ void main() {
       final openFullPage = find.byKey(const ValueKey('forum-about-browser'));
       await tester.ensureVisible(openFullPage);
       await _repaint(tester);
+      await tester.pumpAndSettle();
       expect(openFullPage.hitTestable(), findsOneWidget);
       await tester.tap(openFullPage);
       await _repaint(tester);

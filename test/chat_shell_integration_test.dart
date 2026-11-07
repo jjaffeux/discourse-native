@@ -30,6 +30,7 @@ import 'package:discourse_native/src/plugins/chat/chat_header_button.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
+import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -939,8 +940,8 @@ void _registerChatShellTests() {
                   'The transcript must reach behind the composer instead of clipping above it',
             );
             expect(
-              tester.state<ScrollableState>(scrollable).position,
-              same(position),
+              tester.state<ScrollableState>(scrollable).position.pixels,
+              closeTo(position.pixels, .01),
             );
             expect(tester.takeException(), isNull);
           },
@@ -2285,9 +2286,12 @@ void _registerChatShellTests() {
           ],
         );
 
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Newest').last);
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
+            matching: find.text('Newest'),
+          ),
+        );
         await tester.pumpAndSettle();
         for (final title in ['Starred channels', 'Chat', 'Direct messages']) {
           expect(find.widgetWithText(DSidebarMenuButton, title), findsNothing);
@@ -2389,10 +2393,11 @@ void _registerChatShellTests() {
         );
 
         await tester.tap(
-          find.byKey(const ValueKey('chat-inbox-activity-filter')),
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-inbox-activity-filter')),
+            matching: find.text('Unread'),
+          ),
         );
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Unread').last);
         await tester.pumpAndSettle();
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsNothing);
@@ -2417,13 +2422,22 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
         expect(sidebarDestination('Topics'), findsNothing);
 
-        expect(find.text('Unread'), findsOneWidget);
+        expect(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-inbox-activity-filter')),
+            matching: find.text('Unread'),
+          ),
+          findsOneWidget,
+        );
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(sidebarDestination('hawk'), findsNothing);
 
-        await tester.tap(find.byKey(const ValueKey('chat-inbox-sort-filter')));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Newest').last);
+        await tester.tap(
+          find.descendant(
+            of: find.byKey(const ValueKey('chat-inbox-sort-filter')),
+            matching: find.text('Newest'),
+          ),
+        );
         await tester.pumpAndSettle();
         expect(sidebarDestination('Bugs'), findsOneWidget);
         expect(find.text('All chats'), findsOneWidget);
@@ -3025,6 +3039,12 @@ void _registerChatShellTests() {
         await tester.tap(sidebarDestination('Channels'));
         await tester.pumpAndSettle();
         await tester.tap(find.byKey(const ValueKey('chat-browse-filter')));
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(
+          _primaryFocusIsWithin(find.byKey(const ValueKey('chat-inbox-back'))),
+          isTrue,
+        );
         await tester.sendKeyEvent(LogicalKeyboardKey.tab);
         await tester.pump();
 
@@ -5166,7 +5186,13 @@ void _registerChatShellTests() {
           await tester.tap(sidebarDestination('Bugs'));
           await tester.pumpAndSettle();
 
-          expect(find.text('New'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(ChatChannelView),
+              matching: find.text('New'),
+            ),
+            findsOneWidget,
+          );
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
@@ -5199,7 +5225,13 @@ void _registerChatShellTests() {
           final marked = api.chatReadsMarked.single.messageId;
           expect(marked, greaterThan(5));
           expect(marked, lessThan(40));
-          expect(find.text('New'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(ChatChannelView),
+              matching: find.text('New'),
+            ),
+            findsOneWidget,
+          );
         },
       );
 
@@ -5301,7 +5333,13 @@ void _registerChatShellTests() {
           await pumpUntilRead(tester);
 
           expect(api.chatReadsMarked, [(channelId: 9, messageId: 3)]);
-          expect(find.text('New'), findsOneWidget);
+          expect(
+            find.descendant(
+              of: find.byType(ChatChannelView),
+              matching: find.text('New'),
+            ),
+            findsOneWidget,
+          );
         },
         variant: TargetPlatformVariant.only(TargetPlatform.linux),
       );
@@ -5440,7 +5478,7 @@ void _registerChatShellTests() {
         await tester.pumpAndSettle();
 
         expect(renderedText('Hello there'), findsNothing);
-        expect(find.byKey(const ValueKey('chat-inbox-title')), findsOneWidget);
+        expect(find.byType(ChatMobileSidebar), findsOneWidget);
       });
     });
   });

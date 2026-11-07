@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
@@ -64,8 +65,15 @@ Future<FakeDiscourseApi> _pump(
   bool supported = true,
 }) async {
   final user = _user(supported: supported);
+  final config = SiteConfig(
+    plugins: PluginData.none.withValue(
+      chatSettingsDataKey,
+      const ChatSettings(separateSidebarMode: ChatSeparateSidebarMode.always),
+    ),
+  );
   final api = FakeDiscourseApi(
     user: user,
+    siteConfigs: {_site: config},
     totals: chatNotificationTotals(),
     chatChannelsById: {1: _channel(1, 'Alpha')},
     chatMessagesByKey: {
@@ -92,7 +100,10 @@ Future<FakeDiscourseApi> _pump(
     desktop,
     api: api,
     instances: [
-      instance('meta.discourse.org', title: 'Meta').copyWith(user: user),
+      instance(
+        'meta.discourse.org',
+        title: 'Meta',
+      ).copyWith(user: user, config: config),
     ],
     authenticator: FakeAuthenticator()..keys[_site] = 'key',
   );

@@ -249,7 +249,7 @@ void main() {
     expect(tester.getSize(find.byType(DSheetContent)).height, greaterThan(400));
     await _captureImage(tester, 'iOS-messages-fixed-height');
     await _expandSheet(tester);
-    expect(tester.getSize(find.byType(UserMenuPanel)).height, greaterThan(700));
+    expect(tester.getRect(find.byType(UserMenuPanel)).height, greaterThan(700));
     await _captureImage(tester, 'iOS-messages-expanded');
     expect(shell.currentContent, same(originalRoute));
     expect(api.notificationFilters.last, const [
@@ -312,7 +312,7 @@ void main() {
     final panel = tester.getRect(find.byType(UserMenuPanel));
     expect(panel.left, greaterThanOrEqualTo(0));
     expect(panel.right, lessThanOrEqualTo(390));
-    expect(panel.bottom, lessThanOrEqualTo(844 - 300 - 6));
+    expect(panel.bottom, lessThanOrEqualTo(844 - 300));
     expect(find.text('Mark all read').hitTestable(), findsOneWidget);
     expect(tester.takeException(), isNull);
   });

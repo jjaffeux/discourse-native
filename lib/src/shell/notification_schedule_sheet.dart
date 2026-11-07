@@ -462,9 +462,11 @@ class _NotificationScheduleEditorState
             spacing: 7,
             children: [
               const DIcon(DIcons.globe, size: 14),
-              DText(
-                context.l10n.notificationScheduleTimeZone,
-                variant: DTextVariant.muted,
+              Flexible(
+                child: DText(
+                  context.l10n.notificationScheduleTimeZone,
+                  variant: DTextVariant.muted,
+                ),
               ),
               Expanded(child: Text(_timezone, textAlign: TextAlign.end)),
             ],

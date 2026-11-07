@@ -816,22 +816,32 @@ void main() {
       await tester.pumpAndSettle();
 
       final avatar = find.byType(ChatUserAvatar);
-      final ink = tester.widget<InkWell>(
-        find.ancestor(of: avatar, matching: find.byType(InkWell)).first,
-      );
-
+      final control = find.ancestor(of: avatar, matching: find.byType(DButton));
+      expect(tester.widget<DButton>(control).variant, DButtonVariant.inline);
       expect(
-        WidgetStateProperty.resolveAs<MouseCursor>(ink.mouseCursor!, {}),
-        SystemMouseCursors.click,
+        find.descendant(
+          of: control,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is MouseRegion &&
+                widget.cursor == SystemMouseCursors.click,
+          ),
+        ),
+        findsOneWidget,
       );
-      expect(
-        ink.overlayColor?.resolve({WidgetState.hovered}),
-        Colors.transparent,
-      );
-      expect(
-        ink.overlayColor?.resolve({WidgetState.focused}),
-        Colors.transparent,
-      );
+      List<Decoration> fills() => tester
+          .widgetList<DecoratedBox>(
+            find.descendant(of: control, matching: find.byType(DecoratedBox)),
+          )
+          .map((box) => box.decoration)
+          .toList();
+      final before = fills();
+      final pointer = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await pointer.addPointer();
+      addTearDown(pointer.removePointer);
+      await pointer.moveTo(tester.getCenter(control));
+      await tester.pumpAndSettle();
+      expect(fills(), before);
     });
 
     testWidgets(
@@ -1194,8 +1204,8 @@ void main() {
           expect(find.byType(DSheetContent), findsOneWidget);
           final sheetBounds = tester.getRect(find.byType(DSheetContent));
           expect(sheetBounds.height, greaterThan(844 * .8));
-          expect(sheetBounds.left, greaterThan(0));
-          expect(sheetBounds.right, lessThan(390));
+          expect(sheetBounds.left, 0);
+          expect(sheetBounds.right, 390);
           expect(find.byType(DSkeletonRegion), findsOneWidget);
           expect(api.chatReactorsRequested, [
             (channelId: 9, messageId: 7, filter: 'clap'),
@@ -2610,17 +2620,20 @@ void main() {
           expect(background(), isNot(restingBackground));
           expect(find.byType(DSheetContent), findsOneWidget);
           final sheetBounds = tester.getRect(find.byType(DSheetContent));
-          expect(sheetBounds.left, greaterThan(0));
-          expect(sheetBounds.right, lessThan(390));
+          expect(sheetBounds.left, 0);
+          expect(sheetBounds.right, 390);
           expect(sheetBounds.top, greaterThan(47));
-          expect(sheetBounds.bottom, lessThan(844 - 34));
+          expect(sheetBounds.bottom, 844);
           expect(sheetBounds.height, greaterThan(844 * .8));
           final close = find.byKey(
             const ValueKey('chat-message-actions-close-7'),
           );
           final closeButton = tester.widget<DButton>(close);
-          expect(closeButton.shape, DButtonShape.pill);
-          expect(closeButton.variant, DButtonVariant.secondary);
+          expect(
+            find.ancestor(of: close, matching: find.byType(DSheetHeaderAction)),
+            findsOneWidget,
+          );
+          expect(closeButton.variant, DButtonVariant.quiet);
           expect(closeButton.tooltip, 'Close');
           final closeBounds = tester.getRect(close);
           expect(closeBounds.width, closeBounds.height);

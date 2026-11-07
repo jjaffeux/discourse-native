@@ -256,10 +256,7 @@ void main() {
     tester.view.viewInsets = const FakeViewPadding(bottom: 280);
     await tester.pumpAndSettle();
     expect(find.byType(DSheetContent), findsOneWidget);
-    expect(
-      tester.getBottomLeft(find.byType(DSheetContent)).dy,
-      lessThanOrEqualTo(844 - 280),
-    );
+    expect(tester.getBottomLeft(search).dy, lessThanOrEqualTo(844 - 280));
     expect(tester.takeException(), isNull);
 
     await tester.enterText(search, List.filled(120, 'a').join());

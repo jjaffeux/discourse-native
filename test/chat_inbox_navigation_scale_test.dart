@@ -74,7 +74,7 @@ void main() {
         'chat-inbox-channels-card',
         'chat-inbox-threads-card',
       ]) {
-        _expectFilter(tester, find.byKey(ValueKey(key)), height: 44, text: 16);
+        _expectFilter(tester, find.byKey(ValueKey(key)), height: 36, text: 14);
       }
 
       tester.platformDispatcher.textScaleFactorTestValue = 1.5;
@@ -85,7 +85,12 @@ void main() {
         'chat-inbox-channels-card',
         'chat-inbox-threads-card',
       ]) {
-        _expectFilter(tester, find.byKey(ValueKey(key)), height: 65, text: 30);
+        _expectFilter(
+          tester,
+          find.byKey(ValueKey(key)),
+          height: 54.375,
+          text: 26.25,
+        );
       }
       expect(tester.takeException(), isNull);
     },
@@ -105,8 +110,8 @@ void main() {
     ) async {
       final mobile = platform != TargetPlatform.macOS;
       for (final (appScale, platformScale, height, text) in [
-        (1.0, 1.0, mobile ? 44.0 : 30.0, mobile ? 16.0 : 12.5),
-        (1.25, 2.0, mobile ? 80.0 : 58.125, mobile ? 40.0 : 31.25),
+        (1.0, 1.0, mobile ? 36.0 : 30.0, mobile ? 14.0 : 12.5),
+        (1.25, 2.0, mobile ? 67.5 : 58.125, mobile ? 35.0 : 31.25),
       ]) {
         await tester.pumpWidget(
           MaterialApp(

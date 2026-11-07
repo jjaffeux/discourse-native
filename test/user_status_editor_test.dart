@@ -39,7 +39,7 @@ const _user = DiscourseUser(
 void main() {
   for (final dark in [false, true]) {
     testWidgets(
-      'mobile inset sheet keeps its actions above the keyboard (${dark ? 'dark' : 'light'})',
+      'mobile sheet keeps its actions above the keyboard (${dark ? 'dark' : 'light'})',
       (tester) async {
         tester.view.devicePixelRatio = 1;
         tester.view.physicalSize = const Size(390, 844);
@@ -54,10 +54,10 @@ void main() {
         expect(tester.testTextInput.isVisible, isFalse);
         expect(find.byTooltip('Close').hitTestable(), findsOneWidget);
         final bounds = tester.getRect(find.byType(DSheetContent));
-        expect(bounds.left, greaterThan(0));
-        expect(bounds.right, lessThan(390));
+        expect(bounds.left, 0);
+        expect(bounds.right, 390);
         expect(bounds.top, greaterThan(0));
-        expect(bounds.bottom, lessThan(844));
+        expect(bounds.bottom, 844);
         final footer = tester.getRect(find.byType(DSheetFooter));
         expect(footer.bottom, closeTo(bounds.bottom, 1));
         await tester.enterText(find.byType(TextField), 'On holiday');
