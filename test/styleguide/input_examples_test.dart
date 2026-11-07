@@ -7,10 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('Input registers actual runnable reference examples', () {
-    expect(componentExamples['input'], same(inputExamples));
-    expect(inputExamples.examples, hasLength(13));
-  });
   for (final palette in [
     StyleguideTheme.light,
     StyleguideTheme.dark,
@@ -20,6 +16,8 @@ void main() {
     testWidgets('Input examples fit narrow RTL at 200% in ${palette.name}', (
       tester,
     ) async {
+      expect(componentExamples['input'], same(inputExamples));
+      expect(inputExamples.examples, hasLength(13));
       for (final example in inputExamples.examples) {
         await tester.pumpWidget(
           MaterialApp(
