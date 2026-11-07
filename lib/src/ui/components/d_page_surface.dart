@@ -430,10 +430,22 @@ class _DPageSurfaceState extends State<DPageSurface>
     final scrollable = _pageScrollable;
     if (!mounted || scrollable == null || !scrollable.mounted) return;
     final position = scrollable.position;
+    _motion.reveal(fresh: true);
+    if (_chromeHeaderEnabled) _scrollChrome?.reveal();
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    if (reduced) {
+      // Let the revealed heading settle before a lazy viewport anchors its rows.
+      await WidgetsBinding.instance.endOfFrame;
+      if (!mounted ||
+          !scrollable.mounted ||
+          !identical(_pageScrollable, scrollable)) {
+        return;
+      }
+    }
     final top = position.axisDirection == AxisDirection.up
         ? position.maxScrollExtent
         : position.minScrollExtent;
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (reduced) {
       position.jumpTo(top);
     } else {
       await position.animateTo(
@@ -442,9 +454,6 @@ class _DPageSurfaceState extends State<DPageSurface>
         curve: Curves.easeOutCubic,
       );
     }
-    if (!mounted) return;
-    _motion.reveal(fresh: true);
-    if (_chromeHeaderEnabled) _scrollChrome?.reveal();
   }
 
   @override
