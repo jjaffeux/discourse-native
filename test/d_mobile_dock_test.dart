@@ -5,6 +5,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderOpacity;
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -900,6 +901,74 @@ void main() {
       }
     },
   );
+
+  for (final (direction, scale) in [
+    (TextDirection.ltr, 1.0),
+    (TextDirection.rtl, 2.0),
+  ]) {
+    testWidgets('head labels fade and icons move continuously as the panel '
+        'opens and closes ($direction, ${scale}x)', (tester) async {
+      final semantics = tester.ensureSemantics();
+      await tester.pumpWidget(
+        fixture(foot: 34, direction: direction, scale: scale),
+      );
+      await tester.pumpAndSettle();
+      final topics = find.byKey(const ValueKey('Topics'));
+      final label = find.descendant(of: topics, matching: find.text('Topics'));
+      final icon = find.descendant(of: topics, matching: find.byType(Icon));
+      double iconOffset() =>
+          tester.getCenter(icon).dy - tester.getCenter(topics).dy;
+      double labelOpacity() => tester
+          .renderObject<RenderOpacity>(
+            find.ancestor(of: label, matching: find.byType(Opacity)).first,
+          )
+          .opacity;
+      final restHeight = tester.getSize(topics).height;
+      expect(iconOffset(), 0);
+
+      _askReader(tester, topics, 'More places');
+      await tester.pump();
+      expect(iconOffset(), closeTo(0, .01));
+      expect(tester.getSize(topics).height, closeTo(restHeight, .01));
+      await tester.pump(const Duration(milliseconds: 40));
+      final openingOffset = iconOffset();
+      expect(openingOffset, lessThan(0));
+      expect(labelOpacity(), allOf(greaterThan(0), lessThan(1)));
+      expect(tester.getSize(topics).height, greaterThan(restHeight));
+      expect(
+        tester
+            .getSemantics(find.byKey(const ValueKey('Chat')))
+            .getSemanticsData()
+            .label
+            .split('100 urgent messages'),
+        hasLength(2),
+        reason: 'The transitioning badge is announced once',
+      );
+
+      await tester.pumpAndSettle();
+      final openHeight = tester.getSize(topics).height;
+      final openOffset = iconOffset();
+      expect(openingOffset, greaterThan(openOffset));
+      expect(labelOpacity(), 1);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(iconOffset(), closeTo(openOffset, .01));
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(iconOffset(), allOf(greaterThan(openOffset), lessThan(0)));
+      expect(labelOpacity(), allOf(greaterThan(0), lessThan(1)));
+      expect(
+        tester.getSize(topics).height,
+        allOf(greaterThan(restHeight), lessThan(openHeight)),
+      );
+      await tester.pumpAndSettle();
+      expect(label, findsNothing);
+      expect(iconOffset(), closeTo(0, .01));
+      expect(tester.getSize(topics).height, restHeight);
+      expect(tester.takeException(), isNull);
+      semantics.dispose();
+    });
+  }
 
   for (final direction in TextDirection.values) {
     testWidgets('pulled up, the bar grows into its panel of the rest '

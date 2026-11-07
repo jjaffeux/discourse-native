@@ -1453,8 +1453,8 @@ class _DMobileDockState extends State<DMobileDock>
       // Grown, the head's tiles stand past the row's edges; the row is then
       // as tall as they are, centred where it was, so the whole of each can
       // be pressed.
-      final rowHeight = out ? geometry.tileHeight : geometry.rowHeight;
-      final overflow = out ? geometry.headOverflow : 0.0;
+      final rowHeight = geometry.rowHeight + 2 * geometry.headOverflow * grown;
+      final overflow = geometry.headOverflow * grown;
       final padding = geometry.padding;
       final rowPadding = EdgeInsetsDirectional.fromSTEB(
         padding.start,
@@ -1547,7 +1547,7 @@ class _DMobileDockState extends State<DMobileDock>
       Widget place(int index, DMobileDockPlace place) => DMobileDockItem(
         key: place.key,
         growth: out ? grown : 0,
-        bare: !out,
+        bare: grown == 0,
         // The panel's focus follows its place into the head.
         focusNode: out && place.key == _firstTileKey
             ? _firstTile
@@ -1579,7 +1579,7 @@ class _DMobileDockState extends State<DMobileDock>
                   child: DMobileDockItem(
                     key: here.key,
                     growth: out ? grown : 0,
-                    bare: !out,
+                    bare: grown == 0,
                     icon: here.icon,
                     label: here.label,
                     semanticLabel: here.semanticLabel,
@@ -1605,7 +1605,7 @@ class _DMobileDockState extends State<DMobileDock>
               child: DMobileDockItem(
                 key: fixed.key,
                 growth: out ? grown : 0,
-                bare: !out,
+                bare: grown == 0,
                 icon: fixed.icon,
                 label: fixed.label,
                 semanticLabel: fixed.semanticLabel,
@@ -1784,7 +1784,7 @@ class _DMobileDockState extends State<DMobileDock>
                   padding: collapsed
                       ? const EdgeInsets.all(DMobileDock.circlePadding)
                       : rowPadding,
-                  duration: reduced
+                  duration: reduced || out
                       ? Duration.zero
                       : const Duration(milliseconds: 420),
                   curve: const Cubic(.32, .72, 0, 1),

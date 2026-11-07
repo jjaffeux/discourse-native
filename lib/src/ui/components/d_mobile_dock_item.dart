@@ -20,6 +20,8 @@ import 'd_mobile_dock_geometry.dart';
 /// of the panel's tiles: taller and square-cornered, with a hover fill, its
 /// icon a touch smaller and its name in the grid's lighter type; the current
 /// one is lit by a tenth of the text colour, as far as the bar has grown.
+/// The name fades in as its space opens, moving the icon above it. Reversing
+/// growth returns the icon to the centre as the name fades away.
 /// The panel's own tiles are fully grown.
 class DMobileDockItem extends StatelessWidget {
   const DMobileDockItem({
@@ -74,6 +76,8 @@ class DMobileDockItem extends StatelessWidget {
     final tokens = DTokens.of(context);
     final tile = growth > 0;
     final grown = growth.clamp(0.0, 1.0);
+    final nameProgress = bare ? 0.0 : (tile ? grown : 1.0);
+    final geometry = DMobileDockGeometry.of(context);
     final fontSize = tile ? DiscourseTypography.metadata : null;
     final fontWeight = selected
         ? FontWeight.w600
@@ -145,35 +149,43 @@ class DMobileDockItem extends StatelessWidget {
               ),
             ),
           ),
-          if (!bare) ...[
-            const SizedBox(height: 2),
-            SizedBox(
-              height: labelHeight,
-              child: CustomMultiChildLayout(
-                delegate: _LabelAndCount(
-                  textDirection: Directionality.of(context),
-                  height: labelHeight,
-                  labelWidth: labelWidth,
-                ),
-                children: [
-                  LayoutId(
-                    id: _LabelAndCount.label,
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: fontSize,
-                        fontWeight: fontWeight,
+          if (!bare)
+            Opacity(
+              opacity: Curves.easeInOut.transform(nameProgress),
+              child: Align(
+                heightFactor: nameProgress,
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 2),
+                  child: SizedBox(
+                    height: labelHeight,
+                    child: CustomMultiChildLayout(
+                      delegate: _LabelAndCount(
+                        textDirection: Directionality.of(context),
+                        height: labelHeight,
+                        labelWidth: labelWidth,
                       ),
+                      children: [
+                        LayoutId(
+                          id: _LabelAndCount.label,
+                          child: Text(
+                            label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: fontSize,
+                              fontWeight: fontWeight,
+                            ),
+                          ),
+                        ),
+                        if (badge case final count?)
+                          LayoutId(id: _LabelAndCount.count, child: count),
+                      ],
                     ),
                   ),
-                  if (badge case final count?)
-                    LayoutId(id: _LabelAndCount.count, child: count),
-                ],
+                ),
               ),
             ),
-          ],
         ],
       ),
     );
@@ -187,13 +199,25 @@ class DMobileDockItem extends StatelessWidget {
           fit: StackFit.passthrough,
           clipBehavior: Clip.none,
           children: [
-            button,
-            if (bare && badge != null)
+            SizedBox(
+              height: math.max(
+                geometry.rowHeight + 2 * geometry.headOverflow * grown,
+                26 + scaleDelta + (2 + labelHeight) * nameProgress,
+              ),
+              child: button,
+            ),
+            if (nameProgress < 1 && badge != null)
               Positioned.fill(
                 child: IgnorePointer(
-                  child: CustomSingleChildLayout(
-                    delegate: _CornerCount(Directionality.of(context)),
-                    child: badge,
+                  child: ExcludeSemantics(
+                    excluding: !bare,
+                    child: Opacity(
+                      opacity: 1 - Curves.easeInOut.transform(nameProgress),
+                      child: CustomSingleChildLayout(
+                        delegate: _CornerCount(Directionality.of(context)),
+                        child: badge,
+                      ),
+                    ),
                   ),
                 ),
               ),
