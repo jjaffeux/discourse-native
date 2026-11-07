@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/suggestions.dart';
 import 'package:discourse_native/src/shell/composer/triggers.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -11,6 +12,79 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets(
+      'Escape leaves hashtag suggestions open while the editor IME composes on $platform',
+      (tester) async {
+        final composer = ComposerController(
+          const ReplyComposerTarget(
+            privateMessageTopic: false,
+            siteUrl: 'https://meta.discourse.org',
+            topicId: 1,
+            slug: 'topic',
+            topicTitle: 'Topic',
+          ),
+          search: (
+            users: (_) async => const [],
+            hashtags: (_) async => const [
+              ComposerSuggestion(
+                kind: ComposerTriggerKind.hashtag,
+                value: '変更',
+                label: '変更',
+              ),
+            ],
+            emojis: (_) async => const [],
+          ),
+        );
+        addTearDown(composer.dispose);
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light.copyWith(platform: platform),
+            home: Scaffold(
+              body: ComposerEditor(
+                composer: composer,
+                hintText: 'Reply',
+                textStyle: const TextStyle(fontSize: 16),
+                hintStyle: null,
+              ),
+            ),
+          ),
+        );
+        final editor = find.byType(EditableText);
+        await tester.showKeyboard(editor);
+        const value = TextEditingValue(
+          text: '#変更',
+          selection: TextSelection.collapsed(offset: 3),
+          composing: TextRange(start: 1, end: 3),
+        );
+        tester.testTextInput.updateEditingValue(value);
+        await tester.pumpAndSettle();
+        expect(composer.text.value.composing, value.composing);
+        expect(find.text('変更'), findsOneWidget);
+        expect(composer.focus.hasPrimaryFocus, isTrue);
+
+        final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('変更'), findsOneWidget);
+        expect(composer.autocomplete.isOpen, isTrue);
+        expect(composer.text.value, value);
+        expect(handled, isFalse);
+
+        tester.testTextInput.updateEditingValue(
+          value.copyWith(composing: const TextRange.collapsed(3)),
+        );
+        await tester.pump();
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+        expect(find.text('変更'), findsNothing);
+        expect(composer.autocomplete.isOpen, isFalse);
+        expect(composer.raw, value.text);
+        await tester.pumpWidget(const SizedBox.shrink());
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
+
   for (final query in ['Sam Smith', "Sam O'Neil"]) {
     testWidgets('mention picker searches $query and inserts its username', (
       tester,
