@@ -143,6 +143,20 @@ The upload controller, preparation, inline upload, panel, attachment, submission
 and media-editing tests pin these behaviors, including rendered controls,
 selection, undo, stale pickers and retry order.
 
+Each pending upload retains its prepared file, source anchor and batch identity
+across retry. A separate private attempt owns its cancellation signal and active
+callback lifetime. Retry retires the prior attempt and creates a new one;
+settlement disowns further progress even while a failed row remains visible.
+Preparation, progress and completion require the exact active attempt. Processing
+publication may synchronously cancel the upload, so admission is checked again
+before invoking the preparer. Late prepared output is still released.
+
+This separates retained upload resources from a physical attempt without changing
+public upload APIs or UI behavior. A captured abort completer alone would leave
+settlement authority implicit; the attempt owns both facts. Upload preparation
+and inline/submission/attachment tests pin cancellation, retry reuse, placeholder
+settlement and stale progress isolation.
+
 ## Target modes
 
 `composer/target.dart` owns the sealed `ComposerTarget` family. Importing

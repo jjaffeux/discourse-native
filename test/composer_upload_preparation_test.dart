@@ -5,6 +5,75 @@ import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets('settled upload progress cannot alter its failed row or retry', (
+    tester,
+  ) async {
+    final replies = <Completer<ComposerUploadResult>>[];
+    final progress = <void Function(double)>[];
+    final composer = ComposerController(
+      _target,
+      imageUploader: (file, {required onProgress, required abortTrigger}) {
+        progress.add(onProgress);
+        final reply = Completer<ComposerUploadResult>();
+        replies.add(reply);
+        return reply.future;
+      },
+    );
+    addTearDown(composer.dispose);
+    composer.addFiles([_file('source.png')], 0);
+    progress.first(.4);
+    replies.first.completeError(const ComposerUploadException('retry'));
+    await tester.pump();
+    progress.first(.8);
+    expect(composer.uploads.single.progress, .4);
+    composer.retryUpload(composer.uploads.single.id);
+    expect(replies.length, 2);
+    progress.first(.95);
+    expect(composer.uploads.single.progress, 0);
+    progress.last(.2);
+    expect(composer.uploads.single.progress, .2);
+    replies.last.complete(_result);
+    await tester.pump();
+    expect(composer.raw, contains('upload://optimized'));
+  });
+
+  testWidgets(
+    'processing publication cancellation prevents preparation admission',
+    (tester) async {
+      var preparations = 0;
+      var uploads = 0;
+      final composer = ComposerController(
+        _target,
+        prepareUpload: (file, {required abortTrigger}) async {
+          preparations++;
+          return PreparedComposerUpload(file);
+        },
+        imageUploader:
+            (file, {required onProgress, required abortTrigger}) async {
+              uploads++;
+              return _result;
+            },
+      );
+      addTearDown(composer.dispose);
+      var cancelled = false;
+      composer.addListener(() {
+        if (cancelled ||
+            composer.uploads.isEmpty ||
+            composer.uploads.single.status != ComposerUploadStatus.processing) {
+          return;
+        }
+        cancelled = true;
+        composer.cancelUpload(composer.uploads.single.id);
+      });
+      composer.addFiles([_file('source.png')], 0);
+      await tester.pump();
+      expect(cancelled, isTrue);
+      expect(preparations, 0);
+      expect(uploads, 0);
+      expect(composer.uploads, isEmpty);
+    },
+  );
+
   testWidgets('prepares before upload and reuses the file on retry', (
     tester,
   ) async {

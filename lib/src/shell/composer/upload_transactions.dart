@@ -270,7 +270,8 @@ final class _ComposerUploadTransactions {
         !pending.failed) {
       return;
     }
-    pending.abort = Completer<void>();
+    pending.attempt.retire();
+    pending.attempt = _ComposerUploadAttempt();
     pending.result = null;
     pending.failed = false;
     _uploads[index] = _uploads[index].copyWith(
@@ -295,7 +296,7 @@ final class _ComposerUploadTransactions {
       final pending = _pendingUploads.remove(id);
       if (pending != null) {
         batches.add(pending.batch);
-        if (!pending.abort.isCompleted) pending.abort.complete();
+        pending.attempt.retire();
         pending.releasePreparation();
       }
       _uploads.removeWhere((upload) => upload.id == id);
@@ -316,21 +317,28 @@ final class _ComposerUploadTransactions {
     final index = _uploadIndex(id);
     if (uploader == null || pending == null || index < 0) return;
     final file = _uploads[index].file;
+    final attempt = pending.attempt;
+    bool ownsAttempt() =>
+        !_isDisposed &&
+        identical(_pendingUploads[id], pending) &&
+        identical(pending.attempt, attempt) &&
+        attempt.isActive;
     unawaited(
       Future<ComposerUploadResult>.sync(() async {
+        if (!ownsAttempt()) {
+          throw ComposerUploadException(appL10n.uploadCancelled);
+        }
         final prepare = _prepare;
         if (prepare != null && pending.prepared == null) {
           _uploads[index] = _uploads[index].copyWith(
             status: ComposerUploadStatus.processing,
           );
           _editor.changed();
-          final prepared = await prepare(
-            file,
-            abortTrigger: pending.abort.future,
-          );
-          if (_isDisposed ||
-              _pendingUploads[id] != pending ||
-              pending.abort.isCompleted) {
+          if (!ownsAttempt()) {
+            throw ComposerUploadException(appL10n.uploadCancelled);
+          }
+          final prepared = await prepare(file, abortTrigger: attempt.aborted);
+          if (!ownsAttempt()) {
             await prepared.dispose();
             throw ComposerUploadException(appL10n.uploadCancelled);
           }
@@ -342,16 +350,14 @@ final class _ComposerUploadTransactions {
           );
           _editor.changed();
         }
-        if (_isDisposed ||
-            _pendingUploads[id] != pending ||
-            pending.abort.isCompleted) {
+        if (!ownsAttempt()) {
           throw ComposerUploadException(appL10n.uploadCancelled);
         }
         return uploader(
           pending.prepared?.file ?? file,
-          abortTrigger: pending.abort.future,
+          abortTrigger: attempt.aborted,
           onProgress: (progress) {
-            if (_isDisposed || !_pendingUploads.containsKey(id)) return;
+            if (!ownsAttempt()) return;
             final current = _uploadIndex(id);
             if (current < 0) return;
             final previous = _uploads[current].progress;
@@ -363,7 +369,8 @@ final class _ComposerUploadTransactions {
         );
       }).then(
         (result) {
-          if (_isDisposed || !_pendingUploads.containsKey(id)) return;
+          if (!ownsAttempt()) return;
+          attempt.settle();
           pending.releasePreparation();
           pending.result = result;
           if (SiteConfig.isImageFilename(result.originalFilename)) {
@@ -376,7 +383,8 @@ final class _ComposerUploadTransactions {
           _flushReadyUploads(pending.batch);
         },
         onError: (Object error) {
-          if (_isDisposed || !_pendingUploads.containsKey(id)) return;
+          if (!ownsAttempt()) return;
+          attempt.settle();
           pending.failed = true;
           final current = _uploadIndex(id);
           if (current < 0) return;
@@ -936,7 +944,7 @@ final class _ComposerUploadTransactions {
 
   void clear() {
     for (final pending in _pendingUploads.values) {
-      if (!pending.abort.isCompleted) pending.abort.complete();
+      pending.attempt.retire();
       pending.releasePreparation();
     }
     _pendingUploads.clear();
@@ -969,6 +977,21 @@ final class _GalleryUploadEdit {
   );
 }
 
+final class _ComposerUploadAttempt {
+  final _abort = Completer<void>();
+  bool _active = true;
+
+  Future<void> get aborted => _abort.future;
+  bool get isActive => _active;
+
+  void settle() => _active = false;
+
+  void retire() {
+    settle();
+    if (!_abort.isCompleted) _abort.complete();
+  }
+}
+
 class _PendingComposerUpload {
   _PendingComposerUpload({
     required this.batch,
@@ -987,7 +1010,7 @@ class _PendingComposerUpload {
   _ComposerUploadDestination destination;
   final _ComposerUploadDestination launchDestination;
   _PendingGalleryUploadTarget? galleryTarget;
-  Completer<void> abort = Completer<void>();
+  _ComposerUploadAttempt attempt = _ComposerUploadAttempt();
   ComposerUploadResult? result;
   bool failed = false;
   PreparedComposerUpload? prepared;
