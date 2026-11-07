@@ -589,6 +589,7 @@ class _AccountMenuPopover extends StatelessWidget {
           variant: drawer ? DButtonVariant.inline : DButtonVariant.ghost,
           size: drawer ? DButtonSize.regular : DButtonSize.large,
           shape: drawer ? DButtonShape.pill : DButtonShape.rounded,
+          borderRadius: drawer ? null : BorderRadius.circular(DRadius.panel),
           alignment: AlignmentDirectional.centerStart,
           hasPopup: true,
           expanded: trigger.open,

@@ -601,11 +601,19 @@ void main() {
     await mouse.moveTo(bounds.center);
     await tester.pumpAndSettle();
     expect(buttonSurface(tester, of: profile).color, isNot(resting));
+    expect(
+      buttonSurface(tester, of: profile).borderRadius,
+      BorderRadius.circular(DRadius.panel),
+    );
     await tester.tap(profile);
     await tester.pumpAndSettle();
     await mouse.moveTo(Offset.zero);
     await tester.pumpAndSettle();
     expect(buttonSurface(tester, of: profile).color, isNot(resting));
+    expect(
+      buttonSurface(tester, of: profile).borderRadius,
+      BorderRadius.circular(DRadius.panel),
+    );
     expect(tester.getRect(profile), bounds);
     expect(tester.takeException(), isNull);
   });
