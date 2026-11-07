@@ -142,12 +142,16 @@ final class BoardsNavigation implements PluginLinkHandler {
       ).firstMatch(path);
       final boardId = boardInt(int.tryParse(match?[1] ?? ''));
       if (boardId != null) {
-        route = BoardsRoute(
-          boardId: boardId,
-          cardId: boardInt(
-            int.tryParse(match?[2] ?? target.queryParameters['card'] ?? ''),
-          ),
-        );
+        try {
+          route = BoardsRoute(
+            boardId: boardId,
+            cardId: boardInt(
+              int.tryParse(match?[2] ?? target.queryParameters['card'] ?? ''),
+            ),
+          );
+        } on FormatException {
+          return false;
+        }
       }
     }
     if (route == null) return false;

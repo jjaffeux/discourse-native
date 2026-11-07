@@ -9,6 +9,41 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/boards_fixture.dart';
 
 void main() {
+  test('board links decline malformed query bytes without navigating', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    var navigated = false;
+
+    for (final bytes in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
+      expect(
+        await fixture.navigation.openPluginUrl(
+          '$boardsSite/boards/roadmap/1?card=$bytes',
+          onNavigated: () => navigated = true,
+        ),
+        isFalse,
+        reason: bytes,
+      );
+      expect(fixture.host.currentContent, isNull);
+      expect(navigated, isFalse);
+    }
+  });
+
+  test('board links retain valid card query navigation', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    var navigated = false;
+
+    expect(
+      await fixture.navigation.openPluginUrl(
+        '$boardsSite/boards/roadmap/1?card=102',
+        onNavigated: () => navigated = true,
+      ),
+      isTrue,
+    );
+    expect(fixture.host.currentContent?.id, 'boards/1/cards/102');
+    expect(navigated, isTrue);
+  });
+
   test('same-account permission refresh retains an active composer', () async {
     late BoardsFixture fixture;
     OpenNewTopicComposerRequest? request;
