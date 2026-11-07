@@ -5957,6 +5957,7 @@ class ShellController extends FrameSafeNotifier
   late final _composerOpeningHost = _ShellComposerOpeningHost(this);
   late final _composerOpening = ComposerOpeningOwner(
     presentation: _composerOpeningHost,
+    creation: _composerOpeningHost,
     metadata: _composerOpeningHost,
     drafts: _composerDrafts,
     credentials: credentials,
@@ -6252,81 +6253,42 @@ class ShellController extends FrameSafeNotifier
   void openPrivateMessage({
     required String siteUrl,
     required String targetRecipients,
-  }) => _openPrivateMessage(
-    siteUrl: siteUrl,
-    targetRecipients: targetRecipients,
-    permitted: (user) => user.canSendPrivateMessages,
-  );
+  }) =>
+      _openPrivateMessage(siteUrl: siteUrl, targetRecipients: targetRecipients);
 
-  /// Opens a new message addressed to [group] alone.
-  ///
-  /// Core answers the group's `messageable` with
-  /// `can_send_private_message?(group)` for the reader, which admits a group
-  /// messageable by everyone even when the reader may not start messages in
-  /// general, so that flag is the whole permission.
   void openGroupMessage({required String siteUrl, required Group group}) =>
       _openPrivateMessage(
         siteUrl: siteUrl,
         targetRecipients: group.name,
-        permitted: (_) => group.messageable,
+        groupMessageable: group.messageable,
       );
 
   void _openPrivateMessage({
     required String siteUrl,
     required String targetRecipients,
-    required bool Function(DiscourseUser user) permitted,
+    bool? groupMessageable,
   }) {
     final instance = currentInstance;
-    final user = instance?.user;
     final source = topicListContent;
-    final route = source?.isMessages == true ? source : currentContent;
-    final tabId = activeTabId;
-    final feedId = currentFeedId;
-    final recipients = targetRecipients
-        .split(',')
-        .map((recipient) => recipient.trim())
-        .where((recipient) => recipient.isNotEmpty)
-        .join(',');
-    if (instance?.url != siteUrl ||
-        user == null ||
-        !permitted(user) ||
-        route?.isTopic != false ||
-        tabId == null ||
-        feedId == null) {
-      return;
-    }
-
-    // A PM may be parked behind another draft tab. Core uses one shared PM
-    // key, so select that owner before applying the mature replacement path.
-    final heldMessage = _composerRegistry
-        .forSite(siteUrl)
-        .where(
-          (held) =>
-              held.target.isPrivateMessage &&
-              held.canSaveDraft &&
-              held.target.draftKey == ComposerDraft.newPrivateMessageDraftKey,
-        )
-        .firstOrNull;
-    if (heldMessage != null &&
-        (heldMessage.closing || _composerHasPendingOperation(heldMessage))) {
-      return;
-    }
-    if (heldMessage != null && !identical(heldMessage, _composer)) {
-      selectComposer(heldMessage);
-    }
-    if (!_replaceComposer()) return;
-    final target = PrivateMessageComposerTarget(
+    final target = _composerOpening.preparePrivateMessage(
       siteUrl: siteUrl,
-      tabId: tabId,
-      topicTitle: appL10n.newMessage,
-      originFeedId: feedId,
-      targetRecipients: recipients,
+      origin: instance == null
+          ? null
+          : PrivateMessageOpeningOrigin(
+              siteUrl: instance.url,
+              tabId: activeTabId,
+              feedId: currentFeedId,
+              route: source?.isMessages == true ? source : currentContent,
+              user: instance.user,
+            ),
+      targetRecipients: targetRecipients,
+      groupMessageable: groupMessageable,
     );
+    if (target == null || !_replaceComposer()) return;
     final composer = _buildTextComposer(target, persistsDraft: true);
     _composerRegistry.add(composer);
     _notify();
-    _composerDrafts.startRestore(composer);
-    if (recipients.isNotEmpty) composer.requestFocus();
+    _composerOpening.startPrivateMessage(composer);
   }
 
   Future<void> openNewTopic() =>
@@ -6414,9 +6376,7 @@ class ShellController extends FrameSafeNotifier
   /// Whether [topic] offers continuing in a new topic, or, from a message, in
   /// a new message to the same participants.
   bool canReplyAsNewTopic(TopicDetail topic) =>
-      topic.canReplyAsNewTopic &&
-      (!topic.privateMessage ||
-          currentInstance?.user?.canSendPrivateMessages == true);
+      ComposerOpeningOwner.canContinue(topic, currentInstance?.user);
 
   /// Whether the signed-in user may invite someone to [topic]. The server
   /// re-checks; a closed, archived or deleted topic is not offered.
@@ -6429,101 +6389,37 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> openReplyAsNewTopic(String continuation) async {
     final instance = currentInstance;
-    final route = currentContent;
-    final detail = currentTopic;
+    final topic = currentTopic;
     final tabId = activeTabId;
     if (instance == null ||
-        route?.topicId == null ||
-        detail == null ||
-        !canReplyAsNewTopic(detail) ||
+        topic == null ||
         tabId == null ||
-        continuation.trim().isEmpty) {
+        currentContent?.topicId == null) {
       return;
     }
-
-    final siteUrl = instance.url;
-    final sourceTopicId = detail.id;
-    // The continuation names and links the source, so a message may only be
-    // continued among its own participants, never in a public topic.
-    final privateMessage = detail.privateMessage;
-    final lease = lifecycle.capture(siteUrl);
-    bool sourceIsCurrent() {
-      final current = currentTopic;
-      return lease.isCurrent &&
-          activeTabId == tabId &&
-          currentInstance?.url == siteUrl &&
-          currentContent?.topicId == sourceTopicId &&
-          current != null &&
-          current.privateMessage == privateMessage &&
-          canReplyAsNewTopic(current);
-    }
-
-    if (!privateMessage) {
-      await Future.wait<void>([
-        loadCategories(siteUrl),
-        _ensureTopicComposerCapabilities(siteUrl),
-      ]);
-      if (!sourceIsCurrent()) return;
-    }
-    if (!await _composerOpening.prepareReplacement() || !sourceIsCurrent()) {
+    final plan = await _composerOpening.prepareContinuation(
+      ContinuationOpeningOrigin(
+        siteUrl: instance.url,
+        lease: lifecycle.capture(instance.url),
+        tabId: tabId,
+        topic: topic,
+      ),
+      continuation: continuation,
+      allocateDraftKey: _newDraftKey,
+    );
+    if (plan == null ||
+        !_composerOpening.isCurrentContinuation(plan) ||
+        !_replaceComposer()) {
       return;
     }
-
-    final ComposerTarget target;
-    var minimumRequiredTags = 0;
-    if (privateMessage) {
-      final source = currentTopic!;
-      final username = currentInstance?.user?.username.toLowerCase();
-      // The site adds the author to every message it creates, and naming them
-      // would also hold them to their own message preferences. A message only
-      // the author is left in still has to name someone.
-      final others = [
-        for (final name in source.allowedMessageUsers)
-          if (name.toLowerCase() != username) name,
-        ...source.allowedMessageGroups,
-      ];
-      target = PrivateMessageComposerTarget(
-        siteUrl: siteUrl,
-        tabId: tabId,
-        topicTitle: appL10n.newMessage,
-        originTopicId: sourceTopicId,
-        draftKey: _newDraftKey(ComposerDraft.newPrivateMessageDraftKey),
-        targetRecipients: (others.isEmpty ? source.allowedMessageUsers : others)
-            .join(','),
-      );
-    } else {
-      final category = topicComposerCategories(siteUrl)
-          .where((item) => item.id == detail.categoryId && item.canCreateTopic)
-          .firstOrNull;
-      minimumRequiredTags = category?.minimumRequiredTags ?? 0;
-      target = NewTopicComposerTarget(
-        siteUrl: siteUrl,
-        tabId: tabId,
-        topicTitle: appL10n.newTopic,
-        originTopicId: sourceTopicId,
-        draftKey: _newDraftKey(ComposerDraft.newTopicDraftKey),
-        initialCategoryId: category?.id,
-      );
-    }
-    if (!_replaceComposer()) return;
     final composer = _buildTextComposer(
-      target,
+      plan.target,
       persistsDraft: true,
-      minimumRequiredTags: minimumRequiredTags,
+      minimumRequiredTags: plan.minimumRequiredTags,
     );
     _composerRegistry.add(composer);
     _notify();
-    _composerDrafts.startNewDraft(composer);
-    if (!lease.isCurrent ||
-        !_composerRegistry.owns(composer) ||
-        activeTabId != tabId ||
-        currentContent?.topicId != sourceTopicId) {
-      return;
-    }
-    if (!composer.text.text.contains(continuation.trim())) {
-      composer.prependBlock(continuation);
-    }
-    composer.focus.requestFocus();
+    _composerOpening.startContinuation(plan, composer, continuation);
   }
 
   Future<OpenComposerResult> openNewTopicFromPlugin(
@@ -10454,10 +10350,35 @@ final class _ShellProfileCurrentUser implements ProfileCurrentUser {
 }
 
 final class _ShellComposerOpeningHost
-    implements ComposerOpeningPresentation, ComposerOpeningMetadata {
+    implements
+        ComposerOpeningPresentation,
+        ComposerOpeningMetadata,
+        ComposerCreationPresentation {
   _ShellComposerOpeningHost(this._shell);
 
   final ShellController _shell;
+
+  @override
+  Iterable<ComposerController> retainedForSite(String siteUrl) =>
+      _shell._composerRegistry.forSite(siteUrl);
+
+  @override
+  void selectComposer(ComposerController composer) =>
+      _shell.selectComposer(composer);
+
+  @override
+  ContinuationOpeningSource? continuationSource(
+    ContinuationOpeningOrigin origin,
+  ) {
+    final topic = _shell.currentTopic;
+    if (_shell.activeTabId != origin.tabId ||
+        _shell.currentInstance?.url != origin.siteUrl ||
+        _shell.currentContent?.topicId != origin.topic.id ||
+        topic == null) {
+      return null;
+    }
+    return ContinuationOpeningSource(topic, _shell.currentInstance?.user);
+  }
 
   @override
   ComposerController? get selectedComposer => _shell._composer;

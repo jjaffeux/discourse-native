@@ -1,11 +1,16 @@
 import 'dart:async';
 
+import 'package:discourse_native/l10n/strings.dart';
+
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
+import '../../models/composer_draft.dart';
 import '../../models/content_route.dart';
+import '../../models/discourse_user.dart';
 import '../../models/list_link.dart';
+import '../../models/post.dart';
 import '../../models/topic.dart';
 import '../../models/user_draft.dart';
 import 'controller.dart';
@@ -75,6 +80,63 @@ abstract interface class ComposerOpeningMetadata {
   Future<TopicTagSearch> searchTags(ComposerController composer, String term);
 }
 
+final class PrivateMessageOpeningOrigin {
+  const PrivateMessageOpeningOrigin({
+    required this.siteUrl,
+    required this.tabId,
+    required this.feedId,
+    required this.route,
+    required this.user,
+  });
+
+  final String siteUrl;
+  final String? tabId;
+  final String? feedId;
+  final ContentRoute? route;
+  final DiscourseUser? user;
+}
+
+final class ContinuationOpeningOrigin {
+  const ContinuationOpeningOrigin({
+    required this.siteUrl,
+    required this.lease,
+    required this.tabId,
+    required this.topic,
+  });
+
+  final String siteUrl;
+  final SiteLease lease;
+  final String tabId;
+  final TopicDetail topic;
+}
+
+final class ContinuationOpeningSource {
+  const ContinuationOpeningSource(this.topic, this.user);
+
+  final TopicDetail topic;
+  final DiscourseUser? user;
+}
+
+final class ContinuationOpeningPlan {
+  const ContinuationOpeningPlan(
+    this.origin,
+    this.target,
+    this.minimumRequiredTags,
+  );
+
+  final ContinuationOpeningOrigin origin;
+  final ComposerTarget target;
+  final int minimumRequiredTags;
+}
+
+abstract interface class ComposerCreationPresentation {
+  Iterable<ComposerController> retainedForSite(String siteUrl);
+  void selectComposer(ComposerController composer);
+  ContinuationOpeningSource? continuationSource(
+    ContinuationOpeningOrigin origin,
+  );
+}
+
 final class _ComposerSetupSession {
   _ComposerSetupSession(this.composer, this.lease)
     : siteUrl = composer.target.siteUrl,
@@ -97,6 +159,7 @@ final class _ComposerSetupSession {
 final class ComposerOpeningOwner {
   ComposerOpeningOwner({
     required this._presentation,
+    required this._creation,
     required this._metadata,
     required this._drafts,
     required this._credentials,
@@ -105,6 +168,7 @@ final class ComposerOpeningOwner {
   });
 
   final ComposerOpeningPresentation _presentation;
+  final ComposerCreationPresentation _creation;
   final ComposerOpeningMetadata _metadata;
   final ComposerDraftCoordinator _drafts;
   final SiteApiKeyReader _credentials;
@@ -136,6 +200,151 @@ final class ComposerOpeningOwner {
     if (confirmation == null) return false;
     await confirmation;
     return existing.isDisposed && _presentation.selectedComposer == null;
+  }
+
+  PrivateMessageComposerTarget? preparePrivateMessage({
+    required String siteUrl,
+    required PrivateMessageOpeningOrigin? origin,
+    required String targetRecipients,
+    bool? groupMessageable,
+  }) {
+    final user = origin?.user;
+    // A messageable group can admit a reader who cannot start general messages.
+    if (_disposed ||
+        origin == null ||
+        origin.siteUrl != siteUrl ||
+        user == null ||
+        !(groupMessageable ?? user.canSendPrivateMessages) ||
+        origin.route?.isTopic != false ||
+        origin.tabId == null ||
+        origin.feedId == null) {
+      return null;
+    }
+    final held = _creation
+        .retainedForSite(siteUrl)
+        .where(
+          (composer) =>
+              composer.target.isPrivateMessage &&
+              composer.canSaveDraft &&
+              composer.target.draftKey ==
+                  ComposerDraft.newPrivateMessageDraftKey,
+        )
+        .firstOrNull;
+    if (held != null) {
+      if (held.closing || hasPendingOperation(held)) return null;
+      if (!identical(held, _presentation.selectedComposer)) {
+        _creation.selectComposer(held);
+      }
+    }
+    return PrivateMessageComposerTarget(
+      siteUrl: siteUrl,
+      tabId: origin.tabId!,
+      topicTitle: appL10n.newMessage,
+      originFeedId: origin.feedId!,
+      targetRecipients: targetRecipients
+          .split(',')
+          .map((name) => name.trim())
+          .where((name) => name.isNotEmpty)
+          .join(','),
+    );
+  }
+
+  void startPrivateMessage(ComposerController composer) {
+    _drafts.startRestore(composer);
+    if (composer.target.targetRecipients?.isNotEmpty == true) {
+      composer.requestFocus();
+    }
+  }
+
+  static bool canContinue(TopicDetail topic, DiscourseUser? user) =>
+      topic.canReplyAsNewTopic &&
+      (!topic.privateMessage || user?.canSendPrivateMessages == true);
+
+  ContinuationOpeningSource? _continuationSource(
+    ContinuationOpeningOrigin origin,
+  ) {
+    if (_disposed || !origin.lease.isCurrent) return null;
+    final source = _creation.continuationSource(origin);
+    // The source link must never escape a private conversation.
+    if (source == null ||
+        source.topic.privateMessage != origin.topic.privateMessage ||
+        !canContinue(source.topic, source.user)) {
+      return null;
+    }
+    return source;
+  }
+
+  Future<ContinuationOpeningPlan?> prepareContinuation(
+    ContinuationOpeningOrigin origin, {
+    required String continuation,
+    required String Function(String base) allocateDraftKey,
+  }) async {
+    if (continuation.trim().isEmpty || _continuationSource(origin) == null) {
+      return null;
+    }
+    if (!origin.topic.privateMessage) {
+      await _metadata.ensureForOpening(origin.siteUrl);
+      if (_continuationSource(origin) == null) return null;
+    }
+    if (!await prepareReplacement()) return null;
+    final source = _continuationSource(origin);
+    if (source == null) return null;
+    final ComposerTarget target;
+    var minimumRequiredTags = 0;
+    if (source.topic.privateMessage) {
+      final username = source.user?.username.toLowerCase();
+      final others = [
+        for (final name in source.topic.allowedMessageUsers)
+          if (name.toLowerCase() != username) name,
+        ...source.topic.allowedMessageGroups,
+      ];
+      target = PrivateMessageComposerTarget(
+        siteUrl: origin.siteUrl,
+        tabId: origin.tabId,
+        topicTitle: appL10n.newMessage,
+        originTopicId: origin.topic.id,
+        draftKey: allocateDraftKey(ComposerDraft.newPrivateMessageDraftKey),
+        targetRecipients:
+            (others.isEmpty ? source.topic.allowedMessageUsers : others).join(
+              ',',
+            ),
+      );
+    } else {
+      final category = _metadata
+          .categoriesFor(origin.siteUrl)
+          .where(
+            (item) => item.id == origin.topic.categoryId && item.canCreateTopic,
+          )
+          .firstOrNull;
+      minimumRequiredTags = category?.minimumRequiredTags ?? 0;
+      target = NewTopicComposerTarget(
+        siteUrl: origin.siteUrl,
+        tabId: origin.tabId,
+        topicTitle: appL10n.newTopic,
+        originTopicId: origin.topic.id,
+        draftKey: allocateDraftKey(ComposerDraft.newTopicDraftKey),
+        initialCategoryId: category?.id,
+      );
+    }
+    return ContinuationOpeningPlan(origin, target, minimumRequiredTags);
+  }
+
+  bool isCurrentContinuation(ContinuationOpeningPlan plan) =>
+      _continuationSource(plan.origin) != null;
+
+  void startContinuation(
+    ContinuationOpeningPlan plan,
+    ComposerController composer,
+    String continuation,
+  ) {
+    _drafts.startNewDraft(composer);
+    if (!isCurrentContinuation(plan) || !_presentation.owns(composer)) {
+      return;
+    }
+    if (!composer.text.text.contains(continuation.trim())) {
+      composer.prependBlock(continuation);
+    }
+    composer.focus.requestFocus();
   }
 
   Future<NewTopicOpeningPlan?> prepareNewTopic(

@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/list_link.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_draft.dart';
@@ -36,6 +38,176 @@ const _ideas = TopicCategory(
 final _tagRoute = ContentRoute.list(ListLink.parse('/tag/release')!);
 
 void main() {
+  test(
+    'message admission preserves group-specific permission and shared draft selection',
+    () {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      final retained = ComposerController(
+        const PrivateMessageComposerTarget(
+          siteUrl: _site,
+          targetRecipients: 'saved',
+          topicTitle: 'Saved message',
+          originFeedId: 'latest',
+        ),
+        onSaveDraft: (_) async => null,
+      );
+      harness.members.add(retained);
+      harness.allEditors.add(retained);
+      final validOrigin = PrivateMessageOpeningOrigin(
+        siteUrl: _site,
+        tabId: 'tab',
+        feedId: 'latest',
+        route: _tagRoute,
+        user: const DiscourseUser(id: 1, username: 'reader'),
+      );
+      expect(
+        harness.owner.preparePrivateMessage(
+          siteUrl: _site,
+          origin: validOrigin,
+          targetRecipients: 'group',
+        ),
+        isNull,
+      );
+      final plan = harness.owner.preparePrivateMessage(
+        siteUrl: _site,
+        origin: validOrigin,
+        targetRecipients: ' team, , alice ',
+        groupMessageable: true,
+      );
+      expect(plan?.targetRecipients, 'team,alice');
+      expect(harness.selectedComposer, same(retained));
+    },
+  );
+
+  test(
+    'continuation reads current private participants after replacement admission',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      const topic = TopicDetail(
+        id: 7,
+        title: 'Private',
+        stream: [],
+        privateMessage: true,
+        canReplyAsNewTopic: true,
+        allowedMessageUsers: ['reader', 'old'],
+      );
+      const user = DiscourseUser(
+        id: 1,
+        username: 'reader',
+        canSendPrivateMessages: true,
+      );
+      harness.continuation = const ContinuationOpeningSource(topic, user);
+      final opening = harness.owner.prepareContinuation(
+        ContinuationOpeningOrigin(
+          siteUrl: _site,
+          lease: harness.lifecycle.capture(_site),
+          tabId: 'tab',
+          topic: topic,
+        ),
+        continuation: 'Source link',
+        allocateDraftKey: (base) => '${base}_fresh',
+      );
+      harness.continuation = const ContinuationOpeningSource(
+        TopicDetail(
+          id: 7,
+          title: 'Private',
+          stream: [],
+          privateMessage: true,
+          canReplyAsNewTopic: true,
+          allowedMessageUsers: ['reader', 'new'],
+          allowedMessageGroups: ['team'],
+        ),
+        user,
+      );
+      final plan = (await opening)!;
+      expect(plan.target, isA<PrivateMessageComposerTarget>());
+      expect(plan.target.targetRecipients, 'new,team');
+      expect(plan.target.draftKey, 'new_private_message_fresh');
+    },
+  );
+
+  test(
+    'continuation acceptance revalidates a source changed at plan handoff',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      const topic = TopicDetail(
+        id: 7,
+        title: 'Private',
+        stream: [],
+        privateMessage: true,
+        canReplyAsNewTopic: true,
+        allowedMessageUsers: ['reader', 'sam'],
+      );
+      const user = DiscourseUser(
+        id: 1,
+        username: 'reader',
+        canSendPrivateMessages: true,
+      );
+      harness.continuation = const ContinuationOpeningSource(topic, user);
+      final changed = Completer<void>();
+      final preparing = harness.owner.prepareContinuation(
+        ContinuationOpeningOrigin(
+          siteUrl: _site,
+          lease: harness.lifecycle.capture(_site),
+          tabId: 'tab',
+          topic: topic,
+        ),
+        continuation: 'Source link',
+        allocateDraftKey: (base) {
+          scheduleMicrotask(() {
+            harness.continuation = const ContinuationOpeningSource(
+              TopicDetail(
+                id: 7,
+                title: 'Public',
+                stream: [],
+                canReplyAsNewTopic: true,
+              ),
+              user,
+            );
+            changed.complete();
+          });
+          return base;
+        },
+      );
+      final plan = await preparing;
+      await changed.future;
+      expect(plan, isNotNull);
+      expect(harness.owner.isCurrentContinuation(plan!), isFalse);
+    },
+  );
+
+  test(
+    'continuation stops when its account retires during preparation',
+    () async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      const topic = TopicDetail(
+        id: 7,
+        title: 'Public',
+        stream: [],
+        canReplyAsNewTopic: true,
+      );
+      harness.continuation = const ContinuationOpeningSource(topic, null);
+      final opening = harness.owner.prepareContinuation(
+        ContinuationOpeningOrigin(
+          siteUrl: _site,
+          lease: harness.lifecycle.capture(_site),
+          tabId: 'tab',
+          topic: topic,
+        ),
+        continuation: 'Source link',
+        allocateDraftKey: (base) => base,
+      );
+      harness.lifecycle.invalidate(_site);
+      harness.metadataReady.complete();
+      expect(await opening, isNull);
+      expect(harness.members, isEmpty);
+    },
+  );
+
   test('setup refines a retained editor without selecting it again', () async {
     final harness = _Harness();
     addTearDown(harness.dispose);
@@ -556,7 +728,10 @@ void main() {
 }
 
 final class _Harness
-    implements ComposerOpeningPresentation, ComposerOpeningMetadata {
+    implements
+        ComposerOpeningPresentation,
+        ComposerOpeningMetadata,
+        ComposerCreationPresentation {
   _Harness({FakeDiscourseApi? api, this.route, bool emptyTaxonomy = false})
     : api = api ?? FakeDiscourseApi() {
     if (!emptyTaxonomy) categories[5] = _category;
@@ -579,6 +754,7 @@ final class _Harness
     );
     owner = ComposerOpeningOwner(
       presentation: this,
+      creation: this,
       metadata: this,
       drafts: drafts,
       credentials: credentials,
@@ -586,6 +762,20 @@ final class _Harness
       queries: this.api,
     );
   }
+
+  @override
+  Iterable<ComposerController> retainedForSite(String siteUrl) => members;
+
+  @override
+  void selectComposer(ComposerController composer) =>
+      selectedComposer = composer;
+
+  ContinuationOpeningSource? continuation;
+
+  @override
+  ContinuationOpeningSource? continuationSource(
+    ContinuationOpeningOrigin origin,
+  ) => originCurrent ? continuation : null;
 
   final FakeDiscourseApi api;
   final ContentRoute? route;

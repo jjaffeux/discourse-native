@@ -81,8 +81,8 @@ boundary test also prevents built-in modules from importing bundled features.
 
 ## Opening and setup
 
-`composer/opening_owner.dart` owns new-topic replacement admission and delayed
-setup. Shell captures the source site, account lease, tab, feed and route. The
+`composer/opening_owner.dart` owns creation admission for new topics, messages,
+and continuations, plus delayed new-topic setup. Shell captures the source site, account lease, tab, feed and route. The
 owner prepares a plan containing the exact draft key and initial taxonomy.
 Shell builds and registers the editor, starts setup and publishes presentation.
 Metadata loading therefore does not block the first editor frame.
@@ -269,3 +269,41 @@ the captured lease after synchronous notifications before continuing. Topic
 creation routes to the tab active at Send, with the existing active-tab fallback
 when that tab no longer exists. Selecting a different composer never changes the
 attempt's editor identity.
+
+## Opening messages and continuations
+
+`ComposerOpeningOwner` owns creation admission and draft setup for new topics,
+private messages, and topic continuations. The shell captures navigation facts,
+then builds, registers, and publishes the returned target. Its message and
+continuation facades contain no recipient, draft-selection, or privacy policy.
+
+Private-message preparation stays synchronous. It checks the reader's permission,
+or a group's messageable permission when explicitly supplied, and requires a
+non-topic route with a tab and feed. It normalizes recipients and selects any
+retained editor owning the shared private-message draft before the shell performs
+its usual replacement. Starting the editor restores that draft and focuses the
+recipient-targeted message.
+
+Continuation preparation captures a site lease, tab, and source topic. Public
+continuations wait for taxonomy and composer capabilities; private continuations
+keep the source's privacy and recipients. Preparation revalidates the current
+source after metadata and replacement awaits, when the shell accepts the returned
+plan, and before inserting text after editor publication. A source becoming private or
+public, losing continuation permission, changing route/account, or losing the
+reader's private-message permission abandons the attempt. Private recipients are
+read from the current source after those awaits, exclude the author when others
+remain, and include the source groups. Public continuations select the source's
+creatable category and its minimum tag count.
+
+Each continuation allocates a fresh draft key, starts a new draft, and inserts the
+source link only while its account, route, and retained editor still belong to
+the opening. It never restores the unrelated shared private-message draft.
+`ComposerCreationPresentation` supplies retained-editor selection and current
+source snapshots; taxonomy and drafts retain their existing authorities.
+
+Extending the existing owner shares replacement admission and draft lifetime
+policy. A separate continuation owner would need the same collaborators and
+would split those rules again. Plans expose only the target, source ownership,
+and required tag count needed to construct the editor. Direct owner tests and
+`topic_reply_as_new_topic_test.dart`, `group_message_composer_test.dart`, and the
+composer opening/draft integration tests pin these contracts.

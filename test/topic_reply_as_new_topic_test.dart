@@ -220,4 +220,24 @@ void main() {
     expect(controller.visibleComposer, same(existing));
     expect(existing.raw, 'An unsent reply');
   });
+  test(
+    'a privacy change during publication does not insert the continuation link',
+    () async {
+      final controller = await shell(
+        privateMessage: true,
+        allowedMessageUsers: const ['reader', 'sam'],
+      );
+      addTearDown(controller.dispose);
+      var changed = false;
+      controller.addListener(() {
+        if (changed || controller.visibleComposer == null) return;
+        changed = true;
+        controller.store.put(_siteUrl, source());
+      });
+      await controller.openReplyAsNewTopic(_continuation);
+      expect(changed, isTrue);
+      expect(controller.visibleComposer!.target.isPrivateMessage, isTrue);
+      expect(controller.visibleComposer!.raw, isEmpty);
+    },
+  );
 }
