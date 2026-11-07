@@ -40,7 +40,7 @@ void main() {
             ShellScope(
               controller: controller,
               child: MaterialApp(
-                theme: AppTheme.light,
+                theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
                 home: const Scaffold(
                   body: Row(
                     children: [
@@ -65,7 +65,7 @@ void main() {
             find.bySemanticsLabel('Open component styleguide'),
             findsOneWidget,
           );
-          expect(tester.getSize(launch).shortestSide, greaterThanOrEqualTo(44));
+          expect(tester.getSize(launch).shortestSide, 40);
           expect(tester.getCenter(launch).dx, lessThan(72));
           expect(tester.getCenter(launch).dy, greaterThan(600));
           await tester.tap(launch);

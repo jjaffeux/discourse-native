@@ -452,6 +452,18 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     _measure();
     return LayoutBuilder(
       builder: (context, constraints) {
+        if (_widths['bare'] case final overflowWidth?
+            when constraints.maxWidth <
+                overflowWidth + (_widths['edges'] ?? 0)) {
+          return KeyedSubtree(
+            key: const ValueKey('topic-list-view-switch'),
+            child: _menu(
+              'more',
+              _views,
+              (trigger) => _overflow(0, trigger: trigger),
+            ),
+          );
+        }
         final room = math.min(
           constraints.maxWidth,
           DFitRow.availableWidthOf(context) ?? double.infinity,

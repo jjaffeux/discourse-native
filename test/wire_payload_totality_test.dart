@@ -44,14 +44,17 @@ import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/models/user_summary.dart';
 import 'package:discourse_native/src/plugin_api/notification_counters.dart';
+import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_data.dart';
 import 'package:discourse_native/src/plugins/assign/assign_group_data.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';
 import 'package:discourse_native/src/plugins/assign/assignment.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
+import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
+import 'package:discourse_native/src/plugins/chat/chat_message_blocks.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -65,19 +68,23 @@ import 'package:discourse_native/src/plugins/discourse_ai/ai_proofreading_data.d
 import 'package:discourse_native/src/plugins/discourse_ai/ai_summary.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/topic_calendar_data.dart';
+import 'package:discourse_native/src/plugins/discourse_math/math_settings.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
+import 'package:discourse_native/src/plugins/nested_replies/nested_replies_data.dart';
+import 'package:discourse_native/src/plugins/policy/policy_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
+import 'package:discourse_native/src/plugins/post_voting/post_voting_data.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_data.dart';
 import 'package:discourse_native/src/plugins/prometheus_alert_receiver/alert_links.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_settings.dart';
 import 'package:discourse_native/src/plugins/solved/solved_post.dart';
+import 'package:discourse_native/src/plugins/user_notes/user_notes_data.dart';
 import 'package:discourse_native/src/plugins/voice/voice_agents.dart';
-
 import 'package:discourse_native/src/plugins/voice/voice_models.dart';
 import 'package:discourse_native/src/plugins/voice/voice_reactions.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
@@ -391,6 +398,11 @@ void _recordCorpusShapes(Object? value, Set<String> reached) {
 /// Site parsers that refuse a payload with a [FormatException] on purpose,
 /// and why their callers want the throw rather than a default.
 const _rejectsOnPurpose = {
+  'PostVotingUser': 'A voter without an identity cannot be shown or targeted.',
+  'PostVotingComment':
+      'A malformed comment cannot be safely displayed or voted on.',
+  'UserNote':
+      'A note must identify its target account and creation time before display.',
   'ForumAbout':
       'The About endpoint requires an about object; its loader reports a failed response.',
   'AiConversationPage':
@@ -479,6 +491,269 @@ void main() {
       // row is dropped without: [valid] on even runs, so the parse reaches
       // past it, and [loose] on odd runs, so the parser meets garbage there.
       Object? gate(Object? valid) => run.isEven ? valid : loose;
+
+      probe(
+        'ChatBlock',
+        () => ChatBlock.parse(
+          gate([
+            withFields({'type': 'actions', 'elements': loose}),
+          ]),
+        ),
+        (blocks) => blocks.isNotEmpty,
+      );
+      probe(
+        'ChatBlockElement',
+        () => ChatBlockElement.parse(
+          gate([
+            withFields({'type': 'category', 'title': loose}),
+          ]),
+        ),
+        (elements) => elements.isNotEmpty,
+      );
+      probe(
+        'NestedRepliesSettings',
+        () => NestedRepliesSettings.fromJson(
+          withFields({
+            'nested_replies_enabled': gate(true),
+            'nested_replies_max_depth': loose,
+            'nested_replies_default_sort': loose,
+          }),
+        ),
+        (settings) => settings.enabled == true,
+      );
+      probe(
+        'NestedTopicData',
+        () => NestedTopicData.fromJson(
+          withFields({
+            'is_nested_view': gate(true),
+            'has_new_replies': loose,
+            'pinned_post_ids': loose,
+          }),
+        ),
+        (topic) => topic.enabled == true,
+      );
+      probe(
+        'NestedTopicData context',
+        () => NestedTopicData.fromContext(
+          withFields({'is_nested_view': gate(true), 'has_activity_log': loose}),
+          const TopicRecordDecodeContext.partial(),
+        ),
+        (topic) => topic.enabled == true,
+      );
+      probe(
+        'NestedPostData',
+        () => NestedPostData.fromJson(
+          withFields({
+            'reply_to_post_number': gate(7),
+            'direct_reply_count': loose,
+            'total_descendant_count': loose,
+            'avatar_color': loose,
+          }),
+        ),
+        (post) => post.replyToPostNumber == 7,
+      );
+      probe(
+        'PostVotingSettings',
+        () => PostVotingSettings.fromJson(
+          withFields({
+            'post_voting_enabled': gate(true),
+            'post_voting_comment_limit_per_post': loose,
+            'post_voting_comment_max_raw_length': loose,
+            'min_post_length': loose,
+          }),
+        ),
+        (settings) => settings.enabled == true,
+      );
+      probe(
+        'PostVotingCategoryData',
+        () => PostVotingCategoryData.fromJson(
+          withFields({
+            'create_as_post_voting_default': gate(true),
+            'only_post_voting_in_this_category': loose,
+            'custom_fields': loose,
+          }),
+        ),
+        (category) => category.defaultOn,
+      );
+      probe(
+        'PostVotingActor',
+        () => PostVotingActor.fromJson(
+          withFields({'can_flag_post_voting_comments': gate(true)}),
+        ),
+        (actor) => actor.canFlagComments,
+      );
+      probe(
+        'PostVotingUserScore',
+        () => PostVotingUserScore.fromJson(withFields({'vote_count': gate(7)})),
+        (score) => score?.receivedNetScore == 7,
+      );
+      probe(
+        'PostVotingUser',
+        () => PostVotingUser.fromJson(
+          withFields({'id': gate(7), 'username': gate('reader')}),
+        ),
+        (user) => user.id == 7,
+      );
+      probe(
+        'PostVotingTopicData',
+        () => PostVotingTopicData.fromContext(
+          withFields({
+            'is_post_voting': gate(true),
+            'is_nested_view': false,
+            'archetype': 'regular',
+            'post_voting_answer_count': loose,
+            'last_answerer': loose,
+          }),
+          const TopicRecordDecodeContext.partial(),
+        ),
+        (topic) => topic.enabled == true,
+      );
+      probe(
+        'PostVotingPostData',
+        () => PostVotingPostData.fromJson(
+          withFields({
+            'post_voting_vote_count': gate(7),
+            'post_voting_user_voted_direction': loose,
+            'comments_count': loose,
+            'comments': loose,
+          }),
+        ),
+        (post) => post.score == 7,
+      );
+      probe(
+        'PostVotingComment',
+        () => PostVotingComment.fromJson(
+          withFields({
+            'id': gate(7),
+            'post_id': gate(9),
+            'created_at': gate('2026-01-02T12:00:00Z'),
+            'raw': gate('comment'),
+            'cooked': gate('<p>comment</p>'),
+            'post_voting_vote_count': gate(1),
+            'available_flags': loose,
+            'url': gate('/p/9#post-voting-comment-7'),
+          }),
+          parentPostId: 9,
+        ),
+        (comment) => comment.id == 7,
+      );
+      probe(
+        'CakedaySettings',
+        () => CakedaySettings.read(
+          withFields({
+            'cakeday_enabled': gate(true),
+            'cakeday_emoji': loose,
+            'cakeday_birthday_emoji': loose,
+          }),
+        ),
+        (settings) => settings.enabled,
+      );
+      probe(
+        'CakedayDate',
+        () => CakedayDate.parse(gate('2020-02-29')),
+        (date) => date?.day == 29,
+      );
+      probe(
+        'CakedayBirthday',
+        () => CakedayBirthday.parse(gate('1904-02-29')),
+        (date) => date?.day == 29,
+      );
+      probe(
+        'CakedayDates',
+        () => CakedayDates.read(
+          withFields({'cakedate': gate('2020-02-29'), 'birthdate': loose}),
+        ),
+        (dates) => dates?.joined?.day == 29,
+      );
+      probe(
+        'MathSettings',
+        () => MathSettings.fromWire(
+          withFields({
+            'discourse_math_enabled': gate(true),
+            'discourse_math_provider': loose,
+            'discourse_math_mathjax_output': loose,
+          }),
+        ),
+        (settings) => settings.enabled,
+      );
+      probe(
+        'PolicySettings',
+        () =>
+            PolicySettings.fromWire(withFields({'policy_enabled': gate(true)})),
+        (settings) => settings?.enabled == true,
+      );
+      probe(
+        'PolicyCurrentUser',
+        () => PolicyCurrentUser.fromWire(
+          withFields({'can_create_policy': gate(true)}),
+        ),
+        (user) => user?.canCreate == true,
+      );
+      probe(
+        'PolicyPostData',
+        () => PolicyPostData.fromWire(
+          withFields({
+            'policy_can_accept': gate(true),
+            'policy_can_revoke': gate(true),
+            'policy_accepted': gate(false),
+            'policy_revoked': gate(false),
+            'policy_stats': gate(true),
+            'policy_accepted_by': loose,
+            'policy_not_accepted_by': loose,
+            'policy_accepted_by_count': loose,
+            'policy_not_accepted_by_count': loose,
+          }),
+          site,
+        ),
+        (post) => post?.canAccept == true,
+      );
+      probe(
+        'PolicyUserSummary',
+        () => PolicyUserSummary.fromWire(
+          gate(
+            withFields({
+              'id': gate(7),
+              'username': gate('reader'),
+              'avatar_template': gate('/avatar.png'),
+              'name': loose,
+            }),
+          ),
+        ),
+        (user) => user?.id == 7,
+      );
+      probe(
+        'UserNotesSettings',
+        () => UserNotesSettings.read(
+          withFields({
+            'user_notes_enabled': gate(true),
+            'max_post_length': loose,
+            'user_notes_icon_placement': loose,
+          }),
+        ),
+        (settings) => settings.enabled,
+      );
+      probe(
+        'UserNotesCount',
+        () => UserNotesCount.read(withFields({'user_notes_count': gate(7)})),
+        (count) => count?.value == 7,
+      );
+      probe(
+        'UserNote',
+        () => UserNote.read(
+          withFields({
+            'id': gate('note-7'),
+            'user_id': gate(9),
+            'raw': gate('note'),
+            'created_at': gate('2026-01-02T12:00:00Z'),
+            'created_by': loose,
+            'post_id': loose,
+            'post_url': loose,
+            'can_delete': loose,
+          }),
+          userId: 9,
+        ),
+        (note) => note.id == 'note-7',
+      );
 
       probe(
         'ForumAbout',
@@ -2785,6 +3060,8 @@ void main() {
       'DQuestionnaireSavedState',
       // The diagram renderer's own reply, posted by the page this app loads.
       '_MermaidImage',
+      // Math renderer menu entries are replies from the bundled local renderer.
+      '_MathMenuEntry',
     };
     // Private site parsers a test cannot call, each named with the probed
     // parser it hands the payload to once it has dispatched on the envelope.

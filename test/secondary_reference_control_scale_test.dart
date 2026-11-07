@@ -148,13 +148,23 @@ void main() {
                   of: heading,
                   matching: find.byWidgetPredicate(
                     (widget) =>
-                        widget is DSelect && widget.size == DControlSize.filter,
+                        widget is DSelect &&
+                            widget.size == DControlSize.filter ||
+                        screen == 'boards' &&
+                            widget is DButton &&
+                            widget.size == DControlSize.filter ||
+                        screen == 'calendar' &&
+                            widget is DToggle &&
+                            widget.size == DControlSize.segment,
                   ),
                 );
           expect(controls, findsWidgets);
           for (final control in controls.evaluate()) {
             final finder = find.byWidget(control.widget);
-            expect(tester.getSize(finder).height, height);
+            expect(
+              tester.getSize(finder).height,
+              screen == 'calendar' ? height - 4 : height,
+            );
             final text = find
                 .descendant(of: finder, matching: find.byType(Text))
                 .first;

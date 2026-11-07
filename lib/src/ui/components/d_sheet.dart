@@ -2562,11 +2562,13 @@ class DSheetContent extends StatelessWidget {
         (menu || resolved == DSheetSide.bottom) &&
         !card &&
         !fillAvailableHeight;
+    const handlePadding = EdgeInsets.only(top: 8, bottom: 10);
+    const handleHeight = 5.0;
     final handle = Center(
       child: DTouchTarget(
         child: DSheetDragRegion(
           child: Padding(
-            padding: const EdgeInsets.only(top: 8, bottom: 10),
+            padding: handlePadding,
             child: ExcludeSemantics(
               child: DecoratedBox(
                 key: const ValueKey('sheet-drag-handle'),
@@ -2581,7 +2583,7 @@ class DSheetContent extends StatelessWidget {
                   borderRadius: BorderRadius.circular(3),
                   boxShadow: const [],
                 ),
-                child: const SizedBox(width: 36, height: 5),
+                child: const SizedBox(width: 36, height: handleHeight),
               ),
             ),
           ),
@@ -2608,6 +2610,16 @@ class DSheetContent extends StatelessWidget {
       );
     }
     final parts = <Widget>[];
+    final first = children.firstOrNull;
+    if (menu &&
+        resolved == DSheetSide.bottom &&
+        !showCloseButton &&
+        first is DSheetHeader &&
+        first.children.isEmpty &&
+        first.leading == null &&
+        first.trailing == null) {
+      parts.add(SizedBox(height: handlePadding.vertical + handleHeight));
+    }
     for (var index = 0; index < children.length; index++) {
       final original = children[index];
       final child = !scaleContents || original is Spacer

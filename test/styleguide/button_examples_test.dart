@@ -16,7 +16,6 @@ void main() {
       'Mobile dock destinations',
       'Redesign button families',
       'Dashed creation tile',
-      'Launcher',
       'Resume card',
       'Pill toolbar action',
       'Recessed tab list',

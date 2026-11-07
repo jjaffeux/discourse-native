@@ -6,7 +6,7 @@ import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 
 final buttonGroupExamples = ComponentExamples(
-  topLevelExampleIndex: 12,
+  topLevelExampleIndex: 13,
   description:
       'A joined container for independent actions, fields, and passive text.',
   status: ComponentStatus.implemented,
@@ -920,18 +920,21 @@ class _InsetChoicesState extends State<_InsetChoices> {
   int _selected = 0;
 
   @override
-  Widget build(BuildContext context) => DButtonGroup.inset(
-    selectedIndex: _selected,
-    semanticLabel: 'Topic views',
-    children: [
-      for (final (index, label) in ['Latest', 'Unread', 'Top'].indexed)
-        DToggle(
-          size: DControlSize.segment,
-          variant: DToggleVariant.segmented,
-          pressed: index == _selected,
-          onPressedChanged: (_) => setState(() => _selected = index),
-          child: Text(label),
-        ),
-    ],
+  Widget build(BuildContext context) => SingleChildScrollView(
+    scrollDirection: Axis.horizontal,
+    child: DButtonGroup.inset(
+      selectedIndex: _selected,
+      semanticLabel: 'Topic views',
+      children: [
+        for (final (index, label) in ['Latest', 'Unread', 'Top'].indexed)
+          DToggle(
+            size: DControlSize.segment,
+            variant: DToggleVariant.segmented,
+            pressed: index == _selected,
+            onPressedChanged: (_) => setState(() => _selected = index),
+            child: Text(label),
+          ),
+      ],
+    ),
   );
 }

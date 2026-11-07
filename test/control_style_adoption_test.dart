@@ -60,7 +60,7 @@ void main() {
         // Category identity uses the same tint on both halves of the control.
         'lib/src/shell/topic_inbox_header.dart': {
           'foregroundColor': 2,
-          'backgroundColor': 2,
+          'backgroundColor': 3,
           'interactiveBackgroundColor': 2,
         },
         // Category dropdowns reuse the topic header's category identity tint.
@@ -72,7 +72,7 @@ void main() {
         },
         // A saved bookmark keeps the neutral outline and accents its artwork.
         'lib/src/shell/topic_actions.dart': {
-          'backgroundColor': 1,
+          'backgroundColor': 2,
           'foregroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
@@ -98,7 +98,7 @@ void main() {
         // and gallery actions use the same pill shape as the discard control.
         'lib/src/shell/composer/panel.dart': {
           'foregroundColor': 12,
-          'shape': 3,
+          'shape': 2,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
         },
@@ -122,7 +122,7 @@ void main() {
         },
         // The Chat drawer's search entry stands in for the shared search
         // field it opens, so its prompt keeps that field's muted hint color.
-        'lib/src/plugins/chat/chat_search_entry.dart': {'foregroundColor': 1},
+        'lib/src/plugins/chat/chat_inbox_section.dart': {'foregroundColor': 1},
         // Browse's Join/Joined row action is the mockup's pill.
         'lib/src/plugins/chat/chat_browse_channels_view.dart': {'shape': 1},
         // Chat's jump-to-latest action shares the floating stream chip palette.
@@ -133,6 +133,27 @@ void main() {
           'foregroundColor': 1,
           'borderColor': 1,
         },
+        // Nested replies reuse the stream's floating date-chip palette.
+        'lib/src/plugins/nested_replies/nested_replies_reader_view.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'foregroundColor': 1,
+          'borderColor': 1,
+        },
+        // Topic progress has the same floating stream chip identity.
+        'lib/src/shell/topic_progress.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'interactiveBackgroundColor': 1,
+          'foregroundColor': 1,
+          'borderColor': 1,
+        },
+        // Feed overflow and compact navigation retain their existing pill shape.
+        'lib/src/shell/topic_feed_menu.dart': {'shape': 2},
+        'lib/src/shell/content_navigation_controls.dart': {'shape': 1},
+        // Archive retains the recessed message-action surface.
+        'lib/src/shell/message_archive_button.dart': {'backgroundColor': 1},
         // Mobile user-card actions match the documented borderless pill row.
         // Chat uses the mockup's muted fill beside the primary Message action.
         'lib/src/shell/user_card.dart': {'shape': 2, 'borderColor': 2},
@@ -146,9 +167,6 @@ void main() {
           'shape': 1,
           'borderColor': 1,
         },
-        // Composer and sheet close actions share the existing pill shape.
-        'lib/src/shell/composer/header.dart': {'shape': 1},
-        'lib/src/plugin_api/composer_sheet_header.dart': {'shape': 1},
         // Message hover actions sit on the row's own hover fill.
         'lib/src/plugins/chat/chat_message_tile.dart': {
           'interactiveBackgroundColor': 2,
@@ -181,13 +199,6 @@ void main() {
         'lib/src/shell/topic_create_button.dart': {'shape': 1},
         // Inline taxonomy edit actions are the same pill as the tag chips.
         'lib/src/shell/topic_taxonomy_fields.dart': {'shape': 1},
-        // The tag overflow count is the mockup's bare muted button beside
-        // the tag pills: no fill of its own, the muted text, a pill to sit
-        // level with the chips.
-        'lib/src/shell/topic_header_tags.dart': {
-          'shape': 1,
-          'foregroundColor': 1,
-        },
         'lib/src/shell/composer/draft_tabs.dart': {'shape': 1},
         // Topic metadata actions retain the metadata row's text foreground.
         'lib/src/shell/topic_card_metadata.dart': {'foregroundColor': 2},

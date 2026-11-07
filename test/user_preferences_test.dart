@@ -1,7 +1,9 @@
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
+import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
+import 'package:discourse_native/src/plugins/policy/policy_preferences.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
@@ -138,6 +140,10 @@ void main() {
         canEdit: true,
         canChangeTrackingPreferences: true,
         pluginValues: {
+          'discourse-cakeday/birthday': CakedayPreferences.unavailable(),
+          'discourse-policy/emails': PolicyEmailPreferences(
+            PolicyEmailFrequency.never,
+          ),
           'chat/preferences': ChatUserPreferences(
             separateSidebarMode: ChatSeparateSidebarPreference.fullscreen,
           ),
@@ -166,7 +172,13 @@ void main() {
     expect(
       preferences,
       const UserPreferences(
-        pluginValues: {'chat/preferences': ChatUserPreferences()},
+        pluginValues: {
+          'discourse-cakeday/birthday': CakedayPreferences.unavailable(),
+          'discourse-policy/emails': PolicyEmailPreferences(
+            PolicyEmailFrequency.never,
+          ),
+          'chat/preferences': ChatUserPreferences(),
+        },
       ),
     );
   });
@@ -184,6 +196,10 @@ void main() {
       canEdit: true,
       canChangeTrackingPreferences: true,
       pluginValues: {
+        'discourse-cakeday/birthday': CakedayPreferences.unavailable(),
+        'discourse-policy/emails': PolicyEmailPreferences(
+          PolicyEmailFrequency.never,
+        ),
         'chat/preferences': ChatUserPreferences(
           separateSidebarMode: ChatSeparateSidebarPreference.always,
         ),

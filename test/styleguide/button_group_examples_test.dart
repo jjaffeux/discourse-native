@@ -10,6 +10,7 @@ void main() {
   test('registers every frozen documented composition', () {
     expect(componentExamples['button-group'], same(buttonGroupExamples));
     expect(buttonGroupExamples.examples.map((example) => example.title), [
+      'Inset choices with independent actions',
       'Composition and independent actions',
       'Orientation',
       'Separate post actions',
@@ -33,11 +34,16 @@ void main() {
     );
   });
 
-  for (var index = 0; index < buttonGroupExamples.examples.length; index++) {
-    testWidgets('example $index fits a narrow RTL large-text preview', (
+  for (final example in buttonGroupExamples.examples) {
+    testWidgets('${example.title} fits a narrow RTL large-text preview', (
       tester,
     ) async {
-      await _pump(tester, index, direction: TextDirection.rtl, textScale: 2);
+      await _pump(
+        tester,
+        example.title,
+        direction: TextDirection.rtl,
+        textScale: 2,
+      );
       expect(find.byType(DButtonGroup), findsWidgets);
       expect(tester.takeException(), isNull);
     });
@@ -56,7 +62,9 @@ void main() {
             home: Scaffold(
               body: Center(
                 child: Builder(
-                  builder: buttonGroupExamples.examples[6].builder,
+                  builder: buttonGroupExamples.examples
+                      .singleWhere((example) => example.title == 'Input')
+                      .builder,
                 ),
               ),
             ),
@@ -74,7 +82,7 @@ void main() {
   testWidgets('nested fixture spaces complete button and input groups', (
     tester,
   ) async {
-    await _pump(tester, 4);
+    await _pump(tester, 'Nested groups');
 
     expect(find.byType(DButtonGroup), findsNWidgets(3));
     expect(find.byType(DInputGroup), findsOneWidget);
@@ -97,7 +105,7 @@ void main() {
   testWidgets('dropdown trigger opens and remains an independent button', (
     tester,
   ) async {
-    await _pump(tester, 8);
+    await _pump(tester, 'Dropdown menu');
     await tester.tap(find.byTooltip('More follow actions'));
     await tester.pumpAndSettle();
     expect(find.text('Mute conversation'), findsOneWidget);
@@ -108,7 +116,7 @@ void main() {
   testWidgets('currency fixture updates without resetting amount editing', (
     tester,
   ) async {
-    await _pump(tester, 9);
+    await _pump(tester, 'Select composition');
     expect(find.byType(DSelect<String>), findsOneWidget);
     await tester.enterText(find.byType(TextField), '42.50');
     await tester.tap(find.text(r'$'));
@@ -122,7 +130,7 @@ void main() {
   testWidgets('input fixture matches the documented two-control composition', (
     tester,
   ) async {
-    await _pump(tester, 6);
+    await _pump(tester, 'Input');
 
     expect(find.byType(DField), findsNothing);
     expect(find.byType(DButtonGroupText), findsNothing);
@@ -146,7 +154,7 @@ void main() {
   testWidgets('input group fixture preserves editing and voice action state', (
     tester,
   ) async {
-    await _pump(tester, 7);
+    await _pump(tester, 'Input Group composition');
 
     expect(find.byType(DButtonGroup), findsNWidgets(3));
     final attachment = tester.getRect(find.byTooltip('Add attachment'));
@@ -168,7 +176,7 @@ void main() {
   testWidgets(
     'popover fixture uses the public overlay and restores its trigger',
     (tester) async {
-      await _pump(tester, 10);
+      await _pump(tester, 'Popover composition');
       final trigger = find.byTooltip('Open Copilot task form');
       await tester.tap(trigger);
       await tester.pumpAndSettle();
@@ -188,7 +196,7 @@ void main() {
 
 Future<void> _pump(
   WidgetTester tester,
-  int index, {
+  String title, {
   TextDirection direction = TextDirection.ltr,
   double textScale = 1,
 }) async {
@@ -205,7 +213,9 @@ Future<void> _pump(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(16),
               child: Builder(
-                builder: buttonGroupExamples.examples[index].builder,
+                builder: buttonGroupExamples.examples
+                    .singleWhere((example) => example.title == title)
+                    .builder,
               ),
             ),
           ),
