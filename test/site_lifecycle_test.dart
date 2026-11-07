@@ -58,6 +58,81 @@ void main() {
     expect(lateObserverRan, isTrue);
   });
 
+  test('retirement runs every observer before rethrowing a failure', () {
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture('https://forum.example');
+    final failure = StateError('retirement callback failed');
+    final originalStack = StackTrace.fromString('original retirement stack');
+    final calls = <int>[];
+    lease.onRetire(() => calls.add(1));
+    lease.onRetire(() {
+      calls.add(2);
+      Error.throwWithStackTrace(failure, originalStack);
+    });
+    lease.onRetire(() => calls.add(3));
+
+    Object? observed;
+    StackTrace? observedStack;
+    try {
+      lifecycle.invalidate('https://forum.example');
+    } catch (error, stack) {
+      observed = error;
+      observedStack = stack;
+    }
+    expect(calls, [1, 2, 3]);
+    expect(observed, same(failure));
+    expect(observedStack.toString(), originalStack.toString());
+    expect(lease.isCurrent, isFalse);
+    lifecycle.invalidate('https://forum.example');
+    expect(calls, [1, 2, 3]);
+  });
+
+  test(
+    'multiple retirement failures preserve the first error and its stack',
+    () {
+      final lifecycle = SiteLifecycle();
+      final lease = lifecycle.capture('https://forum.example');
+      final first = StateError('first');
+      final firstStack = StackTrace.fromString('first stack');
+      var cleanupRan = false;
+      lease.onRetire(() => Error.throwWithStackTrace(first, firstStack));
+      lease.onRetire(() => throw StateError('second'));
+      lease.onRetire(() => cleanupRan = true);
+
+      Object? observed;
+      StackTrace? observedStack;
+      try {
+        lifecycle.invalidate('https://forum.example');
+      } catch (error, stack) {
+        observed = error;
+        observedStack = stack;
+      }
+      expect(cleanupRan, isTrue);
+      expect(observed, same(first));
+      expect(observedStack.toString(), firstStack.toString());
+    },
+  );
+
+  test('failed retirement cleanup cannot remove a reentrant successor', () {
+    const site = 'https://forum.example';
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture(site);
+    late SiteLease successor;
+    final failure = StateError('old observer failed');
+    var lastRan = false;
+    lease.onRetire(() {
+      successor = lifecycle.capture(site);
+      throw failure;
+    });
+    lease.onRetire(() => lastRan = true);
+
+    expect(() => lifecycle.invalidate(site), throwsA(same(failure)));
+    expect(lastRan, isTrue);
+    expect(successor.isCurrent, isTrue);
+    expect(lifecycle.capture(site).session, same(successor.session));
+    expect(() => lease.onRetire(() => throw failure), throwsA(same(failure)));
+  });
+
   test('a retired lease keeps its own session identity', () {
     final lifecycle = SiteLifecycle();
     final first = lifecycle.capture('https://forum.example');

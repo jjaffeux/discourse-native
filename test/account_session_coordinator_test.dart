@@ -691,6 +691,41 @@ void main() {
     expect(fixture.events, contains('credential:revoke:$_oldKey'));
   });
 
+  test(
+    'a throwing retirement observer cannot skip host account cleanup',
+    () async {
+      final fixture = _Fixture();
+      final lease = fixture.lifecycle.capture(_siteUrl);
+      lease.onRetire(() => fixture.events.add('observer:first'));
+      lease.onRetire(() {
+        fixture.events.add('observer:failure');
+        throw StateError('broken extension cleanup');
+      });
+      lease.onRetire(() => fixture.events.add('observer:last'));
+
+      final result = await fixture.coordinator.connect(_siteUrl);
+
+      expect(result, isA<AccountConnectionFailed>());
+      expect(
+        fixture.events,
+        containsAllInOrder([
+          'observer:first',
+          'observer:failure',
+          'observer:last',
+          'lifecycle:clear',
+          'credential:revoke:$_newKey',
+        ]),
+      );
+      expect(
+        fixture.events.where((event) => event == 'lifecycle:clear'),
+        hasLength(1),
+      );
+      expect(lease.isCurrent, isFalse);
+      expect(fixture.current.user, _accountA);
+      fixture.expectPrivateStateIsCoherent();
+    },
+  );
+
   test('missing sites return without account effects', () async {
     final fixture = _Fixture();
 

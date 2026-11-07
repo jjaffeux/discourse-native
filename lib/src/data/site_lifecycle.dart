@@ -8,6 +8,8 @@ final class SiteLifecycle {
     return SiteLease._(session, () => _sessions[siteUrl]);
   }
 
+  /// Runs every retirement observer, then rethrows the first failure with its
+  /// original stack. A broken observer cannot skip another owner's cleanup.
   void invalidate(String siteUrl) {
     final session = _sessions.remove(siteUrl);
     session?.retire();
@@ -22,8 +24,16 @@ final class _SiteSession {
     retired = true;
     final observers = _observers.toList();
     _observers.clear();
+    (Object, StackTrace)? firstFailure;
     for (final observer in observers) {
-      observer();
+      try {
+        observer();
+      } catch (error, stackTrace) {
+        firstFailure ??= (error, stackTrace);
+      }
+    }
+    if (firstFailure case final failure?) {
+      Error.throwWithStackTrace(failure.$1, failure.$2);
     }
   }
 }

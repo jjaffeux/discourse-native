@@ -675,8 +675,11 @@ final class AccountSessionCoordinator {
 
   SiteLease? _rotate(String siteUrl, Object operation) {
     if (!_isCurrent(siteUrl, operation)) return null;
-    lifecycle.invalidate(siteUrl);
-    host.clearAccountSessionState(siteUrl);
+    try {
+      lifecycle.invalidate(siteUrl);
+    } finally {
+      host.clearAccountSessionState(siteUrl);
+    }
     final lease = lifecycle.capture(siteUrl);
     return _isCurrent(siteUrl, operation, lease) ? lease : null;
   }
