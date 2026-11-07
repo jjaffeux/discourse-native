@@ -72,7 +72,9 @@ DoNotDisturbDuration doNotDisturbDurationUntil(
 String doNotDisturbRemainingLabel(DateTime until, {DateTime? now}) {
   final remaining = until.difference(now ?? DateTime.now());
   if (remaining <= Duration.zero) return appL10n.relativeNow;
-  final minutes = (remaining.inSeconds / Duration.secondsPerMinute).ceil();
+  final minutes =
+      (remaining.inMicroseconds + Duration.microsecondsPerMinute - 1) ~/
+      Duration.microsecondsPerMinute;
   if (minutes >= Duration.minutesPerDay) {
     return appL10n.relativeDays((minutes / Duration.minutesPerDay).ceil());
   }
