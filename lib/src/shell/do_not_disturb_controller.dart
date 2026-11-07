@@ -141,12 +141,13 @@ final class DoNotDisturbController extends FrameSafeNotifier {
       if (apiKey == null) {
         return const WriteException(WriteFailure.forbidden).message;
       }
+      final dispatchedRevision = account.revision;
       final until = await auth.run(() => send(apiKey, auth.clientId));
       if (!isCurrent()) return null;
 
       confirmed = true;
       // Live changes received after dispatch outrank the response snapshot.
-      if (account.revision == revision) {
+      if (account.revision == dispatchedRevision) {
         _replaceUntil(account, _activeUntil(until), committed: true);
       }
       return null;

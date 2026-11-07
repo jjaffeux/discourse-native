@@ -452,6 +452,36 @@ void main() {
     expect(controller.acceptSnapshot(_siteUrl, null, isCurrent: true), isNull);
   });
 
+  test('a write supersedes a live update received before dispatch', () async {
+    final key = Completer<String?>();
+    final liveUntil = DateTime.utc(2030);
+    final writtenUntil = DateTime.utc(2040);
+    final api = _Api()..pauseResponse = writtenUntil;
+    final committed = <DateTime?>[];
+    final controller = _controller(
+      api,
+      credentials: _Credentials(keyGate: key),
+      onCommitted: (_, until) => committed.add(until),
+    );
+    addTearDown(controller.dispose);
+    addTearDown(() {
+      if (!key.isCompleted) key.complete('api-key');
+    });
+
+    final write = controller.pause(
+      _siteUrl,
+      DoNotDisturbOption.oneHour.duration,
+    );
+    expect(api.pauseDurations, isEmpty);
+    controller.applyMessage(_siteUrl, {'ends_at': liveUntil.toIso8601String()});
+    key.complete('api-key');
+
+    expect(await write, isNull);
+    expect(controller.stateFor(_siteUrl).until, writtenUntil);
+    expect(controller.stateFor(_siteUrl).saving, isFalse);
+    expect(committed, [liveUntil, writtenUntil]);
+  });
+
   test('a live update supersedes an older in-flight response', () async {
     final gate = Completer<void>();
     final api = _Api()
@@ -577,13 +607,14 @@ void main() {
 
 DoNotDisturbController _controller(
   _Api api, {
+  ApiCredentialReader? credentials,
   SiteLifecycle? lifecycle,
   DateTime Function()? clock,
   DoNotDisturbCommitted? onCommitted,
   void Function(String siteUrl)? onSnapshotInvalidated,
 }) => DoNotDisturbController(
   api: api,
-  credentials: _Credentials(),
+  credentials: credentials ?? _Credentials(),
   lifecycle: lifecycle ?? SiteLifecycle(),
   clock: clock,
   onCommitted: onCommitted ?? (_, _) {},
@@ -591,8 +622,13 @@ DoNotDisturbController _controller(
 );
 
 final class _Credentials implements ApiCredentialReader {
+  _Credentials({this.keyGate});
+
+  final Completer<String?>? keyGate;
+
   @override
-  Future<String?> apiKeyFor(String siteUrl) async => 'api-key';
+  Future<String?> apiKeyFor(String siteUrl) =>
+      keyGate?.future ?? Future.value('api-key');
 
   @override
   Future<String> clientId() async => 'client-id';
