@@ -189,6 +189,124 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets('IME Escape preserves an open editor on $platform', (
+      tester,
+    ) async {
+      final controller = DPopoverController();
+      final text = TextEditingController();
+      addTearDown(controller.dispose);
+      addTearDown(text.dispose);
+      final reasons = <DPopoverChangeReason>[];
+      var ancestorEscapes = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.escape): () {
+                  ancestorEscapes++;
+                },
+              },
+              child: DPopover(
+                controller: controller,
+                onOpenChange: (open, reason) {
+                  if (!open) reasons.add(reason);
+                },
+                content: DPopoverContent(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      DTextarea(
+                        key: const ValueKey('popover-ime-editor'),
+                        controller: text,
+                        autofocus: true,
+                      ),
+                      DPopoverClose(
+                        builder: (context, close) => DButton(
+                          label: const Text('Close composing editor'),
+                          onPressed: close,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                child: DPopoverTrigger(
+                  builder: (context, trigger) => DButton(
+                    label: const Text('Open composing editor'),
+                    onPressed: trigger.toggle,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open composing editor'));
+      await tester.pumpAndSettle();
+      final editor = find.byKey(const ValueKey('popover-ime-editor'));
+      final input = find.descendant(
+        of: editor,
+        matching: find.byType(EditableText),
+      );
+      Future<void> beginComposition() async {
+        await tester.showKeyboard(input);
+        tester.testTextInput.updateEditingValue(
+          const TextEditingValue(
+            text: '変更',
+            selection: TextSelection.collapsed(offset: 2),
+            composing: TextRange(start: 0, end: 2),
+          ),
+        );
+        await tester.pump();
+        expect(
+          tester.widget<EditableText>(input).focusNode.hasPrimaryFocus,
+          isTrue,
+        );
+        expect(text.value.composing, const TextRange(start: 0, end: 2));
+      }
+
+      await beginComposition();
+      expect(controller.isOpen, isTrue);
+
+      final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isTrue);
+      expect(editor, findsOneWidget);
+      expect(text.text, '変更');
+      expect(reasons, isEmpty);
+      expect(handled, isFalse);
+      expect(ancestorEscapes, 0);
+
+      tester.testTextInput.updateEditingValue(
+        text.value.copyWith(composing: const TextRange.collapsed(2)),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(reasons, [DPopoverChangeReason.escape]);
+
+      await tester.tap(find.text('Open composing editor'));
+      await tester.pumpAndSettle();
+      await beginComposition();
+      await tester.tap(find.text('Close composing editor'));
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(reasons.last, DPopoverChangeReason.closePress);
+
+      await tester.tap(find.text('Open composing editor'));
+      await tester.pumpAndSettle();
+      await beginComposition();
+      controller.close();
+      await tester.pumpAndSettle();
+      expect(controller.isOpen, isFalse);
+      expect(reasons.last, DPopoverChangeReason.imperative);
+      expect(ancestorEscapes, 0);
+    }, variant: TargetPlatformVariant.only(platform));
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     testWidgets('editor can consume Escape before dismissal on $platform', (
       tester,
