@@ -35,6 +35,77 @@ void main() {
   tearDown(() => controller.dispose());
 
   test(
+    'keeps paging older recipients after a mass award shifts a full page',
+    () async {
+      final initial = badgeGrantsWire(count: 200);
+      final initialInfo = initial['user_badge_info'] as Map<String, dynamic>;
+      var serverRows = (initialInfo['user_badges'] as List).reversed.toList();
+      transport.respond = (path) async {
+        if (path == '/badges/1.json') return {'badge': badgeWire};
+        final offset = int.parse(Uri.parse(path).queryParameters['offset']!);
+        return {
+          ...initial,
+          'user_badge_info': {
+            'user_badges': serverRows.skip(offset).take(96).toList(),
+          },
+        };
+      };
+      await controller.load(site, detail);
+      expect(controller.stateFor(site.url, detail).grants, hasLength(96));
+
+      // A scheduled award adds a page ahead of the already displayed grants.
+      final awarded = badgeGrantsWire(offset: 200, count: 96);
+      final awardedInfo = awarded['user_badge_info'] as Map<String, dynamic>;
+      serverRows = [
+        ...(awardedInfo['user_badges'] as List).reversed,
+        ...serverRows,
+      ];
+      await controller.load(site, detail, more: true);
+      final duplicatePage = controller.stateFor(site.url, detail);
+      expect(duplicatePage.grants, hasLength(96));
+      expect(duplicatePage.nextOffset, 192);
+      expect(duplicatePage.hasMore, isTrue);
+
+      await controller.load(site, detail, more: true);
+      expect(controller.stateFor(site.url, detail).grants, hasLength(192));
+      await controller.load(site, detail, more: true);
+      final finished = controller.stateFor(site.url, detail);
+      expect(finished.grants.map((grant) => grant.id), [
+        for (var id = 200; id > 0; id--) id,
+      ]);
+      expect(finished.nextOffset, 296);
+      expect(finished.hasMore, isFalse);
+      final requests = transport.requests.length;
+      await controller.load(site, detail, more: true);
+      expect(transport.requests, hasLength(requests));
+    },
+  );
+
+  for (final (boundary, count, total) in [
+    ('an empty page', 0, null),
+    ('a partial duplicate page', 2, null),
+    ('the reported total on a full duplicate page', 96, 192),
+  ]) {
+    test('recipient pagination stops at $boundary', () async {
+      transport.respond = (path) async {
+        if (path == '/badges/1.json') return {'badge': badgeWire};
+        final offset = int.parse(Uri.parse(path).queryParameters['offset']!);
+        return badgeGrantsWire(count: offset == 0 ? 96 : count, total: total);
+      };
+      await controller.load(site, detail);
+      expect(controller.stateFor(site.url, detail).hasMore, isTrue);
+      await controller.load(site, detail, more: true);
+      final finished = controller.stateFor(site.url, detail);
+      expect(finished.grants, hasLength(96));
+      expect(finished.nextOffset, 96 + count);
+      expect(finished.hasMore, isFalse);
+      final requests = transport.requests.length;
+      await controller.load(site, detail, more: true);
+      expect(transport.requests, hasLength(requests));
+    });
+  }
+
+  test(
     'public catalog uses only_listable and caches until refreshed',
     () async {
       await controller.load(site, directory);

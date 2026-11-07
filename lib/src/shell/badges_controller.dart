@@ -211,11 +211,9 @@ final class BadgesController extends FrameSafeNotifier {
         if (!current()) return;
         final rows = more ? [...held.grants] : <BadgeGrant>[];
         final seen = {for (final row in rows) row.id};
-        var added = 0;
         for (final row in page.grants) {
           if (seen.add(row.id)) {
             rows.add(row);
-            added++;
           }
         }
         final nextOffset = offset + page.rawCount;
@@ -225,7 +223,6 @@ final class BadgesController extends FrameSafeNotifier {
           nextOffset: nextOffset,
           hasMore:
               page.rawCount >= BadgesApi.pageSize &&
-              added > 0 &&
               (page.total == null || nextOffset < page.total!),
           loading: false,
           loadingMore: false,
