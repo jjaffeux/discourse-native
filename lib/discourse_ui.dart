@@ -114,6 +114,7 @@ export 'src/ui/components/d_slider.dart';
 export 'src/ui/components/d_spinner.dart';
 export 'src/ui/components/d_spoiler.dart';
 export 'src/ui/components/d_sticky.dart';
+export 'src/ui/components/d_swipe_hint.dart';
 export 'src/ui/components/d_switch.dart';
 export 'src/ui/components/d_table.dart';
 export 'src/ui/components/d_tabs.dart';

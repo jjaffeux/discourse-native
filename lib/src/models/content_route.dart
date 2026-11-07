@@ -286,11 +286,17 @@ class ContentRoute {
     icon: DIcons.layerGroup,
   );
 
-  factory ContentRoute.userActivity() => ContentRoute(
-    destination: const PageDestination(CorePage.activity),
-    title: appL10n.activity,
-    icon: DIcons.barsStaggered,
-  );
+  factory ContentRoute.userActivity({String? username, String? displayName}) =>
+      ContentRoute(
+        destination: PageDestination(
+          CorePage.activity,
+          activityUsername: username,
+        ),
+        title: username == null
+            ? appL10n.activity
+            : appL10n.personActivity(displayName ?? username),
+        icon: DIcons.barsStaggered,
+      );
 
   factory ContentRoute.messages({
     String? groupName,

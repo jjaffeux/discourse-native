@@ -75,9 +75,20 @@ final class ContentRouteCodec {
           return ContentRoute.topicList(TopicListMode.latest).destination;
         }
         final page = CorePage.values
-            .where((page) => page.key == id)
+            .where((page) => page.key == (json['page'] ?? id))
             .firstOrNull;
-        if (page != null) return PageDestination(page);
+        final username = json['activity_username'];
+        if (username != null &&
+            (page != CorePage.activity ||
+                username is! String ||
+                username.isEmpty ||
+                username.length > 100 ||
+                username.contains(RegExp(r'[\s/\x00-\x1f]')))) {
+          throw FormatException(appL10n.invalidContentRoute);
+        }
+        if (page != null) {
+          return PageDestination(page, activityUsername: username as String?);
+        }
       case 'extension' when !hasOther:
         return ExtensionDestination(id, sourcePath: feedPath);
     }
@@ -199,6 +210,13 @@ final class ContentRouteCodec {
       'topic_list_mode': mode.name,
     if (route.destination case MessagesDestination(:final mode))
       'message_mode': mode.name,
+    if (route.destination case PageDestination(
+      :final page,
+      activityUsername: final username?,
+    )) ...{
+      'page': page.key,
+      'activity_username': username,
+    },
     'id': route.id,
     'title': route.title,
     'icon': route.icon.name,

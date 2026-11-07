@@ -975,7 +975,7 @@ class _ContentViewport extends StatelessWidget {
       ),
       MessagesDestination() when !isConnected =>
         const _SignedOutMessagesState(),
-      PageDestination(:final page) =>
+      PageDestination(:final page, :final activityUsername) =>
         site == null
             ? fallback
             : switch (page) {
@@ -999,7 +999,12 @@ class _ContentViewport extends StatelessWidget {
                   pageKey: aboutPageKey,
                 ),
                 CorePage.preferences => PreferencesPage(siteUrl: site),
-                CorePage.activity => UserActivityView(siteUrl: site),
+                CorePage.activity => UserActivityView(
+                  key: ObjectKey(route),
+                  siteUrl: site,
+                  username: activityUsername,
+                  title: route.title,
+                ),
                 CorePage.users => UsersDirectoryHost(siteUrl: site),
                 CorePage.categories =>
                   categoryFeed == null

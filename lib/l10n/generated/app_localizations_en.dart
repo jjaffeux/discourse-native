@@ -9,6 +9,22 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
+  String get swipeUpToViewActivity => 'Swipe up to view activity';
+
+  @override
+  String get viewActivity => 'View activity';
+
+  @override
+  String activityLikedPost(String username) {
+    return 'Liked $username\'s post';
+  }
+
+  @override
+  String personActivity(String name) {
+    return '$name\'s activity';
+  }
+
+  @override
   String get nextSearchType => 'Next type';
 
   @override
@@ -6711,8 +6727,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get noActivityYet => 'No activity yet';
 
   @override
-  String get topicsYouCreateAndRepliesYouPostWillAppearHereLikes =>
-      'Topics you create and replies you post will appear here. Likes, bookmarks, reads, and drafts have their own lists.';
+  String get activityHistoryDescription =>
+      'Topics, replies, and liked posts appear here.';
 
   @override
   String get loadingMoreActivity => 'Loading more activity';

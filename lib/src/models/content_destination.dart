@@ -38,7 +38,12 @@ sealed class ContentDestination {
       route.badgeId,
       route.username,
     ),
-    PageDestination(:final page) => (PageDestination, key, page),
+    PageDestination(:final page, :final activityUsername) => (
+      PageDestination,
+      key,
+      page,
+      activityUsername,
+    ),
     ExtensionDestination() => (ExtensionDestination, key, feedPath),
   };
 
@@ -166,10 +171,14 @@ enum CorePage {
 }
 
 final class PageDestination extends ContentDestination {
-  const PageDestination(this.page);
+  const PageDestination(this.page, {this.activityUsername})
+    : assert(activityUsername == null || page == CorePage.activity);
   final CorePage page;
+  final String? activityUsername;
   @override
-  String get key => page.key;
+  String get key => activityUsername == null
+      ? page.key
+      : '${page.key}-user-${activityUsername!.toLowerCase()}';
 }
 
 /// Opaque plugin identity. The plugin capability owns parsing and authorization.

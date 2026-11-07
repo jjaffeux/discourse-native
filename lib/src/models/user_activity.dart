@@ -23,6 +23,7 @@ class UserActivityItem {
     this.hidden = false,
   });
 
+  static const int likeActionType = 1;
   static const int topicActionType = 4;
   static const int replyActionType = 5;
 
@@ -67,13 +68,18 @@ class UserActivityItem {
 
   String get plainExcerpt => jsonHtmlText(excerpt) ?? '';
 
+  bool get isLike => actionType == likeActionType;
+
   bool get isTopic => actionType == topicActionType;
   bool get isReply => actionType == replyActionType;
 
   bool get isUsable =>
-      (isTopic || isReply) && topicId > 0 && postNumber > 0 && title.isNotEmpty;
+      (isTopic || isReply || isLike) &&
+      topicId > 0 &&
+      postNumber > 0 &&
+      title.isNotEmpty;
 
-  String get identity => '$topicId/$postNumber';
+  String get identity => '$topicId/$postNumber${isLike ? '/like' : ''}';
 }
 
 @immutable

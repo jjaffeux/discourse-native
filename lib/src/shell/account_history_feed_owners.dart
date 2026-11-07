@@ -193,8 +193,10 @@ final class UserActivityOwner extends FrameSafeNotifier {
     required this.credentials,
     required this.lifecycle,
     required this.changed,
+    this.username,
   });
 
+  final String? username;
   final AccountActivityApi api;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
@@ -269,7 +271,7 @@ final class UserActivityOwner extends FrameSafeNotifier {
     required int limit,
   }) async {
     final siteUrl = instance.url;
-    final username = instance.user?.username;
+    final username = this.username ?? instance.user?.username;
     if (username == null) return;
 
     void fail(String message) {

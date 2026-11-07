@@ -19,17 +19,20 @@ enum _AccountActivityRequest {
   bookmarkList,
   userActivity;
 
-  Future<void> load(ShellController controller, String siteUrl) =>
-      switch (this) {
-        notifications => controller.loadNotifications(siteUrl),
-        replyNotifications => controller.loadReplyNotifications(siteUrl),
-        likeNotifications => controller.loadLikeNotifications(siteUrl),
-        messageNotifications => controller.loadMessageNotifications(siteUrl),
-        otherNotifications => controller.loadOtherNotifications(siteUrl),
-        bookmarks => controller.loadBookmarks(siteUrl),
-        bookmarkList => controller.loadBookmarkList(siteUrl),
-        userActivity => controller.loadUserActivity(siteUrl),
-      };
+  Future<void> load(
+    ShellController controller,
+    String siteUrl, {
+    String? username,
+  }) => switch (this) {
+    notifications => controller.loadNotifications(siteUrl),
+    replyNotifications => controller.loadReplyNotifications(siteUrl),
+    likeNotifications => controller.loadLikeNotifications(siteUrl),
+    messageNotifications => controller.loadMessageNotifications(siteUrl),
+    otherNotifications => controller.loadOtherNotifications(siteUrl),
+    bookmarks => controller.loadBookmarks(siteUrl),
+    bookmarkList => controller.loadBookmarkList(siteUrl),
+    userActivity => controller.loadUserActivity(siteUrl, username: username),
+  };
 }
 
 class AccountActivityLoader extends StatelessWidget {
@@ -37,51 +40,60 @@ class AccountActivityLoader extends StatelessWidget {
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.notifications;
+  }) : username = null,
+       _request = _AccountActivityRequest.notifications;
 
   const AccountActivityLoader.bookmarks({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.bookmarks;
+  }) : username = null,
+       _request = _AccountActivityRequest.bookmarks;
 
   const AccountActivityLoader.bookmarkList({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.bookmarkList;
+  }) : username = null,
+       _request = _AccountActivityRequest.bookmarkList;
 
   const AccountActivityLoader.replyNotifications({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.replyNotifications;
+  }) : username = null,
+       _request = _AccountActivityRequest.replyNotifications;
 
   const AccountActivityLoader.likeNotifications({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.likeNotifications;
+  }) : username = null,
+       _request = _AccountActivityRequest.likeNotifications;
 
   const AccountActivityLoader.messageNotifications({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.messageNotifications;
+  }) : username = null,
+       _request = _AccountActivityRequest.messageNotifications;
 
   const AccountActivityLoader.otherNotifications({
     super.key,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.otherNotifications;
+  }) : username = null,
+       _request = _AccountActivityRequest.otherNotifications;
 
   const AccountActivityLoader.userActivity({
     super.key,
+    this.username,
     required this.siteUrl,
     required this.builder,
   }) : _request = _AccountActivityRequest.userActivity;
 
   final String siteUrl;
+  final String? username;
   final AccountActivityBuilder builder;
   final _AccountActivityRequest _request;
 
@@ -101,6 +113,7 @@ class AccountActivityLoader extends StatelessWidget {
           session: shell.session,
           siteUrl: siteUrl,
           request: _request,
+          username: username,
           child: builder(context, shell.controller),
         ),
       );
@@ -109,6 +122,7 @@ class AccountActivityLoader extends StatelessWidget {
 typedef _RequestIdentity = ({
   ShellController controller,
   String siteUrl,
+  String? username,
   _AccountActivityRequest request,
   Object session,
 });
@@ -120,6 +134,7 @@ class _AccountActivityRequestView extends StatefulWidget {
     required this.session,
     required this.siteUrl,
     required this.request,
+    required this.username,
     required this.child,
   });
 
@@ -127,6 +142,7 @@ class _AccountActivityRequestView extends StatefulWidget {
   final bool controllerLoaded;
   final Object session;
   final String siteUrl;
+  final String? username;
   final _AccountActivityRequest request;
   final Widget child;
 
@@ -153,6 +169,7 @@ class _AccountActivityRequestViewState
     if (!identical(oldWidget.controller, widget.controller) ||
         oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.request != widget.request ||
+        oldWidget.username != widget.username ||
         oldWidget.session != widget.session ||
         (!oldWidget.controllerLoaded && widget.controllerLoaded)) {
       _request();
@@ -164,6 +181,7 @@ class _AccountActivityRequestViewState
     final identity = (
       controller: widget.controller,
       siteUrl: widget.siteUrl,
+      username: widget.username,
       request: widget.request,
       session: lease.session,
     );
@@ -184,7 +202,11 @@ class _AccountActivityRequestViewState
         return;
       }
       _loadedRequestIdentity = identity;
-      await identity.request.load(identity.controller, identity.siteUrl);
+      await identity.request.load(
+        identity.controller,
+        identity.siteUrl,
+        username: identity.username,
+      );
     } catch (_) {
       return;
     } finally {

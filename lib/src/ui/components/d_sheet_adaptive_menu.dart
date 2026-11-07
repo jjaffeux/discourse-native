@@ -276,6 +276,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.sizeToContent,
     required this.initiallyExpanded,
     required this.contentLoading,
+    this.restAt,
     this.onDismissRequested,
   });
 
@@ -285,6 +286,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final bool sizeToContent;
   final bool initiallyExpanded;
   final bool contentLoading;
+  final GlobalKey? restAt;
   final VoidCallback? onDismissRequested;
 
   @override
@@ -308,6 +310,66 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     vsync: this,
   );
   _DSheetKeyboardFrame? _nativeKeyboardFrame;
+  late final _peekClock = AnimationController(
+    vsync: this,
+    duration: DSwipeHint.hold,
+  );
+  Timer? _peekNext;
+  bool _peekTaken = false;
+  bool _peeking = false;
+
+  void _cancelPeek() {
+    _peekTaken = true;
+    _peekNext?.cancel();
+    if (_peeking) {
+      _peeking = false;
+      _travel.stop();
+      _peekClock.stop();
+    }
+  }
+
+  void _schedulePeek() {
+    if (widget.restAt == null ||
+        _peekTaken ||
+        widget.contentLoading ||
+        _low <= 0) {
+      return;
+    }
+    _peekTaken = true;
+    _peekNext = Timer(const Duration(milliseconds: 700), () {
+      if (!mounted || _interacted || (_travel.value - _low).abs() > 1) return;
+      _peeking = true;
+      final target = math.max(0.0, _low - 40);
+      if (_animate) {
+        unawaited(
+          _travel.animateTo(
+            target,
+            duration: const Duration(milliseconds: 460),
+            curve: const Cubic(.3, 1.36, .5, 1),
+          ),
+        );
+        _peekClock.forward(from: 0);
+      } else {
+        _travel.value = target;
+      }
+      _peekNext = Timer(DSwipeHint.hold, () {
+        if (!mounted || !_peeking) return;
+        _peeking = false;
+        if (_animate) {
+          unawaited(
+            _travel.animateTo(
+              _low,
+              duration: const Duration(milliseconds: 460),
+              curve: const Cubic(.3, 1.36, .5, 1),
+            ),
+          );
+        } else {
+          _travel.value = _low;
+        }
+      });
+    });
+  }
+
   double _low = 0;
   double _fixedLow = 0;
   double _room = 0;
@@ -327,6 +389,32 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   bool _keyboardMetricsStable = false;
   Timer? _keyboardMinimum;
   Timer? _keyboardStability;
+  Timer? _wheelEnd;
+
+  late final _restScroll = _DSheetRestScrollController(this);
+
+  double _wheelDelta(double delta) {
+    if (widget.restAt == null || _exit.geometry != null) return delta;
+    _cancelPeek();
+    _interacted = true;
+    if (_travel.value <= 0 && (delta >= 0 || _restScroll.position.pixels > 0)) {
+      return delta;
+    }
+    if (!_dragging) _start();
+    final before = _travel.value;
+    _update(-delta);
+    _wheelEnd?.cancel();
+    _wheelEnd = Timer(const Duration(milliseconds: 140), () {
+      if (delta > 0 && _travel.value <= _low) {
+        _dragging = false;
+        _settle(0);
+      } else {
+        _finish(0);
+      }
+    });
+    return delta + _travel.value - before;
+  }
+
   int? _pointer;
   VelocityTracker? _velocity;
   double _startOffset = 0;
@@ -548,7 +636,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _completeExpansion() {
-    if (_fullyExpanded) return;
+    if (_fullyExpanded || widget.restAt != null) return;
     setState(() {
       _fullyExpanded = true;
       _low = 0;
@@ -577,18 +665,34 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     if (box is! RenderBox || !box.hasSize) return;
     final tall = box.size.height;
     final half = _room * .55;
-    final low = _fullyExpanded || _keyboard > 0
+    var low = _fullyExpanded || _keyboard > 0
         ? 0.0
         : !widget.sizeToContent
         ? _fixedLow
         : tall > half + 60
         ? tall - half
         : 0.0;
+    final rest = widget.restAt?.currentContext;
+    final restBox = rest?.findRenderObject();
+    if (restBox is RenderBox &&
+        restBox.hasSize &&
+        _keyboard == 0 &&
+        !_fullyExpanded) {
+      final bottom = restBox
+          .localToGlobal(Offset(0, restBox.size.height), ancestor: box)
+          .dy;
+      final scrolled = Scrollable.maybeOf(rest!)?.position.pixels ?? 0;
+      low = math.max(
+        0.0,
+        (tall - bottom - scrolled - _safeBottom - 6).floorToDouble(),
+      );
+    }
     final wasLow = _low;
     _low = low;
-    if (!_measured || (!_interacted && (wasLow - low).abs() > 1)) {
+    if (!_measured || (!_interacted && !_peeking && (wasLow - low).abs() > 1)) {
       _measured = true;
       _travel.value = low;
+      if (restBox is RenderBox) _schedulePeek();
       setState(() {});
       // The first offstage layout establishes the detent. Let the visible
       // viewport and its scroll metrics settle before deciding it is short.
@@ -644,6 +748,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   void _start() {
     if (_exit.geometry != null) return;
+    _cancelPeek();
     _interacted = true;
     _dragging = true;
     _startOffset = _travel.value;
@@ -671,8 +776,9 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       return delta;
     }
     if (_expansionGesture) {
+      final before = _travel.value;
       _update(delta);
-      return 0;
+      return widget.restAt == null ? 0 : delta - (_travel.value - before);
     }
     if (_travel.value <= 0 &&
         !(delta > 0 && metrics.pixels <= metrics.minScrollExtent)) {
@@ -683,10 +789,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     _expansionGesture = delta < 0 && _startOffset > 1;
     final before = _travel.value;
     _update(delta);
-    return _expansionGesture ? 0 : delta - (_travel.value - before);
+    return _expansionGesture && widget.restAt == null
+        ? 0
+        : delta - (_travel.value - before);
   }
 
-  bool _stopScrollMomentum() => _expansionGesture;
+  bool _stopScrollMomentum() => _expansionGesture && widget.restAt == null;
 
   void _settle(double to) {
     if (_animate) {
@@ -698,6 +806,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _toggle() {
+    _cancelPeek();
     _interacted = true;
     _settle(_travel.value > 1 ? 0 : _low);
   }
@@ -711,6 +820,18 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       return;
     }
     final pulled = _travel.value - _startOffset;
+    if (widget.restAt != null) {
+      final ahead = _travel.value + velocity * .18;
+      final fromLow = _low <= 0 || _startOffset > _low / 2;
+      if (fromLow && pulled > 60 && (velocity > 500 || ahead > _low + 60)) {
+        _dismiss(velocity);
+      } else if (fromLow) {
+        _settle(pulled < -60 || velocity < -500 ? 0 : _low);
+      } else {
+        _settle(pulled > 60 || velocity > 500 ? _low : 0);
+      }
+      return;
+    }
     if (_expansionGesture && pulled < 0) {
       _settle(0);
       return;
@@ -793,6 +914,8 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
   }
 
   void _down(PointerDownEvent event) {
+    _cancelPeek();
+    _interacted = true;
     if (_pointer != null || event.kind != PointerDeviceKind.touch) return;
     _pointer = event.pointer;
     // A gesture that raises the sheet owns all of its motion, including the
@@ -825,6 +948,10 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   @override
   void dispose() {
+    _wheelEnd?.cancel();
+    _restScroll.dispose();
+    _peekNext?.cancel();
+    _peekClock.dispose();
     _exit.detach();
     _travel.dispose();
     _keyboardPlacement.dispose();
@@ -1003,4 +1130,35 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       },
     );
   }
+}
+
+class _DSheetRestScrollController extends ScrollController {
+  _DSheetRestScrollController(this.menu);
+  final _DSheetAdaptiveMenuState menu;
+
+  @override
+  ScrollPosition createScrollPosition(
+    ScrollPhysics physics,
+    ScrollContext context,
+    ScrollPosition? oldPosition,
+  ) => _DSheetRestScrollPosition(
+    menu,
+    physics: physics,
+    context: context,
+    oldPosition: oldPosition,
+  );
+}
+
+class _DSheetRestScrollPosition extends ScrollPositionWithSingleContext {
+  _DSheetRestScrollPosition(
+    this.menu, {
+    required super.physics,
+    required super.context,
+    super.oldPosition,
+  });
+  final _DSheetAdaptiveMenuState menu;
+
+  @override
+  void pointerScroll(double delta) =>
+      super.pointerScroll(menu._wheelDelta(delta));
 }

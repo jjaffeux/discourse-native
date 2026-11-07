@@ -141,7 +141,7 @@ AccountActivityController _controller(
       expect(request.method, 'GET');
       expect(request.url.path, '/user_actions.json');
       expect(request.url.queryParameters['username'], 'sam');
-      expect(request.url.queryParameters['filter'], '4,5');
+      expect(request.url.queryParameters['filter'], '4,5,1');
       expect(request.url.queryParameters['limit'], '30');
       expect(request.headers['User-Api-Key'], 'key');
       final offset = int.parse(request.url.queryParameters['offset']!);

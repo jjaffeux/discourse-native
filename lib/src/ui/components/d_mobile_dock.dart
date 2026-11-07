@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' as ui show Gradient;
 import 'dart:ui' show lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
@@ -20,6 +19,7 @@ import 'd_mobile_dock_growth.dart';
 import 'd_mobile_dock_item.dart';
 import 'd_mobile_dock_reorder.dart';
 import 'd_scroll_chrome.dart';
+import 'd_swipe_hint.dart';
 
 /// One of a phone's places, as the bar shows it in its row and as the panel
 /// the bar grows into shows it as a tile.
@@ -272,9 +272,9 @@ class DMobileDock extends StatefulWidget {
   /// two passes of its hint's [peekShine] after [peekShineDelay] and a
   /// moment more, and is over once it is back down on the same spring.
   static const peekAfter = Duration(milliseconds: 900);
-  static const peekShineDelay = Duration(milliseconds: 300);
-  static const peekShine = Duration(milliseconds: 1600);
-  static const peekFor = Duration(milliseconds: 300 + 2 * 1600 + 200);
+  static const peekShineDelay = DSwipeHint.shineDelay;
+  static const peekShine = DSwipeHint.shine;
+  static const peekFor = DSwipeHint.hold;
 
   @override
   State<DMobileDock> createState() => _DMobileDockState();
@@ -610,7 +610,10 @@ class _DMobileDockState extends State<DMobileDock>
     _peekLift.value = 0;
     _peekClock.value = 0;
     setState(() => _peek = _Peek.down);
-    _peekNext = Timer(reduced ? Duration.zero : _PeekHint.goneAfter, _peekOver);
+    _peekNext = Timer(
+      reduced ? Duration.zero : DSwipeHint.goneAfter,
+      _peekOver,
+    );
     return lift / math.max(1.0, travel);
   }
 
@@ -1111,7 +1114,13 @@ class _DMobileDockState extends State<DMobileDock>
       right: 0,
       bottom: geometry.foot / 2,
       height: geometry.peekUnder + geometry.peek - geometry.foot / 2,
-      child: _PeekHint(key: _hintKey, up: _peek == _Peek.up, clock: _peekClock),
+      child: DSwipeHint(
+        key: _hintKey,
+        label: context.l10n.swipeUpForMore,
+        animateEntrance: true,
+        up: _peek == _Peek.up,
+        clock: _peekClock,
+      ),
     );
   }
 
@@ -2000,128 +2009,6 @@ class _Grabber extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// What the bar says as it peeks: faded in and risen a little once [up],
-/// faded and lowered with no wait as it goes, with a light passing over its
-/// text on [clock], the time since the bar went up. A reader is not told
-/// it: it says in words what the bar's lift shows.
-class _PeekHint extends StatelessWidget {
-  const _PeekHint({super.key, required this.up, required this.clock});
-
-  final bool up;
-  final Animation<double> clock;
-
-  /// In after [delay], fading over [fade] and rising [rise] over [risen];
-  /// out with no wait, over the same.
-  static const delay = 150;
-  static const fade = 200;
-  static const risen = 300;
-  static const rise = 6.0;
-
-  /// Gone, faded and lowered, this long after it starts to go.
-  static const goneAfter = Duration(milliseconds: risen);
-
-  /// The light: a band at [angle] degrees, muted at its ends and strong at
-  /// its middle, over a gradient three times the text's width, slid from
-  /// the gradient's end over the text to its start once a pass.
-  static const angle = 100.0;
-  static const stops = [.34, .5, .66];
-
-  @override
-  Widget build(BuildContext context) {
-    final tokens = DTokens.of(context);
-    final reduced = MediaQuery.disableAnimationsOf(context);
-    Duration over(int milliseconds) => reduced
-        ? Duration.zero
-        : Duration(milliseconds: up ? delay + milliseconds : milliseconds);
-    Curve eased(int milliseconds) => up
-        ? Interval(delay / (delay + milliseconds), 1, curve: Curves.ease)
-        : Curves.ease;
-    final rtl = Directionality.of(context) == TextDirection.rtl;
-    final text = Text(
-      context.l10n.swipeUpForMore,
-      maxLines: 1,
-      softWrap: false,
-      style: TextStyle(
-        fontSize: DiscourseTypography.control,
-        fontWeight: FontWeight.w500,
-        color: tokens.mutedForeground,
-      ),
-    );
-    return ExcludeSemantics(
-      child: IgnorePointer(
-        child: TweenAnimationBuilder<double>(
-          tween: Tween(begin: 0, end: up ? 1 : 0),
-          duration: over(fade),
-          curve: eased(fade),
-          builder: (context, opacity, child) =>
-              Opacity(opacity: opacity, child: child),
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: rise, end: up ? 0 : rise),
-            duration: over(risen),
-            curve: eased(risen),
-            builder: (context, y, child) =>
-                Transform.translate(offset: Offset(0, y), child: child),
-            child: Center(
-              child: AnimatedBuilder(
-                animation: clock,
-                builder: (context, child) => ShaderMask(
-                  blendMode: BlendMode.srcIn,
-                  shaderCallback: (bounds) => _light(
-                    bounds,
-                    pass: _pass(clock.value),
-                    muted: tokens.mutedForeground,
-                    strong: tokens.foreground,
-                    rtl: rtl,
-                  ),
-                  child: child,
-                ),
-                child: text,
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// How far through its pass the light is, [time] through the hold: none
-  /// before the first pass begins.
-  static double _pass(double time) {
-    final elapsed = time * DMobileDock.peekFor.inMilliseconds;
-    final wait = DMobileDock.peekShineDelay.inMilliseconds;
-    final pass = DMobileDock.peekShine.inMilliseconds;
-    return elapsed < wait ? 0 : (elapsed - wait) % pass / pass;
-  }
-
-  /// The gradient over [bounds], the text, [pass] through a pass: three of
-  /// its widths across, from two widths before its start at the beginning
-  /// of a pass to level with it at the end, at [angle] as a page's gradient
-  /// is drawn, and the other way across for a right-to-left reader.
-  static Shader _light(
-    Rect bounds, {
-    required double pass,
-    required Color muted,
-    required Color strong,
-    required bool rtl,
-  }) {
-    final width = bounds.width;
-    final height = bounds.height;
-    final centre = Offset(-2 * width * (1 - pass) + 1.5 * width, height / 2);
-    const radians = angle * math.pi / 180;
-    final along = Offset(math.sin(radians), -math.cos(radians));
-    final length =
-        3 * width * math.sin(radians).abs() + height * math.cos(radians).abs();
-    Offset placed(Offset at) =>
-        bounds.topLeft + (rtl ? Offset(width - at.dx, at.dy) : at);
-    return ui.Gradient.linear(
-      placed(centre - along * (length / 2)),
-      placed(centre + along * (length / 2)),
-      [muted, strong, muted],
-      stops,
     );
   }
 }

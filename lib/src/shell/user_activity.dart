@@ -11,6 +11,7 @@ import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
 import '../theme/d_icons.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
@@ -22,26 +23,56 @@ import 'skeleton_fill.dart';
 import 'topic_title.dart';
 
 class UserActivityView extends StatelessWidget {
-  const UserActivityView({super.key, required this.siteUrl});
+  const UserActivityView({
+    super.key,
+    required this.siteUrl,
+    this.username,
+    this.title,
+    this.embedded = false,
+    this.onOpen,
+  });
 
   final String siteUrl;
+  final String? username;
+  final String? title;
+  final bool embedded;
+  final ValueChanged<UserActivityItem>? onOpen;
 
   @override
   Widget build(BuildContext context) => AccountActivityLoader.userActivity(
     siteUrl: siteUrl,
+    username: username,
     builder: (context, controller) => ListenableBuilder(
       listenable: controller.accountActivity.userActivityListenable,
-      builder: (context, _) =>
-          _UserActivityBody(controller: controller, siteUrl: siteUrl),
+      builder: (context, _) => _UserActivityBody(
+        controller: controller,
+        siteUrl: siteUrl,
+        username: username,
+        title: title,
+        embedded: embedded,
+        onOpen: onOpen,
+      ),
     ),
   );
 }
 
 class _UserActivityBody extends StatelessWidget {
-  const _UserActivityBody({required this.controller, required this.siteUrl});
+  const _UserActivityBody({
+    required this.controller,
+    required this.siteUrl,
+    required this.username,
+    required this.title,
+    required this.embedded,
+    required this.onOpen,
+  });
 
   final ShellController controller;
   final String siteUrl;
+  final String? username;
+  final String? title;
+  final bool embedded;
+  final ValueChanged<UserActivityItem>? onOpen;
+  String get pageTitle => title ?? appL10n.activity;
 
   DiscourseInstance? get _instance => controller.instances
       .where((instance) => instance.url == siteUrl)
@@ -52,6 +83,7 @@ class _UserActivityBody extends StatelessWidget {
     if (instance != null) {
       await controller.accountActivity.loadUserActivity(
         instance,
+        username: username,
         refresh: true,
       );
     }
@@ -62,6 +94,7 @@ class _UserActivityBody extends StatelessWidget {
     if (instance != null) {
       await controller.accountActivity.loadUserActivity(
         instance,
+        username: username,
         loadMore: true,
       );
     }
@@ -72,6 +105,7 @@ class _UserActivityBody extends StatelessWidget {
     if (instance != null) {
       await controller.accountActivity.loadUserActivity(
         instance,
+        username: username,
         loadPrevious: true,
       );
     }
@@ -81,8 +115,14 @@ class _UserActivityBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final instance = _instance;
     if (instance?.isConnected != true) {
+      if (embedded) {
+        return Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(context.l10n.connectThisAccountToSeeItsActivity),
+        );
+      }
       return DPageSurface.headed(
-        title: Text(context.l10n.activity),
+        title: Text(pageTitle),
         child: _ActivityState(
           icon: DIcons.list,
           title: context.l10n.connectThisAccountToSeeItsActivity,
@@ -90,14 +130,18 @@ class _UserActivityBody extends StatelessWidget {
       );
     }
 
-    final feed = controller.accountActivity.userActivityFor(siteUrl);
+    final feed = controller.accountActivity.userActivityFor(
+      siteUrl,
+      username: username,
+    );
     final body = _body(feed);
     return body is _ActivityList
         ? body
-        : DPageSurface.headed(title: Text(context.l10n.activity), child: body);
+        : DPageSurface.headed(title: Text(pageTitle), child: body);
   }
 
   Widget _body(UserActivityFeed feed) {
+    if (embedded) return _list(feed);
     if (feed.error case final error?
         when feed.items.isEmpty && !feed.hasPrevious) {
       return _ActivityState(
@@ -114,27 +158,41 @@ class _UserActivityBody extends StatelessWidget {
       return _ActivityState(
         icon: DIcons.list,
         title: appL10n.noActivityYet,
-        body: appL10n.topicsYouCreateAndRepliesYouPostWillAppearHereLikes,
+        body: appL10n.activityHistoryDescription,
       );
     }
 
-    return _ActivityList(
-      siteUrl: siteUrl,
-      session: controller.lifecycle.capture(siteUrl).session,
-      feed: feed,
-      onRefresh: _refresh,
-      onLoadMore: _loadMore,
-      onLoadPrevious: _loadPrevious,
-      onOpen: controller.openUserActivityItem,
-    );
+    return _list(feed);
   }
+
+  Widget _list(UserActivityFeed feed) => _ActivityList(
+    key: ValueKey((
+      siteUrl,
+      username,
+      controller.lifecycle.capture(siteUrl).session,
+    )),
+    siteUrl: siteUrl,
+    title: pageTitle,
+    embedded: embedded,
+    username: username,
+    session: controller.lifecycle.capture(siteUrl).session,
+    feed: feed,
+    onRefresh: _refresh,
+    onLoadMore: _loadMore,
+    onLoadPrevious: _loadPrevious,
+    onOpen: onOpen ?? controller.openUserActivityItem,
+  );
 }
 
-enum _ActivityKind { all, topics, replies }
+enum _ActivityKind { all, topics, replies, likes }
 
 class _ActivityList extends StatefulWidget {
   const _ActivityList({
+    super.key,
     required this.siteUrl,
+    required this.title,
+    required this.username,
+    required this.embedded,
     required this.session,
     required this.feed,
     required this.onRefresh,
@@ -144,6 +202,9 @@ class _ActivityList extends StatefulWidget {
   });
 
   final String siteUrl;
+  final String title;
+  final String? username;
+  final bool embedded;
   final Object session;
   final UserActivityFeed feed;
   final Future<void> Function() onRefresh;
@@ -167,10 +228,173 @@ class _ActivityListState extends State<_ActivityList> {
   void didUpdateWidget(_ActivityList oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
-        oldWidget.session != widget.session) {
+        oldWidget.session != widget.session ||
+        oldWidget.username != widget.username) {
       _kind = _ActivityKind.all;
     }
+    _keepEmbeddedAnchor(oldWidget);
   }
+
+  final _embeddedKeys = <String, GlobalKey>{};
+  void _keepEmbeddedAnchor(_ActivityList oldWidget) {
+    if (!widget.embedded ||
+        oldWidget.feed.items == feed.items ||
+        _outerScroll == null) {
+      return;
+    }
+    final retained = {for (final item in feed.items) item.identity};
+    GlobalKey? anchor;
+    double? top;
+    for (final item in oldWidget.feed.items) {
+      if (!retained.contains(item.identity)) continue;
+      final key = _embeddedKeys[item.identity];
+      final box = key?.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) continue;
+      final y = box.localToGlobal(Offset.zero).dy;
+      if (y + box.size.height > 0 && y < MediaQuery.sizeOf(context).height) {
+        anchor = key;
+        top = y;
+        break;
+      }
+    }
+    _embeddedKeys.removeWhere((id, _) => !retained.contains(id));
+    if (anchor == null || top == null) return;
+    final position = _outerScroll!;
+    final savedTop = top;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _outerScroll != position) return;
+      final box = anchor?.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize || !position.hasContentDimensions) {
+        return;
+      }
+      final delta = box.localToGlobal(Offset.zero).dy - savedTop;
+      if (delta.abs() > .5) {
+        position.jumpTo(
+          (position.pixels + delta).clamp(
+            position.minScrollExtent,
+            position.maxScrollExtent,
+          ),
+        );
+      }
+    });
+  }
+
+  ScrollPosition? _outerScroll;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final position = widget.embedded
+        ? Scrollable.maybeOf(context)?.position
+        : null;
+    if (position == _outerScroll) return;
+    _outerScroll?.removeListener(_outerMoved);
+    _outerScroll = position;
+    position?.addListener(_outerMoved);
+  }
+
+  void _outerMoved() {
+    final position = _outerScroll;
+    if (position == null ||
+        !position.hasContentDimensions ||
+        feed.loading ||
+        feed.error != null) {
+      return;
+    }
+    if (feed.hasPrevious &&
+        position.extentBefore < paginationPrefetchDistance(position)) {
+      unawaited(widget.onLoadPrevious());
+    } else if (position.pixels > 0 &&
+        feed.hasMore &&
+        position.extentAfter < paginationPrefetchDistance(position)) {
+      unawaited(onLoadMore());
+    }
+  }
+
+  @override
+  void dispose() {
+    _outerScroll?.removeListener(_outerMoved);
+    super.dispose();
+  }
+
+  Widget _embedded(List<UserActivityItem> items) => Column(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: DTabs<_ActivityKind>.controlled(
+          value: _kind,
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() => _kind = value);
+            if (feed.hasPrevious) unawaited(onRefresh());
+          },
+          children: [
+            DTabList<_ActivityKind>(
+              variant: DTabListVariant.line,
+              children: [
+                for (final (kind, label) in [
+                  (_ActivityKind.all, appL10n.all),
+                  (_ActivityKind.topics, appL10n.topics),
+                  (_ActivityKind.replies, appL10n.replies),
+                  (_ActivityKind.likes, appL10n.likes),
+                ])
+                  DTabTrigger<_ActivityKind>(value: kind, child: Text(label)),
+              ],
+            ),
+          ],
+        ),
+      ),
+      if (feed.hasPrevious)
+        Center(
+          child: DButton(
+            label: Text(appL10n.previous),
+            loading: feed.loadingPrevious,
+            onPressed: feed.loading
+                ? null
+                : () => unawaited(widget.onLoadPrevious()),
+          ),
+        ),
+      for (final (index, item) in items.indexed) ...[
+        if (index > 0) const DSeparator(indent: 16, endIndent: 16),
+        KeyedSubtree(
+          key: _embeddedKeys.putIfAbsent(item.identity, GlobalKey.new),
+          child: UserActivityRow(
+            siteUrl: siteUrl,
+            item: item,
+            category: feed.categoryFor(item.categoryId),
+            onTap: () => onOpen(item),
+          ),
+        ),
+      ],
+      if (!feed.loaded || feed.loading)
+        AccountActivityPagingSkeleton(semanticsLabel: appL10n.loadingActivity),
+      if (feed.error case final error?)
+        _LoadMoreError(
+          message: error,
+          onRetry: () => unawaited(
+            feed.retryFromStart
+                ? onRefresh()
+                : feed.retryPrevious
+                ? widget.onLoadPrevious()
+                : onLoadMore(),
+          ),
+        ),
+      if (feed.loaded && !feed.loading && feed.error == null && items.isEmpty)
+        Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(appL10n.noActivityYet),
+        ),
+      if (feed.hasMore && !feed.loading && feed.error == null)
+        Center(
+          child: DButton(
+            label: Text(appL10n.loadMore),
+            onPressed: () => unawaited(onLoadMore()),
+          ),
+        ),
+    ],
+  );
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
@@ -197,12 +421,14 @@ class _ActivityListState extends State<_ActivityList> {
             _ActivityKind.all => true,
             _ActivityKind.topics => item.isTopic,
             _ActivityKind.replies => item.isReply,
+            _ActivityKind.likes => item.isLike,
           },
         )
         .toList();
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
+    if (widget.embedded) return _embedded(items);
     final content = DPageSurface.headed(
-      title: Text(context.l10n.activity),
+      title: Text(widget.title),
       controls: DReferenceTextScale(
         child: ContentReadingLaneBox(
           child: Padding(
@@ -224,6 +450,7 @@ class _ActivityListState extends State<_ActivityList> {
                     (_ActivityKind.all, context.l10n.allActivity),
                     (_ActivityKind.topics, context.l10n.topics),
                     (_ActivityKind.replies, context.l10n.replies),
+                    (_ActivityKind.likes, context.l10n.likes),
                   ])
                     DSelectOption(
                       value: value,
@@ -239,7 +466,7 @@ class _ActivityListState extends State<_ActivityList> {
       bodyBuilder: (context, header) => ContentReadingLane(
         basePadding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
         builder: (context, lane) => AccountFeedViewport(
-          identity: (siteUrl, widget.session, _kind),
+          identity: (siteUrl, widget.session, widget.username, _kind),
           rows: [for (final item in items) item.identity],
           revealEnd: feed.window.lastPageWasPrevious,
           builder: (context, viewport) =>
@@ -269,7 +496,12 @@ class _ActivityListState extends State<_ActivityList> {
                 },
                 child: DPageScrollInsets(
                   builder: (context, insets) => CustomScrollView(
-                    key: PageStorageKey(('user-activity-list', siteUrl, _kind)),
+                    key: PageStorageKey((
+                      'user-activity-list',
+                      siteUrl,
+                      widget.username,
+                      _kind,
+                    )),
                     controller: viewport.scrollController,
                     physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
@@ -394,7 +626,9 @@ class UserActivityRow extends StatelessWidget {
     final category = this.category;
     final semanticLabel = [
       item.title,
-      item.isTopic
+      item.isLike
+          ? context.l10n.activityLikedPost(item.username)
+          : item.isTopic
           ? context.l10n.topicCreatedBy((item.username).toString())
           : context.l10n.replyBy((item.username).toString()),
       if (item.postNumber > 1)
@@ -406,55 +640,115 @@ class UserActivityRow extends StatelessWidget {
       if (item.plainExcerpt.isNotEmpty) item.plainExcerpt,
     ].join(', ');
 
+    final tokens = DTokens.of(context);
+    final kicker = item.isLike
+        ? context.l10n.activityLikedPost(item.username)
+        : item.isTopic
+        ? context.l10n.activityStartedTopic
+        : context.l10n.activityReplied;
     return DItem(
       key: ValueKey('user-activity-row-${item.identity}'),
+      size: DItemSize.artwork,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
       shape: DItemShape.fullWidth,
       semanticLabel: semanticLabel,
       onPressed: onTap,
-      header: DItemHeader(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          spacing: DSpacing.xs,
-          children: [
-            DIcon(item.isTopic ? DIcons.layerGroup : DIcons.reply, size: 12),
-            Text(
-              item.isTopic
-                  ? context.l10n.activityStartedTopic
-                  : context.l10n.activityReplied,
-            ),
-          ],
-        ),
-      ),
+      closed: item.closed,
       children: [
         DItemContent(
           children: [
-            DItemTitle(
-              maxLines: 2,
-              child: TopicTitle(item.title, siteUrl: siteUrl),
-            ),
-            if (item.excerpt.isNotEmpty)
-              DItemDescription(
-                child: Text(
-                  item.plainExcerpt,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            Wrap(
-              spacing: DSpacing.sm,
-              runSpacing: DSpacing.xs,
-              crossAxisAlignment: WrapCrossAlignment.center,
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (item.closed || item.archived)
-                  const DIcon(DIcons.lock, size: 12),
-                if (category != null)
-                  _ActivityCategory(siteUrl: siteUrl, category: category),
-                if (when != null)
-                  Text(when, style: theme.textTheme.labelMedium),
-                if (item.deleted || item.hidden)
-                  Text(
-                    item.deleted ? context.l10n.deleted : context.l10n.hidden,
+                DefaultTextStyle.merge(
+                  style: TextStyle(
+                    fontSize: DiscourseTypography.metadata,
+                    color: tokens.mutedForeground,
+                    height: 1.4,
                   ),
+                  child: Row(
+                    spacing: 6,
+                    children: [
+                      DIcon(
+                        item.isLike
+                            ? DIcons.heart
+                            : item.isTopic
+                            ? DIcons.layerGroup
+                            : DIcons.reply,
+                        size: 10,
+                        color: tokens.mutedForeground,
+                      ),
+                      Flexible(child: Text(kicker)),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                DItemTitle(
+                  maxLines: 2,
+                  child: TopicTitle(
+                    item.title,
+                    siteUrl: siteUrl,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w400,
+                      fontSize: DiscourseTypography.rowTitle,
+                      height: 1.35,
+                      color: tokens.titleRead,
+                    ),
+                  ),
+                ),
+                if (item.excerpt.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  DItemDescription(
+                    child: Text(
+                      item.plainExcerpt,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.preview,
+                        height: 1.45,
+                        color: tokens.mutedForeground,
+                      ),
+                    ),
+                  ),
+                ],
+                if (category != null ||
+                    when != null ||
+                    item.closed ||
+                    item.archived ||
+                    item.deleted ||
+                    item.hidden) ...[
+                  const SizedBox(height: 7),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Wrap(
+                          spacing: DSpacing.sm,
+                          runSpacing: DSpacing.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (item.closed || item.archived)
+                              const DIcon(DIcons.lock, size: 12),
+                            if (category != null)
+                              _ActivityCategory(
+                                siteUrl: siteUrl,
+                                category: category,
+                              ),
+                            if (item.deleted || item.hidden)
+                              Text(
+                                item.deleted
+                                    ? context.l10n.deleted
+                                    : context.l10n.hidden,
+                              ),
+                          ],
+                        ),
+                      ),
+                      if (when != null)
+                        Text(when, style: theme.textTheme.labelMedium),
+                    ],
+                  ),
+                ],
               ],
             ),
           ],

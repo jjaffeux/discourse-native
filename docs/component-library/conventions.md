@@ -87,3 +87,11 @@ Reading-page sheets use the same handle. Their host owns navigation and swipe
 dismissal.
 
 See the Corner actions example in the Sheet styleguide.
+
+For a phone identity card with content below it, use an adaptive menu sheet with
+`restAt` pointing to the card's `GlobalKey` and `scrollWholeSheet: true`.
+Pass the same key to `showDSheet` when using the imperative helper.
+Place `DSheetSwipeHint` immediately after the card. The kit owns its 40-point
+height, delayed peek, spring, fading, safe-area cut and scroll handoff.
+Keep `headerImage` on `DSheetContent`: the kit scrolls it with the resting card.
+`DSwipeHint` shares the shimmer with the mobile dock and honors reduced motion.

@@ -67,17 +67,21 @@ void userCardBackdropTests({bool slowAnimations = false}) {
               expect(find.text('Sam Example'), findsOneWidget);
               expect(find.byType(DSkeletonRegion), findsNothing);
               expect(api.requests, isEmpty);
-              final fades = find.ancestor(
-                of: _surface,
-                matching: find.byType(FadeTransition),
+              final material = tester.widget<Material>(
+                find
+                    .descendant(of: _surface, matching: find.byType(Material))
+                    .first,
               );
-              {
-                expect(fades, findsOneWidget);
-                expect(
-                  tester.widget<FadeTransition>(fades).opacity.value,
-                  inExclusiveRange(0, 1),
-                );
-              }
+              expect(material.color, isNotNull);
+              expect(
+                find.ancestor(
+                  of: _surface,
+                  matching: find.byType(FadeTransition),
+                ),
+                findsNothing,
+                reason:
+                    'the adaptive sheet moves its complete material without fading the card',
+              );
               expect(tester.takeException(), isNull);
             }
 
@@ -473,7 +477,7 @@ void main() {
       await _open(tester);
 
       expect(tester.widget(_surface), isA<DPopoverContent>());
-      expect(tester.getSize(_surface).width, 400);
+      expect(tester.getSize(_surface).width, 340);
       expect(tester.getSize(_surface).height, inInclusiveRange(180, 240));
       expect(tester.getRect(_surface).top, tester.getRect(_target).bottom + 8);
       expect(find.byType(DSkeletonRegion), findsOneWidget);
@@ -486,7 +490,7 @@ void main() {
       expect(find.byType(DSkeletonRegion), findsNothing);
       expect(find.text('Sam Example'), findsOneWidget);
       expect(find.text('View profile'), findsOneWidget);
-      expect(tester.getSize(_surface).width, 400);
+      expect(tester.getSize(_surface).width, 340);
       expect(tester.getSize(_surface).height, lessThan(300));
       expect(tester.takeException(), isNull);
     } finally {
@@ -672,7 +676,7 @@ void main() {
     );
     await _pumpOpen(tester);
     expect(tester.getSize(_surface).height, inInclusiveRange(180, 240));
-    expect(tester.getSize(_surface).width, 400);
+    expect(tester.getSize(_surface).width, 340);
     await tester.tapAt(const Offset(750, 50));
     await tester.pumpAndSettle();
     expect(_surface, findsNothing);
@@ -811,7 +815,18 @@ void _expectPhoneCardAtViewportFoot(
   final bounds = tester.getRect(_surface);
   expect(bounds.left, viewport.left);
   expect(bounds.right, viewport.right);
-  expect(bounds.bottom, viewport.bottom);
+  final hint = find.byType(DSheetSwipeHint);
+  if (hint.evaluate().isEmpty) {
+    expect(bounds.bottom, viewport.bottom);
+  } else {
+    expect(bounds.bottom, greaterThanOrEqualTo(viewport.bottom));
+    expect(
+      tester.getTopLeft(hint).dy,
+      lessThanOrEqualTo(viewport.bottom - safeBottom + .01),
+      reason: 'the resting card ends clear of the home indicator',
+    );
+    return;
+  }
   final contentViewport = find
       .descendant(
         of: _surface,
