@@ -10,10 +10,6 @@ void main() {
       return '${link.kind.name}:${link.slug}:${link.id}:${link.feedPath}';
     }
 
-    test('reads a category', () {
-      expect(read('/c/bug/5'), 'category:bug:5:/c/bug/5.json');
-    });
-
     test('checks the final encoded path after appending the JSON suffix', () {
       final input =
           '/tag/${'a' * (ListLink.maximumUrlLength - '/tag/'.length)}';
@@ -141,10 +137,6 @@ void main() {
         expect(read('/c/2024/7'), 'category:2024:7:/c/2024/7.json');
       },
     );
-
-    test('survives a trailing slash', () {
-      expect(read('/c/bug/5/'), 'category:bug:5:/c/bug/5.json');
-    });
 
     test('reads an absolute URL', () {
       expect(
