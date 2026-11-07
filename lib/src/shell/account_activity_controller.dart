@@ -21,6 +21,8 @@ import '../plugin_api/notification_feed_host.dart';
 import 'account_history_feed_owners.dart';
 import 'notification_reconciliation.dart';
 
+part 'account_totals_refresh.dart';
+
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);
 typedef TotalsChanged =
@@ -101,13 +103,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   late final _bookmarks = NotificationFeedSlot.reminders(
     _bookmarkChanges.changed,
   );
-  final Map<String, Object> _totalsRequests = {};
-  final Map<String, Future<NotificationTotals?>> _totalsTasks = {};
-  final Map<String, DateTime> _totalsAttemptedAt = {};
-  final Map<String, DiscourseInstance> _pendingTotals = {};
-  final Map<String, Completer<NotificationTotals?>> _pendingTotalsWaiters = {};
-  final Map<String, Completer<NotificationTotals?>> _replayingTotalsWaiters =
-      {};
+  final Map<String, _AccountTotalsRefresh> _totalsRefreshes = {};
   final Map<String, Future<void>> _notificationTasks = {};
   final Map<String, Future<void>> _replyNotificationTasks = {};
   final Map<String, Future<void>> _likeNotificationTasks = {};
@@ -203,123 +199,20 @@ final class AccountActivityController extends FrameSafeNotifier {
   Future<NotificationTotals?> refresh(
     DiscourseInstance instance, {
     bool force = false,
-  }) async {
-    final active = _totalsTasks[instance.url];
-    if (active != null) {
-      // Ordinary lifecycle and navigation callers all want the same snapshot.
-      // Replaying after it lands doubled `/notifications/totals.json` whenever
-      // two of them overlapped. Only a write that can invalidate the active
-      // snapshot is allowed to queue one reconciliation behind it.
-      if (!force) return active;
-      _pendingTotals[instance.url] = instance;
-      return _pendingTotalsWaiters
-          .putIfAbsent(instance.url, Completer<NotificationTotals?>.new)
-          .future;
-    }
-    if (!force && _recentlyAttempted(instance.url)) {
-      return totalsFor(instance.url);
-    }
-    return _startTotalsRefresh(instance);
-  }
-
-  bool _recentlyAttempted(String siteUrl) {
-    final attemptedAt = _totalsAttemptedAt[siteUrl];
-    return attemptedAt != null &&
-        _clock().difference(attemptedAt) < minimumRefreshInterval;
-  }
-
-  Future<NotificationTotals?> _startTotalsRefresh(DiscourseInstance instance) {
-    late final Future<NotificationTotals?> task;
-    task = _performTotalsRefresh(instance).whenComplete(() {
-      _finishTotalsRefresh(instance.url, task);
-    });
-    _totalsTasks[instance.url] = task;
-    return task;
-  }
-
-  Future<NotificationTotals?> _performTotalsRefresh(
-    DiscourseInstance instance,
-  ) async {
-    if (isDisposed) return null;
-    _totalsAttemptedAt[instance.url] = _clock();
+  }) {
+    if (isDisposed) return Future.value();
     final lease = lifecycle.capture(instance.url);
-    final request = Object();
-    _totalsRequests[instance.url] = request;
-    final owner = _reconciliationFor(instance.url, lease: lease);
-    final ticket = owner.beginTotalsRefresh();
-    try {
-      final auth = await AccountRequestSession(
-        instance.url,
-        lease,
-      ).keyCredentials(credentials);
-      final apiKey = auth.apiKey;
-      if (apiKey == null ||
-          !_ownsRequest(lease, _totalsRequests[instance.url], request)) {
-        return null;
-      }
-      final totals = await auth.run(
-        () => api.notificationTotals(siteUrl: instance.url, apiKey: apiKey),
-      );
-      NotificationTotals? applied;
-      final accepted = _commit(lease, () {
-        if (!identical(_totalsRequests[instance.url], request)) return;
-        final resolved = owner.acceptTotalsRefresh(ticket, totals);
-        if (resolved == null) return;
-        applied = resolved;
-        // Publishing can synchronously retire this account through a listener.
-        // Its post-load hook must retain the same request and account owner.
-        if (_ownsRequest(lease, _totalsRequests[instance.url], request)) {
-          onTotalsLoaded?.call(instance, resolved);
-        }
-      });
-      return accepted ? applied : null;
-    } catch (error) {
-      if (isDisposed ||
-          !lease.isCurrent ||
-          !identical(_totalsRequests[instance.url], request)) {
-        return null;
-      }
-
-      return null;
-    } finally {
-      _commit(lease, () {
-        if (identical(_totalsRequests[instance.url], request)) {
-          _totalsRequests.remove(instance.url);
-        }
-      });
+    var account = _totalsRefreshes[instance.url];
+    if (account != null && !account.isCurrent) {
+      account.retire();
+      account = _totalsRefreshes[instance.url];
     }
-  }
-
-  void _finishTotalsRefresh(String siteUrl, Future<NotificationTotals?> task) {
-    if (!identical(_totalsTasks[siteUrl], task)) return;
-    final removed = _totalsTasks.remove(siteUrl);
-    assert(identical(removed, task));
-
-    final pending = _pendingTotals.remove(siteUrl);
-    final waiter = _pendingTotalsWaiters.remove(siteUrl);
-    if (pending == null || waiter == null || isDisposed) {
-      if (waiter != null && !waiter.isCompleted) waiter.complete(null);
-      return;
+    if (account == null) {
+      account = _AccountTotalsRefresh(this, instance.url, lease);
+      _totalsRefreshes[instance.url] = account;
+      account.observeRetirement();
     }
-
-    _replayingTotalsWaiters[siteUrl] = waiter;
-    final replay = _startTotalsRefresh(pending);
-    unawaited(
-      replay.then<void>(
-        (totals) {
-          if (identical(_replayingTotalsWaiters[siteUrl], waiter)) {
-            _replayingTotalsWaiters.remove(siteUrl);
-          }
-          if (!waiter.isCompleted) waiter.complete(totals);
-        },
-        onError: (Object error, StackTrace stackTrace) {
-          if (identical(_replayingTotalsWaiters[siteUrl], waiter)) {
-            _replayingTotalsWaiters.remove(siteUrl);
-          }
-          if (!waiter.isCompleted) waiter.completeError(error, stackTrace);
-        },
-      ),
-    );
+    return account.refresh(instance, force: force);
   }
 
   Future<void> loadNotifications(DiscourseInstance instance) =>
@@ -1057,16 +950,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     }
     final hadBookmarkList = _bookmarkListOwner.retire(siteUrl);
     final hadUserActivity = _userActivityOwner.retire(siteUrl);
-    _totalsRequests.remove(siteUrl);
-    _totalsAttemptedAt.remove(siteUrl);
-    final abandonedTotals = _totalsTasks.remove(siteUrl);
-    abandonedTotals?.ignore();
-    _pendingTotals.remove(siteUrl);
-    _pendingTotalsWaiters.remove(siteUrl)?.complete(null);
-    final replayingTotalsWaiter = _replayingTotalsWaiters.remove(siteUrl);
-    if (replayingTotalsWaiter != null && !replayingTotalsWaiter.isCompleted) {
-      replayingTotalsWaiter.complete(null);
-    }
+    _totalsRefreshes.remove(siteUrl)?.retire();
     _notificationTasks.remove(siteUrl)?.ignore();
     _replyNotificationTasks.remove(siteUrl)?.ignore();
     _likeNotificationTasks.remove(siteUrl)?.ignore();
@@ -1107,11 +991,10 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   @override
   void dispose() {
-    for (final waiter in _pendingTotalsWaiters.values) {
-      if (!waiter.isCompleted) waiter.complete(null);
-    }
-    for (final waiter in _replayingTotalsWaiters.values) {
-      if (!waiter.isCompleted) waiter.complete(null);
+    final totalsRefreshes = _totalsRefreshes.values.toList();
+    _totalsRefreshes.clear();
+    for (final account in totalsRefreshes) {
+      account.retire();
     }
     for (final waiter in _pendingBookmarkWaiters.values) {
       if (!waiter.isCompleted) waiter.complete();
@@ -1119,13 +1002,9 @@ final class AccountActivityController extends FrameSafeNotifier {
     for (final waiter in _replayingBookmarkWaiters.values) {
       if (!waiter.isCompleted) waiter.complete();
     }
-    _pendingTotalsWaiters.clear();
-    _replayingTotalsWaiters.clear();
-    _pendingTotals.clear();
     _pendingBookmarkWaiters.clear();
     _replayingBookmarkWaiters.clear();
     _pendingBookmarks.clear();
-    _totalsTasks.clear();
     _notificationTasks.clear();
     _replyNotificationTasks.clear();
     _likeNotificationTasks.clear();
@@ -1139,7 +1018,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     _pluginNotifications.clear();
     _pluginNotificationSources.clear();
     _bookmarkTasks.clear();
-    _totalsRequests.clear();
     _notificationRequests.clear();
     _replyNotificationRequests.clear();
     _likeNotificationRequests.clear();

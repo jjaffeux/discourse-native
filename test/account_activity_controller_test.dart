@@ -409,6 +409,32 @@ void main() {
     );
 
     test(
+      'totals hook retirement retains its already accepted response',
+      () async {
+        const totals = NotificationTotals(unreadNotifications: 3);
+        final api = _AccountApi(totals: totals);
+        final lifecycle = SiteLifecycle();
+        late final AccountActivityController controller;
+        Future<NotificationTotals?>? successor;
+        controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          lifecycle: lifecycle,
+          onTotalsLoaded: (_, _) {
+            if (successor != null) return;
+            lifecycle.invalidate(_siteUrl);
+            successor = controller.refresh(_connectedInstance());
+          },
+        );
+        addTearDown(controller.dispose);
+        expect(await controller.refresh(_connectedInstance()), totals);
+        expect(await successor, totals);
+        expect(controller.totalsFor(_siteUrl), totals);
+        expect(api.totalsRequested, hasLength(2));
+      },
+    );
+
+    test(
       'loads notification, reply, chat, and bookmark feeds independently',
       () async {
         final api = _AccountApi(
@@ -1827,6 +1853,112 @@ void main() {
         expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
       },
     );
+
+    test(
+      'lifecycle retirement releases totals callers and successor work',
+      () async {
+        final first = Completer<NotificationTotals>();
+        final second = Completer<NotificationTotals>();
+        final api = _GatedTotalsApi([first, second]);
+        final lifecycle = SiteLifecycle();
+        final loaded = <NotificationTotals>[];
+        final controller = _controller(
+          api,
+          FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+          lifecycle: lifecycle,
+          onTotalsLoaded: (_, totals) => loaded.add(totals),
+        );
+        addTearDown(controller.dispose);
+        final initial = controller.refresh(_connectedInstance());
+        await api.firstStarted.future;
+        final forced = controller.refresh(_connectedInstance(), force: true);
+        lifecycle.invalidate(_siteUrl);
+        expect(await initial.timeout(const Duration(seconds: 1)), isNull);
+        expect(await forced.timeout(const Duration(seconds: 1)), isNull);
+        first.complete(const NotificationTotals(unreadNotifications: 99));
+        await pumpEventQueue();
+        expect(api._calls, 1);
+        final replacement = controller.refresh(_connectedInstance());
+        await api.secondStarted.future;
+        const response = NotificationTotals(unreadNotifications: 2);
+        second.complete(response);
+        expect(await replacement, response);
+        expect(controller.totalsFor(_siteUrl), response);
+        expect(loaded, [response]);
+      },
+    );
+
+    test('a successor totals request does not wait for retired HTTP', () async {
+      final first = Completer<NotificationTotals>();
+      final second = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([first, second]);
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(
+        api,
+        FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        lifecycle: lifecycle,
+      );
+      addTearDown(controller.dispose);
+      final initial = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      lifecycle.invalidate(_siteUrl);
+      final replacement = controller.refresh(_connectedInstance());
+      await api.secondStarted.future.timeout(const Duration(seconds: 1));
+      second.complete(const NotificationTotals(unreadNotifications: 2));
+      expect((await replacement)?.unreadNotifications, 2);
+      first.complete(const NotificationTotals(unreadNotifications: 99));
+      expect(await initial, isNull);
+      await pumpEventQueue();
+      expect(controller.totalsFor(_siteUrl)?.unreadNotifications, 2);
+    });
+
+    test('totals cooldown belongs to the retired account alone', () async {
+      final api = _AccountApi(totals: const NotificationTotals());
+      final lifecycle = SiteLifecycle();
+      final controller = _controller(
+        api,
+        FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        lifecycle: lifecycle,
+        clock: () => DateTime(2026, 11, 7),
+      );
+      addTearDown(controller.dispose);
+      await controller.refresh(_connectedInstance());
+      lifecycle.invalidate(_siteUrl);
+      await controller.refresh(_connectedInstance());
+      expect(api.totalsRequested, hasLength(2));
+    });
+
+    test('totals publication can synchronously start a successor', () async {
+      final first = Completer<NotificationTotals>();
+      final second = Completer<NotificationTotals>();
+      final api = _GatedTotalsApi([first, second]);
+      final lifecycle = SiteLifecycle();
+      final loaded = <NotificationTotals>[];
+      final controller = _controller(
+        api,
+        FakeApiCredentialReader()..keys[_siteUrl] = 'key',
+        lifecycle: lifecycle,
+        onTotalsLoaded: (_, totals) => loaded.add(totals),
+      );
+      addTearDown(controller.dispose);
+      Future<NotificationTotals?>? replacement;
+      controller.addListener(() {
+        if (replacement != null) return;
+        lifecycle.invalidate(_siteUrl);
+        replacement = controller.refresh(_connectedInstance());
+      });
+      final initial = controller.refresh(_connectedInstance());
+      await api.firstStarted.future;
+      first.complete(const NotificationTotals(unreadNotifications: 1));
+      expect((await initial)?.unreadNotifications, 1);
+      await api.secondStarted.future.timeout(const Duration(seconds: 1));
+      expect(loaded, isEmpty);
+      const response = NotificationTotals(unreadNotifications: 2);
+      second.complete(response);
+      expect(await replacement, response);
+      expect(controller.totalsFor(_siteUrl), response);
+      expect(loaded, [response]);
+    });
 
     test('forget completes a forced waiter whose replay is active', () async {
       final first = Completer<NotificationTotals>();

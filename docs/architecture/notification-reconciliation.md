@@ -1,8 +1,9 @@
 # Notification reconciliation
 
 `NotificationReconciliation` owns effective notification rows and count authority
-for one `SiteLease`. `AccountActivityController` retains transport, credentials,
-request coalescing, refresh sequencing, and persistence callbacks.
+for one `SiteLease`. `AccountActivityController` retains feed transport, credentials, and persistence
+callbacks. Its private account totals owner manages totals transport, coalescing,
+refresh sequencing, and cooldown; see [notification totals refresh](notification-totals-refresh.md).
 Its existing public API and plugin hosts continue to use the same feeds.
 
 ## Feed registration
