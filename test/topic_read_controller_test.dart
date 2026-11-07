@@ -129,6 +129,29 @@ void main() {
   }
 
   test(
+    'read changes publish committed positions and ignore repeated reads',
+    () async {
+      const site = 'https://one.example';
+      credentials.keys[site] = 'key';
+      store.put(site, _topic(lastRead: 2, highest: 10, unread: 8));
+      final positions = <(int?, int?)>[];
+      controller.addListener(
+        () => positions.add((
+          controller.lastReadPostNumberFor(site, 1),
+          store.read<Topic>(site, 1)?.lastReadPostNumber,
+        )),
+      );
+      await sent(() => controller.mark(site, 1, 10, caughtUp: true));
+      expect(positions, [(10, 10)]);
+      await sent(() => controller.mark(site, 1, 10, caughtUp: true));
+      await sent(() => controller.mark(site, 1, 4, caughtUp: false));
+      expect(positions, [(10, 10)]);
+      controller.forget(site);
+      expect(positions, [(10, 10), (null, 10)]);
+    },
+  );
+
+  test(
     'ranked visible positions preserve supplied unread count until server refresh',
     () async {
       const site = 'https://one.example';

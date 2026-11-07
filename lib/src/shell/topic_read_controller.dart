@@ -5,6 +5,7 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../foundation/frame_safe_notifier.dart';
 import '../models/topic.dart';
 
 typedef _TopicReadKey = (String siteUrl, int topicId);
@@ -16,7 +17,7 @@ typedef _TopicReadReceipt = ({
   SiteLease lease,
 });
 
-final class TopicReadController {
+final class TopicReadController extends FrameSafeNotifier {
   TopicReadController({
     required this.api,
     required this.credentials,
@@ -128,6 +129,7 @@ final class TopicReadController {
     );
 
     if (_disposed || !lease.isCurrent) return Future.value();
+    if (nextPosition != local) notifySafely();
     return _drainPending(key);
   }
 
@@ -169,8 +171,10 @@ final class TopicReadController {
       if (!isCurrent()) return;
       await write();
       if (!isCurrent()) return;
+      final hadPosition = _positions.containsKey(key);
       _forgetTopic(key);
       await accepted();
+      if (isCurrent() && hadPosition) notifySafely();
     } catch (error, stackTrace) {
       onError(error, stackTrace);
     } finally {
@@ -191,6 +195,7 @@ final class TopicReadController {
   }
 
   void forget(String siteUrl) {
+    final hadPositions = _positions.keys.any((key) => key.$1 == siteUrl);
     _positions.removeWhere((key, _) => key.$1 == siteUrl);
     _credits.removeWhere((key, _) => key.$1 == siteUrl);
     _retries.removeWhere((key, _) => key.$1 == siteUrl);
@@ -198,8 +203,10 @@ final class TopicReadController {
     _tasks.removeWhere((key, _) => key.$1 == siteUrl);
     _runs.removeWhere((key, _) => key.$1 == siteUrl);
     _resets.removeWhere((key, _) => key.$1 == siteUrl);
+    if (hadPositions) notifySafely();
   }
 
+  @override
   void dispose() {
     if (_disposed) return;
     _disposed = true;
@@ -210,6 +217,7 @@ final class TopicReadController {
     _tasks.clear();
     _runs.clear();
     _resets.clear();
+    super.dispose();
   }
 
   Topic _projectRead(

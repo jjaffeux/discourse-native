@@ -1038,6 +1038,8 @@ class ShellController extends FrameSafeNotifier
 
   late final TopicFeedController topicFeeds = _createTopicFeedController();
 
+  Listenable get topicReadChanges => _topicReads;
+
   TopicFeedController _createTopicFeedController() {
     return TopicFeedController(
       api: api.topicFeeds,
