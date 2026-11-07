@@ -361,6 +361,90 @@ void main() {
 
     expect(shell.visibleComposer?.text.selection.baseOffset, 0);
   });
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.windows]) {
+    testWidgets('fast editor lets IME keep Escape on $platform', (
+      tester,
+    ) async {
+      const post = Post(
+        id: 22,
+        postNumber: 2,
+        username: 'author',
+        cooked: '<p>selected</p>',
+        raw: 'selected',
+        canEdit: true,
+      );
+      final api = FakeDiscourseApi(postsById: const {22: post});
+      final shell = await _shell(api, post);
+      addTearDown(shell.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('Open editor'),
+                onPressed: () => showPostFastEditor(
+                  context: context,
+                  controller: shell,
+                  siteUrl: _siteUrl,
+                  topicId: 7,
+                  post: post,
+                  selectedMarkdown: 'selected',
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      final editor = find.byKey(const ValueKey('fast-edit-input'));
+      final field = find.descendant(
+        of: editor,
+        matching: find.byType(EditableText),
+      );
+      await tester.showKeyboard(field);
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '変更',
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange(start: 0, end: 2),
+        ),
+      );
+      await tester.pump();
+      final handled = await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(handled, isFalse);
+      expect(editor, findsOneWidget);
+      expect(tester.widget<EditableText>(field).controller.text, '変更');
+      expect(api.updated, isEmpty);
+
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '変更',
+          selection: TextSelection.collapsed(offset: 2),
+          composing: TextRange.collapsed(2),
+        ),
+      );
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(editor, findsNothing);
+
+      await tester.tap(find.text('Open editor'));
+      await tester.pumpAndSettle();
+      await tester.enterText(field, 'committed');
+      final modifier = platform == TargetPlatform.macOS
+          ? LogicalKeyboardKey.metaLeft
+          : LogicalKeyboardKey.controlLeft;
+      await tester.sendKeyDownEvent(modifier);
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.sendKeyUpEvent(modifier);
+      await tester.pumpAndSettle();
+      expect(editor, findsNothing);
+      expect(api.updated.single['raw'], 'committed');
+    }, variant: TargetPlatformVariant.only(platform));
+  }
   for (final platform in [TargetPlatform.iOS, TargetPlatform.macOS]) {
     testWidgets(
       'fast editor keeps its draft through dismissal attempts while saving '
