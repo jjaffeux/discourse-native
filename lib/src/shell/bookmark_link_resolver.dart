@@ -180,6 +180,8 @@ final class BookmarkLinkResolver {
                 .where(
                   (post) => target?.bookmarkableId != null
                       ? post.id == target!.bookmarkableId
+                      : link.postNumber == TopicLink.lastPostNumber
+                      ? post.id == payload.detail.stream.lastOrNull
                       : post.postNumber == link.postNumber,
                 )
                 .firstOrNull;

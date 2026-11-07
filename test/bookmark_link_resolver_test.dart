@@ -148,6 +148,43 @@ final class _Fixture {
 
 void main() {
   test(
+    'last-post links resolve the bookmark on the actual final post',
+    () async {
+      const saved = Bookmark(
+        id: 91,
+        bookmarkableId: 70,
+        bookmarkableType: 'Post',
+      );
+      final f = _Fixture(
+        api: _Api(
+          topic: topicPayload(
+            id: 7,
+            stream: const [60, 70],
+            posts: const [
+              Post(
+                id: 70,
+                postNumber: 3,
+                username: 'alex',
+                cooked: '<p>Last</p>',
+                bookmark: saved,
+              ),
+              Post(
+                id: 60,
+                postNumber: 1,
+                username: 'alex',
+                cooked: '<p>First</p>',
+              ),
+            ],
+          ),
+        ),
+      );
+      final action = await f.resolver.resolveBookmarkLink('$_url/last');
+      expect(action, isNotNull);
+      expect(action!.bookmark, saved);
+    },
+  );
+
+  test(
     'standalone resolution uses key-only credentials and the account lease',
     () async {
       final f = _Fixture();

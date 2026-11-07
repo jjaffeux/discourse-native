@@ -130,8 +130,6 @@ List<ComposerInlineFormat> composerInlineFormats(String source) {
     tags(block.text, block.offset);
   }
   for (final link in parseComposerLinks(source, enableLinkify: false)) {
-    // Images have a separate editing owner.
-    if (link.start > 0 && source[link.start - 1] == '!') continue;
     formats.add((
       start: link.start,
       contentStart: link.start + 1,

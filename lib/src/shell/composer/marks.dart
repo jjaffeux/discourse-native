@@ -22,7 +22,7 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
 
   var start = selection.start;
   var end = selection.end;
-  if ((marker == '**' || marker == '*') &&
+  if ((marker == '**' || marker == '*' || marker == '~~') &&
       !(_endsWithMark(text.substring(0, start), marker) &&
           _startsWithMark(text.substring(end), marker))) {
     // Emphasis cannot open or close against whitespace. Keep it outside new
@@ -34,6 +34,11 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
   final before = text.substring(0, start);
   final after = text.substring(end);
 
+  TextSelection selecting(int from, int to) => selection.copyWith(
+    baseOffset: selection.baseOffset > selection.extentOffset ? to : from,
+    extentOffset: selection.baseOffset > selection.extentOffset ? from : to,
+  );
+
   if (_isWrapped(selected, marker)) {
     final inner = selected.substring(
       marker.length,
@@ -41,10 +46,7 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
     );
     return TextEditingValue(
       text: '$before$inner$after',
-      selection: TextSelection(
-        baseOffset: start,
-        extentOffset: start + inner.length,
-      ),
+      selection: selecting(start, start + inner.length),
     );
   }
 
@@ -52,9 +54,9 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
     final trimmedBefore = before.substring(0, before.length - marker.length);
     return TextEditingValue(
       text: '$trimmedBefore$selected${after.substring(marker.length)}',
-      selection: TextSelection(
-        baseOffset: trimmedBefore.length,
-        extentOffset: trimmedBefore.length + selected.length,
+      selection: selecting(
+        trimmedBefore.length,
+        trimmedBefore.length + selected.length,
       ),
     );
   }
@@ -64,10 +66,7 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
     text: '$before$marker$selected$marker$after',
     selection: selection.isCollapsed
         ? TextSelection.collapsed(offset: caret)
-        : TextSelection(
-            baseOffset: caret,
-            extentOffset: caret + selected.length,
-          ),
+        : selecting(caret, caret + selected.length),
   );
 }
 

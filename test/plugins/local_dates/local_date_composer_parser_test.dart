@@ -13,6 +13,42 @@ void main() {
   final environment = LocalDateEnvironment.instance;
 
   setUpAll(environment.ensureDatabase);
+  test('malformed local date times stay editable source', () {
+    for (final time in ['25:00', '09:99', 'noon']) {
+      expect(
+        parseLocalDateComposerBlocks(
+          '[date=2026-09-08 time=$time timezone=UTC]',
+          environment: environment,
+        ),
+        isEmpty,
+        reason: time,
+      );
+    }
+    expect(
+      parseLocalDateComposerBlocks(
+        '[date=2026-09-08 time=09:30 timezone=UTC]',
+        environment: environment,
+      ),
+      hasLength(1),
+    );
+  });
+
+  test('escaped local date tags stay literal', () {
+    expect(
+      parseLocalDateComposerBlocks(
+        r'\[date=2026-09-08 timezone=UTC]',
+        environment: environment,
+      ),
+      isEmpty,
+    );
+    expect(
+      parseLocalDateComposerBlocks(
+        r'\\[date=2026-09-08 timezone=UTC]',
+        environment: environment,
+      ),
+      hasLength(1),
+    );
+  });
 
   group('local-date composer closing brackets', () {
     for (final (open, close) in _quotes) {

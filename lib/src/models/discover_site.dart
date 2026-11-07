@@ -1,3 +1,4 @@
+import '../data/http_transport.dart';
 import '../data/stored_forum_base.dart';
 import 'json.dart';
 
@@ -15,8 +16,19 @@ final class DiscoverSite {
     return DiscoverSite(
       url: url,
       title: title,
-      logoUrl: tryStoredForumBase(json['discover_entry_logo_url']),
+      logoUrl: _logoUrl(json['discover_entry_logo_url']),
     );
+  }
+
+  static String? _logoUrl(Object? value) {
+    if (value is! String) return null;
+    try {
+      return requireSafeHttpUrl(Uri.parse(value)).toString();
+    } on FormatException {
+      return null;
+    } on UnsafeHttpTransportException {
+      return null;
+    }
   }
 
   String get address => identity(url)!;

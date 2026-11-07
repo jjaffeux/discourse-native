@@ -205,7 +205,12 @@ Map<int, ComposerMarkdownTokenBoundary> composerMarkdownLinkCandidates(
       labels.add((start: offset, nestedLink: false));
     } else if (unit == 0x5D && labels.isNotEmpty) {
       final label = labels.removeLast();
-      final image = label.start > 0 && source[label.start - 1] == '!';
+      var slashes = 0;
+      for (var at = label.start - 2; at >= 0 && source[at] == '\\'; at--) {
+        slashes++;
+      }
+      final image =
+          label.start > 0 && source[label.start - 1] == '!' && slashes.isEven;
       var end =
           offset > label.start + 1 &&
               offset + 2 < limit &&

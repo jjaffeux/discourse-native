@@ -15,6 +15,24 @@ typedef _ExpectedLink = ({
 });
 
 void main() {
+  test(
+    'escaped exclamation mark does not turn a Markdown link into an image',
+    () {
+      final links = parseComposerLinks(
+        r'\![guide](https://example.com)',
+        enableLinkify: false,
+      );
+      expect(links.map((link) => link.url), ['https://example.com']);
+      expect(
+        parseComposerLinks(
+          '![image](https://example.com)',
+          enableLinkify: false,
+        ),
+        isEmpty,
+      );
+    },
+  );
+
   group('pasted links', () {
     TextEditingValue selected(String text) => TextEditingValue(
       text: text,

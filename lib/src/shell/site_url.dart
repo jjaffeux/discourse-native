@@ -9,7 +9,10 @@ String resolveSiteUrl(String url, String? siteUrl) {
 
   final base = siteUrl == null ? null : Uri.tryParse(siteUrl);
   if (base != null && base.hasScheme && base.hasAuthority) {
-    return base.resolveUri(uri).toString();
+    final directory = base.path.endsWith('/')
+        ? base
+        : base.replace(path: '${base.path}/');
+    return directory.resolveUri(uri).toString();
   }
   if (uri.hasAuthority) {
     return Uri(scheme: 'https').resolveUri(uri).toString();

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -23,6 +24,51 @@ TextEditingValue selected(String annotated) {
 }
 
 void main() {
+  test('strikethrough keeps boundary whitespace outside its delimiters', () {
+    const value = TextEditingValue(
+      text: ' hello ',
+      selection: TextSelection(baseOffset: 0, extentOffset: 7),
+    );
+    final result = toggleMarkdownMark(value, '~~');
+    expect(result.text, ' ~~hello~~ ');
+    expect(
+      sharedMarkdownScan(
+        result.text,
+      ).runs.any((run) => run.has(Md.strikethrough)),
+      isTrue,
+    );
+    expect(result.selection.textInside(result.text), 'hello');
+  });
+
+  test(
+    'emphasis preserves backward selection while wrapping and unwrapping',
+    () {
+      const value = TextEditingValue(
+        text: 'hello',
+        selection: TextSelection(baseOffset: 5, extentOffset: 0),
+      );
+      for (final marker in ['*', '**']) {
+        final wrapped = toggleMarkdownMark(value, marker);
+        expect(wrapped.text, '${marker}hello$marker');
+        expect(wrapped.selection.baseOffset, 5 + marker.length);
+        expect(wrapped.selection.extentOffset, marker.length);
+        expect(toggleMarkdownMark(wrapped, marker), value);
+        expect(
+          toggleMarkdownMark(
+            wrapped.copyWith(
+              selection: TextSelection(
+                baseOffset: wrapped.text.length,
+                extentOffset: 0,
+              ),
+            ),
+            marker,
+          ),
+          value,
+        );
+      }
+    },
+  );
+
   group('toggleMarkdownMark', () {
     void expectToggle(String before, String marker, String after) {
       expect(

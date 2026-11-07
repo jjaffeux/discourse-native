@@ -12,6 +12,16 @@ const _uploaded = '/community/user_avatar/forum.example/sam/{size}/1.png';
 const _letter = '/community/letter_avatar/sam/{size}/1.png';
 
 void main() {
+  test(
+    'relative avatar filenames starting with http resolve against the site',
+    () {
+      expect(
+        resolveAvatarUrl('http-avatar/{size}.png', 'https://example.com/forum'),
+        'https://example.com/forum/http-avatar/90.png',
+      );
+    },
+  );
+
   group('resolveAvatarUrl', () {
     for (final template in [_uploaded, _letter]) {
       test('resolves $template against the origin of $_site/', () {

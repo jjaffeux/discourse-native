@@ -86,7 +86,17 @@ String? jsonHtmlText(Object? value) {
         jsonText(emoji.attributes['title']);
     emoji.replaceWith(dom.Text(shortcode ?? ''));
   }
-  return jsonText(fragment.text);
+  for (final element in fragment.querySelectorAll(
+    'br, p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr',
+  )) {
+    if (element.localName == 'br') {
+      element.replaceWith(dom.Text(' '));
+    } else {
+      element.nodes.insert(0, dom.Text(' '));
+      element.append(dom.Text(' '));
+    }
+  }
+  return jsonText(fragment.text?.replaceAll(RegExp(r'\s+'), ' '));
 }
 
 DateTime? jsonDate(Object? value) => switch (value) {
@@ -168,7 +178,9 @@ String? resolveAvatarUrl(String? template, String siteUrl, {int size = 90}) {
   if (template == null || template.isEmpty) return null;
   final sized = template.replaceAll('{size}', '$size');
   if (sized.startsWith('//')) return 'https:$sized';
-  if (sized.startsWith('http')) return sized;
+  if (sized.startsWith('http') && (Uri.tryParse(sized)?.hasScheme ?? true)) {
+    return sized;
+  }
   if (sized.startsWith('/')) {
     final site = Uri.tryParse(siteUrl);
     if (site != null &&
