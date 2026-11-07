@@ -3,10 +3,10 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'nested_replies_data.dart';
 
 final class NestedRepliesApi {
-  const NestedRepliesApi(this.transport, this.models);
+  const NestedRepliesApi(this._transport, this._models);
 
-  final PluginApiTransport transport;
-  final DiscourseModelCodec models;
+  final PluginApiTransport _transport;
+  final DiscourseModelCodec _models;
 
   Future<NestedRootPage> roots({
     required String siteUrl,
@@ -23,7 +23,7 @@ final class NestedRepliesApi {
           'page': _page(page).toString(),
           if (trackVisit) 'track_visit': 'true',
         });
-    final decoder = _TreeDecoder(models, siteUrl, topicId);
+    final decoder = _TreeDecoder(_models, siteUrl, topicId);
     final roots = decoder.nodes(json['roots']);
     final op = json['op_post'] == null ? null : decoder.node(json['op_post']);
     return NestedRootPage(
@@ -64,7 +64,7 @@ final class NestedRepliesApi {
         'depth': depth.toString(),
       },
     );
-    final decoder = _TreeDecoder(models, siteUrl, topicId);
+    final decoder = _TreeDecoder(_models, siteUrl, topicId);
     final children = decoder.nodes(json['children']);
     return NestedChildrenPage(
       children: children,
@@ -72,6 +72,45 @@ final class NestedRepliesApi {
       page: _responsePage(json, page),
       hasMore: _requiredBool(json, 'has_more'),
     );
+  }
+
+  /// A core post lookup supplies identity only. Visible content always comes
+  /// from the tree endpoint, which applies ignored and deleted visibility.
+  Future<NestedContextPage> createdContext({
+    required String siteUrl,
+    required int topicId,
+    required String slug,
+    required int postId,
+    required PluginRequestCredentials credentials,
+    required NestedRepliesSort sort,
+  }) async {
+    if (postId <= 0) throw ArgumentError.value(postId, 'postId');
+    if (topicId <= 0) throw ArgumentError.value(topicId, 'topicId');
+    final identity = await _get(
+      siteUrl,
+      '/posts/$postId.json',
+      credentials,
+      const {},
+    );
+    final number = nestedPositiveInt(identity['post_number']);
+    if (nestedPositiveInt(identity['topic_id']) != topicId ||
+        nestedPositiveInt(identity['id']) != postId ||
+        number == null) {
+      throw const FormatException('Post belongs to another topic');
+    }
+    final page = await context(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      slug: slug,
+      credentials: credentials,
+      sort: sort,
+      postNumber: number,
+      contextDepth: 0,
+    );
+    if (page.target.postId != postId) {
+      throw const FormatException('Mismatched created post identity');
+    }
+    return page;
   }
 
   Future<NestedContextPage> context({
@@ -98,7 +137,7 @@ final class NestedRepliesApi {
         if (trackVisit) 'track_visit': 'true',
       },
     );
-    final decoder = _TreeDecoder(models, siteUrl, topicId);
+    final decoder = _TreeDecoder(_models, siteUrl, topicId);
     final target = decoder.node(json['target_post']);
     if (target.postNumber != postNumber) {
       throw const FormatException('Mismatched context target');
@@ -162,7 +201,7 @@ final class NestedRepliesApi {
           synthetic: synthetic,
           actionCode: code,
           createdAt: DateTime.tryParse('${entry['created_at'] ?? ''}'),
-          post: synthetic ? null : models.post(entry, siteUrl),
+          post: synthetic ? null : _models.post(entry, siteUrl),
           username: entry['username'] is String
               ? entry['username'] as String
               : null,
@@ -295,7 +334,7 @@ final class NestedRepliesApi {
     PluginRequestCredentials credentials,
     Map<String, String> query,
   ) => credentials.run(
-    () => transport.pluginGetJson(
+    () => _transport.pluginGetJson(
       siteUrl: siteUrl,
       path: query.isEmpty
           ? path
@@ -315,7 +354,7 @@ final class NestedRepliesApi {
     final key = credentials.apiKey;
     if (key == null) throw const WriteException(WriteFailure.forbidden);
     return credentials.run(
-      () => transport.pluginWriteJson(
+      () => _transport.pluginWriteJson(
         siteUrl: siteUrl,
         path: path,
         method: method,

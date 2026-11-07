@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../data/avatar_loader.dart';
+import '../data/cached_image_bytes.dart';
 import '../data/media_pipeline.dart';
-
 import 'image_decode.dart';
 
 class AvatarImage extends StatefulWidget {
@@ -27,7 +27,7 @@ class AvatarImage extends StatefulWidget {
 }
 
 class _AvatarImageState extends State<AvatarImage> {
-  AvatarBytes? _bytes;
+  CachedImageBytes? _bytes;
   AvatarLoader? _sourceLoader;
   bool _resolved = false;
 
@@ -115,7 +115,11 @@ class _AvatarImageState extends State<AvatarImage> {
     );
   }
 
-  Widget _decodeFallback(AvatarLoader? loader, String url, AvatarBytes image) {
+  Widget _decodeFallback(
+    AvatarLoader? loader,
+    String url,
+    CachedImageBytes image,
+  ) {
     loader?.rejectAfterDecodeFailure(url, image);
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return widget.fallback;

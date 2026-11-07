@@ -24,6 +24,9 @@ final class NestedRepliesModule implements PluginModule {
             bindings.require(corePluginTransportPort),
             bindings.require(corePluginModelCodecPort),
           ),
+          categories: PluginCategorySettingsApi(
+            bindings.require(corePluginTransportPort),
+          ),
           requests: bindings.require(corePluginRequestPort),
           siteState: bindings.require(corePluginSiteStatePort),
           readers: bindings.require(corePluginTopicReaderPort),

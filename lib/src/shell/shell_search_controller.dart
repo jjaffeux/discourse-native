@@ -24,7 +24,7 @@ class ShellSearchController extends ChangeNotifier {
   bool _authenticated = true;
   final Set<String> _anonymousSearchDenied = {};
   bool _panelOpen = false;
-  final Map<Object, ValueChanged<SearchFocusRequest>> _focusFields = {};
+  final Map<Object, _SearchFocusRegistration> _focusFields = {};
   Object? _activeField;
   bool _disposed = false;
   final Map<({String siteUrl, String tabId, String routeId}), String>
@@ -84,6 +84,7 @@ class ShellSearchController extends ChangeNotifier {
   /// Core's `Guardian#can_search?`: a signed-in reader can always search, an
   /// anonymous one only where the site allows anonymous search.
   bool get canSearch =>
+      !_disposed &&
       _siteUrl != null &&
       (_authenticated || !_anonymousSearchDenied.contains(_siteUrl));
   bool get panelOpen => _panelOpen;
@@ -171,9 +172,12 @@ class ShellSearchController extends ChangeNotifier {
     Object field,
     ValueChanged<SearchFocusRequest> focus,
   ) {
+    if (_disposed) return () {};
+    final registration = _SearchFocusRegistration(focus);
     _focusFields.remove(field);
-    _focusFields[field] = focus;
+    _focusFields[field] = registration;
     return () {
+      if (!identical(_focusFields[field], registration)) return;
       _focusFields.remove(field);
       if (identical(_activeField, field)) {
         _activeField = null;
@@ -199,7 +203,7 @@ class ShellSearchController extends ChangeNotifier {
     GlobalSearchContext? context,
   }) {
     if (!canSearch) return;
-    _focusFields.values.lastOrNull?.call(
+    _focusFields.values.lastOrNull?.focus(
       SearchFocusRequest(mode: mode, context: context),
     );
     openPanel();
@@ -212,10 +216,17 @@ class ShellSearchController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _panelOpen = false;
     _usersQueries.clear();
     if (_siteUrl case final site?) history.forget(site);
     _focusFields.clear();
     _activeField = null;
     super.dispose();
   }
+}
+
+final class _SearchFocusRegistration {
+  _SearchFocusRegistration(this.focus);
+
+  final ValueChanged<SearchFocusRequest> focus;
 }

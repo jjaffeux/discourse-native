@@ -53,7 +53,7 @@ abstract interface class AssignedGroupPresentation implements Listenable {
 
 /// Coordinates route-local presentation state without exposing the plugin UI
 /// to the shell or duplicating the Assign domain controller's caches.
-final class AssignedGroupPresentationController extends ChangeNotifier
+final class AssignedGroupPresentationController extends FrameSafeNotifier
     implements AssignedGroupPresentation {
   AssignedGroupPresentationController({
     required this.siteUrl,
@@ -78,7 +78,6 @@ final class AssignedGroupPresentationController extends ChangeNotifier
 
   AssignedGroupTopicQuery _query = const AssignedGroupTopicQuery();
   String _memberSearch = '';
-  bool _disposed = false;
 
   @override
   AssignedGroupPresentationState get state => AssignedGroupPresentationState(
@@ -95,32 +94,38 @@ final class AssignedGroupPresentationController extends ChangeNotifier
   );
 
   @override
-  Future<void> load({bool refresh = false}) => Future.wait([
-    _controller.loadMembers(
+  Future<void> load({bool refresh = false}) {
+    if (isDisposed) return Future.value();
+    final members = _controller.loadMembers(
       siteUrl: siteUrl,
       groupName: groupName,
       search: _memberSearch,
       refresh: refresh,
-    ),
-    _controller.loadTopics(
-      siteUrl: siteUrl,
-      groupName: groupName,
-      filter: _filter,
-      query: _query,
-      refresh: refresh,
-    ),
-  ]);
+    );
+    if (isDisposed) return members;
+    return Future.wait([
+      members,
+      _controller.loadTopics(
+        siteUrl: siteUrl,
+        groupName: groupName,
+        filter: _filter,
+        query: _query,
+        refresh: refresh,
+      ),
+    ]);
+  }
 
   @override
   void selectFilter(AssignedGroupFilter filter) {
-    _onSelectFilter(groupName, filter);
+    if (!isDisposed) _onSelectFilter(groupName, filter);
   }
 
   @override
   void replaceQuery(AssignedGroupTopicQuery query) {
-    if (query == _query || _disposed) return;
+    if (query == _query || isDisposed) return;
     _query = query;
-    notifyListeners();
+    notifySafely();
+    if (isDisposed) return;
     unawaited(
       _controller.loadTopics(
         siteUrl: siteUrl,
@@ -135,9 +140,10 @@ final class AssignedGroupPresentationController extends ChangeNotifier
   @override
   void searchMembers(String value) {
     final search = value.trim();
-    if (search == _memberSearch || _disposed) return;
+    if (search == _memberSearch || isDisposed) return;
     _memberSearch = search;
-    notifyListeners();
+    notifySafely();
+    if (isDisposed) return;
     unawaited(
       _controller.loadMembers(
         siteUrl: siteUrl,
@@ -150,6 +156,7 @@ final class AssignedGroupPresentationController extends ChangeNotifier
 
   @override
   void loadMoreMembers() {
+    if (isDisposed) return;
     unawaited(
       _controller.loadMoreMembers(
         siteUrl: siteUrl,
@@ -161,6 +168,7 @@ final class AssignedGroupPresentationController extends ChangeNotifier
 
   @override
   void loadMoreTopics() {
+    if (isDisposed) return;
     unawaited(
       _controller.loadMoreTopics(
         siteUrl: siteUrl,
@@ -173,17 +181,16 @@ final class AssignedGroupPresentationController extends ChangeNotifier
 
   @override
   void openTopic(Topic topic) {
-    _onOpenTopic(topic);
+    if (!isDisposed) _onOpenTopic(topic);
   }
 
   void _domainChanged() {
-    if (!_disposed) notifyListeners();
+    if (!isDisposed) notifySafely();
   }
 
   @override
   void dispose() {
-    if (_disposed) return;
-    _disposed = true;
+    if (isDisposed) return;
     _controller.removeListener(_domainChanged);
     super.dispose();
   }

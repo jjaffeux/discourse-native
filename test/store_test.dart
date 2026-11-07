@@ -55,8 +55,65 @@ class _MergingRecord with Storable<_MergingRecord> {
       _MergingRecord(id, [...versions, ...incoming.versions]);
 }
 
+class _IdentityRecord with Storable<_IdentityRecord> {
+  const _IdentityRecord(this.id, {this.mergedId});
+  final int id;
+  final int? mergedId;
+  @override
+  Object get storeId => id;
+  @override
+  _IdentityRecord merge(_IdentityRecord incoming) =>
+      _IdentityRecord(incoming.mergedId ?? incoming.id);
+}
+
 void main() {
   group('Store', () {
+    test(
+      'identity-changing updates cannot corrupt retained refs or generations',
+      () {
+        final store = Store();
+        const held = _Record(1, 'held');
+        store.put(_site, held);
+        final ref = store.ref<_Record>(_site, 1);
+        final structure = store.trackStructure<_Record>(_site, [1]);
+        addTearDown(structure.dispose);
+        final token = structure.token;
+        final generation = store.generationOf<_Record>(_site);
+        var notifications = 0;
+        ref.addListener(() => notifications++);
+        expect(
+          () =>
+              store.update<_Record>(_site, 1, (_) => const _Record(2, 'wrong')),
+          throwsStateError,
+        );
+        expect(ref.value, same(held));
+        expect(store.read<_Record>(_site, 2), isNull);
+        expect(store.generationOf<_Record>(_site), generation);
+        expect(structure.token, same(token));
+        expect(notifications, 0);
+        store.update<_Record>(_site, 1, (_) => const _Record(1, 'accepted'));
+        expect(ref.value!.label, 'accepted');
+        expect(notifications, 1);
+      },
+    );
+
+    test('identity-changing merges are refused before publication', () {
+      final store = Store();
+      const held = _IdentityRecord(1);
+      store.put(_site, held);
+      final ref = store.ref<_IdentityRecord>(_site, 1);
+      final generation = store.generationOf<_IdentityRecord>(_site);
+      expect(
+        () => store.put(_site, const _IdentityRecord(1, mergedId: 2)),
+        throwsStateError,
+      );
+      expect(ref.value, same(held));
+      expect(store.generationOf<_IdentityRecord>(_site), generation);
+      expect(store.read<_IdentityRecord>(_site, 2), isNull);
+      store.put(_site, const _IdentityRecord(1));
+      expect(ref.value!.id, 1);
+    });
+
     test('reads a retained matching snapshot without touching cache state', () {
       final store = Store(
         policy: const StorePolicy(maxEntries: 100, maxEntriesPerSiteAndType: 4),

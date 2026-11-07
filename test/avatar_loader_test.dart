@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/avatar_loader.dart';
+import 'package:discourse_native/src/data/cached_image_bytes.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
@@ -20,17 +21,17 @@ final Uint8List pngBytes = Uint8List.fromList([
 ]);
 
 void main() {
-  group('AvatarLoader.looksLikeSvg', () {
+  group('CachedImageBytes.looksLikeSvg', () {
     test('recognizes an SVG content type without sniffing', () {
       expect(
-        AvatarLoader.looksLikeSvg(pngBytes, contentType: 'image/svg+xml'),
+        CachedImageBytes.looksLikeSvg(pngBytes, contentType: 'image/svg+xml'),
         isTrue,
       );
     });
 
     test('trusts a declared raster type over SVG-like bytes', () {
       expect(
-        AvatarLoader.looksLikeSvg(
+        CachedImageBytes.looksLikeSvg(
           bytes('<svg xmlns="..."></svg>'),
           contentType: 'image/png',
         ),
@@ -40,17 +41,17 @@ void main() {
 
     test('sniffs bytes when the content type is absent or inconclusive', () {
       expect(
-        AvatarLoader.looksLikeSvg(bytes('<svg width="10"></svg>')),
+        CachedImageBytes.looksLikeSvg(bytes('<svg width="10"></svg>')),
         isTrue,
       );
       expect(
-        AvatarLoader.looksLikeSvg(
+        CachedImageBytes.looksLikeSvg(
           bytes('<?xml version="1.0"?><svg></svg>'),
           contentType: 'application/octet-stream',
         ),
         isTrue,
       );
-      expect(AvatarLoader.looksLikeSvg(pngBytes), isFalse);
+      expect(CachedImageBytes.looksLikeSvg(pngBytes), isFalse);
     });
 
     test('sniffs an SVG the way the disk cache hands it back', () {
@@ -62,11 +63,11 @@ void main() {
         0xBF,
         ...bytes('<?xml version="1.0"?><svg width="10"></svg>'),
       ]);
-      expect(AvatarLoader.looksLikeSvg(bom), isTrue);
+      expect(CachedImageBytes.looksLikeSvg(bom), isTrue);
 
       final comment = '<!-- ${'exported by an editor ' * 20}-->';
       expect(
-        AvatarLoader.looksLikeSvg(
+        CachedImageBytes.looksLikeSvg(
           bytes(
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" '
@@ -78,7 +79,7 @@ void main() {
         reason: 'the root sits past the first 256 bytes',
       );
       expect(
-        AvatarLoader.looksLikeSvg(bytes('<html><body>svg</body></html>')),
+        CachedImageBytes.looksLikeSvg(bytes('<html><body>svg</body></html>')),
         isFalse,
       );
     });

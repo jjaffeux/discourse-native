@@ -224,6 +224,70 @@ void main() {
       expect(api.topicCalls.single.filter, AssignedGroupFilter.member('sam'));
     });
 
+    test(
+      'a retired presentation admits neither requests nor navigation',
+      () async {
+        final api = _RecordingAssignedGroupApi();
+        final domain = AssignedGroupController(
+          api: api,
+          requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'api-key'}),
+        );
+        addTearDown(domain.dispose);
+        final selected = <(String, AssignedGroupFilter)>[];
+        final opened = <Topic>[];
+        final presentation = AssignedGroupPresentationController(
+          siteUrl: _siteUrl,
+          groupName: 'support',
+          subsection: 'everyone',
+          controller: domain,
+          onSelectFilter: (group, filter) => selected.add((group, filter)),
+          onOpenTopic: opened.add,
+        );
+        presentation.dispose();
+        await presentation.load();
+        presentation.loadMoreMembers();
+        presentation.loadMoreTopics();
+        presentation.selectFilter(const AssignedGroupFilter.directGroup());
+        presentation.openTopic(_topic);
+        await pumpEventQueue();
+        expect(api.memberCalls, isEmpty);
+        expect(api.topicCalls, isEmpty);
+        expect(api.pageCalls, isEmpty);
+        expect(selected, isEmpty);
+        expect(opened, isEmpty);
+      },
+    );
+
+    for (final change in ['query', 'members']) {
+      test('listener retirement prevents $change request admission', () async {
+        final api = _RecordingAssignedGroupApi();
+        final domain = AssignedGroupController(
+          api: api,
+          requests: PluginTestRequestHost(apiKeys: const {_siteUrl: 'api-key'}),
+        );
+        addTearDown(domain.dispose);
+        final presentation = AssignedGroupPresentationController(
+          siteUrl: _siteUrl,
+          groupName: 'support',
+          subsection: 'everyone',
+          controller: domain,
+          onSelectFilter: (_, _) {},
+          onOpenTopic: (_) {},
+        );
+        presentation.addListener(presentation.dispose);
+        if (change == 'query') {
+          presentation.replaceQuery(
+            const AssignedGroupTopicQuery(search: 'deploy'),
+          );
+        } else {
+          presentation.searchMembers('sam');
+        }
+        await pumpEventQueue();
+        expect(api.memberCalls, isEmpty);
+        expect(api.topicCalls, isEmpty);
+      });
+    }
+
     test('coordinates query, member search, and pagination', () async {
       final api = _RecordingAssignedGroupApi();
       final domain = AssignedGroupController(

@@ -5,6 +5,23 @@ import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/dashboard.dart';
 import '../models/report.dart';
+import '../plugin_api/preserved_json.dart';
+
+final class _ReportQuery {
+  _ReportQuery(this.range, Map<String, Object?> filters)
+    : filters = _snapshotFilters(filters);
+
+  final DashboardRange range;
+  final Map<String, Object?> filters;
+
+  static Map<String, Object?> _snapshotFilters(Map<String, Object?> filters) {
+    final frozen = freezeJson(filters);
+    if (!frozen.valid || frozen.value is! Map<String, Object?>) {
+      throw ArgumentError('Report filters must contain JSON values.');
+    }
+    return frozen.value! as Map<String, Object?>;
+  }
+}
 
 final class ReportController extends FrameSafeNotifier {
   ReportController({
@@ -13,8 +30,8 @@ final class ReportController extends FrameSafeNotifier {
     required this.lease,
     required this.siteUrl,
     required this.report,
-    required this.range,
-  }) {
+    required DashboardRange range,
+  }) : _query = _ReportQuery(range, const {}) {
     _detach = lease.onRetire(() {
       _generation++;
       details = null;
@@ -28,23 +45,23 @@ final class ReportController extends FrameSafeNotifier {
   final SiteLease lease;
   final String siteUrl;
   final DashboardReport report;
-  DashboardRange range;
+  _ReportQuery _query;
+  DashboardRange get range => _query.range;
   ReportDetails? details;
   bool loading = false;
   bool error = false;
-  Map<String, Object?> _filters = {};
   int _generation = 0;
   void Function()? _detach;
 
   Future<void> selectRange(DashboardRange value) async {
     if (value.start.isAfter(value.end)) return;
-    range = value;
+    _query = _ReportQuery(value, _query.filters);
     details = null;
     await refresh();
   }
 
   Future<void> filter(String id, Object? value) async {
-    _filters = {..._filters, id: value};
+    _query = _ReportQuery(range, {..._query.filters, id: value});
     details = null;
     await refresh();
   }
@@ -52,6 +69,7 @@ final class ReportController extends FrameSafeNotifier {
   Future<void> refresh() async {
     if (isDisposed || !lease.isCurrent) return;
     final generation = ++_generation;
+    final query = _query;
     bool owns() => !isDisposed && lease.isCurrent && generation == _generation;
     loading = true;
     error = false;
@@ -72,8 +90,8 @@ final class ReportController extends FrameSafeNotifier {
           apiKey: auth.apiKey!,
           clientId: auth.clientId,
           report: report,
-          range: range,
-          filters: _filters,
+          range: query.range,
+          filters: query.filters,
         ),
       );
       if (!owns()) return;

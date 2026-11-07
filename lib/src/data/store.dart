@@ -288,17 +288,21 @@ class Store {
       _refs[(siteUrl, T, id)]?.ref.value != null;
 
   T put<T extends Storable<T>>(String siteUrl, T record) {
-    final cell = _cell<T>(siteUrl, record.storeId);
+    final id = record.storeId;
+    final cell = _cell<T>(siteUrl, id);
     final held = cell.value;
     final merged = held == null ? record : held.merge(record);
+    if (merged.storeId != id) {
+      throw StateError('A merge cannot change a stored record identity.');
+    }
     if (!identical(held, merged)) {
       _bump(siteUrl, T);
       if (held == null || !held.hasSameStoreStructure(merged)) {
-        _bumpStructure(siteUrl, T, record.storeId);
+        _bumpStructure(siteUrl, T, id);
       }
     }
     cell._set(merged);
-    _trim(keep: (siteUrl, T, record.storeId));
+    _trim(keep: (siteUrl, T, id));
     return merged;
   }
 
@@ -314,6 +318,9 @@ class Store {
     final held = cell?.value;
     if (cell == null || held == null) return;
     final next = change(held);
+    if (next.storeId != id) {
+      throw StateError('An update cannot change a stored record identity.');
+    }
     if (!identical(held, next)) {
       _bump(siteUrl, T);
       if (!held.hasSameStoreStructure(next)) {

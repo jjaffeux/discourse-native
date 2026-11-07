@@ -5,9 +5,9 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../data/cached_image_bytes.dart';
 import '../data/emoji_cache.dart';
 import '../data/media_pipeline.dart';
-
 import '../theme/discourse_typography.dart';
 import 'image_decode.dart';
 import 'site_url.dart';
@@ -34,7 +34,7 @@ class EmojiImage extends StatefulWidget {
 }
 
 class _EmojiImageState extends State<EmojiImage> {
-  EmojiBytes? _bytes;
+  CachedImageBytes? _bytes;
   EmojiCache? _sourceCache;
   bool _resolved = false;
 
@@ -122,7 +122,11 @@ class _EmojiImageState extends State<EmojiImage> {
     );
   }
 
-  Widget _decodeFallback(EmojiCache? cache, String url, EmojiBytes image) {
+  Widget _decodeFallback(
+    EmojiCache? cache,
+    String url,
+    CachedImageBytes image,
+  ) {
     cache?.rejectAfterDecodeFailure(url, image);
     if (widget.url == url && identical(_bytes, image)) _bytes = null;
     return _fallback();

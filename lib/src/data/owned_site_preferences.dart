@@ -27,17 +27,29 @@ final class SitePreferenceIdentity {
   'OwnedSitePreferences supplies the identity for native preference values.',
 )
 final class SitePreferenceValue<T extends Object> {
-  const SitePreferenceValue._(this._read, this._write);
+  const SitePreferenceValue._(this._read, this._write, this._snapshot);
 
-  static const boolean = SitePreferenceValue<bool>._(_readBool, _writeBool);
+  static const boolean = SitePreferenceValue<bool>._(
+    _readBool,
+    _writeBool,
+    _snapshotBool,
+  );
   static const string = SitePreferenceValue<String>._(
     _readString,
     _writeString,
+    _snapshotString,
   );
   static const stringList = SitePreferenceValue<List<String>>._(
     _readStringList,
     _writeStringList,
+    _snapshotStringList,
   );
+
+  final T Function(T) _snapshot;
+  static bool _snapshotBool(bool value) => value;
+  static String _snapshotString(String value) => value;
+  static List<String> _snapshotStringList(List<String> value) =>
+      List.unmodifiable(value);
 
   final T? Function(SharedPreferences, String) _read;
   final Future<bool> Function(SharedPreferences, String, T) _write;
@@ -148,6 +160,7 @@ final class OwnedSitePreferences<T extends Object> {
 
   Future<void> write(SitePreferenceIdentity identity, T newValue) {
     final key = keyFor(identity);
+    final snapshot = value._snapshot(newValue);
     final owner = _preferenceOwner(identity.siteUrl);
     return _ownedPreferenceOperations.run<void>(
       owner: _ownedPreferenceOwners,
@@ -157,7 +170,7 @@ final class OwnedSitePreferences<T extends Object> {
         try {
           final preferences = await SharedPreferences.getInstance();
           if (!_ownsPreference(identity.siteUrl, owner)) return;
-          await _save(preferences, key, newValue);
+          await _save(preferences, key, snapshot);
         } catch (_) {}
       },
     );
