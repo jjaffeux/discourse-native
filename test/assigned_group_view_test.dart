@@ -425,22 +425,6 @@ void main() {
       expect(presentation.loads, [false, true]);
     });
 
-    testWidgets('renders the empty state only after a successful empty load', (
-      tester,
-    ) async {
-      final presentation = _FakeAssignedGroupPresentation(
-        _state(feed: const TopicFeed(loaded: true)),
-      );
-      await _pumpView(tester, presentation);
-
-      expect(
-        find.text('No active assignments match this filter.'),
-        findsOneWidget,
-      );
-      expect(find.byType(DSpinner), findsNothing);
-      expect(find.text('Try again'), findsNothing);
-    });
-
     testWidgets('Everyone count appears only for a complete unfiltered load', (
       tester,
     ) async {
@@ -448,6 +432,12 @@ void main() {
         _state(feed: const TopicFeed(loaded: true)),
       );
       await _pumpView(tester, presentation);
+      expect(
+        find.text('No active assignments match this filter.'),
+        findsOneWidget,
+      );
+      expect(find.byType(DSpinner), findsNothing);
+      expect(find.text('Try again'), findsNothing);
       await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
       await tester.pumpAndSettle();
       final everyone = find.byKey(const ValueKey('assigned-person-everyone'));

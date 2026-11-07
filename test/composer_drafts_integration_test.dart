@@ -1379,7 +1379,7 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('never turns spell check on', (tester) async {
+    testWidgets('marks up the markdown around the selection', (tester) async {
       final api = FakeDiscourseApi(
         feeds: {'/latest.json': listed},
         topics: {7: detail()},
@@ -1395,15 +1395,6 @@ void _registerComposerAndDraftTests() {
         tester.widget<TextField>(_composerField).spellCheckConfiguration,
         isNull,
       );
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
-    testWidgets('marks up the markdown around the selection', (tester) async {
-      final api = FakeDiscourseApi(
-        feeds: {'/latest.json': listed},
-        topics: {7: detail()},
-      );
-
-      await openComposer(tester, api);
       await tester.enterText(_composerField, 'say hello');
       await tester.pumpAndSettle();
 
