@@ -264,6 +264,10 @@ final class PluginHostPortKey<T extends Object> {
 
   String get id => '${owner.value}/$name';
 
+  Type get valueType => T;
+
+  bool accepts(Object value) => value is T;
+
   @override
   bool operator ==(Object other) =>
       other is PluginHostPortKey<Object> &&
@@ -282,6 +286,10 @@ final class PluginServiceKey<T extends Object> {
 
   String get id => '${owner.value}/$name';
 
+  Type get valueType => T;
+
+  bool accepts(Object value) => value is T;
+
   @override
   bool operator ==(Object other) =>
       other is PluginServiceKey<Object> &&
@@ -294,12 +302,33 @@ final class PluginServiceKey<T extends Object> {
 
 final class PluginHostBindings {
   PluginHostBindings(Iterable<PluginHostPort<Object>> ports)
-    : _ports = Map.unmodifiable({for (final port in ports) port.key: port});
+    : _ports = _validatePorts(ports);
 
   const PluginHostBindings.empty()
     : _ports = const <PluginHostPortKey<Object>, PluginHostPort<Object>>{};
 
   final Map<PluginHostPortKey<Object>, PluginHostPort<Object>> _ports;
+
+  static Map<PluginHostPortKey<Object>, PluginHostPort<Object>> _validatePorts(
+    Iterable<PluginHostPort<Object>> ports,
+  ) {
+    final values = <PluginHostPortKey<Object>, PluginHostPort<Object>>{};
+    for (final port in ports) {
+      if (values.containsKey(port.key)) {
+        throw PluginInstallationException(
+          'Duplicate host port ${port.key.id}.',
+        );
+      }
+      if (!port.key.accepts(port.value)) {
+        throw PluginInstallationException(
+          'Host port ${port.key.id} requires ${port.key.valueType}, '
+          'received ${port.value.runtimeType}.',
+        );
+      }
+      values[port.key] = port;
+    }
+    return Map.unmodifiable(values);
+  }
 
   bool contains(PluginHostPortKey<Object> key) => _ports.containsKey(key);
 

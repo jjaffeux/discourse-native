@@ -102,6 +102,7 @@ final class EventController extends FrameSafeNotifier
   /// Recovery after a reset disables [useSeed] to hide personalized snapshot
   /// fields until hydration, including when joining another card's entry.
   EventHandle acquire(String site, PostEvent seed, {bool useSeed = true}) {
+    if (isDisposed) throw StateError('The event controller is closed.');
     final key = (site, seed.id);
     final entry = _entries.putIfAbsent(key, () => _EventEntry(site, seed));
     entry.references++;
@@ -148,16 +149,24 @@ final class EventController extends FrameSafeNotifier
   }
 
   void _subscribe(_EventEntry entry) {
-    if (!_foreground || entry.subscription != null || entry.topicId == null) {
+    if (!_current(entry) ||
+        !_foreground ||
+        entry.subscription != null ||
+        entry.topicId == null) {
       return;
     }
     final tracker = _trackers[entry.site] ?? trackers(entry.site);
-    entry.subscription = tracker?.subscribe(
+    final subscription = tracker?.subscribe(
       '/discourse-post-event/${entry.topicId}',
       (data, _) {
         if (eventObject(data)?['id'] == entry.id) unawaited(_refresh(entry));
       },
     );
+    if (_current(entry) && _foreground) {
+      entry.subscription = subscription;
+    } else {
+      subscription?.cancel();
+    }
   }
 
   void _sourceChanged(_EventEntry entry, PostEvent seed) {

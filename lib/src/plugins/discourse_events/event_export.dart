@@ -11,6 +11,8 @@ import 'package:share_plus/share_plus.dart' as sharing;
 
 import 'event_controller.dart';
 
+export 'event_api.dart' show EmptyEventCalendarException;
+
 /// One export's view and account lifetime, including native save continuations.
 /// Cancelling retires continuations; it cannot dismiss an OS-owned share sheet.
 final class EventExportOperation {
@@ -42,47 +44,27 @@ Future<String> eventCalendar(
   final operation = EventExportOperation(controller, site);
   bool current() => operation.isCurrent && (isCurrent?.call() ?? true);
   if (!current()) throw StateError('Export cancelled.');
-  final transport = controller.api.transport;
-  if (transport is! PluginTextTransport) {
-    throw UnsupportedError('Calendar downloads are unavailable.');
-  }
   final username = mine
       ? controller.siteState.currentUserFor(site)?.username
       : null;
   if (mine && username == null) throw StateError('Connect your account first.');
   final credentials = await controller.requests.credentialsFor(site);
   if (!current()) throw StateError('Export cancelled.');
-  final calendar = await credentials.run(
-    () => (transport as PluginTextTransport).pluginGetText(
-      siteUrl: site,
-      path: Uri(
-        path: '/discourse-post-event/events.ics',
-        queryParameters: {
-          'post_id': ?eventId?.toString(),
-          'attending_user': ?username,
-        },
-      ).toString(),
-      apiKey: credentials.apiKey,
-      clientId: credentials.clientId,
-    ),
-  );
-  if (!current()) throw StateError('Export cancelled.');
-  if (!calendar.trimLeft().startsWith('BEGIN:VCALENDAR') ||
-      !calendar.contains('END:VCALENDAR')) {
-    throw FormatException(appL10n.invalidCalendarResponse);
+  try {
+    final calendar = await credentials.run(
+      () => controller.api.calendar(
+        site,
+        credentials,
+        eventId: eventId,
+        attendingUser: username,
+      ),
+    );
+    if (!current()) throw StateError('Export cancelled.');
+    return calendar;
+  } catch (_) {
+    if (!current()) throw StateError('Export cancelled.');
+    rethrow;
   }
-  if (!_eventComponent.hasMatch(calendar)) {
-    throw const EmptyEventCalendarException();
-  }
-  return calendar;
-}
-
-final _eventComponent = RegExp(r'^BEGIN:VEVENT\r?$', multiLine: true);
-
-/// A well-formed calendar holding no event, which would import nothing. The
-/// feed leaves out closed events and anything before its default window.
-final class EmptyEventCalendarException implements Exception {
-  const EmptyEventCalendarException();
 }
 
 /// Share a server-generated snapshot, never a feed URL containing credentials.

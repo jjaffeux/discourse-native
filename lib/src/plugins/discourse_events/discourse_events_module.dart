@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'discourse_event_api.dart';
 import 'discourse_events_cooking.dart';
 import 'discourse_events_plugin.dart';
-import 'event_api.dart';
 import 'event_composer.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
@@ -35,7 +35,7 @@ final class DiscourseEventsModule implements PluginModule {
     registrar.addSession(
       (bindings, _) {
         final controller = EventController(
-          api: EventApi(bindings.require(corePluginTransportPort)),
+          api: DiscourseEventApi(bindings.require(corePluginTransportPort)),
           requests: bindings.require(corePluginRequestPort),
           posts: bindings.require(corePluginPostPort),
           siteState: bindings.require(corePluginSiteStatePort),

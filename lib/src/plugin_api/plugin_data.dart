@@ -17,6 +17,10 @@ final class PluginDataKey<T extends Object> {
 
   String get id => '$owner/$name';
 
+  Type get valueType => T;
+
+  bool accepts(Object value) => value is T;
+
   @override
   bool operator ==(Object other) =>
       other is PluginDataKey<Object> &&
@@ -203,6 +207,14 @@ final class PluginData {
     Map<String, Object?> preservedNamespaces,
   ) {
     if (values.isEmpty && preservedNamespaces.isEmpty) return none;
+    for (final entry in values.entries) {
+      if (!entry.key.accepts(entry.value)) {
+        throw ArgumentError(
+          'Plugin data ${entry.key.id} requires ${entry.key.valueType}, '
+          'received ${entry.value.runtimeType}.',
+        );
+      }
+    }
     return PluginData._(
       Map.unmodifiable(values),
       Map.unmodifiable(preservedNamespaces),
