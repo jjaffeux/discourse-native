@@ -566,14 +566,16 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
               squareSize: 9,
             ),
             Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                softWrap: false,
-                style: _topicMetadataStyle(context).copyWith(
-                  color: parent
-                      ? _topicMetadataStyle(context).color
-                      : DTokens.of(context).foreground,
+              child: Builder(
+                builder: (context) => Text(
+                  label,
+                  maxLines: 1,
+                  softWrap: false,
+                  style: _topicMetadataStyle(context).copyWith(
+                    color: parent
+                        ? _topicMetadataStyle(context).color
+                        : DefaultTextStyle.of(context).style.color,
+                  ),
                 ),
               ),
             ),
