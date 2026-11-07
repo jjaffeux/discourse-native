@@ -173,33 +173,77 @@ final class ChatNavigationTarget {
     required this.route,
     this.messageId,
     this.focusComposer = false,
+    this.tabId,
+    this.lease,
   });
 
   final String siteUrl;
   final ChatRoute route;
   final int? messageId;
   final bool focusComposer;
+  final String? tabId;
+  final PluginSiteLease? lease;
 }
 
 final class ChatNavigationHandoff extends ChangeNotifier {
-  ChatNavigationTarget? _value;
+  final _pending = <(String, String?), ChatNavigationTarget>{};
+  final _retirementObservers = <(String, String?), VoidCallback>{};
 
-  ChatNavigationTarget? get value => _value;
+  ChatNavigationTarget? get value =>
+      _pending.isEmpty ? null : _pending.values.last;
 
   void offer(ChatNavigationTarget target) {
-    _value = target;
+    final key = (target.siteUrl, target.tabId);
+    _remove(key);
+    if (target.lease?.isCurrent == false) return;
+    _pending[key] = target;
+    final detach = target.lease?.onRetire(() {
+      if (identical(_pending[key], target)) _remove(key);
+    });
+    if (detach != null) {
+      if (identical(_pending[key], target)) {
+        _retirementObservers[key] = detach;
+      } else {
+        detach();
+      }
+    }
     notifyListeners();
   }
 
   ChatNavigationTarget? take({
     required String siteUrl,
     required ChatRoute route,
+    String? tabId,
   }) {
-    final target = _value;
+    final scoped = (siteUrl, tabId);
+    final key = _pending.containsKey(scoped) ? scoped : (siteUrl, null);
+    final target = _pending[key];
     if (target == null || target.siteUrl != siteUrl || target.route != route) {
       return null;
     }
-    _value = null;
+    _remove(key);
+    if (target.lease?.isCurrent == false) return null;
     return target;
+  }
+
+  void retain(bool Function(ChatNavigationTarget target) predicate) {
+    for (final entry in _pending.entries.toList()) {
+      if (!predicate(entry.value)) _remove(entry.key);
+    }
+  }
+
+  void _remove((String, String?) key) {
+    _pending.remove(key);
+    _retirementObservers.remove(key)?.call();
+  }
+
+  @override
+  void dispose() {
+    for (final detach in _retirementObservers.values) {
+      detach();
+    }
+    _retirementObservers.clear();
+    _pending.clear();
+    super.dispose();
   }
 }

@@ -16,6 +16,7 @@ import 'package:flutter/foundation.dart'
         ErrorDescription;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show HardwareKeyboard;
+import 'package:flutter/widgets.dart' show BuildContext;
 
 import '../data/account_request_session.dart';
 import '../data/account_session_coordinator.dart';
@@ -159,6 +160,7 @@ import 'preferences_controller.dart';
 import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
+import 'shell_scope.dart' show ForumTabScope;
 import 'shell_search_controller.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
@@ -9129,6 +9131,7 @@ class ShellController extends FrameSafeNotifier
     bool? select,
     String? rootDestinationId,
     ForumTab? source,
+    void Function(ForumTab tab)? onOpened,
   }) => _workspace.openContentInNewTab(
     route,
     siteUrl: siteUrl,
@@ -9137,6 +9140,7 @@ class ShellController extends FrameSafeNotifier
     select: select,
     rootDestinationId: rootDestinationId,
     source: source,
+    onOpened: onOpened,
   );
 
   TabOpenResult openContentInPanel(
@@ -10149,6 +10153,14 @@ final class _ShellPluginRouteNavigationHost
   bool get mobileNavigationEnabled => _shell.mobileNavigationEnabled;
 
   @override
+  String? tabIdOf(BuildContext context) =>
+      ForumTabScope.idOf(context) ?? _shell.activeTabId;
+
+  @override
+  ContentRoute? contentForTab(String siteUrl, String tabId) =>
+      _shell.workspaceFor(siteUrl)?.tabById(tabId)?.currentContent;
+
+  @override
   bool get currentContentVisible =>
       _shell.forumActive &&
       (!_shell.mobileNavigationEnabled ||
@@ -10192,6 +10204,7 @@ final class _ShellPluginRouteNavigationHost
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   }) {
     final site = siteUrl ?? _shell.currentInstance?.url;
     final index = _shell.instances.indexWhere(
@@ -10220,6 +10233,7 @@ final class _ShellPluginRouteNavigationHost
             source: _shell.currentInstance?.url == site
                 ? _shell.activeTab
                 : null,
+            onOpened: (tab) => onOpened?.call(tab.id),
           ) ==
           TabOpenResult.opened;
     }
@@ -10236,6 +10250,7 @@ final class _ShellPluginRouteNavigationHost
         _shell.currentContent?.sameDestinationAs(route) != true) {
       return false;
     }
+    if (_shell.activeTabId case final tabId?) onOpened?.call(tabId);
     onNavigated?.call();
     return true;
   }

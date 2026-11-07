@@ -312,10 +312,10 @@ class _ChatThreadViewState extends State<ChatThreadView> {
       _navigation?.removeListener(_consumeNavigation);
       _navigation = navigation;
       navigation.addListener(_consumeNavigation);
-      if (!_consumeNavigation() && !_opened) {
-        _opened = true;
-        unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
-      }
+    }
+    if (!_consumeNavigation() && !_opened) {
+      _opened = true;
+      unawaited(widget.chat.openThread(widget.siteUrl, widget.target));
     }
   }
 
@@ -330,6 +330,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
         channelId: widget.target.channelId,
         threadId: widget.target.threadId,
       ),
+      tabId: shell.tabIdOf(context),
     );
     if (pending == null) return false;
     _opened = true;

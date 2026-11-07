@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui' show Color, Rect;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show BuildContext;
 
 import '../data/discourse_api_contracts.dart';
 import '../models/bookmark.dart';
@@ -58,11 +59,13 @@ abstract interface class PluginRouteNavigationHost {
   /// Opens a route with the link's site and tab/panel intent. Background opens
   /// preserve the selected forum and do not call [onNavigated]. Returns false
   /// when the destination cannot be committed, including a full workspace.
+  /// [onOpened] receives the identity of the committed destination tab.
   bool pushContent(
     ContentRoute route, {
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   });
   void replaceCurrentContent(ContentRoute route);
 
@@ -81,6 +84,11 @@ abstract interface class PluginRouteNavigationHost {
 abstract interface class PluginRoutePresentationHost implements Listenable {
   bool get currentContentVisible;
   bool get mobileNavigationEnabled;
+
+  String? tabIdOf(BuildContext context);
+
+  /// The tab's current route, or null after its workspace or tab is retired.
+  ContentRoute? contentForTab(String siteUrl, String tabId);
 }
 
 abstract interface class PluginTopicListNavigationHost {

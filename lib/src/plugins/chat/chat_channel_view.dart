@@ -179,10 +179,10 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
       _navigation?.removeListener(_consumeNavigation);
       _navigation = navigation;
       navigation.addListener(_consumeNavigation);
-      if (!_consumeNavigation() && !_opened) {
-        _opened = true;
-        unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
-      }
+    }
+    if (!_consumeNavigation() && !_opened) {
+      _opened = true;
+      unawaited(widget.chat.openChannel(widget.siteUrl, widget.channelId));
     }
   }
 
@@ -195,6 +195,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     final pending = shell.navigation.take(
       siteUrl: widget.siteUrl,
       route: ChatRoute.channel(widget.channelId),
+      tabId: shell.tabIdOf(context),
     );
     if (pending == null) return false;
 

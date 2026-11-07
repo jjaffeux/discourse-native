@@ -1424,6 +1424,7 @@ final class _SummaryNavigation
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   }) {
     if (siteUrl != null && currentSite?.url != siteUrl) {
       final index = sites.indexWhere((site) => site.url == siteUrl);

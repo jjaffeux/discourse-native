@@ -304,6 +304,7 @@ final class _Navigation implements PluginRouteNavigationHost {
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   }) {
     this.route = route;
     site = siteUrl;

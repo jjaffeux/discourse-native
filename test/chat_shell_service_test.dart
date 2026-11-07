@@ -480,6 +480,7 @@ final class _NavigationHost
     String? siteUrl,
     PluginLinkOrigin origin = PluginLinkOrigin.direct,
     void Function()? onNavigated,
+    void Function(String tabId)? onOpened,
   }) {
     _contentStack = [..._contentStack, route];
     _changes.notifyListeners();
