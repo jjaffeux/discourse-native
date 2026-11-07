@@ -9507,8 +9507,13 @@ class ShellController extends FrameSafeNotifier
     _flags.dispose();
     _topicReads.dispose();
     _customSidebar.dispose();
-    for (final instance in _instances) {
-      lifecycle.invalidate(instance.url);
+    ({Object error, StackTrace stackTrace})? retirementFailure;
+    for (final instance in _instances.toList()) {
+      try {
+        lifecycle.invalidate(instance.url);
+      } catch (error, stackTrace) {
+        retirementFailure ??= (error: error, stackTrace: stackTrace);
+      }
     }
     _taxonomy.dispose();
     _topicTracking.dispose();
@@ -9559,6 +9564,9 @@ class ShellController extends FrameSafeNotifier
     _readerContentBounds.dispose();
     if (ownsApi) api.close();
     super.dispose();
+    if (retirementFailure case final failure?) {
+      Error.throwWithStackTrace(failure.error, failure.stackTrace);
+    }
   }
 }
 

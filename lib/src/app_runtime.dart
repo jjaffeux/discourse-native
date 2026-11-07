@@ -294,11 +294,14 @@ final class AppRuntime {
     _disposed = true;
     _notificationIngress.dispose();
     final controller = _controller;
-    controller.dispose();
-    final teardown = _ownsPlugins
-        ? _closePlugins(_plugins, after: controller.pluginTeardown)
-        : _settled(controller.pluginTeardown);
-    _closeApiAfter(_api, teardown);
+    try {
+      controller.dispose();
+    } finally {
+      final teardown = _ownsPlugins
+          ? _closePlugins(_plugins, after: controller.pluginTeardown)
+          : _settled(controller.pluginTeardown);
+      _closeApiAfter(_api, teardown);
+    }
   }
 
   Future<void> _observePluginAppState(

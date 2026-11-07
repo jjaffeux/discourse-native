@@ -30,3 +30,21 @@ original stack preservation, idempotent invalidation, and a reentrant successor.
 compensation after a retirement observer fails. The four new cases failed
 against the previous implementation. Existing request-session and media owner
 tests exercise actual cancellation and resource cleanup on retirement.
+
+## Application shutdown
+
+The shell retires a captured list of its forums, retaining the first retirement
+failure while continuing later forums and remaining component cleanup. It
+rethrows that failure only after disposing its notifier and any transport it
+owns. One failing account observer cannot leave the other accounts, media,
+plugin sessions or shell resources active.
+
+`AppRuntime` schedules its owned plugin teardown and transport closure in a
+`finally` around controller disposal. The controller's original error remains
+visible, while the existing session-then-plugin-then-transport ordering remains
+intact. The controller and runtime keep their original owned-versus-borrowed
+transport responsibilities.
+
+`app_shutdown_ownership_test.dart` reproduces both the skipped second forum and
+the runtime transport left open by a retirement failure. Disposal and runtime
+lifecycle suites retain pending-draft preservation and teardown-order coverage.
