@@ -29,6 +29,25 @@ void main() {
   });
 
   test(
+    'boolean claims retain legacy truth and may replace stored false',
+    () async {
+      const claims = OwnedSitePreferences(
+        id: 'test.claim',
+        scope: SitePreferenceScope.site,
+        value: SitePreferenceValue.boolean,
+        legacy: SitePreferenceKey('test.claim.legacy'),
+      );
+      const identity = SitePreferenceIdentity.site(_short);
+      SharedPreferences.setMockInitialValues({claims.legacy!.of(_short): true});
+      expect(await claims.claim(identity), isFalse);
+      expect(await claims.read(identity), isTrue);
+      await claims.write(identity, false);
+      expect(await claims.claim(identity), isTrue);
+      expect(await claims.claim(identity), isFalse);
+    },
+  );
+
+  test(
     'versioned identities separate scope, dotted URLs and accounts',
     () async {
       const siteData = OwnedSitePreferences(

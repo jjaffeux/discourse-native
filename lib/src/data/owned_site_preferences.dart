@@ -113,27 +113,37 @@ final class OwnedSitePreferences<T extends Object> {
         try {
           final preferences = await SharedPreferences.getInstance();
           if (!_ownsPreference(identity.siteUrl, owner)) return null;
-          final rejected = _rejectedPreferenceValues[preferences];
-          if (rejected?.containsKey(key) == true) {
-            final previous = rejected![key];
-            if (previous != null) return previous as T;
-          } else if (preferences.containsKey(key)) {
-            return value._read(preferences, key);
-          }
-          final oldKey = _legacyKey(identity);
-          if (oldKey == null) return null;
-          final oldValue = value._read(preferences, oldKey);
-          if (oldValue == null) return null;
-          // Old dotted keys can have another owner. Copy without deleting them.
-          try {
-            await _save(preferences, key, oldValue);
-          } catch (_) {}
-          return _ownsPreference(identity.siteUrl, owner) ? oldValue : null;
+          final held = await _readValue(preferences, identity, key, owner);
+          return _ownsPreference(identity.siteUrl, owner) ? held : null;
         } catch (error) {
           return null;
         }
       },
     );
+  }
+
+  Future<T?> _readValue(
+    SharedPreferences preferences,
+    SitePreferenceIdentity identity,
+    String key,
+    Object owner,
+  ) async {
+    final rejected = _rejectedPreferenceValues[preferences];
+    if (rejected?.containsKey(key) == true) {
+      final previous = rejected![key];
+      if (previous != null) return previous as T;
+    } else if (preferences.containsKey(key)) {
+      return value._read(preferences, key);
+    }
+    final oldKey = _legacyKey(identity);
+    if (oldKey == null) return null;
+    final oldValue = value._read(preferences, oldKey);
+    if (oldValue == null) return null;
+    // Old dotted keys can have another owner. Copy without deleting them.
+    try {
+      await _save(preferences, key, oldValue);
+    } catch (_) {}
+    return _ownsPreference(identity.siteUrl, owner) ? oldValue : null;
   }
 
   Future<void> write(SitePreferenceIdentity identity, T newValue) {
@@ -170,6 +180,45 @@ final class OwnedSitePreferences<T extends Object> {
       rejected[key] = previous;
       rethrow;
     }
+  }
+}
+
+/// Grants one local claim while retaining the site's admitted storage owner.
+@PreferenceStorage.adapter(
+  'Boolean claims retain exact site generations on the shared preference operation queue.',
+)
+extension OwnedBooleanSitePreferenceClaims on OwnedSitePreferences<bool> {
+  /// Persists true once when absent or false. Returns false on retirement,
+  /// an existing claim, or storage failure. Serialization is local to this app.
+  /// The optional pure eligibility check runs when the queued claim is admitted.
+  Future<bool> claim(
+    SitePreferenceIdentity identity, {
+    bool Function()? isEligible,
+  }) {
+    final key = keyFor(identity);
+    final owner = _preferenceOwner(identity.siteUrl);
+    return _ownedPreferenceOperations.run(
+      owner: _ownedPreferenceOwners,
+      key: identity.siteUrl,
+      operation: () async {
+        try {
+          if (!_ownsPreference(identity.siteUrl, owner) ||
+              isEligible?.call() == false) {
+            return false;
+          }
+          final preferences = await SharedPreferences.getInstance();
+          if (!_ownsPreference(identity.siteUrl, owner)) return false;
+          final held = await _readValue(preferences, identity, key, owner);
+          if (!_ownsPreference(identity.siteUrl, owner) || held == true) {
+            return false;
+          }
+          await _save(preferences, key, true);
+          return _ownsPreference(identity.siteUrl, owner);
+        } catch (_) {
+          return false;
+        }
+      },
+    );
   }
 }
 
