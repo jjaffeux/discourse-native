@@ -87,6 +87,60 @@ void main() {
     );
   }
 
+  testWidgets('directory loading publication preserves successor search', (
+    tester,
+  ) async {
+    final shell = createGlobalSearchFixtureController();
+    addTearDown(shell.dispose);
+    await shell.load();
+    shell.pushContent(ContentRoute.topicList(TopicListMode.latest));
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: ForumSearch(showNavigationControls: false),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ForumSearch.inputKey));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(ForumSearch.inputKey), 'keyboard');
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+    final openSection = tester
+        .widget<DItem>(find.byKey(const ValueKey('section:users:')))
+        .onPressed!;
+    var changed = false;
+    shell.userDirectory.addListener(() {
+      if (!shell.userDirectory
+          .stateFor(globalSearchFixtureSite, shell.focusedTabContext.usersQuery)
+          .loading) {
+        return;
+      }
+      if (changed) return;
+      changed = true;
+      shell.selectInstance(1);
+      shell.search.requestFocus();
+      shell.globalSearch.setQuery('design');
+    });
+    openSection();
+    await tester.pump(const Duration(milliseconds: 450));
+    await tester.pumpAndSettle();
+    expect(changed, isTrue);
+    expect(shell.currentInstance!.url, globalSearchFixtureOtherSite);
+    expect(shell.currentContent?.isTopicList, isTrue);
+    expect(shell.globalSearch.query, 'design');
+    expect(find.byKey(ForumSearch.panelKey), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final action in ['result', 'apply', 'section']) {
     testWidgets('same-account history query change retains admitted $action', (
       tester,

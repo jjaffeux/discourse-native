@@ -762,6 +762,7 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!ownsAction(requireSourceRoute: false)) return;
     if (route.isMessages) unawaited(shell.loadFeed(route.id));
     if (route.isUsers) unawaited(shell.focusedTabContext.loadUsers());
+    if (!ownsAction(requireSourceRoute: false)) return;
     _clearSubmittedSearch();
   }
 
