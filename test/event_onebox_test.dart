@@ -266,6 +266,42 @@ void main() {
     await tester.pumpWidget(const SizedBox.shrink());
   });
 
+  testWidgets('a published quote discovers a new event on foreground resume', (
+    tester,
+  ) async {
+    final transport = RecordingPluginTransport(
+      responses: {
+        'GET $_topicPath': {'events': <Object?>[]},
+      },
+    );
+    final (session, plugins) = await host(transport);
+    await pump(tester, session, plugins, _quote);
+    expect(find.byType(PostEventCard), findsNothing);
+    expect(
+      find.text('Published description', findRichText: true),
+      findsOneWidget,
+    );
+
+    final controller = session.require(eventControllerKey);
+    controller.setForeground(false);
+    transport.responses['GET $_topicPath'] = {
+      'events': [eventJson()],
+    };
+    transport.responses['GET /discourse-post-event/events/42.json'] = {
+      'event': eventJson(),
+    };
+    controller.setForeground(true);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PostEventCard), findsOneWidget);
+    expect(find.text('Engineering Managers Call'), findsOneWidget);
+    expect(
+      transport.reads.where((request) => request.path == _topicPath),
+      hasLength(2),
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   for (final width in [390.0, 1100.0]) {
     testWidgets('foreign event preview stays informational at $width', (
       tester,

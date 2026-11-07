@@ -444,7 +444,11 @@ final class EventController extends FrameSafeNotifier
   void setForeground(bool foreground) {
     if (_foreground == foreground) return;
     _foreground = foreground;
-    if (foreground) _foregroundRevision++;
+    if (foreground) {
+      _foregroundRevision++;
+      _topicEvents.clear();
+      _readerChanges.changed();
+    }
     for (final entry in _entries.values) {
       if (foreground) {
         _subscribe(entry);
