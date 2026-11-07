@@ -207,7 +207,9 @@ void main() {
         );
         expect(handle.top, greaterThanOrEqualTo(59));
         expect(
-          tester.getRect(find.byType(ComposerPanel)).top,
+          tester
+              .getRect(find.byKey(const ValueKey('composer-topic-title')))
+              .top,
           greaterThan(handle.bottom),
         );
         final sheet = tester.widget<DSheetContent>(
@@ -342,7 +344,7 @@ void main() {
         844 - keyboard - (6 + foot / 2),
       );
       expect(tester.takeException(), isNull);
-    });
+    }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
   }
 }
 

@@ -889,7 +889,13 @@ void main() {
       expect(handle.size, const Size(36, 5));
       expect(handle.center.dx, sheet.center.dx);
       expect(handle.top, sheet.top + 8);
-      expect(frame.top, greaterThan(handle.bottom));
+      expect(frame.top, sheet.top);
+      expect(
+        tester
+            .getRect(find.byKey(const ValueKey('composer-topic-title')))
+            .overlaps(handle),
+        isFalse,
+      );
       expect(frame.bottom, sheet.bottom);
       expect(frame.width, sheet.width);
       final submit = tester.getRect(
@@ -940,7 +946,7 @@ void main() {
     composer.text.text = 'Keep this draft when I close the sheet.';
     await tester.pumpAndSettle();
     final close = find.byKey(const ValueKey('composer-close'));
-    expect(tester.widget<DButton>(close).shape, DButtonShape.pill);
+    expect(tester.widget<DButton>(close).shape, DButtonShape.rounded);
     expect(tester.getSize(close).width, tester.getSize(close).height);
     await tester.tap(close);
     await tester.pumpAndSettle();
@@ -1558,10 +1564,14 @@ void main() {
           final surface = find
               .ancestor(of: picker, matching: find.byType(DSheetContent))
               .first;
-          expect(
-            tester.getBottomLeft(surface).dy,
-            closeTo(800 - inset - DSpacing.md, 1),
+          expect(tester.getBottomLeft(surface).dy, closeTo(800, 1));
+          final search = find.descendant(
+            of: surface,
+            matching: find.byType(EditableText),
           );
+          expect(search, findsOneWidget);
+          expect(tester.getRect(search).bottom, lessThanOrEqualTo(800 - inset));
+          expect(search.hitTestable(), findsOneWidget);
         }
         showDSheet<void>(
           context: tester.element(picker),

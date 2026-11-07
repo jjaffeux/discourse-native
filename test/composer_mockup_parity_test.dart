@@ -606,8 +606,8 @@ void main() {
         expect(bounds.center.dx, 195);
         for (final action in ['composer-close', 'composer-submit']) {
           expect(
-            tester.getRect(find.byKey(ValueKey(action))).top,
-            greaterThan(bounds.bottom),
+            tester.getRect(find.byKey(ValueKey(action))).overlaps(bounds),
+            isFalse,
           );
         }
         await _render(
@@ -620,54 +620,70 @@ void main() {
   }
 
   for (final dark in [false, true]) {
-    testWidgets('phone close covers scrolled topic content dark=$dark', (
-      tester,
-    ) async {
-      final h = await _Harness.create(
-        tester,
-        mobile: true,
-        dark: dark,
-        size: const Size(390, 844),
-      );
-      final composer = h.shell.visibleComposer!;
-      composer.title.text = 'A topic title behind the close button';
-      composer.text.text = List.generate(
-        60,
-        (i) => 'Line $i ${'word ' * 12}',
-      ).join('\n');
-      composer.focus.unfocus();
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(seconds: 3));
-      await tester.pumpAndSettle();
-      final before = await _closeSurfacePixels(tester);
-      final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
-      await tester.drag(viewport, const Offset(0, -137));
-      await tester.pumpAndSettle();
-      expect(
-        tester.widget<CustomScrollView>(viewport).controller!.offset,
-        greaterThan(50),
-      );
-      await _render(tester, 'close-layer-${dark ? 'dark' : 'light'}');
-      final after = await _closeSurfacePixels(tester);
-      expect(
-        after,
-        before,
-        reason: 'Topic text must not show through the close button surface.',
-      );
-      final close = find.byKey(const ValueKey('composer-close'));
-      expect(close.hitTestable(), findsOneWidget);
-      await tester.tap(close);
-      await tester.pumpAndSettle();
-      expect(find.byKey(const ValueKey('composer-save-draft')), findsOneWidget);
-      expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
-    });
+    testWidgets(
+      'phone close stays visible and usable above scrolled topic content dark=$dark',
+      (tester) async {
+        final h = await _Harness.create(
+          tester,
+          mobile: true,
+          dark: dark,
+          size: const Size(390, 844),
+        );
+        final composer = h.shell.visibleComposer!;
+        composer.title.text = 'A topic title behind the close button';
+        composer.text.text = List.generate(
+          60,
+          (i) => 'Line $i ${'word ' * 12}',
+        ).join('\n');
+        composer.focus.unfocus();
+        await tester.pumpAndSettle();
+        await tester.pump(const Duration(seconds: 3));
+        await tester.pumpAndSettle();
+        final close = find.byKey(const ValueKey('composer-close'));
+        final bounds = tester.getRect(close);
+        final glyph = find
+            .descendant(of: close, matching: find.byType(CustomPaint))
+            .last;
+        final color = IconTheme.of(tester.element(glyph)).color!;
+        final expectedGlyph = [
+          (color.r * 255).round(),
+          (color.g * 255).round(),
+          (color.b * 255).round(),
+        ];
+        final before = await _closeGlyphPixel(tester);
+        expect(before, expectedGlyph);
+        final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+        await tester.drag(viewport, const Offset(0, -137));
+        await tester.pumpAndSettle();
+        expect(
+          tester.widget<CustomScrollView>(viewport).controller!.offset,
+          greaterThan(50),
+        );
+        await _render(tester, 'close-layer-${dark ? 'dark' : 'light'}');
+        final after = await _closeGlyphPixel(tester);
+        expect(
+          after,
+          before,
+          reason: 'The close glyph must remain readable above scrolling text.',
+        );
+        expect(tester.getRect(close), bounds);
+        expect(close.hitTestable(), findsOneWidget);
+        await tester.tap(close);
+        await tester.pumpAndSettle();
+        expect(
+          find.byKey(const ValueKey('composer-save-draft')),
+          findsOneWidget,
+        );
+        expect(find.byKey(const ValueKey('composer-cancel')), findsOneWidget);
+      },
+    );
   }
 
   {
     for (final dark in [false, true]) {
       for (final scale in [1.0, 2.0]) {
         testWidgets(
-          'phone header actions are large and raised dark=$dark scale=$scale',
+          'phone header actions use the compact sheet preset dark=$dark scale=$scale',
           (tester) async {
             await _Harness.create(
               tester,
@@ -686,27 +702,38 @@ void main() {
               final button = find.byKey(ValueKey(action));
               expect(
                 tester.getSize(button),
-                const Size(48, 48),
+                const Size(40, 40),
                 reason: action,
               );
-              expect(tester.getRect(button).top, header.top, reason: action);
-              expect(tester.getRect(button).top, greaterThan(handle.bottom));
+              expect(
+                tester.getRect(button).top,
+                header.top + 12,
+                reason: action,
+              );
+              expect(tester.getRect(button).overlaps(handle), isFalse);
               expect(
                 tester
                     .getSize(
-                      find.descendant(of: button, matching: find.byType(DIcon)),
+                      find
+                          .descendant(
+                            of: button,
+                            matching: action == 'composer-close'
+                                ? find.byType(CustomPaint)
+                                : find.byType(DIcon),
+                          )
+                          .last,
                     )
                     .height,
-                16,
+                action == 'composer-close' ? 16 : 12,
                 reason: action,
               );
             }
-            expect(header.height, 56);
+            expect(header.height, 64);
             expect(
               tester
                   .widget<DButton>(find.byKey(const ValueKey('composer-close')))
                   .variant,
-              DButtonVariant.outline,
+              DButtonVariant.quiet,
             );
             expect(
               tester
@@ -714,7 +741,7 @@ void main() {
                     find.byKey(const ValueKey('composer-submit')),
                   )
                   .variant,
-              DButtonVariant.primary,
+              DButtonVariant.quiet,
             );
             await _render(
               tester,
@@ -777,7 +804,7 @@ void main() {
   }
 }
 
-Future<List<int>> _closeSurfacePixels(WidgetTester tester) async {
+Future<List<int>> _closeGlyphPixel(WidgetTester tester) async {
   final center = tester.getCenter(find.byKey(const ValueKey('composer-close')));
   final boundary = tester.renderObject<RenderRepaintBoundary>(
     find.byKey(_capture),
@@ -787,10 +814,10 @@ Future<List<int>> _closeSurfacePixels(WidgetTester tester) async {
     final image = await boundary.toImage(pixelRatio: 1);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
     final pixels = <int>[
-      for (var y = local.dy.round() - 8; y < local.dy.round() + 8; y++)
-        for (var x = local.dx.round() - 16; x < local.dx.round() - 12; x++)
-          for (var channel = 0; channel < 3; channel++)
-            bytes!.getUint8((y * image.width + x) * 4 + channel),
+      for (var channel = 0; channel < 3; channel++)
+        bytes!.getUint8(
+          (local.dy.floor() * image.width + local.dx.floor()) * 4 + channel,
+        ),
     ];
     image.dispose();
     return pixels;

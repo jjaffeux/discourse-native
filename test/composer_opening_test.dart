@@ -65,7 +65,7 @@ void main({bool profile = false}) {
     );
     expect(tester.takeException(), isNull);
     await tester.pumpWidget(const SizedBox.shrink());
-  });
+  }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
 
   for (final dismissal in ['swipe', 'close']) {
     testWidgets(
@@ -113,6 +113,7 @@ void main({bool profile = false}) {
         expect(tester.takeException(), isNull);
         await tester.pumpWidget(const SizedBox.shrink());
       },
+      variant: const TargetPlatformVariant({TargetPlatform.iOS}),
     );
   }
 
@@ -133,11 +134,12 @@ void main({bool profile = false}) {
       expect(tester.getRect(reader).bottom, 844);
       tester.view.viewInsets = const FakeViewPadding(bottom: 240);
       await tester.pump();
-      // The shell keeps two pixels between its pages and the keyboard.
-      expect(tester.getRect(reader).bottom, 844 - 240 - 2);
+      // The shell keeps one pixel between its pages and the keyboard.
+      expect(tester.getRect(reader).bottom, 844 - 240 - 1);
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },
+    variant: const TargetPlatformVariant({TargetPlatform.iOS}),
   );
 
   testWidgets(

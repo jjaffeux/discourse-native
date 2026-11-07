@@ -423,7 +423,10 @@ void main() {
           await tester.drag(find.byTooltip('Close'), const Offset(0, 400));
           await tester.pumpAndSettle();
           expect(tester.getRect(surface), bounds);
-          expect(find.byKey(const ValueKey('sheet-drag-handle')), findsNothing);
+          expect(
+            find.byKey(const ValueKey('sheet-drag-handle')),
+            findsOneWidget,
+          );
         }
         await tester.tap(find.byKey(const ValueKey('fast-edit-save')));
         await tester.pump();
