@@ -69,6 +69,107 @@ Future<TestGesture> _drag(
 
 void main() {
   testWidgets(
+    'retained navigation owns input and stays above its return page',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final semantics = tester.ensureSemantics();
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      final boundaryKey = GlobalKey();
+      var open = false;
+      var actions = 0;
+      late StateSetter update;
+      final navigation = ColoredBox(
+        color: const Color(0xFFFF0000),
+        child: Center(
+          child: DButton(
+            label: const Text('Navigation action'),
+            focusNode: focus,
+            onPressed: () => actions++,
+          ),
+        ),
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RepaintBoundary(
+            key: boundaryKey,
+            child: StatefulBuilder(
+              builder: (context, setState) {
+                update = setState;
+                return DHistoryTransition(
+                  history: 'journey',
+                  tabOwner: 'account',
+                  entry: open ? 'navigation' : 'page',
+                  tab: (id: open ? 'navigation' : 'page', index: open ? -1 : 0),
+                  navigation: DHistoryNavigation(
+                    entry: 'navigation',
+                    preview: navigation,
+                    onOpen: () => update(() => open = true),
+                  ),
+                  nextEntry: open ? 'page' : null,
+                  onForward: open ? () => update(() => open = false) : null,
+                  child: ColoredBox(
+                    color: const Color(0xFF0000FF),
+                    child: Center(
+                      child: DButton(
+                        label: const Text('Reading action'),
+                        onPressed: () {},
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Navigation action'), findsNothing);
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isFalse);
+
+      update(() => open = true);
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Reading action'), findsNothing);
+      await tester.tap(find.widgetWithText(DButton, 'Navigation action'));
+      await tester.pumpAndSettle();
+      expect(actions, 1);
+      focus.requestFocus();
+      await tester.pump();
+      expect(focus.hasFocus, isTrue);
+
+      final gesture = await _drag(tester, fromRight: true, distance: 160);
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(boundaryKey),
+      );
+      final image = boundary.toImageSync(pixelRatio: 1);
+      final pixels = await tester.runAsync(
+        () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+      );
+      image.dispose();
+      const leftPixel = (350 * 400 + 80) * 4;
+      // The fading red navigation must remain in front of the blue return page.
+      expect(pixels!.getUint8(leftPixel), greaterThan(50));
+      expect(pixels.getUint8(leftPixel + 2), lessThan(230));
+      await gesture.cancel();
+      await tester.pumpAndSettle();
+
+      update(() => open = false);
+      await tester.pumpAndSettle();
+      expect(focus.hasFocus, isFalse);
+      expect(find.bySemanticsLabel('Navigation action'), findsNothing);
+      expect(
+        find.widgetWithText(DButton, 'Reading action').hitTestable(),
+        findsOneWidget,
+      );
+      semantics.dispose();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'navigation preview covers the frame with horizontally fixed chrome',
     (tester) async {
       final state = await _pump(tester, framed: true, splitNavigation: true);

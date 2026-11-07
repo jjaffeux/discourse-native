@@ -295,9 +295,11 @@ class _DSidebarState extends State<DSidebar> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          if (widget.header != null) widget.header!,
+                          if (widget.header case final header?)
+                            RepaintBoundary(child: header),
                           Expanded(child: widget.child),
-                          if (widget.footer != null) widget.footer!,
+                          if (widget.footer case final footer?)
+                            RepaintBoundary(child: footer),
                         ],
                       ),
                     ),
@@ -394,7 +396,7 @@ class _DSidebarState extends State<DSidebar> {
             excluding: hidden,
             child: Padding(
               padding: const EdgeInsets.all(0),
-              child: _panel(context, icon),
+              child: RepaintBoundary(child: _panel(context, icon)),
             ),
           ),
         ),
@@ -468,9 +470,11 @@ class _SidebarSliverContentState extends State<_SidebarSliverContent> {
     _ownedController.addListener(_repaintSheets);
   }
 
-  void _repaintSheets() => context
-      .findAncestorRenderObjectOfType<_RenderSidebarSheetStack>()
-      ?.markNeedsPaint();
+  void _repaintSheets() {
+    final sheets = context
+        .findAncestorRenderObjectOfType<_RenderSidebarSheetStack>();
+    if (sheets?.enabled == true) sheets!.markNeedsPaint();
+  }
 
   @override
   void dispose() {

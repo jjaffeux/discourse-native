@@ -404,6 +404,8 @@ class DTabList<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final root = _DTabScope.require<T>(context);
     final tokens = DTokens.of(context);
+    // Natural tab widths must be measured again when retained icons grow.
+    final textScaler = MediaQuery.textScalerOf(context);
     final horizontalLine =
         variant == DTabListVariant.line && root.orientation == Axis.horizontal;
 
@@ -534,11 +536,7 @@ class DTabList<T> extends StatelessWidget {
     Widget visual = Container(
       constraints: BoxConstraints(
         minHeight: root.orientation == Axis.horizontal
-            ? DControlStyle.scaledHeight(
-                size,
-                MediaQuery.textScalerOf(context),
-                context: context,
-              )
+            ? DControlStyle.scaledHeight(size, textScaler, context: context)
             : 0,
       ),
       padding: const EdgeInsets.all(3),

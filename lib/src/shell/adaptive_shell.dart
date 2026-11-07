@@ -978,6 +978,12 @@ class _WideShellState extends State<_WideShell> {
   // The panels take no configuration from this shell either, so its rebuilds
   // leave them to their own dependencies and constraints.
   late final _desktopPanels = DesktopPanels(layout: widget.panelsLayout);
+  late final _sidebar = Builder(
+    builder: (context) => InstanceSidebar(
+      communityHeaderLeadingInset:
+          !context.isTouch && ShellTitleBar.hasWindowChrome ? 40 : 0,
+    ),
+  );
 
   @override
   void initState() {
@@ -1026,10 +1032,6 @@ class _WideShellState extends State<_WideShell> {
         );
         final sidebarExpanded =
             sidebarChoice ?? (context.isTouch || constraints.maxWidth >= 1100);
-        final sidebarHeaderInset =
-            !context.isTouch && sidebarExpanded && ShellTitleBar.hasWindowChrome
-            ? 40.0
-            : 0.0;
         double chromeHeight() => ShellTitleBar.heightFor(
           context,
           sidebarExpanded
@@ -1138,12 +1140,7 @@ class _WideShellState extends State<_WideShell> {
                                           border: false,
                                           spacing: 0,
                                           backgroundColor: Colors.transparent,
-                                          child: Expanded(
-                                            child: InstanceSidebar(
-                                              communityHeaderLeadingInset:
-                                                  sidebarHeaderInset,
-                                            ),
-                                          ),
+                                          child: Expanded(child: _sidebar),
                                         ),
                                       ),
                                     ),

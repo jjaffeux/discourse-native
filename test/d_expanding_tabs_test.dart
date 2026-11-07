@@ -191,6 +191,68 @@ void main() {
     }
   });
 
+  testWidgets('retained tabs remeasure when text scale changes', (
+    tester,
+  ) async {
+    final scale = ValueNotifier(1.0);
+    addTearDown(scale.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark,
+        home: ValueListenableBuilder<double>(
+          valueListenable: scale,
+          child: const Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 226,
+              child: DTabs<String>(
+                children: [
+                  DTabList<String>(
+                    expandSelected: true,
+                    children: [
+                      DTabTrigger(
+                        value: 'forum',
+                        selectedLabelOnly: true,
+                        icon: DIcon(DIcons.layerGroup),
+                        child: Text('Forum'),
+                      ),
+                      DTabTrigger(
+                        key: ValueKey('retained-chat'),
+                        value: 'chat',
+                        selectedLabelOnly: true,
+                        icon: DIcon(DIcons.comment),
+                        child: Text('Chat'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+          builder: (context, value, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(value)),
+            child: child!,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final chat = find.byKey(const ValueKey('retained-chat'));
+    final element = tester.element(chat);
+    for (final value in [2.0, 1.0, 2.0]) {
+      scale.value = value;
+      await tester.pumpAndSettle();
+      expect(tester.element(chat), same(element));
+      expect(
+        tester.getSize(chat).width,
+        greaterThanOrEqualTo(12.5 * value + 16),
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
+
   testWidgets('large text scrolls and hover and press retain visible targets', (
     tester,
   ) async {

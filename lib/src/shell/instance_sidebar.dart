@@ -100,22 +100,19 @@ final class _SidebarPanelSnapshot {
   const _SidebarPanelSnapshot({
     required this.contentId,
     required this.presentation,
-    required this.navigationOpen,
   });
 
   final String? contentId;
   final Object? presentation;
-  final bool? navigationOpen;
 
   @override
   bool operator ==(Object other) =>
       other is _SidebarPanelSnapshot &&
       contentId == other.contentId &&
-      presentation == other.presentation &&
-      navigationOpen == other.navigationOpen;
+      presentation == other.presentation;
 
   @override
-  int get hashCode => Object.hash(contentId, presentation, navigationOpen);
+  int get hashCode => Object.hash(contentId, presentation);
 }
 
 /// Everything the panel body reads from the plugin panels. A panel's
@@ -328,6 +325,8 @@ class _SidebarPanelBody extends StatefulWidget {
 class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   String? _selectedOwner;
   Object? _navigation;
+  ShellController? _controller;
+  bool _navigationOpen = false;
 
   _SidebarSnapshot get sidebar => widget.sidebar;
   SidebarSectionStore get sectionStore => widget.sectionStore;
@@ -337,7 +336,45 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   final _linkEdit = _SidebarLinkEditController();
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final controller = ShellScope.read(context);
+    if (identical(controller, _controller)) return;
+    _controller?.removeListener(_navigationVisibilityChanged);
+    _controller = controller..addListener(_navigationVisibilityChanged);
+    _navigationOpen = controller.mobileNavigation.sidebarOpen;
+  }
+
+  OwnedSidebarPanel? _routedPanel(
+    List<OwnedSidebarPanel> panels,
+    ShellController controller,
+  ) => panels.where((panel) {
+    if (widget.mobile && controller.mobileNavigation.atRoot) {
+      return panel.owner.value == controller.mobileNavigation.tab.panelOwner;
+    }
+    return panel.panel.active;
+  }).firstOrNull;
+
+  void _navigationVisibilityChanged() {
+    final controller = _controller!;
+    final open = controller.mobileNavigation.sidebarOpen;
+    if (_navigationOpen == open) return;
+    _navigationOpen = open;
+    if (!widget.mobile ||
+        widget.panelOwner != null ||
+        !controller.mobileNavigationEnabled) {
+      return;
+    }
+    final panels = PluginScope.of(context).registry.sidebarPanels(context);
+    final owner = _routedPanel(panels, controller)?.owner.value;
+    if (_selectedOwner == owner && !_shortcuts) return;
+    // Reselect the foreground panel only when the retained preview differs.
+    setState(() => _navigation = null);
+  }
+
+  @override
   void dispose() {
+    _controller?.removeListener(_navigationVisibilityChanged);
     _linkEdit.dispose();
     super.dispose();
   }
@@ -353,12 +390,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         select: (controller) {
           final instance = controller.currentInstance;
           return _SidebarPanelSnapshot(
-            navigationOpen:
-                widget.mobile &&
-                    widget.panelOwner == null &&
-                    controller.mobileNavigationEnabled
-                ? controller.mobileNavigation.sidebarOpen
-                : null,
             contentId:
                 '${controller.activeTabId}:${controller.currentContent?.id}',
             presentation: instance == null
@@ -371,28 +402,21 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                   ),
           );
         },
-        builder: (context, state, _) => _buildPanel(context, state),
+        builder: (context, state, _) => _buildPanel(context),
       ),
     );
   }
 
-  Widget _buildPanel(BuildContext context, _SidebarPanelSnapshot state) {
+  Widget _buildPanel(BuildContext context) {
     final controller = ShellScope.read(context);
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
-    final routedPanel = panels.where((panel) {
-      if (widget.mobile && controller.mobileNavigation.atRoot) {
-        return panel.owner.value == controller.mobileNavigation.tab.panelOwner;
-      }
-      return panel.panel.active;
-    }).firstOrNull;
+    final routedPanel = _routedPanel(panels, controller);
     final navigation = (
       sidebar.siteUrl,
       controller.activeTabId,
       controller.currentContent?.id,
       routedPanel?.owner,
-      // The retained preview reselects the foreground side on every opening.
-      state.navigationOpen,
     );
     if (_navigation != navigation) {
       _navigation = navigation;

@@ -2802,7 +2802,11 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 80));
       final incoming = tester.widget<Transform>(
-        find.byKey(const ValueKey('history-navigation-frame')),
+        find.byKey(
+          ValueKey(
+            open ? 'history-live-navigation-frame' : 'history-navigation-frame',
+          ),
+        ),
       );
       final outgoing = tester.widget<Transform>(
         find.byKey(const ValueKey('history-outgoing-navigation')),
@@ -5613,7 +5617,7 @@ void main() {
       await tester.pump();
       final opacity = tester
           .widget<Opacity>(
-            find.byKey(const ValueKey('history-sidebar-opacity')),
+            find.byKey(const ValueKey('history-live-sidebar-opacity')),
           )
           .opacity;
       expect(opacity, closeTo((1 - progress) * (1 - progress), .001));
@@ -5625,7 +5629,7 @@ void main() {
     expect(
       tester
           .widget<Opacity>(
-            find.byKey(const ValueKey('history-sidebar-opacity')),
+            find.byKey(const ValueKey('history-live-sidebar-opacity')),
           )
           .opacity,
       1,

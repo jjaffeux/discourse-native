@@ -167,11 +167,9 @@ class _NavigationPreviewExampleState extends State<_NavigationPreviewExample> {
               onForward: _open ? _toggle : null,
               tab: (id: _open ? 'navigation' : 'page', index: _open ? -1 : 0),
               tabOwner: _history,
-              child: _open
-                  ? navigation
-                  : const DPageSurface(
-                      child: Center(child: Text('Swipe to reveal navigation')),
-                    ),
+              child: const DPageSurface(
+                child: Center(child: Text('Swipe to reveal navigation')),
+              ),
             ),
           ),
           DButton(

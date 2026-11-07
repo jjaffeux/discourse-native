@@ -34,6 +34,8 @@ final class DHistoryTabClipper extends CustomClipper<RRect> {
 
 /// A navigation surface revealed over the whole frame, including its chrome.
 /// Keep it supplied while open, with [entry] equal to the transition's entry.
+/// The transition retains [preview] as the live navigation surface in both
+/// states. Keep the reading page in [DHistoryTransition.child].
 final class DHistoryNavigation {
   const DHistoryNavigation({
     required this.entry,
@@ -772,157 +774,183 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     },
   );
 
+  Widget _navigationMotion(
+    BuildContext context,
+    Widget child, {
+    required double width,
+    bool navigation = false,
+  }) {
+    final reduced = MediaQuery.disableAnimationsOf(context);
+    final p = _navigationTransition && !reduced ? _progress.value : 0.0;
+    final switching = _switchingNavigation && !reduced;
+    final returning = !switching && _navigationOpen && p > 0;
+    final revealing = navigation && !_navigationOpen;
+    final scale = revealing
+        ? _previewScale + (1 - _previewScale) * p
+        : switching || !_navigationTransition || _back
+        ? 1.0
+        : 1 - (1 - _previewScale) * p;
+    final translation = revealing
+        ? -_sign * width * _parallax * (1 - p)
+        : switching
+        ? _tabSign * width * (1 - p)
+        : _sign * width * p * (_back ? 1 : _parallax);
+    final dimming = revealing
+        ? .40 * (1 - p)
+        : returning
+        ? .40 * p
+        : 0.0;
+    final clipper = returning
+        ? _HistorySidebarClipper(
+            progress: p,
+            scale: _previewScale + (1 - _previewScale) * p,
+            rtl: _rtl,
+          )
+        : null;
+    return ClipRect(
+      clipBehavior: clipper == null ? Clip.none : Clip.hardEdge,
+      clipper: clipper,
+      child: Transform.translate(
+        key: navigation
+            ? const ValueKey('history-live-navigation-frame')
+            : const ValueKey('history-navigation-frame'),
+        offset: Offset(translation, 0),
+        child: Transform.scale(
+          scale: scale,
+          child: ColorFiltered(
+            colorFilter: ColorFilter.mode(
+              DTokens.of(context).colors.scrim.withValues(alpha: dimming),
+              BlendMode.srcATop,
+            ),
+            child: ExcludeSemantics(
+              excluding: revealing,
+              child: IgnorePointer(
+                ignoring:
+                    revealing ||
+                    _navigationTransition &&
+                        (_dragging || _settling || switching),
+                child: ExcludeFocus(
+                  excluding: revealing,
+                  child: Opacity(
+                    key: navigation
+                        ? const ValueKey('history-live-sidebar-opacity')
+                        : const ValueKey('history-sidebar-opacity'),
+                    opacity: navigation || _navigationOpen
+                        ? math.pow(_navigationProgress, 2).toDouble()
+                        : 1,
+                    child: child,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildNavigationFrame(
     BuildContext context,
     Widget page,
   ) => LayoutBuilder(
     builder: (context, constraints) {
       final width = constraints.maxWidth;
+      final navigationSurface = switch (widget.navigation) {
+        final navigation? => RepaintBoundary(child: navigation.preview),
+        null => null,
+      };
       final movingPage = AnimatedBuilder(
         animation: _progress,
-        child: page,
-        builder: (context, child) {
-          final reduced = MediaQuery.disableAnimationsOf(context);
-          final p = _navigationTransition && !reduced ? _progress.value : 0.0;
-          final switching = _switchingNavigation && !reduced;
-          final returning = !switching && _navigationOpen && p > 0;
-          final clipper = returning
-              ? _HistorySidebarClipper(
-                  progress: p,
-                  scale: _previewScale + (1 - _previewScale) * p,
-                  rtl: _rtl,
-                )
-              : null;
-          return ClipRect(
-            clipBehavior: clipper == null ? Clip.none : Clip.hardEdge,
-            clipper: clipper,
-            child: Transform.translate(
-              key: const ValueKey('history-navigation-frame'),
-              offset: Offset(
-                switching
-                    ? _tabSign * width * (1 - p)
-                    : _sign * width * p * (_back ? 1 : _parallax),
-                0,
-              ),
-              child: Transform.scale(
-                scale: switching || !_navigationTransition || _back
-                    ? 1
-                    : 1 - (1 - _previewScale) * p,
-                child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    DTokens.of(
-                      context,
-                    ).colors.scrim.withValues(alpha: returning ? .40 * p : 0),
-                    BlendMode.srcATop,
-                  ),
-                  child: IgnorePointer(
-                    ignoring:
-                        _navigationTransition &&
-                        (_dragging || _settling || switching),
-                    child: Opacity(
-                      key: const ValueKey('history-sidebar-opacity'),
-                      opacity: _navigationOpen
-                          ? math.pow(_navigationProgress, 2).toDouble()
-                          : 1,
-                      child: child,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          );
-        },
+        child: ExcludeFocus(
+          excluding: _navigationOpen,
+          child: Offstage(offstage: _navigationOpen, child: page),
+        ),
+        builder: (context, child) =>
+            _navigationMotion(context, child!, width: width),
       );
-      return AnimatedBuilder(
-        animation: _progress,
-        child: _HistoryBoundary(
-          key: _frameBoundary,
+      return _HistoryBoundary(
+        key: _frameBoundary,
+        child: AnimatedBuilder(
+          animation: _progress,
           child: widget.frameBuilder == null
               ? movingPage
               : Builder(
                   builder: (context) =>
                       widget.frameBuilder!(context, movingPage),
                 ),
-        ),
-        builder: (context, child) {
-          final reduced = MediaQuery.disableAnimationsOf(context);
-          final p = _navigationTransition && !reduced ? _progress.value : 0.0;
-          final switching = _switchingNavigation && !reduced;
-          final active = !switching && p > 0;
-          Widget preview(Widget content, {required bool back}) =>
-              Transform.translate(
-                offset: Offset(
-                  back
-                      ? -_sign * width * _parallax * (1 - p)
-                      : -_sign * width * (1 - p),
-                  0,
-                ),
-                child: Transform.scale(
-                  scale: _previewScale + (1 - _previewScale) * p,
-                  child: ColorFiltered(
-                    colorFilter: ColorFilter.mode(
-                      DTokens.of(
-                        context,
-                      ).colors.scrim.withValues(alpha: .40 * (1 - p)),
-                      BlendMode.srcATop,
-                    ),
-                    child: ExcludeSemantics(
-                      child: IgnorePointer(child: ExcludeFocus(child: content)),
-                    ),
+          builder: (context, child) {
+            final reduced = MediaQuery.disableAnimationsOf(context);
+            final p = _navigationTransition && !reduced ? _progress.value : 0.0;
+            final switching = _switchingNavigation && !reduced;
+            final active = !switching && p > 0;
+            Widget preview(Widget content) => Transform.translate(
+              offset: Offset(-_sign * width * (1 - p), 0),
+              child: Transform.scale(
+                scale: _previewScale + (1 - _previewScale) * p,
+                child: ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    DTokens.of(
+                      context,
+                    ).colors.scrim.withValues(alpha: .40 * (1 - p)),
+                    BlendMode.srcATop,
+                  ),
+                  child: ExcludeSemantics(
+                    child: IgnorePointer(child: ExcludeFocus(child: content)),
                   ),
                 ),
-              );
-          final snapshot = _preview == null
-              ? ColoredBox(color: DTokens.of(context).background)
-              : CustomPaint(
-                  key: const ValueKey('history-frame-preview'),
-                  painter: _HistoryFramePainter(
-                    _preview!,
-                    _previewPageTop,
-                    _navigationProgress,
-                  ),
-                  child: const SizedBox.expand(),
-                );
-          return ClipRect(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (widget.navigation case final navigation?
-                    when !_navigationOpen)
-                  Offstage(
-                    offstage: !_openingNavigation,
-                    child: Opacity(
-                      opacity: math.pow(_navigationProgress, 2).toDouble(),
-                      child: preview(
-                        RepaintBoundary(child: navigation.preview),
-                        back: true,
-                      ),
+              ),
+            );
+            final snapshot = _preview == null
+                ? ColoredBox(color: DTokens.of(context).background)
+                : CustomPaint(
+                    key: const ValueKey('history-frame-preview'),
+                    painter: _HistoryFramePainter(
+                      _preview!,
+                      _previewPageTop,
+                      _navigationProgress,
                     ),
-                  ),
-                if (switching)
-                  Transform.translate(
-                    key: const ValueKey('history-outgoing-navigation'),
-                    offset: Offset(-_tabSign * width * p, 0),
-                    child: ExcludeSemantics(
-                      child: IgnorePointer(
-                        child: Opacity(
-                          key: const ValueKey(
-                            'history-outgoing-sidebar-opacity',
+                    child: const SizedBox.expand(),
+                  );
+            return ClipRect(
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (switching)
+                    Transform.translate(
+                      key: const ValueKey('history-outgoing-navigation'),
+                      offset: Offset(-_tabSign * width * p, 0),
+                      child: ExcludeSemantics(
+                        child: IgnorePointer(
+                          child: Opacity(
+                            key: const ValueKey(
+                              'history-outgoing-sidebar-opacity',
+                            ),
+                            opacity: !_navigationOpen
+                                ? math.pow(1 - p, 2).toDouble()
+                                : 1,
+                            child: snapshot,
                           ),
-                          opacity: !_navigationOpen
-                              ? math.pow(1 - p, 2).toDouble()
-                              : 1,
-                          child: snapshot,
                         ),
                       ),
                     ),
-                  ),
-                if (active && _navigationOpen) preview(snapshot, back: false),
-                child!,
-              ],
-            ),
-          );
-        },
+                  if (active && _navigationOpen) preview(snapshot),
+                  if (navigationSurface != null)
+                    Offstage(
+                      key: const ValueKey('history-live-navigation'),
+                      offstage: !_navigationOpen && !_openingNavigation,
+                      child: _navigationMotion(
+                        context,
+                        navigationSurface,
+                        width: width,
+                        navigation: true,
+                      ),
+                    ),
+                  child!,
+                ],
+              ),
+            );
+          },
+        ),
       );
     },
   );

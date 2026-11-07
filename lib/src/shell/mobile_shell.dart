@@ -60,8 +60,9 @@ class MobileForumRoot extends StatefulWidget {
 }
 
 class _MobileForumRootState extends State<MobileForumRoot> {
-  final _navigationPageKey = GlobalKey();
   late final Widget _navigationPage = Builder(builder: _buildNavigationPage);
+  final _navigationFocus = FocusNode(debugLabel: 'Mobile navigation');
+  bool _navigationWasOpen = false;
   final _panelRoots = <(Object, String), Widget>{};
   List<MobileTab> _tabOrder = const [];
   ({Object owner, Object entry, DPageHeader header})? _navigationHeader;
@@ -78,6 +79,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
 
   @override
   void dispose() {
+    _navigationFocus.dispose();
     _footerAction.dispose();
     _accountMenu.dispose();
     _notificationsMenu.dispose();
@@ -117,19 +119,14 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   // Badge changes rebuild the dock. Retained pages keep their widget identity;
   // their own selectors still receive navigation, account and content updates.
   Widget _buildNavigationPage(BuildContext context) => ShellSelector(
-    select: (shell) => (
-      owner: (shell.currentInstance?.url, shell.currentAccountIdentity),
-      sidebarOpen: shell.mobileNavigation.sidebarOpen,
-    ),
-    builder: (context, state, _) {
+    select: (shell) =>
+        (shell.currentInstance?.url, shell.currentAccountIdentity),
+    builder: (context, owner, _) {
       final shell = ShellScope.read(context);
       final instance = shell.currentInstance;
       if (instance == null) return const SizedBox.shrink();
-      final owner = (instance.url, shell.currentAccountIdentity);
-      final sidebarOpen = state.sidebarOpen;
       final foot = MediaQuery.paddingOf(context).bottom;
       return DScrollFootScope(
-        key: _navigationPageKey,
         // Navigation has its own footer. Its scroll fades must not follow
         // the page dock as that dock slides away during a reveal.
         foot: null,
@@ -138,8 +135,21 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             const SingleActivator(LogicalKeyboardKey.escape):
                 shell.closeMobileSidebar,
           },
-          child: Focus(
-            autofocus: sidebarOpen,
+          child: ShellSelector<bool>(
+            select: (shell) => shell.mobileNavigation.sidebarOpen,
+            builder: (context, open, child) {
+              if (_navigationWasOpen != open) {
+                _navigationWasOpen = open;
+                if (open) {
+                  WidgetsBinding.instance.addPostFrameCallback((_) {
+                    if (mounted && _navigationWasOpen) {
+                      _navigationFocus.requestFocus();
+                    }
+                  });
+                }
+              }
+              return Focus(focusNode: _navigationFocus, child: child!);
+            },
             child: MediaQuery.removePadding(
               context: context,
               removeBottom: true,
@@ -674,7 +684,6 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                     ),
                   ),
                 ),
-                if (sidebarOpen) _navigationPage,
               ],
             ),
           ),
