@@ -7,6 +7,77 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test(
+    'a failed priority capability rejects only its admission and preserves peer progress',
+    () async {
+      final gate = OriginRequestGate(
+        maxConcurrent: 1,
+        maxConcurrentPerOrigin: 1,
+        maxQueuedPerOrigin: 10,
+        cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      );
+      addTearDown(gate.close);
+      final url = Uri.parse('https://example.com');
+      final active = await gate.acquire(url);
+      final failure = StateError('priority unavailable');
+      final originalStack = StackTrace.fromString('priority origin');
+      final bad = gate.acquire(
+        url,
+        resolvePriority: () =>
+            Error.throwWithStackTrace(failure, originalStack),
+      );
+      Object? observed;
+      StackTrace? observedStack;
+      unawaited(
+        bad.then<void>(
+          (lease) => lease.release(),
+          onError: (Object error, StackTrace stack) {
+            observed = error;
+            observedStack = stack;
+          },
+        ),
+      );
+      final peer = gate.acquire(url);
+      // Observe cleanup rejections too so a failed baseline assertion cannot
+      // leave the test's pending peer as an unhandled asynchronous error.
+      unawaited(peer.then<void>((_) {}, onError: (Object _, StackTrace _) {}));
+      expect(active.release, returnsNormally);
+      await Future<void>.delayed(Duration.zero);
+      expect(observed, same(failure));
+      expect(observedStack.toString(), originalStack.toString());
+      final peerLease = await peer;
+      peerLease.release();
+      final retry = await gate.acquire(url);
+      retry.release();
+    },
+  );
+
+  test('queued priority capabilities retain their submitter context', () async {
+    final gate = OriginRequestGate(
+      maxConcurrent: 1,
+      maxConcurrentPerOrigin: 1,
+      maxQueuedPerOrigin: 10,
+      cooldownPolicy: OriginRequestCooldownPolicy.wait,
+    );
+    addTearDown(gate.close);
+    final url = Uri.parse('https://example.com');
+    final active = await gate.acquire(url);
+    final contexts = <Object?>[];
+    final pending = runZoned(
+      () => gate.acquire(
+        url,
+        resolvePriority: () {
+          contexts.add(Zone.current[#priorityOwner]);
+          return OriginRequestPriority.normal;
+        },
+      ),
+      zoneValues: {#priorityOwner: 'submitted'},
+    );
+    runZoned(active.release, zoneValues: {#priorityOwner: 'released'});
+    (await pending).release();
+    expect(contexts, ['submitted']);
+  });
+
   for (final aggregate in [false, true]) {
     test(
       'bounds interactive overtakes in ${aggregate ? 'aggregate' : 'origin'} contention',

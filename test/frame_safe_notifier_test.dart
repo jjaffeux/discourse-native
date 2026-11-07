@@ -3,6 +3,48 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'retirement during notification finishes the admitted dispatch and releases listeners',
+    (tester) async {
+      final notifier = FrameSafeValueNotifier(0);
+      final calls = <String>[];
+      notifier.addListener(() {
+        calls.add('retire');
+        notifier.dispose();
+        notifier.value = 2;
+        notifier.notifyListeners();
+      });
+      notifier.addListener(() => calls.add('admitted'));
+      notifier.value = 1;
+      expect(tester.takeException(), isNull);
+      expect(calls, ['retire', 'admitted']);
+      expect(() => notifier.addListener(() {}), throwsFlutterError);
+      expect(notifier.value, 1);
+      expect(notifier.dispose, returnsNormally);
+      notifier.value = 3;
+      expect(calls, ['retire', 'admitted']);
+    },
+  );
+
+  testWidgets('nested notification retirement waits for the outer dispatch', (
+    tester,
+  ) async {
+    final notifier = FrameSafeValueNotifier(0);
+    var admitted = 0;
+    notifier.addListener(() {
+      if (notifier.value == 1) {
+        notifier.value = 2;
+      } else {
+        notifier.dispose();
+      }
+    });
+    notifier.addListener(() => admitted++);
+    notifier.value = 1;
+    expect(tester.takeException(), isNull);
+    expect(admitted, 2);
+    expect(() => notifier.addListener(() {}), throwsFlutterError);
+  });
+
   testWidgets('notifies immediately outside layout', (tester) async {
     final notifier = FrameSafeValueNotifier(0);
     addTearDown(notifier.dispose);

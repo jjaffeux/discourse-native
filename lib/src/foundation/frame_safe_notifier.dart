@@ -1,13 +1,26 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-/// A notifier that coalesces changes raised during layout until the frame ends.
+/// Coalesces layout changes and retires safely during an admitted notification.
 abstract class FrameSafeNotifier extends ChangeNotifier {
   bool _disposed = false;
   bool _scheduled = false;
+  int _notificationDepth = 0;
 
   @protected
   bool get isDisposed => _disposed;
+
+  @override
+  void notifyListeners() {
+    if (_disposed) return;
+    _notificationDepth++;
+    try {
+      super.notifyListeners();
+    } finally {
+      _notificationDepth--;
+      if (_disposed && _notificationDepth == 0) super.dispose();
+    }
+  }
 
   @protected
   void notifySafely() {
@@ -58,8 +71,9 @@ abstract class FrameSafeNotifier extends ChangeNotifier {
   @override
   @mustCallSuper
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
-    super.dispose();
+    if (_notificationDepth == 0) super.dispose();
   }
 }
 

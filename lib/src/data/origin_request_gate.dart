@@ -93,7 +93,17 @@ final class OriginRequestGate {
     );
   }
 
-  void _cancelQueued(_PendingAdmission pending) {
+  void _cancelQueued(_PendingAdmission pending) => _rejectQueued(
+    pending,
+    const OriginRequestGateCancelledException(),
+    StackTrace.current,
+  );
+
+  void _rejectQueued(
+    _PendingAdmission pending,
+    Object error,
+    StackTrace stackTrace,
+  ) {
     final index = _waiting.indexWhere(
       (entry) => identical(entry.pending, pending),
     );
@@ -101,10 +111,7 @@ final class OriginRequestGate {
     final entry = _waiting.removeAt(index);
     _waitingRevision++;
     entry.state.waiting--;
-    pending.reject(
-      const OriginRequestGateCancelledException(),
-      StackTrace.current,
-    );
+    pending.reject(error, stackTrace);
     _forgetIdle(entry.origin, entry.state);
   }
 
@@ -150,7 +157,14 @@ final class OriginRequestGate {
     }
 
     state.waiting++;
-    _waiting.add(_QueuedAdmission(origin, state, pending, resolvePriority));
+    _waiting.add(
+      _QueuedAdmission(
+        origin,
+        state,
+        pending,
+        Zone.current.bindCallback(resolvePriority),
+      ),
+    );
     _waitingRevision++;
     _drain();
   }
@@ -183,7 +197,13 @@ final class OriginRequestGate {
           continue;
         }
         final domain = aggregateLimit == null ? queued.origin : '';
-        final priority = queued.priority;
+        final OriginRequestPriority priority;
+        try {
+          priority = queued.priority;
+        } catch (error, stackTrace) {
+          _rejectQueued(queued.pending, error, stackTrace);
+          continue drain;
+        }
         if (_closed) return;
         if (revision != _waitingRevision) continue drain;
         if (state.cooldown.remaining != null) continue;
