@@ -46,6 +46,7 @@ import '../plugin_api/composer_metadata.dart';
 import '../plugin_api/discourse_model_codec.dart';
 import '../plugin_api/topic_reading_policy.dart';
 import 'discourse_api_contracts.dart';
+import 'discourse_plugin_transport.dart';
 import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
 import 'dsa_notices_api.dart';
@@ -144,6 +145,10 @@ class DiscourseApi
     models,
   );
   late final DiscourseSearchApi _search = DiscourseSearchApi(
+    _transport,
+    searchTimeout: searchTimeout,
+  );
+  late final DiscoursePluginTransport _plugins = DiscoursePluginTransport(
     _transport,
     searchTimeout: searchTimeout,
   );
@@ -1666,60 +1671,17 @@ class DiscourseApi
     clientId: clientId,
   );
 
-  Future<Map<String, dynamic>> _write(
-    Uri url, {
-    required String siteUrl,
-    required String method,
-    required String apiKey,
-    required Map<String, Object?> body,
-    String? clientId,
-    Duration? requestTimeout,
-  }) => _transport.write(
-    url,
-    siteUrl: siteUrl,
-    method: method,
-    apiKey: apiKey,
-    body: body,
-    clientId: clientId,
-    requestTimeout: requestTimeout,
-  );
-
-  Future<http.Response> _get(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) =>
-      _transport.get(url, siteUrl: siteUrl, apiKey: apiKey, clientId: clientId);
-
-  Future<Map<String, dynamic>> _getObject(
-    Uri url, {
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-    Duration? requestTimeout,
-    Future<void>? abortTrigger,
-  }) => _transport.getObject(
-    url,
-    siteUrl: siteUrl,
-    apiKey: apiKey,
-    clientId: clientId,
-    requestTimeout: requestTimeout,
-    abortTrigger: abortTrigger,
-  );
-
   @override
   Future<Map<String, dynamic>> pluginGetJson({
     required String siteUrl,
     required String path,
     required String? apiKey,
     String? clientId,
-  }) async => _getObject(
-    _resolvePluginPath(siteUrl, path),
+  }) => _plugins.pluginGetJson(
     siteUrl: siteUrl,
+    path: path,
     apiKey: apiKey,
     clientId: clientId,
-    requestTimeout: _isForumSearchPath(path) ? searchTimeout : null,
   );
 
   @override
@@ -1729,28 +1691,13 @@ class DiscourseApi
     required String? apiKey,
     required Future<void> abortTrigger,
     String? clientId,
-  }) async => _getObject(
-    _resolvePluginPath(siteUrl, path),
+  }) => _plugins.pluginGetJsonCancellable(
     siteUrl: siteUrl,
+    path: path,
     apiKey: apiKey,
-    clientId: clientId,
-    requestTimeout: _isForumSearchPath(path) ? searchTimeout : null,
     abortTrigger: abortTrigger,
+    clientId: clientId,
   );
-
-  static bool _isForumSearchPath(String path) {
-    final relative = Uri.tryParse(path);
-    if (relative == null || relative.hasScheme || relative.hasAuthority) {
-      return false;
-    }
-    return switch (relative.path) {
-      '/search/query.json' ||
-      'search/query.json' ||
-      '/search.json' ||
-      'search.json' => true,
-      _ => false,
-    };
-  }
 
   @override
   Future<String> pluginGetText({
@@ -1758,15 +1705,12 @@ class DiscourseApi
     required String path,
     required String? apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      _resolvePluginPath(siteUrl, path),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    return response.body;
-  }
+  }) => _plugins.pluginGetText(
+    siteUrl: siteUrl,
+    path: path,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<List<Map<String, dynamic>>> pluginGetJsonList({
@@ -1774,29 +1718,12 @@ class DiscourseApi
     required String path,
     required String? apiKey,
     String? clientId,
-  }) async {
-    final response = await _get(
-      _resolvePluginPath(siteUrl, path),
-      siteUrl: siteUrl,
-      apiKey: apiKey,
-      clientId: clientId,
-    );
-    try {
-      final decoded = await decodeJsonHttpResponse(response);
-      if (decoded is! List) throw FormatException(appL10n.expectedAJSONList);
-      return List.unmodifiable([
-        for (final value in decoded)
-          if (value is Map<String, dynamic>) value,
-      ]);
-    } catch (error, stackTrace) {
-      throw SiteLookupException(
-        SiteLookupFailure.unreachable,
-        siteUrl,
-        cause: error,
-        causeStackTrace: stackTrace,
-      );
-    }
-  }
+  }) => _plugins.pluginGetJsonList(
+    siteUrl: siteUrl,
+    path: path,
+    apiKey: apiKey,
+    clientId: clientId,
+  );
 
   @override
   Future<Map<String, dynamic>> pluginQueryJson({
@@ -1805,9 +1732,9 @@ class DiscourseApi
     required String? apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) async => _transport.postObject(
-    _resolvePluginPath(siteUrl, path),
+  }) => _plugins.pluginQueryJson(
     siteUrl: siteUrl,
+    path: path,
     apiKey: apiKey,
     body: body,
     clientId: clientId,
@@ -1821,13 +1748,13 @@ class DiscourseApi
     required String apiKey,
     required Map<String, Object?> body,
     String? clientId,
-  }) async => _write(
-    _resolvePluginPath(siteUrl, path),
+  }) => _plugins.pluginWriteJson(
     siteUrl: siteUrl,
+    path: path,
     method: method,
     apiKey: apiKey,
-    clientId: clientId,
     body: body,
+    clientId: clientId,
   );
 
   @override
@@ -1839,35 +1766,15 @@ class DiscourseApi
     required Map<String, Object?> body,
     required Duration requestTimeout,
     String? clientId,
-  }) async => _write(
-    _resolvePluginPath(siteUrl, path),
+  }) => _plugins.pluginLongRunningWriteJson(
     siteUrl: siteUrl,
+    path: path,
     method: method,
     apiKey: apiKey,
-    clientId: clientId,
     body: body,
     requestTimeout: requestTimeout,
+    clientId: clientId,
   );
-
-  static Uri _resolvePluginPath(String siteUrl, String path) {
-    final site = Uri.parse(siteUrl);
-    // Plugin paths are written from the forum root — `/voice/rooms.json` —
-    // and a forum served from a subfolder keeps that prefix in front of
-    // them, so the site is the directory the path is resolved in. A
-    // scheme-relative path keeps both slashes and fails the origin check.
-    final relative = path.startsWith('//')
-        ? path
-        : path.replaceFirst(RegExp(r'^/'), '');
-    final target = Uri.parse('$siteUrl/').resolve(relative);
-    if (target.origin != site.origin) {
-      throw ArgumentError.value(
-        path,
-        'path',
-        'Plugin API paths must stay on the connected site origin.',
-      );
-    }
-    return target;
-  }
 
   @override
   Future<void> revokeApiKey({
