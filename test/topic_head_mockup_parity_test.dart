@@ -209,37 +209,49 @@ void main() {
     });
   });
 
-  testWidgets('a phone topic head is one line: path, tags, count, tools', (
-    tester,
-  ) async {
-    await _openTopic(tester);
-    final tools = tester.getRect(_tools);
-    final line = tester.getRect(
-      find.byKey(const ValueKey('topic-header-taxonomy')),
-    );
-    // 16 from the card's edges, the tools at the line's end.
-    expect(line.left, 16);
-    expect(tools.right, 390 - 16);
-    final shown = _tags.where((t) => _tag(t.name).evaluate().isNotEmpty);
-    expect(
-      tester.widget<DButton>(_moreTags).label,
-      isA<Text>().having(
-        (text) => text.data,
-        'label',
-        '+${_tags.length - shown.length}',
-      ),
-    );
-    for (final control in [
-      _ownCategory,
-      for (final tag in shown) _tag(tag.name),
-      _moreTags,
-      _actions,
-    ]) {
-      expect(tester.getCenter(control).dy, closeTo(tools.center.dy, .5));
-    }
-    expect(tester.getRect(_surface(_moreTags)).right, lessThan(tools.left));
-    expect(tester.takeException(), isNull);
-  }, variant: _platforms);
+  testWidgets(
+    'a phone taxonomy is one line with its tools beside the floating timeline',
+    (tester) async {
+      await _openTopic(tester);
+      final tools = tester.getRect(_tools);
+      final line = tester.getRect(
+        find.byKey(const ValueKey('topic-header-taxonomy')),
+      );
+      expect(line.left, 16);
+      expect(tools.left, greaterThanOrEqualTo(8));
+      final progress = tester.getRect(
+        find.byKey(const ValueKey('topic-progress-button')),
+      );
+      expect(progress.left - tools.right, closeTo(8, .001));
+      expect(progress.center.dy, tools.center.dy);
+      final shown = _tags.where((t) => _tag(t.name).evaluate().isNotEmpty);
+      expect(
+        tester.widget<DButton>(_moreTags).label,
+        isA<Text>().having(
+          (text) => text.data,
+          'label',
+          '+${_tags.length - shown.length}',
+        ),
+      );
+      for (final control in [
+        _ownCategory,
+        for (final tag in shown) _tag(tag.name),
+        _moreTags,
+      ]) {
+        expect(
+          tester.getCenter(control).dy,
+          closeTo(tester.getCenter(_ownCategory).dy, .5),
+        );
+      }
+      expect(
+        tester.getRect(_surface(_moreTags)).right,
+        lessThanOrEqualTo(line.right),
+      );
+      expect(tester.getCenter(_actions).dy, closeTo(tools.center.dy, .5));
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   testWidgets('a path that will not fit leaves the own category alone', (
     tester,
@@ -259,83 +271,101 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
-  testWidgets('the count opens every tag and the run wraps, tools at its end', (
-    tester,
-  ) async {
-    await _openTopic(tester);
-    expect(_moreTags, findsOneWidget);
-    await tester.tap(_moreTags);
-    await tester.pumpAndSettle();
-    expect(_moreTags, findsNothing);
-    final rects = [for (final tag in _tags) tester.getRect(_tag(tag.name))];
-    final lines = {for (final rect in rects) rect.top};
-    expect(lines.length, greaterThan(1));
-    final tools = tester.getRect(_tools);
-    expect(tools.right, 390 - 16);
-    expect(tools.top, greaterThanOrEqualTo(rects.last.top));
-    // Still the path that fit before: the own category alone.
-    expect(_parentCategory, findsNothing);
-    expect(tester.takeException(), isNull);
-  }, variant: _platforms);
+  testWidgets(
+    'the count opens every tag and wraps without moving the floating tools',
+    (tester) async {
+      await _openTopic(tester);
+      expect(_moreTags, findsOneWidget);
+      final toolsBefore = tester.getRect(_tools);
+      final parentShown = _parentCategory.evaluate().isNotEmpty;
+      await tester.tap(_moreTags);
+      await tester.pumpAndSettle();
+      expect(_moreTags, findsNothing);
+      final rects = [for (final tag in _tags) tester.getRect(_tag(tag.name))];
+      final lines = {for (final rect in rects) rect.top};
+      expect(lines.length, greaterThan(1));
+      final tools = tester.getRect(_tools);
+      expect(tools, toolsBefore);
+      expect(tools.top, greaterThan(rects.last.bottom));
+      // Opening tags preserves whichever category path fit before.
+      expect(_parentCategory.evaluate().isNotEmpty, parentShown);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
-  testWidgets('the head controls are flat pills of a 5% fill', (tester) async {
-    await _openTopic(tester);
-    final context = tester.element(_actions);
-    final tokens = DTokens.of(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    final fill = tokens.foreground.withValues(alpha: .05);
-    expect(DControlStyle.height(DControlSize.filter, context: context), 36);
-    expect(DControlStyle.fontSize(DControlSize.filter, context: context), 14);
-    final height = DControlStyle.scaledHeight(
-      DControlSize.filter,
-      scaler,
-      context: context,
-    );
-    await tester.tap(_moreTags);
-    await tester.pumpAndSettle();
-    for (final control in [_actions, _tag(_tags.first.name)]) {
-      final surface = buttonSurface(tester, of: control);
-      expect(surface.color, fill);
-      expect(surface.borderColor, Colors.transparent);
-      // A pill: the corner is the whole of half the height.
-      expect(surface.borderRadius.topLeft.x, greaterThanOrEqualTo(height / 2));
-      expect(tester.getSize(_surface(control)).height, height);
-    }
-    final own = buttonSurface(tester, of: _ownCategory);
-    expect(own.borderColor, Colors.transparent);
-    expect(own.borderRadius.topLeft.x, greaterThanOrEqualTo(height / 2));
+  testWidgets(
+    'taxonomy pills keep the light fill while floating tools use the well fill',
+    (tester) async {
+      await _openTopic(tester);
+      final context = tester.element(_actions);
+      final tokens = DTokens.of(context);
+      final scaler = MediaQuery.textScalerOf(context);
+      final fill = tokens.foreground.withValues(alpha: .05);
+      expect(DControlStyle.height(DControlSize.filter, context: context), 36);
+      expect(DControlStyle.fontSize(DControlSize.filter, context: context), 14);
+      final height = DControlStyle.scaledHeight(
+        DControlSize.filter,
+        scaler,
+        context: context,
+      );
+      await tester.tap(_moreTags);
+      await tester.pumpAndSettle();
+      for (final control in [_actions, _tag(_tags.first.name)]) {
+        final surface = buttonSurface(tester, of: control);
+        expect(surface.color, control == _actions ? tokens.wellFill : fill);
+        expect(surface.borderColor, Colors.transparent);
+        // A pill: the corner is the whole of half the height.
+        expect(
+          surface.borderRadius.topLeft.x,
+          greaterThanOrEqualTo(height / 2),
+        );
+        expect(
+          tester.getSize(_surface(control)).height,
+          control == _actions ? 40 : height,
+        );
+      }
+      final own = buttonSurface(tester, of: _ownCategory);
+      expect(own.borderColor, Colors.transparent);
+      expect(own.borderRadius.topLeft.x, greaterThanOrEqualTo(height / 2));
 
-    // Bookmark and bell share one pill, split by the fill at 12%.
-    final bookmark = find.byKey(const ValueKey('topic-header-bookmark-button'));
-    final bell = find.byKey(const ValueKey('topic-header-notification-button'));
-    final group = find.ancestor(
-      of: bookmark,
-      matching: find.byType(DButtonGroup),
-    );
-    final pill = find
-        .descendant(of: group, matching: find.byType(DecoratedBox))
-        .first;
-    final decoration = tester.widget<DecoratedBox>(pill).decoration;
-    expect(decoration, isA<BoxDecoration>());
-    expect((decoration as BoxDecoration).color, fill);
-    expect(buttonSurface(tester, of: bookmark).color, Colors.transparent);
-    final split = find
-        .ancestor(of: bell, matching: find.byType(CustomPaint))
-        .first;
-    final splitHeight = tester.getSize(split).height;
-    expect(
-      tester.renderObject(split),
-      paints..rect(
-        rect: Rect.fromLTWH(0, 1, 1, splitHeight - 2),
-        color: tokens.foreground.withValues(alpha: .12),
-      ),
-    );
-    expect(
-      tester.getRect(_surface(bookmark)).right,
-      tester.getRect(_surface(bell)).left,
-    );
-    expect(tester.takeException(), isNull);
-  }, variant: _platforms);
+      // Bookmark and bell share one pill, split by the fill at 12%.
+      final bookmark = find.byKey(
+        const ValueKey('topic-header-bookmark-button'),
+      );
+      final bell = find.byKey(
+        const ValueKey('topic-header-notification-button'),
+      );
+      final group = find.ancestor(
+        of: bookmark,
+        matching: find.byType(DButtonGroup),
+      );
+      final pill = find
+          .descendant(of: group, matching: find.byType(DecoratedBox))
+          .first;
+      final decoration = tester.widget<DecoratedBox>(pill).decoration;
+      expect(decoration, isA<BoxDecoration>());
+      expect((decoration as BoxDecoration).color, tokens.wellFill);
+      expect(buttonSurface(tester, of: bookmark).color, Colors.transparent);
+      final split = find
+          .ancestor(of: bell, matching: find.byType(CustomPaint))
+          .first;
+      final splitHeight = tester.getSize(split).height;
+      expect(
+        tester.renderObject(split),
+        paints..rect(
+          rect: Rect.fromLTWH(0, 1, 1, splitHeight - 2),
+          color: tokens.foreground.withValues(alpha: .12),
+        ),
+      );
+      expect(
+        tester.getRect(_surface(bookmark)).right,
+        tester.getRect(_surface(bell)).left,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
 
   testWidgets('a phone gathers assigning, the topic and staff in one sheet', (
     tester,
@@ -392,14 +422,14 @@ void main() {
       sheet.borderRadius,
       const BorderRadius.vertical(
         top: Radius.circular(31),
-        bottom: Radius.circular(22),
+        bottom: Radius.zero,
       ),
     );
     expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
-  testWidgets('the condensed head keeps its rounded outline during a pull', (
+  testWidgets('the reader sheet keeps its rounded outline during a pull', (
     tester,
   ) async {
     final shell = await _openTopic(tester);
@@ -440,60 +470,37 @@ void main() {
 
     await wheel(900);
     await wheel(-120);
-    final band = tester.widget<DCard>(
-      find.byKey(const ValueKey('topic-header-band')),
+    expect(find.byKey(const ValueKey('topic-header-band')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('mobile-page-title')).hitTestable(),
+      findsOneWidget,
     );
-    expect(band.backgroundColor, DTokens.of(tester.element(sheet)).wellFill);
-    expect(band.borderRadius, BorderRadius.circular(24));
-    expect(band.border, isFalse);
     expect(
       tester.widget<DPageSurface>(sheet).borderRadius,
-      const BorderRadius.vertical(
-        top: Radius.circular(31),
-        bottom: Radius.circular(22),
-      ),
+      const BorderRadius.vertical(top: Radius.circular(31)),
     );
     final grabber = find.byKey(const ValueKey('sheet-drag-handle'));
     expect(grabber, findsOneWidget);
-    expect(tester.widget<DPageSurface>(sheet).depth, DSurfaceDepth.panel);
-    expect(
-      tester.getRect(find.byKey(const ValueKey('topic-header-band'))).top,
-      tester.getRect(sheet).top + 21,
-    );
-    expect(
-      tester.getRect(grabber).bottom,
-      lessThan(
-        tester.getRect(find.byKey(const ValueKey('topic-header-band'))).top,
-      ),
-    );
     await _capturePolish(
       tester,
       'compact-header-${defaultTargetPlatform.name}',
     );
 
-    final bounds = tester.getRect(
-      find.byKey(const ValueKey('topic-header-band')),
-    );
-    final fill = DTokens.of(tester.element(sheet)).wellFill;
-    final pull = await tester.startGesture(
-      bounds.topCenter + const Offset(0, 8),
-    );
+    final bounds = tester.getRect(sheet);
+    final pull = await tester.startGesture(tester.getCenter(grabber));
     await pull.moveBy(const Offset(0, 20));
     await pull.moveBy(const Offset(0, 70));
     await tester.pump();
-    final pulledBounds = tester.getRect(
-      find.byKey(const ValueKey('topic-header-band')),
-    );
+    final pulledBounds = tester.getRect(sheet);
     expect(pulledBounds.top, greaterThan(bounds.top));
     expect(
       tester.widget<DPageSurface>(sheet).borderRadius,
       const BorderRadius.vertical(
         top: Radius.circular(31),
-        bottom: Radius.circular(22),
+        bottom: Radius.zero,
       ),
     );
-    // Inspect the shell's painted corners: the fill must stop at the curve,
-    // while the centre of the top edge remains the header's own fill.
+    // Rounded corners reveal the preceding page while the centre stays filled.
     await tester.runAsync(() async {
       final builder = ui.SceneBuilder();
       tester.binding.renderViews.first.debugLayer!.addToScene(builder);
@@ -503,29 +510,27 @@ void main() {
         final bytes = (await image.toByteData(
           format: ui.ImageByteFormat.rawRgba,
         ))!;
+        final centre = pulledBounds.topCenter + const Offset(0, 2);
+        final centreOffset =
+            (centre.dy.floor() * image.width + centre.dx.floor()) * 4;
         for (final point in [
           pulledBounds.topLeft + const Offset(2, 2),
           pulledBounds.topRight + const Offset(-3, 2),
         ]) {
           final offset =
               (point.dy.floor() * image.width + point.dx.floor()) * 4;
-          final difference = [fill.r, fill.g, fill.b].indexed.fold<double>(
-            0,
-            (total, entry) =>
-                total +
-                (bytes.getUint8(offset + entry.$1) - entry.$2 * 255).abs(),
-          );
+          final difference = List.generate(
+            3,
+            (channel) =>
+                (bytes.getUint8(offset + channel) -
+                        bytes.getUint8(centreOffset + channel))
+                    .abs(),
+          ).fold<int>(0, (total, delta) => total + delta);
           expect(
             difference,
             greaterThan(10),
             reason: 'Rounded corner at $point',
           );
-        }
-        final centre = pulledBounds.topCenter + const Offset(0, 2);
-        final offset =
-            (centre.dy.floor() * image.width + centre.dx.floor()) * 4;
-        for (final (channel, expected) in [fill.r, fill.g, fill.b].indexed) {
-          expect(bytes.getUint8(offset + channel), closeTo(expected * 255, 2));
         }
       } finally {
         image.dispose();
@@ -542,7 +547,7 @@ void main() {
       tester.widget<DPageSurface>(sheet).borderRadius,
       const BorderRadius.vertical(
         top: Radius.circular(31),
-        bottom: Radius.circular(22),
+        bottom: Radius.zero,
       ),
     );
     expect(find.byKey(const ValueKey('sheet-drag-handle')), findsOneWidget);

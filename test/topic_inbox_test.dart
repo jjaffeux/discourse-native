@@ -1816,7 +1816,7 @@ void main() {
     final shell = setup.controller;
     shell.openTopicFromList(setup.rows.first);
     await tester.pumpAndSettle();
-    for (final width in [320.0, 520.0, 900.0, 960.0]) {
+    for (final width in [320.0, 520.0, 900.0, 1400.0]) {
       for (final theme in [AppTheme.light, AppTheme.dark]) {
         await tester.pumpWidget(
           ShellScope(
@@ -1860,7 +1860,7 @@ void main() {
         // The whole path stays only while it fits beside a count of every
         // tag; otherwise the topic's own category leads the line alone.
         final wholePath = parent.evaluate().isNotEmpty;
-        expect(wholePath, width >= 960, reason: 'width $width');
+        expect(wholePath, width >= 1400, reason: 'width $width');
         final lead = wholePath ? parent : category;
         expect(
           tester.getRect(lead).left,
@@ -2123,13 +2123,9 @@ void main() {
       await shell.markTopicRead(siteUrl, 1, 4, caughtUp: true);
       await tester.pumpAndSettle();
       expect(badge, findsNothing);
-      // The inbox lane is narrow, so caught-up titles take the compact
-      // card's softened foreground rather than the wide row's whisper.
+      // Caught-up titles use the shared palette-aware read-title token.
       final tokens = DTokens.of(tester.element(row));
-      expect(
-        titleColor(),
-        Color.lerp(tokens.background, tokens.foreground, .9),
-      );
+      expect(titleColor(), tokens.titleRead);
       expect(shell.currentContent?.topicId, 1);
 
       shell.store.put(
@@ -2761,7 +2757,7 @@ void main() {
       final setup = await _setup(tester, tags: tags);
       setup.controller.openTopicFromList(setup.rows.first);
       await tester.pumpAndSettle();
-      for (final width in [320.0, 520.0, 900.0, 960.0]) {
+      for (final width in [320.0, 520.0, 900.0, 1400.0]) {
         await tester.pumpWidget(
           ShellScope(
             controller: setup.controller,
@@ -2800,7 +2796,7 @@ void main() {
             .byTooltip('Edit topic category')
             .evaluate()
             .isNotEmpty;
-        expect(wholePath, width >= 960, reason: 'width $width');
+        expect(wholePath, width >= 1400, reason: 'width $width');
         for (final tooltip in [
           if (wholePath) 'Edit topic category',
           'Edit topic subcategory',
