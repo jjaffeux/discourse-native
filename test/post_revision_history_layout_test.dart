@@ -11,7 +11,6 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';

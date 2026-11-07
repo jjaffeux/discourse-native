@@ -193,9 +193,9 @@ void main() {
         expect(sheet, findsOneWidget);
         final bounds = tester.getRect(sheet);
         expect(bounds.height, greaterThan(_phone.height * .8));
-        expect(bounds.left, greaterThan(0));
-        expect(bounds.right, lessThan(_phone.width));
-        expect(bounds.bottom, _phone.height - 34 - DSpacing.md);
+        expect(bounds.left, 0);
+        expect(bounds.right, _phone.width);
+        expect(bounds.bottom, _phone.height);
         final body = find.byType(DSheetBody);
         final scrolling = find.descendant(
           of: body,
@@ -209,8 +209,8 @@ void main() {
           final button = tester.widget<DButton>(
             find.ancestor(of: close, matching: find.byType(DButton)).first,
           );
-          expect(button.shape, DButtonShape.pill);
-          expect(button.variant, DButtonVariant.secondary);
+          expect(button.shape, DButtonShape.rounded);
+          expect(button.variant, DButtonVariant.quiet);
         }
         if (surface == 'post reactions') {
           final filter = find.byKey(

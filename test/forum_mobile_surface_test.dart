@@ -193,6 +193,10 @@ void main() {
                 (1, 358),
                 (238, 358),
               ]) {
+                if (!sidebar && y > 300) {
+                  pixel(x, y, base);
+                  continue;
+                }
                 sidebar
                     ? pixel(x, y, backdrop)
                     // Light's shade is 9% black, too faint to pin at a
@@ -204,7 +208,7 @@ void main() {
                       );
               }
               pixel(120, 250, base); // Reading area owns a filled panel.
-              pixel(0, 250, Color.alphaBlend(rim, base));
+              pixel(0, 250, sidebar ? base : Color.alphaBlend(rim, base));
               pixel(120, 68, base);
               if (!sidebar) {
                 pixel(20, 52, base);

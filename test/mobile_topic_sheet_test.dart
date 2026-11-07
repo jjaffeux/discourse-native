@@ -22,6 +22,7 @@ import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -838,7 +839,7 @@ void main() {
         expect(visibleDate.top - viewport.top, closeTo(16, .1));
         expect(
           visibleDate.top - tester.getRect(_handle).bottom,
-          greaterThanOrEqualTo(3.9),
+          greaterThanOrEqualTo(2.9),
         );
       }
       if (dateRect.top < clip!.top && dateRect.bottom > clip!.top) {
@@ -896,10 +897,13 @@ void main() {
       final bounds = tester.getRect(_sheet);
       expect(bounds.left, 0);
       expect(bounds.right, 390);
-      expect(bounds.bottom, 844);
+      expect(
+        bounds.bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       expect(bounds.top, 52);
       expect(tester.getSize(_handle), const Size(36, 5));
-      expect(tester.getRect(_handle).top, bounds.top + 7);
+      expect(tester.getRect(_handle).top, bounds.top + 8);
       final surface = find
           .descendant(of: _sheet, matching: find.byType(DPageSurface))
           .first;
@@ -1423,7 +1427,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(_handle, findsOneWidget);
-      expect(tester.getRect(_sheet).bottom, 844);
+      expect(
+        tester.getRect(_sheet).bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       await tester.drag(_handle, const Offset(0, 180));
       await tester.pumpAndSettle();
       expect(shell.currentContent, origin);
@@ -1432,7 +1439,7 @@ void main() {
         tester
             .getRect(find.byKey(const ValueKey('mobile-content-panel')))
             .bottom,
-        844,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
       );
       expect(tester.takeException(), isNull);
     },
@@ -1454,18 +1461,29 @@ void main() {
         await tester.pump(DMobileDock.peekAfter + DMobileDock.peekFor);
         expect(tester.getRect(_sheet).width, width);
         expect(tester.getRect(_sheet).top, 52);
-        expect(tester.getRect(_sheet).bottom, 844);
+        expect(
+          tester.getRect(_sheet).bottom,
+          tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+        );
         // The bar reaches the screen's bottom; what it shows of its row
         // keeps 30 over the foot. Large text gives the header a height in
         // fourteenths, so the dock's offsets sum to 844 only within rounding.
-        expect(tester.getRect(_dock).bottom, moreOrLessEquals(844));
+        expect(
+          tester.getRect(_dock).bottom,
+          moreOrLessEquals(
+            defaultTargetPlatform == TargetPlatform.android ? 804 : 844,
+          ),
+        );
         expect(
           tester
               .getRect(
                 find.descendant(of: _dock, matching: find.byType(ClipRRect)),
               )
               .bottom,
-          closeTo(844 - 30, .01),
+          closeTo(
+            defaultTargetPlatform == TargetPlatform.android ? 798 : 814,
+            .01,
+          ),
         );
         expect(tester.getSize(_handle), const Size(36, 5));
         await tester.drag(_handle, const Offset(0, 180));

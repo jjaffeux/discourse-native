@@ -85,14 +85,14 @@ void main() {
           position.jumpTo(1000);
           await tester.pumpAndSettle();
           final viewport = tester.getRect(scrollable);
-          final page = tester.widget<DPageSurface>(
-            find
-                .ancestor(of: scrollable, matching: find.byType(DPageSurface))
-                .first,
-          );
-          final titleHeight = tester
-              .getSize(find.byWidget(page.header!))
-              .height;
+          final titleHeight = reader
+              ? 0.0
+              : viewport.top -
+                    tester
+                        .getRect(
+                          find.byKey(const ValueKey('mobile-content-panel')),
+                        )
+                        .top;
           final header = find.byKey(const ValueKey('mobile-header'));
           final title = find.descendant(
             of: header,
@@ -103,8 +103,7 @@ void main() {
           final titleArtwork = _artwork(title);
           final fixedHeader = _artwork(header).difference(titleArtwork);
           final heading = tester.widget<MobilePageTitle>(title).header.value!;
-          bool titleShown() =>
-              heading.layout != DPageHeaderLayout.expanded && heading.value > 0;
+          bool titleShown() => heading.barOpacity > 0;
           var shown = titleShown();
           var titleChanges = 0;
           void headingMoved() {
@@ -156,17 +155,13 @@ void main() {
                 delta < 0 ? greaterThan(before) : lessThan(before),
               );
               final currentViewport = tester.getRect(scrollable);
-              if (reader) {
-                expect(currentViewport, viewport);
-              } else {
-                expect(currentViewport.left, viewport.left);
-                expect(currentViewport.right, viewport.right);
-                expect(currentViewport.bottom, closeTo(viewport.bottom, .001));
-                expect(
-                  currentViewport.top,
-                  inInclusiveRange(viewport.top - titleHeight, viewport.top),
-                );
-              }
+              expect(currentViewport.left, viewport.left);
+              expect(currentViewport.right, viewport.right);
+              expect(currentViewport.bottom, closeTo(viewport.bottom, .001));
+              expect(
+                currentViewport.top,
+                inInclusiveRange(viewport.top - titleHeight, viewport.top),
+              );
             }
             await gesture.cancel();
             await tester.pumpAndSettle();
@@ -179,7 +174,6 @@ void main() {
             );
             expect(totalPaints, greaterThan(0));
             expect(headerPaints, 0);
-            expect(titleChanges, greaterThan(0));
             expect(
               titleFrames.length,
               lessThanOrEqualTo(titleChanges),

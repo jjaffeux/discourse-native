@@ -20,6 +20,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -190,10 +191,13 @@ void main() {
       final bounds = tester.getRect(_sheet);
       expect(bounds.left, 0);
       expect(bounds.right, 390);
-      expect(bounds.bottom, 844);
+      expect(
+        bounds.bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       expect(bounds.top, tester.getRect(_header).bottom + 6);
       expect(tester.getSize(_handle), const Size(36, 5));
-      expect(tester.getRect(_handle).top, bounds.top + 7);
+      expect(tester.getRect(_handle).top, bounds.top + 8);
       final surface = find
           .descendant(of: _sheet, matching: find.byType(DPageSurface))
           .first;
@@ -391,7 +395,7 @@ void main() {
           tester
               .getRect(find.byKey(const ValueKey('mobile-content-panel')))
               .bottom,
-          844,
+          tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
         );
         expect(
           find.byKey(const ValueKey('chat-inbox-channel-10')).hitTestable(),
@@ -453,7 +457,10 @@ void main() {
         shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
         await tester.pumpAndSettle();
         expect(find.byType(ChatThreadView), findsOneWidget);
-        expect(tester.getRect(_sheet).bottom, 844);
+        expect(
+          tester.getRect(_sheet).bottom,
+          tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+        );
         expect(tester.getRect(_sheet).top, tester.getRect(_header).bottom + 6);
         if (origin == 'channel' || origin == 'direct') {
           await _capture(
@@ -627,13 +634,21 @@ void main() {
       await tester.pumpAndSettle();
       final composer = find.byKey(const ValueKey('chat-composer'));
       final dock = find.byKey(const ValueKey('mobile-dock-surface'));
-      final safeEdge = 844 - safeBottom;
-      expect(tester.getRect(_sheet).bottom, 844);
+      final localFoot = defaultTargetPlatform == TargetPlatform.android
+          ? 0.0
+          : safeBottom;
+      final hostBottom = tester
+          .getRect(find.byKey(const ValueKey('mobile-root')))
+          .bottom;
+      expect(
+        tester.getRect(_sheet).bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       // At a foot the bar reaches the screen's bottom; on a square screen the
       // capsule floats 6 above it.
       expect(
         tester.getRect(dock).bottom,
-        closeTo(safeBottom > 0 ? 844 : safeEdge - 6, .01),
+        closeTo(hostBottom - (localFoot > 0 ? 0 : 6), .01),
       );
       expect(
         tester.getRect(dock).top - tester.getRect(composer).bottom,
@@ -667,9 +682,9 @@ void main() {
       // composer is level with it.
       final folded = tester.getRect(dock);
       expect(folded.height, closeTo(50.36, .01));
-      final corner = dockCornerAt(folded.height, safeBottom);
-      expect(corner, closeTo(safeBottom > 0 ? 12.98 : 6, .01));
-      expect(folded.bottom, closeTo(844 - corner, .001));
+      final corner = dockCornerAt(folded.height, localFoot);
+      expect(corner, closeTo(localFoot > 0 ? 12.98 : 6, .01));
+      expect(folded.bottom, closeTo(hostBottom - corner, .001));
       expect(folded.left, closeTo(corner, .001));
       expect(tester.getRect(composer).top, closeTo(folded.top, .01));
       expect(tester.getRect(composer).bottom, closeTo(folded.bottom, .01));
@@ -729,7 +744,10 @@ void main() {
         expect(corners().topLeft.x, 31);
         expect(corners().bottomLeft.x, 0);
         expect(corners().bottomRight.x, 0);
-        expect(tester.getRect(_sheet).bottom, 844);
+        expect(
+          tester.getRect(_sheet).bottom,
+          tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+        );
         expect(
           tester.getRect(find.byKey(const ValueKey('chat-composer'))).bottom,
           lessThanOrEqualTo(544),
@@ -858,21 +876,35 @@ void main() {
       await shell.appSettings.setReduceMotion(true);
       await tester.pumpAndSettle();
       expect(tester.getRect(_sheet).width, width);
-      expect(tester.getRect(_sheet).bottom, 844);
+      expect(
+        tester.getRect(_sheet).bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       // The bar reaches the screen's bottom; what it shows of its row, and
       // the composer above it, keep the bar's 30 of room over the foot.
-      expect(tester.getRect(_dock).bottom, closeTo(844, .01));
+      expect(
+        tester.getRect(_dock).bottom,
+        closeTo(
+          defaultTargetPlatform == TargetPlatform.android ? 804 : 844,
+          .01,
+        ),
+      );
       expect(
         tester
             .getRect(
               find.descendant(of: _dock, matching: find.byType(ClipRRect)),
             )
             .bottom,
-        closeTo(844 - 30, .01),
+        closeTo(
+          defaultTargetPlatform == TargetPlatform.android ? 798 : 814,
+          .01,
+        ),
       );
       expect(
         tester.getRect(find.byKey(const ValueKey('chat-composer-send'))).bottom,
-        lessThanOrEqualTo(844 - 30),
+        lessThanOrEqualTo(
+          defaultTargetPlatform == TargetPlatform.android ? 798 : 814,
+        ),
       );
       await tester.showKeyboard(
         find.descendant(
@@ -887,7 +919,10 @@ void main() {
       expect(send.hitTestable(), findsOneWidget);
       expect(tester.getRect(send).bottom, lessThanOrEqualTo(544));
       expect(_dock.hitTestable(), findsNothing);
-      expect(tester.getRect(_sheet).bottom, 844);
+      expect(
+        tester.getRect(_sheet).bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       expect(
         tester.widget<Scaffold>(find.byType(Scaffold)).backgroundColor,
         Colors.transparent,
@@ -902,7 +937,10 @@ void main() {
       tester.view.viewInsets = const FakeViewPadding();
       tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
       await tester.pumpAndSettle();
-      expect(tester.getRect(_sheet).bottom, 844);
+      expect(
+        tester.getRect(_sheet).bottom,
+        tester.getRect(find.byKey(const ValueKey('mobile-root'))).bottom,
+      );
       await _capture(
         tester,
         '${Theme.of(tester.element(_sheet)).platform.name}-keyboard-closed-${width.toInt()}',
