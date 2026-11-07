@@ -782,19 +782,25 @@ class DButton extends StatelessWidget {
     var radius =
         joined?.resolveRadius(baseRadius, direction) ??
         baseRadius.resolve(direction);
-    if (_iconOnly) {
-      // Interpolate the visible corners, not the oversized pill sentinel.
-      // A 999px radius stays circular until the very end of a shape tween.
-      final visible = radius
-          .toRRect(Offset.zero & iconOnlySurfaceSize)
-          .scaleRadii();
-      radius = BorderRadius.only(
-        topLeft: visible.tlRadius,
-        topRight: visible.trRadius,
-        bottomLeft: visible.blRadius,
-        bottomRight: visible.brRadius,
-      );
-    }
+    // Interpolate the visible corners, not the oversized pill sentinel.
+    // Equivalent text and icon pills must not start a shape tween while a
+    // fit row measures their full and shortened labels.
+    // Text width is measured later; two heights leave room for both corners
+    // while applying the known vertical bound.
+    final visible = radius
+        .toRRect(
+          Offset.zero &
+              (_iconOnly
+                  ? iconOnlySurfaceSize
+                  : Size(2 * surfaceHeight, surfaceHeight)),
+        )
+        .scaleRadii();
+    radius = BorderRadius.only(
+      topLeft: visible.tlRadius,
+      topRight: visible.trRadius,
+      bottomLeft: visible.blRadius,
+      bottomRight: visible.brRadius,
+    );
     final effectiveAnimationDuration = DMotion.duration(
       context,
       DControlStyle.duration,

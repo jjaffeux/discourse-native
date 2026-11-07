@@ -128,7 +128,14 @@ void main() {
               expect(surface.borderColor.a, 0);
             }
 
-            expect(surface.borderRadius.topLeft.x, 999);
+            expect(
+              surface.borderRadius
+                  .toRRect(Offset.zero & rect.size)
+                  .scaleRadii()
+                  .tlRadius
+                  .x,
+              rect.height / 2,
+            );
             final artwork = find.descendant(
               of: button,
               matching: find.byWidgetPredicate(
