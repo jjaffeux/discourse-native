@@ -189,25 +189,17 @@ void _registerReactionAndLikeTests() {
       expect(api.liked, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.android));
 
-    testWidgets('a post nobody has liked says so by saying nothing', (
-      tester,
-    ) async {
-      await openTopic(tester, first: post());
-
-      expect(find.byType(PostLikes), findsOneWidget);
-      expect(count('0'), findsNothing);
-
-      await openPostMenu(tester);
-      expect(menuAction('Like'), findsOneWidget);
-      expect(menuAction('React'), findsNothing);
-    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
-
     testWidgets(
       'liking from the menu draws the count before the site answers',
       (tester) async {
         final api = await openTopic(tester, first: post());
 
+        expect(find.byType(PostLikes), findsOneWidget);
+        expect(count('0'), findsNothing);
+
         await openPostMenu(tester);
+        expect(menuAction('Like'), findsOneWidget);
+        expect(menuAction('React'), findsNothing);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
         await tester.tap(menuAction('Like'));

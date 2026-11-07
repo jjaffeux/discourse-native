@@ -743,11 +743,14 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
-    testWidgets('keeps the caption readable over every image', (tester) async {
+    testWidgets('shows a readable caption and download action for an upload', (
+      tester,
+    ) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
 
+      expect(find.dIcon(DIcons.download), findsOneWidget);
       expect(find.text('screenshot.png'), findsOneWidget);
       expect(find.text('1920×1080 234 KB'), findsOneWidget);
 
@@ -1172,14 +1175,6 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(controller.scale, greaterThan(initialScale));
-    });
-
-    testWidgets('offers a download for an upload', (tester) async {
-      await pumpCooked(tester, singleImage);
-      await tester.tap(thumbnail());
-      await tester.pumpAndSettle();
-
-      expect(find.dIcon(DIcons.download), findsOneWidget);
     });
 
     testWidgets('downloads the upload instead of opening its URL', (
