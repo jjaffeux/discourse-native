@@ -3,6 +3,19 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:html/parser.dart' as html_parser;
 
 void main() {
+  test(
+    'regression fourth: clock times are searchable text rather than filters',
+    () {
+      expect(searchWords('10:30 category:support -tags:hidden @sam'), [
+        '10:30',
+      ]);
+      expect(
+        highlightSearchHtml('<p>Meet at 10:30</p>', '10:30'),
+        '<p>Meet at <mark class="native-search-hit">10:30</mark></p>',
+      );
+    },
+  );
+
   test('regression: search snippets start at a whole grapheme', () {
     for (final grapheme in ['😀', 'e\u0301', '👩‍💻']) {
       final text = '${'x' * 65}$grapheme${' ' * 39}needle';

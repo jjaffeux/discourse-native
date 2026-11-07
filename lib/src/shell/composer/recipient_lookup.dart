@@ -78,8 +78,9 @@ final class ComposerRecipientLookup extends ChangeNotifier {
     _query = query;
     _results = const FoundUsersAndGroups();
     notifyListeners();
+    if (!_isCurrent || generation != _generation) return;
     _debounce = Timer(const Duration(milliseconds: 200), () async {
-      if (!_isCurrent) return;
+      if (!_isCurrent || generation != _generation) return;
       final FoundUsersAndGroups results;
       try {
         results = await _search.search(query.trim());

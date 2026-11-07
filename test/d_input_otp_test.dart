@@ -22,6 +22,48 @@ Widget host(
 );
 
 void main() {
+  testWidgets('regression fourth: OTP slots show complete Unicode characters', (
+    tester,
+  ) async {
+    final completed = <String>[];
+    await tester.pumpWidget(
+      host(DInputOTP(maxLength: 2, onCompleted: completed.add)),
+    );
+    await tester.enterText(find.byType(TextField), '𐐀𐐁');
+    await tester.pump();
+    expect(find.text('𐐀'), findsOneWidget);
+    expect(find.text('𐐁'), findsOneWidget);
+    expect(completed, ['𐐀𐐁']);
+  });
+
+  testWidgets(
+    'regression fourth: filtering OTP input preserves the edit position',
+    (tester) async {
+      final controller = TextEditingController(text: '1234');
+      addTearDown(controller.dispose);
+      await tester.pumpWidget(
+        host(
+          DInputOTP(
+            maxLength: 6,
+            pattern: dInputOTPDigits,
+            controller: controller,
+          ),
+        ),
+      );
+      await tester.tap(find.byType(TextField));
+      await tester.pump();
+      tester.testTextInput.updateEditingValue(
+        const TextEditingValue(
+          text: '1x234',
+          selection: TextSelection.collapsed(offset: 2),
+        ),
+      );
+      await tester.pump();
+      expect(controller.text, '1234');
+      expect(controller.selection, const TextSelection.collapsed(offset: 1));
+    },
+  );
+
   testWidgets('uses one native editor for all projected slots', (tester) async {
     await tester.pumpWidget(
       host(

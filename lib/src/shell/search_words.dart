@@ -24,11 +24,15 @@ List<String> searchWords(String query) =>
         .split(RegExp(r'\s+'))
         .where(
           (word) =>
-              word.isNotEmpty && !word.contains(':') && !word.startsWith('@'),
+              word.isNotEmpty &&
+              !_searchOperator.hasMatch(word) &&
+              !word.startsWith('@'),
         )
         .toSet()
         .toList()
       ..sort((a, b) => b.length.compareTo(a.length));
+
+final _searchOperator = RegExp(r'^-?[a-z_][a-z0-9_-]*:', caseSensitive: false);
 
 RegExp? searchWordPattern(String query) {
   final words = searchWords(query);

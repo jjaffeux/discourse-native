@@ -11,6 +11,28 @@ Post _post({String cooked = '', String? raw}) => Post.fromJson({
 }, 'https://meta.example');
 
 void main() {
+  test(
+    'regression fourth: raw previews retain literal bracketed prose and code',
+    () {
+      expect(
+        postPlainText(_post(raw: 'Use [name] and `[u]literal[/u]`.')),
+        'Use [name] and [u]literal[/u].',
+      );
+    },
+  );
+
+  test('regression fourth: cooked headings and table cells stay separate', () {
+    expect(
+      postPlainText(
+        _post(
+          cooked:
+              '<h2>Results</h2><table><tr><th>Name</th><th>Count</th></tr><tr><td>Sam</td><td>2</td></tr></table><p>Done</p>',
+        ),
+      ),
+      'Results Name Count Sam 2 Done',
+    );
+  });
+
   test('regression: reply previews retain cooked emoji content', () {
     expect(
       postPlainText(

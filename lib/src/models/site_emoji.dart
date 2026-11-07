@@ -12,12 +12,35 @@ final _emojiWordEnd = RegExp(
   r'[\p{Alphabetic}\p{Mark}\p{Decimal_Number}]$',
   unicode: true,
 );
-final _emojiLiteralCode = RegExp(r'(?<!`)(`+)(?!`)[\s\S]*?(?<!`)\1(?!`)');
+final _emojiBackticks = RegExp(r'`+');
+
+Iterable<({int start, int end})> _emojiLiteralCodeRanges(String text) sync* {
+  final runs = _emojiBackticks.allMatches(text).toList();
+  final next = List<int?>.filled(runs.length, null);
+  final byWidth = <int, int>{};
+  for (var index = runs.length - 1; index >= 0; index--) {
+    final width = runs[index].end - runs[index].start;
+    next[index] = byWidth[width];
+    byWidth[width] = index;
+  }
+  for (var index = 0; index < runs.length; index++) {
+    final opening = runs[index];
+    var slashes = 0;
+    for (var at = opening.start - 1; at >= 0 && text[at] == '\\'; at--) {
+      slashes++;
+    }
+    if (slashes.isOdd) continue;
+    final closing = next[index];
+    if (closing == null) continue;
+    yield (start: opening.start, end: runs[closing].end);
+    index = closing;
+  }
+}
 
 /// Shortcodes in plain presentation text share the composer's word boundary
 /// and leave backtick-delimited code literal, including multiline fences.
 Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
-  final code = _emojiLiteralCode.allMatches(text).iterator;
+  final code = _emojiLiteralCodeRanges(text).iterator;
   var hasCode = code.moveNext();
   for (final match in siteEmojiShortcodePattern.allMatches(text)) {
     if (match.start > 0 &&

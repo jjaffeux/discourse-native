@@ -76,6 +76,22 @@ FilledButton _submit(WidgetTester tester) => tester.widget<FilledButton>(
 );
 
 void main() {
+  testWidgets(
+    'regression fourth: flag messages count Unicode characters at the maximum',
+    (tester) async {
+      await _pumpEditor(
+        tester,
+        types: const [_notifyUser],
+        save: (type, {message}) async => null,
+        onComplete: () {},
+      );
+      await tester.enterText(find.byType(DTextarea), '𐐀' * 300);
+      await tester.pump();
+      expect(_submit(tester).onPressed, isNotNull);
+      expect(find.text('200 remaining'), findsOneWidget);
+    },
+  );
+
   testWidgets('a sole reason is preselected and can be submitted', (
     tester,
   ) async {

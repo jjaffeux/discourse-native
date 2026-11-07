@@ -154,20 +154,21 @@ int _trimLinkifyEnd(String source, int start, int end) {
   while (end > start && punctuation.contains(source.codeUnitAt(end - 1))) {
     end -= 1;
   }
-  for (final pair in const [(0x28, 0x29), (0x5B, 0x5D), (0x7B, 0x7D)]) {
-    if (end <= start || source.codeUnitAt(end - 1) != pair.$2) continue;
-    var balance = 0;
-    for (var index = start; index < end; index += 1) {
-      final unit = source.codeUnitAt(index);
-      if (unit == pair.$1) balance -= 1;
-      if (unit == pair.$2) balance += 1;
+  const closings = {0x28: 0x29, 0x5B: 0x5D, 0x7B: 0x7D};
+  final balances = {for (final closing in closings.values) closing: 0};
+  for (var index = start; index < end; index++) {
+    final unit = source.codeUnitAt(index);
+    if (closings[unit] case final closing?) {
+      balances[closing] = balances[closing]! - 1;
+    } else if (balances.containsKey(unit)) {
+      balances[unit] = balances[unit]! + 1;
     }
-    while (balance > 0 &&
-        end > start &&
-        source.codeUnitAt(end - 1) == pair.$2) {
-      end -= 1;
-      balance -= 1;
-    }
+  }
+  while (end > start) {
+    final closing = source.codeUnitAt(end - 1);
+    if ((balances[closing] ?? 0) <= 0) break;
+    balances[closing] = balances[closing]! - 1;
+    end--;
   }
   return end;
 }

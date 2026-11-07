@@ -13,6 +13,21 @@ import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
 
 void main() {
+  test('regression fourth: escaped backticks do not hide emoji shortcodes', () {
+    expect(
+      SiteEmojiText.shortcodeMatches(
+        r'\` :smile: \`',
+      ).map((match) => match.group(1)),
+      ['smile'],
+    );
+    expect(
+      SiteEmojiText.shortcodeMatches(
+        r'`\` :smile:',
+      ).map((match) => match.group(1)),
+      ['smile'],
+    );
+  });
+
   final artworkRequests = <Uri>[];
   setUp(() {
     // Resolving a shortcode must never give this focused rendering test a

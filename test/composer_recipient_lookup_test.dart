@@ -15,6 +15,28 @@ const _sam = FoundUsersAndGroups(
 
 void main() {
   testWidgets(
+    'regression fourth: a replacement query from a listener cancels the old lookup',
+    (tester) async {
+      final fixture = _Fixture();
+      addTearDown(fixture.dispose);
+      void replace() {
+        fixture.lookup.removeListener(replace);
+        fixture.lookup.search('new');
+      }
+
+      fixture.lookup.addListener(replace);
+      fixture.lookup.search('old');
+      await tester.pump(const Duration(milliseconds: 200));
+      expect(fixture.lookup.query, 'new');
+      expect(fixture.terms, ['new']);
+      for (final pending in fixture.pending) {
+        pending.complete(_sam);
+      }
+      await tester.pump();
+    },
+  );
+
+  testWidgets(
     'regression: recipient lookup contains network failures and retries',
     (tester) async {
       final fixture = _Fixture();
