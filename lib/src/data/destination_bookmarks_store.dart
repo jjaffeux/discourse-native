@@ -82,6 +82,7 @@ final class DestinationBookmarksStore {
     _readable = false;
     final raw = await _snapshots.read(_persistence.read);
     final entries = <(String, String), List<DestinationBookmark>>{};
+    final identities = <(String, String), Set<String>>{};
     if (raw != null && raw.isNotEmpty) {
       final document = jsonDecode(raw);
       if (document is! Map ||
@@ -100,14 +101,14 @@ final class DestinationBookmarksStore {
         final account = value['account_identity'] as String;
         if (site.isEmpty || account.isEmpty) continue;
         final routes = entries.putIfAbsent((site, account), () => []);
+        final seen = identities.putIfAbsent((site, account), () => {});
         for (final json in value['routes'] as List) {
           try {
             if (json is! Map) continue;
             final bookmark = DestinationBookmark.fromRoute(
               ContentRoute.fromJson(Map<String, dynamic>.from(json)),
             );
-            if (bookmark != null &&
-                !routes.any((entry) => entry.identity == bookmark.identity)) {
+            if (bookmark != null && seen.add(bookmark.identity)) {
               routes.add(bookmark);
             }
           } on FormatException {
