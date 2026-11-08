@@ -36,8 +36,23 @@ class DMobileDockGeometry {
 
   factory DMobileDockGeometry.of(BuildContext context) => DMobileDockGeometry(
     foot: MediaQuery.paddingOf(context).bottom,
-    growth: math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11),
+    growth: _growthOf(context),
   );
+
+  /// The geometry once any keyboard has gone. The safe inset returns only when
+  /// a retracting keyboard's inset reaches exactly 0, so what travels with that
+  /// keyboard takes its destination from here.
+  factory DMobileDockGeometry.restingOf(BuildContext context) =>
+      DMobileDockGeometry(
+        foot: math.max(
+          MediaQuery.paddingOf(context).bottom,
+          MediaQuery.viewPaddingOf(context).bottom,
+        ),
+        growth: _growthOf(context),
+      );
+
+  static double _growthOf(BuildContext context) =>
+      math.max(0.0, MediaQuery.textScalerOf(context).scale(11) - 11);
 
   /// The screen's bottom safe inset, which is 0 while the keyboard is up.
   final double foot;

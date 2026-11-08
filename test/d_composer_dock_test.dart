@@ -140,6 +140,145 @@ void main() {
     }
   }
 
+  for (final folded in [false, true]) {
+    testWidgets(
+      'navigation and composer return with a retracting keyboard (folded: $folded)',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(390, 844));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final focus = FocusNode();
+        final text = TextEditingController();
+        final scroll = ScrollController(initialScrollOffset: 500);
+        addTearDown(focus.dispose);
+        addTearDown(text.dispose);
+        addTearDown(scroll.dispose);
+        Widget app({double keyboard = 0}) => MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.android),
+          home: MediaQuery(
+            data: MediaQueryData(
+              size: const Size(390, 844),
+              padding: EdgeInsets.only(bottom: keyboard > 0 ? 0 : 34),
+              viewPadding: const EdgeInsets.only(bottom: 34),
+              viewInsets: EdgeInsets.only(bottom: keyboard),
+            ),
+            child: DScrollChrome(
+              identity: 'chat',
+              floatingFooter: true,
+              // The real bar is shorter while a keyboard hides the safe inset.
+              footerBuilder: (_) => SizedBox(
+                key: const ValueKey('navigation'),
+                height: keyboard > 3.5 ? 76 : 92,
+              ),
+              // The shell's scaffold stands the body on the keyboard.
+              child: Padding(
+                padding: EdgeInsets.only(bottom: keyboard),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        key: const ValueKey('messages'),
+                        controller: scroll,
+                        itemCount: 100,
+                        itemExtent: 50,
+                        itemBuilder: (_, index) => Text('Message $index'),
+                      ),
+                    ),
+                    DComposerDock(
+                      builder: (_, compact) => DCard(
+                        spacing: 0,
+                        child: DInputGroup(
+                          key: const ValueKey('composer'),
+                          compact: compact,
+                          children: [
+                            DInputGroupTextarea(
+                              focusNode: focus,
+                              controller: text,
+                              minLines: 1,
+                              maxLines: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpWidget(app());
+        await tester.pumpAndSettle();
+        if (folded) {
+          await tester.sendEventToBinding(
+            PointerScrollEvent(
+              position: tester.getCenter(
+                find.byKey(const ValueKey('messages')),
+              ),
+              scrollDelta: const Offset(0, 160),
+            ),
+          );
+          await tester.pumpAndSettle();
+        }
+        final composer = find.byKey(const ValueKey('composer'));
+        final navigation = find.byKey(const ValueKey('navigation'));
+        double navigationTop() => tester.getTopLeft(navigation).dy;
+        final restingComposer = tester.getRect(composer);
+        final restingNavigationTop = navigationTop();
+
+        focus.requestFocus();
+        await tester.pumpWidget(app(keyboard: 336));
+        await tester.pumpAndSettle();
+        final focusedComposer = tester.getRect(composer);
+        expect(navigationTop(), 844);
+
+        // A held keyboard that changes height is not leaving.
+        await tester.pumpWidget(app(keyboard: 290));
+        await tester.pumpAndSettle();
+        expect(navigationTop(), 844);
+        expect(tester.getRect(composer).bottom, 844 - 290 - 6);
+
+        // Focus can move on while the keyboard stays for the next field.
+        focus.unfocus();
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(navigationTop(), 844);
+        expect(tester.getRect(composer).bottom, 844 - 290 - 6);
+
+        await tester.pumpWidget(app(keyboard: 280));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(navigationTop(), lessThan(844));
+        expect(tester.widget<DInputGroup>(composer).compact, folded);
+        if (folded) {
+          expect(
+            tester.getRect(composer).left,
+            greaterThan(focusedComposer.left),
+          );
+          expect(
+            tester.getRect(composer).right,
+            lessThan(focusedComposer.right),
+          );
+        } else {
+          expect(tester.getRect(composer).bottom, lessThan(844 - 280 - 6));
+        }
+
+        // A retraction as an iPhone reports it, one sample every 50ms.
+        var composerBottom = tester.getRect(composer).bottom;
+        for (final inset in <double>[133, 63, 25, 9, 3.4, 1.2, 0]) {
+          await tester.pumpWidget(app(keyboard: inset));
+          await tester.pump(const Duration(milliseconds: 50));
+          final bottom = tester.getRect(composer).bottom;
+          expect(bottom, greaterThanOrEqualTo(composerBottom - .01));
+          composerBottom = bottom;
+        }
+        await tester.pumpAndSettle();
+        expect(navigationTop(), restingNavigationTop);
+        expect(tester.getRect(composer), restingComposer);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final reduced in [false, true]) {
     for (final direction in TextDirection.values) {
       for (final scale in [1.0, 2.0]) {
