@@ -932,6 +932,8 @@ class _ForumTabState extends State<_ForumTab> {
 
   bool _selectedOnPointerDown = false;
   bool _renaming = false;
+  Widget? _tabWidget;
+  BoxConstraints? _tabConstraints;
   late final TextEditingController _renameController = TextEditingController();
   late final FocusNode _renameFocusNode = FocusNode(
     debugLabel: 'forum tab rename',
@@ -940,7 +942,29 @@ class _ForumTabState extends State<_ForumTab> {
   @override
   void didUpdateWidget(_ForumTab oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (widget.item._presentation != oldWidget.item._presentation ||
+        widget.selected != oldWidget.selected ||
+        (widget.onRename == null) != (oldWidget.onRename == null) ||
+        (widget.onCloseOthers == null) != (oldWidget.onCloseOthers == null) ||
+        (widget.onMoveLeft == null) != (oldWidget.onMoveLeft == null) ||
+        (widget.onMoveRight == null) != (oldWidget.onMoveRight == null) ||
+        (widget.moveToPanel == null) != (oldWidget.moveToPanel == null) ||
+        widget.moveToPanelLabel != oldWidget.moveToPanelLabel) {
+      _tabWidget = null;
+    }
     if (widget.onRename == null) _renaming = false;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _tabWidget = null;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+    _tabWidget = null;
   }
 
   @override
@@ -980,7 +1004,10 @@ class _ForumTabState extends State<_ForumTab> {
         baseOffset: 0,
         extentOffset: widget.item.title.length,
       );
-    setState(() => _renaming = true);
+    setState(() {
+      _renaming = true;
+      _tabWidget = null;
+    });
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_renaming) return;
       _renameFocusNode.requestFocus();
@@ -990,7 +1017,10 @@ class _ForumTabState extends State<_ForumTab> {
   void _finishRenaming({bool commit = true}) {
     if (!_renaming) return;
     final title = _renameController.text.trim();
-    setState(() => _renaming = false);
+    setState(() {
+      _renaming = false;
+      _tabWidget = null;
+    });
     _renameFocusNode.unfocus();
     if (commit && title.isNotEmpty && title != widget.item.title) {
       widget.onRename?.call(title);
@@ -1211,22 +1241,41 @@ class _ForumTabState extends State<_ForumTab> {
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
-      builder: (context, constraints) => IntrinsicWidth(
+      builder: (_, constraints) {
+        if (_tabConstraints != constraints) {
+          _tabConstraints = constraints;
+          _tabWidget = null;
+        }
+        // Adding a sibling need not rebuild this tab's controls. Keep inherited
+        // reads on the State's context so dependency changes invalidate it too.
+        return _tabWidget ??= _buildTab(this.context, constraints);
+      },
+    );
+  }
+
+  Widget _buildTab(BuildContext context, BoxConstraints constraints) =>
+      IntrinsicWidth(
         child: _ForumTabActions(
           tabId: widget.item.id,
           selected: widget.selected,
           label: _renaming ? null : _selectionSemanticsLabel,
-          onTap: widget.onSelect,
+          onTap: () => widget.onSelect(),
           customSemanticsActions: {
             if (widget.onRename != null) _renameAction: _startRenaming,
-            CustomSemanticsAction(label: context.l10n.moveLeft):
-                ?widget.onMoveLeft,
-            CustomSemanticsAction(label: context.l10n.moveRight):
-                ?widget.onMoveRight,
+            if (widget.onMoveLeft != null)
+              CustomSemanticsAction(label: context.l10n.moveLeft): () =>
+                  widget.onMoveLeft!(),
+            if (widget.onMoveRight != null)
+              CustomSemanticsAction(label: context.l10n.moveRight): () =>
+                  widget.onMoveRight!(),
           },
-          onClose: widget.onClose,
-          onCloseOthers: widget.onCloseOthers,
-          moveToPanel: widget.moveToPanel,
+          onClose: () => widget.onClose(),
+          onCloseOthers: widget.onCloseOthers == null
+              ? null
+              : () => widget.onCloseOthers!(),
+          moveToPanel: widget.moveToPanel == null
+              ? null
+              : () => widget.moveToPanel!(),
           moveToPanelLabel: widget.moveToPanelLabel,
           child: DDocumentTab(
             size: DControlSize.documentTab,
@@ -1239,7 +1288,7 @@ class _ForumTabState extends State<_ForumTab> {
             onTapDown: _handleTapDown,
             onTapCancel: _handleTapCancel,
             onDoubleTap: widget.onRename == null ? null : _startRenaming,
-            onClose: widget.onClose,
+            onClose: () => widget.onClose(),
             closeLabel: context.l10n.closeForumtabsbar(
               (widget.item.title).toString(),
             ),
@@ -1253,9 +1302,7 @@ class _ForumTabState extends State<_ForumTab> {
             child: ExcludeSemantics(child: _contents(constraints)),
           ),
         ),
-      ),
-    );
-  }
+      );
 
   Widget _contents(BoxConstraints constraints) => Builder(
     builder: (context) => _tabContents(
