@@ -143,7 +143,28 @@ void main() {
     final module = _StageModule(transport);
     final plugins = PluginInstaller.install(PluginManifest([module]));
     final session = plugins.openSession(const PluginHostBindings.empty());
-    addTearDown(session.close);
+    Future<void> closeWithPumps(Future<void> Function() close) async {
+      var settled = false;
+      Object? failure;
+      unawaited(
+        close().then(
+          (_) {
+            settled = true;
+          },
+          onError: (Object error, StackTrace _) {
+            failure = error;
+            settled = true;
+          },
+        ),
+      );
+      for (var pump = 0; pump < 20 && !settled; pump++) {
+        await tester.pump();
+      }
+      expect(settled, isTrue, reason: 'Owned teardown must finish.');
+      expect(failure, isNull);
+    }
+
+    addTearDown(() => closeWithPumps(session.close));
     final controller = module.controller;
     await controller.ensureLoaded(_site);
     await controller.join(
@@ -188,8 +209,8 @@ void main() {
     expect(find.byType(VoiceReactionOverlay), findsNothing);
     expect(find.text('alex'), findsNothing);
     await tester.pumpWidget(const SizedBox.shrink());
-    await controller.close();
-    await session.close();
+    await closeWithPumps(controller.close);
+    await closeWithPumps(session.close);
     await tester.pump();
   });
 }

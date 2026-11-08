@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart' show DateTimeRange;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -21,7 +20,7 @@ typedef _DirectoryQuery = ({
   int foregroundRevision,
 });
 
-final class EventDirectorySession extends ChangeNotifier {
+final class EventDirectorySession extends FrameSafeNotifier {
   EventDirectorySession({
     required this.controller,
     required this.site,
@@ -43,7 +42,8 @@ final class EventDirectorySession extends ChangeNotifier {
   List<PostEvent> _occurrences = const [];
   bool _loading = true;
   bool _failed = false;
-  bool _disposed = false;
+  PluginSiteLease? _account;
+  void Function()? _detachAccount;
   int _generation = 0;
 
   EventSettings get settings => _settings;
@@ -80,6 +80,7 @@ final class EventDirectorySession extends ChangeNotifier {
   void _changed() => show(_page);
 
   void show(EventCalendarPage page) {
+    if (isDisposed) return;
     _page = page;
     final next = _capture();
     final settingsChanged = _settings != controller.settings(site);
@@ -100,18 +101,34 @@ final class EventDirectorySession extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
+    if (isDisposed) return;
+    _detachAccount?.call();
+    final account = controller.requests.capture(site);
+    _account = account;
+    _detachAccount = account.onRetire(() {
+      if (isDisposed || !identical(_account, account)) return;
+      _generation++;
+      _occurrences = const [];
+      _loading = false;
+      _failed = false;
+      notifyListeners();
+    });
     final generation = ++_generation;
     final query = _query;
+    bool owns() =>
+        !isDisposed && account.isCurrent && generation == _generation;
     DateTime inCalendar(DateTime day) =>
         tz.TZDateTime(query.location, day.year, day.month, day.day);
     _loading = true;
     _failed = false;
     notifyListeners();
+    if (!owns()) return;
     try {
       final rows = <PostEvent>[];
       var after = query.days.start;
       // Each series is capped at 200 occurrences by the endpoint.
       while (after.isBefore(query.days.end)) {
+        if (!owns()) return;
         final quarter = DateTime.utc(after.year, after.month + 3, after.day);
         final before = quarter.isBefore(query.days.end)
             ? quarter
@@ -124,14 +141,14 @@ final class EventDirectorySession extends ChangeNotifier {
             before: inCalendar(before),
           ),
         );
-        if (_disposed || generation != _generation) return;
+        if (!owns()) return;
         after = before;
       }
       _occurrences = eventDirectoryOccurrences(rows, controller.zones);
       _loading = false;
       notifyListeners();
     } catch (_) {
-      if (_disposed || generation != _generation) return;
+      if (!owns()) return;
       _occurrences = const [];
       _failed = true;
       _loading = false;
@@ -141,10 +158,15 @@ final class EventDirectorySession extends ChangeNotifier {
 
   @override
   void dispose() {
-    _disposed = true;
-    _generation++;
-    controller.removeListener(_changed);
+    if (isDisposed) return;
     super.dispose();
+    _generation++;
+    _detachAccount?.call();
+    _detachAccount = null;
+    _account = null;
+    _occurrences = const [];
+    _loading = false;
+    controller.removeListener(_changed);
   }
 }
 

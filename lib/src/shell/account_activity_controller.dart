@@ -62,10 +62,7 @@ final class AccountActivityController extends FrameSafeNotifier {
   final _replyNotificationChanges = _ActivityAspect();
   final _likeNotificationChanges = _ActivityAspect();
   final _otherNotificationChanges = _ActivityAspect();
-  final Map<PluginNotificationFeedId, _PluginNotificationState>
-  _pluginNotifications = {};
-  final Map<PluginNotificationFeedId, PluginNotificationFeedSource>
-  _pluginNotificationSources = {};
+  final _children = _AccountActivityChildren();
   final _bookmarkChanges = _ActivityAspect();
   late final _bookmarkListOwner = BookmarkListOwner(
     api: api,
@@ -88,17 +85,18 @@ final class AccountActivityController extends FrameSafeNotifier {
   Listenable get bookmarksListenable => _bookmarkChanges;
   Listenable get bookmarkListListenable => _bookmarkListOwner;
   final _personActivityChanges = _ActivityAspect();
-  final Map<(String, String), UserActivityOwner> _personActivityOwners = {};
   late final _activityListenable = Listenable.merge([
     _userActivityOwner,
     _personActivityChanges,
   ]);
   Listenable get userActivityListenable => _activityListenable;
 
-  UserActivityOwner _activityOwner(String siteUrl, String? username) {
+  UserActivityOwner? _activityOwner(String siteUrl, String? username) {
+    if (_children.closed) return null;
     if (username == null) return _userActivityOwner;
     final key = (siteUrl, username.toLowerCase());
-    return _personActivityOwners.putIfAbsent(
+    return _children.admit(
+      _children.people,
       key,
       () => UserActivityOwner(
         api: api,
@@ -188,15 +186,22 @@ final class AccountActivityController extends FrameSafeNotifier {
       _feedFor(siteUrl, _otherNotifications);
 
   Listenable pluginNotificationsListenable(PluginNotificationFeedId id) =>
-      _pluginNotificationState(id).changes;
+      _children.closed
+      ? const _InactiveActivityListenable()
+      : _pluginNotificationState(id).changes;
 
   NotificationFeed pluginNotificationsFor(
     PluginNotificationFeedId id,
     String? siteUrl,
-  ) => _feedFor(siteUrl, _pluginNotificationState(id).slot);
+  ) {
+    final state = _children.pluginFeeds[id];
+    return state == null
+        ? const NotificationFeed()
+        : _feedFor(siteUrl, state.slot);
+  }
 
   bool hasTrackedPluginNotifications(String siteUrl) =>
-      _pluginNotifications.values.any(
+      _children.pluginFeeds.values.any(
         (state) =>
             _existingReconciliation(siteUrl)?.hasPublished(state.slot) ==
                 true ||
@@ -208,10 +213,13 @@ final class AccountActivityController extends FrameSafeNotifier {
   BookmarkListFeed bookmarkListFor(String? siteUrl) =>
       _bookmarkListOwner.feedFor(siteUrl);
 
-  UserActivityFeed userActivityFor(String? siteUrl, {String? username}) =>
-      siteUrl == null
-      ? const UserActivityFeed()
-      : _activityOwner(siteUrl, username).feedFor(siteUrl);
+  UserActivityFeed userActivityFor(String? siteUrl, {String? username}) {
+    if (siteUrl == null) return const UserActivityFeed();
+    final owner = username == null
+        ? _userActivityOwner
+        : _children.people[(siteUrl, username.toLowerCase())];
+    return owner?.feedFor(siteUrl) ?? const UserActivityFeed();
+  }
 
   static const int userActivityPageSize = UserActivityOwner.pageSize;
 
@@ -330,13 +338,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance,
     PluginNotificationFeedSource source,
   ) {
-    final registered = _pluginNotificationSources[source.id];
+    if (_children.closed) return Future.value();
+    final registered = _children.pluginSources[source.id];
     if (registered != null && registered != source) {
       return Future<void>.error(
         StateError('Conflicting notification feed ${source.id.id}.'),
       );
     }
-    _pluginNotificationSources[source.id] = source;
+    _children.pluginSources[source.id] = source;
     final state = _pluginNotificationState(source.id);
     return _coalescedActivityLoad(
       instance.url,
@@ -368,7 +377,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     if (isDisposed || !instance.isConnected) return;
     final lease = lifecycle.capture(instance.url);
     final sources = List<PluginNotificationFeedSource>.of(
-      _pluginNotificationSources.values,
+      _children.pluginSources.values,
     );
     await Future.wait([
       for (final source in sources)
@@ -397,6 +406,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     DiscourseInstance instance,
     PluginNotificationFeedSource source,
   ) {
+    if (_children.closed) return Future.value();
     if (source.dismissal == null) {
       return Future<void>.error(
         StateError(
@@ -404,13 +414,13 @@ final class AccountActivityController extends FrameSafeNotifier {
         ),
       );
     }
-    final registered = _pluginNotificationSources[source.id];
+    final registered = _children.pluginSources[source.id];
     if (registered != null && registered != source) {
       return Future<void>.error(
         StateError('Conflicting notification feed ${source.id.id}.'),
       );
     }
-    _pluginNotificationSources[source.id] = source;
+    _children.pluginSources[source.id] = source;
 
     final key = (instance.url, source.id);
     final active = _pluginNotificationDismissTasks[key];
@@ -512,7 +522,8 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   _PluginNotificationState _pluginNotificationState(
     PluginNotificationFeedId id,
-  ) => _pluginNotifications.putIfAbsent(id, _PluginNotificationState.new);
+  ) =>
+      _children.admit(_children.pluginFeeds, id, _PluginNotificationState.new)!;
 
   Future<void> _coalescedActivityLoad(
     String siteUrl, {
@@ -661,12 +672,14 @@ final class AccountActivityController extends FrameSafeNotifier {
     bool refresh = false,
     bool loadMore = false,
     bool loadPrevious = false,
-  }) => _activityOwner(instance.url, username).load(
-    instance,
-    refresh: refresh,
-    loadMore: loadMore,
-    loadPrevious: loadPrevious,
-  );
+  }) =>
+      _activityOwner(instance.url, username)?.load(
+        instance,
+        refresh: refresh,
+        loadMore: loadMore,
+        loadPrevious: loadPrevious,
+      ) ??
+      Future.value();
 
   void readNotification(
     DiscourseInstance instance,
@@ -791,16 +804,16 @@ final class AccountActivityController extends FrameSafeNotifier {
   void forget(String siteUrl) {
     if (isDisposed) return;
     final owner = _reconciliations.remove(siteUrl);
-    for (final state in _pluginNotifications.values) {
+    for (final state in _children.pluginFeeds.values) {
       state.loads.remove(siteUrl)?.finish();
     }
     final hadBookmarkList = _bookmarkListOwner.retire(siteUrl);
     final hadUserActivity = _userActivityOwner.retire(siteUrl);
-    final retired = _personActivityOwners.keys
+    final retired = _children.people.keys
         .where((key) => key.$1 == siteUrl)
         .toList();
     for (final key in retired) {
-      _personActivityOwners.remove(key)!.dispose();
+      _children.people.remove(key)!.dispose();
     }
     if (retired.isNotEmpty) _personActivityChanges.changed();
     _totalsRefreshes.remove(siteUrl)?.retire();
@@ -832,6 +845,9 @@ final class AccountActivityController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    if (isDisposed) return;
+    super.dispose();
+    _children.close();
     final totalsRefreshes = _totalsRefreshes.values.toList();
     _totalsRefreshes.clear();
     for (final account in totalsRefreshes) {
@@ -854,11 +870,6 @@ final class AccountActivityController extends FrameSafeNotifier {
     for (final load in _otherNotificationLoads.values.toList()) {
       load.finish();
     }
-    for (final state in _pluginNotifications.values) {
-      state.dispose();
-    }
-    _pluginNotifications.clear();
-    _pluginNotificationSources.clear();
     _notificationReadRequests.clear();
     for (final owner in _reconciliations.values) {
       owner.retire();
@@ -873,12 +884,7 @@ final class AccountActivityController extends FrameSafeNotifier {
     _bookmarkChanges.dispose();
     _bookmarkListOwner.dispose();
     _userActivityOwner.dispose();
-    for (final owner in _personActivityOwners.values) {
-      owner.dispose();
-    }
-    _personActivityOwners.clear();
     _personActivityChanges.dispose();
-    super.dispose();
   }
 }
 
@@ -897,4 +903,40 @@ final class _PluginNotificationState {
     }
     changes.dispose();
   }
+}
+
+/// Owns dynamic children; lookups never admit work and close precedes callbacks.
+final class _AccountActivityChildren {
+  final pluginFeeds = <PluginNotificationFeedId, _PluginNotificationState>{};
+  final pluginSources =
+      <PluginNotificationFeedId, PluginNotificationFeedSource>{};
+  final people = <(String, String), UserActivityOwner>{};
+  bool closed = false;
+
+  V? admit<K, V>(Map<K, V> children, K key, V Function() create) =>
+      closed ? null : children.putIfAbsent(key, create);
+
+  void close() {
+    if (closed) return;
+    closed = true;
+    final feeds = pluginFeeds.values.toList();
+    final owners = people.values.toList();
+    pluginFeeds.clear();
+    pluginSources.clear();
+    people.clear();
+    for (final feed in feeds) {
+      feed.dispose();
+    }
+    for (final owner in owners) {
+      owner.dispose();
+    }
+  }
+}
+
+final class _InactiveActivityListenable implements Listenable {
+  const _InactiveActivityListenable();
+  @override
+  void addListener(VoidCallback listener) {}
+  @override
+  void removeListener(VoidCallback listener) {}
 }
