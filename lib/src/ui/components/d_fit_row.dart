@@ -311,6 +311,11 @@ class _RenderDFitRow extends RenderProxyBox
 
   void _layoutControls() {
     final width = constraints.maxWidth;
+    // A new room restarts the fit whatever the settled step measures at it, so
+    // laying out and building that step first would only be discarded.
+    if (_step != DFitRowStep.full && _settled?.first != width) {
+      _step = DFitRowStep.full;
+    }
     for (var pass = 0; pass < DFitRowStep.values.length + 1; pass++) {
       runLayoutCallback();
       final line = child;

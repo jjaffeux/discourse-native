@@ -695,4 +695,53 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  _desktopTest('a new room fits afresh without building the settled step', (
+    tester,
+  ) async {
+    var builds = 0;
+    final room = ValueNotifier<double>(320);
+    addTearDown(room.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: ValueListenableBuilder<double>(
+              valueListenable: room,
+              builder: (context, width, _) => SizedBox(
+                width: width,
+                child: DFitRow(
+                  watch: 1,
+                  children: [
+                    DFitRowItem(
+                      leading: true,
+                      child: Builder(
+                        builder: (context) {
+                          builds++;
+                          DFitRow.availableWidthOf(context);
+                          return const SizedBox(width: 100, height: 30);
+                        },
+                      ),
+                    ),
+                    const _Pill('filters', full: 300, tight: 100),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('filters-tight'), findsOneWidget);
+
+    builds = 0;
+    room.value = 310;
+    await tester.pump();
+
+    expect(find.text('filters-tight'), findsOneWidget);
+    expect(builds, 2, reason: 'One build per step tried: full, then tight.');
+    expect(tester.takeException(), isNull);
+  });
 }
