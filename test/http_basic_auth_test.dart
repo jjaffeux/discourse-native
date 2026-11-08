@@ -33,6 +33,80 @@ HttpBasicAuthentication _credential(
 );
 
 void main() {
+  test('replacement stores retain each other\'s accepted origins', () async {
+    final storage = BasicAuthMemoryStorage();
+    final first = HttpBasicAuthStore(storage: storage);
+    final second = HttpBasicAuthStore(storage: storage);
+    await Future.wait([first.load(), second.load()]);
+
+    final gate = storage.writeGate = Completer<void>();
+    final firstSave = first.remember(_credential('https://first.example'));
+    await Future<void>.delayed(Duration.zero);
+    final secondSave = second.remember(_credential('https://second.example'));
+    addTearDown(() async {
+      if (!gate.isCompleted) gate.complete();
+      await Future.wait([firstSave, secondSave]);
+    });
+    await Future<void>.delayed(Duration.zero);
+    expect(storage.writes, 1);
+    gate.complete();
+    await Future.wait([firstSave, secondSave]);
+
+    final persisted = BasicAuthMemoryStorage()..values.addAll(storage.values);
+    final reopened = HttpBasicAuthStore(storage: persisted);
+    await reopened.load();
+    expect(
+      reopened.authorizationFor(Uri.parse('https://first.example')),
+      _authorization,
+    );
+    expect(
+      reopened.authorizationFor(Uri.parse('https://second.example')),
+      _authorization,
+    );
+    expect(first.generation, same(second.generation));
+    expect(
+      first.authorizationFor(Uri.parse('https://second.example')),
+      _authorization,
+    );
+  });
+
+  test('separate storage owners never share authentication state', () async {
+    final first = HttpBasicAuthStore(storage: BasicAuthMemoryStorage());
+    final second = HttpBasicAuthStore(storage: BasicAuthMemoryStorage());
+    await first.remember(_credential('https://forum.example'));
+    await second.load();
+
+    expect(second.authorizationFor(Uri.parse('https://forum.example')), isNull);
+    expect(second.generation, isNot(same(first.generation)));
+  });
+
+  test(
+    'rollback authority follows a replacement store\'s accepted save',
+    () async {
+      final storage = BasicAuthMemoryStorage();
+      final first = HttpBasicAuthStore(storage: storage);
+      final second = HttpBasicAuthStore(storage: storage);
+      final change = await first.remember(_credential('https://forum.example'));
+      await second.remember(
+        _credential('https://forum.example', password: 'new'),
+      );
+
+      await change.rollback();
+
+      final persisted = BasicAuthMemoryStorage()..values.addAll(storage.values);
+      final reopened = HttpBasicAuthStore(storage: persisted);
+      await reopened.load();
+      expect(
+        reopened.authorizationFor(Uri.parse('https://forum.example')),
+        'Basic QWxhZGRpbjpuZXc=',
+      );
+      expect(
+        first.authorizationFor(Uri.parse('https://forum.example')),
+        'Basic QWxhZGRpbjpuZXc=',
+      );
+    },
+  );
+
   test('recognizes Basic schemes without reading quoted realm contents', () {
     for (final value in [
       'Basic realm="ngrok"',
@@ -107,7 +181,9 @@ void main() {
         _credential('https://forum.example', password: 'new'),
       );
       await first.rollback();
-      final restarted = HttpBasicAuthStore(storage: storage);
+      final restarted = HttpBasicAuthStore(
+        storage: BasicAuthMemoryStorage()..values.addAll(storage.values),
+      );
       await restarted.load();
       expect(
         restarted.authorizationFor(Uri.parse('https://forum.example')),
@@ -161,7 +237,9 @@ void main() {
       unused = false;
       storage.writeGate!.complete();
       await removing;
-      final restarted = HttpBasicAuthStore(storage: storage);
+      final restarted = HttpBasicAuthStore(
+        storage: BasicAuthMemoryStorage()..values.addAll(storage.values),
+      );
       await restarted.load();
       expect(
         restarted.authorizationFor(Uri.parse('https://forum.example')),
@@ -600,7 +678,9 @@ void main() {
       await HttpBasicAuthStore(
         storage: storage,
       ).remember(_credential('https://forum.example'));
-      final restarted = HttpBasicAuthStore(storage: storage);
+      final restarted = HttpBasicAuthStore(
+        storage: BasicAuthMemoryStorage()..values.addAll(storage.values),
+      );
       final instances = InstanceStore(
         persistence: _Instances(),
         basicAuth: restarted,

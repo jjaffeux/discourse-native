@@ -82,23 +82,21 @@ final class HttpBasicAuthStore {
 
   static final instance = HttpBasicAuthStore();
   static const storageKey = 'http_basic_auth_v1';
-  final PrivateStorage _storage;
-  Map<String, HttpBasicAuthentication> _credentials = {};
-  final Map<String, Object> _versions = {};
-  Future<void>? _loading;
-  Future<void> _tail = Future.value();
-  bool _loaded = false;
-  Object _generation = Object();
+  static final Expando<_HttpBasicAuthState> _states = Expando();
 
-  Object get generation => _generation;
+  final PrivateStorage _storage;
+  late final _HttpBasicAuthState _state = _states[_storage] ??=
+      _HttpBasicAuthState();
+
+  Object get generation => _state.generation;
   String? authorizationFor(Uri url) =>
-      _credentials[url.origin]?.authorizationFor(url);
-  Object? identityFor(Uri url) => _versions[url.origin];
+      _state.credentials[url.origin]?.authorizationFor(url);
+  Object? identityFor(Uri url) => _state.versions[url.origin];
   bool protects(Uri url) => authorizationFor(url) != null;
 
   Future<void> load() {
-    if (_loaded) return Future.value();
-    return _loading ??= _load().whenComplete(() => _loading = null);
+    if (_state.loaded) return Future.value();
+    return _state.loading ??= _load().whenComplete(() => _state.loading = null);
   }
 
   Future<void> _load() async {
@@ -127,17 +125,20 @@ final class HttpBasicAuthStore {
         } catch (_) {}
       }
     }
-    _credentials = loaded;
+    _state.credentials = loaded;
     for (final origin in loaded.keys) {
-      _versions[origin] = Object();
+      _state.versions[origin] = Object();
     }
-    _generation = Object();
-    _loaded = true;
+    _state.generation = Object();
+    _state.loaded = true;
   }
 
   Future<T> _mutate<T>(Future<T> Function() operation) {
-    final result = _tail.then((_) => operation());
-    _tail = result.then<void>((_) {}, onError: (Object _, StackTrace _) {});
+    final result = _state.tail.then((_) => operation());
+    _state.tail = result.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
     return result;
   }
 
@@ -145,21 +146,21 @@ final class HttpBasicAuthStore {
       _mutate(() async {
         await load();
         final origin = credential.origin.origin;
-        final previous = _credentials[origin];
-        await _write({..._credentials, origin: credential});
-        final version = _versions[origin] = Object();
+        final previous = _state.credentials[origin];
+        await _write({..._state.credentials, origin: credential});
+        final version = _state.versions[origin] = Object();
         return HttpBasicAuthChange._(this, origin, previous, version);
       });
 
   Future<void> forgetOrigin(Uri origin, {bool Function()? whenUnused}) =>
       _mutate(() async {
         await load();
-        if (!_credentials.containsKey(origin.origin) ||
+        if (!_state.credentials.containsKey(origin.origin) ||
             whenUnused?.call() == false) {
           return;
         }
         await _write(
-          {..._credentials}..remove(origin.origin),
+          {..._state.credentials}..remove(origin.origin),
           accept: whenUnused,
         );
       });
@@ -169,16 +170,16 @@ final class HttpBasicAuthStore {
     await _mutate(() async {
       await load();
       final retained = {
-        for (final entry in _credentials.entries)
+        for (final entry in _state.credentials.entries)
           if (origins.contains(entry.key)) entry.key: entry.value,
       };
-      if (retained.length != _credentials.length) await _write(retained);
+      if (retained.length != _state.credentials.length) await _write(retained);
     });
   }
 
   Future<void> _rollback(HttpBasicAuthChange change) => _mutate(() async {
-    if (!identical(_versions[change._origin], change._version)) return;
-    final restored = {..._credentials}..remove(change._origin);
+    if (!identical(_state.versions[change._origin], change._version)) return;
+    final restored = {..._state.credentials}..remove(change._origin);
     if (change._previous case final previous?) {
       restored[change._origin] = previous;
     }
@@ -198,21 +199,21 @@ final class HttpBasicAuthStore {
     });
     await _storage.write(storageKey, encode(credentials));
     if (accept?.call() == false) {
-      await _storage.write(storageKey, encode(_credentials));
+      await _storage.write(storageKey, encode(_state.credentials));
       return;
     }
-    final changed = {..._credentials.keys, ...credentials.keys};
+    final changed = {..._state.credentials.keys, ...credentials.keys};
     for (final origin in changed) {
-      if (!identical(_credentials[origin], credentials[origin])) {
+      if (!identical(_state.credentials[origin], credentials[origin])) {
         if (credentials.containsKey(origin)) {
-          _versions[origin] = Object();
+          _state.versions[origin] = Object();
         } else {
-          _versions.remove(origin);
+          _state.versions.remove(origin);
         }
       }
     }
-    _credentials = credentials;
-    _generation = Object();
+    _state.credentials = credentials;
+    _state.generation = Object();
   }
 }
 
@@ -229,4 +230,13 @@ final class HttpBasicAuthChange {
   final Object _version;
 
   Future<void> rollback() => _store._rollback(this);
+}
+
+final class _HttpBasicAuthState {
+  Map<String, HttpBasicAuthentication> credentials = {};
+  final Map<String, Object> versions = {};
+  Future<void>? loading;
+  Future<void> tail = Future.value();
+  bool loaded = false;
+  Object generation = Object();
 }
