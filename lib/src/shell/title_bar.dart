@@ -21,6 +21,8 @@ import 'shell_scope.dart';
 import 'topic_create_button.dart';
 import 'user_menu_button.dart';
 
+typedef _TitleBarLayout = ({bool stacked, int actionRows});
+
 class ShellTitleBar extends StatelessWidget {
   const ShellTitleBar({
     super.key,
@@ -95,12 +97,8 @@ class ShellTitleBar extends StatelessWidget {
 
     return SafeArea(
       bottom: false,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final searchSize = DControlStyle.isTouch(context)
-              ? DControlSize.large
-              : DControlSize.field;
-          final rowHeight = showControls ? _rowHeight(context) : height;
+      child: DLayoutSelector<_TitleBarLayout>(
+        select: (context, constraints) {
           // Large-text count capsules keep their full labels. At narrow desktop
           // widths, give account actions a second row below the window controls.
           final stacked =
@@ -108,6 +106,19 @@ class ShellTitleBar extends StatelessWidget {
               (constraints.maxWidth < 560 ||
                   (constraints.maxWidth < 760 &&
                       MediaQuery.textScalerOf(context).scale(12) > 18));
+          return (
+            stacked: stacked,
+            actionRows: stacked
+                ? _actionRows(context, constraints.maxWidth)
+                : 1,
+          );
+        },
+        builder: (context, layout) {
+          final (:stacked, :actionRows) = layout;
+          final searchSize = DControlStyle.isTouch(context)
+              ? DControlSize.large
+              : DControlSize.field;
+          final rowHeight = showControls ? _rowHeight(context) : height;
           final search = Expanded(
             child: ForumSearch(dense: true, size: searchSize),
           );
@@ -130,9 +141,7 @@ class ShellTitleBar extends StatelessWidget {
               ),
           ];
           return SizedBox(
-            height: stacked
-                ? rowHeight * (1 + _actionRows(context, constraints.maxWidth))
-                : rowHeight,
+            height: stacked ? rowHeight * (1 + actionRows) : rowHeight,
             child: ColoredBox(
               color:
                   Theme.of(
@@ -173,9 +182,7 @@ class ShellTitleBar extends StatelessWidget {
                             ),
                           ),
                           SizedBox(
-                            height:
-                                rowHeight *
-                                _actionRows(context, constraints.maxWidth),
+                            height: rowHeight * actionRows,
                             width: double.infinity,
                             child: Padding(
                               padding: _rowPadding,
