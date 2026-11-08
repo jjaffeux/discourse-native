@@ -330,7 +330,7 @@ class MarkdownEditingController extends TextEditingController {
   set todosReadOnly(bool value) {
     if (_todosReadOnly == value) return;
     _todosReadOnly = value;
-    _cachedSpan = null;
+    if (todos.isNotEmpty) _cachedSpan = null;
   }
 
   final SyntaxHighlightBatcher _backgroundSyntaxHighlighter;
@@ -2686,7 +2686,7 @@ class _CachedMarkdownSpan {
   }) =>
       this.source == source &&
       this.style == style &&
-      identical(this.theme, theme) &&
+      (identical(this.theme, theme) || this.theme == theme) &&
       this.composing == composing &&
       this.revealed == revealed &&
       this.artwork == artwork &&
