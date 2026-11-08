@@ -1,0 +1,19 @@
+{
+  "baseline_revision": "44d621e91e052a783104c8ab22e855a3db74e2aa",
+  "reviewed_source_revision": "62dc5579ac1c8b2da1d4f44783a361eda99f36e3",
+  "main_at_integration": "118ecfd80286fab05495985245e493e559142ffe",
+  "validated_integration_tree": "7af93f73b0b90270234890d186eac1915dc5b40f",
+  "workload_sha256": {
+    "tool/benchmark_perf_round_three.dart": "cdcf9f08bcd333d1cb2a7c620a9da54d20427f90258c10a47baa78690c2a662e",
+    "tool/perf_round_three_service_workloads.dart": "b0bf89c0fecbd392a8600e52c857e747f6370d3c76e9fb92af21ecca4baecfde",
+    "tool/perf_round_three_model_workloads.dart": "54833fa590a7fc0580a6600c2834f7703f8d0d22350f93c908d8ac3258673316",
+    "tool/perf_round_three_app_workloads.dart": "941aa314c905631b50442b4ed13d8470b3ad461239930ebae8ac65fe26217c05"
+  },
+  "signed_app_framework_sha256": {
+    "before": "291ba1ab6fe89e1b4c9995cb3281919fc5fc55919132c6f74405032bc5452e6f",
+    "after": "3ce1dc3a3e906290c89f611b5c521643f9cbdbaf83b15e4ebb98d20f8b8cdfae"
+  },
+  "hardware": "Apple M5 Pro; 18 logical CPUs; macOS 26.6; arm64",
+  "runtime": "Flutter 3.47.7; Dart 3.13.5",
+  "collector": "tool/compare_additional_improvements.py; 6 balanced pairs; final full run"
+}

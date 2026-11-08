@@ -1,0 +1,207 @@
+{
+  "baseline_revision": "44d621e91",
+  "runs_per_side": 6,
+  "balanced_order": true,
+  "workload_selection": "activity-and-chat-control",
+  "units": "microseconds per checked batch",
+  "platform": "macOS-26.6-arm64-arm-64bit",
+  "processes": [
+    {
+      "side": "baseline",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 6,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 6,
+      "exit_code": 0
+    }
+  ],
+  "result_check_failures": 0,
+  "runs": {
+    "baseline": [
+      {
+        "chat_sidebar_search_30": 117365,
+        "chat_sidebar_search_cold": 106949,
+        "activity_category_estimation_30": 20680,
+        "activity_category_estimation_300": 241588
+      },
+      {
+        "chat_sidebar_search_30": 115297,
+        "chat_sidebar_search_cold": 104440,
+        "activity_category_estimation_30": 19827,
+        "activity_category_estimation_300": 245044
+      },
+      {
+        "chat_sidebar_search_30": 117938,
+        "chat_sidebar_search_cold": 106098,
+        "activity_category_estimation_30": 20909,
+        "activity_category_estimation_300": 247993
+      },
+      {
+        "chat_sidebar_search_30": 127087,
+        "chat_sidebar_search_cold": 114129,
+        "activity_category_estimation_30": 22336,
+        "activity_category_estimation_300": 261048
+      },
+      {
+        "chat_sidebar_search_30": 127590,
+        "chat_sidebar_search_cold": 116711,
+        "activity_category_estimation_30": 22115,
+        "activity_category_estimation_300": 263069
+      },
+      {
+        "chat_sidebar_search_30": 125729,
+        "chat_sidebar_search_cold": 118088,
+        "activity_category_estimation_30": 22115,
+        "activity_category_estimation_300": 257100
+      }
+    ],
+    "candidate": [
+      {
+        "chat_sidebar_search_30": 6228,
+        "chat_sidebar_search_cold": 116735,
+        "activity_category_estimation_30": 14803,
+        "activity_category_estimation_300": 186594
+      },
+      {
+        "chat_sidebar_search_30": 5838,
+        "chat_sidebar_search_cold": 116554,
+        "activity_category_estimation_30": 14680,
+        "activity_category_estimation_300": 185960
+      },
+      {
+        "chat_sidebar_search_30": 6100,
+        "chat_sidebar_search_cold": 124092,
+        "activity_category_estimation_30": 15301,
+        "activity_category_estimation_300": 190716
+      },
+      {
+        "chat_sidebar_search_30": 6510,
+        "chat_sidebar_search_cold": 124544,
+        "activity_category_estimation_30": 15781,
+        "activity_category_estimation_300": 196838
+      },
+      {
+        "chat_sidebar_search_30": 6530,
+        "chat_sidebar_search_cold": 126501,
+        "activity_category_estimation_30": 15687,
+        "activity_category_estimation_300": 196840
+      },
+      {
+        "chat_sidebar_search_30": 5960,
+        "chat_sidebar_search_cold": 123744,
+        "activity_category_estimation_30": 15449,
+        "activity_category_estimation_300": 196479
+      }
+    ]
+  },
+  "summary": {
+    "activity_category_estimation_30": {
+      "baseline": {
+        "median_us": 21512.0,
+        "min_us": 19827,
+        "max_us": 22336
+      },
+      "candidate": {
+        "median_us": 15375.0,
+        "min_us": 14680,
+        "max_us": 15781
+      },
+      "less_time_percent": 28.528263294905166,
+      "nonoverlapping_gain": true
+    },
+    "activity_category_estimation_300": {
+      "baseline": {
+        "median_us": 252546.5,
+        "min_us": 241588,
+        "max_us": 263069
+      },
+      "candidate": {
+        "median_us": 193597.5,
+        "min_us": 185960,
+        "max_us": 196840
+      },
+      "less_time_percent": 23.341840017580918,
+      "nonoverlapping_gain": true
+    },
+    "chat_sidebar_search_30": {
+      "baseline": {
+        "median_us": 121833.5,
+        "min_us": 115297,
+        "max_us": 127590
+      },
+      "candidate": {
+        "median_us": 6164.0,
+        "min_us": 5838,
+        "max_us": 6530
+      },
+      "less_time_percent": 94.94063619612012,
+      "nonoverlapping_gain": true
+    },
+    "chat_sidebar_search_cold": {
+      "baseline": {
+        "median_us": 110539.0,
+        "min_us": 104440,
+        "max_us": 118088
+      },
+      "candidate": {
+        "median_us": 123918.0,
+        "min_us": 116554,
+        "max_us": 126501
+      },
+      "less_time_percent": -12.1034205122174,
+      "nonoverlapping_gain": false
+    }
+  }
+}
