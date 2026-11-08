@@ -118,7 +118,10 @@ Future<void> main() async {
     final at = _sinceExec();
     marks.putIfAbsent(point, () => at);
     _report('mark', point, at);
-    if (point == 'feed shown') _report('cpu', 'feed shown', _cpuMicros());
+    if (point == 'feed shown') {
+      _report('cpu', 'feed shown', _cpuMicros());
+      _report('rss', 'feed shown', ProcessInfo.currentRss);
+    }
   };
   markStartup('entry');
 
@@ -128,6 +131,7 @@ Future<void> main() async {
     finishing = true;
     Timer(_settle, () {
       _report('cpu', 'done', _cpuMicros());
+      _report('rss', 'done', ProcessInfo.currentRss);
       _report('done', why, _sinceExec());
       _exit();
     });

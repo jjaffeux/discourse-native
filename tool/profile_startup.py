@@ -34,6 +34,7 @@ Dart ran drops out of them:
   span:to-shell        Dart main to the restored shell on screen
   span:to-feed         Dart main to the first feed page on screen
   span:feed-request    the feed request leaving to its response being parsed
+  rss:*                resident memory in MiB when the feed was shown and at the end
 
 Sides run in turn so that drift on the machine lands on all of them. --dump
 adds the VM timeline and Dart CPU samples of each macOS launch; sampling slows
@@ -73,9 +74,16 @@ def milestones(records):
             requests.append(f"{micros / 1000:8.1f} {name}")
         elif kind == "cpu":
             cpu[name] = micros / 1000
+        elif kind == "rss":
+            cpu[f"rss:{name}"] = micros / (1024 * 1024)
     frames.sort()
     out = {f"mark:{name}": value / 1000 for name, value in marks.items()}
-    out.update({f"cpu:{name}": value for name, value in cpu.items()})
+    out.update(
+        {
+            name if name.startswith("rss:") else f"cpu:{name}": value
+            for name, value in cpu.items()
+        }
+    )
     if frames:
         out["first-raster"] = frames[0][1] / 1000
 
