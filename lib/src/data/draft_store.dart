@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../foundation/private_file_document.dart';
 import 'preference_storage_scope.dart';
 import 'private_storage.dart';
+import 'serial_operation_queue.dart';
 
 typedef DraftPersistenceRead = ({String? value, bool allowPreferenceFallback});
 typedef DraftStoreRead = ({String? value, bool succeeded});
@@ -331,7 +332,11 @@ final class _DraftFileSnapshot {
 )
 class DraftStore {
   DraftStore({DraftPersistence? persistence})
-    : _persistence = persistence ?? _platformDraftPersistence();
+    : _persistence = persistence ?? _defaultPersistence;
+
+  static final DraftPersistence _defaultPersistence =
+      _platformDraftPersistence();
+  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   static const String _prefix = 'discourse_native.draft::';
   static const String _accountPrefix = 'discourse_native.account_draft::';
@@ -362,7 +367,6 @@ class DraftStore {
   }
 
   final DraftPersistence _persistence;
-  final Map<String, Future<void>> _siteOperations = {};
 
   static String _key(String localSite, String draftKey) {
     final address = _address(localSite);
@@ -563,25 +567,10 @@ class DraftStore {
     } catch (_) {}
   }
 
-  Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) {
-    siteUrl = realSiteUrl(siteUrl);
-    final result = Completer<T>();
-    final previous = _siteOperations[siteUrl] ?? Future<void>.value();
-    final current = previous.then((_) async {
-      try {
-        result.complete(await operation());
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    _siteOperations[siteUrl] = current;
-    unawaited(
-      current.whenComplete(() {
-        if (identical(_siteOperations[siteUrl], current)) {
-          final _ = _siteOperations.remove(siteUrl);
-        }
-      }),
-    );
-    return result.future;
-  }
+  Future<T> _serialize<T>(String siteUrl, Future<T> Function() operation) =>
+      _operations.run(
+        owner: _persistence,
+        key: realSiteUrl(siteUrl),
+        operation: operation,
+      );
 }

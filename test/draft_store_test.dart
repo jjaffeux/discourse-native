@@ -28,6 +28,47 @@ void main() {
   });
 
   group('secure persistence and write ordering', () {
+    test(
+      'replacement stores serialize writes for their shared persistence',
+      () async {
+        final gate = Completer<void>();
+        persistence.firstWriteGate = gate;
+        final first = store.write(siteUrl, draftKey, 'older text');
+        await persistence.firstWriteStarted.future;
+        final second = DraftStore(
+          persistence: persistence,
+        ).write(siteUrl, draftKey, 'replacement text');
+        addTearDown(() async {
+          if (!gate.isCompleted) gate.complete();
+          await Future.wait([first, second]);
+        });
+
+        await Future<void>.delayed(Duration.zero);
+        expect(persistence.writeCount, 1);
+        gate.complete();
+        await Future.wait([first, second]);
+        expect(await store.read(siteUrl, draftKey), 'replacement text');
+      },
+    );
+
+    test(
+      'replacement site clearing cannot be overtaken by an older write',
+      () async {
+        final gate = Completer<void>();
+        persistence.firstWriteGate = gate;
+        final writing = store.write(siteUrl, draftKey, 'retired text');
+        await persistence.firstWriteStarted.future;
+        final clearing = DraftStore(
+          persistence: persistence,
+        ).clearSite(siteUrl);
+        await Future<void>.delayed(Duration.zero);
+        gate.complete();
+        await Future.wait([writing, clearing]);
+
+        expect(await store.read(siteUrl, draftKey), isNull);
+      },
+    );
+
     test('writes drafts to secure persistence', () async {
       await store.write(siteUrl, draftKey, '{"reply": "Half a thought"}');
 
