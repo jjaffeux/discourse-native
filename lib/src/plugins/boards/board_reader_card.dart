@@ -105,6 +105,7 @@ class BoardReaderCard extends StatelessWidget {
                 width: 260,
                 height: 120,
                 fit: BoxFit.cover,
+                coverDecodeSize: const Size(260, 120),
               ),
             if (board.detailed && card.notes.isNotEmpty)
               Text(card.notes, maxLines: 3, overflow: TextOverflow.ellipsis),

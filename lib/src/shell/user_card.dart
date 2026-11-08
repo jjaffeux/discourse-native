@@ -20,6 +20,7 @@ import 'anchored_layout.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'external_link.dart';
+import 'image_decode.dart';
 import 'platform.dart';
 import 'relative_time.dart';
 import 'server_image.dart';
@@ -29,6 +30,9 @@ import 'skeleton_fill.dart';
 import 'user_activity.dart';
 import 'user_card_header.dart';
 import 'user_menu_message.dart';
+
+/// The height [DSheetContent] draws its `headerImage` at.
+const double _sheetBannerHeight = 132;
 
 class UserCardTarget extends StatelessWidget {
   const UserCardTarget({
@@ -330,7 +334,15 @@ Future<void> showUserCard({
 
                   headerImage: card?.cardBackgroundUrl == null
                       ? null
-                      : serverImageProvider(card!.cardBackgroundUrl!),
+                      : imageForCover(
+                          context,
+                          serverImageProvider(card!.cardBackgroundUrl!),
+                          // The sheet is never wider than the screen.
+                          logicalSize: Size(
+                            MediaQuery.sizeOf(context).width,
+                            _sheetBannerHeight,
+                          ),
+                        ),
                   children: [
                     _ControllerUserCardPopup(
                       key: ValueKey(owner),

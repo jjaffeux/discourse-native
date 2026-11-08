@@ -21,6 +21,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/blank_png.dart';
 import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' as harness;
@@ -74,11 +75,12 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   bool reduced = false,
   bool longHistory = false,
   UserCard profile = card,
+  double devicePixelRatio = 1,
 }) async {
-  tester.view.devicePixelRatio = 1;
-  tester.view.physicalSize = desktop
-      ? const Size(1200, 900)
-      : const Size(390, 844);
+  tester.view.devicePixelRatio = devicePixelRatio;
+  tester.view.physicalSize =
+      (desktop ? const Size(1200, 900) : const Size(390, 844)) *
+      devicePixelRatio;
   tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
   tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
   addTearDown(tester.view.reset);
@@ -357,7 +359,14 @@ void main() {
       );
       await tester.runAsync(
         () => precacheImage(
-          const NetworkImage('https://meta.example/banner.png'),
+          tester
+              .widget<Image>(
+                find.descendant(
+                  of: find.byType(DSheetContent),
+                  matching: find.byType(Image),
+                ),
+              )
+              .image,
           tester.element(find.byType(DSheetContent)),
         ),
       );
@@ -390,6 +399,71 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  group('the phone sheet banner', () {
+    Future<ui.Image> pumpBanner(WidgetTester tester, Size source) async {
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+      debugNetworkImageHttpClientProvider = () => FakeImageHttpClient(
+        blankPng(width: source.width.toInt(), height: source.height.toInt()),
+      );
+      // Flutter checks this debug variable is unset before tear-downs run.
+      try {
+        await pumpCard(
+          tester,
+          devicePixelRatio: 2,
+          profile: const UserCard(
+            username: 'sam',
+            name: 'Sam Example',
+            cardBackgroundUrl: 'https://meta.example/banner.png',
+          ),
+        );
+        for (var attempt = 0; attempt < 100; attempt++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump();
+          final image = tester
+              .widget<RawImage>(
+                find.descendant(
+                  of: find.byType(DSheetContent),
+                  matching: find.byType(RawImage),
+                ),
+              )
+              .image;
+          if (PaintingBinding.instance.imageCache.pendingImageCount == 0 &&
+              image != null) {
+            return image;
+          }
+        }
+        fail('The banner did not decode');
+      } finally {
+        debugNetworkImageHttpClientProvider = null;
+      }
+    }
+
+    testWidgets('decodes near its drawn size', (tester) async {
+      final image = await pumpBanner(tester, const Size(1920, 1080));
+
+      final bytes = PaintingBinding.instance.imageCache.currentSizeBytes;
+      // ignore: avoid_print
+      print('PERF_PROOF cover-decode user-card-sheet_decoded_bytes=$bytes');
+      expect(bytes, lessThanOrEqualTo(1600000));
+      expect(image.width, greaterThanOrEqualTo(390 * 2));
+    });
+
+    testWidgets('keeps a panorama sharp across its height', (tester) async {
+      final image = await pumpBanner(tester, const Size(3840, 400));
+
+      expect(image.height, greaterThanOrEqualTo(132 * 2));
+    });
+
+    testWidgets('never upscales a small source', (tester) async {
+      final image = await pumpBanner(tester, const Size(60, 30));
+
+      expect((image.width, image.height), (60, 30));
+    });
+  });
 
   testWidgets('reduced motion retains the hint without an animated shimmer', (
     tester,

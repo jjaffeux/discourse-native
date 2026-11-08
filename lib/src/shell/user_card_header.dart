@@ -183,11 +183,14 @@ class UserCardHeader extends StatelessWidget {
               child: Stack(
                 fit: StackFit.expand,
                 children: [
-                  SiteImage(
-                    url: card.cardBackgroundUrl!,
-                    siteUrl: siteUrl,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                  LayoutBuilder(
+                    builder: (context, constraints) => SiteImage(
+                      url: card.cardBackgroundUrl!,
+                      siteUrl: siteUrl,
+                      fit: BoxFit.cover,
+                      coverDecodeSize: constraints.biggest,
+                      errorBuilder: (_, _, _) => const SizedBox.shrink(),
+                    ),
                   ),
                   DecoratedBox(
                     decoration: BoxDecoration(

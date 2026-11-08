@@ -123,12 +123,14 @@ Future<void> _pump(
       ),
     ),
   );
-  await tester.runAsync(
-    () => precacheImage(
-      const NetworkImage('https://forum.example/card-background.png'),
-      tester.element(find.byType(Scaffold).first),
-    ),
-  );
+  await tester.runAsync(() async {
+    for (final image in tester.widgetList<Image>(find.byType(Image))) {
+      await precacheImage(
+        image.image,
+        tester.element(find.byType(Scaffold).first),
+      );
+    }
+  });
   await tester.pumpAndSettle();
   debugNetworkImageHttpClientProvider = null;
 }
