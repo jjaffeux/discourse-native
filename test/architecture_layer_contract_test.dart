@@ -112,7 +112,13 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 721;
+const _largestImportCycle = 516;
+
+/// A layer's whole transitive reach, so a barrel or a shared helper cannot
+/// reintroduce what the direct-edge table forbids.
+const Map<String, Set<String>> _unreachableFromLayer = {
+  'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
+};
 
 void main() {
   final graph = LibraryGraph.load();
@@ -122,6 +128,19 @@ void main() {
       final (from, to) = entry.key;
       test('$from reaches $to only through named exceptions', () {
         expect(graph.edgesBetween(from, to), entry.value);
+      });
+    }
+
+    for (final entry in _unreachableFromLayer.entries) {
+      test('${entry.key} never reaches ${entry.value.join(', ')}', () {
+        final offenders = {
+          for (final library in graph.edges.keys)
+            if (LibraryGraph.areaOf(library) == entry.key)
+              for (final reached in graph.closureOf(library))
+                if (entry.value.contains(LibraryGraph.areaOf(reached)))
+                  '$library -> $reached',
+        };
+        expect(offenders, isEmpty);
       });
     }
 

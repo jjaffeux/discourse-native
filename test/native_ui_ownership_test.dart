@@ -262,6 +262,20 @@ final field = FormField<String>(builder: build);
       NativeUiFindingKind.internalImport,
     );
     expect(
+      inspect(
+        "import '../ui/foundation/tokens.dart';",
+        path: 'lib/src/theme/d_icon.dart',
+      ),
+      isEmpty,
+    );
+    expect(
+      inspect(
+        "export '../ui/foundation/tokens.dart';",
+        path: 'lib/src/theme/d_icon.dart',
+      ).single.kind,
+      NativeUiFindingKind.internalImport,
+    );
+    expect(
       inspect("import 'package:discourse_native/discourse_ui.dart';"),
       isEmpty,
     );
