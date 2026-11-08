@@ -23,6 +23,45 @@ void main() {
 
   group('loading and forum persistence', () {
     test(
+      'hydrated default stores compose edits to one preference document',
+      () async {
+        final first = EmojiPickerStore();
+        final second = EmojiPickerStore();
+        await Future.wait([
+          first.ensureLoaded(siteUrl: meta),
+          second.ensureLoaded(siteUrl: meta),
+        ]);
+        await first.writeSkinTone(siteUrl: meta, tone: EmojiSkinTone.t5);
+        await second.trackEmoji(
+          siteUrl: meta,
+          context: CoreEmojiUsageContexts.topic,
+          emoji: 'wave',
+        );
+        final preferences = await SharedPreferences.getInstance();
+        final document =
+            jsonDecode(
+                  preferences.getString(
+                    SharedPreferencesEmojiPickerPersistence.keys.of(meta),
+                  )!,
+                )
+                as Map<String, dynamic>;
+        expect(document['tone'], 't5');
+        expect((document['history'] as Map)[CoreEmojiUsageContexts.topic.id], [
+          'wave',
+        ]);
+        expect(second.skinToneFor(siteUrl: meta), EmojiSkinTone.t5);
+        expect(
+          first.favoriteEmojiCodesFor(
+            siteUrl: meta,
+            context: CoreEmojiUsageContexts.topic,
+            catalog: _catalog(['wave']),
+          ),
+          ['wave'],
+        );
+      },
+    );
+
+    test(
       'round-trips canonical URLs through SharedPreferences per forum',
       () async {
         final first = EmojiPickerStore();
@@ -33,7 +72,9 @@ void main() {
           emoji: ':wave:t3:',
         );
 
-        final reloaded = EmojiPickerStore();
+        final reloaded = EmojiPickerStore(
+          persistence: _ReloadingDefaultPersistence(),
+        );
         expect(
           await reloaded.readSkinTone(
             siteUrl: 'HTTPS://META.DISCOURSE.ORG:443',
@@ -102,7 +143,9 @@ void main() {
           emoji: ':smile:',
         );
 
-        final reloaded = EmojiPickerStore(persistence: persistence);
+        final reloaded = EmojiPickerStore(
+          persistence: _MemoryPersistence()..values.addAll(persistence.values),
+        );
         await reloaded.ensureLoaded(siteUrl: meta);
         expect(reloaded.skinToneFor(siteUrl: meta), EmojiSkinTone.t5);
         expect(
@@ -307,7 +350,9 @@ void main() {
         );
       }
 
-      final reloaded = EmojiPickerStore(persistence: persistence);
+      final reloaded = EmojiPickerStore(
+        persistence: _MemoryPersistence()..values.addAll(persistence.values),
+      );
       expect(
         await reloaded.favoriteEmojiCodes(
           siteUrl: meta,
@@ -351,7 +396,9 @@ void main() {
           reactionsEmojiUsageContext.id: ['clap', 'tada'],
         });
 
-        final reloaded = EmojiPickerStore(persistence: persistence);
+        final reloaded = EmojiPickerStore(
+          persistence: _MemoryPersistence()..values.addAll(persistence.values),
+        );
         expect(await reloaded.readSkinTone(siteUrl: meta), EmojiSkinTone.t5);
         expect(
           await reloaded.favoriteEmojiCodes(
@@ -429,7 +476,9 @@ void main() {
         emoji: 'heart',
       );
 
-      final reloaded = EmojiPickerStore(persistence: persistence);
+      final reloaded = EmojiPickerStore(
+        persistence: _MemoryPersistence()..values.addAll(persistence.values),
+      );
       expect(
         await reloaded.favoriteEmojiCodes(
           siteUrl: meta,
@@ -600,7 +649,9 @@ void main() {
         await Future.wait([first, second]);
 
         expect(persistence.writeCount, 2);
-        final reloaded = EmojiPickerStore(persistence: persistence);
+        final reloaded = EmojiPickerStore(
+          persistence: _MemoryPersistence()..values.addAll(persistence.values),
+        );
         expect(
           await reloaded.favoriteEmojiCodes(
             siteUrl: meta,
@@ -708,4 +759,18 @@ final class _FailingReadPersistence extends _MemoryPersistence {
     if (failReads) throw StateError('preferences unavailable');
     return super.readPreferences(siteUrl: siteUrl);
   }
+}
+
+final class _ReloadingDefaultPersistence implements EmojiPickerPersistence {
+  final _delegate = const SharedPreferencesEmojiPickerPersistence();
+
+  @override
+  Future<String?> readPreferences({required String siteUrl}) =>
+      _delegate.readPreferences(siteUrl: siteUrl);
+
+  @override
+  Future<bool> writePreferences({
+    required String siteUrl,
+    required String encoded,
+  }) => _delegate.writePreferences(siteUrl: siteUrl, encoded: encoded);
 }
