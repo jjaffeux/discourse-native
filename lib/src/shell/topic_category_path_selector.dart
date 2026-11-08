@@ -56,11 +56,13 @@ class TopicCategoryPathSelector extends StatelessWidget {
             ? 1
             : 0);
     return DLayoutSelector<bool>(
-      select: (context, constraints) =>
-          DFitRow.tightOf(context) ||
-          !DControlStyle.isTouch(context) &&
-              constraints.constrainWidth(_maximumWidth(context)) <
-                  levels * _maxSegmentWidth,
+      select: (context, constraints) {
+        final breakpoint = levels * _maxSegmentWidth;
+        DFitRow.reportRoomBreakpoint(context, breakpoint);
+        return DFitRow.tightOf(context) ||
+            !DControlStyle.isTouch(context) &&
+                constraints.constrainWidth(_maximumWidth(context)) < breakpoint;
+      },
       builder: (context, short) =>
           _buildPath(context, resolved: resolved, levels: levels, short: short),
     );

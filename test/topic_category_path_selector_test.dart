@@ -443,4 +443,69 @@ void main() {
       );
     }
   }
+
+  testWidgets(
+    'a row shrunk past the path\'s breakpoint settles as a fresh layout',
+    (tester) async {
+      Widget row(double width) => MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: width,
+              child: DFitRow(
+                watch: 'unchanged',
+                children: [
+                  TopicCategoryPathSelector(
+                    siteUrl: 'https://example.test',
+                    categories: const [
+                      TopicCategory(id: 1, name: 'Root', color: 'ff0000'),
+                      TopicCategory(
+                        id: 2,
+                        name: 'Child',
+                        color: 'ff0000',
+                        parentCategoryId: 1,
+                      ),
+                      TopicCategory(
+                        id: 3,
+                        name: 'Grand',
+                        color: 'ff0000',
+                        parentCategoryId: 2,
+                      ),
+                    ],
+                    selectedCategoryId: 2,
+                    onSelected: (_) {},
+                    maxCategoryNesting: 3,
+                    segmentBuilder:
+                        (context, level, category, label, iconOnly) =>
+                            SizedBox(width: iconOnly ? 30 : 120, height: 30),
+                  ),
+                  Builder(
+                    builder: (context) {
+                      final tight = DFitRow.tightOf(context);
+                      return SizedBox(
+                        width: tight ? 40 : 200,
+                        height: 30,
+                        child: Text(tight ? 'tight' : 'full'),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      await tester.pumpWidget(row(560));
+      expect(find.text('tight'), findsOneWidget);
+
+      await tester.pumpWidget(row(520));
+
+      expect(find.text('full'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
 }

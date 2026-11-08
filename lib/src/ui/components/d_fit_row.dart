@@ -78,6 +78,14 @@ class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
       context.dependOnInheritedWidgetOfExactType<_DFitRowScope>()?.closedUp ??
       false;
 
+  /// Tells the row around [context] that a control changes its own width when
+  /// the row's room crosses [room], which the row cannot see from a shorter
+  /// step. Call it from the layout that makes that choice.
+  static void reportRoomBreakpoint(BuildContext context, double room) => context
+      .findAncestorRenderObjectOfType<_RenderDFitRow>()
+      ?._roomBreakpoints
+      .add(room);
+
   /// Measured room beside the other controls in this item's run. Use it to
   /// choose content, while retaining real minimum control bounds for layout.
   static double? availableWidthOf(BuildContext context) =>
@@ -294,10 +302,12 @@ class _RenderDFitRow extends RenderProxyBox
   List<double>? _settledFixedExtents;
 
   // The narrowest room in which a step before the settled one could fit. A step
-  // that overflowed holds every adaptive control at its minimum, so it needs at
-  // least the room it overflowed by, and a smaller change in room need not try
-  // the earlier steps again.
+  // that overflowed holds every control filling the remaining room at its
+  // minimum, so it needs at least the room it overflowed by. A control whose own
+  // width at an earlier step turns on the room breaks that, and reports the room
+  // where it does through [DFitRow.reportRoomBreakpoint].
   double? _refitRoom;
+  final _roomBreakpoints = <double>{};
 
   void reset() {
     _step = DFitRowStep.full;
@@ -325,7 +335,11 @@ class _RenderDFitRow extends RenderProxyBox
     final roomChanged = _settledWidth != width;
     if (_step != DFitRowStep.full &&
         (_settledWidth == null ||
-            (roomChanged && _refitRoom != null && width >= _refitRoom!))) {
+            (roomChanged &&
+                ((_refitRoom != null && width >= _refitRoom!) ||
+                    _roomBreakpoints.any(
+                      (room) => (_settledWidth! < room) != (width < room),
+                    ))))) {
       _restartFit();
     }
     for (var pass = 0; pass < DFitRowStep.values.length + 1; pass++) {
