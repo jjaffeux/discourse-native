@@ -2347,6 +2347,40 @@ void _feedGroups() {
       expect(categories.single.canCreateTopic, isTrue);
     });
 
+    test(
+      'regression nov8: category searches retain complete Unicode characters',
+      () async {
+        final prefix = 'a' * 249;
+        final terms = <String>[];
+        final api = DiscourseApi(
+          client: MockClient((request) async {
+            terms.add(
+              (jsonDecode(request.body) as Map<String, dynamic>)['term']
+                  as String,
+            );
+            return http.Response('{"categories":[]}', 200);
+          }),
+        );
+        addTearDown(api.close);
+
+        for (final suffix in ['😀', 'e\u0301']) {
+          await api.searchCategories(
+            siteUrl: 'https://example.com',
+            term: '$prefix$suffix',
+            apiKey: 'key',
+          );
+          expect(terms.last.codeUnits.skip(248), [0x61], reason: suffix);
+          expect(terms.last, prefix);
+        }
+        await api.searchCategories(
+          siteUrl: 'https://example.com',
+          term: '${prefix}b',
+          apiKey: 'key',
+        );
+        expect(terms.last, '${prefix}b');
+      },
+    );
+
     test('server-searches a bounded lazy category chooser page', () async {
       late http.Request sent;
       final api = DiscourseApi(
