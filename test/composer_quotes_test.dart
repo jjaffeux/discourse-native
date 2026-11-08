@@ -6,6 +6,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/scaling_benchmark.dart';
 
 void main() {
+  test('regression nov8: quote expansion preserves backward selection', () {
+    const source = 'before\n[quote="sam"]\nBody\n[/quote]\n\nafter';
+    final quote = parseComposerQuotes(source).single;
+    final selection = TextSelection(
+      baseOffset: source.length,
+      extentOffset: source.indexOf('Body'),
+      affinity: TextAffinity.upstream,
+    );
+    final expanded = quoteSafeSelection(
+      [quote],
+      selection,
+      const TextSelection.collapsed(offset: source.length),
+    );
+    expect(
+      expanded,
+      selection.copyWith(extentOffset: quote.start),
+    );
+  });
+
   group('parseComposerQuotes', () {
     test('a line of openers costs its length, not its square', () {
       // `_startsBlock` searched backwards for the line start at every `[`,
