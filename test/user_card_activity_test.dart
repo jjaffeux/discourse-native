@@ -326,6 +326,50 @@ void main() {
   );
 
   testWidgets(
+    'raised activity runs to the screen foot while the resting card and the last row clear the inset',
+    (tester) async {
+      await pumpCard(tester, longHistory: true);
+      await tester.pump(const Duration(milliseconds: 401));
+      await tester.pump(const Duration(milliseconds: 460));
+      final tab = find.text('Replies');
+      expect(tester.getCenter(tab).dy, inExclusiveRange(844 - 40, 844));
+      expect(
+        tab.hitTestable(),
+        findsNothing,
+        reason: 'the peeking card stops above the home indicator',
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, -700),
+      );
+      await tester.pumpAndSettle();
+      final position = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: find.byKey(const ValueKey('user-card-surface')),
+                  matching: find.byType(Scrollable),
+                )
+                .first,
+          )
+          .position;
+      final activity = find.byType(UserActivityRow);
+      final overInset = activity.at(20);
+      position.jumpTo(position.pixels + tester.getCenter(overInset).dy - 830);
+      await tester.pump();
+      expect(overInset.hitTestable(), findsOneWidget);
+      await export(tester, 'phone-expanded-foot');
+      position.jumpTo(position.maxScrollExtent);
+      await tester.pump();
+      expect(
+        tester.getBottomLeft(activity.last).dy,
+        lessThanOrEqualTo(844 - 34),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'the banner stays attached to the card while activity scrolls it away',
     (tester) async {
       final bytes = await tester.runAsync(() async {

@@ -2487,7 +2487,8 @@ class DSheetContent extends StatelessWidget {
 
   /// The content whose bottom defines an adaptive menu's lower detent.
   /// It remains clear of the bottom safe area; following content is revealed
-  /// by raising the sheet. The key must identify a laid-out descendant.
+  /// by raising the sheet and reaches the screen's foot once it is raised.
+  /// The key must identify a laid-out descendant.
   final GlobalKey? restAt;
   final DSheetSide side;
   final bool showCloseButton;
@@ -2564,6 +2565,9 @@ class DSheetContent extends StatelessWidget {
         ((fillsHeight || topBottomMaxHeightFactor != null) &&
             (MediaQuery.textScalerOf(context).scale(1) > 1.5 ||
                 (topBottomMaxHeightFactor != null && !hasBody)));
+    // Content raised from a rest detent scrolls under the home indicator; the
+    // safe area becomes the end of the scroll instead of the end of the view.
+    final scrollsThroughFoot = scrollWholeSheet && restAt != null;
     final overArtwork = headerImage != null;
     final page = variant == DSheetVariant.page;
     final menu =
@@ -2787,7 +2791,7 @@ class DSheetContent extends StatelessWidget {
             ),
             child: SafeArea(
               top: resolved != DSheetSide.bottom,
-              bottom: !extendBehindKeyboard,
+              bottom: !extendBehindKeyboard && !scrollsThroughFoot,
               minimum: EdgeInsets.only(
                 bottom: extendBehindKeyboard
                     ? 0
@@ -2818,11 +2822,17 @@ class DSheetContent extends StatelessWidget {
                               children: [
                                 if (headerArtwork != null && restAt != null)
                                   headerArtwork,
-                                Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.stretch,
-                                  children: parts,
+                                SafeArea(
+                                  top: false,
+                                  left: false,
+                                  right: false,
+                                  bottom: scrollsThroughFoot,
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: parts,
+                                  ),
                                 ),
                               ],
                             ),
@@ -3274,50 +3284,36 @@ class _DSheetRestContentClip extends StatelessWidget {
     if (!enabled || menu == null) return child;
     return AnimatedBuilder(
       animation: Listenable.merge([menu._travel, menu._restScroll]),
-      builder: (context, child) => ClipRect(
-        clipper: _DSheetRestClipper(menu._offset + 6),
-        child: ShaderMask(
-          blendMode: BlendMode.dstIn,
-          shaderCallback: (bounds) {
-            final cut = (bounds.height - menu._offset - 6).clamp(
-              0.0,
-              bounds.height,
-            );
-            final position = menu._restScroll.hasClients
-                ? menu._restScroll.position
-                : null;
-            final topFade = position != null && position.pixels > 1
-                ? math.min(24.0, cut)
-                : 0.0;
-            final bottomFade =
-                menu._offset <= 1 &&
-                    position != null &&
-                    position.extentAfter > 1
-                ? math.min(36.0, cut - topFade)
-                : 0.0;
-            final height = math.max(1.0, bounds.height);
-            return LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: const [
-                Colors.transparent,
-                Colors.black,
-                Colors.black,
-                Colors.transparent,
-                Colors.transparent,
-              ],
-              stops: [
-                0,
-                topFade / height,
-                (cut - bottomFade) / height,
-                cut / height,
-                1,
-              ],
-            ).createShader(bounds);
-          },
-          child: child,
-        ),
-      ),
+      builder: (context, child) {
+        // The cut holds on the rest line above the home indicator, and the
+        // last stretch of the rise opens it onto the screen's foot.
+        final hidden =
+            menu._offset + math.min(menu._offset, menu._safeBottom + 6);
+        return ClipRect(
+          clipper: _DSheetRestClipper(hidden),
+          child: ShaderMask(
+            blendMode: BlendMode.dstIn,
+            shaderCallback: (bounds) {
+              final position = menu._restScroll.hasClients
+                  ? menu._restScroll.position
+                  : null;
+              final topFade = position != null && position.pixels > 1
+                  ? math.min(
+                      24.0,
+                      (bounds.height - hidden).clamp(0.0, bounds.height),
+                    )
+                  : 0.0;
+              return LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: const [Colors.transparent, Colors.black],
+                stops: [0, topFade / math.max(1.0, bounds.height)],
+              ).createShader(bounds);
+            },
+            child: child,
+          ),
+        );
+      },
       child: child,
     );
   }
