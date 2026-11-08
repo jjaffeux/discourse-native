@@ -6,6 +6,70 @@ import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('flush owns pending durability and orders later widths', () async {
+    final started = Completer<void>();
+    final release = Completer<void>();
+    final writes = <double>[];
+    var active = 0;
+    var peak = 0;
+    double? durable;
+    final controller = PanelWidthController(
+      initialWidth: 240,
+      minimumWidth: 200,
+      writeWidth: (width) async {
+        active++;
+        if (active > peak) peak = active;
+        writes.add(width);
+        if (width == 250) {
+          started.complete();
+          await release.future;
+        }
+        durable = width;
+        active--;
+      },
+    );
+    addTearDown(controller.dispose);
+    controller.resizeBy(10);
+    final first = controller.flush();
+    await started.future;
+    var joinedSettled = false;
+    final joined = controller.flush().then((_) => joinedSettled = true);
+    await Future<void>.delayed(Duration.zero);
+    expect(joinedSettled, isFalse);
+    controller.resizeBy(10);
+    final newest = controller.flush();
+    await Future<void>.delayed(Duration.zero);
+    expect(writes, [250]);
+    release.complete();
+    await Future.wait([first, joined, newest]);
+    expect(peak, 1);
+    expect(writes, [250, 260]);
+    expect(durable, 260);
+  });
+
+  test(
+    'a failed flush preserves the accepted width for explicit retry',
+    () async {
+      var attempts = 0;
+      double? durable;
+      final controller = PanelWidthController(
+        initialWidth: 240,
+        minimumWidth: 200,
+        writeWidth: (width) async {
+          attempts++;
+          if (attempts == 1) throw StateError('storage unavailable');
+          durable = width;
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.resizeBy(10);
+      await expectLater(controller.flush(), throwsStateError);
+      await controller.flush();
+      expect(attempts, 2);
+      expect(durable, 250);
+    },
+  );
+
   test('uncapped widths restore and survive temporary layout limits', () async {
     final writes = <double>[];
     final controller = PanelWidthController(

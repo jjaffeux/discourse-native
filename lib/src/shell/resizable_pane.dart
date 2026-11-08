@@ -6,6 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
+import '../data/coalescing_snapshot_writer.dart';
 import '../foundation/frame_safe_notifier.dart';
 
 typedef PanelWidthReader = Future<double?> Function();
@@ -40,6 +41,13 @@ final class PanelWidthController extends FrameSafeNotifier
   double _value;
   bool _dirty = false;
   int _interactionGeneration = 0;
+  int _widthRevision = 0;
+  Future<void>? _pendingFlush;
+  late final _writes = CoalescingSnapshotWriter<double>(
+    owner: this,
+    key: 'width',
+    writeSnapshot: (width) => writeWidth!(width),
+  );
 
   @override
   double get value => _value;
@@ -66,16 +74,32 @@ final class PanelWidthController extends FrameSafeNotifier
     if (next == current) return false;
 
     _value = next;
+    _widthRevision++;
     _dirty = true;
     notifySafely();
     return true;
   }
 
-  Future<void> flush() async {
-    final writer = writeWidth;
-    if (!_dirty || writer == null) return;
+  Future<void> flush() {
+    if (writeWidth == null) return Future.value();
+    if (!_dirty) return _pendingFlush ?? Future.value();
     _dirty = false;
-    await writer(_value);
+    final revision = _widthRevision;
+    late final Future<void> request;
+    request = _persist(_value, revision).whenComplete(() {
+      if (identical(_pendingFlush, request)) _pendingFlush = null;
+    });
+    _pendingFlush = request;
+    return request;
+  }
+
+  Future<void> _persist(double width, int revision) async {
+    try {
+      await _writes.save(width);
+    } catch (_) {
+      if (_widthRevision == revision) _dirty = true;
+      rethrow;
+    }
   }
 
   Future<void> _restore() async {

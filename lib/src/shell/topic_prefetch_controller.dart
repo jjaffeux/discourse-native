@@ -103,6 +103,7 @@ final class TopicPrefetchController {
       return null;
     }
     entry.requestIntent.promote();
+    entry.adopted = true;
 
     _candidate = null;
     _hoverOwner = null;
@@ -120,11 +121,16 @@ final class TopicPrefetchController {
     if (entry != null && !_usable(entry)) _discardCandidate();
   }
 
-  bool _usable(_Prefetch entry) =>
-      !entry.cancellation.isCancelled &&
-      entry.isCurrent() &&
-      (entry.completedAt == null ||
-          _clock().difference(entry.completedAt!) < lifetime);
+  bool _usable(_Prefetch entry) {
+    try {
+      return !entry.cancellation.isCancelled &&
+          entry.isCurrent() &&
+          (entry.completedAt == null ||
+              _clock().difference(entry.completedAt!) < lifetime);
+    } catch (_) {
+      return false;
+    }
+  }
 
   void _discardCandidate() {
     _timer?.cancel();
@@ -157,9 +163,14 @@ final class TopicPrefetchController {
     } catch (_) {
       // Speculative errors are silent. A click retries through normal topic loading.
     } finally {
-      if (entry.cancellation.isCancelled) result = null;
-      entry.completedAt = _clock();
-
+      if (entry.cancellation.isCancelled || (!entry.adopted && !_usable(entry))) {
+        result = null;
+      }
+      try {
+        entry.completedAt = _clock();
+      } catch (_) {
+        result = null;
+      }
       entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
       _active = null;
@@ -186,5 +197,6 @@ final class _Prefetch {
   final result = Completer<PrefetchedTopic?>();
   bool ready = false;
   bool started = false;
+  bool adopted = false;
   DateTime? completedAt;
 }
