@@ -79,16 +79,25 @@ Future<Map<String, int>> measureRoundThreeAppPerformance() async {
   }
   final cold = await roundThreeChatFixture(messages: 0);
   try {
+    var version = 0;
     void searchCold() {
+      version++;
       cold.store.putAll(roundThreeSite, [
         for (var i = 0; i < 30; i++)
           ChatMessage(
             id: i + 1,
             channelId: i % 10 + 1,
-            cooked: '<p>Fresh <strong>keyboard</strong> focus &amp; notes</p>',
+            cooked:
+                '<p>Fresh $version <strong>keyboard</strong> focus &amp; notes</p>',
             author: const ChatMessageAuthor(id: 1, username: 'reader'),
           ),
       ]);
+      if (!cold.store
+          .read<ChatMessage>(roundThreeSite, 1)!
+          .cooked
+          .contains('Fresh $version ')) {
+        throw StateError('Cold search retained an old message body');
+      }
       cold.chat.inboxFilters.setSidebarQuery(roundThreeSite, 'keyboard');
       if (cold.chat.sidebarConversations(roundThreeSite).length != 10) {
         throw StateError('Cold chat search changed');

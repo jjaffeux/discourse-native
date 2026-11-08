@@ -41,10 +41,9 @@ class UserActivityFeed {
     return window.estimatedBytes(
       (row) =>
           _estimate(row) +
-          categoryBytes.putIfAbsent(
-            row.categoryId,
-            () => _categoryBytes(categoriesById[row.categoryId]),
-          ),
+          (categoryBytes[row.categoryId] ??= _categoryBytes(
+            categoriesById[row.categoryId],
+          )),
     );
   }
 
@@ -90,10 +89,9 @@ class UserActivityFeed {
       merge: (_, incoming) => incoming,
       estimate: (row) =>
           _estimate(row) +
-          categoryBytes.putIfAbsent(
-            row.categoryId,
-            () => _categoryBytes(categories[row.categoryId]),
-          ),
+          (categoryBytes[row.categoryId] ??= _categoryBytes(
+            categories[row.categoryId],
+          )),
     );
     final rows = updated.items;
     final usedCategories = {for (final row in rows) row.categoryId};
