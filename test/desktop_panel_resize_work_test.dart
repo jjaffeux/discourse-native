@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -28,9 +27,22 @@ void main() {
       await tapDocumentTab(tester, 'reader-a');
       await tester.pumpAndSettle();
 
-      final report = <String, Object>{};
-      for (final handle in const ['sidebar', 'main-panel']) {
-        report[handle] = await _measureDrag(tester, handle);
+      final report = <String, Map<String, Object>>{};
+      for (final (handle, budget) in const [
+        ('sidebar', 80),
+        ('main-panel', 270),
+      ]) {
+        final work = report[handle] = await _measureDrag(tester, handle);
+        expect(
+          work['buildsPerTick'],
+          lessThanOrEqualTo(budget),
+          reason: 'A $handle drag rebuilt more than it should.',
+        );
+        expect(
+          work['buildsPerTick'],
+          work['elementsPerTick'],
+          reason: 'No element builds twice for one change of width.',
+        );
       }
       debugPrint('PANEL_RESIZE_WORK ${jsonEncode(report)}');
       expect(tester.takeException(), isNull);
