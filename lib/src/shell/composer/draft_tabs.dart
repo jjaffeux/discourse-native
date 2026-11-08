@@ -231,7 +231,7 @@ class _ComposerDraftTabsState extends State<ComposerDraftTabs> {
                       DDropdownMenuItem(
                         leading: const DIcon(DIcons.pen),
                         onPressed: () => shell.selectComposer(draft),
-                        child: Text(composerDraftLabel(draft)),
+                        child: _DraftLabel(draft),
                       ),
                     for (final draft in feed.drafts.where(
                       (d) => !drafts.any((c) => c.target.draftKey == d.key),
@@ -369,12 +369,24 @@ class _ComposerDraftTabsState extends State<ComposerDraftTabs> {
       ),
       closeLabel: context.l10n.saveAndClose,
       closeKey: ValueKey(('composer-draft-close', draft)),
-      child: Text(
-        composerDraftLabel(draft),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      child: _DraftLabel(draft, maxLines: 1, overflow: TextOverflow.ellipsis),
     ),
+  );
+}
+
+/// A title keystroke does not rebuild the panel, so the label listens itself.
+class _DraftLabel extends StatelessWidget {
+  const _DraftLabel(this.draft, {this.maxLines, this.overflow});
+
+  final ComposerController draft;
+  final int? maxLines;
+  final TextOverflow? overflow;
+
+  @override
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: draft.title,
+    builder: (context, _) =>
+        Text(composerDraftLabel(draft), maxLines: maxLines, overflow: overflow),
   );
 }
 

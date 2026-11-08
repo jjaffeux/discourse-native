@@ -216,6 +216,7 @@ class ComposerController extends ChangeNotifier
        _categoryId = _target.initialCategoryId,
        _tags = List.unmodifiable(_target.initialTags),
        _originalTitle = _target.editsTopicMetadata ? _target.topicTitle : '',
+       _lastTitle = _target.editsTopicMetadata ? _target.topicTitle : '',
        _originalRecipients = _target.targetRecipients ?? '',
        _originalCategoryId = _target.initialCategoryId,
        _originalTags = List.unmodifiable(_target.initialTags),
@@ -244,7 +245,7 @@ class ComposerController extends ChangeNotifier
     text.addListener(_onTextChanged);
     emojiChanges?.addListener(autocomplete.refresh);
     focus.addListener(_activateMainEditor);
-    title.addListener(_onMetadataChanged);
+    title.addListener(_onTitleChanged);
     _recomputeCanSubmit();
   }
 
@@ -2488,6 +2489,7 @@ class ComposerController extends ChangeNotifier
   }
 
   String _lastText = '';
+  String _lastTitle;
   bool _replacingDocument = false;
 
   void _replaceDocument(TextEditingValue value) {
@@ -2556,6 +2558,26 @@ class ComposerController extends ChangeNotifier
   int rebaseOffset(String measuredAgainst, int offset) =>
       _TextEdit.between(measuredAgainst, text.text).move(offset);
 
+  void _onTitleChanged() {
+    // TextEditingController also notifies for selection changes, and those
+    // are not draft edits.
+    final next = title.text;
+    if (next == _lastTitle) return;
+    final presenceChanged = next.trim().isEmpty != _lastTitle.trim().isEmpty;
+    _lastTitle = next;
+    if (_disposed || _replacingDocument) return;
+    _draftRevision++;
+    if (_discardPreview != null) clearDiscardPreview();
+    _typing.tick();
+    _scheduleDraft();
+
+    // Labels naming the draft listen to [title]. The panel only needs to know
+    // when the title's presence changes what it offers.
+    final couldSubmit = _canSubmit;
+    _recomputeCanSubmit();
+    if (_canSubmit == couldSubmit && presenceChanged) _notify();
+  }
+
   void _onMetadataChanged() {
     if (_disposed || _replacingDocument) return;
     _draftRevision++;
@@ -2617,7 +2639,7 @@ class ComposerController extends ChangeNotifier
     _draftTimer?.cancel();
     text.removeListener(_onTextChanged);
     text.emojiChanges?.removeListener(autocomplete.refresh);
-    title.removeListener(_onMetadataChanged);
+    title.removeListener(_onTitleChanged);
     blocks.dispose();
     if (_ownsHistory) history.dispose();
     text.dispose();
