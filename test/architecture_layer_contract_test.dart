@@ -43,7 +43,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 178;
+const _largestImportCycle = 177;
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
@@ -79,6 +79,15 @@ void main() {
         expect(offenders, isEmpty);
       });
     }
+
+    test('ShellController imports no widget library but its tab scope', () {
+      expect(
+        graph.edges['lib/src/shell/shell_controller.dart']!.intersection(
+          graph.widgetLibraries,
+        ),
+        {'lib/src/shell/forum_tab_scope.dart'},
+      );
+    });
 
     test('the import cycle stays within its budget', () {
       final cycles = graph.cycles();
@@ -123,6 +132,16 @@ void main() {
       expect(seeded.cycles(), [
         ['lib/discourse_ui.dart', 'lib/src/shell/b.dart'],
       ]);
+    });
+
+    test('classifies widget libraries through their parts', () {
+      final seeded = sources({
+        'lib/a.dart': "part 'a_part.dart';",
+        'lib/a_part.dart':
+            "part of 'a.dart';\nclass W extends State<StatefulWidget> {}",
+        'lib/b.dart': 'class Plain extends Object {}',
+      });
+      expect(seeded.widgetLibraries, {'lib/a.dart'});
     });
 
     test('reports the libraries invalidated by a change', () {

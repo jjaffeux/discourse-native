@@ -110,7 +110,7 @@ class TopicInboxHeader extends StatelessWidget {
       );
     }
     final shell = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final route = this.route ?? tab.currentContent;
     final topicId = topic?.id ?? route?.topicId ?? preview?.id;
     final hasPreviewTaxonomy =
@@ -495,7 +495,7 @@ class TopicCloseButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final content = tab.topicListContent?.isMessages == true
         ? 'message'
         : 'topic';
@@ -1169,7 +1169,7 @@ class _TopicPropertyPopoverState extends State<_TopicPropertyPopover> {
   }
 
   void _openRequestedProperty() {
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       if (!tab.isCurrent ||
@@ -1307,7 +1307,7 @@ class _TopicPropertyDetails extends StatelessWidget {
       if (navigation != (siteUrl, topicId, navigationRevision)) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!context.mounted) return;
-          final tab = ForumTabScope.tabOf(context);
+          final tab = ShellScope.tabOf(context);
           final current = (
             tab.isCurrent ? tab.siteUrl : null,
             tab.currentContent?.topicId,

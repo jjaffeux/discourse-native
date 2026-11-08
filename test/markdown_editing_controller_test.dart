@@ -17,6 +17,7 @@ import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/composer/pills.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/hashtag_presentation.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

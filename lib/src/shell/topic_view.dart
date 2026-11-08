@@ -13,7 +13,6 @@ import '../app_shortcuts.dart';
 import '../data/post_welcome_store.dart';
 import '../data/topic_recommendations_tab_store.dart';
 import '../data/topic_sidebar_store.dart';
-
 import '../foundation/calendar_day.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/content_route.dart';
@@ -30,6 +29,7 @@ import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
+import 'forum_tab_scope.dart';
 import 'forum_theme_surfaces.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
@@ -459,7 +459,7 @@ class _TopicViewState extends State<TopicView>
         previousTabId != _viewport.binding?.tabId ||
         !identical(previousController, controller) ||
         !identical(previousSession, _viewport.binding?.session)) {
-      _visitLastReadPostNumber = ForumTabScope.tabOf(
+      _visitLastReadPostNumber = ShellScope.tabOf(
         context,
       ).currentTopicLastReadPostNumber;
     }
@@ -536,16 +536,15 @@ class _TopicViewState extends State<TopicView>
     final id = _interaction.selection.value;
     if (siteUrl == null ||
         id == null ||
-        !ForumTabScope.tabOf(context).canReplyHere) {
+        !ShellScope.tabOf(context).canReplyHere) {
       return false;
     }
     final post = controller.store.read<Post>(siteUrl, id);
     if (post == null ||
-        ForumTabScope.tabOf(context).currentTopic?.stream.contains(id) !=
-            true) {
+        ShellScope.tabOf(context).currentTopic?.stream.contains(id) != true) {
       return false;
     }
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final menu = controller.plugins.registry.postMenu(
       context,
       siteUrl,
@@ -554,7 +553,7 @@ class _TopicViewState extends State<TopicView>
       currentUser: controller.currentUserFor(siteUrl),
     );
     if (menu.replacesReply) return false;
-    ForumTabScope.tabOf(context).openReply(
+    ShellScope.tabOf(context).openReply(
       replyToPostNumber: post.postNumber,
       replyToUsername: post.username,
       replyingToWhisper: post.isWhisper,
@@ -1492,7 +1491,7 @@ class _TopicViewState extends State<TopicView>
         controller,
         siteUrl,
         topicId,
-        ForumTabScope.tabOf(context).tabId,
+        ShellScope.tabOf(context).tabId,
         siteUrl == null ? null : controller.lifecycle.capture(siteUrl).session,
       ));
 
@@ -1511,7 +1510,7 @@ class _TopicViewState extends State<TopicView>
     final topicId =
         topic?.id ??
         widget.route?.topicId ??
-        ForumTabScope.tabOf(context).currentContent?.topicId;
+        ShellScope.tabOf(context).currentContent?.topicId;
     final row = topic != null || siteUrl == null || topicId == null
         ? null
         : controller.store.read<Topic>(siteUrl, topicId);
@@ -1699,7 +1698,7 @@ class _TopicViewState extends State<TopicView>
       }
       _releaseHistoryReveal?.call();
       _releaseHistoryReveal = null;
-      final tab = ForumTabScope.tabOf(context);
+      final tab = ShellScope.tabOf(context);
       return Column(
         children: [
           _TopicViewHeader(
@@ -2513,7 +2512,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
       destructive: true,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final destination = tab.currentContent?.destination.identity;
     final outcome = await controller.deleteSelectedTopicPosts(
       siteUrl,
@@ -2528,7 +2527,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
             tab.isCurrent &&
             tab.siteUrl == siteUrl &&
             tab.currentContent?.destination.identity == destination &&
-            ForumTabScope.tabOf(context).tabId == tab.tabId,
+            ShellScope.tabOf(context).tabId == tab.tabId,
       );
     }
   }
@@ -2546,7 +2545,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
       action: appL10n.merge,
     );
     if (!confirmed || !context.mounted || !lease.isCurrent) return;
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final destination = tab.currentContent?.destination.identity;
     final outcome = await controller.mergeSelectedTopicPosts(siteUrl, topic.id);
     if (context.mounted) {
@@ -2558,7 +2557,7 @@ class _TopicPostSelectionToolbar extends StatelessWidget {
             tab.isCurrent &&
             tab.siteUrl == siteUrl &&
             tab.currentContent?.destination.identity == destination &&
-            ForumTabScope.tabOf(context).tabId == tab.tabId,
+            ShellScope.tabOf(context).tabId == tab.tabId,
       );
     }
   }
@@ -4613,7 +4612,7 @@ class _PostTileState extends State<_PostTile> {
                   topic: PluginContainingTopic(
                     id: widget.topic.id,
                     slug:
-                        ForumTabScope.tabOf(context).currentContent?.slug ??
+                        ShellScope.tabOf(context).currentContent?.slug ??
                         'topic',
                     archived: widget.topic.archived,
                   ),
@@ -4642,7 +4641,7 @@ class _PostTileState extends State<_PostTile> {
                             containingTopic: PluginContainingTopic(
                               id: widget.topic.id,
                               slug:
-                                  ForumTabScope.tabOf(
+                                  ShellScope.tabOf(
                                     context,
                                   ).currentContent?.slug ??
                                   'topic',

@@ -14,7 +14,7 @@ import '../../site_emoji_text.dart';
 import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import '../markdown_tokens.dart';
-import 'quote.dart';
+import 'quote_source.dart';
 
 ComposerSyntaxKind get composerLinkSyntaxKind => ComposerSyntaxKind(
   owner: const PluginId('core'),

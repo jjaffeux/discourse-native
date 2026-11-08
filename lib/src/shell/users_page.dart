@@ -71,7 +71,7 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.of(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final route = tab.currentContent;
     final owner = (shell, tab.siteUrl, tab.tabId, tab.lease?.session, route);
     _owner = owner;

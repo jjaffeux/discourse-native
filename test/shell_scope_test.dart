@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
+import 'package:discourse_native/src/shell/forum_tab_scope.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/widgets.dart';
@@ -38,7 +39,7 @@ void main() {
               child: ForumTabSelector<String?>(
                 select: (_, tab) => tab.currentFeedId,
                 builder: (context, feedId, _) {
-                  held = ForumTabScope.tabOf(context);
+                  held = ShellScope.tabOf(context);
                   return Text(feedId ?? 'empty');
                 },
               ),

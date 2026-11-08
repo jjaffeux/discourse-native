@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../../models/found_hashtag.dart';
 import '../../../plugin_api/hashtag_kind.dart';
 import '../../hashtag.dart';
+import '../../hashtag_presentation.dart';
 import '../source_projection.dart';
 
 List<InlineSpan> buildComposerHashtagSpans({

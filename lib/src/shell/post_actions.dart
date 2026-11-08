@@ -241,7 +241,7 @@ class _PostActionsState extends State<PostActions> {
   })
   _actions(BuildContext context, ShellController controller) {
     final post = widget.post;
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final topic = tab.currentTopic;
     final registry =
         PluginScope.maybeOf(context)?.registry ?? PluginRegistry.empty;
@@ -601,7 +601,7 @@ class _PostActionsState extends State<PostActions> {
             label: appL10n.changeOwner,
             tooltip: appL10n.assignThisPostToAnotherAccount,
             onInvoke: () {
-              final topic = ForumTabScope.tabOf(context).currentTopic;
+              final topic = ShellScope.tabOf(context).currentTopic;
               if (topic == null) return;
               unawaited(
                 showTopicChangeOwner(
@@ -739,7 +739,7 @@ class _PostActionsState extends State<PostActions> {
 
   String? _postShareUrl(ShellController controller) {
     final instance = controller.currentInstance;
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final topic = tab.currentTopic;
     final route = tab.currentContent;
     if (instance?.url != widget.siteUrl ||
@@ -759,7 +759,7 @@ class _PostActionsState extends State<PostActions> {
   }
 
   String? _postCanonicalUrl(ShellController controller) {
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final topic = tab.currentTopic;
     final route = tab.currentContent;
     if (controller.currentInstance?.url != widget.siteUrl ||
@@ -841,7 +841,7 @@ class _PostActionsState extends State<PostActions> {
     final shell = ShellScope.read(context);
     final siteUrl = widget.siteUrl;
     final lease = shell.lifecycle.capture(siteUrl);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final destinationIdentity = tab.currentContent?.destination.identity;
     final postId = widget.post.id;
     final selected = await showDSheet<PostAction>(
@@ -900,7 +900,7 @@ class _PostActionsState extends State<PostActions> {
         widget.post.id != postId ||
         shell.currentInstance?.url != siteUrl ||
         !tab.isCurrent ||
-        ForumTabScope.tabOf(context).tabId != tab.tabId ||
+        ShellScope.tabOf(context).tabId != tab.tabId ||
         tab.currentContent?.destination.identity != destinationIdentity) {
       return;
     }

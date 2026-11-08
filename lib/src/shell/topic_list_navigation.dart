@@ -194,7 +194,7 @@ class _TopicListNavigationControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final mode = state.mode ?? TopicListMode.latest;
     void selectMode(TopicListMode value) =>
         unawaited(tab.selectTopicListMode(value, keepTopicOpen: keepTopicOpen));

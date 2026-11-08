@@ -11,6 +11,7 @@ import '../models/composer_placement.dart';
 import '../models/forum_workspace.dart';
 import 'adaptive_shell.dart';
 import 'composer/presentation.dart';
+import 'forum_tab_scope.dart';
 import 'main_content.dart';
 import 'resizable_pane.dart';
 import 'shell_metrics.dart';

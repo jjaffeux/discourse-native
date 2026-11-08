@@ -22,6 +22,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
+import 'package:discourse_native/src/shell/forum_tab_scope.dart';
 import 'package:discourse_native/src/shell/keyboard_navigation.dart';
 import 'package:discourse_native/src/shell/list_boundary_shortcuts.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -628,9 +629,8 @@ void main() {
               panel: ForumPanel.main,
               child: ListenableBuilder(
                 listenable: controller.topicFeeds,
-                builder: (context, _) => TopicListView(
-                  feed: ForumTabScope.tabOf(context).currentFeed!,
-                ),
+                builder: (context, _) =>
+                    TopicListView(feed: ShellScope.tabOf(context).currentFeed!),
               ),
             ),
           ),

@@ -709,7 +709,7 @@ class _TopicListViewState extends State<TopicListView> {
 
   Widget _build(BuildContext context, _TopicListSnapshot state) {
     final controller = ShellScope.read(context);
-    _tab = ForumTabScope.tabOf(context);
+    _tab = ShellScope.tabOf(context);
     if (!identical(_controller, controller)) {
       _prefetch.reset();
       _releaseFeed?.call();

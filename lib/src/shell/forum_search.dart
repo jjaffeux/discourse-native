@@ -18,6 +18,7 @@ import '../plugin_api/global_search_models.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'content_navigation_controls.dart';
+import 'forum_tab_scope.dart';
 import 'global_search_controller.dart';
 import 'global_search_panel.dart';
 import 'open_link.dart';
@@ -191,7 +192,7 @@ class _ForumSearchState extends State<ForumSearch> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final shell = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     _scoped = ForumTabScope.panelOf(context) != null;
     _tabId = tab.tabId;
     if (identical(shell, _shell)) return;

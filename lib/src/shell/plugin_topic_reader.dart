@@ -46,7 +46,7 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
   void _bind() {
     if (!widget.registry.hasTopicReaders) return;
     final shell = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final key = (
       shell,
       tab.siteUrl,
@@ -78,7 +78,7 @@ class _TopicReaderOutletState extends State<TopicReaderOutlet> {
 
   @override
   Widget build(BuildContext context) {
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     return TopicSkeletonScope(
       key: ValueKey((
         tab.siteUrl,

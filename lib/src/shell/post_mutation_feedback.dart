@@ -14,9 +14,7 @@ bool Function() capturePostMutationPresentation(
   String siteUrl,
 ) {
   final scoped = identical(ShellScope.maybeRead(context), controller);
-  final tab = scoped
-      ? ForumTabScope.tabOf(context)
-      : controller.focusedTabContext;
+  final tab = scoped ? ShellScope.tabOf(context) : controller.focusedTabContext;
   final destination = tab.currentContent?.destination.identity;
   final lease = controller.lifecycle.capture(siteUrl);
   return () =>
@@ -28,7 +26,7 @@ bool Function() capturePostMutationPresentation(
       tab.currentContent?.destination.identity == destination &&
       (!scoped ||
           identical(ShellScope.maybeRead(context), controller) &&
-              ForumTabScope.tabOf(context).tabId == tab.tabId);
+              ShellScope.tabOf(context).tabId == tab.tabId);
 }
 
 String _problemText(BuildContext context, PostMutationProblem problem) {

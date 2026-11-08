@@ -13,7 +13,7 @@ import 'package:analyzer/dart/ast/ast.dart';
 /// Declared imports and exports between libraries, with parts folded into the
 /// library that owns them, because Dart compiles those as one unit.
 final class LibraryGraph {
-  LibraryGraph._(this.edges);
+  LibraryGraph._(this.edges, this.widgetLibraries);
 
   factory LibraryGraph.fromSources(Map<String, String> sources) {
     final parsed = {
@@ -58,7 +58,16 @@ final class LibraryGraph {
         }
       }
     }
-    return LibraryGraph._(edges);
+    final widgetLibraries = {
+      for (final entry in parsed.entries)
+        for (final declaration
+            in entry.value.declarations.whereType<ClassDeclaration>())
+          if (_widgetBases.any(
+            (declaration.extendsClause?.superclass.toSource() ?? '').startsWith,
+          ))
+            owner(entry.key),
+    };
+    return LibraryGraph._(edges, widgetLibraries);
   }
 
   /// Generated localizations are excluded: every library reaches them through
@@ -77,6 +86,22 @@ final class LibraryGraph {
   }
 
   final SplayTreeMap<String, Set<String>> edges;
+
+  /// Libraries that declare a widget or a widget's state.
+  final Set<String> widgetLibraries;
+
+  static const _widgetBases = [
+    'StatelessWidget',
+    'StatefulWidget',
+    'InheritedWidget',
+    'InheritedNotifier',
+    'InheritedModel',
+    'RenderObjectWidget',
+    'LeafRenderObjectWidget',
+    'SingleChildRenderObjectWidget',
+    'MultiChildRenderObjectWidget',
+    'State<',
+  ];
 
   static String? _resolve(String source, String value) {
     var uri = Uri.parse(value);

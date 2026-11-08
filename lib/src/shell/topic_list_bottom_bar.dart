@@ -43,7 +43,7 @@ bool openAdjacentTopic(
   bool fromKeyboard = false,
 }) {
   final shell = ShellScope.read(context);
-  final tab = ForumTabScope.tabOf(context);
+  final tab = ShellScope.tabOf(context);
   final state = _adjacentTopics(shell, tab);
   final row = next ? state.next : state.previous;
   final instance = shell.currentInstance;
@@ -159,7 +159,7 @@ class TopicListBottomBar extends StatelessWidget {
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      final tab = ForumTabScope.tabOf(context);
+      final tab = ShellScope.tabOf(context);
       final topicOpen = tab.readingTopicId != null;
       if (leading == null &&
           !topicOpen &&
@@ -234,8 +234,7 @@ class TopicNavigationButtons extends StatelessWidget {
           DButton.iconOnly(
             key: const ValueKey('inbox-previous-topic'),
             tooltip:
-                ForumTabScope.tabOf(context).topicListContent?.isMessages ==
-                    true
+                ShellScope.tabOf(context).topicListContent?.isMessages == true
                 ? context.l10n.previousMessage
                 : context.l10n.previousTopic,
             shortcut: DShortcut.sequence(
@@ -256,8 +255,7 @@ class TopicNavigationButtons extends StatelessWidget {
           DButton.iconOnly(
             key: const ValueKey('inbox-next-topic'),
             tooltip:
-                ForumTabScope.tabOf(context).topicListContent?.isMessages ==
-                    true
+                ShellScope.tabOf(context).topicListContent?.isMessages == true
                 ? context.l10n.nextMessage
                 : context.l10n.nextTopic,
             shortcut: DShortcut.sequence(
@@ -295,7 +293,7 @@ class DismissNewTopicsButton extends StatelessWidget {
     listenable: ShellScope.identityOf(context).topicFeeds,
     builder: (context, _) {
       final shell = ShellScope.of(context);
-      final tab = ForumTabScope.tabOf(context);
+      final tab = ShellScope.tabOf(context);
       if (!isVisible(shell, context: tab)) {
         return const SizedBox.shrink();
       }

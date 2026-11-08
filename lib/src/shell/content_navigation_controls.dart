@@ -40,7 +40,7 @@ class ContentNavigationControls extends StatelessWidget {
           refreshing: tab.refreshingCurrentTab,
         ),
         builder: (context, state, _) {
-          final tab = ForumTabScope.tabOf(context);
+          final tab = ShellScope.tabOf(context);
           final tokens = DTokens.of(context);
           return IntrinsicWidth(
             child: Row(

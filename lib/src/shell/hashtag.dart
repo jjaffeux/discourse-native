@@ -7,82 +7,19 @@ import '../models/topic.dart';
 import '../plugin_api/hashtag_kind.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'category_icon.dart';
-import 'composer/autocomplete.dart';
 import 'emoji.dart';
+import 'hashtag_presentation.dart';
 import 'open_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 
 export 'category_icon.dart' show CategorySquare;
 
-HashtagPresentation resolveHashtagPresentation(
-  HashtagPresentationRequest request, {
-  PluginHashtagPresentationResolver? pluginPresentation,
-}) {
-  switch (request.type) {
-    case 'category':
-      return HashtagPresentation.fromRequest(
-        request,
-        fallbackIcon: DIcons.folder,
-        colorPolicy: HashtagColorPolicy.category,
-      );
-    case 'tag':
-      return HashtagPresentation.fromRequest(
-        request,
-        fallbackIcon: DIcons.tag,
-        colorPolicy: HashtagColorPolicy.none,
-      );
-  }
-
-  final contributed = pluginPresentation?.call(request);
-  return (contributed?.type == request.type ? contributed : null) ??
-      HashtagPresentation.fromRequest(
-        request,
-        fallbackIcon: DIcons.link,
-        colorPolicy: HashtagColorPolicy.supplied,
-      );
-}
-
 DIconData iconFor(BuildContext context, String? icon, DIconData fallback) {
   final named = icon == null ? null : pluginIconNamed(context, icon);
   return named ?? fallback;
 }
-
-SuggestionArt hashtagSuggestionArt(
-  HashtagPresentation presentation, {
-  required String Function(String emoji) resolveEmoji,
-}) {
-  final emoji = presentation.emoji;
-  if (presentation.style == HashtagStyle.emoji) {
-    return emoji == null
-        ? ArtIcon(presentation.icon, fallback: presentation.fallbackIcon)
-        : ArtImage(resolveEmoji(emoji));
-  }
-  if (presentation.style == HashtagStyle.square &&
-      _drawsHashtagSquare(presentation)) {
-    return ArtSquare(presentation.colorValues);
-  }
-  return ArtIcon(
-    presentation.icon,
-    colorValue: _hashtagColorValue(presentation),
-    fallback: presentation.fallbackIcon,
-  );
-}
-
-bool _drawsHashtagSquare(HashtagPresentation presentation) =>
-    switch (presentation.colorPolicy) {
-      HashtagColorPolicy.category => true,
-      HashtagColorPolicy.supplied => presentation.colorValues.isNotEmpty,
-      HashtagColorPolicy.none => false,
-    };
-
-int? _hashtagColorValue(HashtagPresentation presentation) =>
-    presentation.colorPolicy == HashtagColorPolicy.none ||
-        presentation.colorValues.isEmpty
-    ? null
-    : presentation.colorValues.last;
 
 class HashtagPill extends StatelessWidget {
   const HashtagPill({
@@ -167,7 +104,7 @@ class HashtagPill extends StatelessWidget {
   ) => switch (presentation.style) {
     HashtagStyle.emoji when shellPresentation.emojiUrl != null =>
       DBadgeInlineArtwork.image,
-    HashtagStyle.square when _drawsHashtagSquare(presentation) =>
+    HashtagStyle.square when drawsHashtagSquare(presentation) =>
       DBadgeInlineArtwork.square,
     _ => DBadgeInlineArtwork.icon,
   };
@@ -189,7 +126,7 @@ class HashtagPill extends StatelessWidget {
         return _icon(context, size, _hashtagColor(shellPresentation));
 
       case HashtagStyle.square:
-        if (!_drawsHashtagSquare(presentation)) {
+        if (!drawsHashtagSquare(presentation)) {
           return _icon(context, size, null);
         }
         return CategorySquare(

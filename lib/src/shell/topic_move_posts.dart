@@ -24,7 +24,7 @@ Future<void> showTopicMovePosts({
   final target = controller.captureTopicPostMoveTarget(siteUrl, topic.id);
   final current = capturePostMutationPresentation(context, controller, siteUrl);
   final openingTabId = identical(ShellScope.maybeRead(context), controller)
-      ? ForumTabScope.tabOf(context).tabId
+      ? ShellScope.tabOf(context).tabId
       : controller.activeTabId;
   final openingDestination = openingTabId == null
       ? null

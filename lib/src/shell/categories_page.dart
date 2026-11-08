@@ -16,6 +16,7 @@ import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';
 import 'directory_skeleton.dart';
+import 'forum_tab_scope.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'search_words.dart';

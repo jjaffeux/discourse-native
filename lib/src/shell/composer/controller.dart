@@ -30,7 +30,7 @@ import 'components/document_body_editor.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/list_source.dart';
-import 'components/quote.dart';
+import 'components/quote_source.dart';
 import 'components/upload.dart';
 import 'edit_history.dart';
 import 'markdown_editing_controller.dart';

@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../plugin_api/composer_syntax.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
-import 'components/quote.dart';
+import 'components/quote_source.dart';
 
 /// Input behavior for collapsed source. Artwork and actions stay with features.
 sealed class ComposerComponentInput {
