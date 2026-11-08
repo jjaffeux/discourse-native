@@ -1,5 +1,5 @@
+import 'coalescing_snapshot_writer.dart';
 import 'preference_snapshots.dart';
-import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
 
 abstract interface class SidebarSectionPersistence {
@@ -65,7 +65,6 @@ final class SidebarSectionStore {
   final SidebarSectionPersistence _persistence;
   final _snapshots = PreferenceSnapshots<(String, String), bool>();
   final Map<String, Object> _siteOwners = {};
-  static final SerialOperationQueue _operations = SerialOperationQueue();
 
   bool? collapsedFor({required String siteUrl, required String sectionId}) =>
       _snapshots.peek((siteUrl, sectionId));
@@ -86,14 +85,10 @@ final class SidebarSectionStore {
 
   Future<bool> read({required String siteUrl, required String sectionId}) {
     final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
-    return _operations.run(
-      owner: _persistence,
-      key: (siteUrl, sectionId),
-      operation: () async {
-        if (!identical(_siteOwners[siteUrl], owner)) return false;
-        return _read(siteUrl: siteUrl, sectionId: sectionId);
-      },
-    );
+    return _writerFor(siteUrl, sectionId, owner).read(() async {
+      if (!identical(_siteOwners[siteUrl], owner)) return false;
+      return _read(siteUrl: siteUrl, sectionId: sectionId);
+    });
   }
 
   Future<bool> _read({
@@ -118,21 +113,25 @@ final class SidebarSectionStore {
   }) async {
     _snapshots.remember((siteUrl, sectionId), collapsed);
     final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
-    await _operations.run<void>(
-      owner: _persistence,
-      key: (siteUrl, sectionId),
-      operation: () async {
-        // Removal retires choices still queued behind an earlier save. A
-        // re-added forum keeps the same queue, with a new owner for its edits.
-        if (!identical(_siteOwners[siteUrl], owner)) return;
-        await _persist(
-          siteUrl: siteUrl,
-          sectionId: sectionId,
-          collapsed: collapsed,
-        );
-      },
-    );
+    await _writerFor(siteUrl, sectionId, owner).save(collapsed);
   }
+
+  CoalescingSnapshotWriter<bool> _writerFor(
+    String siteUrl,
+    String sectionId,
+    Object owner,
+  ) => CoalescingSnapshotWriter<bool>(
+    owner: _persistence,
+    key: (siteUrl, sectionId),
+    writeSnapshot: (collapsed) async {
+      if (!identical(_siteOwners[siteUrl], owner)) return;
+      await _persist(
+        siteUrl: siteUrl,
+        sectionId: sectionId,
+        collapsed: collapsed,
+      );
+    },
+  );
 
   Future<void> _persist({
     required String siteUrl,

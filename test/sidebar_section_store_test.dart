@@ -40,6 +40,40 @@ void main() {
     );
   });
 
+  test('a section burst writes only its active and newest choice', () async {
+    const site = 'https://meta.discourse.org';
+    const section = 'community';
+    final backend = _HeldPreferences({});
+    SharedPreferencesStorePlatform.instance = backend;
+    addTearDown(() {
+      if (!backend.release.isCompleted) backend.release.complete();
+    });
+    final first = store.write(
+      siteUrl: site,
+      sectionId: section,
+      collapsed: true,
+    );
+    await backend.started.future;
+    final saves = [
+      for (var index = 0; index < 100; index++)
+        store.write(siteUrl: site, sectionId: section, collapsed: index.isEven),
+    ];
+    final replacementRead = SidebarSectionStore().read(
+      siteUrl: site,
+      sectionId: section,
+    );
+    expect(store.collapsedFor(siteUrl: site, sectionId: section), isFalse);
+    backend.release.complete();
+    await Future.wait([first, ...saves]);
+    expect(await replacementRead, isFalse);
+    expect(backend.values.length, 2);
+    expect(backend.values, [true, false]);
+    expect(
+      await SidebarSectionStore().read(siteUrl: site, sectionId: section),
+      isFalse,
+    );
+  });
+
   test('choices are independent by forum and section', () async {
     await store.write(
       siteUrl: 'https://meta.discourse.org',
@@ -172,6 +206,11 @@ void main() {
           collapsed: true,
         );
         await backend.started.future;
+        final oldQueued = store.write(
+          siteUrl: site,
+          sectionId: section,
+          collapsed: false,
+        );
         final queued = store.read(siteUrl: site, sectionId: section);
         final snapshot = reader.ensure(siteUrl: site, sectionId: section);
         final retired = Completer<void>();
@@ -189,7 +228,7 @@ void main() {
             ? reader.write(siteUrl: site, sectionId: section, collapsed: false)
             : Future<void>.value();
         backend.release.complete();
-        await Future.wait([admitted, removal, fresh]);
+        await Future.wait([admitted, oldQueued, removal, fresh]);
         expect(await queued, isFalse);
         expect(await snapshot, isFalse);
         expect(store.collapsedFor(siteUrl: site, sectionId: section), isNull);
