@@ -24,10 +24,13 @@ final class OriginRequestGate {
     required this.maxConcurrentPerOrigin,
     required this.maxQueuedPerOrigin,
     required this.cooldownPolicy,
+    this.interactiveSlotsPerOrigin = 0,
     OriginCooldown Function()? cooldownFactory,
   }) : assert(maxConcurrent == null || maxConcurrent > 0),
        assert(maxConcurrentPerOrigin > 0),
        assert(maxQueuedPerOrigin > 0),
+       assert(interactiveSlotsPerOrigin >= 0),
+       assert(interactiveSlotsPerOrigin < maxConcurrentPerOrigin),
        _newCooldown = cooldownFactory ?? OriginCooldown.new;
 
   /// The aggregate active-operation limit, or null when origins are
@@ -37,6 +40,10 @@ final class OriginRequestGate {
 
   /// Active leases do not count toward this limit.
   final int maxQueuedPerOrigin;
+
+  /// Slots of each origin that normal work may not take, so a page someone is
+  /// waiting for never queues behind metadata that holds all of them.
+  final int interactiveSlotsPerOrigin;
   final OriginRequestCooldownPolicy cooldownPolicy;
   final OriginCooldown Function() _newCooldown;
   final Map<String, _OriginState> _origins = {};
@@ -207,6 +214,11 @@ final class OriginRequestGate {
         if (_closed) return;
         if (revision != _waitingRevision) continue drain;
         if (state.cooldown.remaining != null) continue;
+        if (priority != OriginRequestPriority.interactive &&
+            state.active >=
+                maxConcurrentPerOrigin - interactiveSlotsPerOrigin) {
+          continue;
+        }
         final priorities = priority == OriginRequestPriority.interactive
             ? interactive
             : normal;
