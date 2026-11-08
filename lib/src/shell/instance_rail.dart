@@ -51,66 +51,63 @@ class InstanceRail extends StatelessWidget {
       select: _RailSnapshot.from,
       builder: (context, state, _) {
         final controller = ShellScope.read(context);
-        return ListenableBuilder(
-          listenable: controller.accountActivity.totalsListenable,
-          builder: (context, _) => ColoredBox(
-            color:
-                !context.isTouch &&
-                    theme.extension<ForumThemeEffects>()?.windowGradient != null
-                ? Colors.transparent
-                : ForumWindowBackground.surfaceColor(
-                    context,
-                    _railSurface(context),
-                  ),
-            child: SafeArea(
-              right: false,
-              child: Column(
-                children: [
-                  if (showSidebarToggle)
-                    Padding(
-                      padding: const EdgeInsets.only(
-                        top: 8,
-                        bottom: DSpacing.controlGap,
-                      ),
-                      child: DButton.iconOnly(
-                        key: const ValueKey('rail-sidebar-toggle'),
-                        icon: const DIconGlyphTheme(
-                          scale: 1,
-                          naturalWidth: true,
-                          child: DIcon(DNativeIcons.bars, size: 18),
-                        ),
-                        tooltipSide: DTooltipSide.right,
-                        tooltip: onToggleSidebar == null
-                            ? context.l10n.selectAForumToToggleItsSidebar
-                            : sidebarExpanded
-                            ? context.l10n.collapseSidebar
-                            : context.l10n.expandSidebar,
-                        variant: DButtonVariant.ghost,
-                        backgroundColor: Colors.transparent,
-                        interactiveBackgroundColor: Colors.transparent,
-                        foregroundColor: sidebarExpanded
-                            ? theme.shell.railForeground
-                            : theme.shell.railForeground.withValues(alpha: 0.6),
-                        size: DButtonSize.large,
-                        onPressed: onToggleSidebar,
-                      ),
+        return ColoredBox(
+          color:
+              !context.isTouch &&
+                  theme.extension<ForumThemeEffects>()?.windowGradient != null
+              ? Colors.transparent
+              : ForumWindowBackground.surfaceColor(
+                  context,
+                  _railSurface(context),
+                ),
+          child: SafeArea(
+            right: false,
+            child: Column(
+              children: [
+                if (showSidebarToggle)
+                  Padding(
+                    padding: const EdgeInsets.only(
+                      top: 8,
+                      bottom: DSpacing.controlGap,
                     ),
-                  Expanded(
-                    child: switch (state.loadStatus) {
-                      InstanceLoadStatus.loading => const SizedBox.shrink(),
-                      InstanceLoadStatus.failed => const _RailLoadFailure(),
-                      InstanceLoadStatus.ready => _InstanceRailList(
-                        state: state,
-                        controller: controller,
+                    child: DButton.iconOnly(
+                      key: const ValueKey('rail-sidebar-toggle'),
+                      icon: const DIconGlyphTheme(
+                        scale: 1,
+                        naturalWidth: true,
+                        child: DIcon(DNativeIcons.bars, size: 18),
                       ),
-                    },
+                      tooltipSide: DTooltipSide.right,
+                      tooltip: onToggleSidebar == null
+                          ? context.l10n.selectAForumToToggleItsSidebar
+                          : sidebarExpanded
+                          ? context.l10n.collapseSidebar
+                          : context.l10n.expandSidebar,
+                      variant: DButtonVariant.ghost,
+                      backgroundColor: Colors.transparent,
+                      interactiveBackgroundColor: Colors.transparent,
+                      foregroundColor: sidebarExpanded
+                          ? theme.shell.railForeground
+                          : theme.shell.railForeground.withValues(alpha: 0.6),
+                      size: DButtonSize.large,
+                      onPressed: onToggleSidebar,
+                    ),
                   ),
-                  _RailFooter(
-                    updatesAvailable:
-                        state.loadStatus == InstanceLoadStatus.ready,
-                  ),
-                ],
-              ),
+                Expanded(
+                  child: switch (state.loadStatus) {
+                    InstanceLoadStatus.loading => const SizedBox.shrink(),
+                    InstanceLoadStatus.failed => const _RailLoadFailure(),
+                    InstanceLoadStatus.ready => _InstanceRailList(
+                      state: state,
+                      controller: controller,
+                    ),
+                  },
+                ),
+                _RailFooter(
+                  updatesAvailable:
+                      state.loadStatus == InstanceLoadStatus.ready,
+                ),
+              ],
             ),
           ),
         );
@@ -537,23 +534,28 @@ class _InstanceRailListState extends State<_InstanceRailList> {
                       instance,
                       index + 1,
                     );
-              final item = _RailItem(
-                instance: instance,
-                appearance: widget.state.appearances[index],
-                selected:
-                    widget.state.rootMode == ShellRootMode.forum &&
-                    index == widget.state.selectedIndex,
-                badgeCount: widget.controller.railBadgeFor(instance),
-                shortcutKey:
-                    widget.controller.forumTabsEnabled &&
-                        index < forumSwitchShortcutKeys.length
-                    ? forumSwitchShortcutKeys[index]
-                    : null,
-                onTap: () => widget.controller.selectInstance(index),
-                onMoveUp: moveUp,
-                onMoveDown: moveDown,
-                wrapControl: (control) =>
-                    _draggableItem(itemContext, index, instance, control),
+              final item = ListenableBuilder(
+                listenable: widget.controller.accountActivity.totalsSelection(
+                  () => widget.controller.railBadgeFor(instance),
+                ),
+                builder: (context, _) => _RailItem(
+                  instance: instance,
+                  appearance: widget.state.appearances[index],
+                  selected:
+                      widget.state.rootMode == ShellRootMode.forum &&
+                      index == widget.state.selectedIndex,
+                  badgeCount: widget.controller.railBadgeFor(instance),
+                  shortcutKey:
+                      widget.controller.forumTabsEnabled &&
+                          index < forumSwitchShortcutKeys.length
+                      ? forumSwitchShortcutKeys[index]
+                      : null,
+                  onTap: () => widget.controller.selectInstance(index),
+                  onMoveUp: moveUp,
+                  onMoveDown: moveDown,
+                  wrapControl: (control) =>
+                      _draggableItem(itemContext, index, instance, control),
+                ),
               );
               return KeyedSubtree(
                 key: ValueKey(instance.url),

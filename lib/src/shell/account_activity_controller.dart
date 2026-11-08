@@ -77,6 +77,13 @@ final class AccountActivityController extends FrameSafeNotifier {
   );
 
   Listenable get totalsListenable => _totalsChanges;
+
+  /// Follows what [read] draws from the totals, which publish as one change
+  /// for every forum and field. A count moving on another forum, or in a field
+  /// [read] does not take, leaves its listeners alone.
+  Listenable totalsSelection(Object? Function() read) =>
+      _TotalsSelection(_totalsChanges, read);
+
   Listenable get notificationsListenable => _notificationChanges;
   Listenable get replyNotificationsListenable => _replyNotificationChanges;
   Listenable get likeNotificationsListenable => _likeNotificationChanges;
@@ -889,6 +896,34 @@ final class AccountActivityController extends FrameSafeNotifier {
 
 final class _ActivityAspect extends FrameSafeNotifier {
   void changed() => notifySafely();
+}
+
+final class _TotalsSelection implements Listenable {
+  _TotalsSelection(this._source, this._read);
+
+  final Listenable _source;
+  final Object? Function() _read;
+  final Map<VoidCallback, VoidCallback> _forwarders = {};
+
+  @override
+  void addListener(VoidCallback listener) {
+    var seen = _read();
+    void forward() {
+      final next = _read();
+      if (next == seen) return;
+      seen = next;
+      listener();
+    }
+
+    _forwarders[listener] = forward;
+    _source.addListener(forward);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    final forward = _forwarders.remove(listener);
+    if (forward != null) _source.removeListener(forward);
+  }
 }
 
 final class _PluginNotificationState {

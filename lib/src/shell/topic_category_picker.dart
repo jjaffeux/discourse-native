@@ -71,9 +71,30 @@ class _TopicCategoryMenuAnchorState extends State<TopicCategoryMenuAnchor> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<Object>(
+    select: (shell) {
+      final selected = shell.categoryFor(
+        widget.selectedCategoryId ?? widget.categoryId,
+        siteUrl: widget.siteUrl,
+      );
+      return (
+        shell.lifecycle.capture(widget.siteUrl).session,
+        shell.topicComposerCategories(widget.siteUrl),
+        shell.siteConfigFor(widget.siteUrl).allowUncategorizedTopics,
+        selected,
+        shell.categoryFor(widget.parentCategoryId, siteUrl: widget.siteUrl),
+        // Ancestors above the parent reach the trigger only through this label.
+        selected == null
+            ? null
+            : shell.topicCategoryPathLabel(selected, siteUrl: widget.siteUrl),
+      );
+    },
+    builder: (context, _, _) => _anchor(context),
+  );
+
+  Widget _anchor(BuildContext context) {
     final target = widget;
-    final shell = ShellScope.of(context);
+    final shell = ShellScope.read(context);
     final lease = shell.lifecycle.capture(target.siteUrl);
     final scope = (shell, lease.session, target._target);
     if (_scope != scope) {

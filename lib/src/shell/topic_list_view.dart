@@ -745,18 +745,28 @@ class _TopicListViewState extends State<TopicListView> {
                 },
                 child: _body(controller, destination, feedIdentity),
               ),
-              if (state.incoming > 0 && !widget.feed.loadingIncoming)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  child: _IncomingBanner(
-                    count: state.incoming,
-                    newTopicsOnly: state.newTopicsOnly,
-                    onTap: () =>
-                        _showIncoming(controller, destination, feedIdentity),
-                  ),
-                ),
+              // A live arrival changes only this count. Selecting it alongside
+              // the list would hand the sliver a new delegate per message.
+              ForumTabSelector<int>(
+                select: (shell, _) => shell.incomingCount(destination),
+                builder: (context, incoming, _) =>
+                    incoming > 0 && !widget.feed.loadingIncoming
+                    ? Positioned(
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        child: _IncomingBanner(
+                          count: incoming,
+                          newTopicsOnly: state.newTopicsOnly,
+                          onTap: () => _showIncoming(
+                            controller,
+                            destination,
+                            feedIdentity,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
             ],
           ),
         ),
@@ -1792,7 +1802,6 @@ _TopicCategoryPresentation _topicCategoryPresentation(
 typedef _TopicListSnapshot = ({
   _TopicListIdentity feedIdentity,
   String destination,
-  int incoming,
   bool newTopicsOnly,
   int? topicId,
 });
@@ -1807,7 +1816,6 @@ _TopicListSnapshot _topicListSnapshot(
   return (
     feedIdentity: _TopicListViewState._currentFeedIdentity(controller, tab),
     destination: destination,
-    incoming: controller.incomingCount(destination),
     newTopicsOnly: tab.currentTopicListMode?.isNew ?? false,
     topicId: tab.readingTopicId,
   );

@@ -1,6 +1,7 @@
 # Topic composer lifecycle performance
 
-Measured November 7, 2026, against `30f6e213d`.
+Historical comparison measured November 7, 2026, against `30f6e213d`.
+The November 8 verification below has not established the 120 Hz target.
 
 The composer retains foreground control painting during scrolling and reuses
 unchanged retained editor widgets during presentation updates. Native controls,
@@ -67,7 +68,7 @@ Runtime environment variables configure macOS captures:
 | Variable | Meaning |
 | --- | --- |
 | `PROFILE_LABEL` | Capture label. |
-| `COMPOSER_MOBILE=1` | Phone dimensions and iOS theme on the host renderer. |
+| `COMPOSER_MOBILE=1` | Phone layout and iOS theme on the host renderer; native view dimensions remain unchanged. This is a diagnostic simulation, not mobile-device evidence. |
 | `COMPOSER_RETAINED_DRAFTS=6` | Keep six long drafts mounted before measurement. |
 | `COMPOSER_CLOSE_INACTIVE=1` | Save and close an inactive draft while keeping the current editor visible; requires retained drafts. |
 | `COMPOSER_ITERATIONS=1` | Number of lifecycle repetitions; defaults to six. |
@@ -95,7 +96,7 @@ includes test pumps, animations and vsync. Mobile host runs use mocked text inpu
 and do not measure an OS keyboard, device raster performance or physical input
 latency.
 
-The native host reported near-zero raster spans even after dismissing its native
+The earlier native host captures reported near-zero raster spans even after dismissing its native
 launch screen and activating the window. Raster results are unusable. UI-thread
 frame work and deterministic work counts are reported separately; neither
 establishes a device frame-rate improvement.
@@ -173,3 +174,104 @@ latency or frame-rate speedup is claimed from these timings. This pass establish
 removal of unused desktop block-menu parsing while preserving move behavior.
 The final CPU capture also verifies exact coverage of all sample stack indices
 in its exported function table.
+
+## November 8: native 120 Hz verification
+
+The target is every measured UI and raster-thread frame at or below
+`1000 / 120 = 8.333333 ms`, with at least five independent paired launches per
+comparison. Each launch includes a first and a repeated opening. Final checks
+also need resumed long drafts and retained editors. FrameTiming raster duration
+is raster-thread work; it does not measure GPU completion or display presentation.
+
+The earlier zero-raster problem came from overriding the Flutter test view's
+physical size and pixel ratio while its native surface retained different
+constraints. The engine discarded those layer trees. The current fixture uses
+the native view without overrides and rejects phases without meaningful raster
+work. It records native pixel ratio, refresh rate, exact phase timestamps and
+individual frame numbers/timings.
+
+The fixture uses Flutter's public `LiveWidgetController` with the integration
+binding's test error zone. Native text input stays connected, and phone scrolling
+keeps the actual keyboard visible. Opening and closing include bounded waits for
+stable native keyboard insets. Accessibility follows the OS. Its leak invariant
+accounts for the single semantics handle owned by the platform while still
+rejecting application-owned leaks. Application cleanup and its invariant checks
+must finish before the completion marker is published.
+
+The runner writes each driver response into a fresh temporary directory, checks
+its completion, workload, iteration set and compiled label, and preserves failed
+captures separately. On macOS it observes and activates the exact profiling PID,
+avoiding another running application with the same bundle identifier. The budget
+checker rejects debug/instrumented data, simulated layouts, missing native input,
+wrong workloads, copied phase windows, insufficient repetitions and scrolling
+captures throttled below the expected native cadence.
+
+Build a profile bundle for
+`integration_test/composer_lifecycle_performance_test.dart`. Physical iPhone
+settings use `--dart-define`; the device launcher does not forward arbitrary
+shell environment variables. For example:
+
+```sh
+flutter build ios --no-pub --profile \
+  --target integration_test/composer_lifecycle_performance_test.dart \
+  --dart-define=COMPOSER_ITERATIONS=2 \
+  --dart-define=PROFILE_LABEL=baseline
+ditto build/ios/iphoneos/Runner.app /tmp/baseline.app
+
+python3 tool/profile_composer_lifecycle.py /tmp/baseline.app /tmp/baseline-0 \
+  --device DEVICE_UDID --iterations 2 --label baseline
+
+python3 tool/check_composer_frame_budget.py /tmp/baseline-0.json \
+  --platform iOS --repetitions 1
+```
+
+This calibrates one launch. Acceptance requires five launches per side,
+alternating baseline and candidate. Pass only their capture filenames to the
+checker, excluding failed or visibility reports. `COMPOSER_RESUME_DRAFT=1` opens a saved
+120-paragraph draft inside the opening window. The runner/checker select that
+workload with `--opening resumed`. Retained-draft runs use
+`COMPOSER_RETAINED_DRAFTS=6` and `--retained-drafts 6`; inactive closing also uses
+`COMPOSER_CLOSE_INACTIVE=1` and `--inactive-close`.
+
+A successful unchanged-application calibration against `634e5e50f` on the physical iPhone 15 Pro Max
+reports 430 by 932 logical pixels, DPR 3 and 120 Hz, with real input and native
+accessibility enabled. This is one process with two lifecycles, not acceptance
+or a before/after comparison:
+
+| Phase | Largest UI frame | Largest raster-thread frame |
+| --- | ---: | ---: |
+| Opening | 16.357 ms | 6.314 ms |
+| Scrolling | 12.824 ms | 3.329 ms |
+| Closing | 17.631 ms | 1.171 ms |
+
+The conditional todo-span invalidation attempt alone was rejected. Five
+alternating desktop launches per side changed the median largest closing UI
+frame from 16.111 ms (15.000–16.492) to 15.770 ms (9.568–16.400), within run
+variation. A mounted autosave probe then demonstrated another invalidation:
+the localized ThemeData objects differ in identity while their values, editor,
+source, selection, size and strut remain equal. Flutter's localized-theme cache
+has only five identity-keyed entries.
+
+Two candidates are prepared and have passed focused correctness checks:
+
+- Preserve spans across value-equal theme recreation, and avoid invalidating
+  plain-document spans when their todo read-only flag changes. Actual theme
+  changes and todo callback transitions remain covered.
+- Let Native DInput skip unsupported Apple Pencil geometry on confirmed
+  iPhones. Its cached native model query preserves iPad, unknown/error, Android
+  and web behavior. The first native lookup must remain represented in cold
+  opening or startup evidence.
+
+A separate physical-phone CPU diagnostic attributes 859 rectangle-query samples
+to Flutter's iOS handwriting update path. The diagnostic is instrumented and
+excluded from timing acceptance. It does not establish an opening or closing
+speedup.
+
+At the current checkpoint, the task branch has been rebased onto `f00de6dc2`;
+191 focused tests pass and static analysis is clean. The preserved profile
+bundles predate that rebase and must be rebuilt for final paired verification.
+Candidate timing acceptance remains blocked: the iPhone disconnected, and macOS
+keeps loginwindow in front of the profiling process. Locked-screen captures are
+excluded. No new optimization has been accepted or merged from this verification
+pass. Raw captures, diagnostic profiles and the decision log are retained in
+`/tmp/composer-120fps/` and the ignored `.audit/composer-120fps.tsv`.

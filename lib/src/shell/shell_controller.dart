@@ -3161,23 +3161,11 @@ class ShellController extends FrameSafeNotifier
   /// Per-category unread topic counts from the loaded account snapshot.
   /// Null means tracking is not ready; sparse live arrivals are not a total.
   Map<int, int>? categoryUnreadTopicCountsFor(String siteUrl) {
-    if (currentUserFor(siteUrl) == null ||
-        _topicTracking.existing(siteUrl)?.reconciler.hasSnapshot != true) {
+    final tracking = _topicTracking.existing(siteUrl)?.reconciler;
+    if (currentUserFor(siteUrl) == null || tracking?.hasSnapshot != true) {
       return null;
     }
-    final tracking = _topicTracking.existing(siteUrl)?.reconciler;
-    if (tracking == null) return null;
-    final counts = <int, int>{};
-    for (final topic in tracking.topics) {
-      if (topic.isUnread && topic.categoryId != null) {
-        counts.update(
-          topic.categoryId!,
-          (count) => count + 1,
-          ifAbsent: () => 1,
-        );
-      }
-    }
-    return counts;
+    return tracking!.unreadTopicCountsByCategory;
   }
 
   List<TopicCategory> topicComposerCategories(String siteUrl) =>
@@ -7928,6 +7916,7 @@ class ShellController extends FrameSafeNotifier
             }
           }
         },
+        clock: _clock,
       );
 
   String emojiUrlFor(String siteUrl, String name) =>

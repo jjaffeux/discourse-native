@@ -1,0 +1,54 @@
+{
+  "revisions": {
+    "baseline": "44d621e91e052a783104c8ab22e855a3db74e2aa",
+    "candidate": "62dc5579ac1c8b2da1d4f44783a361eda99f36e3"
+  },
+  "method": "Two alternating focused-test runs per side; results always checked",
+  "runs": {
+    "baseline": [
+      {
+        "channel_sort_name_reads": 1636,
+        "activity_estimate_category_reads": 300,
+        "activity_append_category_reads": 333,
+        "deletion_retained_row_lists": 0,
+        "unchanged_empty_poll_option_reads": 2,
+        "emoji_search_name_reads": 24000,
+        "category_count_snapshots": 100,
+        "chat_cooked_reads": 300
+      },
+      {
+        "channel_sort_name_reads": 1636,
+        "activity_estimate_category_reads": 300,
+        "activity_append_category_reads": 333,
+        "deletion_retained_row_lists": 0,
+        "unchanged_empty_poll_option_reads": 2,
+        "emoji_search_name_reads": 24000,
+        "category_count_snapshots": 100,
+        "chat_cooked_reads": 300
+      }
+    ],
+    "candidate": [
+      {
+        "channel_sort_name_reads": 100,
+        "activity_estimate_category_reads": 1,
+        "activity_append_category_reads": 1,
+        "deletion_retained_row_lists": 8,
+        "unchanged_empty_poll_option_reads": 0,
+        "emoji_search_name_reads": 4000,
+        "category_count_snapshots": 1,
+        "chat_cooked_reads": 30
+      },
+      {
+        "emoji_search_name_reads": 4000,
+        "channel_sort_name_reads": 100,
+        "activity_estimate_category_reads": 1,
+        "activity_append_category_reads": 1,
+        "deletion_retained_row_lists": 8,
+        "unchanged_empty_poll_option_reads": 0,
+        "category_count_snapshots": 1,
+        "chat_cooked_reads": 30
+      }
+    ]
+  },
+  "result_check_failures": 0
+}

@@ -933,6 +933,7 @@ final class _Fixture {
         setLoadedThreadOriginalDeleted: (_, channelId, id, deletedAt, clear) =>
             effects.add(['originalDeleted', channelId, id, deletedAt, clear]),
         scheduleThreadDetailRefresh: (_, _) {},
+        isRefreshingThreadDetail: (_, _) => false,
         applyDeleteMutation: (_, data, channelId, thread) =>
             effects.add(['delete', data, channelId, thread]),
         applyBulkDeleteMutation: (_, data, channelId, thread, skip) =>

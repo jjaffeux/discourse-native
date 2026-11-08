@@ -187,6 +187,7 @@ final class CategoryLoadResult {
     Iterable<int>? rootCategoryIds,
     bool canCreateTopic = false,
     SitePostActionCatalog? postActionCatalog,
+    TopicComposerCapabilities? composerCapabilities,
     Iterable<NotificationWireType> notificationTypes = const [],
     Iterable<SidebarTag>? siteTopTags,
     Iterable<SidebarTag>? anonymousDefaultTags,
@@ -204,6 +205,7 @@ final class CategoryLoadResult {
       complete,
       canCreateTopic,
       postActionCatalog,
+      composerCapabilities,
       List<NotificationWireType>.unmodifiable(notificationTypes),
       siteTopTags == null ? null : List<SidebarTag>.unmodifiable(siteTopTags),
       anonymousDefaultTags == null
@@ -219,6 +221,7 @@ final class CategoryLoadResult {
     this.complete,
     this.canCreateTopic,
     this.postActionCatalog,
+    this.composerCapabilities,
     this.notificationTypes,
     this.siteTopTags,
     this.anonymousDefaultTags,
@@ -245,6 +248,11 @@ final class CategoryLoadResult {
   /// Authenticated post-action metadata from the page-one `/site.json` read.
   /// Null means that metadata was not requested or did not arrive.
   final SitePostActionCatalog? postActionCatalog;
+
+  /// What the signed-in user may do in the composer, from the authenticated
+  /// page-one `/site.json` read. Null means that read was not made or did not
+  /// arrive; an anonymous document would understate the account's permissions.
+  final TopicComposerCapabilities? composerCapabilities;
 
   /// The site's notification catalog from the authenticated page-one
   /// `/site.json` read. Empty when that read was not made, failed, or named no

@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show BoxHeightStyle, SemanticsValidationResult;
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +12,7 @@ import '../foundation/control_style.dart';
 import '../foundation/empty_input_controller.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
+import '../foundation/input_handwriting.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
@@ -176,6 +179,7 @@ class _DInputState extends FormFieldState<String> {
   TextEditingController? _ownedController;
   FocusNode? _ownedFocus;
   DInputGroupControlScope? _group;
+  InputHandwriting? _handwriting;
   late final String _resetValue;
   bool _syncing = false;
   late final _emptyController = EmptyInputController()
@@ -196,6 +200,14 @@ class _DInputState extends FormFieldState<String> {
     if (input.focusNode == null) _ownedFocus = FocusNode();
     _controller.addListener(_changed);
     _focus.addListener(_focusChanged);
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.iOS) {
+      _handwriting = inputHandwriting..addListener(_handwritingChanged);
+      unawaited(_handwriting!.ensureLoaded());
+    }
+  }
+
+  void _handwritingChanged() {
+    if (mounted) setState(() {});
   }
 
   void _focusChanged() {
@@ -302,6 +314,7 @@ class _DInputState extends FormFieldState<String> {
   @override
   void dispose() {
     _group?.remove(_focus);
+    _handwriting?.removeListener(_handwritingChanged);
     _controller.removeListener(_changed);
     _focus.removeListener(_focusChanged);
     _ownedController?.dispose();
@@ -478,6 +491,7 @@ class _DInputState extends FormFieldState<String> {
                   autocorrect: input.autocorrect,
                   enableSuggestions: input.enableSuggestions,
                   enableInteractiveSelection: true,
+                  stylusHandwritingEnabled: _handwriting?.value ?? true,
                   inputFormatters: _usingEmptyController
                       ? [TextInputFormatter.withFunction(_formatEmptyInput)]
                       : input.inputFormatters,

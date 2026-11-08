@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/edit_history.dart';
 import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:discourse_native/src/shell/composer/triggers.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -1445,6 +1446,147 @@ void main() {
       ]);
 
       expect(composer.tags, const [TopicTag(id: 8, name: 'mobile')]);
+    });
+  });
+
+  group('title keystrokes', () {
+    const newTopic = NewTopicComposerTarget(
+      siteUrl: 'https://meta.discourse.org',
+      topicTitle: 'New topic',
+    );
+
+    void proof(String metric, int value) {
+      // ignore: avoid_print
+      print('PERF_PROOF composer-title $metric=$value');
+    }
+
+    test('a title caret move is not a draft edit', () {
+      fakeAsync((async) {
+        var saves = 0;
+        final composer = ComposerController(
+          newTopic,
+          onSaveDraft: (_) async {
+            saves++;
+            return 1;
+          },
+        );
+        composer.title.text = 'A useful title';
+        async.elapse(ComposerController.draftDebounce * 2);
+        expect(saves, 1);
+        final revision = composer.draftRevision;
+        var notifications = 0;
+        composer.addListener(() => notifications++);
+
+        for (var offset = 0; offset < 5; offset++) {
+          composer.title.selection = TextSelection.collapsed(offset: offset);
+        }
+        async.elapse(ComposerController.draftDebounce * 2);
+
+        proof('controller_caret_notifications', notifications);
+        proof('controller_caret_saves', saves - 1);
+        expect(composer.title.selection.baseOffset, 4);
+        expect(notifications, 0);
+        expect(saves, 1);
+        expect(composer.draftRevision, revision);
+        composer.dispose();
+      });
+    });
+
+    test('title keys notify when the title appears and when it empties', () {
+      fakeAsync((async) {
+        final saved = <String?>[];
+        final composer = ComposerController(
+          newTopic,
+          onSaveDraft: (save) async {
+            saved.add(save.draft.title);
+            return 1;
+          },
+        );
+        var notifications = 0;
+        composer.addListener(() => notifications++);
+
+        composer.title.text = 'A';
+        expect(notifications, 1);
+        for (final title in ['Ab', 'Abc', 'Abcd', 'Abcde']) {
+          composer.title.text = title;
+        }
+        final afterFirst = notifications - 1;
+        async.elapse(ComposerController.draftDebounce * 2);
+        proof('controller_title_notifications_after_first', afterFirst);
+        expect(afterFirst, 0);
+        expect(saved, ['Abcde']);
+
+        notifications = 0;
+        composer.title.text = '';
+        expect(notifications, 1);
+        composer.dispose();
+      });
+    });
+
+    test('a title key that decides canSubmit notifies exactly once', () {
+      final composer = ComposerController(newTopic);
+      addTearDown(composer.dispose);
+      composer.text.text = 'The body';
+      var notifications = 0;
+      composer.addListener(() => notifications++);
+
+      composer.title.text = 'A';
+
+      expect(composer.canSubmit, isTrue);
+      expect(notifications, 1);
+    });
+
+    test('the field as opened or restored is the baseline of an edit', () {
+      final editing = ComposerController(
+        const TopicEditComposerTarget(
+          privateMessageTopic: false,
+          siteUrl: 'https://meta.discourse.org',
+          topicId: 7,
+          slug: 'a-topic',
+          topicTitle: 'A topic',
+          editingPostId: 8,
+        ),
+      );
+      addTearDown(editing.dispose);
+      editing.title.selection = const TextSelection.collapsed(offset: 3);
+      expect(editing.draftRevision, 0);
+      editing.title.text = 'A changed topic';
+      expect(editing.draftRevision, 1);
+      expect(editing.canSubmit, isTrue);
+
+      final restored = ComposerController(newTopic);
+      addTearDown(restored.dispose);
+      expect(
+        restored.restore(
+          const ComposerDraft(
+            action: ComposerDraft.createTopicAction,
+            title: 'Restored',
+            reply: 'Restored body',
+          ),
+        ),
+        isTrue,
+      );
+      final revision = restored.draftRevision;
+      restored.title.selection = const TextSelection.collapsed(offset: 2);
+      expect(restored.draftRevision, revision);
+    });
+
+    test('a title key ends a discard preview', () {
+      final composer = ComposerController(newTopic);
+      addTearDown(composer.dispose);
+      composer.title.text = 'A title';
+      composer.previewDiscard(
+        ComposerDiscardPreview.all,
+        composer.draftRevision,
+      );
+      expect(composer.discardPreviewKind, ComposerDiscardPreview.all);
+      var notifications = 0;
+      composer.addListener(() => notifications++);
+
+      composer.title.text = 'A title!';
+
+      expect(composer.discardPreviewKind, isNull);
+      expect(notifications, greaterThan(0));
     });
   });
 

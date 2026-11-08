@@ -50,14 +50,6 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
   bool _saving = false;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Account replacement can leave the URL and the widget unchanged.
-    ShellScope.maybeOf(context);
-    _retireStaleOperation();
-  }
-
-  @override
   void didUpdateWidget(TopicTagMenuAnchor oldWidget) {
     super.didUpdateWidget(oldWidget);
     _retireStaleOperation();
@@ -159,7 +151,20 @@ class _TopicTagMenuAnchorState extends State<TopicTagMenuAnchor> {
   }
 
   @override
-  Widget build(BuildContext context) => TopicTaxonomyPickerAnchor(
+  Widget build(BuildContext context) {
+    // A standalone header draws its tags with no shell to replace an account.
+    if (ShellScope.maybeRead(context) == null) return _anchor(context);
+    return ShellSelector<Object>(
+      // Account replacement can leave the URL and the widget unchanged.
+      select: (shell) => shell.lifecycle.capture(widget.siteUrl).session,
+      builder: (context, _, _) {
+        _retireStaleOperation();
+        return _anchor(context);
+      },
+    );
+  }
+
+  Widget _anchor(BuildContext context) => TopicTaxonomyPickerAnchor(
     child: SizedBox(
       key: _anchorKey,
       child: widget.builder(

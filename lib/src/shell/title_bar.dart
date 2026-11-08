@@ -237,16 +237,17 @@ class _DesktopPrimaryAction extends StatelessWidget {
       shell.canReplyHere,
       shell.canCreateTopicFromList,
       shell.canCreateTopicFromSidebar,
+      shell.currentInstance?.url,
       shell.currentInstance?.isConnected,
       shell.currentInstance?.user?.canSendPrivateMessages,
+      shell.currentTopic?.privateMessage == true ? shell.currentTopic : null,
     ),
     builder: (context, _, _) => _action(context),
   );
 
   Widget _action(BuildContext context) {
-    final shell = ShellScope.maybeOf(context);
-    if (shell == null ||
-        !shell.forumActive ||
+    final shell = ShellScope.read(context);
+    if (!shell.forumActive ||
         ComposerPresentationHost.hasVisibleComposerOf(context)) {
       return const SizedBox.shrink();
     }

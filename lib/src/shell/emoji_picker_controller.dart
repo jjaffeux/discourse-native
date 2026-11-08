@@ -261,35 +261,32 @@ final class EmojiPickerController extends ChangeNotifier {
     String query,
     Map<String, List<String>> aliases,
   ) {
-    final alphabetical = catalog.alphabetical;
-    final found = <String>{};
-    final results = <SiteEmoji>[];
-
-    void takeWhere(bool Function(SiteEmoji emoji) matches) {
-      if (results.length >= maxSearchResults) return;
-      for (final emoji in alphabetical) {
-        if (results.length >= maxSearchResults) return;
-        if (!found.contains(emoji.name) && matches(emoji)) {
-          found.add(emoji.name);
-          results.add(emoji);
+    final prefixes = <SiteEmoji>[];
+    final aliasMatches = <SiteEmoji>[];
+    final infixes = <SiteEmoji>[];
+    for (final emoji in catalog.alphabetical) {
+      final name = emoji.name;
+      final folded = name.toLowerCase();
+      if (folded.startsWith(query)) {
+        prefixes.add(emoji);
+        if (prefixes.length == maxSearchResults) break;
+      } else if (aliasMatches.length < maxSearchResults) {
+        final aliasMatch =
+            aliases[name]?.any(
+              (alias) => alias.toLowerCase().startsWith(query),
+            ) ??
+            false;
+        if (aliasMatch) {
+          aliasMatches.add(emoji);
+        } else if (infixes.length < maxSearchResults &&
+            folded.indexOf(query) > 0) {
+          infixes.add(emoji);
         }
       }
     }
-
-    takeWhere((emoji) => emoji.name.toLowerCase().startsWith(query));
-    takeWhere(
-      (emoji) =>
-          aliases[emoji.name]?.any(
-            (alias) => alias.toLowerCase().startsWith(query),
-          ) ??
-          false,
+    return List.unmodifiable(
+      [...prefixes, ...aliasMatches, ...infixes].take(maxSearchResults),
     );
-    takeWhere((emoji) {
-      final index = emoji.name.toLowerCase().indexOf(query);
-      return index > 0;
-    });
-
-    return List.unmodifiable(results);
   }
 
   static FavoriteSiteEmoji? _favorite(

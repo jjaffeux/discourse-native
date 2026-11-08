@@ -1,6 +1,7 @@
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 import 'package:vector_graphics_compiler/vector_graphics_compiler.dart' as vg;
 
@@ -207,54 +208,159 @@ final class _Tint extends vg.ColorMapper {
   ) => this.color;
 }
 
-/// Paints a [TintableGlyph] at [height], laid out and announced as the
-/// compiled `SvgPicture` it replaces: as wide as the viewBox's aspect ratio
-/// allows, and an image in the semantics tree.
-class TintedIconGlyph extends StatelessWidget {
+/// Paints a [TintableGlyph] centred in [box], [height] tall and as wide as the
+/// viewBox's aspect ratio allows, and announces it as the compiled `SvgPicture`
+/// it replaces: an image in the semantics tree.
+///
+/// One render object owns the box, the centring, the paint and the semantics
+/// because a mounted row or post keeps several of these alive, and every
+/// attached render object retains a semantics configuration.
+class TintedIconGlyph extends LeafRenderObjectWidget {
   const TintedIconGlyph({
     super.key,
     required this.glyph,
     required this.color,
     required this.height,
+    required this.box,
     this.semanticLabel,
   });
 
   final TintableGlyph glyph;
   final Color color;
   final double height;
+  final Size box;
   final String? semanticLabel;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-    container: semanticLabel != null,
-    image: true,
-    label: semanticLabel ?? '',
-    textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
-    child: SizedBox(
-      width: height / glyph.size.height * glyph.size.width,
-      height: height,
-      child: CustomPaint(painter: _TintedGlyphPainter(glyph, color)),
-    ),
-  );
-}
-
-class _TintedGlyphPainter extends CustomPainter {
-  const _TintedGlyphPainter(this.glyph, this.color);
-
-  final TintableGlyph glyph;
-  final Color color;
+  RenderObject createRenderObject(BuildContext context) =>
+      RenderTintedIconGlyph(
+        glyph: glyph,
+        color: color,
+        height: height,
+        box: box,
+        label: semanticLabel,
+        textDirection: Directionality.maybeOf(context) ?? TextDirection.ltr,
+      );
 
   @override
-  void paint(Canvas canvas, Size size) {
-    final fitted = applyBoxFit(BoxFit.contain, glyph.size, size);
-    glyph._paintInto(
-      canvas,
-      Alignment.center.inscribe(fitted.destination, Offset.zero & size),
-      color,
+  void updateRenderObject(
+    BuildContext context,
+    RenderTintedIconGlyph renderObject,
+  ) {
+    renderObject
+      ..glyph = glyph
+      ..color = color
+      ..height = height
+      ..box = box
+      ..label = semanticLabel
+      ..textDirection = Directionality.maybeOf(context) ?? TextDirection.ltr;
+  }
+}
+
+class RenderTintedIconGlyph extends RenderBox {
+  RenderTintedIconGlyph({
+    required this._glyph,
+    required this._color,
+    required this._height,
+    required this._box,
+    required this._label,
+    required this._textDirection,
+  });
+
+  TintableGlyph _glyph;
+  set glyph(TintableGlyph value) {
+    if (identical(value, _glyph)) return;
+    _glyph = value;
+    markNeedsLayout();
+  }
+
+  Color _color;
+  set color(Color value) {
+    if (value == _color) return;
+    _color = value;
+    markNeedsPaint();
+  }
+
+  double _height;
+  set height(double value) {
+    if (value == _height) return;
+    _height = value;
+    markNeedsLayout();
+  }
+
+  Size _box;
+  set box(Size value) {
+    if (value == _box) return;
+    _box = value;
+    markNeedsLayout();
+  }
+
+  String? _label;
+  set label(String? value) {
+    if (value == _label) return;
+    _label = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  TextDirection _textDirection;
+  set textDirection(TextDirection value) {
+    if (value == _textDirection) return;
+    _textDirection = value;
+    markNeedsSemanticsUpdate();
+  }
+
+  Rect get _glyphRect {
+    final fitted = BoxConstraints.loose(size).constrain(
+      Size(_height / _glyph.size.height * _glyph.size.width, _height),
+    );
+    return Alignment.center.alongOffset(size - fitted as Offset) & fitted;
+  }
+
+  @override
+  double computeMinIntrinsicWidth(double height) => _box.width;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => _box.width;
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _box.height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _box.height;
+
+  @override
+  Size computeDryLayout(BoxConstraints constraints) =>
+      constraints.constrain(_box);
+
+  @override
+  void performLayout() => size = constraints.constrain(_box);
+
+  // The box around the glyph is layout space and takes no pointer.
+  @override
+  bool hitTestSelf(Offset position) => _glyphRect.contains(position);
+
+  // A labelled icon's node covers the glyph, not the box around it.
+  @override
+  Rect get semanticBounds => _glyphRect;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final rect = _glyphRect.shift(offset);
+    final fitted = applyBoxFit(BoxFit.contain, _glyph.size, rect.size);
+    _glyph._paintInto(
+      context.canvas,
+      Alignment.center.inscribe(fitted.destination, rect),
+      _color,
     );
   }
 
   @override
-  bool shouldRepaint(_TintedGlyphPainter oldDelegate) =>
-      !identical(oldDelegate.glyph, glyph) || oldDelegate.color != color;
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config
+      ..isSemanticBoundary = _label != null
+      ..isImage = true
+      ..label = _label ?? ''
+      ..textDirection = _textDirection;
+  }
 }

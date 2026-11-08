@@ -555,6 +555,9 @@ final class DiscourseSiteApi {
       postActionCatalog: apiKey == null || siteResult?.body == null
           ? null
           : SitePostActionCatalog.fromJson(site),
+      composerCapabilities: apiKey == null || siteResult?.body == null
+          ? null
+          : TopicComposerCapabilities.fromJson(site),
       notificationTypes: apiKey == null ? const [] : _notificationTypes(site),
       siteTopTags: siteResult?.body == null
           ? null

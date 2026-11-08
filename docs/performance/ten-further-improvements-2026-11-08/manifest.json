@@ -1,0 +1,130 @@
+[
+ {
+  "slug": "composer-site-json",
+  "subject": "PERF: open the first composer without refetching /site.json",
+  "proofs": [
+   {
+    "path": "test/startup_request_budget_test.dart",
+    "name": "the tag editor reuses the site read"
+   },
+   {
+    "path": "test/startup_request_budget_test.dart",
+    "name": "a new topic reuses the site read"
+   }
+  ]
+ },
+ {
+  "slug": "incoming-banner",
+  "subject": "PERF: update the incoming topics banner without rebuilding the list",
+  "proofs": [
+   {
+    "path": "test/topic_list_incoming_banner_rebuild_test.dart",
+    "name": "a latest message redraws only the incoming banner"
+   }
+  ]
+ },
+ {
+  "slug": "notification-badges",
+  "subject": "PERF: redraw notification badges without rebuilding the sidebar and rail",
+  "proofs": [
+   {
+    "path": "test/notification_badge_rebuild_test.dart",
+    "name": "count on another forum rebuilds only its rail row"
+   },
+   {
+    "path": "test/notification_badge_rebuild_test.dart",
+    "name": "count on the selected forum redraws only its badges"
+   }
+  ]
+ },
+ {
+  "slug": "chat-thread-refresh",
+  "subject": "PERF: stop fetching thread detail for every live thread reply",
+  "proofs": [
+   {
+    "path": "test/chat_controller_test.dart",
+    "name": "replies to a held thread read no detail"
+   },
+   {
+    "path": "test/chat_controller_test.dart",
+    "name": "a reply to a thread known only by its root reads its detail once"
+   }
+  ]
+ },
+ {
+  "slug": "feed-switch",
+  "subject": "PERF: keep the feed switch's measured widths when a count changes",
+  "proofs": [
+   {
+    "path": "test/topic_feed_menu_test.dart",
+    "name": "keeps every measured segment on its first frame"
+   },
+   {
+    "path": "test/topic_feed_menu_test.dart",
+    "name": "from live tracking rebuilds only the switch"
+   }
+  ]
+ },
+ {
+  "slug": "d-icon",
+  "subject": "PERF: paint a tinted icon with one render object instead of five",
+  "proofs": [
+   {
+    "path": "test/d_icon_test.dart",
+    "name": "a tinted icon mounts one render object"
+   }
+  ]
+ },
+ {
+  "slug": "composer-title",
+  "subject": "PERF: stop a title keystroke or caret move rebuilding the whole composer",
+  "proofs": [
+   {
+    "path": "test/composer_keystroke_rebuild_test.dart",
+    "name": "title keys and caret moves leave the panel alone"
+   },
+   {
+    "path": "test/composer_controller_test.dart",
+    "name": "title keystrokes"
+   }
+  ]
+ },
+ {
+  "slug": "composer-draft-status",
+  "subject": "PERF: stop rebuilding the composer for draft bookkeeping nothing displays",
+  "proofs": [
+   {
+    "path": "test/composer_keystroke_rebuild_test.dart",
+    "name": "body burst and its save leave the panel alone"
+   },
+   {
+    "path": "test/composer_header_draft_status_test.dart",
+    "name": "a burst and its successful save notify nothing"
+   }
+  ]
+ },
+ {
+  "slug": "reader-controls",
+  "subject": "PERF: keep the reader's category, tag and reply controls built across shell notifications",
+  "proofs": [
+   {
+    "path": "test/shell_rebuild_isolation_test.dart",
+    "name": "keeps category, tag and reply controls built"
+   }
+  ]
+ },
+ {
+  "slug": "mention-cache",
+  "subject": "PERF: answer repeated mention and hashtag terms for 30 seconds, as core does",
+  "proofs": [
+   {
+    "path": "test/composer_identity_resolution_test.dart",
+    "name": "retyped mention terms reuse the answer and keep known names"
+   },
+   {
+    "path": "test/composer_identity_resolution_test.dart",
+    "name": "retyped hashtag terms reuse the answer and keep known tags"
+   }
+  ]
+ }
+]
