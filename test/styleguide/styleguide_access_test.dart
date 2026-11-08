@@ -1,4 +1,5 @@
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -39,20 +40,25 @@ void main() {
           await tester.pumpWidget(
             ShellScope(
               controller: controller,
-              child: MaterialApp(
-                theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-                home: const Scaffold(
-                  body: Row(
-                    children: [
-                      SizedBox(width: 72, child: InstanceRail()),
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Workspace draft',
+              child: ComponentStyleguideScope(
+                open: showComponentStyleguide,
+                child: MaterialApp(
+                  theme: AppTheme.light.copyWith(
+                    platform: TargetPlatform.macOS,
+                  ),
+                  home: const Scaffold(
+                    body: Row(
+                      children: [
+                        SizedBox(width: 72, child: InstanceRail()),
+                        Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              labelText: 'Workspace draft',
+                            ),
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -1252,7 +1252,7 @@ class TopicComposerCapabilities {
 /// keeps the typed one has its next metadata write rejected as a conflict.
 @immutable
 class TopicUpdate {
-  const TopicUpdate({this.title, this.tags});
+  const TopicUpdate({this.title, this.localizedTitle, this.tags});
 
   factory TopicUpdate.fromJson(Map<String, dynamic> json) {
     final topic = jsonObject(json['basic_topic']);
@@ -1262,6 +1262,10 @@ class TopicUpdate {
         final String title when title.trim().isNotEmpty => title,
         _ => null,
       },
+      localizedTitle: jsonLocalizedTitle(
+        topic['fancy_title'],
+        topic['fancy_title_localized'],
+      ),
       // Present only when the write carried tags.
       tags: json['tags'] is List<dynamic>
           ? List.unmodifiable(
@@ -1273,6 +1277,10 @@ class TopicUpdate {
 
   /// Null when the answer does not carry one; the title sent stands then.
   final String? title;
+
+  /// The viewer's translation of [title], as the answering site still serves
+  /// it. Null when the answer flags none.
+  final String? localizedTitle;
 
   /// The visible tags the site stored, or null when the answer has none.
   final List<TopicTag>? tags;

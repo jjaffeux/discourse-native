@@ -132,8 +132,10 @@ closed-tab handle retirement when the same ID is reopened.
 
 Raw `title` and optional `localizedTitle` form one title projection. Accepting an
 actually changed raw title clears its previous localization in canonical detail
-and list rows. An unchanged title, category write or tag write does not clear a
-valid translation. Topic detail copying exposes explicit localized replacement
+and list rows, unless the write's own answer still flags a translation, which
+then replaces it: core keeps serving a topic's translation after a rename, so
+clearing it would flip the title back on the next read. An unchanged title,
+category write or tag write does not clear a valid translation. Topic detail copying exposes explicit localized replacement
 and clearing, matching the existing list-row model.
 
 A read dispatched before an accepted title write preserves the current raw and

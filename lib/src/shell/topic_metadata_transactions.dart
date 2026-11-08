@@ -106,7 +106,11 @@ extension _TopicMetadataTransactions on ShellController {
           final stored = update.title ?? title;
           _topicData
               .forLease(siteUrl, lease)
-              ?.projectAcceptedMetadata(topicId, title: stored);
+              ?.projectAcceptedMetadata(
+                topicId,
+                title: stored,
+                localizedTitle: update.localizedTitle,
+              );
           _retitle(
             siteUrl,
             topicId,
