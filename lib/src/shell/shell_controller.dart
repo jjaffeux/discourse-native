@@ -2011,7 +2011,6 @@ class ShellController extends FrameSafeNotifier
 
   Future<void> _load() async {
     markStartup('load start');
-    unawaited(cooking.start());
     final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
     final recentDestinationsLoad = recentDestinations.load();

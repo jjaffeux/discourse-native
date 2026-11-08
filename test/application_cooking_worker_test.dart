@@ -63,7 +63,7 @@ void main() {
   );
 
   test(
-    'real shell setup and teardown own cooking prewarm and disposal',
+    'real shell setup does not prewarm cooking and teardown disposes it',
     () async {
       final service = _LifecycleService();
       final plugins = PluginInstaller.install(const PluginManifest([]));
@@ -78,7 +78,7 @@ void main() {
         cookingService: service,
       );
       await shell.load();
-      expect(service.starts, 1);
+      expect(service.starts, 0);
       final request = shell.cookingRequest(
         siteUrl: 'https://cold.example',
         raw: '**cold**',
