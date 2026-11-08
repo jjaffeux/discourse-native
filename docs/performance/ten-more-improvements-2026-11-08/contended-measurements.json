@@ -1,0 +1,782 @@
+{
+  "baseline_revision": "44d621e91",
+  "units": "microseconds per checked batch",
+  "platform": "macOS-26.6-arm64-arm-64bit",
+  "processes": [
+    {
+      "side": "baseline",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "exit_code": 0
+    }
+  ],
+  "result_check_failures": 0,
+  "runs": {
+    "baseline": [
+      {
+        "chat_sidebar_search_30": 122615,
+        "chat_sidebar_search_300": 1128786,
+        "chat_sidebar_search_cold": 96317,
+        "channel_alphabetical_5": 6288,
+        "channel_alphabetical_100": 488849,
+        "activity_category_estimation_30": 20015,
+        "activity_category_estimation_300": 233709,
+        "draft_delete_first": 103243,
+        "draft_delete_last": 114516,
+        "draft_delete_missing": 115767,
+        "poll_same_reconcile_3": 20590,
+        "poll_changed_reconcile_3": 2182,
+        "poll_same_reconcile_100": 438772,
+        "poll_changed_reconcile_100": 45308,
+        "destination_bookmark_load_20": 25770,
+        "destination_bookmark_load_500": 1900981,
+        "emoji_picker_search_20": 8733,
+        "emoji_picker_cold_prefix_20": 2826,
+        "emoji_picker_search_4000": 787670,
+        "emoji_picker_cold_prefix_4000": 41976,
+        "topic_mega_0_removals": 9148,
+        "topic_mega_20_removals": 12753,
+        "topic_mega_1000_removals": 155443,
+        "topic_gap_0_removals": 25697,
+        "topic_gap_20_removals": 11837,
+        "topic_gap_1000_removals": 175839,
+        "feed_prepend_30_overlap": 46917,
+        "feed_prepend_300_overlap": 411100,
+        "feed_prepend_300_new": 63039
+      },
+      {
+        "chat_sidebar_search_30": 336735,
+        "chat_sidebar_search_300": 3013931,
+        "chat_sidebar_search_cold": 264446,
+        "channel_alphabetical_5": 12175,
+        "channel_alphabetical_100": 1278990,
+        "activity_category_estimation_30": 49185,
+        "activity_category_estimation_300": 646410,
+        "draft_delete_first": 265373,
+        "draft_delete_last": 306608,
+        "draft_delete_missing": 304395,
+        "poll_same_reconcile_3": 47457,
+        "poll_changed_reconcile_3": 6106,
+        "poll_same_reconcile_100": 1218835,
+        "poll_changed_reconcile_100": 129923,
+        "destination_bookmark_load_20": 75880,
+        "destination_bookmark_load_500": 2045121,
+        "emoji_picker_search_20": 14744,
+        "emoji_picker_cold_prefix_20": 3016,
+        "emoji_picker_search_4000": 909391,
+        "emoji_picker_cold_prefix_4000": 56839,
+        "topic_mega_0_removals": 18636,
+        "topic_mega_20_removals": 15767,
+        "topic_mega_1000_removals": 188588,
+        "topic_gap_0_removals": 9979,
+        "topic_gap_20_removals": 19388,
+        "topic_gap_1000_removals": 188725,
+        "feed_prepend_30_overlap": 45843,
+        "feed_prepend_300_overlap": 440433,
+        "feed_prepend_300_new": 47263
+      },
+      {
+        "chat_sidebar_search_30": 334535,
+        "chat_sidebar_search_300": 3171666,
+        "chat_sidebar_search_cold": 273824,
+        "channel_alphabetical_5": 10829,
+        "channel_alphabetical_100": 1421517,
+        "activity_category_estimation_30": 67210,
+        "activity_category_estimation_300": 710937,
+        "draft_delete_first": 318599,
+        "draft_delete_last": 377387,
+        "draft_delete_missing": 338412,
+        "poll_same_reconcile_3": 48569,
+        "poll_changed_reconcile_3": 6021,
+        "poll_same_reconcile_100": 1271147,
+        "poll_changed_reconcile_100": 134960,
+        "destination_bookmark_load_20": 71370,
+        "destination_bookmark_load_500": 2205657,
+        "emoji_picker_search_20": 14502,
+        "emoji_picker_cold_prefix_20": 2809,
+        "emoji_picker_search_4000": 922815,
+        "emoji_picker_cold_prefix_4000": 48808,
+        "topic_mega_0_removals": 13817,
+        "topic_mega_20_removals": 19983,
+        "topic_mega_1000_removals": 193436,
+        "topic_gap_0_removals": 19901,
+        "topic_gap_20_removals": 20968,
+        "topic_gap_1000_removals": 188877,
+        "feed_prepend_30_overlap": 74790,
+        "feed_prepend_300_overlap": 450401,
+        "feed_prepend_300_new": 55164
+      },
+      {
+        "chat_sidebar_search_30": 308211,
+        "chat_sidebar_search_300": 3036878,
+        "chat_sidebar_search_cold": 294893,
+        "channel_alphabetical_5": 13480,
+        "channel_alphabetical_100": 1368227,
+        "activity_category_estimation_30": 61205,
+        "activity_category_estimation_300": 661150,
+        "draft_delete_first": 270325,
+        "draft_delete_last": 302345,
+        "draft_delete_missing": 335593,
+        "poll_same_reconcile_3": 47927,
+        "poll_changed_reconcile_3": 6289,
+        "poll_same_reconcile_100": 1307263,
+        "poll_changed_reconcile_100": 141983,
+        "destination_bookmark_load_20": 63193,
+        "destination_bookmark_load_500": 2144915,
+        "emoji_picker_search_20": 11146,
+        "emoji_picker_cold_prefix_20": 4047,
+        "emoji_picker_search_4000": 941389,
+        "emoji_picker_cold_prefix_4000": 47283,
+        "topic_mega_0_removals": 14370,
+        "topic_mega_20_removals": 24821,
+        "topic_mega_1000_removals": 162155,
+        "topic_gap_0_removals": 22958,
+        "topic_gap_20_removals": 14091,
+        "topic_gap_1000_removals": 181799,
+        "feed_prepend_30_overlap": 51577,
+        "feed_prepend_300_overlap": 465879,
+        "feed_prepend_300_new": 44115
+      },
+      {
+        "chat_sidebar_search_30": 323995,
+        "chat_sidebar_search_300": 3021018,
+        "chat_sidebar_search_cold": 288788,
+        "channel_alphabetical_5": 13659,
+        "channel_alphabetical_100": 1371658,
+        "activity_category_estimation_30": 56270,
+        "activity_category_estimation_300": 708206,
+        "draft_delete_first": 301624,
+        "draft_delete_last": 310577,
+        "draft_delete_missing": 297542,
+        "poll_same_reconcile_3": 44983,
+        "poll_changed_reconcile_3": 4199,
+        "poll_same_reconcile_100": 1103931,
+        "poll_changed_reconcile_100": 122995,
+        "destination_bookmark_load_20": 53691,
+        "destination_bookmark_load_500": 2384070,
+        "emoji_picker_search_20": 11553,
+        "emoji_picker_cold_prefix_20": 1314,
+        "emoji_picker_search_4000": 1064164,
+        "emoji_picker_cold_prefix_4000": 43113,
+        "topic_mega_0_removals": 10346,
+        "topic_mega_20_removals": 29718,
+        "topic_mega_1000_removals": 164915,
+        "topic_gap_0_removals": 8479,
+        "topic_gap_20_removals": 30610,
+        "topic_gap_1000_removals": 188388,
+        "feed_prepend_30_overlap": 48320,
+        "feed_prepend_300_overlap": 468727,
+        "feed_prepend_300_new": 39331
+      }
+    ],
+    "candidate": [
+      {
+        "chat_sidebar_search_30": 19524,
+        "chat_sidebar_search_300": 61455,
+        "chat_sidebar_search_cold": 318931,
+        "channel_alphabetical_5": 15187,
+        "channel_alphabetical_100": 822594,
+        "activity_category_estimation_30": 46117,
+        "activity_category_estimation_300": 471199,
+        "draft_delete_first": 183637,
+        "draft_delete_last": 224996,
+        "draft_delete_missing": 216571,
+        "poll_same_reconcile_3": 6779,
+        "poll_changed_reconcile_3": 4824,
+        "poll_same_reconcile_100": 4485,
+        "poll_changed_reconcile_100": 118894,
+        "destination_bookmark_load_20": 68351,
+        "destination_bookmark_load_500": 1315347,
+        "emoji_picker_search_20": 5699,
+        "emoji_picker_cold_prefix_20": 3124,
+        "emoji_picker_search_4000": 691825,
+        "emoji_picker_cold_prefix_4000": 60047,
+        "topic_mega_0_removals": 18331,
+        "topic_mega_20_removals": 19697,
+        "topic_mega_1000_removals": 119010,
+        "topic_gap_0_removals": 12489,
+        "topic_gap_20_removals": 19777,
+        "topic_gap_1000_removals": 102620,
+        "feed_prepend_30_overlap": 60253,
+        "feed_prepend_300_overlap": 306977,
+        "feed_prepend_300_new": 54091
+      },
+      {
+        "chat_sidebar_search_30": 18940,
+        "chat_sidebar_search_300": 58512,
+        "chat_sidebar_search_cold": 321702,
+        "channel_alphabetical_5": 16784,
+        "channel_alphabetical_100": 877254,
+        "activity_category_estimation_30": 50368,
+        "activity_category_estimation_300": 490362,
+        "draft_delete_first": 177857,
+        "draft_delete_last": 233062,
+        "draft_delete_missing": 212421,
+        "poll_same_reconcile_3": 4461,
+        "poll_changed_reconcile_3": 4435,
+        "poll_same_reconcile_100": 5720,
+        "poll_changed_reconcile_100": 127670,
+        "destination_bookmark_load_20": 59738,
+        "destination_bookmark_load_500": 1452472,
+        "emoji_picker_search_20": 7837,
+        "emoji_picker_cold_prefix_20": 2827,
+        "emoji_picker_search_4000": 665314,
+        "emoji_picker_cold_prefix_4000": 49342,
+        "topic_mega_0_removals": 13376,
+        "topic_mega_20_removals": 10958,
+        "topic_mega_1000_removals": 89145,
+        "topic_gap_0_removals": 14413,
+        "topic_gap_20_removals": 13111,
+        "topic_gap_1000_removals": 95984,
+        "feed_prepend_30_overlap": 62245,
+        "feed_prepend_300_overlap": 297628,
+        "feed_prepend_300_new": 40013
+      },
+      {
+        "chat_sidebar_search_30": 11957,
+        "chat_sidebar_search_300": 52504,
+        "chat_sidebar_search_cold": 314625,
+        "channel_alphabetical_5": 13394,
+        "channel_alphabetical_100": 886896,
+        "activity_category_estimation_30": 42524,
+        "activity_category_estimation_300": 501247,
+        "draft_delete_first": 189822,
+        "draft_delete_last": 251293,
+        "draft_delete_missing": 216908,
+        "poll_same_reconcile_3": 3447,
+        "poll_changed_reconcile_3": 4926,
+        "poll_same_reconcile_100": 4129,
+        "poll_changed_reconcile_100": 133286,
+        "destination_bookmark_load_20": 74112,
+        "destination_bookmark_load_500": 1469680,
+        "emoji_picker_search_20": 6073,
+        "emoji_picker_cold_prefix_20": 6304,
+        "emoji_picker_search_4000": 629035,
+        "emoji_picker_cold_prefix_4000": 57059,
+        "topic_mega_0_removals": 11523,
+        "topic_mega_20_removals": 15338,
+        "topic_mega_1000_removals": 110538,
+        "topic_gap_0_removals": 10710,
+        "topic_gap_20_removals": 18661,
+        "topic_gap_1000_removals": 110878,
+        "feed_prepend_30_overlap": 66988,
+        "feed_prepend_300_overlap": 329873,
+        "feed_prepend_300_new": 54705
+      },
+      {
+        "chat_sidebar_search_30": 15398,
+        "chat_sidebar_search_300": 49001,
+        "chat_sidebar_search_cold": 255658,
+        "channel_alphabetical_5": 11946,
+        "channel_alphabetical_100": 874087,
+        "activity_category_estimation_30": 61385,
+        "activity_category_estimation_300": 637889,
+        "draft_delete_first": 201970,
+        "draft_delete_last": 249014,
+        "draft_delete_missing": 206191,
+        "poll_same_reconcile_3": 3154,
+        "poll_changed_reconcile_3": 4379,
+        "poll_same_reconcile_100": 4743,
+        "poll_changed_reconcile_100": 118936,
+        "destination_bookmark_load_20": 77336,
+        "destination_bookmark_load_500": 1404292,
+        "emoji_picker_search_20": 4990,
+        "emoji_picker_cold_prefix_20": 2104,
+        "emoji_picker_search_4000": 704051,
+        "emoji_picker_cold_prefix_4000": 45385,
+        "topic_mega_0_removals": 26429,
+        "topic_mega_20_removals": 13379,
+        "topic_mega_1000_removals": 96242,
+        "topic_gap_0_removals": 12622,
+        "topic_gap_20_removals": 16261,
+        "topic_gap_1000_removals": 98408,
+        "feed_prepend_30_overlap": 62016,
+        "feed_prepend_300_overlap": 309633,
+        "feed_prepend_300_new": 46874
+      },
+      {
+        "chat_sidebar_search_30": 13794,
+        "chat_sidebar_search_300": 65988,
+        "chat_sidebar_search_cold": 297252,
+        "channel_alphabetical_5": 12389,
+        "channel_alphabetical_100": 878888,
+        "activity_category_estimation_30": 35245,
+        "activity_category_estimation_300": 512872,
+        "draft_delete_first": 201107,
+        "draft_delete_last": 240109,
+        "draft_delete_missing": 225821,
+        "poll_same_reconcile_3": 4302,
+        "poll_changed_reconcile_3": 4421,
+        "poll_same_reconcile_100": 4215,
+        "poll_changed_reconcile_100": 115267,
+        "destination_bookmark_load_20": 76916,
+        "destination_bookmark_load_500": 1410052,
+        "emoji_picker_search_20": 6347,
+        "emoji_picker_cold_prefix_20": 1996,
+        "emoji_picker_search_4000": 662680,
+        "emoji_picker_cold_prefix_4000": 47167,
+        "topic_mega_0_removals": 14703,
+        "topic_mega_20_removals": 24642,
+        "topic_mega_1000_removals": 99450,
+        "topic_gap_0_removals": 14771,
+        "topic_gap_20_removals": 13324,
+        "topic_gap_1000_removals": 92788,
+        "feed_prepend_30_overlap": 61700,
+        "feed_prepend_300_overlap": 262417,
+        "feed_prepend_300_new": 54205
+      }
+    ]
+  },
+  "summary": {
+    "activity_category_estimation_30": {
+      "baseline": {
+        "median_us": 56270,
+        "min_us": 20015,
+        "max_us": 67210
+      },
+      "candidate": {
+        "median_us": 46117,
+        "min_us": 35245,
+        "max_us": 61385
+      },
+      "less_time_percent": 18.043362360049763,
+      "nonoverlapping_gain": false
+    },
+    "activity_category_estimation_300": {
+      "baseline": {
+        "median_us": 661150,
+        "min_us": 233709,
+        "max_us": 710937
+      },
+      "candidate": {
+        "median_us": 501247,
+        "min_us": 471199,
+        "max_us": 637889
+      },
+      "less_time_percent": 24.18558572184829,
+      "nonoverlapping_gain": false
+    },
+    "channel_alphabetical_100": {
+      "baseline": {
+        "median_us": 1368227,
+        "min_us": 488849,
+        "max_us": 1421517
+      },
+      "candidate": {
+        "median_us": 877254,
+        "min_us": 822594,
+        "max_us": 886896
+      },
+      "less_time_percent": 35.883884764735676,
+      "nonoverlapping_gain": false
+    },
+    "channel_alphabetical_5": {
+      "baseline": {
+        "median_us": 12175,
+        "min_us": 6288,
+        "max_us": 13659
+      },
+      "candidate": {
+        "median_us": 13394,
+        "min_us": 11946,
+        "max_us": 16784
+      },
+      "less_time_percent": -10.01232032854209,
+      "nonoverlapping_gain": false
+    },
+    "chat_sidebar_search_30": {
+      "baseline": {
+        "median_us": 323995,
+        "min_us": 122615,
+        "max_us": 336735
+      },
+      "candidate": {
+        "median_us": 15398,
+        "min_us": 11957,
+        "max_us": 19524
+      },
+      "less_time_percent": 95.24745752249262,
+      "nonoverlapping_gain": true
+    },
+    "chat_sidebar_search_300": {
+      "baseline": {
+        "median_us": 3021018,
+        "min_us": 1128786,
+        "max_us": 3171666
+      },
+      "candidate": {
+        "median_us": 58512,
+        "min_us": 49001,
+        "max_us": 65988
+      },
+      "less_time_percent": 98.06316943493883,
+      "nonoverlapping_gain": true
+    },
+    "chat_sidebar_search_cold": {
+      "baseline": {
+        "median_us": 273824,
+        "min_us": 96317,
+        "max_us": 294893
+      },
+      "candidate": {
+        "median_us": 314625,
+        "min_us": 255658,
+        "max_us": 321702
+      },
+      "less_time_percent": -14.90044700245412,
+      "nonoverlapping_gain": false
+    },
+    "destination_bookmark_load_20": {
+      "baseline": {
+        "median_us": 63193,
+        "min_us": 25770,
+        "max_us": 75880
+      },
+      "candidate": {
+        "median_us": 74112,
+        "min_us": 59738,
+        "max_us": 77336
+      },
+      "less_time_percent": -17.278812526703913,
+      "nonoverlapping_gain": false
+    },
+    "destination_bookmark_load_500": {
+      "baseline": {
+        "median_us": 2144915,
+        "min_us": 1900981,
+        "max_us": 2384070
+      },
+      "candidate": {
+        "median_us": 1410052,
+        "min_us": 1315347,
+        "max_us": 1469680
+      },
+      "less_time_percent": 34.26070496966081,
+      "nonoverlapping_gain": true
+    },
+    "draft_delete_first": {
+      "baseline": {
+        "median_us": 270325,
+        "min_us": 103243,
+        "max_us": 318599
+      },
+      "candidate": {
+        "median_us": 189822,
+        "min_us": 177857,
+        "max_us": 201970
+      },
+      "less_time_percent": 29.780079533894387,
+      "nonoverlapping_gain": false
+    },
+    "draft_delete_last": {
+      "baseline": {
+        "median_us": 306608,
+        "min_us": 114516,
+        "max_us": 377387
+      },
+      "candidate": {
+        "median_us": 240109,
+        "min_us": 224996,
+        "max_us": 251293
+      },
+      "less_time_percent": 21.688605646297553,
+      "nonoverlapping_gain": false
+    },
+    "draft_delete_missing": {
+      "baseline": {
+        "median_us": 304395,
+        "min_us": 115767,
+        "max_us": 338412
+      },
+      "candidate": {
+        "median_us": 216571,
+        "min_us": 206191,
+        "max_us": 225821
+      },
+      "less_time_percent": 28.85198508516894,
+      "nonoverlapping_gain": false
+    },
+    "emoji_picker_cold_prefix_20": {
+      "baseline": {
+        "median_us": 2826,
+        "min_us": 1314,
+        "max_us": 4047
+      },
+      "candidate": {
+        "median_us": 2827,
+        "min_us": 1996,
+        "max_us": 6304
+      },
+      "less_time_percent": -0.035385704175516786,
+      "nonoverlapping_gain": false
+    },
+    "emoji_picker_cold_prefix_4000": {
+      "baseline": {
+        "median_us": 47283,
+        "min_us": 41976,
+        "max_us": 56839
+      },
+      "candidate": {
+        "median_us": 49342,
+        "min_us": 45385,
+        "max_us": 60047
+      },
+      "less_time_percent": -4.354630628344225,
+      "nonoverlapping_gain": false
+    },
+    "emoji_picker_search_20": {
+      "baseline": {
+        "median_us": 11553,
+        "min_us": 8733,
+        "max_us": 14744
+      },
+      "candidate": {
+        "median_us": 6073,
+        "min_us": 4990,
+        "max_us": 7837
+      },
+      "less_time_percent": 47.43356703886437,
+      "nonoverlapping_gain": true
+    },
+    "emoji_picker_search_4000": {
+      "baseline": {
+        "median_us": 922815,
+        "min_us": 787670,
+        "max_us": 1064164
+      },
+      "candidate": {
+        "median_us": 665314,
+        "min_us": 629035,
+        "max_us": 704051
+      },
+      "less_time_percent": 27.90385938676766,
+      "nonoverlapping_gain": true
+    },
+    "feed_prepend_300_new": {
+      "baseline": {
+        "median_us": 47263,
+        "min_us": 39331,
+        "max_us": 63039
+      },
+      "candidate": {
+        "median_us": 54091,
+        "min_us": 40013,
+        "max_us": 54705
+      },
+      "less_time_percent": -14.446818864651,
+      "nonoverlapping_gain": false
+    },
+    "feed_prepend_300_overlap": {
+      "baseline": {
+        "median_us": 450401,
+        "min_us": 411100,
+        "max_us": 468727
+      },
+      "candidate": {
+        "median_us": 306977,
+        "min_us": 262417,
+        "max_us": 329873
+      },
+      "less_time_percent": 31.843623793019994,
+      "nonoverlapping_gain": true
+    },
+    "feed_prepend_30_overlap": {
+      "baseline": {
+        "median_us": 48320,
+        "min_us": 45843,
+        "max_us": 74790
+      },
+      "candidate": {
+        "median_us": 62016,
+        "min_us": 60253,
+        "max_us": 66988
+      },
+      "less_time_percent": -28.34437086092716,
+      "nonoverlapping_gain": false
+    },
+    "poll_changed_reconcile_100": {
+      "baseline": {
+        "median_us": 129923,
+        "min_us": 45308,
+        "max_us": 141983
+      },
+      "candidate": {
+        "median_us": 118936,
+        "min_us": 115267,
+        "max_us": 133286
+      },
+      "less_time_percent": 8.456547339578059,
+      "nonoverlapping_gain": false
+    },
+    "poll_changed_reconcile_3": {
+      "baseline": {
+        "median_us": 6021,
+        "min_us": 2182,
+        "max_us": 6289
+      },
+      "candidate": {
+        "median_us": 4435,
+        "min_us": 4379,
+        "max_us": 4926
+      },
+      "less_time_percent": 26.341139345623652,
+      "nonoverlapping_gain": false
+    },
+    "poll_same_reconcile_100": {
+      "baseline": {
+        "median_us": 1218835,
+        "min_us": 438772,
+        "max_us": 1307263
+      },
+      "candidate": {
+        "median_us": 4485,
+        "min_us": 4129,
+        "max_us": 5720
+      },
+      "less_time_percent": 99.63202566385114,
+      "nonoverlapping_gain": true
+    },
+    "poll_same_reconcile_3": {
+      "baseline": {
+        "median_us": 47457,
+        "min_us": 20590,
+        "max_us": 48569
+      },
+      "candidate": {
+        "median_us": 4302,
+        "min_us": 3154,
+        "max_us": 6779
+      },
+      "less_time_percent": 90.93495164043239,
+      "nonoverlapping_gain": true
+    },
+    "topic_gap_0_removals": {
+      "baseline": {
+        "median_us": 19901,
+        "min_us": 8479,
+        "max_us": 25697
+      },
+      "candidate": {
+        "median_us": 12622,
+        "min_us": 10710,
+        "max_us": 14771
+      },
+      "less_time_percent": 36.57605145470077,
+      "nonoverlapping_gain": false
+    },
+    "topic_gap_1000_removals": {
+      "baseline": {
+        "median_us": 188388,
+        "min_us": 175839,
+        "max_us": 188877
+      },
+      "candidate": {
+        "median_us": 98408,
+        "min_us": 92788,
+        "max_us": 110878
+      },
+      "less_time_percent": 47.763127163088946,
+      "nonoverlapping_gain": true
+    },
+    "topic_gap_20_removals": {
+      "baseline": {
+        "median_us": 19388,
+        "min_us": 11837,
+        "max_us": 30610
+      },
+      "candidate": {
+        "median_us": 16261,
+        "min_us": 13111,
+        "max_us": 19777
+      },
+      "less_time_percent": 16.12853311326594,
+      "nonoverlapping_gain": false
+    },
+    "topic_mega_0_removals": {
+      "baseline": {
+        "median_us": 13817,
+        "min_us": 9148,
+        "max_us": 18636
+      },
+      "candidate": {
+        "median_us": 14703,
+        "min_us": 11523,
+        "max_us": 26429
+      },
+      "less_time_percent": -6.41239053340088,
+      "nonoverlapping_gain": false
+    },
+    "topic_mega_1000_removals": {
+      "baseline": {
+        "median_us": 164915,
+        "min_us": 155443,
+        "max_us": 193436
+      },
+      "candidate": {
+        "median_us": 99450,
+        "min_us": 89145,
+        "max_us": 119010
+      },
+      "less_time_percent": 39.69620713700998,
+      "nonoverlapping_gain": true
+    },
+    "topic_mega_20_removals": {
+      "baseline": {
+        "median_us": 19983,
+        "min_us": 12753,
+        "max_us": 29718
+      },
+      "candidate": {
+        "median_us": 15338,
+        "min_us": 10958,
+        "max_us": 24642
+      },
+      "less_time_percent": 23.244758044337686,
+      "nonoverlapping_gain": false
+    }
+  }
+}

@@ -1460,10 +1460,9 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
       if (!isCurrent) return;
-      final removed = _removedSince(detail.id, stamp.removals);
       final page = [
         for (final post in posts)
-          if (!removed.contains(post.id) &&
+          if (!_removedAfter(detail.id, post.id, stamp.removals) &&
               (newer
                   ? post.postNumber > edge.postNumber
                   : post.postNumber < edge.postNumber))
@@ -1477,8 +1476,7 @@ final class TopicDataSession implements BookmarkTopicData {
           newer: newer,
           postIds: [
             for (final post in page)
-              if (!_removedSince(detail.id, stamp.removals).contains(post.id))
-                post.id,
+              if (!_removedAfter(detail.id, post.id, stamp.removals)) post.id,
           ],
           lastPostIdAtDispatch: detail.lastPostId,
         ),
@@ -1527,10 +1525,10 @@ final class TopicDataSession implements BookmarkTopicData {
         ),
       );
       if (!isCurrent) return;
-      final removed = _removedSince(topicId, stamp.removals);
       final byId = {
         for (final post in posts)
-          if (requested.contains(post.id) && !removed.contains(post.id))
+          if (requested.contains(post.id) &&
+              !_removedAfter(topicId, post.id, stamp.removals))
             post.id: post,
       };
       final revealed = [
@@ -1550,7 +1548,7 @@ final class TopicDataSession implements BookmarkTopicData {
           consumedIds: requested,
           revealedIds: [
             for (final id in revealed)
-              if (!_removedSince(topicId, stamp.removals).contains(id)) id,
+              if (!_removedAfter(topicId, id, stamp.removals)) id,
           ],
         ),
       );
@@ -2352,7 +2350,7 @@ final class TopicDataSession implements BookmarkTopicData {
           )) {
         return const ReplyIndeterminate();
       }
-      if (_removedSince(topicId, stamp.removals).contains(landed.id)) {
+      if (_removedAfter(topicId, landed.id, stamp.removals)) {
         return const ReplyIndeterminate();
       }
       _update<TopicDetail>(topicId, (held) => held.withPostId(landed.id));

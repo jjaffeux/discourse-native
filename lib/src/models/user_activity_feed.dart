@@ -36,9 +36,17 @@ class UserActivityFeed {
   bool get hasPrevious => firstOffset > 0;
   int previousOffset(int limit) => (firstOffset - limit).clamp(0, firstOffset);
   int get retainedPageCount => window.packets.length;
-  int get estimatedRetainedBytes => window.estimatedBytes(
-    (row) => _estimate(row) + _categoryBytes(categoriesById[row.categoryId]),
-  );
+  int get estimatedRetainedBytes {
+    final categoryBytes = <int?, int>{};
+    return window.estimatedBytes(
+      (row) =>
+          _estimate(row) +
+          (categoryBytes[row.categoryId] ??= _categoryBytes(
+            categoriesById[row.categoryId],
+          )),
+    );
+  }
+
   bool get isEmpty =>
       loaded && !hasPrevious && !hasMore && error == null && items.isEmpty;
 
@@ -71,6 +79,7 @@ class UserActivityFeed {
       if (!replace) ...categoriesById,
       for (final category in page.categories) category.id: category,
     };
+    final categoryBytes = <int?, int>{};
     final updated = base.withPage(
       incoming: page.items,
       start: start,
@@ -79,7 +88,10 @@ class UserActivityFeed {
       identity: (item) => item.identity,
       merge: (_, incoming) => incoming,
       estimate: (row) =>
-          _estimate(row) + _categoryBytes(categories[row.categoryId]),
+          _estimate(row) +
+          (categoryBytes[row.categoryId] ??= _categoryBytes(
+            categories[row.categoryId],
+          )),
     );
     final rows = updated.items;
     final usedCategories = {for (final row in rows) row.categoryId};

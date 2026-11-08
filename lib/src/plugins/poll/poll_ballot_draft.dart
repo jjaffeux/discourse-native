@@ -25,6 +25,15 @@ final class PollBallotDraft {
       selection.contains(optionId) || selection.length < maximum;
 
   PollBallotDraft reconcile(Poll next) {
+    if (identical(_poll, next)) {
+      if (selection.isEmpty) return this;
+      final options = next.options.map((option) => option.id).toSet();
+      if (selection.every(options.contains)) return this;
+      return PollBallotDraft(
+        next,
+        selection: selection.where(options.contains),
+      );
+    }
     final oldOptions = _poll.options.map((option) => option.id).toSet();
     final newOptions = next.options.map((option) => option.id).toSet();
     if (_poll.name != next.name ||

@@ -46,6 +46,8 @@ final class TopicTrackingReconciler {
 
   TrackedTopicState? topic(int id) => _state.topic(id);
   Iterable<TrackedTopicState> get topics => _state.topics;
+  Map<int, int> get unreadTopicCountsByCategory =>
+      _state.unreadTopicCountsByCategory;
   ({int newTopics, int newReplies}) get newActivityCounts =>
       _state.newActivityCounts;
 

@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import os
 import platform
 import statistics
 import subprocess
@@ -13,13 +14,27 @@ def main():
     parser.add_argument("baseline")
     parser.add_argument("candidate")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--baseline-revision", default="ecafcb48a")
+    parser.add_argument("--runs", type=int, default=5)
+    parser.add_argument("--balanced-order", action="store_true")
+    parser.add_argument("--focused", action="store_true")
     args = parser.parse_args()
+    if args.runs < 5:
+        parser.error("At least five runs per side are required")
+    environment = os.environ.copy()
+    environment.pop("PERF_FOCUS_ACTIVITY", None)
+    if args.focused:
+        environment["PERF_FOCUS_ACTIVITY"] = "1"
     results = {"baseline": [], "candidate": []}
     processes = []
-    for run in range(5):
-        for side in results:
+    for run in range(args.runs):
+        order = list(results)
+        if args.balanced_order and run % 2:
+            order.reverse()
+        for side in order:
             process = subprocess.run(
-                [getattr(args, side)], capture_output=True, text=True, timeout=180
+                [getattr(args, side)], capture_output=True, text=True, timeout=180,
+                env=environment,
             )
             marker = "ADDITIONAL_PERFORMANCE "
             lines = [line for line in process.stdout.splitlines() if marker in line]
@@ -54,7 +69,10 @@ def main():
         row["nonoverlapping_gain"] = row["candidate"]["max_us"] < row["baseline"]["min_us"]
         summary[name] = row
     artifact = {
-        "baseline_revision": "ecafcb48a",
+        "baseline_revision": args.baseline_revision,
+        "runs_per_side": args.runs,
+        "balanced_order": args.balanced_order,
+        "workload_selection": "activity-and-chat-control" if args.focused else "all",
         "units": "microseconds per checked batch",
         "platform": platform.platform(),
         "processes": processes,
