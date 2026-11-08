@@ -7,6 +7,7 @@ import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/topic_tracking_state.dart';
 import '../plugin_api/discourse_model_codec.dart';
+import '../plugin_api/preserved_json.dart';
 
 /// The MessageBus snapshots and matching channel positions embedded by
 /// Discourse in an authenticated application document.
@@ -17,11 +18,19 @@ final class SiteMessageBusBootstrap {
     required this.topicTrackingState,
     required Map<String, int> topicTrackingLastIds,
     required this.notificationChannelPosition,
-    this.serverPluginNames = const {},
-  }) : currentUserState = currentUserState == null
-           ? null
-           : Map.unmodifiable(currentUserState),
+    Set<String> serverPluginNames = const {},
+  }) : currentUserState = _snapshotUserState(currentUserState),
+       serverPluginNames = Set.unmodifiable(serverPluginNames),
        topicTrackingLastIds = Map.unmodifiable(topicTrackingLastIds);
+
+  static Map<String, dynamic>? _snapshotUserState(Map<String, dynamic>? state) {
+    if (state == null) return null;
+    final frozen = freezeJson(state);
+    if (!frozen.valid) {
+      throw const FormatException('Invalid bootstrap current-user state.');
+    }
+    return frozen.value as Map<String, dynamic>;
+  }
 
   final DiscourseUser? currentUser;
 

@@ -23,6 +23,46 @@ const _reader = DiscourseUser(id: 7, username: 'reader');
 
 void main() {
   test(
+    'bootstrap channel fanout cannot alter a peers admitted nested state',
+    () async {
+      final api = _Api()
+        ..firstBootstrap = Completer<SiteMessageBusBootstrap?>();
+      final fixture = _Fixture(api: api);
+      addTearDown(fixture.dispose);
+      var refusedMutation = false;
+      final received = <int>[];
+      fixture.onMessage = (kind, data) {
+        final counts = (data as Map)['grouped_unread_notifications'] as Map;
+        if (kind == SiteLiveMessage.notifications) {
+          try {
+            counts['mentioned'] = 99;
+          } on UnsupportedError {
+            refusedMutation = true;
+          }
+        }
+        if (kind == SiteLiveMessage.reviewableCounts) {
+          received.add(counts['mentioned'] as int);
+        }
+      };
+      final starting = fixture.start();
+      api.firstBootstrap!.complete(
+        SiteMessageBusBootstrap(
+          currentUser: _reader,
+          currentUserState: {
+            'grouped_unread_notifications': {'mentioned': 2},
+          },
+          topicTrackingState: null,
+          topicTrackingLastIds: const {},
+          notificationChannelPosition: null,
+        ),
+      );
+      await starting;
+      expect(refusedMutation, isTrue);
+      expect(received, [2]);
+    },
+  );
+
+  test(
     'headless anonymous public session never reads stored credentials',
     () async {
       final fixture = _Fixture(user: null);
@@ -313,6 +353,7 @@ final class _Fixture implements SiteLiveCurrentUsers, SiteLiveComposition {
   bool retained = false;
   int visibleSyncs = 0;
   final messages = <SiteLiveMessage>[];
+  void Function(SiteLiveMessage kind, Object? data)? onMessage;
   final bootstraps = <SiteMessageBusBootstrap>[];
   void Function(PluginLiveChannelHandle)? onAttach;
   CurrentUserReconciler? _userReconciler;
@@ -376,7 +417,10 @@ final class _Fixture implements SiteLiveCurrentUsers, SiteLiveComposition {
     SiteLease lease,
     SiteLiveMessage kind,
     Object? data,
-  ) => messages.add(kind);
+  ) {
+    messages.add(kind);
+    onMessage?.call(kind, data);
+  }
 
   @override
   void bootstrapReceived(String siteUrl, SiteMessageBusBootstrap bootstrap) =>

@@ -14,6 +14,38 @@ import 'support/bundled_plugins.dart';
 void main() {
   group('SiteTracker', () {
     group('connection and core-channel setup', () {
+      test(
+        'tracking enrollment rolls back partial channels and permits retry',
+        () async {
+          final bus = _FakeMessageBusSession()..failingChannel = '/recover';
+          final tracker = _tracker(bus, apiKey: 'secret');
+          addTearDown(tracker.dispose);
+          final messages = <Object?>[];
+          expect(
+            () => tracker.watchTopicTrackingState(42, messages.add),
+            throwsStateError,
+          );
+          expect(bus.activeSubscriptionCount('/unread'), 0);
+          expect(bus.activeSubscriptionCount('/unread/42'), 0);
+          final abandoned = bus.retainedCallback('/unread');
+          abandoned('abandoned');
+          expect(messages, isEmpty);
+          bus.failingChannel = null;
+          tracker.watchTopicTrackingState(42, messages.add);
+          for (final channel in [
+            '/unread',
+            '/unread/42',
+            '/delete',
+            '/recover',
+            '/destroy',
+          ]) {
+            expect(bus.activeSubscriptionCount(channel), 1);
+          }
+          bus.deliver('/unread', 'current');
+          expect(messages, ['current']);
+        },
+      );
+
       test('rejects remote HTTP before polling', () {
         var requestCount = 0;
 

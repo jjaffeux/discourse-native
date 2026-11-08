@@ -130,6 +130,7 @@ class SiteTracker {
 
   final IncomingTopics incoming = IncomingTopics();
   void Function(Object? data)? _onTopicTrackingState;
+  Object? _topicTrackingEnrollment;
 
   void _subscribe() {
     // `/latest` is public, while `/new` is meaningful only to a signed-in user.
@@ -263,22 +264,48 @@ class SiteTracker {
     Map<String, int?> lastIds = const {},
   }) {
     _ensureActive();
-    if (!_signedIn || _onTopicTrackingState != null) return;
-    _onTopicTrackingState = onMessage;
-    for (final channel in [
-      '/unread',
-      '/unread/$accountId',
-      '/delete',
-      '/recover',
-      '/destroy',
-    ]) {
-      _subscribeChannel(
-        channel,
-        channel == '/delete'
-            ? (data, _) => _onDeleteMessage(data)
-            : (data, _) => _emitTopicTrackingState(data),
-        lastId: lastIds[channel],
-      );
+    if (!_signedIn || _topicTrackingEnrollment != null) return;
+    final enrollment = _topicTrackingEnrollment = Object();
+    final gate = _MessageBusCallbackGate();
+    final subscriptions = <SiteMessageBusSubscription>[];
+    var committed = false;
+    try {
+      for (final channel in [
+        '/unread',
+        '/unread/$accountId',
+        '/delete',
+        '/recover',
+        '/destroy',
+      ]) {
+        final subscription = _subscribeChannel(channel, (data, _) {
+          if (_disposed || !committed || !gate.isOpen) return;
+          if (channel == '/delete') {
+            _onDeleteMessage(data);
+          } else {
+            _emitTopicTrackingState(data);
+          }
+        }, lastId: lastIds[channel]);
+        subscriptions.add(subscription);
+        if (_disposed || !identical(_topicTrackingEnrollment, enrollment)) {
+          return;
+        }
+      }
+      _onTopicTrackingState = onMessage;
+      committed = true;
+    } finally {
+      if (!committed) {
+        gate.close();
+        if (identical(_topicTrackingEnrollment, enrollment)) {
+          _topicTrackingEnrollment = null;
+        }
+        for (final subscription in subscriptions.reversed) {
+          try {
+            subscription.cancel();
+          } catch (_) {
+            // Rollback must attempt every admitted handle before a retry.
+          }
+        }
+      }
     }
   }
 
