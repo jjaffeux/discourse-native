@@ -147,12 +147,18 @@ class TopicFeed {
 
   /// Maps the unread projection's row back to the server page positions.
   int sourceRowFor(int row) {
-    var source = row;
-    for (final hidden in _hiddenRows) {
-      if (hidden > source) break;
-      source++;
+    var low = 0;
+    var high = _hiddenRows.length;
+    while (low < high) {
+      final middle = (low + high) ~/ 2;
+      // Each earlier hidden row shifts this one's visible position by one.
+      if (_hiddenRows[middle] - middle <= row) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
     }
-    return source;
+    return row + low;
   }
 
   int? topicIdAt(int row) {
@@ -183,8 +189,19 @@ class TopicFeed {
     return visibleRowForSource(source);
   }
 
-  int visibleRowForSource(int row) =>
-      row - _hiddenRows.where((hidden) => hidden < row).length;
+  int visibleRowForSource(int row) {
+    var low = 0;
+    var high = _hiddenRows.length;
+    while (low < high) {
+      final middle = (low + high) ~/ 2;
+      if (_hiddenRows[middle] < row) {
+        low = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    return row - low;
+  }
 
   final bool loading;
 

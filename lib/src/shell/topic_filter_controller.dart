@@ -198,6 +198,9 @@ class TopicFilterSuggestions {
     TopicFilterOption option,
     List<TopicCategory> remote,
   ) {
+    final parentIds = hierarchicalCategories
+        ? {for (final category in categories) category.parentCategoryId}
+        : const <int?>{};
     if (hierarchicalCategories &&
         segment.prefix.isEmpty &&
         (segment.value?.trim().isEmpty ?? true)) {
@@ -241,9 +244,7 @@ class TopicFilterSuggestions {
             category: category,
             parentCategory: parent,
             isSuggestion: true,
-            hasChildren: categories.any(
-              (item) => item.parentCategoryId == category.id,
-            ),
+            hasChildren: parentIds.contains(category.id),
           ),
       ];
     }
@@ -253,10 +254,7 @@ class TopicFilterSuggestions {
         for (final value in values) ...[
           value,
           if (value.category case final category?
-              when category.topicCount > 0 &&
-                  categories.any(
-                    (child) => child.parentCategoryId == category.id,
-                  ))
+              when category.topicCount > 0 && parentIds.contains(category.id))
             TopicFilterSuggestion(
               name: '=${value.name}',
               displayName: appL10n.filterCategoryOnly(category.name),

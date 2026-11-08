@@ -2,11 +2,11 @@ import 'package:flutter/foundation.dart';
 
 @immutable
 class AccountFeedPacket<T> {
-  const AccountFeedPacket({
+  AccountFeedPacket({
     required this.start,
     required this.end,
-    required this.items,
-  });
+    required Iterable<T> items,
+  }) : items = List.unmodifiable(items);
 
   final int start;
   final int end;
@@ -58,23 +58,34 @@ class AccountFeedWindow<T> {
       final key = identity(row);
       newById[key] = merge(newById[key] ?? heldById[key], row);
     }
-    final retained = [
-      for (final packet in packets)
-        AccountFeedPacket<T>(
-          start: packet.start,
-          end: packet.end,
-          items: List.unmodifiable([
-            for (final row in packet.items) newById[identity(row)] ?? row,
-          ]),
-        ),
-    ];
+    final retained = <AccountFeedPacket<T>>[];
+    for (final packet in packets) {
+      List<T>? updated;
+      for (var index = 0; index < packet.items.length; index++) {
+        final row = packet.items[index];
+        final next = newById[identity(row)] ?? row;
+        if (!identical(next, row)) {
+          updated ??= List<T>.of(packet.items);
+          updated[index] = next;
+        }
+      }
+      retained.add(
+        updated == null
+            ? packet
+            : AccountFeedPacket<T>(
+                start: packet.start,
+                end: packet.end,
+                items: updated,
+              ),
+      );
+    }
     final added = AccountFeedPacket<T>(
       start: start,
       end: end,
-      items: List.unmodifiable([
+      items: [
         for (final entry in newById.entries)
           if (!heldById.containsKey(entry.key)) entry.value,
-      ]),
+      ],
     );
     final bounded = prepend ? [added, ...retained] : [...retained, added];
     var rows = bounded.fold(0, (count, packet) => count + packet.items.length);
@@ -97,10 +108,10 @@ class AccountFeedWindow<T> {
           if (index != activeIndex)
             for (final row in bounded[index].items) identity(row),
       };
-      final activeRows = List<T>.unmodifiable([
+      final activeRows = [
         for (final entry in newById.entries)
           if (!survivingIds.contains(entry.key)) entry.value,
-      ]);
+      ];
       rows += activeRows.length - active.items.length;
       bytes +=
           activeRows.fold(0, (sum, row) => sum + estimate(row)) -
@@ -127,7 +138,7 @@ class AccountFeedWindow<T> {
         AccountFeedPacket(
           start: packet.start - shifted,
           end: packet.end - shifted - removed,
-          items: List.unmodifiable(rows),
+          items: rows,
         ),
       );
       shifted += removed;

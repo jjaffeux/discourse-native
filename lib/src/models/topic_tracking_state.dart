@@ -141,7 +141,7 @@ final class TopicTrackingState {
         : null;
     final candidates = categoryId != null
         ? _categoryTopics(categoryId, descendants!)
-        : _tagTopics(tagIds.first);
+        : _smallestTagTopics(tagIds);
     final counts = _countNewActivity(
       tagIds.isEmpty
           ? candidates
@@ -208,9 +208,18 @@ final class TopicTrackingState {
     showCount: showCount,
   );
 
-  Iterable<TrackedTopicState> _tagTopics(int tagId) =>
-      (_topicsByTag ??= _indexBy((topic) => topic.tagIds))[tagId]?.values ??
-      const <TrackedTopicState>[];
+  Iterable<TrackedTopicState> _smallestTagTopics(Set<int> tagIds) {
+    final byTag = _topicsByTag ??= _indexBy((topic) => topic.tagIds);
+    Map<int, TrackedTopicState>? smallest;
+    for (final tagId in tagIds) {
+      final bucket = byTag[tagId];
+      if (bucket == null) return const [];
+      if (smallest == null || bucket.length < smallest.length) {
+        smallest = bucket;
+      }
+    }
+    return smallest?.values ?? const [];
+  }
 
   Map<int, Map<int, TrackedTopicState>> _indexBy(
     Iterable<int> Function(TrackedTopicState topic) keysOf,
