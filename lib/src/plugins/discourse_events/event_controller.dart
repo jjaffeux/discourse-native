@@ -68,7 +68,7 @@ final class EventController extends FrameSafeNotifier
           );
           if (!current()) return null;
           if (_topicEvents.length >= 64) {
-            _topicEvents.remove(_topicEvents.keys.first);
+            final _ = _topicEvents.remove(_topicEvents.keys.first);
           }
           _topicEvents[key] = future;
           return event;
@@ -76,7 +76,7 @@ final class EventController extends FrameSafeNotifier
           return null;
         } finally {
           if (identical(_topicEventLoads[key], future)) {
-            _topicEventLoads.remove(key);
+            final _ = _topicEventLoads.remove(key);
           }
         }
       }().then(result.complete),
