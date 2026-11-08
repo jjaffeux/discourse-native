@@ -13,6 +13,14 @@ import 'platform.dart';
 
 enum _View { latest, unread, newActivity, unseen, top, trending }
 
+typedef _FeedMenuLayout = ({
+  bool overflowed,
+  int shown,
+  double? width,
+  bool bounded,
+  double segmentLimit,
+});
+
 _View _viewOf(TopicListMode mode) => switch (mode) {
   TopicListMode.latest => _View.latest,
   TopicListMode.unread => _View.unread,
@@ -321,6 +329,51 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
     );
   }
 
+  _FeedMenuLayout _layoutFor(BuildContext context, BoxConstraints constraints) {
+    if (_widths['bare'] case final overflowWidth?
+        when constraints.maxWidth < overflowWidth + (_widths['edges'] ?? 0)) {
+      return const (
+        overflowed: true,
+        shown: 0,
+        width: null,
+        bounded: false,
+        segmentLimit: double.infinity,
+      );
+    }
+    final room = math.min(
+      constraints.maxWidth,
+      DFitRow.availableWidthOf(context) ?? double.infinity,
+    );
+    var shown = _fit(room, _widths['bare'] ?? 0);
+    if (_hiddenCount(_views.where((view) => !shown.contains(view))) > 0) {
+      shown = _fit(room, _widths['counted'] ?? 0);
+    }
+    final hidden = _views.where((view) => !shown.contains(view)).toList();
+    final overflowWidth = hidden.isEmpty
+        ? 0.0
+        : _widths[_hiddenCount(hidden) > 0 ? 'counted' : 'bare'] ?? 0;
+    final naturalWidth = _groupWidth(
+      shown,
+      overflow: hidden.isEmpty ? null : overflowWidth,
+    );
+    // A limit that no measured segment reaches changes nothing, and must not
+    // change the selection every time the room does.
+    final widest = shown.fold<double>(
+      0,
+      (widest, view) => math.max(widest, _widths[view] ?? double.infinity),
+    );
+    return (
+      overflowed: false,
+      shown: shown.fold(0, (mask, view) => mask | 1 << view.index),
+      // Sized by what is shown, and capped by the room the parent enforces.
+      width: room.isFinite && _widths.isNotEmpty ? naturalWidth : null,
+      bounded: room.isFinite,
+      segmentLimit: widest <= constraints.maxWidth
+          ? double.infinity
+          : constraints.maxWidth,
+    );
+  }
+
   List<_View> _fit(double room, double overflowWidth) {
     if (_views.any((view) => !_widths.containsKey(view))) return [_current];
     if (_views.length <= widget.maxVisibleViews &&
@@ -450,11 +503,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
           : const {};
     }
     _measure();
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (_widths['bare'] case final overflowWidth?
-            when constraints.maxWidth <
-                overflowWidth + (_widths['edges'] ?? 0)) {
+    return DLayoutSelector<_FeedMenuLayout>(
+      select: _layoutFor,
+      builder: (context, layout) {
+        if (layout.overflowed) {
           return KeyedSubtree(
             key: const ValueKey('topic-list-view-switch'),
             child: _menu(
@@ -464,23 +516,15 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
             ),
           );
         }
-        final room = math.min(
-          constraints.maxWidth,
-          DFitRow.availableWidthOf(context) ?? double.infinity,
-        );
-        var shown = _fit(room, _widths['bare'] ?? 0);
-        if (_hiddenCount(_views.where((view) => !shown.contains(view))) > 0) {
-          shown = _fit(room, _widths['counted'] ?? 0);
-        }
-        final hidden = _views.where((view) => !shown.contains(view)).toList();
+        final shown = [
+          for (final view in _views)
+            if (layout.shown & 1 << view.index != 0) view,
+        ];
+        final hidden = [
+          for (final view in _views)
+            if (layout.shown & 1 << view.index == 0) view,
+        ];
         final overflowCount = _hiddenCount(hidden);
-        final overflowWidth = hidden.isEmpty
-            ? 0.0
-            : _widths[overflowCount > 0 ? 'counted' : 'bare'] ?? 0;
-        final naturalWidth = _groupWidth(
-          shown,
-          overflow: hidden.isEmpty ? null : overflowWidth,
-        );
         Widget measured(Object id, Widget child) => KeyedSubtree(
           key: _measureKeys.putIfAbsent(id, GlobalKey.new),
           child: child,
@@ -506,21 +550,19 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: room.isFinite && _widths.isNotEmpty
-                  ? math.min(constraints.maxWidth, naturalWidth)
-                  : null,
+              width: layout.width,
               child: DButtonGroup.inset(
                 key: const ValueKey('topic-list-view-switch'),
                 selectedIndex: shown.indexOf(_current),
                 semanticLabel: context.l10n.topicLists,
                 children: [
                   for (final view in shown)
-                    if (view == _current && room.isFinite)
+                    if (view == _current && layout.bounded)
                       Flexible(child: segment(view))
                     else
                       ConstrainedBox(
                         constraints: BoxConstraints(
-                          maxWidth: constraints.maxWidth,
+                          maxWidth: layout.segmentLimit,
                         ),
                         child: segment(view),
                       ),
