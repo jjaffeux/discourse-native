@@ -67,6 +67,12 @@ Requirements line with it.
   account-lease checks, async ordering, reentrant publication, pure-Dart
   construction, and rebuild isolation. Judge each split by the responsibility
   it owns and the dependencies it removes, rather than file size alone.
+- Layers depend downward only: `foundation`, `models`, `data`, `plugin_api`,
+  `shell`, with `theme` and `ui` as the kit beside them and `styleguide` and
+  `plugins` joined at the entry points.
+  `test/architecture_layer_contract_test.dart` names each exception and holds a
+  budget for the largest import cycle; lower the budget when a change shrinks
+  it. `dart run tool/architecture_graph.dart` prints the current numbers.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
   upstream markup. Optional feature catalogs and snapshots live under their
   owning plugin's `tool/` directory. When changing a parser, check its
