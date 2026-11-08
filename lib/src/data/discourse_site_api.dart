@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/widgets.dart' show StringCharacters;
 
 import '../foundation/redacted_uri.dart';
 import '../models/discourse_instance.dart';
@@ -640,9 +641,15 @@ final class DiscourseSiteApi {
     String? clientId,
   }) async {
     final normalized = term.trim();
-    final bounded = normalized.length <= maximumCategorySearchTermLength
-        ? normalized
-        : normalized.substring(0, maximumCategorySearchTermLength);
+    var end = normalized.length;
+    if (end > maximumCategorySearchTermLength) {
+      end = 0;
+      for (final character in normalized.characters) {
+        if (end + character.length > maximumCategorySearchTermLength) break;
+        end += character.length;
+      }
+    }
+    final bounded = normalized.substring(0, end);
     final body = await _transport.postObject(
       Uri.parse('$siteUrl/categories/search.json'),
       siteUrl: siteUrl,
