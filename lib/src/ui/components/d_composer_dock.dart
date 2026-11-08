@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/widgets.dart';
 
 import '../foundation/app_text_scaler.dart';
@@ -34,6 +36,8 @@ class _DComposerDockState extends State<DComposerDock> {
   DScrollChromeController? _chrome;
   final _focus = FocusNode(canRequestFocus: false);
   final _contentKey = GlobalKey();
+  double _keyboardInset = 0;
+  bool _keyboardLeaving = false;
   bool _compact = false;
 
   @override
@@ -51,13 +55,24 @@ class _DComposerDockState extends State<DComposerDock> {
     this,
     hidden:
         TickerMode.valuesOf(context).enabled &&
-        (_focus.hasFocus || MediaQuery.viewInsetsOf(context).bottom > 0),
+        (_focus.hasFocus || _keyboardUp),
   );
 
+  // A keyboard shrinking after focus has left is on its way out, not resizing
+  // for the composer or staying for another field. Its space is given back from
+  // that first frame so the composer and navigation travel with the keyboard
+  // rather than starting once it has gone.
+  void _trackKeyboard() {
+    final inset = MediaQuery.viewInsetsOf(context).bottom;
+    if (inset == _keyboardInset) return;
+    _keyboardLeaving = !_focus.hasFocus && inset > 0 && inset < _keyboardInset;
+    _keyboardInset = inset;
+  }
+
+  bool get _keyboardUp => _keyboardInset > 0 && !_keyboardLeaving;
+
   bool get _shouldCompact =>
-      !_focus.hasFocus &&
-      MediaQuery.viewInsetsOf(context).bottom == 0 &&
-      (_chrome?.hiddenFraction ?? 0) >= .5;
+      !_focus.hasFocus && !_keyboardUp && (_chrome?.hiddenFraction ?? 0) >= .5;
 
   void _changed() {
     final compact = _shouldCompact;
@@ -73,6 +88,7 @@ class _DComposerDockState extends State<DComposerDock> {
       _chrome?.removeListener(_changed);
       _chrome = chrome?..addListener(_changed);
     }
+    _trackKeyboard();
     _syncFooterVisibility();
     _compact = _shouldCompact;
   }
@@ -87,13 +103,13 @@ class _DComposerDockState extends State<DComposerDock> {
 
   @override
   Widget build(BuildContext context) => _DockGeometry(
-    geometry: DMobileDockGeometry.of(context),
+    geometry: DMobileDockGeometry.restingOf(context),
     child: DReferenceTextScale(child: Builder(builder: _buildComposer)),
   );
 
   Widget _buildComposer(BuildContext context) {
     final chrome = _chrome;
-    final room = DScrollChrome.bottomInsetOf(context);
+    final measuredRoom = DScrollChrome.bottomInsetOf(context);
     if (chrome == null) {
       return SafeArea(
         top: false,
@@ -101,9 +117,13 @@ class _DComposerDockState extends State<DComposerDock> {
         child: widget.builder(context, false),
       );
     }
-    final keyboard = MediaQuery.viewInsetsOf(context).bottom > 0;
     final safeBottom = MediaQuery.paddingOf(context).bottom;
     final geometry = DComposerDock.geometryOf(context);
+    // The bar measures shorter under a keyboard and regains its height only
+    // near the end of a retraction, too late to aim the composer by.
+    final room = _keyboardLeaving
+        ? math.max(measuredRoom, geometry.footerExtent)
+        : measuredRoom;
     // Beside the folded circle, level with it: past its width and a gap, and
     // as far in from the other side as the circle is from its own.
     final corner = geometry.cornerAt(geometry.circle);
@@ -126,7 +146,7 @@ class _DComposerDockState extends State<DComposerDock> {
           compact ? corner + geometry.circle + 8 : 6,
           DComposerDock.topInset,
           compact ? corner : 6,
-          keyboard
+          _keyboardUp
               ? 6
               : compact
               ? corner
