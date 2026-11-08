@@ -199,14 +199,11 @@ void main() {
 class CountedChatMessage extends ChatMessage {
   CountedChatMessage(
     int id, {
-    String cooked = '<p>Keyboard &amp; focus</p>',
-    int channelId = 1,
-    DateTime? deletedAt,
+    super.cooked = '<p>Keyboard &amp; focus</p>',
+    super.channelId = 1,
+    super.deletedAt,
   }) : super(
          id: id,
-         channelId: channelId,
-         cooked: cooked,
-         deletedAt: deletedAt,
          author: const ChatMessageAuthor(id: 1, username: 'reader'),
        );
   final _reads = _ReadCount();

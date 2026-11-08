@@ -218,6 +218,7 @@ final class RoundThreeTopicPageFixture {
     required this.gap,
     required this.removals,
     this.removeOnPublish = false,
+    this.removeDuringWait = false,
   }) {
     detail = TopicDetail(
       id: 7,
@@ -253,6 +254,7 @@ final class RoundThreeTopicPageFixture {
   final bool gap;
   final int removals;
   final bool removeOnPublish;
+  final bool removeDuringWait;
   final store = Store();
   final api = _RoundThreeTopicApi();
   late final TopicDetail detail;
@@ -284,10 +286,12 @@ final class RoundThreeTopicPageFixture {
           : session.pageMega(detail, post(1), newer: true);
       await api.started.future;
       if (removals > 0) session.removePost(7, 20000);
+      if (removeDuringWait) session.removePost(7, 2);
       api.response.complete([for (var i = 2; i <= 21; i++) post(i)]);
       await loading;
       final merged = store.read<TopicDetail>(site, 7)!;
-      final wanted = [1, for (var i = removeOnPublish ? 3 : 2; i <= 21; i++) i];
+      final first = removeOnPublish || removeDuringWait ? 3 : 2;
+      final wanted = [1, for (var i = first; i <= 21; i++) i];
       if (api.calls != 1 || merged.stream.length != wanted.length) {
         throw StateError('Topic page was not completely published');
       }
@@ -297,8 +301,9 @@ final class RoundThreeTopicPageFixture {
           throw StateError('Topic page ordering or removal changed');
         }
       }
-      if (removeOnPublish && store.read<Post>(site, 2) != null) {
-        throw StateError('Synchronous post removal was undone');
+      if ((removeOnPublish || removeDuringWait) &&
+          store.read<Post>(site, 2) != null) {
+        throw StateError('Post removal was undone');
       }
       if (gap && merged.gapsAfter.isNotEmpty) {
         throw StateError('Consumed topic gap was retained');

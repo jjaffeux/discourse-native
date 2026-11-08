@@ -42,6 +42,16 @@ void main() {
     },
   );
 
+  test('returned posts removed during network wait remain excluded', () async {
+    for (final gap in [false, true]) {
+      await RoundThreeTopicPageFixture(
+        gap: gap,
+        removals: 20,
+        removeDuringWait: true,
+      ).check();
+    }
+  });
+
   test('emoji queries read each catalog name at most once', () async {
     final counts = _NameReads();
     final catalog = SiteEmojiCatalog(

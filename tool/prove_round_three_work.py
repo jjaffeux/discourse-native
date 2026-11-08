@@ -1,5 +1,3 @@
-"""Compare deterministic work counts using identical focused tests."""
-
 import argparse
 import json
 import re
