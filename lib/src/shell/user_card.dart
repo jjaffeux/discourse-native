@@ -317,10 +317,9 @@ Future<void> showUserCard({
                 username.toLowerCase(),
               ),
               builder: (context, _) {
-                final card = owner.controller.userCard(
-                  username,
-                  siteUrl: targetSite,
-                );
+                final controller = owner.controller;
+                final card = controller.userCard(username, siteUrl: targetSite);
+                final lease = controller.lifecycle.capture(targetSite);
                 return DSheetContent(
                   key: const ValueKey<String>('user-card-surface'),
                   card: true,
@@ -343,6 +342,26 @@ Future<void> showUserCard({
                             _sheetBannerHeight,
                           ),
                         ),
+                  slivers: [
+                    if (card != null)
+                      UserActivityView(
+                        siteUrl: targetSite,
+                        username: card.username,
+                        embedded: true,
+                        onOpen: (item) {
+                          if (!lease.isCurrent) return;
+                          sheet.close();
+                          if (controller.currentInstance?.url != targetSite) {
+                            controller.selectInstance(
+                              controller.instances.indexWhere(
+                                (instance) => instance.url == targetSite,
+                              ),
+                            );
+                          }
+                          controller.openUserActivityItem(item);
+                        },
+                      ),
+                  ],
                   children: [
                     _ControllerUserCardPopup(
                       key: ValueKey(owner),
@@ -478,7 +497,6 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
     final (:card, :error) = _view;
     final controller = widget.controller;
     final siteUrl = widget.siteUrl;
-    final lease = controller.lifecycle.capture(siteUrl);
     if (card != null) {
       if (context.isTouch) {
         return Column(
@@ -494,23 +512,6 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
               ),
             ),
             DSheetSwipeHint(label: context.l10n.swipeUpToViewActivity),
-            UserActivityView(
-              siteUrl: siteUrl,
-              username: card.username,
-              embedded: true,
-              onOpen: (item) {
-                if (!lease.isCurrent) return;
-                widget.close();
-                if (controller.currentInstance?.url != siteUrl) {
-                  controller.selectInstance(
-                    controller.instances.indexWhere(
-                      (instance) => instance.url == siteUrl,
-                    ),
-                  );
-                }
-                controller.openUserActivityItem(item);
-              },
-            ),
           ],
         );
       }

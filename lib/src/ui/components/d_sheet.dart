@@ -2451,10 +2451,12 @@ class DSheetContent extends StatelessWidget {
     this.inset = false,
 
     this.scrollWholeSheet,
+    this.slivers,
     this.topBottomMaxHeightFactor,
     this.fillAvailableHeight = false,
     this.extendBehindKeyboard = false,
   }) : assert(!extendBehindKeyboard || fillAvailableHeight),
+       assert(slivers == null || scrollWholeSheet == true),
 
        assert(sidePanelMaxWidth > 0),
        assert(sidePanelWidth == null || sidePanelWidth > 0),
@@ -2526,6 +2528,13 @@ class DSheetContent extends StatelessWidget {
   /// Null preserves the default. Set false only when a composed child owns a
   /// bounded scroll region while its surrounding header and footer stay fixed.
   final bool? scrollWholeSheet;
+
+  /// Lazily built content that follows [children] in the whole-sheet scroll.
+  ///
+  /// Requires [scrollWholeSheet]. The sheet stays sized to its content. Pass an
+  /// empty list until the content exists: the scroll view cannot change kind
+  /// without losing [children]'s state. Menu scaling does not apply here.
+  final List<Widget>? slivers;
 
   /// Optional cap used by long top and bottom compositions.
   final double? topBottomMaxHeightFactor;
@@ -2808,7 +2817,7 @@ class DSheetContent extends StatelessWidget {
                       if (scrollWholeSheet)
                         _DSheetRestContentClip(
                           enabled: restAt != null,
-                          child: SingleChildScrollView(
+                          child: _DSheetWholeScroll(
                             controller: restAt == null
                                 ? null
                                 : context
@@ -2817,25 +2826,10 @@ class DSheetContent extends StatelessWidget {
                                       >()
                                       ?.menu
                                       ._restScroll,
-                            primary: false,
-                            child: Stack(
-                              children: [
-                                if (headerArtwork != null && restAt != null)
-                                  headerArtwork,
-                                SafeArea(
-                                  top: false,
-                                  left: false,
-                                  right: false,
-                                  bottom: scrollsThroughFoot,
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.stretch,
-                                    children: parts,
-                                  ),
-                                ),
-                              ],
-                            ),
+                            artwork: restAt != null ? headerArtwork : null,
+                            throughFoot: scrollsThroughFoot,
+                            slivers: slivers,
+                            children: parts,
                           ),
                         )
                       else
@@ -3267,6 +3261,71 @@ class DSheetSwipeHint extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+class _DSheetWholeScroll extends StatelessWidget {
+  const _DSheetWholeScroll({
+    required this.controller,
+    required this.artwork,
+    required this.throughFoot,
+    required this.slivers,
+    required this.children,
+  });
+  final ScrollController? controller;
+  final Widget? artwork;
+  final bool throughFoot;
+  final List<Widget>? slivers;
+  final List<Widget> children;
+
+  Widget _content({required bool foot}) => Stack(
+    children: [
+      ?artwork,
+      SafeArea(
+        top: false,
+        left: false,
+        right: false,
+        bottom: foot,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: children,
+        ),
+      ),
+    ],
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    final slivers = this.slivers;
+    if (slivers == null) {
+      return SingleChildScrollView(
+        controller: controller,
+        primary: false,
+        child: _content(foot: throughFoot),
+      );
+    }
+    // A shrink-wrapping viewport, unlike a plain one, is no repaint boundary.
+    return RepaintBoundary(
+      child: CustomScrollView(
+        controller: controller,
+        primary: false,
+        shrinkWrap: true,
+        slivers: [
+          SliverToBoxAdapter(child: _content(foot: false)),
+          ...slivers,
+          if (throughFoot)
+            const SliverToBoxAdapter(
+              child: SafeArea(
+                top: false,
+                left: false,
+                right: false,
+                child: SizedBox.shrink(),
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

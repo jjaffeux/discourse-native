@@ -73,7 +73,7 @@ final sheetExamples = ComponentExamples(
       description:
           'The sheet initially ends at the card. Swipe or scroll upward to reveal more.',
       code:
-          'DSheetContent(variant: DSheetVariant.adaptiveMenu, restAt: cardKey, scrollWholeSheet: true, children: [cardAndActivity])',
+          'DSheetContent(variant: DSheetVariant.adaptiveMenu, restAt: cardKey, scrollWholeSheet: true, children: [cardAndHint], slivers: [activity])',
       builder: (_) => const _RestingCardSheet(),
     ),
     StyleguideExample(
@@ -1117,6 +1117,23 @@ class _RestingCardSheetState extends State<_RestingCardSheet> {
       card: true,
       showCloseButton: false,
       scrollWholeSheet: true,
+      slivers: [
+        SliverList.builder(
+          itemCount: 12,
+          itemBuilder: (context, i) => DItem(
+            children: [
+              DItemContent(
+                children: [
+                  DItemTitle(child: Text('Activity ${i + 1}')),
+                  const DItemDescription(
+                    child: Text('A post in the community'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
       children: [
         Column(
           mainAxisSize: MainAxisSize.min,
@@ -1136,19 +1153,6 @@ class _RestingCardSheetState extends State<_RestingCardSheet> {
               ),
             ),
             const DSheetSwipeHint(label: 'Swipe up to view activity'),
-            for (var i = 0; i < 12; i++)
-              DItem(
-                children: [
-                  DItemContent(
-                    children: [
-                      DItemTitle(child: Text('Activity ${i + 1}')),
-                      const DItemDescription(
-                        child: Text('A post in the community'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
           ],
         ),
       ],

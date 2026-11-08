@@ -94,4 +94,6 @@ Pass the same key to `showDSheet` when using the imperative helper.
 Place `DSheetSwipeHint` immediately after the card. The kit owns its 40-point
 height, delayed peek, spring, fading, safe-area cut and scroll handoff.
 Keep `headerImage` on `DSheetContent`: the kit scrolls it with the resting card.
+Pass long content below the card as `slivers`, so its rows are built on demand
+and released once they scroll away.
 `DSwipeHint` shares the shimmer with the mobile dock and honors reduced motion.

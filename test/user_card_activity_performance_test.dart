@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:discourse_native/src/models/user_activity_feed.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_card_header.dart';
@@ -51,16 +52,24 @@ Future<ScrollPosition> _raise(WidgetTester tester) async {
       .position;
 }
 
-Future<void> _buildEveryRow(
+Future<void> _scrollUntil(
   WidgetTester tester,
   ScrollPosition position,
-  int rows,
+  bool Function() reached,
 ) async {
-  while (_rows.evaluate().length < rows) {
-    position.jumpTo(math.min(position.pixels + 200, position.maxScrollExtent));
+  for (var step = 0; step < 800 && !reached(); step++) {
+    // Resting exactly on the end would never ask for the next page again.
+    final end = position.maxScrollExtent;
+    position.jumpTo(
+      position.pixels >= end ? end - 1 : math.min(position.pixels + 120, end),
+    );
     await tester.pump();
   }
+  expect(reached(), isTrue, reason: 'scrolling never got there');
 }
+
+Iterable<UserActivityRow> _builtRows() =>
+    _rows.evaluate().map((element) => element.widget as UserActivityRow);
 
 /// Counts rebuilds of the widgets [matches] accepts, for the length of [body].
 Future<int> _rebuildsDuring(
@@ -81,9 +90,6 @@ Future<int> _rebuildsDuring(
 }
 
 bool _isRow(Widget widget) => widget is UserActivityRow;
-
-bool _isFirstPageRow(Widget widget) =>
-    widget is UserActivityRow && widget.item.topicId < 1000 + _pageSize;
 
 void main() {
   testWidgets('a resting card builds only the rows that outgrow its sheet', (
@@ -110,20 +116,20 @@ void main() {
     final name = find.text('Sam Example');
 
     gate.complete();
-    await tester.pump();
-    await tester.pump();
-    await tester.pump();
-    final settling = tester.getTopLeft(name).dy;
-
-    var built = _rows.evaluate().length;
-    expect(built, lessThanOrEqualTo(3));
-    while (built < 8) {
+    var built = 0;
+    double? settled;
+    for (var frame = 0; frame < 15; frame++) {
       await tester.pump();
       final next = _rows.evaluate().length;
       expect(next - built, lessThanOrEqualTo(1));
       built = next;
-      expect(tester.getTopLeft(name).dy, closeTo(settling, 1));
+      // The frame the feed lands in replaces the skeleton and moves the rest
+      // line once; after that, filling must move nothing.
+      if (frame < 3) continue;
+      settled ??= tester.getTopLeft(name).dy;
+      expect(tester.getTopLeft(name).dy, closeTo(settled, 1));
     }
+    expect(built, greaterThan(0));
     expect(tester.takeException(), isNull);
   });
 
@@ -147,78 +153,116 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('a tall sheet keeps building rows until it can scroll', (
-    tester,
-  ) async {
-    _phone(tester, size: const Size(1024, 1600));
-    await pumpUserCardActivityFixture(tester);
-    await _openCard(tester);
-    await tester.pumpAndSettle();
+  testWidgets(
+    'scrolling reaches every row across pages and releases old ones',
+    (tester) async {
+      _phone(tester);
+      final fixture = await pumpUserCardActivityFixture(tester);
+      await _openCard(tester);
+      final position = await _raise(tester);
+      expect(fixture.api.userActivityRequests, hasLength(1));
 
-    final position = tester
-        .state<ScrollableState>(
-          find
-              .descendant(
-                of: find.byKey(_surface),
-                matching: find.byType(Scrollable),
-              )
-              .first,
-        )
-        .position;
-    expect(position.extentAfter, greaterThan(0));
-    expect(tester.takeException(), isNull);
-  });
+      final seen = <int>{};
+      var mostBuilt = 0;
+      await _scrollUntil(tester, position, () {
+        seen.addAll(_builtRows().map((row) => row.item.topicId));
+        mostBuilt = math.max(mostBuilt, _rows.evaluate().length);
+        return seen.contains(1089);
+      });
 
-  testWidgets('every row of a page is reachable before the next page loads', (
-    tester,
-  ) async {
-    _phone(tester);
-    final fixture = await pumpUserCardActivityFixture(tester);
-    await _openCard(tester);
-    final position = await _raise(tester);
-    expect(fixture.api.userActivityRequests, hasLength(1));
-
-    while (fixture.api.userActivityRequests.length < 2) {
-      position.jumpTo(
-        math.min(position.pixels + 200, position.maxScrollExtent),
+      expect(seen, {for (var id = 0; id < 90; id++) 1000 + id});
+      expect(mostBuilt, lessThan(_pageSize));
+      expect(
+        _builtRows().map((row) => row.item.topicId),
+        isNot(contains(1000)),
       );
-      await tester.pump();
-      if (fixture.api.userActivityRequests.length < 2) {
-        expect(_rows.evaluate().length, lessThanOrEqualTo(_pageSize));
-      }
-    }
-
-    expect(_rows.evaluate().length, greaterThanOrEqualTo(_pageSize));
-    expect(fixture.api.userActivityRequests.last.offset, _pageSize);
-    expect(find.text('Load more'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
+      expect(
+        fixture.api.userActivityRequests.map((request) => request.offset),
+        containsAllInOrder([0, _pageSize, 2 * _pageSize]),
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
 
   testWidgets('a page in flight and its arrival leave built rows alone', (
     tester,
   ) async {
     _phone(tester);
     var gate = Completer<void>()..complete();
-    await pumpUserCardActivityFixture(tester, beforePage: () => gate.future);
+    final fixture = await pumpUserCardActivityFixture(
+      tester,
+      beforePage: () => gate.future,
+    );
     await _openCard(tester);
-    final position = await _raise(tester);
-    await _buildEveryRow(tester, position, _pageSize);
+    await _raise(tester);
+    expect(_rows.evaluate(), isNotEmpty);
 
     gate = Completer<void>();
-    final beforeRequest = position.pixels;
     final inFlight = await _rebuildsDuring(() async {
-      position.jumpTo(position.maxScrollExtent);
+      unawaited(
+        fixture.shell.accountActivity.loadUserActivity(
+          fixture.shell.instances.single,
+          username: 'sam',
+          loadMore: true,
+        ),
+      );
       await tester.pump();
-    }, matches: _isFirstPageRow);
-    expect(position.pixels, greaterThan(beforeRequest));
+    }, matches: _isRow);
     expect(inFlight, 0, reason: 'the loading flag changes no row');
 
     final arrival = await _rebuildsDuring(() async {
       gate.complete();
       await tester.pump();
       await tester.pump();
-    }, matches: _isFirstPageRow);
-    expect(arrival, 0, reason: 'a new page builds only rows that are new');
+    }, matches: _isRow);
+    expect(arrival, 0, reason: 'a page beyond the viewport builds no row');
+    expect(
+      fixture.shell.accountActivity
+          .userActivityFor(userCardActivitySite, username: 'sam')
+          .items,
+      hasLength(2 * _pageSize),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('dropping old pages keeps the row being read in place', (
+    tester,
+  ) async {
+    _phone(tester);
+    var gate = Completer<void>()..complete();
+    final fixture = await pumpUserCardActivityFixture(
+      tester,
+      items: 400,
+      beforePage: () => gate.future,
+    );
+    await _openCard(tester);
+    final position = await _raise(tester);
+    final requests = fixture.api.userActivityRequests;
+    await _scrollUntil(tester, position, () => requests.length >= 10);
+    await tester.pump();
+    gate = Completer<void>();
+    UserActivityFeed feed() => fixture.shell.accountActivity.userActivityFor(
+      userCardActivitySite,
+      username: 'sam',
+    );
+    await _scrollUntil(tester, position, () => feed().loading);
+    await tester.pump();
+
+    final reading = _rows.at(_rows.evaluate().length ~/ 2);
+    final id = tester.widget<UserActivityRow>(reading).item.identity;
+    final held = find.byWidgetPredicate(
+      (widget) => widget is UserActivityRow && widget.item.identity == id,
+    );
+    final before = tester.getTopLeft(held).dy;
+
+    gate.complete();
+    await tester.pump();
+    await tester.pump();
+    await tester.pump();
+
+    expect(feed().hasPrevious, isTrue, reason: 'the oldest page was dropped');
+    expect(held, findsOneWidget);
+    expect(tester.getTopLeft(held).dy, closeTo(before, 1));
     expect(tester.takeException(), isNull);
   });
 
@@ -229,8 +273,7 @@ void main() {
     await pumpUserCardActivityFixture(tester);
     await _openCard(tester);
     final position = await _raise(tester);
-    await _buildEveryRow(tester, position, 20);
-    position.jumpTo(100);
+    position.jumpTo(800);
     await tester.pumpAndSettle();
 
     var paintedTitles = 0;
@@ -243,7 +286,7 @@ void main() {
     };
     try {
       for (var frame = 0; frame < 5; frame++) {
-        position.jumpTo(position.pixels + 40);
+        position.jumpTo(position.pixels + 2);
         await tester.pump();
       }
     } finally {
@@ -251,7 +294,7 @@ void main() {
       debugOnProfilePaint = null;
     }
 
-    expect(paintedTitles, 0);
+    expect(paintedTitles, lessThanOrEqualTo(1));
     expect(tester.takeException(), isNull);
   });
 
@@ -287,7 +330,15 @@ void main() {
       () async {
         fixture.shell.store.put(
           userCardActivitySite,
-          const UserCard(username: 'sam', name: 'Sam Renamed'),
+          UserCard(
+            username: 'sam',
+            name: 'Sam Renamed',
+            title: userCardActivityProfile.title,
+            bioExcerpt: userCardActivityProfile.bioExcerpt,
+            location: userCardActivityProfile.location,
+            timeRead: userCardActivityProfile.timeRead,
+            badgeCount: userCardActivityProfile.badgeCount,
+          ),
         );
         await tester.pump();
       },

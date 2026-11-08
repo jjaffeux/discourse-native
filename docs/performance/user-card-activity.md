@@ -1,74 +1,70 @@
 # Phone user card activity
 
 The phone user card scrolls its identity section and its activity as one sheet.
-The activity shares the sheet's scroll view, so nothing virtualizes its rows.
-Before this change it built a whole page in the frame that page arrived, while
-the sheet was resting with no row on screen.
+Before this work the activity was a plain column in that scroll view. It built a
+whole page in the frame the page arrived, while the sheet was resting with no
+row on screen, and it kept every row it had ever built.
 
 ## What changed
 
-The list builds one row a frame. The first eight rows fill in below the rest
-line behind reserved height, so the resting card does not move. Later rows wait
-until the reader scrolls within a prefetch distance of the end of what exists.
-A history of four rows or fewer is laid out at once, because an estimated height
-could nudge a card that does not fill its sheet.
+`DSheetContent.slivers` adds lazily built content after a sheet's children in
+its whole-sheet scroll. The sheet stays sized to its content. The activity is
+built as slivers there, so a row exists only near the viewport and is released
+once it scrolls away.
 
-A page is requested only once every row already held is built. The Load more
-control follows the same rule.
+The first rows arrive while the sheet is opening, so they are built one a frame.
+They sit below the rest line behind reserved height, so the resting card does
+not move. Scrolling fills the rest at once. A history of four rows or fewer is
+laid out at once, because an estimated height could nudge a card that does not
+fill its sheet.
 
 Each row widget is held until its item or category changes, so the loading flag
-and a new page rebuild only new rows. Each row also has its own layer. The sheet
-scrolls by repainting all of its content, and those layers keep that repaint from
-reaching rows already drawn.
+and a new page rebuild no row that is already built. When old pages are dropped
+or restored above the reader, the row being read is found again by its index.
 
 The card ignores notifications from other cards' requests. Those notifications
 cover every card on every forum, and each one used to rebuild the whole sheet.
 
 ## iPhone measurements
 
-The comparison uses five alternating profile-mode runs of each build at 120 Hz.
+Each comparison uses five alternating profile-mode runs of each build at 120 Hz.
 Each run opens eight cards with cold feeds. A fake API delivers each page after
 250 ms, and the fixture carries real fonts and realistic rows. Half of the rows
 have a cached topic, which is the costlier footer.
 
-The first table gives the worst UI-thread frame. It is the median over eight
-cycles in each run, summarized as the median of the five runs with their range.
-The budget at 120 Hz is 8.33 ms.
+The table gives the worst UI-thread frame: the median over eight cycles in each
+run, then the median of the runs. The budget at 120 Hz is 8.33 ms. The first two
+columns are one comparison and the last two are another, so read each pair
+against itself.
 
-| Worst frame | Baseline | This change |
-| --- | --- | --- |
-| Activity arrives | 48.8 ms (46.0 to 52.3) | 6.0 ms (6.0 to 6.5) |
-| Next page arrives | 60.4 ms (59.8 to 62.2) | 6.2 ms (5.8 to 6.3) |
-| Sheet rises | 5.3 ms (5.0 to 5.6) | 0.9 ms (0.9 to 1.0) |
-| Scroll before the next page | 4.9 ms (4.7 to 5.6) | 6.4 ms (6.0 to 6.5) |
-| Scroll after the next page | 9.7 ms (8.6 to 10.5) | 6.6 ms (6.2 to 6.8) |
+| Worst frame | Column of every row | One row a frame | One row a frame | Slivers |
+| --- | --- | --- | --- | --- |
+| Activity arrives | 48.8 ms | 6.0 ms | 6.0 ms | 6.7 ms |
+| Next page lands at the list's end | 60.4 ms | 6.2 ms | 6.4 ms | 10.7 ms |
+| Sheet rises | 5.3 ms | 0.9 ms | 0.9 ms | 0.8 ms |
+| Scroll before the next page | 4.9 ms | 6.4 ms | 6.4 ms | 5.4 ms |
+| Scroll after the next page | 9.7 ms | 6.6 ms | 6.6 ms | 5.3 ms |
 
-| Frames over budget per run | Baseline | This change |
-| --- | --- | --- |
-| Activity arrives | 8 | 1 (0 to 1) |
-| Next page arrives | 8 | 0 (0 to 1) |
-| Scroll after the next page | 10 (7 to 10) | 0 |
+After scrolling through two pages, the sheet holds 7 rows with slivers and 54
+without. A column of every row held 60.
 
-Median scroll build time falls from 1.44 ms to 0.72 ms before the next page, and
-from 1.78 ms to 0.48 ms after it.
+A page normally lands while the reader is still 1,600 points from the end, so
+none of its rows are built on arrival. Three unalternated runs that scroll while
+a third page lands peak at 6.4, 5.9 and 5.9 ms.
 
 ## Limits and tradeoffs
 
-The worst scroll frame before the next page rises from 4.9 ms to 6.4 ms, because
-that frame now also builds a row. It stays inside the budget. Scroll raster p90
-rises from 0.90 ms to 1.42 ms with the per-row layers, against the same budget.
+A reader who outruns the network sees the next page land on screen. That frame
+builds the rows it reveals, peaks at 10.7 ms and exceeds the budget once per
+card. It was 60.4 ms before any of this work.
 
-Rows that have scrolled past stay built, as they did before. A reader who pages
-deep into a history still holds every row. Releasing them needs the sheet to
-offer a sliver slot for its whole-sheet scroll, which the UI kit does not have.
+Scroll raster median rises from 0.72 ms to 1.32 ms and p90 from 1.40 ms to 1.72
+ms with slivers. Both stay well inside the budget.
 
 The sheet's top-fade `ShaderMask` was a suspect and is not a limiter. Raster
 stays near 1 ms through the rise and the scroll on this phone.
 
-The [measurement data](data/user-card-activity.json) holds every run. The five
-rounds predate two simplifications to how the card rebuilds, and one further run
-after those simplifications matched these numbers. Only a closure that runs on
-tap changed after that run.
+The [measurement data](data/user-card-activity.json) holds every run.
 
 ## Reproduce
 

@@ -2251,4 +2251,143 @@ void main() {
       expect(await topPixel(tester), flat);
     });
   });
+  group('whole-sheet slivers', () {
+    Future<ValueNotifier<int>> pumpSheet(
+      WidgetTester tester, {
+      required ValueNotifier<int> rows,
+      required ValueChanged<int> onMounted,
+    }) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      tester.view.viewPadding = const FakeViewPadding(top: 47, bottom: 34);
+      tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
+      addTearDown(tester.view.reset);
+      final rest = GlobalKey();
+      late BuildContext host;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(platform: TargetPlatform.iOS),
+          home: Builder(
+            builder: (context) {
+              host = context;
+              return const SizedBox.expand();
+            },
+          ),
+        ),
+      );
+      unawaited(
+        showDSheet<void>(
+          context: host,
+          side: DSheetSide.bottom,
+          inset: true,
+          variant: DSheetVariant.adaptiveMenu,
+          restAt: rest,
+          builder: (context, sheet) => ValueListenableBuilder<int>(
+            valueListenable: rows,
+            builder: (context, count, _) => DSheetContent(
+              key: const ValueKey('sliver-sheet'),
+              card: true,
+              side: DSheetSide.bottom,
+              inset: true,
+              variant: DSheetVariant.adaptiveMenu,
+              restAt: rest,
+              scrollWholeSheet: true,
+              showCloseButton: false,
+              slivers: [
+                if (count > 0)
+                  SliverList.builder(
+                    itemCount: count,
+                    itemBuilder: (context, index) =>
+                        SizedBox(height: 60, child: Text('Row $index')),
+                  ),
+              ],
+              children: [_MountCounter(key: rest, onMounted: onMounted)],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return rows;
+    }
+
+    ScrollPosition position(WidgetTester tester) => tester
+        .state<ScrollableState>(
+          find
+              .descendant(
+                of: find.byKey(const ValueKey('sliver-sheet')),
+                matching: find.byType(Scrollable),
+              )
+              .first,
+        )
+        .position;
+
+    testWidgets('are built on demand behind children that keep their state', (
+      tester,
+    ) async {
+      var mounts = 0;
+      final rows = ValueNotifier(0);
+      addTearDown(rows.dispose);
+      await pumpSheet(tester, rows: rows, onMounted: (_) => mounts++);
+      expect(mounts, 1);
+
+      rows.value = 500;
+      await tester.pumpAndSettle();
+
+      expect(mounts, 1, reason: 'the slivers arriving keep the children');
+      expect(find.text('Row 0'), findsOneWidget);
+      expect(find.text('Row 100'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('leave a short sheet sized to its content', (tester) async {
+      final rows = ValueNotifier(2);
+      addTearDown(rows.dispose);
+      await pumpSheet(tester, rows: rows, onMounted: (_) {});
+
+      final sheet = tester.getSize(find.byKey(const ValueKey('sliver-sheet')));
+      expect(sheet.height, lessThan(400));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('end clear of the bottom safe area', (tester) async {
+      final rows = ValueNotifier(30);
+      addTearDown(rows.dispose);
+      await pumpSheet(tester, rows: rows, onMounted: (_) {});
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, -700),
+      );
+      await tester.pumpAndSettle();
+
+      final scroll = position(tester);
+      for (var step = 0; step < 20; step++) {
+        scroll.jumpTo(scroll.maxScrollExtent);
+        await tester.pump();
+      }
+
+      expect(
+        tester.getBottomLeft(find.text('Row 29')).dy,
+        lessThanOrEqualTo(844 - 34),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  });
+}
+
+class _MountCounter extends StatefulWidget {
+  const _MountCounter({super.key, required this.onMounted});
+  final ValueChanged<int> onMounted;
+  @override
+  State<_MountCounter> createState() => _MountCounterState();
+}
+
+class _MountCounterState extends State<_MountCounter> {
+  @override
+  void initState() {
+    super.initState();
+    widget.onMounted(1);
+  }
+
+  @override
+  Widget build(BuildContext context) => const SizedBox(height: 120);
 }
