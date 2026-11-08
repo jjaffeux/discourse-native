@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/foundation.dart';
-import 'package:html/parser.dart' as html;
 
 const pollsDataKey = PluginDataKey<Polls>(owner: 'poll', name: 'post');
 
@@ -669,10 +668,4 @@ bool _sameFrozenJson(Object? a, Object? b) =>
 
 String _frozenJsonKey(Object? value) => jsonEncode(value);
 
-final RegExp _htmlWhitespace = RegExp(r'\s+');
-
-String _normalizedHtmlText(String cooked) =>
-    (html.parseFragment(cooked).text ?? cooked).trim().replaceAll(
-      _htmlWhitespace,
-      ' ',
-    );
+String _normalizedHtmlText(String cooked) => jsonHtmlText(cooked) ?? '';

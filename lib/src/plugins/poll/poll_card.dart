@@ -1068,7 +1068,7 @@ class _PollHtmlAccessibility {
       }
     }
     return _PollHtmlAccessibility(
-      (fragment.text ?? '').trim().replaceAll(RegExp(r'\s+'), ' '),
+      jsonHtmlText(fragment.outerHtml) ?? '',
       hasDisclosure,
     );
   }
