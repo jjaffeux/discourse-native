@@ -101,6 +101,9 @@ final class DiscourseRequestCoordinator {
          maxConcurrentPerOrigin: maxConcurrentPerOrigin,
          maxQueuedPerOrigin: maxQueuedPerOrigin,
          cooldownPolicy: OriginRequestCooldownPolicy.wait,
+         // A cold start warms four kinds of site metadata just before it
+         // requests the first feed, which would otherwise queue behind them.
+         interactiveSlotsPerOrigin: maxConcurrentPerOrigin > 1 ? 1 : 0,
          cooldownFactory: cooldownFactory,
        ),
        _transfers = OriginRequestGate(

@@ -12,6 +12,11 @@ priorities retain enqueue order. Independent origins have separate allowances;
 a gate with an aggregate cap shares one allowance. Active requests keep their
 slots. Cooldowns, backlog bounds and separate upload capacity still apply.
 
+The Discourse API lane keeps one slot per origin out of reach of background
+work. Without it, the metadata a cold start warms would hold every slot and the
+first feed, requested just after, would wait out a whole round trip (see
+[startup performance](performance/startup.md)).
+
 A speculative owner promotes its dedicated source when navigation adopts the
 existing future. Safe GET sharing retains each caller's source and resolves the
 highest intent. Joining a request never promotes its caller's other work. The

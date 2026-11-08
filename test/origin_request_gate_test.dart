@@ -274,6 +274,41 @@ void main() {
     },
   );
 
+  test('a reserved slot admits interactive work past normal work', () async {
+    final gate = OriginRequestGate(
+      maxConcurrentPerOrigin: 4,
+      maxQueuedPerOrigin: 10,
+      cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      interactiveSlotsPerOrigin: 1,
+    );
+    addTearDown(gate.close);
+    final url = Uri.parse('https://example.com');
+    final metadata = [for (var i = 0; i < 3; i++) await gate.acquire(url)];
+    var fourthGranted = false;
+    final fourth = gate.acquire(url).then((lease) {
+      fourthGranted = true;
+      return lease;
+    });
+    await pumpEventQueue();
+    expect(fourthGranted, isFalse);
+
+    final feed = await gate.acquire(
+      url,
+      priority: OriginRequestPriority.interactive,
+    );
+
+    feed.release();
+    await pumpEventQueue();
+    expect(fourthGranted, isFalse);
+
+    metadata.first.release();
+    await pumpEventQueue();
+    expect(fourthGranted, isTrue);
+    (await fourth).release();
+    metadata[1].release();
+    metadata[2].release();
+  });
+
   test('acquire re-resolves priority at each admission scan', () async {
     final gate = OriginRequestGate(
       maxConcurrentPerOrigin: 1,

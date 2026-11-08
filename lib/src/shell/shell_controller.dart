@@ -58,6 +58,7 @@ import '../data/updater.dart';
 import '../data/user_directory_api.dart';
 import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/startup_timeline.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/badge_route.dart';
 import '../models/bookmark.dart';
@@ -2009,7 +2010,7 @@ class ShellController extends FrameSafeNotifier
   }
 
   Future<void> _load() async {
-    unawaited(cooking.start());
+    markStartup('load start');
     final settingsLoad = appSettings.load();
     final storedWorkspaces = forumTabs.load();
     final recentDestinationsLoad = recentDestinations.load();
@@ -2028,9 +2029,11 @@ class ShellController extends FrameSafeNotifier
       return;
     }
 
+    markStartup('instances read');
     await settingsLoad;
     await recentDestinationsLoad;
     await destinationBookmarksLoad;
+    markStartup('settings read');
     if (isDisposed) return;
     _instances
       ..clear()
@@ -2065,8 +2068,10 @@ class ShellController extends FrameSafeNotifier
       // ended before they were dropped, and older builds kept them.
       _forgetStoredPreferences(),
     ]);
+    markStartup('forums restored');
     if (isDisposed) return;
     final workspaceSnapshot = await storedWorkspaces;
+    markStartup('workspaces read');
     if (isDisposed) return;
     final selectedIndex = _instances.indexWhere(
       (instance) => instance.url == workspaceSnapshot.selectedSiteUrl,
@@ -2121,6 +2126,7 @@ class ShellController extends FrameSafeNotifier
       _restoreInstanceWorkspace(refreshAppearance: refreshAppearance);
     }
     _loadStatus = InstanceLoadStatus.ready;
+    markStartup('shell ready');
     _notify();
 
     unawaited(updates.load());

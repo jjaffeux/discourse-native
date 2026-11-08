@@ -277,26 +277,39 @@ final class DiscourseSiteApi {
     String? apiKey,
     String? clientId,
   }) async {
-    final body = await _transport.getObject(
+    final settings = _transport.getObject(
       Uri.parse('$siteUrl/site/settings.json'),
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
     );
+    // Read beside the settings rather than after them: a homepage waits on
+    // this config, and a concurrent read shares the request a first activation
+    // has already issued for the site's categories.
+    final site =
+        _transport
+            .getObject(
+              Uri.parse('$siteUrl/site.json'),
+              siteUrl: siteUrl,
+              apiKey: apiKey,
+              clientId: clientId,
+            )
+            .then<Map<String, dynamic>?>(
+              (value) => value,
+              onError: (Object error, StackTrace stack) =>
+                  error is SiteLookupException
+                  ? null
+                  : Error.throwWithStackTrace(error, stack),
+            )
+          ..ignore();
+    final body = await settings;
 
     if (jsonText(body['default_homepage'])?.trim().isNotEmpty == true) {
-      try {
-        final site = await _transport.getObject(
-          Uri.parse('$siteUrl/site.json'),
-          siteUrl: siteUrl,
-          apiKey: apiKey,
-          clientId: clientId,
-        );
-        if (site.containsKey('homepage_options')) {
-          body['homepage_options'] = site['homepage_options'];
-        }
-      } on SiteLookupException {
+      final options = await site;
+      if (options == null) {
         body['homepage_options'] = const <Object>[];
+      } else if (options.containsKey('homepage_options')) {
+        body['homepage_options'] = options['homepage_options'];
       }
     }
 
