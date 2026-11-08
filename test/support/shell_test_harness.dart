@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:discourse_native/src/shell/forum_tab_scope.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -66,6 +67,7 @@ Future<void> pumpShell(
   Future<void> Function()? beforeSettle,
   http.Client? mediaClient,
   PluginManifest? pluginManifest,
+  ComponentStyleguideOpener? openComponentStyleguide,
   bool revealMobileNavigation = false,
 }) async {
   tester.view.physicalSize = size;
@@ -90,6 +92,7 @@ Future<void> pumpShell(
       updateStore: updateStore ?? FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
       pluginManifest: pluginManifest ?? bundledWidgetTestManifest,
+      openComponentStyleguide: openComponentStyleguide,
     ),
   );
   if (beforeSettle != null) {

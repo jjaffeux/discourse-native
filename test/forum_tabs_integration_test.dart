@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
@@ -203,6 +204,7 @@ void main() {
           instance('one.example', title: 'Discourse Team'),
           instance('two.example', title: 'Discourse Meta'),
         ],
+        openComponentStyleguide: (_) async {},
       );
 
       final forum = find.byKey(const ValueKey('https://two.example'));
@@ -1152,6 +1154,7 @@ Future<void> _pumpShell(
   FakeDiscourseApi? api,
   FakeAuthenticator? authenticator,
   FakeForumTabStore? forumTabs,
+  ComponentStyleguideOpener? openComponentStyleguide,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -1175,6 +1178,7 @@ Future<void> _pumpShell(
       updater: FakeUpdater(),
       updateStore: FakeUpdateStore(),
       initialRootMode: ShellRootMode.forum,
+      openComponentStyleguide: openComponentStyleguide,
     ),
   );
   await tester.pumpAndSettle();

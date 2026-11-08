@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -25,7 +26,10 @@ const _desktopBridges = TargetPlatformVariant({
   TargetPlatform.linux,
 });
 
-Future<FakeInstanceStore> _pumpRail(WidgetTester tester) async {
+Future<FakeInstanceStore> _pumpRail(
+  WidgetTester tester, {
+  ComponentStyleguideOpener? openComponentStyleguide,
+}) async {
   const user = DiscourseUser(id: 7, username: 'reader');
   final store = FakeInstanceStore([
     const DiscourseInstance(
@@ -57,6 +61,7 @@ Future<FakeInstanceStore> _pumpRail(WidgetTester tester) async {
         headers: {'content-type': 'image/svg+xml'},
       ),
     ),
+    openComponentStyleguide: openComponentStyleguide,
   );
   await tester.pumpAndSettle();
   return store;
@@ -129,7 +134,7 @@ void main() {
   testWidgets('rail actions keep cursor-only hover and keyboard focus', (
     tester,
   ) async {
-    await _pumpRail(tester);
+    await _pumpRail(tester, openComponentStyleguide: (_) async {});
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
