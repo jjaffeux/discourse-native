@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
@@ -354,11 +355,21 @@ void main() {
           )
           .position;
       final activity = find.byType(UserActivityRow);
+      while (activity.evaluate().length <= 20) {
+        position.jumpTo(
+          math.min(position.pixels + 200, position.maxScrollExtent),
+        );
+        await tester.pump();
+      }
       final overInset = activity.at(20);
       position.jumpTo(position.pixels + tester.getCenter(overInset).dy - 830);
       await tester.pump();
       expect(overInset.hitTestable(), findsOneWidget);
       await export(tester, 'phone-expanded-foot');
+      while (activity.evaluate().length < 30) {
+        position.jumpTo(position.maxScrollExtent);
+        await tester.pump();
+      }
       position.jumpTo(position.maxScrollExtent);
       await tester.pump();
       expect(
