@@ -98,15 +98,24 @@ class FoundHashtag {
   }
 
   bool matchesRef(String requestedRef) {
-    final requested = requestedRef.split('::');
-    final canonical = ref.split('::');
-    if (requested.length > 2 || canonical.length > 2) return false;
-    if (requested.length == 2 && requested.last != type) return false;
-    if (canonical.length == 2 &&
-        (canonical.last != type || requested.length == 1)) {
+    final requestedAt = requestedRef.indexOf('::');
+    final canonicalAt = ref.indexOf('::');
+    if (requestedAt >= 0 &&
+        (requestedRef.indexOf('::', requestedAt + 2) >= 0 ||
+            requestedRef.substring(requestedAt + 2) != type)) {
       return false;
     }
-    return requested.first.toLowerCase() == canonical.first.toLowerCase();
+    if (canonicalAt >= 0 &&
+        (requestedAt < 0 ||
+            ref.indexOf('::', canonicalAt + 2) >= 0 ||
+            ref.substring(canonicalAt + 2) != type)) {
+      return false;
+    }
+    final requestedName = requestedAt < 0
+        ? requestedRef
+        : requestedRef.substring(0, requestedAt);
+    final canonicalName = canonicalAt < 0 ? ref : ref.substring(0, canonicalAt);
+    return requestedName.toLowerCase() == canonicalName.toLowerCase();
   }
 
   @override

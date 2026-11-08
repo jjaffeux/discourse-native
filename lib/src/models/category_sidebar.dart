@@ -114,13 +114,23 @@ List<TopicCategory> orderedSidebarCategories(
   List<TopicCategory> categories, {
   required bool fixedCategoryPositions,
 }) {
-  final sorted = [...categories]
-    ..sort((left, right) {
-      final compared = fixedCategoryPositions
-          ? _comparePosition(left, right)
-          : _compareNames(left.name, right.name);
-      return compared != 0 ? compared : _comparePosition(left, right);
-    });
+  final List<TopicCategory> sorted;
+  if (fixedCategoryPositions) {
+    sorted = [...categories]..sort(_comparePosition);
+  } else {
+    final keyed =
+        [
+          for (final category in categories)
+            (category, category.name.toLowerCase()),
+        ]..sort((left, right) {
+          final folded = left.$2.compareTo(right.$2);
+          final compared = folded != 0
+              ? folded
+              : left.$1.name.compareTo(right.$1.name);
+          return compared != 0 ? compared : _comparePosition(left.$1, right.$1);
+        });
+    sorted = [for (final entry in keyed) entry.$1];
+  }
   final ids = {for (final category in sorted) category.id};
   final children = <int?, List<TopicCategory>>{};
   for (final category in sorted) {
@@ -160,11 +170,6 @@ List<TopicCategory> orderedSidebarCategories(
   // Include anything trapped in a malformed cycle once, in stable name order.
   append(sorted);
   return result;
-}
-
-int _compareNames(String left, String right) {
-  final folded = left.toLowerCase().compareTo(right.toLowerCase());
-  return folded != 0 ? folded : left.compareTo(right);
 }
 
 int _comparePosition(TopicCategory left, TopicCategory right) {

@@ -79,6 +79,12 @@ String? jsonText(Object? value) {
 String? jsonHtmlText(Object? value) {
   final source = jsonText(value);
   if (source == null) return null;
+  if (!source.contains('<') &&
+      !source.contains('&') &&
+      !source.contains('\r') &&
+      !source.contains('\u0000')) {
+    return jsonText(source.replaceAll(_htmlWhitespace, ' '));
+  }
   final fragment = html.parseFragment(source);
   for (final emoji in fragment.querySelectorAll('img.emoji')) {
     final shortcode =
@@ -96,8 +102,10 @@ String? jsonHtmlText(Object? value) {
       element.append(dom.Text(' '));
     }
   }
-  return jsonText(fragment.text?.replaceAll(RegExp(r'\s+'), ' '));
+  return jsonText(fragment.text?.replaceAll(_htmlWhitespace, ' '));
 }
+
+final _htmlWhitespace = RegExp(r'\s+');
 
 DateTime? jsonDate(Object? value) => switch (value) {
   final String s when s.length <= maximumJsonDateCodeUnits => DateTime.tryParse(

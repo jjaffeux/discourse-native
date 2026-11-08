@@ -1,0 +1,193 @@
+{
+  "baseline": "f00de6dc2177ed4f0fc16e6e3ca5bf2ed6bcf487",
+  "configuration": "Flutter macOS arm64 release",
+  "time_unit": "microseconds per batch",
+  "runs": [
+    {
+      "run": 1,
+      "side": "before",
+      "microseconds": {
+        "unread_row_mapping": 6203669,
+        "category_filter": 259087,
+        "hashtag_ref_matching": 7632,
+        "badge_summary": 165784,
+        "plain_excerpt": 78041,
+        "account_page_append": 24806,
+        "tag_intersection": 123377,
+        "sidebar_category_sort": 48919,
+        "emoji_free_text": 1303812,
+        "post_gap_expansion": 506933
+      }
+    },
+    {
+      "run": 1,
+      "side": "after",
+      "microseconds": {
+        "unread_row_mapping": 7863,
+        "category_filter": 42584,
+        "hashtag_ref_matching": 3489,
+        "badge_summary": 53,
+        "plain_excerpt": 68738,
+        "account_page_append": 17887,
+        "tag_intersection": 98801,
+        "sidebar_category_sort": 31034,
+        "emoji_free_text": 392673,
+        "post_gap_expansion": 214640
+      }
+    },
+    {
+      "run": 2,
+      "side": "before",
+      "microseconds": {
+        "unread_row_mapping": 5973055,
+        "category_filter": 253950,
+        "hashtag_ref_matching": 6663,
+        "badge_summary": 163953,
+        "plain_excerpt": 76183,
+        "account_page_append": 24863,
+        "tag_intersection": 121653,
+        "sidebar_category_sort": 47404,
+        "emoji_free_text": 1265291,
+        "post_gap_expansion": 498145
+      }
+    },
+    {
+      "run": 2,
+      "side": "after",
+      "microseconds": {
+        "unread_row_mapping": 10233,
+        "category_filter": 40867,
+        "hashtag_ref_matching": 3509,
+        "badge_summary": 52,
+        "plain_excerpt": 66636,
+        "account_page_append": 17576,
+        "tag_intersection": 100012,
+        "sidebar_category_sort": 31075,
+        "emoji_free_text": 390657,
+        "post_gap_expansion": 214493
+      }
+    },
+    {
+      "run": 3,
+      "side": "before",
+      "microseconds": {
+        "unread_row_mapping": 5969415,
+        "category_filter": 255074,
+        "hashtag_ref_matching": 7474,
+        "badge_summary": 162231,
+        "plain_excerpt": 77243,
+        "account_page_append": 24523,
+        "tag_intersection": 138241,
+        "sidebar_category_sort": 50418,
+        "emoji_free_text": 1269128,
+        "post_gap_expansion": 554028
+      }
+    },
+    {
+      "run": 3,
+      "side": "after",
+      "microseconds": {
+        "unread_row_mapping": 8480,
+        "category_filter": 43505,
+        "hashtag_ref_matching": 3171,
+        "badge_summary": 53,
+        "plain_excerpt": 68736,
+        "account_page_append": 17431,
+        "tag_intersection": 98488,
+        "sidebar_category_sort": 31456,
+        "emoji_free_text": 391381,
+        "post_gap_expansion": 217668
+      }
+    },
+    {
+      "run": 4,
+      "side": "before",
+      "microseconds": {
+        "unread_row_mapping": 6300987,
+        "category_filter": 269012,
+        "hashtag_ref_matching": 7041,
+        "badge_summary": 167685,
+        "plain_excerpt": 80030,
+        "account_page_append": 24135,
+        "tag_intersection": 130457,
+        "sidebar_category_sort": 53495,
+        "emoji_free_text": 1302625,
+        "post_gap_expansion": 508936
+      }
+    },
+    {
+      "run": 4,
+      "side": "after",
+      "microseconds": {
+        "unread_row_mapping": 9440,
+        "category_filter": 44815,
+        "hashtag_ref_matching": 3256,
+        "badge_summary": 55,
+        "plain_excerpt": 69749,
+        "account_page_append": 19874,
+        "tag_intersection": 101067,
+        "sidebar_category_sort": 30980,
+        "emoji_free_text": 392845,
+        "post_gap_expansion": 217643
+      }
+    },
+    {
+      "run": 5,
+      "side": "before",
+      "microseconds": {
+        "unread_row_mapping": 6161704,
+        "category_filter": 258247,
+        "hashtag_ref_matching": 7435,
+        "badge_summary": 161682,
+        "plain_excerpt": 77422,
+        "account_page_append": 24725,
+        "tag_intersection": 125759,
+        "sidebar_category_sort": 47572,
+        "emoji_free_text": 1295079,
+        "post_gap_expansion": 515737
+      }
+    },
+    {
+      "run": 5,
+      "side": "after",
+      "microseconds": {
+        "unread_row_mapping": 7641,
+        "category_filter": 44727,
+        "hashtag_ref_matching": 3537,
+        "badge_summary": 55,
+        "plain_excerpt": 68521,
+        "account_page_append": 17630,
+        "tag_intersection": 100212,
+        "sidebar_category_sort": 31623,
+        "emoji_free_text": 374379,
+        "post_gap_expansion": 219573
+      }
+    }
+  ],
+  "work_counts": {
+    "hidden_row_reads": {
+      "before": 18000,
+      "after": 26
+    },
+    "filter_parent_reads": {
+      "before": 1001000,
+      "after": 2000
+    },
+    "tag_intersection_candidates": {
+      "before": 5000,
+      "after": 1
+    },
+    "sidebar_name_reads": {
+      "before": 24828,
+      "after": 1000
+    },
+    "gap_resident_stream_reads": {
+      "before": 230000,
+      "after": 30000
+    },
+    "bounded_hidden_row_reads": {
+      "before": 540,
+      "after": 16
+    }
+  }
+}

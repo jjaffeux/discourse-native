@@ -40,14 +40,18 @@ Iterable<({int start, int end})> _emojiLiteralCodeRanges(String text) sync* {
 /// Shortcodes in plain presentation text share the composer's word boundary
 /// and leave backtick-delimited code literal, including multiline fences.
 Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
-  final code = _emojiLiteralCodeRanges(text).iterator;
-  var hasCode = code.moveNext();
+  Iterator<({int start, int end})>? code;
+  var hasCode = false;
   for (final match in siteEmojiShortcodePattern.allMatches(text)) {
     if (match.start > 0 &&
         _emojiWordEnd.hasMatch(
           text.substring((match.start - 2).clamp(0, match.start), match.start),
         )) {
       continue;
+    }
+    if (code == null) {
+      code = _emojiLiteralCodeRanges(text).iterator;
+      hasCode = code.moveNext();
     }
     while (hasCode && code.current.end <= match.start) {
       hasCode = code.moveNext();

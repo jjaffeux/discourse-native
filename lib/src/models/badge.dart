@@ -138,16 +138,25 @@ final class BadgeCatalog {
   }
 
   final List<BadgeGroup> groups;
-  int get total =>
-      groups.fold(0, (total, group) => total + group.badges.length);
-  int get earned => groups.fold(
-    0,
-    (total, group) =>
-        total + group.badges.where((badge) => badge.hasBadge == true).length,
-  );
-  bool get hasPersonalState => groups.any(
-    (group) => group.badges.any((badge) => badge.hasBadge != null),
-  );
+  late final _summary = _summarize();
+
+  ({int total, int earned, bool personal}) _summarize() {
+    var total = 0;
+    var earned = 0;
+    var personal = false;
+    for (final group in groups) {
+      total += group.badges.length;
+      for (final badge in group.badges) {
+        if (badge.hasBadge == true) earned++;
+        if (badge.hasBadge != null) personal = true;
+      }
+    }
+    return (total: total, earned: earned, personal: personal);
+  }
+
+  int get total => _summary.total;
+  int get earned => _summary.earned;
+  bool get hasPersonalState => _summary.personal;
 }
 
 @immutable

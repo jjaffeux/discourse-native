@@ -1113,11 +1113,10 @@ class TopicDetail with Storable<TopicDetail> {
     }
 
     final consumed = consumedIds.toSet();
-    final inserted = <int>{};
+    final held = stream.toSet();
     final insert = <int>[
       for (final id in revealedIds)
-        if (consumed.contains(id) && !stream.contains(id) && inserted.add(id))
-          id,
+        if (consumed.contains(id) && held.add(id)) id,
     ];
     final nextStream = List<int>.of(stream)
       ..insertAll(before ? anchorIndex : anchorIndex + 1, insert);
