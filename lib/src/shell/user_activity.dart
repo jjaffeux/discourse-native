@@ -26,6 +26,8 @@ import 'skeleton_fill.dart';
 import 'topic_list_view.dart';
 import 'topic_title.dart';
 
+/// A person's activity. An [embedded] view builds slivers, for a parent
+/// scroll view that holds it among other content.
 class UserActivityView extends StatelessWidget {
   const UserActivityView({
     super.key,
@@ -120,9 +122,11 @@ class _UserActivityBody extends StatelessWidget {
     final instance = _instance;
     if (instance?.isConnected != true) {
       if (embedded) {
-        return Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(context.l10n.connectThisAccountToSeeItsActivity),
+        return SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Text(context.l10n.connectThisAccountToSeeItsActivity),
+          ),
         );
       }
       return DPageSurface.headed(
@@ -190,11 +194,10 @@ class _UserActivityBody extends StatelessWidget {
 
 enum _ActivityKind { all, topics, replies, likes }
 
-/// An embedded list shares its parent's scroll view, so nothing virtualizes it.
-/// It builds one row a frame, which fits the budget where a page of rows does
-/// not: enough to outgrow a raised sheet, then more as the reader nears the end
-/// of what exists. The first rows are built beneath the rest line, behind
-/// [_embeddedRowExtent] of reserved height, so filling them moves nothing.
+/// An embedded list arrives while its sheet is opening, so its first rows are
+/// built one a frame, which fits the budget where a screenful does not. They
+/// sit beneath the rest line behind [_embeddedRowExtent] of reserved height, so
+/// filling them moves nothing.
 const _embeddedFirstRows = 8;
 const _embeddedRowExtent = 110.0;
 
@@ -206,6 +209,7 @@ typedef _EmbeddedRow = ({
   GlobalKey key,
   UserActivityItem item,
   TopicCategory? category,
+  bool separated,
   Widget widget,
 });
 
@@ -258,11 +262,8 @@ class _ActivityListState extends State<_ActivityList> {
     _keepEmbeddedAnchor(oldWidget);
   }
 
-  final _embeddedRows = <String, _EmbeddedRow>{};
-  int _embeddedRowCount = 1;
-  int _embeddedItemCount = 0;
-  bool _extensionScheduled = false;
-
+  // Rows built on demand have no extent to correct by when a page above them
+  // is added or dropped, so the row being read is found again by its index.
   void _keepEmbeddedAnchor(_ActivityList oldWidget) {
     if (!widget.embedded ||
         oldWidget.feed.items == feed.items ||
@@ -272,6 +273,7 @@ class _ActivityListState extends State<_ActivityList> {
     final retained = {for (final item in feed.items) item.identity};
     GlobalKey? anchor;
     double? top;
+    String? anchorId;
     for (final item in oldWidget.feed.items) {
       if (!retained.contains(item.identity)) continue;
       final key = _embeddedRows[item.identity]?.key;
@@ -281,30 +283,56 @@ class _ActivityListState extends State<_ActivityList> {
       if (y + box.size.height > 0 && y < MediaQuery.sizeOf(context).height) {
         anchor = key;
         top = y;
+        anchorId = item.identity;
         break;
       }
     }
     _embeddedRows.removeWhere((id, _) => !retained.contains(id));
     if (anchor == null || top == null) return;
     final position = _outerScroll!;
+    final savedAnchor = anchor;
     final savedTop = top;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    int indexIn(UserActivityFeed of) =>
+        _itemsOf(of).indexWhere((item) => item.identity == anchorId);
+    final target = indexIn(feed);
+    if (target == indexIn(oldWidget.feed)) return;
+    void restore({required bool settle}) {
       if (!mounted || _outerScroll != position) return;
-      final box = anchor?.currentContext?.findRenderObject();
-      if (box is! RenderBox || !box.hasSize || !position.hasContentDimensions) {
+      final box = savedAnchor.currentContext?.findRenderObject();
+      if (box is RenderBox && box.hasSize && position.hasContentDimensions) {
+        final delta = box.localToGlobal(Offset.zero).dy - savedTop;
+        if (delta.abs() > .5) {
+          position.jumpTo(
+            (position.pixels + delta).clamp(
+              position.minScrollExtent,
+              position.maxScrollExtent,
+            ),
+          );
+        }
         return;
       }
-      final delta = box.localToGlobal(Offset.zero).dy - savedTop;
-      if (delta.abs() > .5) {
-        position.jumpTo(
-          (position.pixels + delta).clamp(
-            position.minScrollExtent,
-            position.maxScrollExtent,
-          ),
+      final controller = Scrollable.maybeOf(context)?.widget.controller;
+      if (target < 0 || controller == null || !_embeddedList.isAttached) return;
+      _embeddedList.jumpToItem(
+        index: target,
+        scrollController: controller,
+        alignment: 0,
+      );
+      if (settle) {
+        WidgetsBinding.instance.addPostFrameCallback(
+          (_) => restore(settle: false),
         );
+        WidgetsBinding.instance.scheduleFrame();
       }
-    });
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => restore(settle: true));
   }
+
+  final _embeddedRows = <String, _EmbeddedRow>{};
+  int _embeddedRowCount = 1;
+  bool _embeddedFillScheduled = false;
+  final _embeddedList = ListController();
 
   ScrollPosition? _outerScroll;
 
@@ -320,34 +348,11 @@ class _ActivityListState extends State<_ActivityList> {
     position?.addListener(_outerMoved);
   }
 
-  bool get _embeddedRowsAllBuilt => _embeddedRowCount >= _embeddedItemCount;
-
-  void _scheduleRowExtension() {
-    if (_extensionScheduled || _embeddedRowsAllBuilt) return;
-    _extensionScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _extensionScheduled = false;
-      _extendEmbeddedRows();
-    });
-  }
-
-  // Past the first rows, a resting sheet only needs to outgrow its viewport;
-  // rows beyond that wait for the reader to scroll.
-  void _extendEmbeddedRows() {
-    final position = _outerScroll;
-    if (!mounted || _embeddedRowsAllBuilt || position == null) return;
-    if (_embeddedRowCount >= _embeddedFirstRows) {
-      if (!position.hasContentDimensions) return;
-      final lead = position.pixels > 0
-          ? paginationPrefetchDistance(position)
-          : 1.0;
-      if (position.extentAfter >= lead) return;
-    }
-    setState(() => _embeddedRowCount++);
-  }
-
   void _outerMoved() {
-    _scheduleRowExtension();
+    // A reader who is already scrolling cannot wait for rows to fill in.
+    if (_embeddedRowCount < _embeddedFirstRows) {
+      setState(() => _embeddedRowCount = _embeddedFirstRows);
+    }
     final position = _outerScroll;
     if (position == null ||
         !position.hasContentDimensions ||
@@ -360,7 +365,6 @@ class _ActivityListState extends State<_ActivityList> {
       unawaited(widget.onLoadPrevious());
     } else if (position.pixels > 0 &&
         feed.hasMore &&
-        _embeddedRowsAllBuilt &&
         position.extentAfter < paginationPrefetchDistance(position)) {
       unawaited(onLoadMore());
     }
@@ -369,124 +373,178 @@ class _ActivityListState extends State<_ActivityList> {
   @override
   void dispose() {
     _outerScroll?.removeListener(_outerMoved);
+    _embeddedList.dispose();
     super.dispose();
   }
 
-  // The widget is held per row so a feed change rebuilds only the rows it
-  // actually changed. Each row keeps its own layer: this list scrolls by
-  // repainting its parent's whole content.
-  Widget _embeddedRow(UserActivityItem item) {
+  void _scheduleEmbeddedFill(int itemCount) {
+    if (_embeddedFillScheduled ||
+        _embeddedRowCount >= _embeddedFirstRows ||
+        _embeddedRowCount >= itemCount) {
+      return;
+    }
+    _embeddedFillScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _embeddedFillScheduled = false;
+      if (mounted) setState(() => _embeddedRowCount++);
+    });
+  }
+
+  // Held so that a feed change rebuilds only the rows it actually changed.
+  Widget _embeddedRow(UserActivityItem item, {required bool separated}) {
     final category = feed.categoryFor(item.categoryId);
     final held = _embeddedRows[item.identity];
     if (held != null &&
         identical(held.item, item) &&
-        held.category == category) {
+        held.category == category &&
+        held.separated == separated) {
       return held.widget;
     }
     final key = held?.key ?? GlobalKey();
-    final row = KeyedSubtree(
+    final row = Column(
       key: key,
-      child: RepaintBoundary(
-        child: UserActivityRow(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (separated) const DSeparator(indent: 16, endIndent: 16),
+        UserActivityRow(
           siteUrl: siteUrl,
           item: item,
           category: category,
           onTap: () => onOpen(item),
         ),
-      ),
+      ],
     );
     _embeddedRows[item.identity] = (
       key: key,
       item: item,
       category: category,
+      separated: separated,
       widget: row,
     );
     return row;
   }
 
-  int _reservedRows(List<UserActivityItem> items) => math.max(
-    0,
-    math.min(_embeddedFirstRows, items.length) - _embeddedRowCount,
-  );
-
-  Widget _embedded(List<UserActivityItem> items) => Column(
-    mainAxisSize: MainAxisSize.min,
-    crossAxisAlignment: CrossAxisAlignment.stretch,
-    children: [
-      Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: DTabs<_ActivityKind>.controlled(
-          value: _kind,
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              _kind = value;
-              _embeddedRowCount = _embeddedFirstRows;
-            });
-            if (feed.hasPrevious) unawaited(onRefresh());
-          },
-          children: [
-            DTabList<_ActivityKind>(
-              variant: DTabListVariant.line,
+  Widget _embedded(List<UserActivityItem> items) {
+    final filling = _embeddedRowCount < _embeddedFirstRows;
+    final reserved =
+        math.min(_embeddedFirstRows, items.length) - _embeddedRowCount;
+    final indexes = <Key, int>{
+      for (final (index, item) in items.indexed)
+        ?_embeddedRows[item.identity]?.key: index,
+    };
+    return SliverMainAxisGroup(
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: DTabs<_ActivityKind>.controlled(
+              value: _kind,
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() {
+                  _kind = value;
+                  _embeddedRowCount = _embeddedFirstRows;
+                });
+                if (feed.hasPrevious) unawaited(onRefresh());
+              },
               children: [
-                for (final (kind, label) in [
-                  (_ActivityKind.all, appL10n.all),
-                  (_ActivityKind.topics, appL10n.topics),
-                  (_ActivityKind.replies, appL10n.replies),
-                  (_ActivityKind.likes, appL10n.likes),
-                ])
-                  DTabTrigger<_ActivityKind>(value: kind, child: Text(label)),
+                DTabList<_ActivityKind>(
+                  variant: DTabListVariant.line,
+                  children: [
+                    for (final (kind, label) in [
+                      (_ActivityKind.all, appL10n.all),
+                      (_ActivityKind.topics, appL10n.topics),
+                      (_ActivityKind.replies, appL10n.replies),
+                      (_ActivityKind.likes, appL10n.likes),
+                    ])
+                      DTabTrigger<_ActivityKind>(
+                        value: kind,
+                        child: Text(label),
+                      ),
+                  ],
+                ),
               ],
             ),
-          ],
-        ),
-      ),
-      if (feed.hasPrevious)
-        Center(
-          child: DButton(
-            label: Text(appL10n.previous),
-            loading: feed.loadingPrevious,
-            onPressed: feed.loading
-                ? null
-                : () => unawaited(widget.onLoadPrevious()),
           ),
         ),
-      for (final (index, item) in items.take(_embeddedRowCount).indexed) ...[
-        if (index > 0) const DSeparator(indent: 16, endIndent: 16),
-        _embeddedRow(item),
+        if (feed.hasPrevious)
+          SliverToBoxAdapter(
+            child: Center(
+              child: DButton(
+                label: Text(appL10n.previous),
+                loading: feed.loadingPrevious,
+                onPressed: feed.loading
+                    ? null
+                    : () => unawaited(widget.onLoadPrevious()),
+              ),
+            ),
+          ),
+        SuperSliverList.builder(
+          listController: _embeddedList,
+          itemCount: filling
+              ? math.min(_embeddedRowCount, items.length)
+              : items.length,
+          findChildIndexCallback: (key) => indexes[key],
+          itemBuilder: (context, index) =>
+              _embeddedRow(items[index], separated: index > 0),
+        ),
+        if (reserved > 0)
+          SliverToBoxAdapter(
+            child: SizedBox(height: reserved * _embeddedRowExtent),
+          ),
+        SliverToBoxAdapter(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (!feed.loaded || feed.loading)
+                AccountActivityPagingSkeleton(
+                  semanticsLabel: appL10n.loadingActivity,
+                ),
+              if (feed.error case final error?)
+                _LoadMoreError(
+                  message: error,
+                  onRetry: () => unawaited(
+                    feed.retryFromStart
+                        ? onRefresh()
+                        : feed.retryPrevious
+                        ? widget.onLoadPrevious()
+                        : onLoadMore(),
+                  ),
+                ),
+              if (feed.loaded &&
+                  !feed.loading &&
+                  feed.error == null &&
+                  items.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Text(appL10n.noActivityYet),
+                ),
+              if (feed.hasMore && !feed.loading && feed.error == null)
+                Center(
+                  child: DButton(
+                    label: Text(appL10n.loadMore),
+                    onPressed: () => unawaited(onLoadMore()),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ],
-      if (_reservedRows(items) case final rows when rows > 0)
-        SizedBox(height: rows * _embeddedRowExtent),
-      if (!feed.loaded || feed.loading)
-        AccountActivityPagingSkeleton(semanticsLabel: appL10n.loadingActivity),
-      if (feed.error case final error?)
-        _LoadMoreError(
-          message: error,
-          onRetry: () => unawaited(
-            feed.retryFromStart
-                ? onRefresh()
-                : feed.retryPrevious
-                ? widget.onLoadPrevious()
-                : onLoadMore(),
-          ),
-        ),
-      if (feed.loaded && !feed.loading && feed.error == null && items.isEmpty)
-        Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(appL10n.noActivityYet),
-        ),
-      if (feed.hasMore &&
-          !feed.loading &&
-          feed.error == null &&
-          _embeddedRowsAllBuilt)
-        Center(
-          child: DButton(
-            label: Text(appL10n.loadMore),
-            onPressed: () => unawaited(onLoadMore()),
-          ),
-        ),
-    ],
-  );
+    );
+  }
+
+  List<UserActivityItem> _itemsOf(UserActivityFeed feed) => feed.items
+      .where(
+        (item) => switch (_kind) {
+          _ActivityKind.all => true,
+          _ActivityKind.topics => item.isTopic,
+          _ActivityKind.replies => item.isReply,
+          _ActivityKind.likes => item.isLike,
+        },
+      )
+      .toList();
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
@@ -507,23 +565,13 @@ class _ActivityListState extends State<_ActivityList> {
 
   @override
   Widget build(BuildContext context) {
-    final items = feed.items
-        .where(
-          (item) => switch (_kind) {
-            _ActivityKind.all => true,
-            _ActivityKind.topics => item.isTopic,
-            _ActivityKind.replies => item.isReply,
-            _ActivityKind.likes => item.isLike,
-          },
-        )
-        .toList();
+    final items = _itemsOf(feed);
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
     if (widget.embedded) {
-      _embeddedItemCount = items.length;
       if (items.length <= _embeddedShortHistory) {
         _embeddedRowCount = math.max(_embeddedRowCount, items.length);
       }
-      _scheduleRowExtension();
+      _scheduleEmbeddedFill(items.length);
       return _embedded(items);
     }
     final content = DPageSurface.headed(

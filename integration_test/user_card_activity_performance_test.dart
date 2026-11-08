@@ -171,6 +171,19 @@ void main() {
         await hold(const Duration(milliseconds: 200));
         final deep = await scroll('scroll-after-page');
 
+        final beforeReadingPage = pageLandedAt;
+        while (pageLandedAt == beforeReadingPage) {
+          position.jumpTo(position.pixels + _scrollStep);
+          await binding.endOfFrame;
+        }
+        final readingPageAt = pageLandedAt!;
+        final landedClock = Stopwatch()..start();
+        while (landedClock.elapsedMilliseconds < 250) {
+          position.jumpTo(position.pixels + _scrollStep);
+          await binding.endOfFrame;
+        }
+        phases.add(_Phase('page-while-scrolling', readingPageAt, Timeline.now));
+
         final loaded = fixture.shell.accountActivity
             .userActivityFor(userCardActivitySite, username: person)
             .items

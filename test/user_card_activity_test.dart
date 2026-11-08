@@ -354,28 +354,32 @@ void main() {
                 .first,
           )
           .position;
-      final activity = find.byType(UserActivityRow);
-      while (activity.evaluate().length <= 20) {
-        position.jumpTo(
-          math.min(position.pixels + 200, position.maxScrollExtent),
-        );
-        await tester.pump();
+      Finder row(String title) => find.ancestor(
+        of: find.text(title),
+        matching: find.byType(UserActivityRow),
+      );
+      Future<void> scrollTo(Finder target) async {
+        for (var step = 0; step < 200 && target.evaluate().isEmpty; step++) {
+          position.jumpTo(
+            math.min(position.pixels + 120, position.maxScrollExtent),
+          );
+          await tester.pump();
+        }
+        expect(target, findsOneWidget);
       }
-      final overInset = activity.at(20);
+
+      final overInset = row('History 20');
+      await scrollTo(overInset);
       position.jumpTo(position.pixels + tester.getCenter(overInset).dy - 830);
       await tester.pump();
       expect(overInset.hitTestable(), findsOneWidget);
       await export(tester, 'phone-expanded-foot');
-      while (activity.evaluate().length < 30) {
-        position.jumpTo(position.maxScrollExtent);
-        await tester.pump();
-      }
+      final last = row('History 29');
+      await scrollTo(last);
+      await tester.pump();
       position.jumpTo(position.maxScrollExtent);
       await tester.pump();
-      expect(
-        tester.getBottomLeft(activity.last).dy,
-        lessThanOrEqualTo(844 - 34),
-      );
+      expect(tester.getBottomLeft(last).dy, lessThanOrEqualTo(844 - 34));
       expect(tester.takeException(), isNull);
     },
   );
