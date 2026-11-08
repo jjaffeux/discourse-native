@@ -33,7 +33,7 @@ List<ChatChannel> projectChatChannelList(
         : 2,
   );
   final cutoff = now.subtract(const Duration(days: 30));
-  final result = channels.where((channel) {
+  var result = channels.where((channel) {
     if (channel.id == activeChannelId) return true;
     return switch (filter) {
       ChatChannelListFilter.all => true,
@@ -48,24 +48,40 @@ List<ChatChannel> projectChatChannelList(
         !channel.membership.muted && _urgent(channel) > 0,
     };
   }).toList();
-  result.sort((a, b) {
-    if (sort == ChatChannelListSort.alphabetical) {
-      if (section == ChatChannelListSection.starred &&
-          a.isDirectMessage != b.isDirectMessage) {
-        return a.isDirectMessage ? 1 : -1;
+  if (sort == ChatChannelListSort.alphabetical) {
+    final ranked =
+        [
+          for (final channel in result)
+            (
+              channel: channel,
+              name:
+                  (channel.isDirectMessage ? channel.title : channel.slug ?? '')
+                      .toLowerCase(),
+            ),
+        ]..sort((a, b) {
+          if (section == ChatChannelListSection.starred &&
+              a.channel.isDirectMessage != b.channel.isDirectMessage) {
+            return a.channel.isDirectMessage ? 1 : -1;
+          }
+          final compared = a.name.compareTo(b.name);
+          return compared != 0
+              ? compared
+              : a.channel.id.compareTo(b.channel.id);
+        });
+    result = [for (final entry in ranked) entry.channel];
+  } else {
+    result.sort((a, b) {
+      if (sort == ChatChannelListSort.priority) {
+        final compared = priority(a).compareTo(priority(b));
+        if (compared != 0) return compared;
+        if (section != ChatChannelListSection.directMessages) {
+          return _alphabetical(a, b);
+        }
       }
-      return _alphabetical(a, b);
-    }
-    if (sort == ChatChannelListSort.priority) {
-      final compared = priority(a).compareTo(priority(b));
-      if (compared != 0) return compared;
-      if (section != ChatChannelListSection.directMessages) {
-        return _alphabetical(a, b);
-      }
-    }
-    final recent = _recency(a, b);
-    return recent != 0 ? recent : _alphabetical(a, b);
-  });
+      final recent = _recency(a, b);
+      return recent != 0 ? recent : _alphabetical(a, b);
+    });
+  }
   if (limit == null || result.length <= limit) return List.unmodifiable(result);
   final limited = result.take(limit).toList();
   if (retainActiveAtLimit &&

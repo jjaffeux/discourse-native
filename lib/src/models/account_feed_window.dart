@@ -8,6 +8,11 @@ class AccountFeedPacket<T> {
     required Iterable<T> items,
   }) : items = List.unmodifiable(items);
 
+  AccountFeedPacket._shifted(AccountFeedPacket<T> held, int shift)
+    : start = held.start - shift,
+      end = held.end - shift,
+      items = held.items;
+
   final int start;
   final int end;
   final List<T> items;
@@ -132,7 +137,18 @@ class AccountFeedWindow<T> {
     var shifted = 0;
     final updated = <AccountFeedPacket<T>>[];
     for (final packet in packets) {
-      final rows = packet.items.where((row) => identity(row) != key).toList();
+      final first = packet.items.indexWhere((row) => identity(row) == key);
+      if (first < 0) {
+        updated.add(
+          shifted == 0 ? packet : AccountFeedPacket._shifted(packet, shifted),
+        );
+        continue;
+      }
+      final rows = [
+        ...packet.items.take(first),
+        for (final row in packet.items.skip(first + 1))
+          if (identity(row) != key) row,
+      ];
       final removed = packet.items.length - rows.length;
       updated.add(
         AccountFeedPacket(
