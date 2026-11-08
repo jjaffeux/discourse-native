@@ -120,16 +120,24 @@ final class ChatThreadMetadataOwner {
       if (key.siteUrl != siteUrl || key.target.channelId != channelId) {
         return false;
       }
-      metadata.abandonDetail();
-      return !metadata.preventsEviction;
+      metadata.retire();
+      return true;
     });
   }
 
-  void forget(String siteUrl) =>
-      _metadata.removeWhere((key, _) => key.siteUrl == siteUrl);
+  void forget(String siteUrl) {
+    _metadata.removeWhere((key, metadata) {
+      if (key.siteUrl != siteUrl) return false;
+      metadata.retire();
+      return true;
+    });
+  }
 
   void dispose() {
     _disposed = true;
+    for (final metadata in _metadata.values) {
+      metadata.retire();
+    }
     _metadata.clear();
   }
 
@@ -158,8 +166,13 @@ final class ChatThreadMetadataOwner {
 
     final run = _ThreadDetailRun();
     metadata.detail = run;
-    run.result.complete(
-      _drainThreadDetail(siteUrl, target, metadata, run).whenComplete(() {
+    unawaited(
+      _drainThreadDetail(
+        siteUrl,
+        target,
+        metadata,
+        run,
+      ).then(run.complete, onError: run.fail).whenComplete(() {
         if (identical(metadata.detail, run)) {
           metadata.abandonDetail();
           _releaseIdleMetadata(siteUrl, target, metadata);
@@ -408,6 +421,7 @@ final class ChatThreadMetadataOwner {
       lease: _requests.capture(siteUrl),
     );
     queue.latest = write;
+    queue.pending.add(write);
     final previous = held.membership;
     final optimistic =
         (previous ?? ChatThreadMembership(threadId: target.threadId))
@@ -424,6 +438,7 @@ final class ChatThreadMetadataOwner {
         .catchError((_) {})
         .then((_) => _performThreadNotificationWrite(metadata, queue, write))
         .whenComplete(() {
+          queue.pending.remove(write);
           if (!identical(metadata.notifications, queue) ||
               !identical(queue.tail, tail)) {
             return;
@@ -584,8 +599,22 @@ final class _ChatThreadMetadata {
   }
 
   void abandonDetail() {
+    detail?.complete(null);
     detail = null;
     detailDirty = false;
+  }
+
+  void retire() {
+    abandonDetail();
+    titleWrite = null;
+    final queue = notifications;
+    notifications = null;
+    if (queue != null) {
+      for (final write in queue.pending) {
+        write.complete(false);
+      }
+      queue.pending.clear();
+    }
   }
 }
 
@@ -595,6 +624,14 @@ final class _ThreadDetailRun {
   final Map<int, DateTime?> originalDeletions = {};
 
   Future<ChatThread?> get future => result.future;
+
+  void complete(ChatThread? value) {
+    if (!result.isCompleted) result.complete(value);
+  }
+
+  void fail(Object error, StackTrace stackTrace) {
+    if (!result.isCompleted) result.completeError(error, stackTrace);
+  }
 }
 
 final class _ThreadNotificationQueue {
@@ -602,5 +639,6 @@ final class _ThreadNotificationQueue {
 
   ChatThreadMembership? confirmed;
   late _QueuedThreadNotification latest;
+  final Set<_QueuedThreadNotification> pending = {};
   Future<void> tail = Future.value();
 }
