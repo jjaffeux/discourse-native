@@ -298,7 +298,9 @@ DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
   if (dateHeader != null) {
     try {
       responseDate = HttpDate.parse(dateHeader);
-    } on HttpException {}
+    } on HttpException {
+      // Without a usable Date, receipt time supplies the response reference.
+    }
   }
   final lifetime = expires.difference(responseDate);
   if (age > lifetime.inSeconds) return null;
