@@ -421,7 +421,11 @@ final class ShellGroupPagesPort implements GroupPagesPort {
   @override
   Future<List<FoundUser>> searchUsers(GroupPagesOwner owner, String query) =>
       isCurrent(owner)
-      ? _shell.searchUsers(siteUrl: owner.siteUrl, topicId: null, term: query)
+      ? _shell.composerIdentities.searchUsers(
+          siteUrl: owner.siteUrl,
+          topicId: null,
+          term: query,
+        )
       : Future.value(const []);
 
   @override

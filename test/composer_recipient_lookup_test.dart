@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_user.dart';
+import 'package:discourse_native/src/shell/composer/composer_identity_directory.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/recipient_lookup.dart';
 import 'package:flutter_test/flutter_test.dart';
