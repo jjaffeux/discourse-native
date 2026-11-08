@@ -15,6 +15,14 @@ typedef _ExpectedLink = ({
 });
 
 void main() {
+  test('regression nov8: angle destinations allow literal parentheses', () {
+    const source = '[guide](<https://example.com/one(two>)';
+    final links = parseComposerLinks(source, enableLinkify: false);
+    expect(links, hasLength(1));
+    expect(links.single.url, 'https://example.com/one(two');
+    expect(links.single.source, source);
+  });
+
   test(
     'regression fifth: angle-delimited Markdown destinations expose usable URLs',
     () {

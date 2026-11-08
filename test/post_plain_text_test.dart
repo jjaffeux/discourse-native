@@ -11,6 +11,17 @@ Post _post({String cooked = '', String? raw}) => Post.fromJson({
 }, 'https://meta.example');
 
 void main() {
+  test('regression nov8: raw previews retain labels of balanced links', () {
+    expect(
+      postPlainText(
+        _post(
+          raw: 'Read [Dart](https://en.wikipedia.org/wiki/Dart_(programming_language)) today.',
+        ),
+      ),
+      'Read Dart today.',
+    );
+  });
+
   test(
     'regression fourth: raw previews retain literal bracketed prose and code',
     () {
