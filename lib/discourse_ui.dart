@@ -136,9 +136,9 @@ export 'src/ui/foundation/focus_highlight.dart';
 export 'src/ui/foundation/frost.dart';
 export 'src/ui/foundation/header_motion.dart'
     show DHeaderTuning, DHeaderSettle, DHeaderMotionSettings;
+export 'src/ui/foundation/layout_selector.dart';
 export 'src/ui/foundation/native_webview_scroll.dart'
     show NativeWebViewScrollBridge;
-export 'src/ui/foundation/layout_selector.dart';
 export 'src/ui/foundation/oklab.dart';
 export 'src/ui/foundation/surface_depth.dart';
 export 'src/ui/foundation/tokens.dart';
