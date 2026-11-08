@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:discourse_native/src/shell/relative_time.dart';
 import 'package:flutter/widgets.dart';
@@ -60,6 +61,130 @@ void main() {
         ]) {
           await tester.pump(step);
           expect(find.text(label), findsOneWidget, reason: label);
+          expect(clock.activeTimers, hasLength(1));
+        }
+      });
+    });
+
+    testWidgets('labels due in the same 30 seconds share one frame', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        const labels = 20;
+        final starts = <DateTime>[];
+        final shown = ValueNotifier(0);
+        addTearDown(shown.dispose);
+        await clock.show(
+          ValueListenableBuilder<int>(
+            valueListenable: shown,
+            builder: (context, count, _) => Column(
+              children: [
+                for (final when in starts.take(count))
+                  RelativeTimeText(when, now: clock.now),
+              ],
+            ),
+          ),
+        );
+        // Rows arrive over time, so neither their ages nor the moments their
+        // timers were armed line up.
+        for (var index = 0; index < labels; index++) {
+          starts.add(clock.now());
+          shown.value++;
+          await tester.pump();
+          await tester.binding.delayed(const Duration(seconds: 3));
+        }
+        await tester.pump();
+
+        const display = Duration(milliseconds: 16);
+        final displayFrames =
+            const Duration(minutes: 10).inMilliseconds ~/
+            display.inMilliseconds;
+        var frames = 0;
+        var mostActiveTimers = clock.activeTimers.length;
+        for (var frame = 0; frame < displayFrames; frame++) {
+          await tester.binding.delayed(display);
+          if (!tester.binding.hasScheduledFrame) continue;
+          frames++;
+          await tester.pump();
+          mostActiveTimers = max(mostActiveTimers, clock.activeTimers.length);
+        }
+
+        // ignore: avoid_print
+        print('PERF_PROOF relative-time frames=$frames');
+        // ignore: avoid_print
+        print('PERF_PROOF relative-time active_timers=$mostActiveTimers');
+        expect(find.text('now'), findsNothing);
+        expect(frames, lessThanOrEqualTo(20));
+        expect(mostActiveTimers, labels);
+      });
+    });
+
+    testWidgets('reaches each new value within 30 seconds of its boundary', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        // A change just past a 30-second mark waits the longest for its frame.
+        final when = clock.start.subtract(
+          const Duration(seconds: 59, milliseconds: 999),
+        );
+        await clock.show(RelativeTimeText(when, now: clock.now));
+        expect(find.text('now'), findsOneWidget);
+
+        for (final minutes in [1, 2, 3]) {
+          final bound = when.add(Duration(minutes: minutes, seconds: 30));
+          await tester.pump(bound.difference(clock.now()));
+          expect(find.text('${minutes}m'), findsOneWidget, reason: '$minutes');
+        }
+      });
+    });
+
+    testWidgets('a label past an hour still wakes once per hour', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        final when = clock.start.subtract(
+          const Duration(hours: 2, seconds: 17),
+        );
+        await clock.show(RelativeTimeText(when, now: clock.now));
+        expect(find.text('2h'), findsOneWidget);
+
+        for (var minute = 0; minute < 180; minute++) {
+          await tester.pump(const Duration(minutes: 1));
+        }
+
+        expect(find.text('5h'), findsOneWidget);
+        // The first arm, then one for each of the three hours that changed it.
+        expect(clock.durations, hasLength(4));
+      });
+    });
+
+    testWidgets('keeps an off-stage label asleep beside one that advances', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        await clock.show(
+          Column(
+            children: [
+              RelativeTimeText(clock.start, now: clock.now),
+              TickerMode(
+                enabled: false,
+                child: RelativeTimeText(
+                  clock.start.subtract(const Duration(minutes: 10, seconds: 7)),
+                  now: clock.now,
+                ),
+              ),
+            ],
+          ),
+        );
+
+        for (final minutes in [1, 2, 3]) {
+          await tester.pump(const Duration(minutes: 1));
+          expect(find.text('${minutes}m'), findsOneWidget);
+          expect(find.text('10m'), findsOneWidget);
           expect(clock.activeTimers, hasLength(1));
         }
       });
@@ -142,10 +267,10 @@ void main() {
       await clock.run(() async {
         // A sub-millisecond remainder would round down to an immediate VM
         // timer that wakes before the label changes and re-arms with none.
-        final when = clock.start.subtract(
-          const Duration(seconds: 59, milliseconds: 999, microseconds: 500),
-        );
-        await clock.show(RelativeTimeText(when, now: clock.now));
+        final when = clock.start.subtract(const Duration(minutes: 1));
+        DateTime justBeforeMark() =>
+            clock.now().subtract(const Duration(microseconds: 500));
+        await clock.show(RelativeTimeText(when, now: justBeforeMark));
         expect(find.text('now'), findsOneWidget);
 
         await tester.pump(const Duration(milliseconds: 1));
