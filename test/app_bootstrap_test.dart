@@ -14,7 +14,13 @@ void main() {
     };
     bootstrap.start();
     bootstrap.start();
-    expect(host.calls, ['binding', 'preferences', 'plugins', 'launch']);
+    expect(host.calls, [
+      'binding',
+      'preferences',
+      'preload',
+      'plugins',
+      'launch',
+    ]);
     expect(host.schedules, 1);
   });
 
@@ -40,7 +46,7 @@ void main() {
     expect(first, same(host.failure));
     expect(second, same(first));
     expect(secondStack.toString(), firstStack.toString());
-    expect(host.calls, ['binding', 'preferences', 'plugins']);
+    expect(host.calls, ['binding', 'preferences', 'preload', 'plugins']);
     expect(host.schedules, 0);
   });
 
@@ -49,11 +55,17 @@ void main() {
 
     AppBootstrap(host: host).start();
 
-    expect(host.calls, ['binding', 'preferences', 'plugins', 'launch']);
+    expect(host.calls, [
+      'binding',
+      'preferences',
+      'preload',
+      'plugins',
+      'launch',
+    ]);
     expect(host.deferred, isNotNull);
 
     await host.deferred!();
-    expect(host.calls.skip(4), ['timezone', 'cache', 'directories']);
+    expect(host.calls.skip(5), ['timezone', 'cache', 'directories']);
   });
 
   for (final stage in ['timezone', 'cache', 'directories']) {
@@ -70,7 +82,28 @@ void main() {
     });
   }
 
-  for (final stage in ['binding', 'preferences', 'plugins', 'launch']) {
+  test('starts local reads after preferences install and before launch', () {
+    final host = _BootstrapHost();
+
+    AppBootstrap(host: host).start();
+
+    expect(
+      host.calls.indexOf('preload'),
+      greaterThan(host.calls.indexOf('preferences')),
+    );
+    expect(
+      host.calls.indexOf('preload'),
+      lessThan(host.calls.indexOf('launch')),
+    );
+  });
+
+  for (final stage in [
+    'binding',
+    'preferences',
+    'preload',
+    'plugins',
+    'launch',
+  ]) {
     test('propagates fatal $stage failure', () {
       final host = _BootstrapHost(failAt: stage);
 
@@ -105,6 +138,9 @@ final class _BootstrapHost implements AppBootstrapHost {
 
   @override
   void installPreferencesStore() => _call('preferences');
+
+  @override
+  void preloadLocalState() => _call('preload');
 
   @override
   void initializePlugins() => _call('plugins');
