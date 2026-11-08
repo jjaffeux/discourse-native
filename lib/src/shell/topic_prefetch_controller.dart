@@ -163,7 +163,8 @@ final class TopicPrefetchController {
     } catch (_) {
       // Speculative errors are silent. A click retries through normal topic loading.
     } finally {
-      if (entry.cancellation.isCancelled || (!entry.adopted && !_usable(entry))) {
+      if (entry.cancellation.isCancelled ||
+          (!entry.adopted && !_usable(entry))) {
         result = null;
       }
       try {
