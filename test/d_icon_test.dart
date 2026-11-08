@@ -295,6 +295,312 @@ void main() {
       expect(centerPixel, [0, 255, 0, 255]);
     });
 
+    testWidgets('a tinted icon mounts one render object', (tester) async {
+      final mounted = <String, (int, int)>{};
+      for (final label in const [null, 'Settings']) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: Center(
+              child: DIcon(DIcons.gear, size: 24, semanticLabel: label),
+            ),
+          ),
+        );
+        expect(find.byType(TintedIconGlyph), findsOneWidget);
+        expect(find.byType(SvgPicture), findsNothing);
+
+        var elements = 0;
+        var renderObjects = 0;
+        void visit(Element element) {
+          elements++;
+          if (element is RenderObjectElement) renderObjects++;
+          element.visitChildren(visit);
+        }
+
+        tester.element(find.byType(DIcon)).visitChildren(visit);
+
+        final side = label == null ? 'unlabelled' : 'labelled';
+        // ignore: avoid_print
+        print('PERF_PROOF d-icon render_objects_$side=$renderObjects');
+        // ignore: avoid_print
+        print('PERF_PROOF d-icon elements_$side=$elements');
+        mounted[side] = (renderObjects, elements);
+      }
+      expect(mounted, const {'unlabelled': (1, 1), 'labelled': (1, 1)});
+    });
+
+    group('semantics, layout and hit testing of a tinted icon', () {
+      // Half as wide as tall, so a 24 box holds a 10.5x21 glyph inset by 6.75
+      // at the sides and 1.5 at the top and bottom.
+      const narrow = DIconData(
+        'narrow',
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 16">'
+            '<path d="M0 0h8v16H0z"/></svg>',
+      );
+
+      Rect globalRect(SemanticsNode node) {
+        var rect = node.rect;
+        for (SemanticsNode? n = node; n != null; n = n.parent) {
+          if (n.transform case final transform?) {
+            rect = MatrixUtils.transformRect(transform, rect);
+          }
+        }
+        return rect;
+      }
+
+      Widget app(Widget child, {TextDirection? direction}) => MaterialApp(
+        home: Directionality(
+          textDirection: direction ?? TextDirection.ltr,
+          child: Center(child: child),
+        ),
+      );
+
+      void expectRect(Rect actual, Rect expected) {
+        expect(actual.left, closeTo(expected.left, .001));
+        expect(actual.top, closeTo(expected.top, .001));
+        expect(actual.right, closeTo(expected.right, .001));
+        expect(actual.bottom, closeTo(expected.bottom, .001));
+      }
+
+      testWidgets('a label is an image node over the glyph, not the box', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          app(const DIcon(narrow, size: 24, semanticLabel: 'Point')),
+        );
+
+        final node = tester.getSemantics(find.bySemanticsLabel('Point'));
+        expect(
+          node,
+          matchesSemantics(
+            label: 'Point',
+            isImage: true,
+            textDirection: TextDirection.ltr,
+          ),
+        );
+        final box = tester.getRect(find.byType(DIcon));
+        expect(box.size, const Size(24, 24));
+        expectRect(
+          globalRect(node),
+          Rect.fromCenter(center: box.center, width: 10.5, height: 21),
+        );
+      });
+
+      testWidgets('an unlabelled icon annotates the enclosing node', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          app(
+            Semantics(
+              container: true,
+              label: 'Enclosing',
+              child: const DIcon(narrow, size: 24),
+            ),
+          ),
+        );
+
+        final node = tester.getSemantics(find.bySemanticsLabel('Enclosing'));
+        expect(
+          node,
+          matchesSemantics(
+            label: 'Enclosing',
+            isImage: true,
+            textDirection: TextDirection.ltr,
+          ),
+        );
+        expect(node.childrenCount, 0);
+      });
+
+      testWidgets('a rebuilt icon republishes its label and direction', (
+        tester,
+      ) async {
+        Future<void> pump(String? label, TextDirection direction) =>
+            tester.pumpWidget(
+              app(
+                Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  label: 'Enclosing',
+                  child: DIcon(narrow, size: 24, semanticLabel: label),
+                ),
+                direction: direction,
+              ),
+            );
+
+        await pump(null, TextDirection.ltr);
+        expect(find.bySemanticsLabel('First'), findsNothing);
+
+        await pump('First', TextDirection.ltr);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('First')),
+          matchesSemantics(
+            label: 'First',
+            isImage: true,
+            textDirection: TextDirection.ltr,
+          ),
+        );
+
+        await pump('Second', TextDirection.rtl);
+        expect(find.bySemanticsLabel('First'), findsNothing);
+        expect(
+          tester.getSemantics(find.bySemanticsLabel('Second')),
+          matchesSemantics(
+            label: 'Second',
+            isImage: true,
+            textDirection: TextDirection.rtl,
+          ),
+        );
+
+        await pump(null, TextDirection.rtl);
+        expect(find.bySemanticsLabel('Second'), findsNothing);
+      });
+
+      testWidgets(
+        'the labelled rect follows a glyph resize inside a fixed box',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          addTearDown(tester.view.resetDevicePixelRatio);
+          Future<void> pump(double scale) => tester.pumpWidget(
+            app(
+              DIconGlyphTheme(
+                scale: scale,
+                child: const DIcon(narrow, size: 24, semanticLabel: 'Point'),
+              ),
+            ),
+          );
+
+          await pump(1);
+          final box = tester.getRect(find.byType(DIcon));
+          expectRect(
+            globalRect(tester.getSemantics(find.bySemanticsLabel('Point'))),
+            Rect.fromCenter(center: box.center, width: 12, height: 24),
+          );
+
+          await pump(.5);
+          expect(tester.getRect(find.byType(DIcon)), box);
+          expectRect(
+            globalRect(tester.getSemantics(find.bySemanticsLabel('Point'))),
+            Rect.fromCenter(center: box.center, width: 6, height: 12),
+          );
+        },
+      );
+
+      testWidgets('a box smaller than the icon clamps the glyph into it', (
+        tester,
+      ) async {
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.resetDevicePixelRatio);
+        await tester.pumpWidget(
+          app(
+            const SizedBox.square(
+              dimension: 10,
+              child: DIcon(narrow, size: 24, semanticLabel: 'Point'),
+            ),
+          ),
+        );
+
+        final box = tester.getRect(find.byType(DIcon));
+        expect(box.size, const Size(10, 10));
+        expectRect(
+          globalRect(tester.getSemantics(find.bySemanticsLabel('Point'))),
+          box,
+        );
+      });
+
+      testWidgets('intrinsics and dry layout report the box', (tester) async {
+        await tester.pumpWidget(
+          app(
+            const DIconGlyphTheme(
+              scale: 1,
+              naturalWidth: true,
+              child: DIcon(narrow, size: 32),
+            ),
+          ),
+        );
+
+        final render = tester.renderObject<RenderBox>(find.byType(DIcon));
+        expect(render.size, const Size(16, 32));
+        expect(render.getMinIntrinsicWidth(double.infinity), 16);
+        expect(render.getMaxIntrinsicWidth(double.infinity), 16);
+        expect(render.getMinIntrinsicHeight(double.infinity), 32);
+        expect(render.getMaxIntrinsicHeight(double.infinity), 32);
+        expect(
+          render.getDryLayout(const BoxConstraints.tightFor(width: 10)),
+          const Size(10, 32),
+        );
+      });
+
+      testWidgets('only the glyph rect takes a pointer', (tester) async {
+        var hits = 0;
+        await tester.pumpWidget(
+          app(
+            Listener(
+              onPointerDown: (_) => hits++,
+              child: const DIcon(narrow, size: 24),
+            ),
+          ),
+        );
+        final box = tester.getRect(find.byType(DIcon));
+
+        await tester.tapAt(box.center);
+        expect(hits, 1);
+
+        await tester.tapAt(box.centerLeft + const Offset(6, 0));
+        await tester.tapAt(box.topCenter + const Offset(0, 1));
+        expect(hits, 1, reason: 'inside the box, outside the glyph');
+
+        await tester.tapAt(box.centerLeft + const Offset(7, 0));
+        expect(hits, 2);
+      });
+
+      testWidgets('a rebuilt icon repaints its new colour and glyph', (
+        tester,
+      ) async {
+        const key = ValueKey('rebuilt-icon');
+        Future<Color> paint(DIconData icon, Color color) async {
+          await tester.pumpWidget(
+            MaterialApp(
+              home: Center(
+                child: RepaintBoundary(
+                  key: key,
+                  child: DIcon(icon, size: 32, color: color),
+                ),
+              ),
+            ),
+          );
+          await tester.pumpAndSettle();
+          return (await samplePixels(tester, find.byKey(key), const [
+            Offset(16, 16),
+          ])).single;
+        }
+
+        const filled = DIconData(
+          'rebuilt-filled',
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+              '<circle cx="8" cy="8" r="8"/></svg>',
+        );
+        const hollow = DIconData(
+          'rebuilt-hollow',
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16">'
+              '<path d="M0 0h2v2H0z"/></svg>',
+        );
+
+        expect(
+          await paint(filled, const Color(0xFF00FF00)),
+          const Color(0xFF00FF00),
+        );
+        expect(
+          await paint(filled, const Color(0xFFFF0000)),
+          const Color(0xFFFF0000),
+        );
+        expect(
+          await paint(hollow, const Color(0xFFFF0000)),
+          Colors.transparent,
+        );
+      });
+    });
+
     test('aliases resolve to the icon Discourse maps them to', () {
       expect(DIcons.byName['d-liked'], DIcons.heart);
       expect(DIcons.byName['d-unliked'], DIcons.farHeart);

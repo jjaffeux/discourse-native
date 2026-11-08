@@ -182,39 +182,39 @@ class DIcon extends StatelessWidget {
             () => resolvedIcon.tintableSvg,
           );
 
+    if (glyph != null) {
+      return TintedIconGlyph(
+        glyph: glyph,
+        color: resolvedTint,
+        height: glyphHeight,
+        box: Size(width, box),
+        semanticLabel: semanticLabel,
+      );
+    }
+
     return SizedBox(
       width: width,
       height: box,
       child: Center(
-        child: glyph != null
-            ? TintedIconGlyph(
-                glyph: glyph,
-                color: resolvedTint,
-                height: glyphHeight,
-                semanticLabel: semanticLabel,
-              )
-            : SvgPicture.string(
-                _svg(context, resolvedIcon),
-                width:
-                    width * glyphScale * (replacement == null ? 1 : set.scale),
-                height: glyphHeight,
-                fit: BoxFit.contain,
-                // Edge strokes and fractional scaling may paint past the
-                // viewBox, as they do in the monochrome glyph renderer.
-                allowDrawingOutsideViewBox: true,
-                clipBehavior: Clip.none,
-                theme: SvgTheme(
-                  currentColor: resolvedIcon.preserveColors
-                      ? tint
-                      : resolvedTint,
-                ),
-                colorMapper: _DIconColorMapper(
-                  resolvedTint,
-                  preserveColors: resolvedIcon.preserveColors,
-                  opacity: opacity,
-                ),
-                semanticsLabel: semanticLabel,
-              ),
+        child: SvgPicture.string(
+          _svg(context, resolvedIcon),
+          width: width * glyphScale * (replacement == null ? 1 : set.scale),
+          height: glyphHeight,
+          fit: BoxFit.contain,
+          // Edge strokes and fractional scaling may paint past the
+          // viewBox, as they do in the monochrome glyph renderer.
+          allowDrawingOutsideViewBox: true,
+          clipBehavior: Clip.none,
+          theme: SvgTheme(
+            currentColor: resolvedIcon.preserveColors ? tint : resolvedTint,
+          ),
+          colorMapper: _DIconColorMapper(
+            resolvedTint,
+            preserveColors: resolvedIcon.preserveColors,
+            opacity: opacity,
+          ),
+          semanticsLabel: semanticLabel,
+        ),
       ),
     );
   }
