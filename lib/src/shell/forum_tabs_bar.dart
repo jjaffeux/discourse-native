@@ -481,8 +481,8 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
+                    child: DLayoutSelector<_TabStripLayout>(
+                      select: (context, constraints) {
                         final scaler = MediaQuery.textScalerOf(context);
                         final closeWidth = DControlStyle.scaledHeight(
                           DControlSize.tabClose,
@@ -507,11 +507,17 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                               tabCount,
                         );
                         final availableTabWidth = labelWidth + closeSlotWidth;
-                        final scrollTabs = availableTabWidth < _minimumTabWidth;
-                        final tabMaxWidth = math.min(
-                          ForumTabsBar.maximumTabWidth,
-                          math.max(_minimumTabWidth, availableTabWidth),
+                        return (
+                          scrollTabs: availableTabWidth < _minimumTabWidth,
+                          tabMaxWidth: math.min(
+                            ForumTabsBar.maximumTabWidth,
+                            math.max(_minimumTabWidth, availableTabWidth),
+                          ),
+                          maxHeight: constraints.maxHeight,
                         );
+                      },
+                      builder: (context, strip) {
+                        final (:scrollTabs, :tabMaxWidth, :maxHeight) = strip;
                         final tabs = Semantics(
                           role: SemanticsRole.tabBar,
                           container: true,
@@ -551,11 +557,9 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
                                   // the strip's original height.
                                   ? OverflowBox(
                                       minHeight:
-                                          constraints.maxHeight +
-                                          2 * _tabShadowOutset,
+                                          maxHeight + 2 * _tabShadowOutset,
                                       maxHeight:
-                                          constraints.maxHeight +
-                                          2 * _tabShadowOutset,
+                                          maxHeight + 2 * _tabShadowOutset,
                                       child: DScrollFadeScope(
                                         horizontalExtent: 30,
                                         child: DScrollArea(
@@ -613,6 +617,12 @@ class _ForumTabsBarState extends State<ForumTabsBar> {
     );
   }
 }
+
+typedef _TabStripLayout = ({
+  bool scrollTabs,
+  double tabMaxWidth,
+  double maxHeight,
+});
 
 Widget? _tabPrefix(
   BuildContext context,
@@ -934,6 +944,7 @@ class _ForumTabState extends State<_ForumTab> {
   bool _renaming = false;
   Widget? _tabWidget;
   BoxConstraints? _tabConstraints;
+  ({bool compact, bool badgeFits})? _tabDecisions;
   late final TextEditingController _renameController = TextEditingController();
   late final FocusNode _renameFocusNode = FocusNode(
     debugLabel: 'forum tab rename',
@@ -1242,13 +1253,16 @@ class _ForumTabState extends State<_ForumTab> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (_, constraints) {
-        if (_tabConstraints != constraints) {
+        // Adding a sibling or dragging a panel seam need not rebuild this tab's
+        // controls. Only these two width decisions reach them, and the inherited
+        // reads stay on the State's context so that a change invalidates them.
+        final decisions = _tabContentDecisions(this.context, constraints);
+        if (_tabDecisions != decisions) {
+          _tabDecisions = decisions;
           _tabConstraints = constraints;
           _tabWidget = null;
         }
-        // Adding a sibling need not rebuild this tab's controls. Keep inherited
-        // reads on the State's context so dependency changes invalidate it too.
-        return _tabWidget ??= _buildTab(this.context, constraints);
+        return _tabWidget ??= _buildTab(this.context, _tabConstraints!);
       },
     );
   }
@@ -1308,23 +1322,48 @@ class _ForumTabState extends State<_ForumTab> {
     builder: (context) => _tabContents(
       context,
       DefaultTextStyle.of(context).style.color!,
-      // Intrinsic sizing needs the content tree without a nested LayoutBuilder.
-      // Badge visibility uses the available width after Native control insets.
-      constraints.deflate(
-        EdgeInsets.symmetric(
-          horizontal:
-              ForumTabsBar._tabContentInset +
-              8 +
-              DControlStyle.scaledHeight(
-                    DControlSize.tabClose,
-                    MediaQuery.textScalerOf(context),
-                    context: context,
-                  ) /
-                  2,
-        ),
-      ),
+      _contentConstraints(context, constraints),
     ),
   );
+
+  // Intrinsic sizing needs the content tree without a nested LayoutBuilder.
+  // Badge visibility uses the available width after Native control insets.
+  BoxConstraints _contentConstraints(
+    BuildContext context,
+    BoxConstraints tab,
+  ) => tab.deflate(
+    EdgeInsets.symmetric(
+      horizontal:
+          ForumTabsBar._tabContentInset +
+          8 +
+          DControlStyle.scaledHeight(
+                DControlSize.tabClose,
+                MediaQuery.textScalerOf(context),
+                context: context,
+              ) /
+              2,
+    ),
+  );
+
+  ({bool compact, bool badgeFits}) _tabContentDecisions(
+    BuildContext context,
+    BoxConstraints tab,
+  ) {
+    final content = _contentConstraints(context, tab);
+    final compact =
+        content.maxWidth < MediaQuery.textScalerOf(context).scale(60);
+    return (
+      compact: compact,
+      badgeFits:
+          !compact &&
+          widget.item.badge.isVisible &&
+          _badgeFits(
+            context,
+            content.maxWidth,
+            hasPrefix: _tabPrefix(context, widget.item, Colors.black) != null,
+          ),
+    );
+  }
 }
 
 class _ForumTabActions extends StatefulWidget {
