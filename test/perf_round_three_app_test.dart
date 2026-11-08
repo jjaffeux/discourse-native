@@ -141,11 +141,11 @@ void main() {
     for (var i = 0; i < 10; i++) {
       fixture.chat.inboxFilters.setSidebarQuery(
         roundThreeSite,
-        i.isEven ? 'keyboard' : 'focus',
+        ['keyboard', 'focus', 'absentneedle'][i % 3],
       );
       expect(
         fixture.chat.sidebarConversations(roundThreeSite).map((c) => c.id),
-        [1],
+        [if (i % 3 != 2) 1],
       );
     }
     final reads = messages.fold(0, (sum, message) => sum + message.cookedReads);

@@ -13,6 +13,7 @@ def main():
     parser.add_argument("baseline")
     parser.add_argument("candidate")
     parser.add_argument("output", type=Path)
+    parser.add_argument("--baseline-revision", default="ecafcb48a")
     args = parser.parse_args()
     results = {"baseline": [], "candidate": []}
     processes = []
@@ -54,7 +55,7 @@ def main():
         row["nonoverlapping_gain"] = row["candidate"]["max_us"] < row["baseline"]["min_us"]
         summary[name] = row
     artifact = {
-        "baseline_revision": "ecafcb48a",
+        "baseline_revision": args.baseline_revision,
         "units": "microseconds per checked batch",
         "platform": platform.platform(),
         "processes": processes,

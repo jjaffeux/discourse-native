@@ -54,11 +54,13 @@ Future<Map<String, int>> measureRoundThreeAppPerformance() async {
     try {
       var query = 0;
       void search() {
-        final word = (query++).isEven ? 'keyboard' : 'release focus';
+        final mode = query++ % 3;
+        final word = ['keyboard', 'release focus', 'absentneedle'][mode];
         fixture.chat.inboxFilters.setSidebarQuery(roundThreeSite, word);
         final selected = fixture.chat.sidebarConversations(roundThreeSite);
-        if (selected.length != 10 ||
-            selected.map((channel) => channel.id).toSet().length != 10) {
+        final expected = mode == 2 ? 0 : 10;
+        if (selected.length != expected ||
+            selected.map((channel) => channel.id).toSet().length != expected) {
           throw StateError('Chat search results changed');
         }
       }
