@@ -500,6 +500,7 @@ final class TopicDataSession implements BookmarkTopicData {
   void projectAcceptedMetadata(
     int topicId, {
     String? title,
+    String? localizedTitle,
     int? categoryId,
     bool clearCategory = false,
     List<TopicTag>? tags,
@@ -515,7 +516,9 @@ final class TopicDataSession implements BookmarkTopicData {
       topicId,
       (detail) => detail.copyWith(
         title: title,
-        clearLocalizedTitle: title != null && title != detail.title,
+        localizedTitle: localizedTitle,
+        clearLocalizedTitle:
+            localizedTitle == null && title != null && title != detail.title,
         categoryId: categoryId,
         clearCategory: clearCategory,
         tags: tags,
@@ -528,8 +531,11 @@ final class TopicDataSession implements BookmarkTopicData {
       final category = accepted == null ? categoryId : accepted.categoryId;
       return row.copyWith(
         title: projectedTitle,
+        localizedTitle: localizedTitle,
         clearLocalizedTitle:
-            projectedTitle != null && projectedTitle != row.title,
+            localizedTitle == null &&
+            projectedTitle != null &&
+            projectedTitle != row.title,
         categoryId: projectsCategory ? category : null,
         clearCategory: projectsCategory && category == null,
         tags: tags == null ? null : accepted?.tags ?? tags,

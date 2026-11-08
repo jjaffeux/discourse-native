@@ -441,6 +441,41 @@ void main() {
     );
   }
 
+  test('a rename the site answers with a translation displays it', () {
+    final f = _Fixture()..seed();
+    f.store.put(
+      _site,
+      const TopicDetail(
+        id: 7,
+        title: 'Original',
+        localizedTitle: 'Previous translation',
+        stream: [],
+      ),
+    );
+    f.store.put(
+      _site,
+      const Topic(
+        id: 7,
+        title: 'Original',
+        localizedTitle: 'Previous translation',
+        slug: 'original',
+      ),
+    );
+
+    f.data.projectAcceptedMetadata(
+      7,
+      title: 'Accepted title',
+      localizedTitle: 'Answered translation',
+    );
+
+    final detail = f.store.read<TopicDetail>(_site, 7)!;
+    final row = f.store.read<Topic>(_site, 7)!;
+    expect([
+      (detail.title, detail.displayTitle),
+      (row.title, row.displayTitle),
+    ], everyElement(('Accepted title', 'Answered translation')));
+  });
+
   for (final field in ['unchanged title', 'category', 'tags']) {
     test('$field writes retain valid title localization', () async {
       final f = _Fixture()..seed();

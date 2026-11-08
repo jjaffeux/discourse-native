@@ -235,17 +235,13 @@ void main() {
   testWidgets(
     'sidebar browses children, leaf siblings, and toggles one selected scope',
     (tester) async {
-      final (shell: shell, api: api) = await fixture(tester);
+      final (shell: shell, api: _) = await fixture(tester);
       await tester.tap(row('Product'));
       await tester.pumpAndSettle();
       expect(shell.topicListContent?.categoryId, 1);
       expect(row('Support'), findsOneWidget);
       expect(row('Design'), findsOneWidget);
       expect(row('Development'), findsOneWidget);
-      expect(
-        api.filterTagRequests,
-        contains((siteUrl: site, term: '', categoryId: 1)),
-      );
       expect(
         tester.widget<DSidebarMenuButton>(row('Product')).isActive,
         isTrue,

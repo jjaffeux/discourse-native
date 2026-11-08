@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
+import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -61,14 +62,17 @@ void main() {
           await tester.pumpWidget(
             ShellScope(
               controller: shell,
-              child: MaterialApp(
-                theme: theme.copyWith(
-                  platform: debugDefaultTargetPlatformOverride,
-                ),
-                home: const Scaffold(
-                  body: Align(
-                    alignment: Alignment.topLeft,
-                    child: SizedBox(width: 64, child: InstanceRail()),
+              child: ComponentStyleguideScope(
+                open: (_) async {},
+                child: MaterialApp(
+                  theme: theme.copyWith(
+                    platform: debugDefaultTargetPlatformOverride,
+                  ),
+                  home: const Scaffold(
+                    body: Align(
+                      alignment: Alignment.topLeft,
+                      child: SizedBox(width: 64, child: InstanceRail()),
+                    ),
                   ),
                 ),
               ),

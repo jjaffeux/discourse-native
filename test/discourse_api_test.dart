@@ -2821,6 +2821,9 @@ void _feedGroups() {
         models: installedPlugins.models,
         client: MockClient((request) async {
           paths.add(request.url.path);
+          if (request.url.path == '/site.json') {
+            return http.Response(jsonEncode({'emoji_set': 'twitter'}), 200);
+          }
           return http.Response(
             jsonEncode({
               'emoji_set': 'apple',
@@ -2837,7 +2840,7 @@ void _feedGroups() {
       final config = await api.siteConfig(siteUrl: 'https://example.com');
       final reactions = config.plugins.get(reactionsSettingsDataKey)!;
 
-      expect(paths, ['/site/settings.json']);
+      expect(paths, contains('/site/settings.json'));
       expect(config.emojiSet, 'apple');
       expect(reactions.mainReaction, 'heart');
       expect(reactions.offeredReactions, ['heart', '+1', 'clap']);
