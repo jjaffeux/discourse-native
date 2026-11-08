@@ -173,6 +173,28 @@ void main() {
     ], everyElement('Titre & traduit'));
   });
 
+  test('a topic update reads the translation its answer flags', () {
+    const basicTopic = {
+      'title': 'Renamed',
+      'fancy_title': 'Titre &amp; traduit',
+      'fancy_title_localized': true,
+    };
+    expect(
+      TopicUpdate.fromJson(const {'basic_topic': basicTopic}).localizedTitle,
+      'Titre & traduit',
+    );
+    expect(
+      TopicUpdate.fromJson(const {
+        'basic_topic': {
+          'title': 'Renamed',
+          'fancy_title': 'Titre &amp; traduit',
+          'fancy_title_localized': false,
+        },
+      }).localizedTitle,
+      isNull,
+    );
+  });
+
   test('posts mentioning a user with a status hash by value', () {
     Post parse() => Post.fromJson(const {
       'id': 1,
