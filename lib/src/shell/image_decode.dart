@@ -98,12 +98,16 @@ String srcsetCandidate({
   if (densities == null) return src;
   if (src.isNotEmpty) densities.putIfAbsent(1, () => src);
   if (densities.isEmpty) return src;
-  final ordered = densities.keys.toList()..sort();
-  final chosen = ordered.firstWhere(
-    (density) => density >= devicePixelRatio - _srcsetDensityTolerance,
-    orElse: () => ordered.last,
-  );
-  return densities[chosen]!;
+  final minimum = devicePixelRatio - _srcsetDensityTolerance;
+  double? covering;
+  var largest = 0.0;
+  for (final density in densities.keys) {
+    if (density > largest) largest = density;
+    if (density >= minimum && (covering == null || density < covering)) {
+      covering = density;
+    }
+  }
+  return densities[covering ?? largest]!;
 }
 
 /// How far a density may fall short of the screen's and still be chosen.

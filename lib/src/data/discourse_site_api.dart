@@ -589,14 +589,15 @@ final class DiscourseSiteApi {
       add(category['tags']);
     }
 
-    final result = byId.values.toList(growable: false)
-      ..sort((left, right) {
-        final folded = left.name.toLowerCase().compareTo(
-          right.name.toLowerCase(),
-        );
-        return folded != 0 ? folded : left.name.compareTo(right.name);
-      });
-    return List.unmodifiable(result);
+    final ranked =
+        [
+          for (final tag in byId.values)
+            (tag: tag, name: tag.name.toLowerCase()),
+        ]..sort((left, right) {
+          final folded = left.name.compareTo(right.name);
+          return folded != 0 ? folded : left.tag.name.compareTo(right.tag.name);
+        });
+    return List.unmodifiable([for (final entry in ranked) entry.tag]);
   }
 
   Future<List<TopicCategory>> findCategories({

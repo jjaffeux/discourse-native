@@ -1,0 +1,662 @@
+{
+  "baseline_revision": "ecafcb48a",
+  "units": "microseconds per checked batch",
+  "platform": "macOS-26.6-arm64-arm-64bit",
+  "processes": [
+    {
+      "side": "baseline",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "exit_code": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "exit_code": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "exit_code": 0
+    }
+  ],
+  "result_check_failures": 0,
+  "runs": {
+    "baseline": [
+      {
+        "discovery_30": 14106,
+        "discovery_300": 142897,
+        "srcset_3": 46435,
+        "srcset_30": 588428,
+        "checklist_state_and_fingerprint": 545489,
+        "theme_library_decode_small": 73672,
+        "theme_library_decode": 280074,
+        "theme_library_migration_empty": 6328,
+        "theme_library_migration": 800666,
+        "tracking_hint_event_filter": 48834,
+        "search_field_matching": 2123658,
+        "search_single_match_1_fields": 65396,
+        "search_single_match_3_fields": 62435,
+        "search_single_miss_1_fields": 68788,
+        "search_single_miss_3_fields": 79564,
+        "search_two_match_1_fields": 126357,
+        "search_two_match_3_fields": 126799,
+        "search_two_miss_1_fields": 118258,
+        "search_two_miss_3_fields": 131972,
+        "shared_get_key_lookup": 1465737,
+        "shared_get_coordinator_round_trip": 39428,
+        "nested_reply_small_page": 3894,
+        "nested_reply_page_merge": 112476,
+        "tag_directory_loading": 236220
+      },
+      {
+        "discovery_30": 13554,
+        "discovery_300": 139203,
+        "srcset_3": 46764,
+        "srcset_30": 566765,
+        "checklist_state_and_fingerprint": 534416,
+        "theme_library_decode_small": 78819,
+        "theme_library_decode": 276831,
+        "theme_library_migration_empty": 8295,
+        "theme_library_migration": 798644,
+        "tracking_hint_event_filter": 47246,
+        "search_field_matching": 2011183,
+        "search_single_match_1_fields": 63074,
+        "search_single_match_3_fields": 63729,
+        "search_single_miss_1_fields": 67971,
+        "search_single_miss_3_fields": 80016,
+        "search_two_match_1_fields": 122482,
+        "search_two_match_3_fields": 125279,
+        "search_two_miss_1_fields": 116961,
+        "search_two_miss_3_fields": 124105,
+        "shared_get_key_lookup": 1392457,
+        "shared_get_coordinator_round_trip": 36826,
+        "nested_reply_small_page": 3888,
+        "nested_reply_page_merge": 108879,
+        "tag_directory_loading": 225146
+      },
+      {
+        "discovery_30": 13825,
+        "discovery_300": 140297,
+        "srcset_3": 44907,
+        "srcset_30": 585621,
+        "checklist_state_and_fingerprint": 523090,
+        "theme_library_decode_small": 81070,
+        "theme_library_decode": 283276,
+        "theme_library_migration_empty": 6235,
+        "theme_library_migration": 798862,
+        "tracking_hint_event_filter": 48115,
+        "search_field_matching": 1983038,
+        "search_single_match_1_fields": 62376,
+        "search_single_match_3_fields": 62632,
+        "search_single_miss_1_fields": 67229,
+        "search_single_miss_3_fields": 79095,
+        "search_two_match_1_fields": 126111,
+        "search_two_match_3_fields": 125098,
+        "search_two_miss_1_fields": 117482,
+        "search_two_miss_3_fields": 128198,
+        "shared_get_key_lookup": 1449761,
+        "shared_get_coordinator_round_trip": 39098,
+        "nested_reply_small_page": 4095,
+        "nested_reply_page_merge": 108853,
+        "tag_directory_loading": 242825
+      },
+      {
+        "discovery_30": 13880,
+        "discovery_300": 139123,
+        "srcset_3": 43943,
+        "srcset_30": 563644,
+        "checklist_state_and_fingerprint": 517718,
+        "theme_library_decode_small": 73725,
+        "theme_library_decode": 270279,
+        "theme_library_migration_empty": 6087,
+        "theme_library_migration": 776891,
+        "tracking_hint_event_filter": 45409,
+        "search_field_matching": 1975487,
+        "search_single_match_1_fields": 60819,
+        "search_single_match_3_fields": 60999,
+        "search_single_miss_1_fields": 70956,
+        "search_single_miss_3_fields": 80872,
+        "search_two_match_1_fields": 123820,
+        "search_two_match_3_fields": 123650,
+        "search_two_miss_1_fields": 118974,
+        "search_two_miss_3_fields": 128408,
+        "shared_get_key_lookup": 1394219,
+        "shared_get_coordinator_round_trip": 36361,
+        "nested_reply_small_page": 3831,
+        "nested_reply_page_merge": 104961,
+        "tag_directory_loading": 219495
+      },
+      {
+        "discovery_30": 13665,
+        "discovery_300": 135188,
+        "srcset_3": 42961,
+        "srcset_30": 544304,
+        "checklist_state_and_fingerprint": 510445,
+        "theme_library_decode_small": 74209,
+        "theme_library_decode": 281981,
+        "theme_library_migration_empty": 7862,
+        "theme_library_migration": 789699,
+        "tracking_hint_event_filter": 44576,
+        "search_field_matching": 2059898,
+        "search_single_match_1_fields": 60591,
+        "search_single_match_3_fields": 61724,
+        "search_single_miss_1_fields": 68402,
+        "search_single_miss_3_fields": 77062,
+        "search_two_match_1_fields": 122817,
+        "search_two_match_3_fields": 123122,
+        "search_two_miss_1_fields": 117933,
+        "search_two_miss_3_fields": 125719,
+        "shared_get_key_lookup": 1428055,
+        "shared_get_coordinator_round_trip": 38378,
+        "nested_reply_small_page": 4013,
+        "nested_reply_page_merge": 106513,
+        "tag_directory_loading": 225748
+      }
+    ],
+    "candidate": [
+      {
+        "discovery_30": 4993,
+        "discovery_300": 4760,
+        "srcset_3": 39742,
+        "srcset_30": 431075,
+        "checklist_state_and_fingerprint": 140210,
+        "theme_library_decode_small": 76680,
+        "theme_library_decode": 231322,
+        "theme_library_migration_empty": 6632,
+        "theme_library_migration": 513923,
+        "tracking_hint_event_filter": 524,
+        "search_field_matching": 1820638,
+        "search_single_match_1_fields": 66532,
+        "search_single_match_3_fields": 67279,
+        "search_single_miss_1_fields": 73927,
+        "search_single_miss_3_fields": 83081,
+        "search_two_match_1_fields": 133535,
+        "search_two_match_3_fields": 129984,
+        "search_two_miss_1_fields": 128579,
+        "search_two_miss_3_fields": 136002,
+        "shared_get_key_lookup": 900539,
+        "shared_get_coordinator_round_trip": 33663,
+        "nested_reply_small_page": 4048,
+        "nested_reply_page_merge": 44512,
+        "tag_directory_loading": 181834
+      },
+      {
+        "discovery_30": 4589,
+        "discovery_300": 4549,
+        "srcset_3": 38921,
+        "srcset_30": 420045,
+        "checklist_state_and_fingerprint": 129848,
+        "theme_library_decode_small": 73633,
+        "theme_library_decode": 221042,
+        "theme_library_migration_empty": 5522,
+        "theme_library_migration": 492611,
+        "tracking_hint_event_filter": 542,
+        "search_field_matching": 1673551,
+        "search_single_match_1_fields": 65596,
+        "search_single_match_3_fields": 65145,
+        "search_single_miss_1_fields": 72462,
+        "search_single_miss_3_fields": 81454,
+        "search_two_match_1_fields": 125206,
+        "search_two_match_3_fields": 125965,
+        "search_two_miss_1_fields": 125364,
+        "search_two_miss_3_fields": 133102,
+        "shared_get_key_lookup": 877445,
+        "shared_get_coordinator_round_trip": 31709,
+        "nested_reply_small_page": 4018,
+        "nested_reply_page_merge": 40446,
+        "tag_directory_loading": 181485
+      },
+      {
+        "discovery_30": 5332,
+        "discovery_300": 4593,
+        "srcset_3": 40596,
+        "srcset_30": 424446,
+        "checklist_state_and_fingerprint": 146558,
+        "theme_library_decode_small": 77722,
+        "theme_library_decode": 234325,
+        "theme_library_migration_empty": 6583,
+        "theme_library_migration": 513431,
+        "tracking_hint_event_filter": 489,
+        "search_field_matching": 1735205,
+        "search_single_match_1_fields": 62945,
+        "search_single_match_3_fields": 63031,
+        "search_single_miss_1_fields": 68116,
+        "search_single_miss_3_fields": 78131,
+        "search_two_match_1_fields": 124595,
+        "search_two_match_3_fields": 124397,
+        "search_two_miss_1_fields": 123231,
+        "search_two_miss_3_fields": 133650,
+        "shared_get_key_lookup": 862333,
+        "shared_get_coordinator_round_trip": 31560,
+        "nested_reply_small_page": 4006,
+        "nested_reply_page_merge": 39001,
+        "tag_directory_loading": 177770
+      },
+      {
+        "discovery_30": 5285,
+        "discovery_300": 4711,
+        "srcset_3": 38541,
+        "srcset_30": 402011,
+        "checklist_state_and_fingerprint": 129204,
+        "theme_library_decode_small": 72909,
+        "theme_library_decode": 221083,
+        "theme_library_migration_empty": 5400,
+        "theme_library_migration": 490640,
+        "tracking_hint_event_filter": 546,
+        "search_field_matching": 1808089,
+        "search_single_match_1_fields": 60682,
+        "search_single_match_3_fields": 60483,
+        "search_single_miss_1_fields": 67478,
+        "search_single_miss_3_fields": 76378,
+        "search_two_match_1_fields": 136124,
+        "search_two_match_3_fields": 132135,
+        "search_two_miss_1_fields": 125553,
+        "search_two_miss_3_fields": 132480,
+        "shared_get_key_lookup": 822846,
+        "shared_get_coordinator_round_trip": 30412,
+        "nested_reply_small_page": 3891,
+        "nested_reply_page_merge": 37935,
+        "tag_directory_loading": 166294
+      },
+      {
+        "discovery_30": 4842,
+        "discovery_300": 4573,
+        "srcset_3": 37769,
+        "srcset_30": 411117,
+        "checklist_state_and_fingerprint": 134200,
+        "theme_library_decode_small": 73779,
+        "theme_library_decode": 217721,
+        "theme_library_migration_empty": 5625,
+        "theme_library_migration": 494786,
+        "tracking_hint_event_filter": 557,
+        "search_field_matching": 1694355,
+        "search_single_match_1_fields": 61553,
+        "search_single_match_3_fields": 61243,
+        "search_single_miss_1_fields": 70924,
+        "search_single_miss_3_fields": 77714,
+        "search_two_match_1_fields": 129984,
+        "search_two_match_3_fields": 129670,
+        "search_two_miss_1_fields": 128601,
+        "search_two_miss_3_fields": 136213,
+        "shared_get_key_lookup": 887911,
+        "shared_get_coordinator_round_trip": 32701,
+        "nested_reply_small_page": 4195,
+        "nested_reply_page_merge": 41928,
+        "tag_directory_loading": 183632
+      }
+    ]
+  },
+  "summary": {
+    "checklist_state_and_fingerprint": {
+      "baseline": {
+        "median_us": 523090,
+        "min_us": 510445,
+        "max_us": 545489
+      },
+      "candidate": {
+        "median_us": 134200,
+        "min_us": 129204,
+        "max_us": 146558
+      },
+      "less_time_percent": 74.34475902808313,
+      "nonoverlapping_gain": true
+    },
+    "discovery_30": {
+      "baseline": {
+        "median_us": 13825,
+        "min_us": 13554,
+        "max_us": 14106
+      },
+      "candidate": {
+        "median_us": 4993,
+        "min_us": 4589,
+        "max_us": 5332
+      },
+      "less_time_percent": 63.88426763110308,
+      "nonoverlapping_gain": true
+    },
+    "discovery_300": {
+      "baseline": {
+        "median_us": 139203,
+        "min_us": 135188,
+        "max_us": 142897
+      },
+      "candidate": {
+        "median_us": 4593,
+        "min_us": 4549,
+        "max_us": 4760
+      },
+      "less_time_percent": 96.70050214435034,
+      "nonoverlapping_gain": true
+    },
+    "nested_reply_page_merge": {
+      "baseline": {
+        "median_us": 108853,
+        "min_us": 104961,
+        "max_us": 112476
+      },
+      "candidate": {
+        "median_us": 40446,
+        "min_us": 37935,
+        "max_us": 44512
+      },
+      "less_time_percent": 62.84346779601848,
+      "nonoverlapping_gain": true
+    },
+    "nested_reply_small_page": {
+      "baseline": {
+        "median_us": 3894,
+        "min_us": 3831,
+        "max_us": 4095
+      },
+      "candidate": {
+        "median_us": 4018,
+        "min_us": 3891,
+        "max_us": 4195
+      },
+      "less_time_percent": -3.184386235233694,
+      "nonoverlapping_gain": false
+    },
+    "search_field_matching": {
+      "baseline": {
+        "median_us": 2011183,
+        "min_us": 1975487,
+        "max_us": 2123658
+      },
+      "candidate": {
+        "median_us": 1735205,
+        "min_us": 1673551,
+        "max_us": 1820638
+      },
+      "less_time_percent": 13.722172472619354,
+      "nonoverlapping_gain": true
+    },
+    "search_single_match_1_fields": {
+      "baseline": {
+        "median_us": 62376,
+        "min_us": 60591,
+        "max_us": 65396
+      },
+      "candidate": {
+        "median_us": 62945,
+        "min_us": 60682,
+        "max_us": 66532
+      },
+      "less_time_percent": -0.9122098242913879,
+      "nonoverlapping_gain": false
+    },
+    "search_single_match_3_fields": {
+      "baseline": {
+        "median_us": 62435,
+        "min_us": 60999,
+        "max_us": 63729
+      },
+      "candidate": {
+        "median_us": 63031,
+        "min_us": 60483,
+        "max_us": 67279
+      },
+      "less_time_percent": -0.9545927764875506,
+      "nonoverlapping_gain": false
+    },
+    "search_single_miss_1_fields": {
+      "baseline": {
+        "median_us": 68402,
+        "min_us": 67229,
+        "max_us": 70956
+      },
+      "candidate": {
+        "median_us": 70924,
+        "min_us": 67478,
+        "max_us": 73927
+      },
+      "less_time_percent": -3.6870266951258834,
+      "nonoverlapping_gain": false
+    },
+    "search_single_miss_3_fields": {
+      "baseline": {
+        "median_us": 79564,
+        "min_us": 77062,
+        "max_us": 80872
+      },
+      "candidate": {
+        "median_us": 78131,
+        "min_us": 76378,
+        "max_us": 83081
+      },
+      "less_time_percent": 1.8010658086571762,
+      "nonoverlapping_gain": false
+    },
+    "search_two_match_1_fields": {
+      "baseline": {
+        "median_us": 123820,
+        "min_us": 122482,
+        "max_us": 126357
+      },
+      "candidate": {
+        "median_us": 129984,
+        "min_us": 124595,
+        "max_us": 136124
+      },
+      "less_time_percent": -4.978194152802451,
+      "nonoverlapping_gain": false
+    },
+    "search_two_match_3_fields": {
+      "baseline": {
+        "median_us": 125098,
+        "min_us": 123122,
+        "max_us": 126799
+      },
+      "candidate": {
+        "median_us": 129670,
+        "min_us": 124397,
+        "max_us": 132135
+      },
+      "less_time_percent": -3.6547346880046128,
+      "nonoverlapping_gain": false
+    },
+    "search_two_miss_1_fields": {
+      "baseline": {
+        "median_us": 117933,
+        "min_us": 116961,
+        "max_us": 118974
+      },
+      "candidate": {
+        "median_us": 125553,
+        "min_us": 123231,
+        "max_us": 128601
+      },
+      "less_time_percent": -6.4612958205082505,
+      "nonoverlapping_gain": false
+    },
+    "search_two_miss_3_fields": {
+      "baseline": {
+        "median_us": 128198,
+        "min_us": 124105,
+        "max_us": 131972
+      },
+      "candidate": {
+        "median_us": 133650,
+        "min_us": 132480,
+        "max_us": 136213
+      },
+      "less_time_percent": -4.252796455482932,
+      "nonoverlapping_gain": false
+    },
+    "shared_get_coordinator_round_trip": {
+      "baseline": {
+        "median_us": 38378,
+        "min_us": 36361,
+        "max_us": 39428
+      },
+      "candidate": {
+        "median_us": 31709,
+        "min_us": 30412,
+        "max_us": 33663
+      },
+      "less_time_percent": 17.37714315493252,
+      "nonoverlapping_gain": true
+    },
+    "shared_get_key_lookup": {
+      "baseline": {
+        "median_us": 1428055,
+        "min_us": 1392457,
+        "max_us": 1465737
+      },
+      "candidate": {
+        "median_us": 877445,
+        "min_us": 822846,
+        "max_us": 900539
+      },
+      "less_time_percent": 38.556638224718235,
+      "nonoverlapping_gain": true
+    },
+    "srcset_3": {
+      "baseline": {
+        "median_us": 44907,
+        "min_us": 42961,
+        "max_us": 46764
+      },
+      "candidate": {
+        "median_us": 38921,
+        "min_us": 37769,
+        "max_us": 40596
+      },
+      "less_time_percent": 13.329770414412012,
+      "nonoverlapping_gain": true
+    },
+    "srcset_30": {
+      "baseline": {
+        "median_us": 566765,
+        "min_us": 544304,
+        "max_us": 588428
+      },
+      "candidate": {
+        "median_us": 420045,
+        "min_us": 402011,
+        "max_us": 431075
+      },
+      "less_time_percent": 25.887272502712765,
+      "nonoverlapping_gain": true
+    },
+    "tag_directory_loading": {
+      "baseline": {
+        "median_us": 225748,
+        "min_us": 219495,
+        "max_us": 242825
+      },
+      "candidate": {
+        "median_us": 181485,
+        "min_us": 166294,
+        "max_us": 183632
+      },
+      "less_time_percent": 19.607261193897617,
+      "nonoverlapping_gain": true
+    },
+    "theme_library_decode": {
+      "baseline": {
+        "median_us": 280074,
+        "min_us": 270279,
+        "max_us": 283276
+      },
+      "candidate": {
+        "median_us": 221083,
+        "min_us": 217721,
+        "max_us": 234325
+      },
+      "less_time_percent": 21.062647728814532,
+      "nonoverlapping_gain": true
+    },
+    "theme_library_decode_small": {
+      "baseline": {
+        "median_us": 74209,
+        "min_us": 73672,
+        "max_us": 81070
+      },
+      "candidate": {
+        "median_us": 73779,
+        "min_us": 72909,
+        "max_us": 77722
+      },
+      "less_time_percent": 0.5794445417671712,
+      "nonoverlapping_gain": false
+    },
+    "theme_library_migration": {
+      "baseline": {
+        "median_us": 798644,
+        "min_us": 776891,
+        "max_us": 800666
+      },
+      "candidate": {
+        "median_us": 494786,
+        "min_us": 490640,
+        "max_us": 513923
+      },
+      "less_time_percent": 38.046739222982964,
+      "nonoverlapping_gain": true
+    },
+    "theme_library_migration_empty": {
+      "baseline": {
+        "median_us": 6328,
+        "min_us": 6087,
+        "max_us": 8295
+      },
+      "candidate": {
+        "median_us": 5625,
+        "min_us": 5400,
+        "max_us": 6632
+      },
+      "less_time_percent": 11.10935524652339,
+      "nonoverlapping_gain": false
+    },
+    "tracking_hint_event_filter": {
+      "baseline": {
+        "median_us": 47246,
+        "min_us": 44576,
+        "max_us": 48834
+      },
+      "candidate": {
+        "median_us": 542,
+        "min_us": 489,
+        "max_us": 557
+      },
+      "less_time_percent": 98.8528129365449,
+      "nonoverlapping_gain": true
+    }
+  }
+}

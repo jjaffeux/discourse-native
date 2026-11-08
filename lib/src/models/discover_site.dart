@@ -46,10 +46,12 @@ final class DiscoverSite {
     Iterable<String> addedUrls,
   ) {
     final seen = addedUrls.map(identity).whereType<String>().toSet();
-    return [
-      for (final site in sites)
-        if (identity(site.url) case final String key)
-          if (seen.add(key)) site,
-    ].take(10).toList(growable: false);
+    return sites
+        .where((site) {
+          final key = identity(site.url);
+          return key != null && seen.add(key);
+        })
+        .take(10)
+        .toList(growable: false);
   }
 }
