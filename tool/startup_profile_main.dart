@@ -13,9 +13,12 @@ import 'dart:isolate';
 import 'dart:ui' show FramePhase;
 
 import 'package:discourse_native/src/app_bootstrap.dart';
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/startup_timeline.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:flutter/scheduler.dart';
@@ -35,13 +38,33 @@ int _sinceExec() => DateTime.now().microsecondsSinceEpoch - _execMicros;
 
 String _site(int index) => 'http://127.0.0.1:${_firstPort + index}';
 
+// Dart's print does not reach devicectl's console on iOS, so the launch is also
+// written to a file the harness copies off the device. It is written once, at
+// exit, because writing per line would add file IO to what is being timed.
+final List<String> _reported = [];
+File _logFile(String name) => File('${Directory.systemTemp.path}/$name');
+
 void _report(String kind, String name, int micros) {
+  final line = 'STARTUP_PROFILE $kind $micros $name';
   // ignore: avoid_print
-  print('STARTUP_PROFILE $kind $micros $name');
+  print(line);
+  _reported.add(line);
+}
+
+Never _exit() {
+  _logFile(
+    'startup_profile.log',
+  ).writeAsStringSync('${_reported.join('\n')}\n');
+  exit(0);
 }
 
 Future<void> main() async {
-  if (Platform.environment['DISCOURSE_STARTUP_SEED'] == '1') {
+  // devicectl's environment does not reach the app on iOS, so a phone is asked
+  // to seed by a file the harness copies into the app's container.
+  final seedRequest = _logFile('startup_seed');
+  final seedRequested = seedRequest.existsSync();
+  if (seedRequested) seedRequest.deleteSync();
+  if (seedRequested || Platform.environment['DISCOURSE_STARTUP_SEED'] == '1') {
     WidgetsFlutterBinding.ensureInitialized();
     await (await SharedPreferences.getInstance()).clear();
     await InstanceStore().save([
@@ -52,8 +75,40 @@ Future<void> main() async {
           apiVersion: 4,
         ),
     ]);
+    // A phone with no saved page opens the Start page, which requests no feed.
+    final latest = ContentRoute.topicList(TopicListMode.latest);
+    final location = ForumTabLocation(
+      rootDestinationId: latest.id,
+      contentStack: [latest],
+    );
+    await ForumTabStore().save([
+      ForumWorkspace(
+        siteUrl: _site(0),
+        accountIdentity: 'anonymous',
+        activeTabId: 'restored',
+        tabs: [
+          ForumTab(
+            id: 'restored',
+            rootDestinationId: latest.id,
+            contentStack: [latest],
+          ),
+        ],
+        mobile: MobileNavigationState(
+          place: 'topics',
+          visits: [location],
+          index: 0,
+        ),
+      ),
+    ], selectedSiteUrl: _site(0));
+    // NSUserDefaults hands a write to its daemon asynchronously, and exiting
+    // straight away can lose it.
+    await Future<void>.delayed(const Duration(seconds: 1));
+    final seeded = await InstanceStore().load();
+    if (seeded.length != _forumCount) {
+      throw StateError('seeded ${seeded.length} forums');
+    }
     _report('seeded', 'forums', _sinceExec());
-    exit(0);
+    _exit();
   }
 
   await Isolate.spawn(_serve, null);
@@ -74,7 +129,7 @@ Future<void> main() async {
     Timer(_settle, () {
       _report('cpu', 'done', _cpuMicros());
       _report('done', why, _sinceExec());
-      exit(0);
+      _exit();
     });
   }
 
@@ -152,6 +207,7 @@ int _cpuMicros() => DynamicLibrary.process()
     .lookupFunction<IntPtr Function(), int Function()>('clock')();
 
 Future<void> _serve(Object? _) async {
+  _logFile('startup_profile_requests.log').writeAsStringSync('');
   for (var index = 0; index < _forumCount; index++) {
     final server = await HttpServer.bind(
       InternetAddress.loopbackIPv4,
@@ -162,7 +218,13 @@ Future<void> _serve(Object? _) async {
 }
 
 Future<void> _answer(HttpRequest request, int forum) async {
-  _report('request', '${request.method} $forum ${request.uri}', _sinceExec());
+  final line =
+      'STARTUP_PROFILE request ${_sinceExec()} ${request.method} $forum ${request.uri}';
+  // ignore: avoid_print
+  print(line);
+  _logFile(
+    'startup_profile_requests.log',
+  ).writeAsStringSync('$line\n', mode: FileMode.append);
   if (request.uri.path.startsWith('/message-bus/')) {
     // A live connection long-polls for as long as nothing happens.
     await Future<void>.delayed(const Duration(seconds: 25));

@@ -9,9 +9,14 @@ docs/performance/startup.md for the build recipe.
   python3 tool/profile_startup.py --app base=/tmp/base.app --app fix=/tmp/fix.app \
       --runs 11 --output /tmp/startup.json
 
-  python3 tool/profile_startup.py --device <udid> --bundle-id org.example.app \
+  python3 tool/profile_startup.py --device <udid> \
       --app base=/tmp/base-ios.app --app fix=/tmp/fix-ios.app --runs 11 \
       --output /tmp/startup-ios.json
+
+On a device the sides share one bundle id and its seeded state. Each block
+installs a side, discards one launch so the install's cold pages land on none of
+the sides, and then records --block launches. Use a bundle id of its own, so a
+run never replaces the installed app.
 
 Every milestone is milliseconds since the kernel created the process, reported
 by the process itself:
@@ -21,6 +26,15 @@ by the process itself:
   shell-raster  the first frame built after local state was restored
   feed-raster   the first frame built after the first feed page was published
 
+Spans subtract two points of one launch, so whatever slowed the process before
+Dart ran drops out of them:
+
+  span:to-first-frame  Dart main to the first frame on screen
+  span:local-state     the start of the local-state load to the shell being ready
+  span:to-shell        Dart main to the restored shell on screen
+  span:to-feed         Dart main to the first feed page on screen
+  span:feed-request    the feed request leaving to its response being parsed
+
 Sides run in turn so that drift on the machine lands on all of them. --dump
 adds the VM timeline and Dart CPU samples of each macOS launch; sampling slows
 the isolate, so never report numbers from a --dump run.
@@ -28,8 +42,10 @@ the isolate, so never report numbers from a --dump run.
 
 import argparse
 import json
+import math
 import os
 from pathlib import Path
+import plistlib
 import queue
 import re
 import statistics
@@ -73,7 +89,17 @@ def milestones(records):
         value = raster_after(mark)
         if value is not None:
             out[label] = value / 1000
-    return out, requests
+
+    for label, start, end in (
+        ("span:to-first-frame", "mark:main", "first-raster"),
+        ("span:local-state", "mark:load start", "mark:shell ready"),
+        ("span:to-shell", "mark:main", "shell-raster"),
+        ("span:to-feed", "mark:main", "feed-raster"),
+        ("span:feed-request", "mark:feed requested", "mark:feed received"),
+    ):
+        if start in out and end in out:
+            out[label] = out[end] - out[start]
+    return out, requests, frames
 
 
 def rpc(service, method, **params):
@@ -180,43 +206,73 @@ def install_ios(device, app):
     )
 
 
-def run_ios(device, bundle_id, seed, timeout):
-    environment = {"DISCOURSE_STARTUP_SEED": "1"} if seed else {}
-    with tempfile.NamedTemporaryFile(suffix=".json") as result:
-        process = subprocess.Popen(
+def bundle_identifier(app):
+    with open(Path(app) / "Info.plist", "rb") as info:
+        return plistlib.load(info)["CFBundleIdentifier"]
+
+
+def copy_from_ios(device, bundle_id, name):
+    with tempfile.TemporaryDirectory() as folder:
+        destination = Path(folder) / name
+        copied = subprocess.run(
             [
-                "xcrun", "devicectl", "device", "process", "launch",
+                "xcrun", "devicectl", "device", "copy", "from",
                 "--device", device,
-                "--terminate-existing",
-                "--console",
-                "--environment-variables", json.dumps(environment),
-                "--json-output", result.name,
-                bundle_id,
+                "--domain-type", "appDataContainer",
+                "--domain-identifier", bundle_id,
+                "--source", f"tmp/{name}",
+                "--destination", str(destination),
             ],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            capture_output=True,
             text=True,
-            bufsize=1,
         )
-        lines = stream(process)
-        records = []
-        deadline = time.monotonic() + timeout
-        try:
-            while time.monotonic() < deadline:
-                try:
-                    line = lines.get(timeout=max(0.0, deadline - time.monotonic()))
-                except queue.Empty:
-                    break
-                if line is None:
-                    break
-                match = LINE.search(line)
-                if not match:
-                    continue
+        if copied.returncode != 0 or not destination.exists():
+            return []
+        return destination.read_text().splitlines()
+
+
+def request_ios_seed(device, bundle_id):
+    with tempfile.NamedTemporaryFile(suffix=".seed") as request:
+        subprocess.run(
+            [
+                "xcrun", "devicectl", "device", "copy", "to",
+                "--device", device,
+                "--domain-type", "appDataContainer",
+                "--domain-identifier", bundle_id,
+                "--source", request.name,
+                "--destination", "tmp/startup_seed",
+            ],
+            check=True,
+            capture_output=True,
+        )
+
+
+def run_ios(device, bundle_id, seed, timeout):
+    # Dart's print does not reach the console on iOS: the process writes its
+    # records to a file and exits, and the file is copied off the device.
+    if seed:
+        request_ios_seed(device, bundle_id)
+    process = subprocess.Popen(
+        [
+            "xcrun", "devicectl", "device", "process", "launch",
+            "--device", device,
+            "--terminate-existing",
+            "--console",
+            bundle_id,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        process.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        stop(process, 20)
+    records = []
+    for name in ("startup_profile.log", "startup_profile_requests.log"):
+        for line in copy_from_ios(device, bundle_id, name):
+            match = LINE.search(line)
+            if match:
                 records.append((match.group(1), int(match.group(2)), match.group(3)))
-                if match.group(1) in ("done", "seeded"):
-                    break
-        finally:
-            stop(process, 20)
     return records, None
 
 
@@ -234,6 +290,31 @@ def summarize(runs):
     return table
 
 
+def rank_sum_p(first, second):
+    """Two-sided Mann-Whitney U p-value with the normal approximation."""
+    if len(first) < 2 or len(second) < 2:
+        return None
+    pooled = sorted(
+        [(value, 0) for value in first] + [(value, 1) for value in second]
+    )
+    ranks = [0.0] * len(pooled)
+    index = 0
+    while index < len(pooled):
+        end = index
+        while end + 1 < len(pooled) and pooled[end + 1][0] == pooled[index][0]:
+            end += 1
+        for position in range(index, end + 1):
+            ranks[position] = (index + end) / 2 + 1
+        index = end + 1
+    u = sum(rank for rank, (_, side) in zip(ranks, pooled) if side == 0)
+    u -= len(first) * (len(first) + 1) / 2
+    mean = len(first) * len(second) / 2
+    deviation = math.sqrt(len(first) * len(second) * (len(pooled) + 1) / 12)
+    if deviation == 0:
+        return 1.0
+    return math.erfc(abs(u - mean) / deviation / math.sqrt(2))
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--app", action="append", required=True, help="label=path")
@@ -242,7 +323,12 @@ def main():
     parser.add_argument("--warmups", type=int, default=2)
     parser.add_argument("--pause", type=float, default=1.0)
     parser.add_argument("--device", help="UDID of an iOS device")
-    parser.add_argument("--bundle-id", help="bundle id of the iOS build")
+    parser.add_argument(
+        "--block",
+        type=int,
+        default=1,
+        help="launches recorded each time a side takes its turn",
+    )
     parser.add_argument(
         "--fresh",
         action="store_true",
@@ -256,17 +342,22 @@ def main():
 
     def launch(app, seed=False, dump=False):
         if args.device:
-            return run_ios(args.device, args.bundle_id, seed, args.timeout)
+            return run_ios(args.device, bundle_identifier(app), seed, args.timeout)
         return run_macos(app, seed, args.timeout, dump)
+
+    def seed(app):
+        records, _ = launch(app, seed=True)
+        if not any(kind == "seeded" for kind, _, _ in records):
+            raise SystemExit(f"seeding failed: {records}")
 
     def prepare(app):
         if args.device:
             install_ios(args.device, app)
+            launch(app)
 
-    prepare(apps[0][1])
-    records, _ = launch(apps[0][1], seed=True)
-    if not any(kind == "seeded" for kind, _, _ in records):
-        raise SystemExit(f"seeding failed: {records}")
+    if args.device:
+        install_ios(args.device, apps[0][1])
+    seed(apps[0][1])
 
     # The first launches write what they learn from the forums, which a
     # returning user would already have on disk.
@@ -274,7 +365,7 @@ def main():
         prepare(app)
         for index in range(args.warmups):
             records, _ = launch(app)
-            found, requests = milestones(records)
+            found, requests, _ = milestones(records)
             print(
                 f"warmup {label} #{index}: feed={found.get('feed-raster')} "
                 f"requests={len(requests)}",
@@ -286,34 +377,41 @@ def main():
     dumps = {}
     for iteration in range(args.runs):
         for label, app in apps:
-            prepare(app)
-            load = os.getloadavg()[0]
-            if args.fresh:
-                launch(app, seed=True)
-            try:
-                records, attribution = launch(app, dump=bool(args.dump))
-                found, requests = milestones(records)
-                if "feed-raster" not in found:
-                    raise RuntimeError(f"no feed frame: {sorted(found)}")
-            except Exception as error:  # noqa: BLE001
-                failures[label] += 1
-                print(f"{label} #{iteration}: FAILED {error}", flush=True)
-                continue
-            results[label].append(
-                {"milestones": found, "load_before": load, "requests": requests}
-            )
-            if attribution:
-                dumps.setdefault(label, []).append(attribution)
-            print(
-                f"{label} #{iteration}: load={load:.1f} "
-                + " ".join(
-                    f"{key}={value:.0f}"
-                    for key, value in found.items()
-                    if not key.startswith("mark:")
-                ),
-                flush=True,
-            )
-            time.sleep(args.pause)
+            if len(apps) > 1:
+                prepare(app)
+            for _ in range(args.block):
+                load = os.getloadavg()[0]
+                if args.fresh:
+                    launch(app, seed=True)
+                try:
+                    records, attribution = launch(app, dump=bool(args.dump))
+                    found, requests, frames = milestones(records)
+                    if "feed-raster" not in found:
+                        raise RuntimeError(f"no feed frame: {sorted(found)}")
+                except Exception as error:  # noqa: BLE001
+                    failures[label] += 1
+                    print(f"{label} #{iteration}: FAILED {error}", flush=True)
+                    continue
+                results[label].append(
+                    {
+                        "milestones": found,
+                        "load_before": load,
+                        "requests": requests,
+                        "frames": frames,
+                    }
+                )
+                if attribution:
+                    dumps.setdefault(label, []).append(attribution)
+                print(
+                    f"{label} #{iteration}: load={load:.1f} "
+                    + " ".join(
+                        f"{key}={value:.0f}"
+                        for key, value in found.items()
+                        if key.startswith("span:")
+                    ),
+                    flush=True,
+                )
+                time.sleep(args.pause)
 
     report = {
         label: {
@@ -345,6 +443,14 @@ def main():
                 if row
                 else f"{label} -"
             )
+        if len(labels) == 2:
+            first, second = (
+                [run["milestones"][key] for run in results[label] if key in run["milestones"]]
+                for label in labels
+            )
+            p_value = rank_sum_p(first, second)
+            if p_value is not None:
+                cells.append(f"p={p_value:.4f}")
         print(f"{key:30} " + "  ".join(cells))
     print("failures", failures)
 
