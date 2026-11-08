@@ -98,19 +98,18 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   },
   ('plugin_api', 'styleguide'): {},
   ('plugin_api', 'plugins'): {},
-  ('shell', 'styleguide'): {
-    'lib/src/shell/instance_rail.dart -> lib/src/styleguide/styleguide_page.dart',
-  },
+  ('shell', 'styleguide'): {},
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 345;
+const _largestImportCycle = 196;
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
 const Map<String, Set<String>> _unreachableFromLayer = {
   'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'ui': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
+  'shell': {'styleguide', 'plugins'},
 };
 
 void main() {

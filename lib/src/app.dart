@@ -34,6 +34,7 @@ import 'plugin_api/plugin_runtime.dart';
 import 'shell/adaptive_shell.dart';
 import 'shell/app_motion.dart';
 import 'shell/app_text_scale.dart';
+import 'shell/component_styleguide_scope.dart';
 import 'shell/content_reading_lane.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
@@ -58,6 +59,7 @@ class DiscourseApp extends StatefulWidget {
     this.pluginManifest = corePluginManifest,
     this.initialRootMode = ShellRootMode.forum,
     this.notificationOpenUrls,
+    this.openComponentStyleguide,
   }) : assert(
          plugins == null || identical(pluginManifest, corePluginManifest),
          'Pass plugins or pluginManifest, not both.',
@@ -78,6 +80,7 @@ class DiscourseApp extends StatefulWidget {
   final PluginManifest pluginManifest;
   final ShellRootMode initialRootMode;
   final Stream<String>? notificationOpenUrls;
+  final ComponentStyleguideOpener? openComponentStyleguide;
 
   /// How long a quit waits for local state to be written before it goes
   /// ahead regardless; storage that cannot answer must not hold the app open.
@@ -250,63 +253,66 @@ class _DiscourseAppState extends State<DiscourseApp>
     // Navigator, can still reach the controller.
     final app = ShellScope(
       controller: _controller,
-      child: ContentSettingsScope(
-        controller: _controller.appSettings,
-        child: ShellSelector<_AppThemeSelection>(
-          select: _AppThemeSelection.from,
-          builder: (context, selection, _) {
-            return ListenableBuilder(
-              listenable: _controller.forumSettings,
-              builder: (context, _) {
-                final site = selection.siteUrl;
-                final appearance = site == null
-                    ? null
-                    : _controller.forumSettings.appearanceFor(
-                        site,
-                        selection.appearance,
-                      );
-                final fontFamily =
-                    _controller.forumSettings.shared.interfaceFont.family;
-                final effects = _controller.forumSettings.shared.effects;
-                final lightTheme = _themeFor(
-                  appearance,
-                  Brightness.light,
-                  fontFamily,
-                  _controller.forumSettings.shared.readingFamily,
-                  effects,
-                );
-                final darkTheme = _themeFor(
-                  appearance,
-                  Brightness.dark,
-                  fontFamily,
-                  _controller.forumSettings.shared.readingFamily,
-                  effects,
-                );
+      child: ComponentStyleguideScope(
+        open: widget.openComponentStyleguide,
+        child: ContentSettingsScope(
+          controller: _controller.appSettings,
+          child: ShellSelector<_AppThemeSelection>(
+            select: _AppThemeSelection.from,
+            builder: (context, selection, _) {
+              return ListenableBuilder(
+                listenable: _controller.forumSettings,
+                builder: (context, _) {
+                  final site = selection.siteUrl;
+                  final appearance = site == null
+                      ? null
+                      : _controller.forumSettings.appearanceFor(
+                          site,
+                          selection.appearance,
+                        );
+                  final fontFamily =
+                      _controller.forumSettings.shared.interfaceFont.family;
+                  final effects = _controller.forumSettings.shared.effects;
+                  final lightTheme = _themeFor(
+                    appearance,
+                    Brightness.light,
+                    fontFamily,
+                    _controller.forumSettings.shared.readingFamily,
+                    effects,
+                  );
+                  final darkTheme = _themeFor(
+                    appearance,
+                    Brightness.dark,
+                    fontFamily,
+                    _controller.forumSettings.shared.readingFamily,
+                    effects,
+                  );
 
-                final shown = site == null
-                    ? null
-                    : _controller.forumSettings.previewBrightnessFor(site);
-                return DIconSetScope(
-                  iconSet: _controller.forumSettings.shared.iconSet,
-                  child: _materialApp(
-                    theme: lightTheme,
-                    darkTheme: darkTheme,
-                    themeMode: switch ((shown, site)) {
-                      (Brightness.light, _) => ThemeMode.light,
-                      (Brightness.dark, _) => ThemeMode.dark,
-                      (null, null) => ThemeMode.system,
-                      (null, final site?) => switch (_controller.forumSettings
-                          .themeModeFor(site)) {
-                        AppThemeMode.system => ThemeMode.system,
-                        AppThemeMode.light => ThemeMode.light,
-                        AppThemeMode.dark => ThemeMode.dark,
+                  final shown = site == null
+                      ? null
+                      : _controller.forumSettings.previewBrightnessFor(site);
+                  return DIconSetScope(
+                    iconSet: _controller.forumSettings.shared.iconSet,
+                    child: _materialApp(
+                      theme: lightTheme,
+                      darkTheme: darkTheme,
+                      themeMode: switch ((shown, site)) {
+                        (Brightness.light, _) => ThemeMode.light,
+                        (Brightness.dark, _) => ThemeMode.dark,
+                        (null, null) => ThemeMode.system,
+                        (null, final site?) => switch (_controller.forumSettings
+                            .themeModeFor(site)) {
+                          AppThemeMode.system => ThemeMode.system,
+                          AppThemeMode.light => ThemeMode.light,
+                          AppThemeMode.dark => ThemeMode.dark,
+                        },
                       },
-                    },
-                  ),
-                );
-              },
-            );
-          },
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         ),
       ),
     );

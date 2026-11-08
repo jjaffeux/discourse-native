@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -75,7 +76,10 @@ void main() {
     HttpOverrides.global = http;
     addTearDown(() => HttpOverrides.global = null);
 
-    AppBootstrap.production(manifest: bundledPluginManifest).start();
+    AppBootstrap.production(
+      manifest: bundledPluginManifest,
+      openComponentStyleguide: showComponentStyleguide,
+    ).start();
 
     String describe() {
       final content = find.byType(MainContent).evaluate();
