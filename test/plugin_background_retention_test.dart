@@ -19,6 +19,46 @@ void main() {
     );
   });
 
+  for (final transition in ['close', 'replace']) {
+    test('validator cannot admit a claim after owner $transition', () {
+      registry = PluginBackgroundRetentionRegistry(
+        canRetain: (_) {
+          if (transition == 'close') {
+            registry.close();
+          } else {
+            registry.releaseOwner(alpha);
+            registry.scopedTo(alpha);
+          }
+          return true;
+        },
+        onChanged: () {},
+      );
+      final host = registry.scopedTo(alpha);
+      expect(() => host.retain(firstSite), throwsStateError);
+      expect(registry.siteUrls, isEmpty);
+    });
+  }
+
+  test('failed publication rolls back only its own undelivered claim', () {
+    final error = StateError('publication');
+    var fail = true;
+    registry = PluginBackgroundRetentionRegistry(
+      canRetain: (_) => true,
+      onChanged: () {
+        if (!fail) return;
+        fail = false;
+        registry.scopedTo(beta).retain(firstSite);
+        throw error;
+      },
+    );
+    expect(
+      () => registry.scopedTo(alpha).retain(firstSite),
+      throwsA(same(error)),
+    );
+    registry.releaseOwner(beta);
+    expect(registry.siteUrls, isEmpty);
+  });
+
   test('leases from multiple plugins and sites compose by set union', () {
     final alphaHost = registry.scopedTo(alpha);
     final betaHost = registry.scopedTo(beta);

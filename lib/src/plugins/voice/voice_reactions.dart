@@ -53,7 +53,7 @@ final class VoiceReaction {
 
 /// Ephemeral reactions owned by one joined call. Expiry uses timers so hidden
 /// views cannot replay an animation backlog when they become visible again.
-final class VoiceReactionSession extends ChangeNotifier {
+final class VoiceReactionSession extends FrameSafeNotifier {
   VoiceReactionSession({
     required this.siteUrl,
     required this.roomId,
@@ -88,16 +88,28 @@ final class VoiceReactionSession extends ChangeNotifier {
   Timer? _cooldown;
   Timer? _settingsRetry;
   int _loadAttempts = 0;
-  bool _disposed = false;
   int _nextId = 0;
 
-  bool get isCurrent => !_disposed && _isCurrent();
+  bool get isCurrent => !isDisposed && _isCurrent();
   VoiceReactionSettings? get settings => _settings;
   bool get rateLimited => _cooldown != null;
   bool get canSend => isCurrent && !rateLimited && _settings?.supported == true;
   List<VoiceReaction> get reactions => List.unmodifiable(_reactions);
 
-  Future<void> load() => _loading ??= _loadSettings();
+  Future<void> load() {
+    if (!isCurrent) return Future.value();
+    final active = _loading;
+    if (active != null) return active;
+    final completion = Completer<void>();
+    _loading = completion.future;
+    unawaited(
+      _loadSettings().then(
+        completion.complete,
+        onError: completion.completeError,
+      ),
+    );
+    return completion.future;
+  }
 
   Future<void> _loadSettings() async {
     _loadAttempts++;
@@ -130,11 +142,13 @@ final class VoiceReactionSession extends ChangeNotifier {
   Future<void> send(String emoji) async {
     if (!canSend || !_settings!.allows(emoji)) return;
     final optimistic = _add(userId, username, emoji);
+    if (!isCurrent) return;
     try {
       await _send(emoji);
     } catch (error) {
       if (!isCurrent) return;
       _remove(optimistic.id);
+      if (!isCurrent) return;
       if (error is WriteException && error.statusCode == 429) {
         _cooldown?.cancel();
         final wait = error.retryAfter ?? const Duration(seconds: 1);
@@ -192,8 +206,8 @@ final class VoiceReactionSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    if (_disposed) return;
-    _disposed = true;
+    if (isDisposed) return;
+    super.dispose();
     _cooldown?.cancel();
     _settingsRetry?.cancel();
     for (final timer in _timers.values) {
@@ -201,6 +215,5 @@ final class VoiceReactionSession extends ChangeNotifier {
     }
     _timers.clear();
     _reactions.clear();
-    super.dispose();
   }
 }

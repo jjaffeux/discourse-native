@@ -326,6 +326,60 @@ AccountActivityController _controller(
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'disposed parent cannot create named activity or plugin feed children',
+    () async {
+      final api = _CountingAccountApi();
+      final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+      final controller = _controller(api, credentials);
+      controller.dispose();
+      await controller.loadUserActivity(
+        _connectedInstance(),
+        username: 'new-person',
+      );
+      expect(api.calls, isEmpty);
+      final listenable = controller.pluginNotificationsListenable(
+        _dismissibleReplyFeed.id,
+      );
+      void listener() {}
+      listenable.addListener(listener);
+      listenable.removeListener(listener);
+      await controller.loadPluginNotifications(
+        _connectedInstance(),
+        _dismissibleReplyFeed,
+      );
+      expect(controller.hasTrackedPluginNotifications(_siteUrl), isFalse);
+      expect(
+        controller.userActivityFor(_siteUrl, username: 'new-person').loaded,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'late plugin subscriptions remain inert across repeated parent disposal',
+    () {
+      final controller = _controller(
+        _CountingAccountApi(),
+        FakeApiCredentialReader(),
+      );
+      controller.dispose();
+      final lateSubscription = controller.pluginNotificationsListenable(
+        _dismissibleReplyFeed.id,
+      );
+      controller.dispose();
+      void listener() {}
+      lateSubscription.addListener(listener);
+      lateSubscription.removeListener(listener);
+      expect(
+        controller
+            .pluginNotificationsFor(_dismissibleReplyFeed.id, _siteUrl)
+            .loaded,
+        isFalse,
+      );
+    },
+  );
+
   group('capabilities and independent feeds', () {
     test('refreshes per-site totals and reports capabilities', () async {
       final totals = NotificationTotals(

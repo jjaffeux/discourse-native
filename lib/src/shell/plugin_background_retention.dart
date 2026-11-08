@@ -31,7 +31,10 @@ final class PluginBackgroundRetentionRegistry {
     );
   }
 
-  PluginBackgroundRetentionLease _retain(PluginId owner, String siteUrl) {
+  PluginBackgroundRetentionLease _retain(
+    _ScopedPluginBackgroundRetentionHost host,
+    String siteUrl,
+  ) {
     if (_closed) throw StateError('Background retention is closed.');
     final normalized = siteUrl.trim();
     if (normalized.isEmpty || !_canRetain(normalized)) {
@@ -42,28 +45,42 @@ final class PluginBackgroundRetentionRegistry {
       );
     }
 
+    if (_closed || host._revoked || !identical(_hosts[host._owner], host)) {
+      throw StateError('Background retention authority is revoked.');
+    }
+
     final token = Object();
     final firstForSite = !_siteClaimCounts.containsKey(normalized);
-    _claims[token] = (owner: owner, siteUrl: normalized);
+    _claims[token] = (owner: host._owner, siteUrl: normalized);
     _siteClaimCounts.update(
       normalized,
       (count) => count + 1,
       ifAbsent: () => 1,
     );
-    if (firstForSite) _onChanged();
+    try {
+      if (firstForSite) _onChanged();
+    } catch (_) {
+      // No lease reached the caller. Preserve claims admitted by peer callbacks.
+      _removeClaim(token);
+      rethrow;
+    }
     return _PluginBackgroundRetentionLease(this, token, normalized);
   }
 
-  void _release(Object token) {
+  bool _removeClaim(Object token) {
     final claim = _claims.remove(token);
-    if (claim == null) return;
+    if (claim == null) return false;
     final count = _siteClaimCounts[claim.siteUrl]! - 1;
     if (count > 0) {
       _siteClaimCounts[claim.siteUrl] = count;
-      return;
+      return false;
     }
     _siteClaimCounts.remove(claim.siteUrl);
-    if (!_closed) _onChanged();
+    return true;
+  }
+
+  void _release(Object token) {
+    if (_removeClaim(token) && !_closed) _onChanged();
   }
 
   void releaseOwner(PluginId owner) {
@@ -134,7 +151,7 @@ final class _ScopedPluginBackgroundRetentionHost
     if (_revoked) {
       throw StateError('Background retention authority is revoked.');
     }
-    return _registry._retain(_owner, siteUrl);
+    return _registry._retain(this, siteUrl);
   }
 }
 

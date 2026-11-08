@@ -69,13 +69,16 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
   @override
   Future<Map<String, Object>> getAllWithParameters(
     GetAllParameters parameters,
-  ) => _document.read(
-    (preferences) => PrivateFileResult({
-      for (final MapEntry(:key, :value) in preferences.entries)
-        if (_matches(parameters.filter, key))
-          key: value is List<String> ? List.of(value) : value,
-    }),
-  );
+  ) {
+    final filter = _snapshotFilter(parameters.filter);
+    return _document.read(
+      (preferences) => PrivateFileResult({
+        for (final MapEntry(:key, :value) in preferences.entries)
+          if (_matches(filter, key))
+            key: value is List<String> ? List.of(value) : value,
+      }),
+    );
+  }
 
   @override
   Future<bool> setValue(String valueType, String key, Object value) {
@@ -94,10 +97,21 @@ final class LinuxPreferencesStore extends SharedPreferencesStorePlatform {
   );
 
   @override
-  Future<bool> clearWithParameters(ClearParameters parameters) => _commit(
-    (preferences) =>
-        preferences.removeWhere((key, _) => _matches(parameters.filter, key)),
-  );
+  Future<bool> clearWithParameters(ClearParameters parameters) {
+    final filter = _snapshotFilter(parameters.filter);
+    return _commit(
+      (preferences) =>
+          preferences.removeWhere((key, _) => _matches(filter, key)),
+    );
+  }
+
+  static PreferencesFilter _snapshotFilter(PreferencesFilter filter) =>
+      PreferencesFilter(
+        prefix: filter.prefix,
+        allowList: filter.allowList == null
+            ? null
+            : Set.unmodifiable(filter.allowList!),
+      );
 
   /// Answers false rather than throwing, as the plugin did: callers already
   /// turn a refused save into their own report.

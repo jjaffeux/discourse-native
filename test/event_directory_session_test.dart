@@ -37,6 +37,53 @@ void main() {
   }
 
   test(
+    'account retirement clears rows immediately and stops quarter dispatch',
+    () async {
+      final session = open();
+      await transport.waitFor(1);
+      transport.pending[0].complete({
+        'events': [eventJson()],
+      });
+      await flush();
+      session.show(
+        EventCalendarPage(EventCalendarView.year, DateTime.utc(2026)),
+      );
+      await transport.waitFor(2);
+      expect(session.occurrences, isNotEmpty);
+      ports.requests.forget(eventSite);
+      expect(session.occurrences, isEmpty);
+      expect(session.loading, isFalse);
+      expect(session.failed, isFalse);
+      transport.pending[1].complete({
+        'events': [eventJson()],
+      });
+      await flush();
+      expect(transport.queries, hasLength(2));
+    },
+  );
+
+  test('reentrant replacement owns the first quarter dispatch', () async {
+    final session = open();
+    await transport.waitFor(1);
+    transport.pending[0].complete({'events': <Object?>[]});
+    await flush();
+    var replace = true;
+    session.addListener(() {
+      if (!replace) return;
+      replace = false;
+      session.show(
+        EventCalendarPage(EventCalendarView.schedule, DateTime.utc(2026, 10)),
+      );
+    });
+    final stale = session.refresh();
+    await transport.waitFor(2);
+    await flush();
+    expect(transport.queries, hasLength(2));
+    transport.pending[1].complete({'events': <Object?>[]});
+    await stale;
+  });
+
+  test(
     'quarter queries preserve DST boundaries and deduplicate overlaps',
     () async {
       final session = open(view: EventCalendarView.year);

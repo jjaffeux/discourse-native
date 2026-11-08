@@ -17,6 +17,104 @@ void main() {
       PrefetchedTopic(topicPayload(id: id), 0, 0, 0, 0);
 
   testWidgets(
+    'a failed prefetch completion capability settles adoption and releases the next candidate',
+    (tester) async {
+      var failClock = false;
+      final controller = TopicPrefetchController(
+        clock: () {
+          if (failClock) throw StateError('clock unavailable');
+          return DateTime.utc(2026);
+        },
+      );
+      addTearDown(controller.clear);
+      final first = Completer<PrefetchedTopic?>();
+      controller.hover(
+        key(1),
+        isCurrent: () => true,
+        intent: TopicPrefetchIntent.trajectory,
+        load: (_) => first.future,
+      );
+      final adopted = controller.take(key(1))!;
+      var settled = false;
+      PrefetchedTopic? delivered;
+      unawaited(
+        adopted.then((value) {
+          settled = true;
+          delivered = value;
+        }),
+      );
+      var nextLoads = 0;
+      controller.hover(
+        key(2),
+        isCurrent: () => true,
+        intent: TopicPrefetchIntent.trajectory,
+        load: (_) async {
+          nextLoads++;
+          return result(2);
+        },
+      );
+      failClock = true;
+      first.complete(result(1));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(settled, isTrue);
+      expect(delivered, isNull);
+      expect(nextLoads, 1);
+    },
+  );
+
+  testWidgets(
+    'an adopted prefetch no longer depends on its former list interest',
+    (tester) async {
+      final controller = TopicPrefetchController();
+      addTearDown(controller.clear);
+      var interested = true;
+      final response = Completer<PrefetchedTopic?>();
+      final release = controller.hover(
+        key(1),
+        isCurrent: () => interested,
+        intent: TopicPrefetchIntent.trajectory,
+        load: (_) => response.future,
+      );
+      final adopted = controller.take(key(1))!;
+      interested = false;
+      release();
+      response.complete(result(1));
+      expect((await adopted)?.payload.detail.id, 1);
+    },
+  );
+
+  testWidgets(
+    'failing speculative predicates are silent misses and leave healthy work admissible',
+    (tester) async {
+      final controller = TopicPrefetchController();
+      addTearDown(controller.clear);
+      var failedLoads = 0;
+      expect(
+        () => controller.hover(
+          key(2),
+          isCurrent: () => throw StateError('retired source'),
+          intent: TopicPrefetchIntent.trajectory,
+          load: (_) async {
+            failedLoads++;
+            return result(2);
+          },
+        ),
+        returnsNormally,
+      );
+      expect(failedLoads, 0);
+      controller.hover(
+        key(3),
+        isCurrent: () => true,
+        intent: TopicPrefetchIntent.trajectory,
+        load: (_) async => result(3),
+      );
+      final healthy = controller.take(key(3));
+      expect((await healthy)?.payload.detail.id, 3);
+    },
+  );
+
+  testWidgets(
     'confirmed trajectory skips dwell and stale releases cannot cancel a handoff',
     (tester) async {
       final controller = TopicPrefetchController();

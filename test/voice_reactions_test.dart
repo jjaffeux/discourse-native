@@ -24,6 +24,112 @@ VoiceReactionSession _session({
 );
 
 void main() {
+  test('settings admission is reserved before invoking the loader', () async {
+    var calls = 0;
+    late VoiceReactionSession session;
+    Future<void>? nested;
+    session = VoiceReactionSession(
+      siteUrl: 'https://example.com',
+      roomId: 7,
+      userId: 1,
+      username: 'sam',
+      isCurrent: () => true,
+      load: () {
+        calls++;
+        if (calls == 1) nested = session.load();
+        return Future.value(_settings);
+      },
+      send: (_) async {},
+    );
+    addTearDown(session.dispose);
+    final first = session.load();
+    await first;
+    expect(calls, 1);
+    expect(nested, same(first));
+    session.dispose();
+    await session.load();
+    expect(calls, 1);
+  });
+
+  test('optimistic retirement prevents outgoing reaction dispatch', () async {
+    var sends = 0;
+    var current = true;
+    final session = _session(
+      send: (_) async {
+        sends++;
+      },
+      isCurrent: () => current,
+    );
+    addTearDown(session.dispose);
+    await session.load();
+    session.addListener(() {
+      current = false;
+    });
+    await session.send('heart');
+    expect(sends, 0);
+  });
+
+  test('retired sessions never begin settings IO', () async {
+    var calls = 0;
+    final session = VoiceReactionSession(
+      siteUrl: 'https://example.com',
+      roomId: 7,
+      userId: 1,
+      username: 'sam',
+      isCurrent: () => true,
+      load: () async {
+        calls++;
+        return _settings;
+      },
+      send: (_) async {},
+    );
+    session.dispose();
+    await session.load();
+    expect(calls, 0);
+  });
+
+  test('optimistic listeners may dispose the reaction owner', () async {
+    var sends = 0;
+    final session = _session(
+      send: (_) async {
+        sends++;
+      },
+    );
+    await session.load();
+    session.addListener(session.dispose);
+    await session.send('heart');
+    expect(sends, 0);
+    expect(session.reactions, isEmpty);
+  });
+
+  test(
+    'rollback retirement suppresses error delivery to a closed call',
+    () async {
+      final answer = Completer<void>();
+      var errors = 0;
+      final session = VoiceReactionSession(
+        siteUrl: 'https://example.com',
+        roomId: 7,
+        userId: 1,
+        username: 'sam',
+        isCurrent: () => true,
+        load: () async => _settings,
+        send: (_) => answer.future,
+        onError: (_) {
+          errors++;
+        },
+      );
+      await session.load();
+      session.addListener(() {
+        if (session.reactions.isEmpty) session.dispose();
+      });
+      final sending = session.send('heart');
+      answer.completeError(StateError('failed send'));
+      await sending;
+      expect(errors, 0);
+    },
+  );
+
   test('site serializer controls offered reactions and arbitrary emoji', () {
     final settings = VoiceReactionSettings.fromJson({
       'live_reaction_emojis': ['heart', 'custom_party', 'heart', null, '../x'],

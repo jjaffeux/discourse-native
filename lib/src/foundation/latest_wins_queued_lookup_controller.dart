@@ -4,7 +4,8 @@ import 'dart:async';
 ///
 /// A result or error is delivered only when its request is still the newest
 /// submitted request. Disposing the controller drops queued work and ignores
-/// the completion of any lookup already in flight.
+/// the completion of any lookup already in flight. Each lookup and its delivery
+/// callbacks run in the zone that submitted that request.
 final class LatestWinsQueuedLookupController<Request, Result> {
   LatestWinsQueuedLookupController({
     required Future<Result> Function(Request request) lookup,
@@ -25,11 +26,11 @@ final class LatestWinsQueuedLookupController<Request, Result> {
   int _revision = 0;
   bool _running = false;
   bool _disposed = false;
-  ({int revision, Request value})? _queued;
+  ({int revision, Request value, Zone zone})? _queued;
 
   void request(Request value) {
     if (_disposed) return;
-    final request = (revision: ++_revision, value: value);
+    final request = (revision: ++_revision, value: value, zone: Zone.current);
     if (_running) {
       _queued = request;
       return;
@@ -46,7 +47,7 @@ final class LatestWinsQueuedLookupController<Request, Result> {
     _queued = null;
   }
 
-  Future<void> _run(({int revision, Request value}) request) async {
+  Future<void> _run(({int revision, Request value, Zone zone}) request) async {
     _running = true;
     try {
       await _complete(request);
@@ -58,18 +59,34 @@ final class LatestWinsQueuedLookupController<Request, Result> {
     }
   }
 
-  Future<void> _complete(({int revision, Request value}) request) async {
+  Future<void> _complete(
+    ({int revision, Request value, Zone zone}) request,
+  ) async {
     late final Result result;
     try {
-      result = await _lookup(request.value);
+      final completion = Completer<Result>();
+      request.zone.run(() {
+        unawaited(
+          Future<Result>.sync(() => _lookup(request.value)).then<void>(
+            completion.complete,
+            onError: (Object error, StackTrace stack) =>
+                completion.completeError(error, stack),
+          ),
+        );
+      });
+      result = await completion.future;
     } catch (error, stackTrace) {
-      if (_isCurrent(request)) _onError(error, stackTrace);
+      if (_isCurrent(request)) {
+        request.zone.runGuarded(() => _onError(error, stackTrace));
+      }
       return;
     }
-    if (_isCurrent(request)) _onResult(result);
+    if (_isCurrent(request)) {
+      request.zone.runGuarded(() => _onResult(result));
+    }
   }
 
-  bool _isCurrent(({int revision, Request value}) request) =>
+  bool _isCurrent(({int revision, Request value, Zone zone}) request) =>
       !_disposed && request.revision == _revision;
 
   void dispose() {
