@@ -5,6 +5,14 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/models/badge.dart';
+import 'package:discourse_native/src/models/user_card.dart';
+import 'package:discourse_native/src/plugins/boards/board_reader_card.dart';
+import 'package:discourse_native/src/plugins/boards/boards_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_card.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_onebox.dart';
+import 'package:discourse_native/src/shell/badges_page.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -12,6 +20,8 @@ import 'package:discourse_native/src/shell/lightbox.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
+import 'package:discourse_native/src/shell/user_card_header.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +29,8 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:photo_view/photo_view.dart';
 
+import 'support/blank_png.dart';
+import 'support/event_fixtures.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://forum.example';
@@ -113,6 +125,131 @@ void main() {
       },
     );
   }
+
+  group('an uploaded cover', () {
+    late EventTestPorts ports;
+    setUp(() {
+      ports = EventTestPorts();
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+    });
+    tearDown(() => ports.close());
+
+    Widget eventCard(String url) => EventCard(
+      event: PostEvent.decode(
+        eventJson(
+          overrides: {
+            'image_upload': {'url': url},
+          },
+        ),
+      )!,
+      siteUrl: _siteUrl,
+      zones: ports.zones,
+    );
+    final sites = <_CoverSite>[
+      (
+        name: 'user-card-header',
+        budget: 1600000,
+        build: (url) => UserCardHeader(
+          card: UserCard(username: 'sam', cardBackgroundUrl: url),
+          siteUrl: _siteUrl,
+        ),
+      ),
+      (name: 'event-card', budget: 1600000, build: eventCard),
+      (
+        name: 'event-onebox',
+        budget: 1000000,
+        build: (url) => EventOnebox(
+          data: EventOneboxData(title: 'Team', url: _imageUrl, image: url),
+          siteUrl: _siteUrl,
+        ),
+      ),
+      (
+        name: 'board-card',
+        budget: 800000,
+        build: (url) => BoardReaderCard(
+          site: _siteUrl,
+          board: BoardSnapshot.decode({'id': 1, 'show_topic_thumbnail': true})!,
+          card: BoardCard.decode({
+            'id': 2,
+            'column_id': 3,
+            'card_type': 'topic',
+            'topic_id': 4,
+            'topic': {'id': 4, 'title': 'Roadmap', 'image_url': url},
+          })!,
+          onPressed: () {},
+        ),
+      ),
+      (
+        name: 'badge-symbol',
+        budget: 100000,
+        build: (url) => BadgeSymbol(
+          badge: DiscourseBadge(id: 1, name: 'First', imageUrl: url),
+          siteUrl: _siteUrl,
+          size: 52,
+        ),
+      ),
+    ];
+
+    for (final site in sites) {
+      testWidgets('${site.name} decodes near its drawn size', (tester) async {
+        await _pumpCover(tester, site, width: 400);
+
+        final bytes = PaintingBinding.instance.imageCache.currentSizeBytes;
+        // ignore: avoid_print
+        print('PERF_PROOF cover-decode ${site.name}_decoded_bytes=$bytes');
+        expect(bytes, lessThanOrEqualTo(site.budget));
+      });
+
+      testWidgets('${site.name} stays sharp at every laid-out width', (
+        tester,
+      ) async {
+        for (final width in [320.0, 400.0, 900.0]) {
+          PaintingBinding.instance.imageCache.clear();
+          await _pumpCover(tester, site, width: width);
+
+          _expectSharp(tester, _coverSource);
+        }
+      });
+
+      testWidgets('${site.name} never upscales a small source', (tester) async {
+        final image = await _pumpCover(
+          tester,
+          site,
+          width: 900,
+          source: const Size(60, 30),
+        );
+
+        expect((image.width, image.height), (60, 30));
+      });
+    }
+
+    testWidgets('a resized card decodes again only past a coarse step', (
+      tester,
+    ) async {
+      final width = ValueNotifier(390.0);
+      addTearDown(width.dispose);
+      final cache = PaintingBinding.instance.imageCache;
+      int entries() => cache.currentSize + cache.pendingImageCount;
+      final site = sites.first;
+      await _pumpCover(tester, site, width: 390, listenable: width);
+      expect(entries(), 1);
+
+      // 782 to 830 physical pixels share the 832 bound.
+      for (var step = 391; step <= 415; step++) {
+        width.value = step.toDouble();
+        await tester.pump();
+      }
+      await _waitForCover(tester);
+      expect(entries(), 1);
+
+      width.value = 417;
+      await tester.pump();
+      final image = await _waitForCover(tester);
+      expect(entries(), 2);
+      expect(image.width, 896);
+    });
+  });
 
   group('resizing the lane', () {
     setUp(() {
@@ -619,6 +756,100 @@ Future<({int growth, List<ui.Image> images})> _resizeCookedImages(
       for (final raw in tester.widgetList<RawImage>(find.byType(RawImage)))
         raw.image!,
     ],
+  );
+}
+
+typedef _CoverSite = ({
+  String name,
+  int budget,
+  Widget Function(String url) build,
+});
+
+const _coverSource = Size(1920, 1080);
+final _coverImage = find.descendant(
+  of: find.byType(SiteImage),
+  matching: find.byType(RawImage),
+);
+
+/// Pumps [site] at 2x in a shell whose image repository serves [source].
+Future<ui.Image> _pumpCover(
+  WidgetTester tester,
+  _CoverSite site, {
+  required double width,
+  Size source = _coverSource,
+  ValueNotifier<double>? listenable,
+}) async {
+  tester.view.devicePixelRatio = 2;
+  addTearDown(tester.view.reset);
+  final repository = _repository(
+    blankPng(width: source.width.toInt(), height: source.height.toInt()),
+  );
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore(),
+    api: FakeDiscourseApi(),
+    authenticator: FakeAuthenticator(),
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    siteImages: repository,
+  );
+  addTearDown(shell.dispose);
+  final content = site.build('$_siteUrl/cover.png');
+  await tester.pumpWidget(
+    ShellScope(
+      key: UniqueKey(),
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topCenter,
+            child: SingleChildScrollView(
+              child: listenable == null
+                  ? SizedBox(width: width, child: content)
+                  : ValueListenableBuilder(
+                      valueListenable: listenable,
+                      builder: (context, width, _) =>
+                          SizedBox(width: width, child: content),
+                    ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  return _waitForCover(tester);
+}
+
+Future<ui.Image> _waitForCover(WidgetTester tester) async {
+  for (var attempt = 0; attempt < 100; attempt++) {
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 10)),
+    );
+    await tester.pump();
+    final image = tester.widgetList<RawImage>(_coverImage).firstOrNull?.image;
+    if (PaintingBinding.instance.imageCache.pendingImageCount == 0 &&
+        image != null) {
+      return image;
+    }
+  }
+  fail('The cover did not decode');
+}
+
+/// Every drawn device pixel has a decoded pixel behind it, unless the source
+/// itself has fewer.
+void _expectSharp(WidgetTester tester, Size source) {
+  final raw = tester.widget<RawImage>(_coverImage);
+  final box = tester.getSize(_coverImage);
+  final fitted = applyBoxFit(raw.fit!, source, box);
+  final drawnScale = fitted.destination.width / fitted.source.width;
+  final needed = (drawnScale * tester.view.devicePixelRatio).clamp(0.0, 1.0);
+  expect(
+    raw.image!.height,
+    greaterThanOrEqualTo((source.height * needed).floor()),
+  );
+  expect(
+    raw.image!.width,
+    greaterThanOrEqualTo((source.width * needed).floor()),
   );
 }
 

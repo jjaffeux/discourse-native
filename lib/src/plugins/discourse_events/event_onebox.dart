@@ -261,6 +261,8 @@ class _PublishedEventOnebox extends StatelessWidget {
                     width: double.infinity,
                     height: 180,
                     fit: BoxFit.contain,
+                    // One bound keeps the aspect ratio; contain never draws taller.
+                    cacheHeight: imagePhysicalPixels(context, 180),
                   ),
                 if (date != null)
                   Text(

@@ -4,14 +4,15 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
-import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_likers.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
@@ -1203,6 +1204,236 @@ void main() {
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   });
+
+  group('topic tracking in the sidebar', () {
+    const site = 'https://meta.discourse.org';
+    final categories = [
+      for (var id = 1; id <= 21; id++)
+        TopicCategory(
+          id: id,
+          name: 'Category $id',
+          slug: 'c$id',
+          color: '0088cc',
+        ),
+    ];
+    Finder dot(String destinationId) =>
+        find.byKey(ValueKey('sidebar-badge-$destinationId'));
+
+    Map<String, Object?> unread(int topicId, {required int categoryId}) => {
+      'topic_id': topicId,
+      'message_type': 'unread',
+      'payload': {
+        'highest_post_number': 50,
+        'last_read_post_number': 1,
+        'notification_level': 2,
+        'category_id': categoryId,
+      },
+    };
+
+    /// A desktop sidebar listing twenty categories, with topic 99 already
+    /// unread in the first, so New shows a dot that further topics cannot move.
+    Future<({ShellController controller, FakeSiteTracker tracker})> pumpSidebar(
+      WidgetTester tester, {
+      PluginManifest? manifest,
+    }) async {
+      await tester.binding.setSurfaceSize(const Size(1440, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final user = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        sidebarCategoryIds: [for (var id = 1; id <= 20; id++) id],
+        unifiedNewEnabled: true,
+      );
+      final plugins = manifest == null
+          ? null
+          : PluginInstaller.install(manifest);
+      final controller = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.discourse.org').copyWith(user: user),
+        ]),
+        api: FakeDiscourseApi(
+          user: user,
+          feeds: const {'/latest.json': []},
+          categoryList: categories,
+          feedCategoriesByPath: {'/latest.json': categories},
+        ),
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+        plugins: plugins,
+      );
+      addTearDown(controller.dispose);
+      await controller.load();
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: const AdaptiveShell(),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final tracker = FakeSiteTracker.built.single;
+      tracker.deliverTopicTracking(unread(99, categoryId: 1));
+      await tester.pumpAndSettle();
+      expect(dot('category-1'), findsOneWidget);
+      return (controller: controller, tracker: tracker);
+    }
+
+    /// The sidebar elements and rows rebuilt, read while each is mounted.
+    ({List<Element> elements, List<String> rows}) recordSidebarRebuilds() {
+      final rebuilt = (elements: <Element>[], rows: <String>[]);
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        if (element.findAncestorWidgetOfExactType<InstanceSidebar>() == null) {
+          return;
+        }
+        rebuilt.elements.add(element);
+        if (element.widget case SidebarDestinationTile(:final destination)) {
+          rebuilt.rows.add(destination.id);
+        }
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+      return rebuilt;
+    }
+
+    bool insideRow(Element element, String destinationId) {
+      final row = ValueKey(destinationId);
+      if (element.widget.key == row) return true;
+      var inside = false;
+      element.visitAncestorElements((ancestor) {
+        inside = ancestor.widget.key == row;
+        return !inside;
+      });
+      return inside;
+    }
+
+    // The tracking write and its coalesced shell notification are both
+    // asynchronous, so a single frame can run ahead of them.
+    Future<void> pumpTrackingFrames(WidgetTester tester) async {
+      for (var frame = 0; frame < 3; frame++) {
+        await tester.pump(const Duration(milliseconds: 1));
+      }
+    }
+
+    testWidgets('a read position that moves no badge rebuilds no row', (
+      tester,
+    ) async {
+      final (:controller, :tracker) = await pumpSidebar(tester);
+      final revision = controller.topicTrackingRevisionFor(site);
+      final rebuilt = recordSidebarRebuilds();
+
+      controller.markTopicRead(site, 99, 3, caughtUp: false).ignore();
+      await pumpTrackingFrames(tester);
+
+      debugPrint(
+        'PERF_PROOF sidebar-badges unchanged_badge_elements='
+        '${rebuilt.elements.length}',
+      );
+      debugPrint(
+        'PERF_PROOF sidebar-badges unchanged_badge_tiles='
+        '${rebuilt.rows.length}',
+      );
+      expect(controller.topicTrackingRevisionFor(site), greaterThan(revision));
+      expect(dot('category-1'), findsOneWidget);
+      expect(rebuilt.elements, isEmpty);
+    });
+
+    testWidgets('a tracking change that moves one badge redraws its row', (
+      tester,
+    ) async {
+      final (controller: _, :tracker) = await pumpSidebar(tester);
+      expect(dot('category-2'), findsNothing);
+      final rebuilt = recordSidebarRebuilds();
+
+      tracker.deliverTopicTracking(unread(100, categoryId: 2));
+      await pumpTrackingFrames(tester);
+
+      debugPrint(
+        'PERF_PROOF sidebar-badges one_badge_elements='
+        '${rebuilt.elements.length}',
+      );
+      debugPrint(
+        'PERF_PROOF sidebar-badges one_badge_tiles=${rebuilt.rows.length}',
+      );
+      expect(dot('category-2'), findsOneWidget);
+      expect(rebuilt.rows, ['category-2']);
+      expect(
+        rebuilt.elements.where((element) => !insideRow(element, 'category-2')),
+        isEmpty,
+      );
+
+      rebuilt.elements.clear();
+      rebuilt.rows.clear();
+      tracker.deliverTopicTracking(const {
+        'topic_id': 100,
+        'message_type': 'read',
+        'payload': {
+          'last_read_post_number': 50,
+          'highest_post_number': 50,
+          'notification_level': 2,
+        },
+      });
+      await pumpTrackingFrames(tester);
+
+      expect(dot('category-2'), findsNothing);
+      expect(dot('category-1'), findsOneWidget);
+      expect(rebuilt.rows, ['category-2']);
+    });
+
+    testWidgets('a plugin-appended row follows both of its badge sources', (
+      tester,
+    ) async {
+      final plugin = _AppendedRowsPlugin();
+      addTearDown(plugin.dispose);
+      final (controller: _, :tracker) = await pumpSidebar(
+        tester,
+        manifest: PluginManifest([_AppendedRowsModule(plugin)]),
+      );
+      expect(dot('category-21'), findsNothing);
+      Finder inOwnRow(String text) => find.descendant(
+        of: find.byWidgetPredicate(
+          (widget) =>
+              widget is SidebarDestinationTile &&
+              widget.destination.id == 'appended-own',
+        ),
+        matching: find.text(text),
+      );
+      expect(inOwnRow('Appended own'), findsOneWidget);
+      expect(inOwnRow('3'), findsNothing);
+
+      tracker.deliverTopicTracking(unread(101, categoryId: 21));
+      await pumpTrackingFrames(tester);
+      expect(dot('category-21'), findsOneWidget);
+
+      plugin.showOwnBadge(const SidebarBadge.count(3));
+      await pumpTrackingFrames(tester);
+      expect(inOwnRow('3'), findsOneWidget);
+      expect(dot('category-21'), findsOneWidget);
+    });
+
+    testWidgets('a count the facade never announces still reaches its row', (
+      tester,
+    ) async {
+      final (:controller, :tracker) = await pumpSidebar(tester);
+      var notifications = 0;
+      void count() => notifications++;
+      controller.addListener(count);
+      addTearDown(() => controller.removeListener(count));
+      expect(dot('messages'), findsNothing);
+
+      tracker.deliverNotification(const {
+        'new_personal_messages_notifications_count': 2,
+      });
+      await pumpTrackingFrames(tester);
+
+      expect(dot('messages'), findsOneWidget);
+      expect(notifications, 0);
+    });
+  });
 }
 
 void _noop() {}
@@ -1218,6 +1449,52 @@ Element _onlyChild(Element parent) {
   parent.visitChildren(children.add);
   expect(children, hasLength(1));
   return children.single;
+}
+
+final class _AppendedRowsModule implements PluginModule {
+  const _AppendedRowsModule(this.plugin);
+
+  final _AppendedRowsPlugin plugin;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('appended-rows-test'));
+
+  @override
+  void register(PluginRegistrar registrar) => registrar.addCapability(plugin);
+}
+
+/// One row whose badge the shell looks up by id, and one that carries its own.
+final class _AppendedRowsPlugin extends ChangeNotifier
+    implements SitePlugin, CommunitySidebarPlugin {
+  SidebarBadge? _ownBadge;
+
+  void showOwnBadge(SidebarBadge badge) {
+    _ownBadge = badge;
+    notifyListeners();
+  }
+
+  @override
+  String get name => 'appended-rows-test';
+
+  @override
+  Listenable? communitySidebarListenable(BuildContext context) => this;
+
+  @override
+  List<SidebarDestination> communitySidebarDestinations(BuildContext context) =>
+      [
+        const SidebarDestination(
+          id: 'category-21',
+          label: 'Appended category',
+          icon: DIcons.tag,
+        ),
+        SidebarDestination(
+          id: 'appended-own',
+          label: 'Appended own',
+          icon: DIcons.tag,
+          badge: _ownBadge,
+        ),
+      ];
 }
 
 final class _PreviewApi extends FakeDiscourseApi {

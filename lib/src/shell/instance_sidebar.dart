@@ -40,7 +40,6 @@ final class _SidebarSnapshot {
     required this.sections,
     required this.navigationSections,
     required this.presentationToken,
-    required this.topicTrackingRevision,
     required this.navigationLoading,
   });
 
@@ -51,7 +50,6 @@ final class _SidebarSnapshot {
   final List<SidebarSection> sections;
   final List<SidebarSection> navigationSections;
   final Object? presentationToken;
-  final int topicTrackingRevision;
   final bool navigationLoading;
 
   @override
@@ -62,7 +60,6 @@ final class _SidebarSnapshot {
         draftCount != other.draftCount ||
         canCreateTopic != other.canCreateTopic ||
         !identical(presentationToken, other.presentationToken) ||
-        topicTrackingRevision != other.topicTrackingRevision ||
         navigationLoading != other.navigationLoading ||
         sections.length != other.sections.length ||
         navigationSections.length != other.navigationSections.length) {
@@ -89,7 +86,6 @@ final class _SidebarSnapshot {
     draftCount,
     canCreateTopic,
     identityHashCode(presentationToken),
-    topicTrackingRevision,
     navigationLoading,
     Object.hashAll(sections.map(identityHashCode)),
     Object.hashAll(navigationSections.map(identityHashCode)),
@@ -247,9 +243,6 @@ class InstanceSidebar extends StatelessWidget {
         presentationToken: instance == null
             ? null
             : controller.presentationTokenFor(instance.url),
-        topicTrackingRevision: instance == null
-            ? 0
-            : controller.topicTrackingRevisionFor(instance.url),
         sections: instance == null
             ? const <SidebarSection>[]
             : controller.sidebarSectionsFor(instance),
@@ -650,8 +643,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                               selectedId: sidebar.destinationId,
                                               loadingDestinationId:
                                                   loadingDestinationId,
-                                              badgeFor:
-                                                  controller.sidebarBadgeFor,
                                               onNavigate: widget.onNavigate,
                                               onSelect: (destination) {
                                                 if (destination.id == 'admin') {
@@ -743,7 +734,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                       ?.panel
                                                       .selectedDestinationId ??
                                                   sidebar.destinationId,
-                                        badgeFor: controller.sidebarBadgeFor,
                                         onNavigate: widget.onNavigate,
                                         onSelect: controller.selectDestination,
                                       ),
@@ -1134,7 +1124,6 @@ class _Section extends StatefulWidget {
     required this.section,
     required this.store,
     required this.selectedId,
-    required this.badgeFor,
     required this.onSelect,
     this.onNavigate,
     this.loadingDestinationId,
@@ -1148,7 +1137,6 @@ class _Section extends StatefulWidget {
   final SidebarSectionStore store;
   final String? selectedId;
   final String? loadingDestinationId;
-  final SidebarBadge Function(String destinationId) badgeFor;
   final ValueChanged<SidebarDestination> onSelect;
   final VoidCallback? onNavigate;
   final List<SidebarDestination> appendedDestinations;
@@ -1533,21 +1521,26 @@ class _SectionState extends State<_Section> {
             onToggle: () => setState(() => _moreOpen = !_moreOpen),
           );
         }
-        return SidebarDestinationTile(
+        // Each row selects its own badge because reading a topic moves
+        // tracking up to twice a second and rarely moves any badge with it.
+        return ShellSelector<SidebarBadge>(
           key: submenu ? ValueKey(destination.id) : null,
-          destination: destination,
-          selected: destination.id == widget.selectedId,
-          navigation: navigation,
-          loading: destination.id == widget.loadingDestinationId,
-          badge: widget.badgeFor(destination.id),
-          iconSize: section.id.startsWith('custom-') ? 12 : 16,
-          reorderable: reorderable,
-          onSecondaryTap:
-              (section.id == 'categories' || section.id == 'tags') &&
-                  destination.trailingIcon == DIcons.plus
-              ? () => unawaited(_saveTransient(destination))
-              : null,
-          onTap: () => _selectDestination(destination),
+          select: (controller) => controller.sidebarBadgeFor(destination.id),
+          builder: (context, badge, _) => SidebarDestinationTile(
+            destination: destination,
+            selected: destination.id == widget.selectedId,
+            navigation: navigation,
+            loading: destination.id == widget.loadingDestinationId,
+            badge: badge,
+            iconSize: section.id.startsWith('custom-') ? 12 : 16,
+            reorderable: reorderable,
+            onSecondaryTap:
+                (section.id == 'categories' || section.id == 'tags') &&
+                    destination.trailingIcon == DIcons.plus
+                ? () => unawaited(_saveTransient(destination))
+                : null,
+            onTap: () => _selectDestination(destination),
+          ),
         );
       }
 
@@ -1612,12 +1605,16 @@ class _SectionState extends State<_Section> {
                 padding: EdgeInsets.only(
                   bottom: DSidebarMenuButton.rowGapOf(context),
                 ),
-                child: SidebarDestinationTile(
-                  destination: destination,
-                  selected: destination.id == widget.selectedId,
-                  loading: destination.id == widget.loadingDestinationId,
-                  badge: widget.badgeFor(destination.id),
-                  onTap: () => _selectDestination(destination),
+                child: ShellSelector<SidebarBadge>(
+                  select: (controller) =>
+                      controller.sidebarBadgeFor(destination.id),
+                  builder: (context, badge, _) => SidebarDestinationTile(
+                    destination: destination,
+                    selected: destination.id == widget.selectedId,
+                    loading: destination.id == widget.loadingDestinationId,
+                    badge: badge,
+                    onTap: () => _selectDestination(destination),
+                  ),
                 ),
               );
             },

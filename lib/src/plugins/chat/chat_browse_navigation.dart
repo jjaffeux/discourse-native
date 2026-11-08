@@ -3,6 +3,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'chat_controller.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
@@ -27,51 +28,74 @@ class ChatBrowseBack extends StatelessWidget {
   );
 }
 
+typedef _ChatInboxNavigationLinks = ({
+  bool visible,
+  bool channels,
+  bool threads,
+});
+
 class ChatInboxNavigation extends StatelessWidget {
   const ChatInboxNavigation({super.key, required this.siteUrl});
   final String siteUrl;
 
-  @override
-  Widget build(BuildContext context) {
-    final chat = PluginUiScope.require(context, chatControllerService);
-    final shell = PluginUiScope.require(context, chatShellService);
-    return ListenableBuilder(
-      listenable: Listenable.merge([chat, shell]),
-      builder: (context, _) {
-        if (!shell.isConnected(siteUrl) || !shell.chatAvailable(siteUrl)) {
-          return const SizedBox.shrink();
-        }
-        final settings = chat.siteConfigFor(siteUrl).chatSettings;
-        return DReferenceTextScale(
-          child: Wrap(
-            key: const ValueKey('chat-inbox-navigation'),
-            spacing: DSpacing.sm,
-            runSpacing: DSpacing.sm,
-            children: [
-              if (settings.publicChannelsEnabled)
-                DButton(
-                  key: const ValueKey('chat-inbox-channels-card'),
-                  variant: DButtonVariant.quiet,
-                  size: DControlSize.filter,
-                  icon: const DIcon(DIcons.hashtag),
-                  label: Text(context.l10n.browseChannels),
-                  onPressed: () => shell.openBrowseChannels(),
-                ),
-              if (settings.threadsEnabled)
-                DButton(
-                  key: const ValueKey('chat-inbox-threads-card'),
-                  variant: DButtonVariant.quiet,
-                  size: DControlSize.filter,
-                  icon: const DIcon(DIcons.comments),
-                  label: Text(context.l10n.threads),
-                  onPressed: () => shell.openMyThreads(),
-                ),
-            ],
-          ),
-        );
-      },
+  _ChatInboxNavigationLinks _links(ChatShellService shell) {
+    if (!shell.isConnected(siteUrl) || !shell.chatAvailable(siteUrl)) {
+      return (visible: false, channels: false, threads: false);
+    }
+    final settings = shell.chat.siteConfigFor(siteUrl).chatSettings;
+    return (
+      visible: true,
+      channels: settings.publicChannelsEnabled,
+      threads: settings.threadsEnabled,
     );
   }
+
+  // Availability follows the shell. A refreshed site setting can land without
+  // a shell notification, so the links also re-read on chat notifications;
+  // those arrive for every message, hence selecting rather than rebuilding.
+  @override
+  Widget build(
+    BuildContext context,
+  ) => PluginServiceSelector<ChatShellService, _ChatInboxNavigationLinks>(
+    service: chatShellService,
+    select: _links,
+    builder: (context, _, _) {
+      final shell = PluginUiScope.require(context, chatShellService);
+      return PluginServiceSelector<ChatController, _ChatInboxNavigationLinks>(
+        service: chatControllerService,
+        select: (_) => _links(shell),
+        builder: (context, links, _) => !links.visible
+            ? const SizedBox.shrink()
+            : DReferenceTextScale(
+                child: Wrap(
+                  key: const ValueKey('chat-inbox-navigation'),
+                  spacing: DSpacing.sm,
+                  runSpacing: DSpacing.sm,
+                  children: [
+                    if (links.channels)
+                      DButton(
+                        key: const ValueKey('chat-inbox-channels-card'),
+                        variant: DButtonVariant.quiet,
+                        size: DControlSize.filter,
+                        icon: const DIcon(DIcons.hashtag),
+                        label: Text(context.l10n.browseChannels),
+                        onPressed: () => shell.openBrowseChannels(),
+                      ),
+                    if (links.threads)
+                      DButton(
+                        key: const ValueKey('chat-inbox-threads-card'),
+                        variant: DButtonVariant.quiet,
+                        size: DControlSize.filter,
+                        icon: const DIcon(DIcons.comments),
+                        label: Text(context.l10n.threads),
+                        onPressed: () => shell.openMyThreads(),
+                      ),
+                  ],
+                ),
+              ),
+      );
+    },
+  );
 }
 
 /// A directory filter names its dimension until the reader narrows it.

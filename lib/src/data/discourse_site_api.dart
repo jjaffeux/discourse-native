@@ -339,12 +339,7 @@ final class DiscourseSiteApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    final types = jsonObject(body['notification_types']);
-    return List.unmodifiable([
-      for (final entry in types.entries)
-        if (jsonIntOrNull(entry.value) case final id? when id > 0)
-          NotificationWireType(id, entry.key),
-    ]);
+    return _notificationTypes(body);
   }
 
   Future<Map<String, String>> customEmojis({
@@ -560,6 +555,7 @@ final class DiscourseSiteApi {
       postActionCatalog: apiKey == null || siteResult?.body == null
           ? null
           : SitePostActionCatalog.fromJson(site),
+      notificationTypes: apiKey == null ? const [] : _notificationTypes(site),
       siteTopTags: siteResult?.body == null
           ? null
           : _navigationTags(site['navigation_menu_site_top_tags']),
@@ -787,6 +783,14 @@ final class DiscourseSiteApi {
       pushReversed(category['subcategory_list']);
     }
   }
+
+  static List<NotificationWireType> _notificationTypes(
+    Map<String, dynamic> site,
+  ) => List.unmodifiable([
+    for (final entry in jsonObject(site['notification_types']).entries)
+      if (jsonIntOrNull(entry.value) case final id? when id > 0)
+        NotificationWireType(id, entry.key),
+  ]);
 
   static List<SidebarTag> _navigationTags(Object? values) => List.unmodifiable([
     for (final json in jsonObjects(values)) ?SidebarTag.fromJson(json),

@@ -1,0 +1,103 @@
+[
+ {
+  "slug": "relative-time",
+  "subject": "PERF: redraw relative times together instead of one label at a time",
+  "proofs": [
+   {
+    "path": "test/relative_time_test.dart",
+    "name": "labels due in the same"
+   }
+  ]
+ },
+ {
+  "slug": "chat-presence",
+  "subject": "PERF: stop waking a frame when a chat user off screen comes online",
+  "proofs": [
+   {
+    "path": "test/chat_user_avatar_test.dart"
+   }
+  ]
+ },
+ {
+  "slug": "cover-decode",
+  "subject": "PERF: decode user-card banners and event covers at their drawn size",
+  "proofs": [
+   {
+    "path": "test/site_image_test.dart",
+    "name": "an uploaded cover"
+   },
+   {
+    "path": "test/user_card_activity_test.dart",
+    "name": "the phone sheet banner"
+   }
+  ]
+ },
+ {
+  "slug": "site-json",
+  "subject": "PERF: open Other notifications without refetching /site.json",
+  "proofs": [
+   {
+    "path": "test/startup_request_budget_test.dart",
+    "name": "site notification catalog"
+   }
+  ]
+ },
+ {
+  "slug": "sidebar-badges",
+  "subject": "PERF: keep the sidebar built while reading an unread topic",
+  "proofs": [
+   {
+    "path": "test/shell_rebuild_isolation_test.dart",
+    "name": "topic tracking in the sidebar"
+   }
+  ]
+ },
+ {
+  "slug": "search-redraw",
+  "subject": "PERF: stop redrawing the search field on unrelated shell changes",
+  "proofs": [
+   {
+    "path": "test/forum_search_test.dart"
+   }
+  ]
+ },
+ {
+  "slug": "search-capabilities",
+  "subject": "PERF: load search capabilities when search is first needed",
+  "proofs": [
+   {
+    "path": "test/forum_search_test.dart"
+   }
+  ]
+ },
+ {
+  "slug": "chat-position",
+  "subject": "PERF: keep the chat transcript's scroll position across new messages",
+  "proofs": [
+   {
+    "path": "test/chat_scroll_performance_test.dart",
+    "name": "live arrivals keep the transcript scroll position"
+   }
+  ]
+ },
+ {
+  "slug": "chat-rows",
+  "subject": "PERF: stop rebuilding every held chat message on each new one",
+  "proofs": [
+   {
+    "path": "test/chat_scroll_performance_test.dart",
+    "name": "a live arrival rebuilds only the rows it changes"
+   }
+  ]
+ },
+ {
+  "slug": "chat-mobile-inbox",
+  "subject": "PERF: keep the phone chat inbox still while chat traffic arrives",
+  "proofs": [
+   {
+    "path": "test/chat_mobile_sidebar_test.dart",
+    "name": "tracking on an off-screen channel"
+   }
+  ]
+ }
+]

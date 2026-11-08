@@ -78,6 +78,7 @@ class GlobalSearchController extends ChangeNotifier {
       >(5);
 
   GlobalSearchScope? _preferredScope;
+  String? _extensionRouteId;
   int? _contextTopicId;
   String? _contextTopicTitle;
   final _banks = <GlobalSearchScope, List<GlobalSearchCondition>>{};
@@ -104,6 +105,7 @@ class GlobalSearchController extends ChangeNotifier {
   late final _GlobalSearchExecution _execution;
   bool _disposed = false;
   int _configuration = 0;
+  int? _discoveredConfiguration;
 
   String? get siteUrl => _siteUrl;
   Object? get categoryLookupSession => _lease?.session;
@@ -227,13 +229,27 @@ class GlobalSearchController extends ChangeNotifier {
       (scope == GlobalSearchScope.users && capabilities.userDirectory);
   Set<GlobalSearchDisplayProperty> get properties =>
       Set.unmodifiable(_properties);
+
+  /// Plugin scopes are unknown until discovery answers, so an extension
+  /// route's claim on one resolves against the scopes held now.
+  GlobalSearchScope? get _resolvedPreferredScope =>
+      _preferredScope ??
+      scopes
+          .where(
+            (scope) =>
+                !scope.isCore &&
+                _extensionRouteId?.startsWith(scope.owner) == true,
+          )
+          .firstOrNull;
+
   List<GlobalSearchSection> get sections {
     final ordered = _execution.sections.toList();
+    final preferred = _resolvedPreferredScope;
     int rank(GlobalSearchSection section) => section.topicId != null
         ? -3
         : section.scope == GlobalSearchScope.forum
         ? -2
-        : section.scope == _preferredScope
+        : section.scope == preferred
         ? -1
         : scopes.indexOf(section.scope);
     ordered.sort((a, b) => rank(a).compareTo(rank(b)));
@@ -242,11 +258,13 @@ class GlobalSearchController extends ChangeNotifier {
 
   void setPageContext({
     GlobalSearchScope? preferredScope,
+    String? extensionRouteId,
     int? topicId,
     String? topicTitle,
   }) {
     final changed = _contextTopicId != topicId;
     _preferredScope = preferredScope;
+    _extensionRouteId = extensionRouteId;
     _contextTopicId = topicId;
     _contextTopicTitle = topicTitle;
     if (changed && query.trim().isNotEmpty) {
@@ -382,6 +400,7 @@ class GlobalSearchController extends ChangeNotifier {
       _contextTopicId = null;
       _contextTopicTitle = null;
       _preferredScope = null;
+      _extensionRouteId = null;
       _scope = GlobalSearchScope.all;
       _banks.clear();
       _orders.clear();
@@ -403,10 +422,17 @@ class GlobalSearchController extends ChangeNotifier {
     if (_disposed || configuration != _configuration) return;
     // A history listener may already have submitted without debounce.
     if (_execution.phase == GlobalSearchPhase.idle) _schedule();
-    if (_disposed || configuration != _configuration) return;
-    if (siteUrl != null && lease != null) {
-      unawaited(_loadCapabilities(siteUrl, lease, configuration, capabilities));
-    }
+  }
+
+  /// Asks the forum which optional search features it offers, once for each
+  /// configuration. Core search works without the answer, so only a surface
+  /// that can show the difference asks.
+  void ensureCapabilities() {
+    final site = _siteUrl, lease = _lease;
+    if (_disposed || site == null || lease == null || !lease.isCurrent) return;
+    if (_discoveredConfiguration == _configuration) return;
+    _discoveredConfiguration = _configuration;
+    unawaited(_loadCapabilities(site, lease, _configuration, _capabilities));
   }
 
   Future<void> _loadCapabilities(

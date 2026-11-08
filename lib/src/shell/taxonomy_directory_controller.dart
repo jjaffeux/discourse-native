@@ -837,6 +837,11 @@ final class _TaxonomyDirectoryController
         if (result.postActionCatalog case final catalog?) {
           _shell._postActionCatalogs[instance.url] = catalog;
         }
+        _shell._notificationFeeds.seedSiteTypes(
+          instance.url,
+          result.notificationTypes,
+          session,
+        );
         if (result.siteTopTags case final tags?) {
           site.siteTopTags = tags;
           site.tagSidebarCache = null;

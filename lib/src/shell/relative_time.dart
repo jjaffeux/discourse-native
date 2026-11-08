@@ -102,6 +102,20 @@ DateTime _relativeTimeChangesAt(DateTime when, DateTime now) {
   return when.add(age < year && next > year ? year : next);
 }
 
+/// Labels redraw on this wall-clock grid so that those due close together
+/// share a frame instead of each waking the app at its own phase. A label can
+/// lag its true change by up to this long, a trade the web makes too by
+/// refreshing every relative date on a single 60-second interval.
+const _refreshGrid = Duration(seconds: 30);
+
+/// [change] rounded up to [_refreshGrid]. The grid is absolute, so labels that
+/// were built at different moments still agree on the deadline.
+DateTime _refreshDeadline(DateTime change) => change.add(
+  Duration(
+    microseconds: -change.microsecondsSinceEpoch % _refreshGrid.inMicroseconds,
+  ),
+);
+
 /// Builds [relativeTime] of [when] and rebuilds only this subtree when that
 /// label changes, as the web refreshes every `.relative-date` while a page
 /// stays open.
@@ -156,9 +170,10 @@ class _RelativeTimeBuilderState extends State<RelativeTimeBuilder> {
     _scheduledFor = next;
     if (next == null) return;
     // Timers run in whole milliseconds. Rounding down could wake just before
-    // the change and re-arm with no delay.
+    // the deadline and re-arm with no delay.
     final delay = Duration(
-      milliseconds: (next.difference(now).inMicroseconds + 999) ~/ 1000,
+      milliseconds:
+          (_refreshDeadline(next).difference(now).inMicroseconds + 999) ~/ 1000,
     );
     _timer = Timer(delay, () {
       if (mounted) setState(() {});

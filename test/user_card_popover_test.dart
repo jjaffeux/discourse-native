@@ -289,7 +289,14 @@ void main() {
             await tester.pumpAndSettle();
             await tester.runAsync(
               () => precacheImage(
-                const NetworkImage('https://meta.example/banner.png'),
+                tester
+                    .widget<Image>(
+                      find.descendant(
+                        of: _surface,
+                        matching: find.byType(Image),
+                      ),
+                    )
+                    .image,
                 tester.element(_surface),
               ),
             );

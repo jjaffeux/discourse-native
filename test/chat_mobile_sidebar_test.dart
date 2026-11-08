@@ -6,9 +6,11 @@ import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
+import 'package:discourse_native/src/plugins/chat/chat_inbox_rooms.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -89,6 +91,8 @@ Future<void> _pumpChatInbox(WidgetTester tester, Size size) async {
               ),
           ],
           direct: const [],
+          newChannelBusLastId: 1,
+          newMessageBusLastIds: {for (var id = 1; id <= 20; id++) id: 1},
         ),
       },
     ),
@@ -153,6 +157,82 @@ Future<void> _scrollInboxTo(
   expect(row.hitTestable(), findsOneWidget);
 }
 
+/// A row of the mobile inbox, kept mounted behind an open conversation. The
+/// sidebar panel holds its own rows for the same channels.
+Finder _row(int channelId) => find.descendant(
+  of: find.byType(ChatMobileSidebar, skipOffstage: false),
+  matching: find.byKey(
+    ValueKey('chat-inbox-channel-$channelId'),
+    skipOffstage: false,
+  ),
+  skipOffstage: false,
+);
+
+/// Voice's closures capture the room as last published, so a row must hold the
+/// newest one even when nothing it draws changed.
+final class _Rooms extends ChangeNotifier implements ChatInboxRoomProvider {
+  int version = 0;
+  final opened = <int>[];
+
+  void republish() {
+    version++;
+    notifyListeners();
+  }
+
+  @override
+  bool available(String siteUrl) => true;
+
+  @override
+  List<ChatInboxRoom> rooms(String siteUrl) {
+    final published = version;
+    return [
+      ChatInboxRoom(
+        id: 1,
+        name: 'Watercooler',
+        people: 0,
+        open: (_) async => opened.add(published),
+      ),
+    ];
+  }
+}
+
+typedef _Rebuilds = ({
+  int elements,
+  int entries,
+  int filterBars,
+  int navigation,
+});
+
+/// What [act] redraws, counted at the framework's own rebuild seam.
+Future<_Rebuilds> _countRebuilds(
+  WidgetTester tester,
+  Future<void> Function() act,
+) async {
+  var elements = 0;
+  var entries = 0;
+  var filterBars = 0;
+  var navigation = 0;
+  final previous = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    elements++;
+    if (element.widget is ChatInboxEntry) entries++;
+    if (element.widget is ChatInboxFilterBar) filterBars++;
+    if (element.widget.key == const ValueKey('chat-inbox-channels-card')) {
+      navigation++;
+    }
+    previous?.call(element, builtOnce);
+  };
+  addTearDown(() => debugOnRebuildDirtyWidget = previous);
+  await act();
+  debugOnRebuildDirtyWidget = previous;
+  return (
+    elements: elements,
+    entries: entries,
+    filterBars: filterBars,
+    navigation: navigation,
+  );
+}
+
 void main() {
   setUp(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
@@ -202,6 +282,152 @@ void main() {
     expect(rebuilt, {1});
     expect(find.text('2 messages'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'tracking on an off-screen channel does not redraw the mobile inbox',
+    (tester) async {
+      await _pumpChatInbox(tester, phone);
+      final frames = await _countRebuilds(tester, () async {
+        final tracker = FakeSiteTracker.built.last;
+        for (var event = 0; event < 10; event++) {
+          tracker.deliverPluginMessage('/chat/user-tracking-state/7', {
+            'channel_id': 20,
+            'last_read_message_id': 1,
+            'unread_count': 3 + event,
+          });
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+      });
+      // ignore: avoid_print
+      print('PERF_PROOF chat-mobile-inbox elements=${frames.elements}');
+      // ignore: avoid_print
+      print('PERF_PROOF chat-mobile-inbox entries=${frames.entries}');
+      // ignore: avoid_print
+      print('PERF_PROOF chat-mobile-inbox filter_bars=${frames.filterBars}');
+      // ignore: avoid_print
+      print('PERF_PROOF chat-mobile-inbox navigation=${frames.navigation}');
+      expect(frames.entries, 0, reason: 'No visible row changed');
+      expect(frames.filterBars, 0, reason: 'The filter did not change');
+      expect(frames.navigation, 0, reason: 'Site settings did not change');
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  group('the gated mobile inbox still redraws for', () {
+    _mobileTest('a new channel', (tester) async {
+      await _pumpChatInbox(tester, phone);
+      expect(_row(21), findsNothing);
+      FakeSiteTracker.built.last.deliverPluginMessage('/chat/new-channel', {
+        'channel': {
+          'id': 21,
+          'title': 'Channel 21',
+          'chatable_type': 'Category',
+          'current_user_membership': {
+            'following': true,
+            'muted': false,
+            'starred': false,
+          },
+          'last_message': {
+            'id': 2100,
+            'created_at': '2026-10-02T00:00:00.000Z',
+          },
+          'meta': {
+            'message_bus_last_ids': {'new_messages': 1},
+          },
+        },
+      });
+      await tester.pumpAndSettle();
+      expect(_row(21).hitTestable(), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    _mobileTest('a new message moving its channel to the top', (tester) async {
+      await _pumpChatInbox(tester, phone);
+      expect(_row(20), findsNothing);
+      FakeSiteTracker.built.last.deliverPluginMessage('/chat/20/new-messages', {
+        'type': 'channel',
+        'channel_id': 20,
+        'message': {
+          'id': 9001,
+          'chat_channel_id': 20,
+          'cooked': '<p>new</p>',
+          'created_at': '2026-10-02T00:00:00.000Z',
+          'user': {'id': 2, 'username': 'hawk'},
+        },
+      });
+      await tester.pumpAndSettle();
+      expect(_row(20).hitTestable(), findsOneWidget);
+      expect(
+        tester.getTopLeft(_row(20)).dy,
+        lessThan(tester.getTopLeft(_row(1)).dy),
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    _mobileTest('a filter change', (tester) async {
+      await _pumpChatInbox(tester, phone);
+      FakeSiteTracker.built.last.deliverPluginMessage(
+        '/chat/user-tracking-state/7',
+        {'channel_id': 1, 'last_read_message_id': 1, 'unread_count': 2},
+      );
+      await tester.pumpAndSettle();
+      final choice = find.descendant(
+        of: _navigation,
+        matching: find.text('Unread'),
+      );
+      await tester.tap(choice);
+      await tester.pumpAndSettle();
+      expect(_row(1), findsOneWidget);
+      expect(_row(2), findsNothing);
+      await tester.tap(
+        find.descendant(of: _navigation, matching: find.text('Recent')),
+      );
+      await tester.pumpAndSettle();
+      expect(_row(2), findsOneWidget);
+      // The rows stay the same here; only their grouping follows the choice.
+      await tester.tap(find.text('Newest'));
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: _inbox, matching: find.text('All chats')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    });
+
+    _mobileTest('the open channel highlight', (tester) async {
+      await _pumpChatInbox(tester, phone);
+      final shell = ShellScope.read(tester.element(_inbox));
+      final service = shell.pluginSession.require(chatShellService);
+      DItem row(int id) => tester.widget<DItem>(_row(id));
+      expect(row(2).selected, isFalse);
+      service.openChannel(2);
+      await tester.pumpAndSettle();
+      expect(row(2).selected, isTrue);
+      service.openChannel(3);
+      await tester.pumpAndSettle();
+      expect(row(2).selected, isFalse);
+      expect(row(3).selected, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+
+    _mobileTest('a provider republishing a room', (tester) async {
+      await _pumpChatInbox(tester, phone);
+      final rooms = _Rooms();
+      addTearDown(rooms.dispose);
+      final shell = ShellScope.read(tester.element(_inbox));
+      addTearDown(
+        shell.pluginSession.require(chatInboxRoomsService).attach(rooms),
+      );
+      await tester.pumpAndSettle();
+      rooms.republish();
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('chat-inbox-room-1')));
+      await tester.pump();
+      expect(rooms.opened, [1], reason: 'The row must hold the latest room');
+      expect(tester.takeException(), isNull);
+    });
   });
 
   _mobileTest('scrolling keeps the Chat bar title and activity filter fixed', (

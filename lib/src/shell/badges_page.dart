@@ -14,6 +14,7 @@ import 'badges_controller.dart';
 import 'content_reading_lane.dart';
 import 'cooked_html.dart';
 import 'directory_skeleton.dart';
+import 'image_decode.dart';
 import 'open_link.dart';
 import 'site_image.dart';
 
@@ -608,6 +609,8 @@ class BadgeSymbol extends StatelessWidget {
               width: size,
               height: size,
               fit: BoxFit.contain,
+              // One bound keeps the aspect ratio; contain never draws taller.
+              cacheHeight: imagePhysicalPixels(context, size),
               errorBuilder: (context, error, stackTrace) => fallback,
             ),
     );

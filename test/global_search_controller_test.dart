@@ -576,6 +576,7 @@ void main() {
               ),
             );
         addTearDown(search.dispose);
+        search.ensureCapabilities();
         search.setContext(
           GlobalSearchContext(
             scope: chatSearchScope,
@@ -604,6 +605,124 @@ void main() {
     );
   }
 
+  group('capability discovery', () {
+    const undiscovered = GlobalSearchCapabilities(
+      authenticated: true,
+      contributions: [ChatGlobalSearch()],
+      enabledContributions: {},
+    );
+    const discovered = GlobalSearchCapabilities(
+      authenticated: true,
+      contributions: [ChatGlobalSearch()],
+      enabledContributions: {'chat'},
+    );
+
+    testWidgets('asks only when asked, once per configuration', (tester) async {
+      final api = _EngineApi();
+      final search = _controller(api)
+        ..configure(siteUrl: _site, capabilities: undiscovered);
+      addTearDown(search.dispose);
+      await tester.pump();
+      expect(api.clientIds, isEmpty);
+
+      search
+        ..ensureCapabilities()
+        ..ensureCapabilities();
+      await tester.pump();
+      expect(api.clientIds, hasLength(1));
+
+      search
+        ..configure(siteUrl: _site, capabilities: undiscovered)
+        ..ensureCapabilities();
+      await tester.pump();
+      expect(api.clientIds, hasLength(1));
+
+      search
+        ..configure(siteUrl: _site, capabilities: _caps)
+        ..ensureCapabilities();
+      await tester.pump();
+      expect(api.clientIds, hasLength(2));
+    });
+
+    testWidgets('drops an answer for a configuration since replaced', (
+      tester,
+    ) async {
+      final gate = Completer<GlobalSearchCapabilities>();
+      final api = _EngineApi()..capabilitiesGate = gate;
+      final search = _controller(api)
+        ..configure(siteUrl: _site, capabilities: undiscovered)
+        ..ensureCapabilities();
+      addTearDown(search.dispose);
+      await tester.pump();
+
+      search.configure(
+        siteUrl: 'https://other.test',
+        capabilities: undiscovered,
+      );
+      gate.complete(discovered);
+      await tester.pump();
+
+      expect(search.scopes, isNot(contains(chatSearchScope)));
+    });
+
+    testWidgets('drops an answer for an account that has left', (tester) async {
+      final gate = Completer<GlobalSearchCapabilities>();
+      final api = _EngineApi()..capabilitiesGate = gate;
+      final lifecycle = SiteLifecycle();
+      final search = _controller(api, lifecycle: lifecycle)
+        ..configure(siteUrl: _site, capabilities: undiscovered)
+        ..ensureCapabilities();
+      addTearDown(search.dispose);
+      await tester.pump();
+
+      lifecycle.invalidate(_site);
+      gate.complete(discovered);
+      await tester.pump();
+      search.ensureCapabilities();
+      await tester.pump();
+
+      expect(search.scopes, isNot(contains(chatSearchScope)));
+      expect(api.clientIds, hasLength(1));
+    });
+
+    testWidgets('ranks an extension route\'s scope once the answer names it', (
+      tester,
+    ) async {
+      final gate = Completer<GlobalSearchCapabilities>();
+      final api = _EngineApi()
+        ..capabilitiesGate = gate
+        ..hold = true;
+      final search = _controller(api)
+        ..configure(siteUrl: _site, capabilities: undiscovered)
+        ..ensureCapabilities()
+        ..setPageContext(extensionRouteId: 'chat-channel-2');
+      addTearDown(search.dispose);
+      gate.complete(discovered);
+      await tester.pump();
+
+      search.setQuery('design');
+      await tester.pump(const Duration(seconds: 1));
+      final results = _page('hit').sections.single.results;
+      api.pending.single.complete(
+        GlobalSearchPage(
+          sections: [
+            GlobalSearchSection(
+              scope: GlobalSearchScope.users,
+              results: results,
+            ),
+            GlobalSearchSection(scope: chatSearchScope, results: results),
+          ],
+        ),
+      );
+      await tester.pump();
+
+      expect(search.sections.map((section) => section.scope), [
+        chatSearchScope,
+        GlobalSearchScope.users,
+      ]);
+    });
+  });
+
   for (final keyed in [false, true]) {
     testWidgets('${keyed ? 'a keyed' : 'an anonymous'} site '
         '${keyed ? 'sends' : 'reads no'} client id', (tester) async {
@@ -612,12 +731,15 @@ void main() {
       final api = _EngineApi();
       final credentials = _CountingCredentials();
       if (keyed) credentials.keys[_site] = 'key';
-      final search = GlobalSearchController(
-        api: api,
-        credentials: credentials,
-        lifecycle: SiteLifecycle(),
-        debounceDuration: const Duration(milliseconds: 1),
-      )..configure(siteUrl: _site, capabilities: _caps);
+      final search =
+          GlobalSearchController(
+              api: api,
+              credentials: credentials,
+              lifecycle: SiteLifecycle(),
+              debounceDuration: const Duration(milliseconds: 1),
+            )
+            ..configure(siteUrl: _site, capabilities: _caps)
+            ..ensureCapabilities();
       addTearDown(search.dispose);
 
       search.addCondition(

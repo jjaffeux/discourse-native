@@ -313,7 +313,7 @@ class ChatPresence {
     if (entered.isEmpty && left.isEmpty && lastMessageId == null) return this;
 
     return ChatPresence(
-      userIds: Set.unmodifiable({...userIds, ...entered}..removeAll(left)),
+      userIds: UnmodifiableSetView({...userIds, ...entered}..removeAll(left)),
       lastMessageId: lastMessageId ?? this.lastMessageId,
     );
   }

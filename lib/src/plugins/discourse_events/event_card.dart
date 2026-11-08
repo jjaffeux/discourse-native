@@ -274,14 +274,17 @@ class _EventCardState extends State<EventCard> {
                       padding: const EdgeInsets.only(bottom: 16),
                       child: ClipRRect(
                         borderRadius: tokens.borderRadius,
-                        child: SiteImage(
-                          url: image,
-                          siteUrl: siteUrl,
-                          width: double.infinity,
-                          height: 180,
-                          fit: BoxFit.cover,
-                          semanticLabel: context.l10n.cover(
-                            (event.title).toString(),
+                        child: LayoutBuilder(
+                          builder: (context, constraints) => SiteImage(
+                            url: image,
+                            siteUrl: siteUrl,
+                            width: double.infinity,
+                            height: 180,
+                            fit: BoxFit.cover,
+                            coverDecodeSize: Size(constraints.maxWidth, 180),
+                            semanticLabel: context.l10n.cover(
+                              (event.title).toString(),
+                            ),
                           ),
                         ),
                       ),
