@@ -103,6 +103,9 @@ class _DesktopPanelsState extends State<DesktopPanels>
   double? _lastSplitTotalWidth;
   ForumPanel? _effectiveMinimized;
   final _swapFocus = FocusNode(debugLabel: 'Swap panels');
+  ({bool visible, Widget child})? _builtSwap;
+  final _slotChrome =
+      <ForumPanel, ({Object inputs, Widget document, Widget chrome})>{};
   bool _seamHovered = false;
   bool _seamFocused = false;
   bool _seamDragging = false;
@@ -299,6 +302,23 @@ class _DesktopPanelsState extends State<DesktopPanels>
   void _foldSettled(AnimationStatus status) {
     if (!status.isAnimating) _moving.value = null;
   }
+
+  // The only part of a document's slot that follows a seam or window width.
+  Widget _placedSlot({
+    required Key key,
+    required TextDirection direction,
+    required double start,
+    required double width,
+    required Widget chrome,
+  }) => Positioned.directional(
+    key: key,
+    textDirection: direction,
+    start: start,
+    width: width,
+    top: 0,
+    bottom: 0,
+    child: chrome,
+  );
 
   Widget _layoutGlyph(
     BuildContext context,
@@ -627,72 +647,80 @@ class _DesktopPanelsState extends State<DesktopPanels>
                     // A panel's tickers and focus change once it has settled, off
                     // the frame that lays the other panel out anew.
                     final quiet = stowed || (folding && !moving!.away);
-                    return Positioned.directional(
-                      key: ValueKey(target),
-                      textDirection: direction,
-                      start: start,
-                      width: width,
-                      top: 0,
-                      bottom: 0,
-                      child: IgnorePointer(
-                        ignoring: folding,
-                        child: FadeTransition(
-                          opacity: folding
-                              ? ReverseAnimation(_folded)
-                              : kAlwaysCompleteAnimation,
-                          child: SlideTransition(
-                            position: folding
-                                ? _folded.drive(
-                                    Tween(
-                                      begin: Offset.zero,
-                                      end: Offset(
-                                        target == startPanel
-                                            ? -ltr * startTravel / width
-                                            : ltr * endTravel / width,
-                                        0,
-                                      ),
+                    // At rest the width changes every seam drag tick and the
+                    // chrome above the document does not.
+                    final slotInputs = (moving == null, stowed, quiet);
+                    final retained = _slotChrome[target];
+                    if (moving == null &&
+                        retained != null &&
+                        retained.inputs == slotInputs &&
+                        identical(retained.document, documents[target])) {
+                      return _placedSlot(
+                        key: ValueKey(target),
+                        direction: direction,
+                        start: start,
+                        width: width,
+                        chrome: retained.chrome,
+                      );
+                    }
+                    final chrome = IgnorePointer(
+                      ignoring: folding,
+                      child: FadeTransition(
+                        opacity: folding
+                            ? ReverseAnimation(_folded)
+                            : kAlwaysCompleteAnimation,
+                        child: SlideTransition(
+                          position: folding
+                              ? _folded.drive(
+                                  Tween(
+                                    begin: Offset.zero,
+                                    end: Offset(
+                                      target == startPanel
+                                          ? -ltr * startTravel / width
+                                          : ltr * endTravel / width,
+                                      0,
                                     ),
+                                  ),
+                                )
+                              : const AlwaysStoppedAnimation(Offset.zero),
+                          child: ClipRRect(
+                            clipBehavior: revealing
+                                ? Clip.antiAlias
+                                : Clip.none,
+                            // The revealed edge keeps one gap from the folding
+                            // panel's edge, as the seam did.
+                            clipper: revealing
+                                ? _Reveal(
+                                    folded: _folded,
+                                    direction: direction,
+                                    hidden: target == startPanel
+                                        ? (folded) => (
+                                            0,
+                                            width -
+                                                (startExtent +
+                                                    endTravel * folded -
+                                                    workspacePanelGap),
+                                          )
+                                        : (folded) => (
+                                            startExtent -
+                                                startTravel * folded -
+                                                start,
+                                            0,
+                                          ),
                                   )
-                                : const AlwaysStoppedAnimation(Offset.zero),
-                            child: ClipRRect(
-                              clipBehavior: revealing
-                                  ? Clip.antiAlias
-                                  : Clip.none,
-                              // The revealed edge keeps one gap from the folding
-                              // panel's edge, as the seam did.
-                              clipper: revealing
-                                  ? _Reveal(
-                                      folded: _folded,
-                                      direction: direction,
-                                      hidden: target == startPanel
-                                          ? (folded) => (
-                                              0,
-                                              width -
-                                                  (startExtent +
-                                                      endTravel * folded -
-                                                      workspacePanelGap),
-                                            )
-                                          : (folded) => (
-                                              startExtent -
-                                                  startTravel * folded -
-                                                  start,
-                                              0,
-                                            ),
-                                    )
-                                  : null,
-                              child: Offstage(
-                                offstage: stowed,
-                                child: TickerMode(
-                                  enabled: !quiet,
-                                  child: ExcludeFocus(
-                                    excluding: quiet,
-                                    // The slide, fade and reveal clip change above
-                                    // this layer. Retain the panel's paint instead
-                                    // of repainting its surface and document on
-                                    // every animation frame.
-                                    child: RepaintBoundary(
-                                      child: documents[target]!,
-                                    ),
+                                : null,
+                            child: Offstage(
+                              offstage: stowed,
+                              child: TickerMode(
+                                enabled: !quiet,
+                                child: ExcludeFocus(
+                                  excluding: quiet,
+                                  // The slide, fade and reveal clip change above
+                                  // this layer. Retain the panel's paint instead
+                                  // of repainting its surface and document on
+                                  // every animation frame.
+                                  child: RepaintBoundary(
+                                    child: documents[target]!,
                                   ),
                                 ),
                               ),
@@ -700,6 +728,22 @@ class _DesktopPanelsState extends State<DesktopPanels>
                           ),
                         ),
                       ),
+                    );
+                    if (moving == null) {
+                      _slotChrome[target] = (
+                        inputs: slotInputs,
+                        document: documents[target]!,
+                        chrome: chrome,
+                      );
+                    } else {
+                      _slotChrome.remove(target);
+                    }
+                    return _placedSlot(
+                      key: ValueKey(target),
+                      direction: direction,
+                      start: start,
+                      width: width,
+                      chrome: chrome,
                     );
                   }
 
@@ -758,48 +802,10 @@ class _DesktopPanelsState extends State<DesktopPanels>
                                     bottom: _swapAtTop ? null : 44,
                                     child: FractionalTranslation(
                                       translation: Offset(-ltr / 2, 0),
-                                      child: MergeSemantics(
-                                        child: Semantics(
-                                          onTap: _swapPanels,
-                                          onDidGainAccessibilityFocus:
-                                              _swapFocus.requestFocus,
-                                          child: Visibility(
-                                            visible:
-                                                !_seamDragging &&
-                                                (_seamHovered || _seamFocused),
-                                            maintainState: true,
-                                            maintainAnimation: true,
-                                            maintainSize: true,
-                                            maintainFocusability: true,
-                                            maintainSemantics: true,
-                                            child: MouseRegion(
-                                              onEnter: (_) => setState(
-                                                () => _seamHovered = true,
-                                              ),
-                                              onExit: (_) => setState(
-                                                () => _seamHovered = false,
-                                              ),
-                                              child: TextFieldTapRegion(
-                                                child: DButton.iconOnly(
-                                                  key: const ValueKey(
-                                                    'swap-panels',
-                                                  ),
-                                                  focusNode: _swapFocus,
-                                                  density: DButtonDensity
-                                                      .chatMessageAction,
-                                                  variant:
-                                                      DButtonVariant.outline,
-                                                  icon: const Icon(
-                                                    Icons.swap_horiz,
-                                                  ),
-                                                  tooltip:
-                                                      context.l10n.swapPanels,
-                                                  onPressed: _swapPanels,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
+                                      child: _swapControl(
+                                        visible:
+                                            !_seamDragging &&
+                                            (_seamHovered || _seamFocused),
                                       ),
                                     ),
                                   ),
@@ -816,6 +822,46 @@ class _DesktopPanelsState extends State<DesktopPanels>
         );
       },
     );
+  }
+
+  Widget _swapControl({required bool visible}) {
+    if (_builtSwap?.visible != visible) {
+      _builtSwap = (
+        visible: visible,
+        child: Builder(
+          builder: (context) => MergeSemantics(
+            child: Semantics(
+              onTap: _swapPanels,
+              onDidGainAccessibilityFocus: _swapFocus.requestFocus,
+              child: Visibility(
+                visible: !_seamDragging && (_seamHovered || _seamFocused),
+                maintainState: true,
+                maintainAnimation: true,
+                maintainSize: true,
+                maintainFocusability: true,
+                maintainSemantics: true,
+                child: MouseRegion(
+                  onEnter: (_) => setState(() => _seamHovered = true),
+                  onExit: (_) => setState(() => _seamHovered = false),
+                  child: TextFieldTapRegion(
+                    child: DButton.iconOnly(
+                      key: const ValueKey('swap-panels'),
+                      focusNode: _swapFocus,
+                      density: DButtonDensity.chatMessageAction,
+                      variant: DButtonVariant.outline,
+                      icon: const Icon(Icons.swap_horiz),
+                      tooltip: context.l10n.swapPanels,
+                      onPressed: _swapPanels,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return _builtSwap!.child;
   }
 }
 
