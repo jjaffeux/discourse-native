@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

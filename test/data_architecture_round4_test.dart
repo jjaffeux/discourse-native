@@ -72,7 +72,10 @@ void main() {
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
       final service = _CookingService();
-      final app = ApplicationCooking(plugins: plugins, service: service);
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: service,
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       final request = app.request(
@@ -93,7 +96,10 @@ void main() {
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
       final service = _CookingService()..gate = Completer<CookingResult>();
-      final app = ApplicationCooking(plugins: plugins, service: service);
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: service,
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       final request = app.request(

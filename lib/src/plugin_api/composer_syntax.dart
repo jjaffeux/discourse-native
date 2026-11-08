@@ -5,8 +5,8 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/composer_metadata.dart';
 import '../models/plugin_data.dart';
-import 'composer_metadata.dart';
 import 'plugin_scope.dart';
 
 @immutable

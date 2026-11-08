@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/plugin_data.dart';
-import '../models/preserved_json.dart';
+import 'plugin_data.dart';
+import 'preserved_json.dart';
 
 @immutable
 final class PluginComposerContext {

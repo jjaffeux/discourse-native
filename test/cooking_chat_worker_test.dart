@@ -27,7 +27,7 @@ void main() {
           final installed = PluginInstaller.install(
             PluginManifest([cookingModule, chatModule, localDatesModule]),
           );
-          final app = ApplicationCooking(plugins: installed);
+          final app = ApplicationCooking(plugins: installed.cookingPlugins);
           addTearDown(app.dispose);
           addTearDown(installed.close);
           final config = SiteConfig(

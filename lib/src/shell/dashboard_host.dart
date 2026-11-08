@@ -4,11 +4,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
 import '../data/dashboard_api.dart';
+import '../data/dashboard_report_source.dart';
 import '../data/report_api.dart';
 import '../data/site_lifecycle.dart';
 import '../models/dashboard.dart';
 import '../models/discourse_instance.dart';
-import '../plugin_api/dashboard_report_source.dart';
 import 'dashboard_controller.dart';
 import 'dashboard_page.dart';
 import 'external_link.dart';

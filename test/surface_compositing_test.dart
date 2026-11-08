@@ -1,11 +1,11 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/emoji_usage.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/main_content.dart';

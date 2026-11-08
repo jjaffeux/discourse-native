@@ -1,15 +1,15 @@
 import 'dart:async';
 import 'dart:math';
 
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:http/http.dart' as http;
 import 'package:message_bus_client/message_bus_client.dart';
 
 import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
-import '../plugin_api/live_channels.dart';
-import '../plugin_api/plugin_manifest.dart';
 import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
+import 'live_channels.dart';
 
 typedef SiteTrackerFactory =
     SiteTracker Function({

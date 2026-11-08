@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/discourse_instance.dart';
-import '../plugin_api/discourse_model_codec.dart';
+import '../models/discourse_model_codec.dart';
 import 'coalescing_snapshot_writer.dart';
 import 'http_basic_auth.dart';
 import 'preference_storage_scope.dart';

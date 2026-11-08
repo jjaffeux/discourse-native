@@ -1,9 +1,9 @@
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 

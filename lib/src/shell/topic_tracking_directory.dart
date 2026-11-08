@@ -1,11 +1,11 @@
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../plugin_api/discourse_model_codec.dart';
 
 abstract interface class TopicTrackingAdmission {
   bool get isCurrent;

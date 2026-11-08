@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';

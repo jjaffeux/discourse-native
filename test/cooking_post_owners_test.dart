@@ -1,5 +1,5 @@
+import 'package:discourse_native/src/data/cooking_plugin.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
-import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';

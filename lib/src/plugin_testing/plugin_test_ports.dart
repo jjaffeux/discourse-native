@@ -1,7 +1,7 @@
 import '../data/discourse_api_contracts.dart';
+import '../data/live_channels.dart';
 import '../data/site_lifecycle.dart';
 import '../plugin_api/core_plugin_host.dart';
-import '../plugin_api/live_channels.dart';
 
 final class PluginTestRequestHost implements PluginRequestHost {
   PluginTestRequestHost({

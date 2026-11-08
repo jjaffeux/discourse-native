@@ -25,6 +25,7 @@ import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/composer_media_optimizer.dart';
+import '../data/cooking_plugin.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/current_user_refresh.dart';
 import '../data/custom_sidebar_sections.dart';
@@ -70,7 +71,9 @@ import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
+import '../models/emoji_preferences.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_group.dart';
@@ -113,12 +116,9 @@ import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/bookmark_host.dart';
-import '../plugin_api/cooking_plugin.dart';
 import '../plugin_api/core_link_projection.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
-import '../plugin_api/discourse_model_codec.dart';
-import '../plugin_api/emoji_preferences.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../plugin_api/topic_reader.dart';
@@ -188,18 +188,17 @@ part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
 part 'instance_rail_transactions.dart';
-part 'post_commands.dart';
-
-part 'selected_post_moderation.dart';
-part 'post_mutation_policy.dart';
-part 'topic_action_transactions.dart';
 part 'message_archive_transactions.dart';
+part 'post_commands.dart';
+part 'post_mutation_policy.dart';
+part 'selected_post_moderation.dart';
+part 'shell_tab_context.dart';
+part 'site_live_composition.dart';
+part 'taxonomy_directory_controller.dart';
+part 'topic_action_transactions.dart';
 part 'topic_metadata_transactions.dart';
 part 'topic_navigation_attempts.dart';
-part 'shell_tab_context.dart';
-part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
-part 'site_live_composition.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -396,7 +395,7 @@ class ShellController extends FrameSafeNotifier
 
   final CookingServicePort? _providedCookingService;
   late final ApplicationCooking cooking = ApplicationCooking(
-    plugins: plugins,
+    plugins: plugins.cookingPlugins,
     service: _providedCookingService,
   );
   CookingContextOwner? _cookingContextOwner;

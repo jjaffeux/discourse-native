@@ -1,10 +1,10 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/post.dart';
 import '../models/site_config.dart';
 import 'core_plugin_host.dart';
-import 'discourse_model_codec.dart';
 import 'plugin_manifest.dart';
 
 abstract interface class PluginTopicReaderHost {

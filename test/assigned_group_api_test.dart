@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
 import 'package:discourse_native/src/plugins/assign/assigned_group.dart';

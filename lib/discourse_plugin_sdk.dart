@@ -24,6 +24,8 @@ export 'discourse_ui.dart'
 export 'discourse_ui.dart' show monospaceTextStyle;
 export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
 export 'src/data/app_release.dart';
+export 'src/data/cooking_plugin.dart';
+export 'src/data/dashboard_report_source.dart';
 export 'src/data/discourse_api_contracts.dart'
     hide
         CategoryLoadResult,
@@ -45,6 +47,7 @@ export 'src/data/discourse_api_contracts.dart'
         defaultDiscourseHashtagOrder,
         maximumDiscourseHashtagsPerRequest,
         maximumDiscourseSearchTermLength;
+export 'src/data/live_channels.dart';
 export 'src/data/origin_cooldown.dart' show OriginCooldown;
 export 'src/data/plugin_transport.dart';
 export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
@@ -73,12 +76,15 @@ export 'src/foundation/private_file_staging.dart';
 export 'src/foundation/timezone_environment.dart' show TimezoneEnvironment;
 export 'src/foundation/uri_path.dart' show tryUriPathSegments;
 export 'src/models/bookmark.dart' show Bookmark, BookmarkTargetType;
+export 'src/models/composer_metadata.dart';
 export 'src/models/composer_upload.dart'
     show ComposerUploadResult, ComposerUploadType;
 export 'src/models/content_route.dart';
 export 'src/models/discourse_instance.dart'
     show DiscourseInstance, mostSpecificServingForum;
+export 'src/models/discourse_model_codec.dart';
 export 'src/models/discourse_user.dart' show DiscourseUser;
+export 'src/models/emoji_usage.dart';
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;
 export 'src/models/homepage_option.dart';
@@ -112,19 +118,13 @@ export 'src/plugin_api/background_retention.dart';
 export 'src/plugin_api/bookmark_host.dart';
 export 'src/plugin_api/category_settings.dart';
 export 'src/plugin_api/composer_component.dart';
-export 'src/plugin_api/composer_metadata.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/composer_syntax.dart';
-export 'src/plugin_api/cooking_plugin.dart';
 export 'src/plugin_api/core_link_projection.dart';
 export 'src/plugin_api/core_plugin_host.dart';
-export 'src/plugin_api/dashboard_report_source.dart';
-export 'src/plugin_api/discourse_model_codec.dart';
-export 'src/plugin_api/emoji_usage.dart';
 export 'src/plugin_api/global_search.dart';
 export 'src/plugin_api/hashtag_kind.dart';
-export 'src/plugin_api/live_channels.dart';
 export 'src/plugin_api/notification_feed_host.dart';
 export 'src/plugin_api/notification_types.dart';
 export 'src/plugin_api/plugin_manifest.dart';

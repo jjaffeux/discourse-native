@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart' show StringCharacters;
 
 import '../foundation/redacted_uri.dart';
 import '../models/discourse_instance.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/forum_about.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
@@ -16,7 +17,6 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../models/topic_reading_policy.dart';
-import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_basic_auth.dart';

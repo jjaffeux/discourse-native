@@ -5,8 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../../data/media_pipeline.dart';
+import '../../../models/emoji_usage.dart';
 import '../../../plugin_api/core_plugin_host.dart';
-import '../../../plugin_api/emoji_usage.dart';
 import '../../../theme/discourse_typography.dart';
 import '../../emoji.dart';
 import '../../emoji_picker.dart';

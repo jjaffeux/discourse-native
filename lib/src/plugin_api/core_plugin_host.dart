@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import '../data/discourse_api_contracts.dart';
 import '../data/store.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
+import '../models/emoji_preferences.dart';
 import '../models/notification_counters.dart';
 import '../models/plugin_data.dart';
 import '../models/post.dart';
@@ -12,8 +14,6 @@ import '../models/site_emoji.dart';
 import '../models/topic.dart';
 import '../shell/composer/controller.dart';
 import 'bookmark_host.dart';
-import 'discourse_model_codec.dart';
-import 'emoji_preferences.dart';
 import 'notification_feed_host.dart';
 import 'plugin_manifest.dart';
 import 'shell_extensions.dart';

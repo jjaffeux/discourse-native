@@ -1,6 +1,6 @@
+import '../models/discourse_model_codec.dart';
 import '../models/group.dart';
 import '../models/user_directory.dart';
-import '../plugin_api/discourse_model_codec.dart';
 import 'plugin_transport.dart';
 
 final class UserDirectoryApi {

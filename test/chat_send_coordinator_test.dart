@@ -1,11 +1,11 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/live_channels.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
-import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_send_coordinator.dart';

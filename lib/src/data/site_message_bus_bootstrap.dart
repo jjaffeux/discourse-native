@@ -3,11 +3,11 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:html/parser.dart' as html;
 
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
 import '../models/preserved_json.dart';
 import '../models/topic_tracking_state.dart';
-import '../plugin_api/discourse_model_codec.dart';
 
 /// The MessageBus snapshots and matching channel positions embedded by
 /// Discourse in an authenticated application document.

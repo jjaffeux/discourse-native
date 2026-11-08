@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/groups_api.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/group.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

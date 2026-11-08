@@ -32,29 +32,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('ui', 'styleguide'): {},
   ('ui', 'plugins'): {},
   ('data', 'ui'): {},
-  ('data', 'plugin_api'): {
-    'lib/src/data/application_cooking.dart -> lib/src/plugin_api/cooking_plugin.dart',
-    'lib/src/data/application_cooking.dart -> lib/src/plugin_api/plugin_runtime.dart',
-    'lib/src/data/current_user_reconciler.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/dashboard_api.dart -> lib/src/plugin_api/dashboard_report_source.dart',
-    'lib/src/data/discourse_account_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/discourse_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/discourse_api_contracts.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/discourse_composer_api.dart -> lib/src/plugin_api/composer_metadata.dart',
-    'lib/src/data/discourse_composer_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/discourse_site_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/discourse_topic_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/emoji_picker_store.dart -> lib/src/plugin_api/emoji_preferences.dart',
-    'lib/src/data/emoji_picker_store.dart -> lib/src/plugin_api/emoji_usage.dart',
-    'lib/src/data/groups_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/instance_store.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/report_api.dart -> lib/src/plugin_api/dashboard_report_source.dart',
-    'lib/src/data/shell_api_ports.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/site_message_bus_bootstrap.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-    'lib/src/data/site_tracker.dart -> lib/src/plugin_api/live_channels.dart',
-    'lib/src/data/site_tracker.dart -> lib/src/plugin_api/plugin_manifest.dart',
-    'lib/src/data/user_directory_api.dart -> lib/src/plugin_api/discourse_model_codec.dart',
-  },
+  ('data', 'plugin_api'): {},
   ('data', 'shell'): {},
   ('data', 'styleguide'): {},
   ('data', 'plugins'): {},
@@ -74,11 +52,12 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 196;
+const _largestImportCycle = 194;
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
 const Map<String, Set<String>> _unreachableFromLayer = {
+  'data': {'plugin_api', 'shell', 'styleguide', 'plugins'},
   'models': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'ui': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},

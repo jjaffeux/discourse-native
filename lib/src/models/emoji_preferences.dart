@@ -1,5 +1,5 @@
-import '../models/site_emoji.dart';
 import 'emoji_usage.dart';
+import 'site_emoji.dart';
 
 /// Omits persistence and hydration authority while preserving the shared,
 /// forum-level skin-tone preference.

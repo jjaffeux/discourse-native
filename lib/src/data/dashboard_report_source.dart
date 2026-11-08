@@ -1,6 +1,7 @@
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
+
 import '../models/dashboard.dart';
 import '../models/report.dart';
-import 'plugin_contracts.dart';
 
 export '../models/dashboard.dart'
     show DashboardReport, DashboardRange, DashboardReportResult, DashboardPoint;

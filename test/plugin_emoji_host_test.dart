@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
+import 'package:discourse_native/src/models/emoji_usage.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
-import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';

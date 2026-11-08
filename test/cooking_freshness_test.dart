@@ -26,7 +26,10 @@ void main() {
     'application epochs reject prepared work after metadata and reconnect',
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
-      final app = ApplicationCooking(plugins: plugins, service: _Service());
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: _Service(),
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       CookingRequest request() => app.request(
@@ -64,7 +67,10 @@ void main() {
     'application observations are deferred, coalesced and cancellable',
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
-      final app = ApplicationCooking(plugins: plugins, service: _Service());
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: _Service(),
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       var calls = 0;

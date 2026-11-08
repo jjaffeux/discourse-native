@@ -1,8 +1,8 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
+import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
 import '../models/plugin_data.dart';
-import 'plugin_contracts.dart';
 
 /// Native owner of app-bundled compiler behavior. Projection runs on the host;
 /// only the returned finite JSON snapshot crosses the worker boundary.

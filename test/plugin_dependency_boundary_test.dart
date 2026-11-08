@@ -704,7 +704,7 @@ void main() {
         'lib/src/models/discourse_user.dart',
       ).readAsStringSync();
       final modelCodec = File(
-        'lib/src/plugin_api/discourse_model_codec.dart',
+        'lib/src/models/discourse_model_codec.dart',
       ).readAsStringSync();
 
       for (final identifier in const [
@@ -812,7 +812,7 @@ void main() {
       ).readAsStringSync();
       final coreTopic = File('lib/src/models/topic.dart').readAsStringSync();
       final modelCodec = File(
-        'lib/src/plugin_api/discourse_model_codec.dart',
+        'lib/src/models/discourse_model_codec.dart',
       ).readAsStringSync();
 
       expect(pluginData, isNot(contains('TopicRecommendationSource')));

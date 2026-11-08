@@ -1,6 +1,6 @@
+import 'package:discourse_native/src/data/live_channels.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
-import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_deletion_event.dart';
 import 'package:discourse_native/src/plugins/chat/chat_live_sync_coordinator.dart';

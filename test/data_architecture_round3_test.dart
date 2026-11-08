@@ -3,11 +3,11 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/cached_image_bytes.dart';
 import 'package:discourse_native/src/data/dashboard_api.dart';
+import 'package:discourse_native/src/data/dashboard_report_source.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:discourse_native/src/data/report_api.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/plugin_api/dashboard_report_source.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
