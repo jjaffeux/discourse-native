@@ -10,6 +10,21 @@ const _baseline = bool.fromEnvironment('PERF_BASELINE');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'page publication retains removals made during a load or publication',
+    () async {
+      for (final gap in [false, true]) {
+        for (final synchronous in [false, true]) {
+          await RoundThreeTopicPageFixture(
+            gap: gap,
+            removals: 20,
+            removeOnPublish: synchronous,
+          ).check();
+        }
+      }
+    },
+  );
+
   test('emoji queries read each catalog name at most once', () async {
     final counts = _NameReads();
     final catalog = SiteEmojiCatalog(

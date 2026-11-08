@@ -1,11 +1,21 @@
+import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/destination_bookmarks_store.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/emoji_preferences.dart';
 import 'package:discourse_native/src/models/emoji_usage.dart';
+import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
+import 'package:discourse_native/src/shell/topic_data_owner.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 
 Future<Map<String, int>> measureRoundThreeServicePerformance() async {
@@ -51,6 +61,20 @@ Future<Map<String, int>> measureRoundThreeServicePerformance() async {
         cold.dispose();
       }
     });
+  }
+  for (final gap in [false, true]) {
+    for (final removals in [0, 20, 1000]) {
+      await measure(
+        'topic_${gap ? 'gap' : 'mega'}_${removals}_removals',
+        300,
+        () async {
+          await RoundThreeTopicPageFixture(
+            gap: gap,
+            removals: removals,
+          ).check();
+        },
+      );
+    }
   }
   return times;
 }
@@ -170,6 +194,161 @@ final class RoundThreeEmojiPreferences implements EmojiPreferenceStore {
   }) async => const [];
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class RoundThreeTopicPageFixture {
+  RoundThreeTopicPageFixture({
+    required this.gap,
+    required this.removals,
+    this.removeOnPublish = false,
+  }) {
+    detail = TopicDetail(
+      id: 7,
+      title: 'Topic',
+      stream: const [1],
+      postsCount: 10000,
+      isMegaTopic: !gap,
+      lastPostId: 10000,
+      gapsAfter: gap
+          ? {
+              1: [for (var i = 2; i <= 21; i++) i],
+            }
+          : const {},
+    );
+    store.put(site, detail);
+    store.put(site, post(1));
+    owner = TopicDataOwner(
+      content: api,
+      feeds: api,
+      models: const DiscourseModelCodec.core(),
+      store: store,
+      credentials: const RoundThreeCredentials(),
+      lifecycle: SiteLifecycle(),
+      changed: () {},
+      liveChanged: (_) {},
+      published: (_, _) => false,
+      prepareCategories: (_, _) async {},
+      loadTimeout: const Duration(seconds: 5),
+      bookmarkReads: (_, _) => const _RoundThreeBookmarks(),
+    );
+  }
+  static const site = 'https://topic.example';
+  final bool gap;
+  final int removals;
+  final bool removeOnPublish;
+  final store = Store();
+  final api = _RoundThreeTopicApi();
+  late final TopicDetail detail;
+  late final TopicDataOwner owner;
+
+  static Post post(int id) => Post(
+    id: id,
+    postNumber: id,
+    username: 'reader',
+    cooked: '<p>Post $id</p>',
+  );
+
+  Future<void> check() async {
+    try {
+      final session = owner.forSite(site);
+      if (removeOnPublish) {
+        var removed = false;
+        store.ref<Post>(site, 2).addListener(() {
+          if (removed || store.read<Post>(site, 2) == null) return;
+          removed = true;
+          session.removePost(7, 2);
+        });
+      }
+      final loading = gap
+          ? session.expandGap(7, anchorPostId: 1, before: false)
+          : session.pageMega(detail, post(1), newer: true);
+      await api.started.future;
+      for (var i = 0; i < removals; i++) {
+        session.removePost(7, 20000 + i);
+      }
+      api.response.complete([for (var i = 2; i <= 21; i++) post(i)]);
+      await loading;
+      final merged = store.read<TopicDetail>(site, 7)!;
+      final wanted = [1, for (var i = removeOnPublish ? 3 : 2; i <= 21; i++) i];
+      if (api.calls != 1 || merged.stream.length != wanted.length) {
+        throw StateError('Topic page was not completely published');
+      }
+      for (var i = 0; i < wanted.length; i++) {
+        if (merged.stream[i] != wanted[i] ||
+            store.read<Post>(site, wanted[i]) == null) {
+          throw StateError('Topic page ordering or removal changed');
+        }
+      }
+      if (removeOnPublish && store.read<Post>(site, 2) != null) {
+        throw StateError('Synchronous post removal was undone');
+      }
+      if (gap && merged.gapsAfter.isNotEmpty) {
+        throw StateError('Consumed topic gap was retained');
+      }
+    } finally {
+      owner.dispose();
+    }
+  }
+}
+
+final class RoundThreeCredentials implements ApiCredentialReader {
+  const RoundThreeCredentials();
+  @override
+  Future<String?> apiKeyFor(String siteUrl) async => 'key';
+  @override
+  Future<String> clientId() async => '';
+}
+
+final class _RoundThreeTopicApi implements TopicContentApi, TopicFeedsApi {
+  final started = Completer<void>();
+  final response = Completer<List<Post>>();
+  var calls = 0;
+  @override
+  Future<List<Post>> posts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    bool includeRaw = false,
+    String? apiKey,
+    String? clientId,
+  }) {
+    calls++;
+    started.complete();
+    return response.future;
+  }
+
+  @override
+  Future<List<Post>> postsFromNumber({
+    required String siteUrl,
+    required int topicId,
+    required int postNumber,
+    required bool ascending,
+    String? apiKey,
+    String? clientId,
+  }) => posts(siteUrl: siteUrl, topicId: topicId, ids: const []);
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RoundThreeBookmarks implements BookmarkReadProjection {
+  const _RoundThreeBookmarks();
+  @override
+  int get epoch => 0;
+  @override
+  int revision(int topicId) => 0;
+  @override
+  bool Function() guard(int topicId) =>
+      () => true;
+  @override
+  Post postFromRead(int topicId, int version, Post incoming) => incoming;
+  @override
+  Post preservePost(Post incoming) => incoming;
+  @override
+  TopicDetail detailFromRead(int version, TopicDetail incoming) => incoming;
+  @override
+  Topic prepareRow(Topic incoming, int? versionAtDispatch) => incoming;
+  @override
+  Topic projectTopicRow(Topic incoming) => incoming;
 }
 
 final class RoundThreeBookmarkFixture {
