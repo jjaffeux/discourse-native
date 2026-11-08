@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
 
+import 'package:discourse_native/src/data/discover_site.dart';
 import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/badge_route.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/dashboard.dart';
-import 'package:discourse_native/src/models/discover_site.dart';
 import 'package:discourse_native/src/models/forum_about.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';

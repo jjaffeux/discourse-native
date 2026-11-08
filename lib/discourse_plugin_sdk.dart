@@ -59,7 +59,7 @@ export 'src/data/site_preference_keys.dart'
         SitePreferenceIdentity,
         SitePreferenceScope,
         SitePreferenceValue;
-export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
+export 'src/data/store.dart' show Ref, Store, StorePolicy;
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
@@ -93,6 +93,7 @@ export 'src/models/search_results.dart' show SearchExcerpt;
 export 'src/models/sidebar.dart';
 export 'src/models/site_config.dart';
 export 'src/models/site_emoji.dart' show SiteEmojiCatalog;
+export 'src/models/storable.dart' show Storable;
 export 'src/models/topic.dart'
     show Topic, TopicList, TopicRecommendations, TopicRecommendationSource;
 export 'src/models/topic_feed.dart' show TopicFeed;

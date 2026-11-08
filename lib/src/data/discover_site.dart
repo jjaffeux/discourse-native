@@ -1,6 +1,6 @@
-import '../data/http_transport.dart';
-import '../data/stored_forum_base.dart';
-import 'json.dart';
+import '../models/json.dart';
+import 'http_transport.dart';
+import 'stored_forum_base.dart';
 
 final class DiscoverSite {
   const DiscoverSite({required this.url, required this.title, this.logoUrl});

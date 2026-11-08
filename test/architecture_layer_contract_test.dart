@@ -14,17 +14,8 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('foundation', 'shell'): {},
   ('foundation', 'styleguide'): {},
   ('foundation', 'plugins'): {},
-  ('models', 'data'): {
-    'lib/src/models/discover_site.dart -> lib/src/data/http_transport.dart',
-    'lib/src/models/discover_site.dart -> lib/src/data/stored_forum_base.dart',
-    'lib/src/models/post.dart -> lib/src/data/store.dart',
-    'lib/src/models/post_likers.dart -> lib/src/data/store.dart',
-    'lib/src/models/topic.dart -> lib/src/data/store.dart',
-    'lib/src/models/user_card.dart -> lib/src/data/store.dart',
-  },
-  ('models', 'ui'): {
-    'lib/src/models/shared_appearance.dart -> lib/discourse_ui.dart',
-  },
+  ('models', 'data'): {},
+  ('models', 'ui'): {},
   ('models', 'plugin_api'): {
     'lib/src/models/composer_draft.dart -> lib/src/plugin_api/preserved_json.dart',
     'lib/src/models/discourse_instance.dart -> lib/src/plugin_api/notification_counters.dart',
@@ -107,6 +98,7 @@ const _largestImportCycle = 196;
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
 const Map<String, Set<String>> _unreachableFromLayer = {
+  'models': {'data', 'shell', 'styleguide', 'plugins'},
   'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'ui': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'shell': {'styleguide', 'plugins'},

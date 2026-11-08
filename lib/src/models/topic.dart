@@ -1,11 +1,11 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../data/store.dart';
 import '../plugin_api/plugin_data.dart';
 import '../plugin_api/topic_recommendation_source.dart';
 import 'discourse_instance.dart';
 import 'json.dart';
+import 'storable.dart';
 import 'topic_filter.dart';
 import 'topic_tag.dart';
 

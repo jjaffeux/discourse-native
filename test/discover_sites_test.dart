@@ -1,7 +1,7 @@
 import 'dart:convert';
 
+import 'package:discourse_native/src/data/discover_site.dart';
 import 'package:discourse_native/src/data/discover_sites.dart';
-import 'package:discourse_native/src/models/discover_site.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

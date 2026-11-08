@@ -11,6 +11,7 @@ import '../data/store.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/post.dart';
+import '../models/storable.dart';
 import '../models/topic.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/shell_extensions.dart';

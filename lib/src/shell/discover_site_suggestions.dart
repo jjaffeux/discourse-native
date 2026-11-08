@@ -2,8 +2,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../data/discover_site.dart';
 import '../data/discover_sites.dart';
-import '../models/discover_site.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'shell_scope.dart';

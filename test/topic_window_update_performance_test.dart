@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:flutter/foundation.dart';

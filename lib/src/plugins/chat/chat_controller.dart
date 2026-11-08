@@ -38,14 +38,14 @@ import 'chat_thread_metadata_owner.dart';
 import 'chat_time.dart';
 import 'chat_wire.dart';
 
-part 'chat_conversation_stream.dart';
-part 'chat_conversation_reader.dart';
 part 'chat_channel_directory.dart';
+part 'chat_channel_pins.dart';
 part 'chat_channel_projections.dart';
-part 'chat_thread_catalog.dart';
+part 'chat_conversation_reader.dart';
+part 'chat_conversation_stream.dart';
 part 'chat_message_write_owner.dart';
 part 'chat_reaction_owner.dart';
-part 'chat_channel_pins.dart';
+part 'chat_thread_catalog.dart';
 
 typedef ChatNotificationsDelta = void Function(String siteUrl, int delta);
 

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';

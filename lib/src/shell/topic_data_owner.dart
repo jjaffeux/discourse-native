@@ -9,9 +9,9 @@ import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 import '../data/topic_tracking_reconciler.dart';
-
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
+import '../models/storable.dart';
 import '../models/topic.dart';
 import '../models/topic_link.dart';
 import '../plugin_api/discourse_model_codec.dart';

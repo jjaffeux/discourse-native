@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/store.dart';
 import 'json.dart';
+import 'storable.dart';
 
 @immutable
 class PostLiker {
