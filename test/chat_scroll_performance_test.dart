@@ -2,9 +2,12 @@ import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/media_pipeline.dart';
+import 'package:discourse_native/src/foundation/timezone_environment.dart';
 
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
@@ -414,6 +417,308 @@ void main() {
     expectFade(top: 110, bottom: 150 - DComposerDock.topInset);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('a live arrival rebuilds only the rows it changes', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
+      await tester.pumpAndSettle();
+      expect(
+        find.byType(ChatMessageTile, skipOffstage: false).evaluate().length,
+        greaterThan(2),
+      );
+      final messages = _recordMessageRebuilds();
+      var elements = 0;
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        previous?.call(element, builtOnce);
+        elements++;
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+      for (var arrival = 1; arrival <= 10; arrival++) {
+        _deliverArrival(controller, arrival);
+        await tester.pumpAndSettle();
+      }
+      debugOnRebuildDirtyWidget = previous;
+      final tiles = messages.where((e) => e.widget is ChatMessageTile).length;
+      final bodies = messages.where((e) => e.widget is CookedHtml).length;
+
+      // ignore: avoid_print
+      print('PERF_PROOF chat-arrival tile_builds=$tiles');
+      // ignore: avoid_print
+      print('PERF_PROOF chat-arrival cooked_html_builds=$bodies');
+      // ignore: avoid_print
+      print('PERF_PROOF chat-arrival element_rebuilds=$elements');
+      expect(tester.takeException(), isNull);
+      // Ten arrivals each mount one row, and all but the first end the run
+      // the row before them was ending.
+      expect(tiles, lessThanOrEqualTo(19));
+      expect(bodies, lessThanOrEqualTo(19));
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  testWidgets('a held row still redraws for what changed about it', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    _useStaticImagePlaceholders();
+    MediaPipeline.replace(chatScrollMediaPipeline());
+    addTearDown(() => MediaPipeline.replace(MediaPipeline()));
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
+      await tester.pumpAndSettle();
+      final chat = controller.pluginSession.require(chatControllerService);
+      _deliverArrival(controller, 1);
+      await tester.pumpAndSettle();
+      _deliverArrival(controller, 2);
+      await tester.pumpAndSettle();
+      Finder tile(int id) => find.byWidgetPredicate(
+        (widget) => widget is ChatMessageTile && widget.messageId == id,
+      );
+      Finder authorOf(int id) =>
+          find.descendant(of: tile(id), matching: find.text('sam'));
+      expect(authorOf(501), findsOneWidget);
+      expect(authorOf(502), findsNothing);
+      final heldElement = tester.element(tile(502));
+
+      // An edit replaces this row's body and no other.
+      final original = chat.messageRef(chatScrollSite, 500).value!;
+      var rebuilt = _recordMessageRebuilds();
+      controller.chatRecords.put(
+        chatScrollSite,
+        ChatMessage(
+          id: original.id,
+          channelId: original.channelId,
+          author: original.author,
+          createdAt: original.createdAt,
+          cooked: '<p>An edited message.</p>',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: tile(500),
+          matching: find.textContaining(
+            'An edited message.',
+            findRichText: true,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(rebuilt, hasLength(1));
+
+      // A reaction redraws its row.
+      rebuilt = _recordMessageRebuilds();
+      controller.chatRecords.put(
+        chatScrollSite,
+        chat.messageRef(chatScrollSite, 500).value!.withReactions(const [
+          ChatReaction(emoji: 'heart', count: 7),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(
+          of: tile(500),
+          matching: find.byWidgetPredicate(
+            (widget) => widget is ReactionPill && widget.count == 7,
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(rebuilt, hasLength(1));
+
+      // The previous message going away ends the chain, so the row it held
+      // up without a header has to draw its author.
+      FakeSiteTracker.built
+          .lastWhere((tracker) => tracker.siteUrl == chatScrollSite)
+          .deliverPluginMessage('/chat/9', const {
+            'type': 'delete',
+            'deleted_id': 501,
+          });
+      await tester.pumpAndSettle();
+      expect(authorOf(502), findsOneWidget);
+      expect(tester.element(tile(502)), same(heldElement));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  testWidgets('a held row follows what it reads without listening', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final environment = TimezoneEnvironment.instance;
+    final previousZone = environment.deviceTimezone;
+    environment.setDeviceTimezone('Etc/UTC');
+    addTearDown(() => environment.setDeviceTimezone(previousZone));
+    _useStaticImagePlaceholders();
+    MediaPipeline.replace(chatScrollMediaPipeline());
+    addTearDown(() => MediaPipeline.replace(MediaPipeline()));
+    final controller = await chatScrollController(
+      reader: const DiscourseUser(id: 1, username: 'reader1'),
+    );
+    addTearDown(controller.dispose);
+
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
+      await tester.pumpAndSettle();
+      final chat = controller.pluginSession.require(chatControllerService);
+      _deliverArrival(controller, 1);
+      await tester.pumpAndSettle();
+      Finder tile(int id) => find.byWidgetPredicate(
+        (widget) => widget is ChatMessageTile && widget.messageId == id,
+      );
+      final held = tester.element(tile(501));
+
+      String? clock() => tester
+          .widget<Text>(find.byKey(const ValueKey('chat-message-time-501')))
+          .data;
+      final utcClock = clock();
+      environment.setDeviceTimezone('Asia/Tokyo');
+      await tester.pumpAndSettle();
+      expect(clock(), isNot(utcClock));
+      expect(tester.element(tile(501)), same(held));
+
+      // A site setting reaches a held row with the next publish. Row 500 is
+      // the one no arrival here re-chains, and its reaction is published
+      // first, so the setting is all that differs when the arrival lands.
+      controller.chatRecords.put(
+        chatScrollSite,
+        chat.messageRef(chatScrollSite, 500).value!.withReactions(const [
+          ChatReaction(emoji: 'heart', count: 7),
+        ]),
+      );
+      await tester.pumpAndSettle();
+      _deliverArrival(controller, 2);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: tile(500), matching: find.byType(ReactionPill)),
+        findsOneWidget,
+      );
+      controller.applyAccountSessionInstance(
+        controller
+            .accountSessionInstance(chatScrollSite)!
+            .copyWith(
+              config: SiteConfig.fromSettings(const {'enable_emoji': false}),
+            ),
+        AccountSessionPhase.connecting,
+      );
+      _deliverArrival(controller, 3);
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: tile(500), matching: find.byType(ReactionPill)),
+        findsNothing,
+      );
+
+      // Selecting a second message checks only that message's held row.
+      tester.widget<ChatMessageTile>(tile(502)).onSelect!();
+      await tester.pumpAndSettle();
+      DCheckbox selector(int id) => tester.widget<DCheckbox>(
+        find.byKey(ValueKey('chat-message-selector-$id')),
+      );
+      expect(selector(501).value, isFalse);
+      await tester.tap(find.byKey(const ValueKey('chat-message-selector-501')));
+      await tester.pumpAndSettle();
+      expect(selector(501).value, isTrue);
+      expect(selector(502).value, isTrue);
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('a reply indicator follows the row before it', (tester) async {
+    final controller = await chatScrollController(count: 48);
+    addTearDown(controller.dispose);
+    final original = controller.chat.messageRef(chatScrollSite, 48).value!;
+    final reply = ChatMessage(
+      id: original.id,
+      channelId: original.channelId,
+      author: original.author,
+      cooked: original.cooked,
+      createdAt: original.createdAt,
+      replyTo: ChatReplyTo.fromMessage(
+        controller.chat.messageRef(chatScrollSite, 47).value!,
+      ),
+    );
+    controller.chatRecords.put(chatScrollSite, reply);
+
+    Future<void> mount(List<int> ids) async {
+      final messages = [
+        for (final id in ids)
+          controller.chat.messageRef(chatScrollSite, id).value!,
+      ];
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: PluginUiScope.own(
+            chatPluginId,
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: SizedBox(
+                  width: 700,
+                  height: 500,
+                  child: ChatMessageStream(
+                    siteUrl: chatScrollSite,
+                    target: const ChatChannelTarget(9),
+                    items: buildChatStream(messages),
+                    stream: ChatStreamState(
+                      messageIds: ids,
+                      fetchedOnce: true,
+                      fetches: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    final indicator = find.byKey(ChatMessageTile.replyIndicatorKey(47));
+    await mount([for (var id = 1; id <= 48; id++) id]);
+    expect(indicator, findsNothing);
+
+    await mount([for (var id = 1; id <= 48; id++) id]..remove(47));
+    expect(indicator, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   final richLayouts = ValueVariant({
     (width: 800.0, dark: false, directMessage: false),
@@ -1292,7 +1597,8 @@ Finder _transcriptScrollable() => find.descendant(
 );
 
 /// Delivers the [ordinal]th live message after the fixture's newest, through
-/// the message bus, from an author none of the fixture's rows chain with.
+/// the message bus. Every arrival is from one sender, so they chain as a run
+/// of messages does.
 void _deliverArrival(ShellController controller, int ordinal) {
   final chat = controller.pluginSession.require(chatControllerService);
   final newestAt = chat.messageRef(chatScrollSite, 500).value!.createdAt!;
@@ -1308,7 +1614,7 @@ void _deliverArrival(ShellController controller, int ordinal) {
               .add(Duration(minutes: ordinal))
               .toUtc()
               .toIso8601String(),
-          'user': {'id': 100 + ordinal, 'username': 'sender$ordinal'},
+          'user': {'id': 2, 'username': 'sam'},
         },
       });
 }

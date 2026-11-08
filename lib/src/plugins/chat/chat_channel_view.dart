@@ -1731,6 +1731,11 @@ class _StreamState extends State<ChatMessageStream>
     final lastRow = leading + items.length - 1;
     final header = _headerGeometry;
     final contentRows = leading + items.length + (stream.loadingOlder ? 1 : 0);
+    final _ChatRowAmbient ambient = (
+      pane: selectChatPaneShellInputs(_shell!),
+      timezone: chat.timeFor(siteUrl).name,
+      site: chat.siteConfigFor(siteUrl),
+    );
 
     final content = DPageReadingLane(
       // Chat keeps a readable, centered transcript independently of the forum's
@@ -1846,29 +1851,12 @@ class _StreamState extends State<ChatMessageStream>
                           ),
                           child: _HighlightedChatMessage(
                             highlighted: id == _highlightMessageId,
-                            child: ChatMessageTile(
-                              siteUrl: siteUrl,
-                              messageId: id,
+                            child: _heldMessageTile(
+                              chat,
+                              id: id,
                               chained: chained,
-                              previousMessageId: _previousMessageId(id),
-                              endsGroup: switch (_itemAt(row - 1)) {
-                                ChatStreamMessage(:final chained) => !chained,
-                                _ => true,
-                              },
-                              contextThreadId: widget.target.threadId,
-                              onOpenThread: widget.onOpenThread,
-                              onJumpToMessage: widget.onJumpToMessage,
-                              onReply: widget.onReply,
-                              onEdit: widget.onEdit,
-                              showThreadSummary: widget.showThreadSummaries,
-                              onSelect:
-                                  id > 0 && widget.onStartSelecting != null
-                                  ? () => widget.onStartSelecting!(id)
-                                  : null,
-                              selecting: widget.selectingMessages,
-                              selected: widget.selectedMessageIds.contains(id),
-                              onSelectedChanged: (selected) =>
-                                  widget.onSelectionChanged?.call(id, selected),
+                              row: row,
+                              ambient: ambient,
                             ),
                           ),
                         ),
@@ -1994,6 +1982,52 @@ class _StreamState extends State<ChatMessageStream>
             : null,
         repaint: header,
         child: content,
+      ),
+    );
+  }
+
+  Widget _heldMessageTile(
+    ChatController chat, {
+    required int id,
+    required bool chained,
+    required int row,
+    required _ChatRowAmbient ambient,
+  }) {
+    final previousMessageId = _previousMessageId(id);
+    final endsGroup = switch (_itemAt(row - 1)) {
+      ChatStreamMessage(:final chained) => !chained,
+      _ => true,
+    };
+    final selected = widget.selectedMessageIds.contains(id);
+    return _HeldChatMessageTile(
+      inputs: (
+        message: chat.messageRef(widget.siteUrl, id).value,
+        chained: chained,
+        previousMessageId: previousMessageId,
+        endsGroup: endsGroup,
+        selecting: widget.selectingMessages,
+        selected: selected,
+        ambient: ambient,
+      ),
+      tile: ChatMessageTile(
+        siteUrl: widget.siteUrl,
+        messageId: id,
+        chained: chained,
+        previousMessageId: previousMessageId,
+        endsGroup: endsGroup,
+        contextThreadId: widget.target.threadId,
+        onOpenThread: widget.onOpenThread,
+        onJumpToMessage: widget.onJumpToMessage,
+        onReply: widget.onReply,
+        onEdit: widget.onEdit,
+        showThreadSummary: widget.showThreadSummaries,
+        onSelect: id > 0 && widget.onStartSelecting != null
+            ? () => widget.onStartSelecting!(id)
+            : null,
+        selecting: widget.selectingMessages,
+        selected: selected,
+        onSelectedChanged: (selected) =>
+            widget.onSelectionChanged?.call(id, selected),
       ),
     );
   }
@@ -3035,6 +3069,53 @@ class _RecentChatMessages {
     _rows.remove(row);
     _mountedRows.remove(row);
   }
+}
+
+/// What a row reads without listening for it. A change reaches a held row
+/// only through the transcript rebuilding, so each field must replace its tile.
+typedef _ChatRowAmbient = ({
+  ChatPaneShellInputs? pane,
+  String timezone,
+  SiteConfig site,
+});
+
+typedef _ChatRowInputs = ({
+  ChatMessage? message,
+  bool chained,
+  int? previousMessageId,
+  bool endsGroup,
+  bool selecting,
+  bool selected,
+  _ChatRowAmbient ambient,
+});
+
+/// Keeps one [ChatMessageTile] while the row's [inputs] are unchanged, so a
+/// stream publish skips the row instead of rebuilding its HTML. Living in the
+/// row's element bounds this to the retained window and to the row's target.
+///
+/// The kept tile holds the callbacks of the build that made it. Each stream
+/// host's callbacks are bound only to its own State, so they stay current.
+class _HeldChatMessageTile extends StatefulWidget {
+  const _HeldChatMessageTile({required this.inputs, required this.tile});
+
+  final _ChatRowInputs inputs;
+  final ChatMessageTile tile;
+
+  @override
+  State<_HeldChatMessageTile> createState() => _HeldChatMessageTileState();
+}
+
+class _HeldChatMessageTileState extends State<_HeldChatMessageTile> {
+  late ChatMessageTile _tile = widget.tile;
+
+  @override
+  void didUpdateWidget(_HeldChatMessageTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.inputs != oldWidget.inputs) _tile = widget.tile;
+  }
+
+  @override
+  Widget build(BuildContext context) => _tile;
 }
 
 class _RetainedChatMessage extends StatefulWidget {
