@@ -28,6 +28,12 @@ import 'shell_search_controller.dart';
 import 'site_url.dart';
 
 /// Global search with one editor shared by the navbar and its open surface.
+typedef _FieldLayout = ({
+  double? openWidth,
+  bool showsInlineConditions,
+  bool showsShortcut,
+});
+
 class ForumSearch extends StatefulWidget {
   const ForumSearch({
     super.key,
@@ -915,19 +921,30 @@ class _ForumSearchState extends State<ForumSearch> {
         (platform == TargetPlatform.iOS ||
             platform == TargetPlatform.android) &&
         MediaQuery.sizeOf(context).width < 768;
-    final field = LayoutBuilder(
-      builder: (context, constraints) {
+    final field = DLayoutSelector<_FieldLayout>(
+      select: (context, constraints) {
         final anchorWidth = constraints.hasBoundedWidth
             ? constraints.maxWidth
             : 420.0;
         final viewport = MediaQuery.sizeOf(context);
-        final safe = MediaQuery.paddingOf(context);
         if (_open &&
             (_layoutWidth != anchorWidth || _layoutViewport != viewport)) {
           _scheduleGeometry();
         }
         _layoutWidth = anchorWidth;
         _layoutViewport = viewport;
+        final scale = MediaQuery.textScalerOf(context).scale(14) / 14;
+        // While closed, the field depends only on these breakpoints.
+        return (
+          openWidth: _open ? anchorWidth : null,
+          showsInlineConditions: anchorWidth >= 140,
+          showsShortcut: anchorWidth >= 280 * scale,
+        );
+      },
+      builder: (context, layout) {
+        final anchorWidth = _layoutWidth ?? 420.0;
+        final viewport = MediaQuery.sizeOf(context);
+        final safe = MediaQuery.paddingOf(context);
         final width = mobile
             ? viewport.width
             : math.min(
@@ -1096,7 +1113,8 @@ class _ForumSearchState extends State<ForumSearch> {
           child: DPopoverAnchor(
             child: SizedBox(
               key: _anchorKey,
-              width: anchorWidth,
+              // A closed field fills the width that [DLayoutSelector] tracks.
+              width: _open ? anchorWidth : double.infinity,
               child: _open
                   ? SizedBox(key: ForumSearch.anchorKey, height: _anchorHeight)
                   : _editor(anchorWidth, expanded: false),
@@ -1118,14 +1136,16 @@ class _ForumSearchState extends State<ForumSearch> {
         !widget.showNavigationControls) {
       return field;
     }
-    return LayoutBuilder(
-      builder: (context, constraints) => Row(
+    return DLayoutSelector<bool>(
+      // Count capsules need their own width. Keep the search editor and
+      // its keyboard shortcut available when title-bar space is tight.
+      select: (context, constraints) =>
+          !widget.dense ||
+          constraints.maxWidth >=
+              180 * MediaQuery.textScalerOf(context).scale(14) / 14,
+      builder: (context, showControls) => Row(
         children: [
-          // Count capsules need their own width. Keep the search editor and
-          // its keyboard shortcut available when title-bar space is tight.
-          if (!widget.dense ||
-              constraints.maxWidth >=
-                  180 * MediaQuery.textScalerOf(context).scale(14) / 14) ...[
+          if (showControls) ...[
             const ContentNavigationControls(),
             const SizedBox(width: 4),
           ],
