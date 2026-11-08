@@ -187,6 +187,7 @@ final class CategoryLoadResult {
     Iterable<int>? rootCategoryIds,
     bool canCreateTopic = false,
     SitePostActionCatalog? postActionCatalog,
+    Iterable<NotificationWireType> notificationTypes = const [],
     Iterable<SidebarTag>? siteTopTags,
     Iterable<SidebarTag>? anonymousDefaultTags,
     bool? anonymousSearchAllowed,
@@ -203,6 +204,7 @@ final class CategoryLoadResult {
       complete,
       canCreateTopic,
       postActionCatalog,
+      List<NotificationWireType>.unmodifiable(notificationTypes),
       siteTopTags == null ? null : List<SidebarTag>.unmodifiable(siteTopTags),
       anonymousDefaultTags == null
           ? null
@@ -217,6 +219,7 @@ final class CategoryLoadResult {
     this.complete,
     this.canCreateTopic,
     this.postActionCatalog,
+    this.notificationTypes,
     this.siteTopTags,
     this.anonymousDefaultTags,
     this.anonymousSearchAllowed,
@@ -242,6 +245,11 @@ final class CategoryLoadResult {
   /// Authenticated post-action metadata from the page-one `/site.json` read.
   /// Null means that metadata was not requested or did not arrive.
   final SitePostActionCatalog? postActionCatalog;
+
+  /// The site's notification catalog from the authenticated page-one
+  /// `/site.json` read. Empty when that read was not made, failed, or named no
+  /// types, which settles nothing about the catalog.
+  final List<NotificationWireType> notificationTypes;
 
   /// Core's `allow_anonymous_search`, as the anonymous page-one `/site.json`
   /// read reports it through `can_search`. Null means that read was

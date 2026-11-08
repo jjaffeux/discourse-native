@@ -2894,6 +2894,60 @@ void _feedGroups() {
         NotificationWireType(4200, 'plugin_alert'),
       ]);
     });
+
+    DiscourseApi siteWith(Object? notificationTypes) => DiscourseApi(
+      client: MockClient((request) async {
+        return http.Response(
+          jsonEncode(
+            request.url.path == '/site.json'
+                ? {'notification_types': notificationTypes}
+                : {
+                    'category_list': {'categories': const <Object>[]},
+                  },
+          ),
+          200,
+        );
+      }),
+    );
+
+    test('an authenticated category load reads the same catalog', () async {
+      final api = siteWith({
+        'replied': 2,
+        'plugin_alert': 4200,
+        'broken': 0,
+        'also_broken': 'nope',
+      });
+
+      final catalog = await api.siteNotificationTypes(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+      );
+      final loaded = await api.loadCategories(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+      );
+
+      expect(catalog, hasLength(2));
+      expect(loaded.notificationTypes, catalog);
+    });
+
+    test('an anonymous category load carries no catalog', () async {
+      final loaded = await siteWith({
+        'replied': 2,
+      }).loadCategories(siteUrl: 'https://example.com');
+
+      expect(loaded.notificationTypes, isEmpty);
+    });
+
+    test('an unreadable catalog leaves the category load empty', () async {
+      for (final malformed in <Object?>[null, 'broken', 7, <Object>[]]) {
+        final loaded = await siteWith(
+          malformed,
+        ).loadCategories(siteUrl: 'https://example.com', apiKey: 'secret');
+
+        expect(loaded.notificationTypes, isEmpty, reason: '$malformed');
+      }
+    });
   });
 
   group('emoji catalog', () {

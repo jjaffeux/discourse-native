@@ -140,6 +140,18 @@ final class NotificationFeedRefreshOwner {
     }
   }
 
+  /// Adopts the catalog carried by a `/site.json` read [lease] already made.
+  /// An empty one settles nothing, so the first reader still fetches its own.
+  void seedSiteTypes(
+    String siteUrl,
+    List<NotificationWireType> types,
+    SiteLease lease,
+  ) {
+    if (types.isEmpty) return;
+    final account = _account(siteUrl, lease: lease);
+    if (account != null && _owns(account)) account.catalog ??= types;
+  }
+
   void acceptLiveState(String siteUrl, Object? data, SiteLease lease) {
     final account = _account(siteUrl, lease: lease);
     if (account == null) return;

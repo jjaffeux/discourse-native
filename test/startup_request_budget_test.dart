@@ -1,9 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:math' as math;
 
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/account_session_coordinator.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
@@ -14,6 +18,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
@@ -339,7 +345,127 @@ void main() {
       expect(api.chatChannelsRequested, [firstUrl]);
     },
   );
+
+  group('site notification catalog', () {
+    const site = 'https://first.example';
+    const pluginType = NotificationTypeName('plugin_alert');
+    final withCatalog = _siteJson({
+      'notification_types': {'replied': 2, 'plugin_alert': 4200},
+    });
+
+    Future<ShellController> start(
+      _SiteJsonApi api, {
+      FakeAuthenticator? authenticator,
+    }) async {
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([_connected(site)]),
+        api: api,
+        authenticator:
+            authenticator ?? (FakeAuthenticator()..keys[site] = 'key'),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: installedPlugins,
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await pumpEventQueue();
+      return shell;
+    }
+
+    test('Other reuses the site read that loaded the categories', () async {
+      final api = _SiteJsonApi([withCatalog]);
+      final shell = await start(api);
+
+      await shell.loadOtherNotifications(site);
+
+      // ignore: avoid_print
+      print('PERF_PROOF site-json site_json_requests=${api.siteJsonRequests}');
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF site-json site_notification_types_calls='
+        '${api.siteNotificationTypesRequested.length}',
+      );
+      expect(api.notificationFilters.last, contains(pluginType));
+      expect(shell.accountActivity.otherNotificationsFor(site).loaded, isTrue);
+      expect(api.siteJsonRequests, 1);
+      expect(api.siteNotificationTypesRequested, isEmpty);
+    });
+
+    final unusableSiteReads = <String, http.Response>{
+      'failed': http.Response('', 500),
+      'lacked the field': _siteJson({}),
+      'had an empty catalog': _siteJson({
+        'notification_types': <String, int>{},
+      }),
+      'had a malformed catalog': _siteJson({'notification_types': 'broken'}),
+    };
+    for (final MapEntry(key: outcome, value: siteRead)
+        in unusableSiteReads.entries) {
+      test(
+        'Other fetches its own catalog when the site read $outcome',
+        () async {
+          final api = _SiteJsonApi([siteRead, withCatalog]);
+          final shell = await start(api);
+          expect(api.siteJsonRequests, 1);
+
+          await shell.loadOtherNotifications(site);
+
+          expect(api.siteNotificationTypesRequested, [site]);
+          expect(api.siteJsonRequests, 2);
+          expect(api.notificationFilters.last, contains(pluginType));
+          expect(
+            shell.accountActivity.otherNotificationsFor(site).loaded,
+            isTrue,
+          );
+        },
+      );
+    }
+
+    test(
+      'a replaced account\'s site read cannot seed the next account',
+      () async {
+        final oldResult = Completer<void>();
+        final api = _SiteJsonApi([
+          _siteJson({
+            'notification_types': {'stale_alert': 9000},
+          }),
+          _siteJson({}),
+          withCatalog,
+        ])..heldCategoryResult = oldResult;
+        final authenticator = FakeAuthenticator()..keys[site] = 'old-key';
+        final shell = await start(api, authenticator: authenticator);
+        expect(api.siteJsonRequests, 1);
+
+        shell.lifecycle.invalidate(site);
+        shell.clearAccountSessionState(site);
+        authenticator.keys[site] = 'next-key';
+        shell.applyAccountSessionInstance(
+          shell
+              .instanceFor(site)!
+              .copyWith(user: const DiscourseUser(id: 8, username: 'next')),
+          AccountSessionPhase.connecting,
+        );
+        await shell.loadCategories(site);
+        expect(api.siteJsonRequests, 2);
+
+        oldResult.complete();
+        await pumpEventQueue();
+        await shell.loadOtherNotifications(site);
+
+        expect(api.siteNotificationTypesRequested, [site]);
+        expect(api.siteJsonRequests, 3);
+        expect(api.notificationFilters.last, contains(pluginType));
+        expect(
+          api.notificationFilters.last,
+          isNot(contains(const NotificationTypeName('stale_alert'))),
+        );
+      },
+    );
+  });
 }
+
+http.Response _siteJson(Map<String, Object?> body) =>
+    http.Response(jsonEncode(body), 200);
 
 DiscourseInstance _connected(String url) => DiscourseInstance(
   url: url,
@@ -447,6 +573,74 @@ final class _IntentStartupApi extends FakeDiscourseApi {
     catalogIntent = RequestIntent.current;
     await catalogReady.future;
     return super.emojiCatalog(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+}
+
+/// Runs the category and catalog reads over the production HTTP adapter, so
+/// each `/site.json` they spend is counted on the wire.
+final class _SiteJsonApi extends FakeDiscourseApi {
+  _SiteJsonApi(this.siteJsonAnswers)
+    : super(
+        otherNotificationList: const [],
+        totals: const NotificationTotals(),
+      );
+
+  /// One answer per read, the last repeating for any further reads.
+  final List<http.Response> siteJsonAnswers;
+  int siteJsonRequests = 0;
+
+  /// Holds the next parsed category result on its way back to the shell, the
+  /// window in which the account can be replaced.
+  Completer<void>? heldCategoryResult;
+
+  late final DiscourseApi _wire = DiscourseApi(
+    client: MockClient((request) async {
+      if (request.url.path != '/site.json') {
+        return _siteJson({
+          'category_list': {'categories': const <Object>[]},
+        });
+      }
+      final answer =
+          siteJsonAnswers[math.min(
+            siteJsonRequests,
+            siteJsonAnswers.length - 1,
+          )];
+      siteJsonRequests += 1;
+      return answer;
+    }),
+  );
+
+  @override
+  Future<CategoryLoadResult> loadCategories({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+    int page = 1,
+  }) async {
+    final hold = heldCategoryResult;
+    heldCategoryResult = null;
+    final result = await _wire.loadCategories(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+      page: page,
+    );
+    await hold?.future;
+    return result;
+  }
+
+  @override
+  Future<List<NotificationWireType>> siteNotificationTypes({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) {
+    siteNotificationTypesRequested.add(siteUrl);
+    return _wire.siteNotificationTypes(
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
