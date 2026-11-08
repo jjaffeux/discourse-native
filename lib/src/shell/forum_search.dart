@@ -35,6 +35,9 @@ typedef _FieldLayout = ({
   bool showsShortcut,
 });
 
+/// The shell state that [_ForumSearchState.build] draws.
+typedef _ShellReads = ({bool canSearch, bool open, String listExpression});
+
 class ForumSearch extends StatefulWidget {
   const ForumSearch({
     super.key,
@@ -79,6 +82,7 @@ class _ForumSearchState extends State<ForumSearch> {
   ShellController? _shell;
   String? _tabId;
   bool _scoped = false;
+  _ShellReads? _builtReads;
 
   ShellTabContext? get _document {
     final shell = _shell;
@@ -142,6 +146,12 @@ class _ForumSearchState extends State<ForumSearch> {
 
   GlobalSearchExpression get _closedExpression =>
       _presentation.closedExpression(_listExpression);
+
+  _ShellReads get _shellReads => (
+    canSearch: _search.canSearch,
+    open: _open,
+    listExpression: _listExpression,
+  );
 
   bool get _shellPage => widget.fullScreen && _shell!.mobileNavigationEnabled;
 
@@ -279,7 +289,10 @@ class _ForumSearchState extends State<ForumSearch> {
     _retireClosedDraftIfScopeChanged();
     _syncText();
 
-    if (!widget._pageContent || _surfaceOpen) setState(() {});
+    if (widget._pageContent && !_surfaceOpen) return;
+    // Most notifications concern other state; capabilities and the query reach
+    // this field through the search controller's own listener.
+    if (_shellReads != _builtReads) setState(() {});
   }
 
   void _retireClosedDraftIfScopeChanged() =>
@@ -901,6 +914,7 @@ class _ForumSearchState extends State<ForumSearch> {
 
   @override
   Widget build(BuildContext context) {
+    _builtReads = _shellReads;
     if (!_search.canSearch) return const SizedBox.shrink();
     if (widget._pageContent) {
       return DPageSurface(
