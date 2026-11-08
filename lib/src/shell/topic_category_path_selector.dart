@@ -12,6 +12,8 @@ import 'topic_category_selector.dart';
 /// A joined category path with a searchable sibling menu at every level.
 class TopicCategoryPathSelector extends StatelessWidget {
   static const _maxSegmentWidth = 180.0;
+  // A separator's rotated stroke and its insets between two levels.
+  static const _separatorWidth = 11.5;
 
   const TopicCategoryPathSelector({
     super.key,
@@ -56,18 +58,37 @@ class TopicCategoryPathSelector extends StatelessWidget {
                 resolved.path.length < maxCategoryNesting && deeper.isNotEmpty
             ? 1
             : 0);
-    return DLayoutSelector<bool>(
+    return DLayoutSelector<_PathFit>(
       select: (context, constraints) {
-        final breakpoint = levels * _maxSegmentWidth;
-        DFitRow.reportRoomBreakpoint(context, breakpoint);
-        return DFitRow.tightOf(context) ||
-            !DControlStyle.isTouch(context) &&
-                constraints.constrainWidth(_maximumWidth(context)) < breakpoint;
+        final labelledRoom = levels * _maxSegmentWidth;
+        DFitRow.reportRoomBreakpoint(context, labelledRoom);
+        final room = constraints.constrainWidth(_maximumWidth(context));
+        if (DControlStyle.isTouch(context)) {
+          return DFitRow.tightOf(context) ? _PathFit.marks : _PathFit.labels;
+        }
+        final squareRoom = _squareRoom(context, levels);
+        DFitRow.reportRoomBreakpoint(context, squareRoom);
+        if (room < squareRoom) return _PathFit.scrolled;
+        return DFitRow.tightOf(context) || room < labelledRoom
+            ? _PathFit.marks
+            : _PathFit.labels;
       },
-      builder: (context, short) =>
-          _buildPath(context, resolved: resolved, levels: levels, short: short),
+      builder: (context, fit) =>
+          _buildPath(context, resolved: resolved, levels: levels, fit: fit),
     );
   }
+
+  /// The least a desktop path can be shrunk to: every level's square control
+  /// and the separators between them. Below it nothing can shrink further, so
+  /// the path scrolls rather than overflowing its row.
+  double _squareRoom(BuildContext context, int levels) =>
+      levels *
+          DControlStyle.scaledHeight(
+            DControlSize.filter,
+            MediaQuery.textScalerOf(context),
+            context: context,
+          ) +
+      (levels - 1) * _separatorWidth;
 
   double _maximumWidth(BuildContext context) =>
       (MediaQuery.sizeOf(context).width - 32).clamp(0.0, double.infinity);
@@ -100,10 +121,11 @@ class TopicCategoryPathSelector extends StatelessWidget {
     BuildContext context, {
     required _ResolvedPath resolved,
     required int levels,
-    required bool short,
+    required _PathFit fit,
   }) {
     final (:byId, :path, :children, selectedId: _) = resolved;
-    final desktop = !DControlStyle.isTouch(context);
+    final short = fit != _PathFit.labels;
+    final shrinks = !DControlStyle.isTouch(context) && fit != _PathFit.scrolled;
     final maximumWidth = _maximumWidth(context);
 
     Widget segment(int level) {
@@ -256,7 +278,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
                 ),
               ),
             ),
-          if (desktop && level == (path.isEmpty ? 0 : path.length - 1))
+          if (shrinks && level == (path.isEmpty ? 0 : path.length - 1))
             DButtonGroupExpanded(child: segment(level))
           else
             segment(level),
@@ -265,7 +287,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
     );
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maximumWidth),
-      child: desktop
+      child: shrinks
           ? IntrinsicWidth(child: group)
           : SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -273,6 +295,15 @@ class TopicCategoryPathSelector extends StatelessWidget {
             ),
     );
   }
+}
+
+/// How a path spends the room its row gives it.
+enum _PathFit {
+  labels,
+  marks,
+
+  /// Narrower than the path's own square controls.
+  scrolled,
 }
 
 typedef _ResolvedPath = ({
