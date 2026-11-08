@@ -14,7 +14,9 @@ void main() {
   test('regression nov8: comments retain literal quote-looking source', () {
     const source = '<!--\n> literal\n-->\n> actual';
     final prefixes = composerBlockquotePrefixes(source);
-    expect(prefixes.map((range) => range.start), [source.lastIndexOf('> actual')]);
+    expect(prefixes.map((range) => range.start), [
+      source.lastIndexOf('> actual'),
+    ]);
     final value = _value('<!--\n|> literal\n-->');
     expect(composerBlockquoteArrowOffset(value, forward: true), isNull);
   });

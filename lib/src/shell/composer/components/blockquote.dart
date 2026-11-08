@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../../../theme/app_theme.dart';
 import '../../quote_panel.dart';
+import '../html_comments.dart';
 import '../markdown_highlight.dart';
 import '../text_scaling.dart';
 
@@ -22,10 +23,14 @@ List<TextRange> composerBlockquotePrefixes(
 }) {
   final matches = _prefix.allMatches(source).toList();
   if (matches.isEmpty) return const [];
-  final code = knownCodeRanges ?? markdownCodeRanges(source);
+  final literals = ComposerLiteralContainers(source);
+  final code = literals.isEmpty
+      ? knownCodeRanges ?? markdownCodeRanges(source)
+      : markdownCodeRanges(literals.mask(source));
   return [
     for (final match in matches)
-      if (!code.overlaps(match.start, match.end))
+      if (!literals.contains(match.start) &&
+          !code.overlaps(match.start, match.end))
         TextRange(start: match.start, end: match.end),
   ];
 }

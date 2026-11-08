@@ -15,7 +15,8 @@ void main() {
     expect(
       postPlainText(
         _post(
-          raw: 'Read [Dart](https://en.wikipedia.org/wiki/Dart_(programming_language)) today.',
+          raw:
+              'Read [Dart](https://en.wikipedia.org/wiki/Dart_(programming_language)) today.',
         ),
       ),
       'Read Dart today.',

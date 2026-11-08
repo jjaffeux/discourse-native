@@ -272,6 +272,20 @@ Map<int, int> _markdownLabelEnds(
 }
 
 int? _markdownLinkDestinationEnd(String source, int start, int limit) {
+  if (start < limit && source.codeUnitAt(start) == 0x3C) {
+    var at = start + 1;
+    while (at < limit) {
+      final unit = source.codeUnitAt(at);
+      if (unit == 0x0A || unit == 0x0D || unit == 0x3C) return null;
+      if (unit == 0x3E) {
+        return at + 1 < limit && source.codeUnitAt(at + 1) == 0x29
+            ? at + 2
+            : null;
+      }
+      at += unit == 0x5C && at + 1 < limit ? 2 : 1;
+    }
+    return null;
+  }
   var close = start;
   var nesting = 0;
   while (close < limit) {
