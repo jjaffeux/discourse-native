@@ -9,6 +9,7 @@ import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
+import 'package:discourse_native/src/plugins/chat/chat_browse_skeleton.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
@@ -68,6 +69,7 @@ ChatChannel _channel(int id, String name, {int unread = 0}) => ChatChannel(
 );
 
 void main() {
+  _inboxStateGuards();
   setUpAll(() async {
     await (FontLoader(
       'Open Sans',
@@ -1418,6 +1420,88 @@ Future<void> _capture(WidgetTester tester, String name) async {
   });
 }
 
+void _inboxStateGuards() {
+  testWidgets('the phone inbox follows its load state', (tester) async {
+    final firstLoad = Completer<void>();
+    addTearDown(() {
+      if (!firstLoad.isCompleted) firstLoad.complete();
+    });
+    final fixture = await _pump(
+      tester,
+      platform: TargetPlatform.iOS,
+      size: const Size(430, 932),
+      firstLoadGate: firstLoad,
+    );
+    final api = fixture.api;
+    final loading = fixture.chat.loadChannels(_site);
+    await tester.pump();
+    expect(find.byType(ChatBrowseSkeleton), findsOneWidget);
+
+    api.chatChannelsBySite[_site] = const ChatChannels();
+    firstLoad.complete();
+    await loading;
+    api.channelsGate = null;
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatBrowseSkeleton), findsNothing);
+    expect(find.text('No conversations yet.'), findsOneWidget);
+
+    api.chatChannelsBySite.remove(_site);
+    await fixture.chat.loadChannels(_site, force: true);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatInboxError), findsOneWidget);
+
+    api.chatChannelsBySite[_site] = const ChatChannels();
+    final gate = Completer<void>();
+    addTearDown(() {
+      if (!gate.isCompleted) gate.complete();
+    });
+    api.channelsGate = gate;
+    final refreshing = fixture.chat.loadChannels(_site, force: true);
+    await tester.pump();
+    expect(fixture.chat.channelsLoading(_site), isTrue);
+    expect(
+      tester.widget<DPullToRefresh>(find.byType(DPullToRefresh)).onRefresh,
+      isNull,
+    );
+    gate.complete();
+    await refreshing;
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<DPullToRefresh>(find.byType(DPullToRefresh)).onRefresh,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets('voice rooms that leave with the shell leave the phone inbox', (
+    tester,
+  ) async {
+    final fixture = await _pump(
+      tester,
+      platform: TargetPlatform.iOS,
+      size: const Size(430, 932),
+    );
+    final rooms = _CreatingRooms();
+    addTearDown(rooms.dispose);
+    addTearDown(fixture.rooms.attach(rooms));
+    await fixture.show(const ChatMobileSidebar(siteUrl: _site));
+    await tester.pumpAndSettle();
+    expect(find.text('Watercooler'), findsOneWidget);
+    expect(find.text('New voice room'), findsOneWidget);
+
+    // Availability follows the connection, which only the shell announces.
+    rooms.online = false;
+    PluginUiScope.require(
+      tester.element(find.byType(ChatInboxFilterBar)),
+      chatShellService,
+    ).openMyThreads();
+    await tester.pumpAndSettle();
+    expect(find.text('Watercooler'), findsNothing);
+    expect(find.text('New voice room'), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+}
+
 class _Fixture {
   _Fixture(this.shell, this.chat, this.rooms, this.api, this.show);
   final ShellController shell;
@@ -1433,6 +1517,7 @@ Future<_Fixture> _pump(
   TargetPlatform platform = TargetPlatform.macOS,
   EdgeInsets safeArea = EdgeInsets.zero,
   TextScaler textScaler = TextScaler.noScaling,
+  Completer<void>? firstLoadGate,
 }) async {
   await tester.binding.setSurfaceSize(size);
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1451,6 +1536,10 @@ Future<_Fixture> _pump(
     _channel(1, 'general', unread: 1),
     _channel(2, 'workshop', unread: 3),
   ];
+  // The skeleton shimmers for as long as the first load is held open.
+  Future<void> settle() => firstLoadGate == null
+      ? tester.pumpAndSettle()
+      : tester.pump(const Duration(milliseconds: 100));
   final api = _GatedApi(
     user: _user,
     totals: chatNotificationTotals(),
@@ -1485,6 +1574,7 @@ Future<_Fixture> _pump(
         ),
     },
   );
+  api.channelsGate = firstLoadGate;
   final shell = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
@@ -1539,14 +1629,14 @@ Future<_Fixture> _pump(
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await settle();
   }
 
   await show(null);
   final chat = PluginUiScope.require(scope, chatControllerService);
-  await chat.loadChannels(_site);
+  if (firstLoadGate == null) await chat.loadChannels(_site);
   PluginUiScope.require(scope, chatShellService).openChats();
-  await tester.pumpAndSettle();
+  await settle();
   return _Fixture(
     shell,
     chat,
@@ -1559,27 +1649,36 @@ Future<_Fixture> _pump(
 class _Rooms extends ChangeNotifier implements ChatInboxRoomProvider {
   int opened = 0;
   int people = 3;
+  bool online = true;
   @override
-  bool available(String siteUrl) => true;
+  bool available(String siteUrl) => online;
   @override
   List<ChatInboxRoom> rooms(String siteUrl) => [
-    ChatInboxRoom(
-      id: 1,
-      name: 'Watercooler',
-      people: people,
-      open: (_) async {
-        opened++;
-      },
-    ),
-    ChatInboxRoom(
-      id: 2,
-      name: 'Quiet room',
-      people: 0,
-      open: (_) async {
-        opened++;
-      },
-    ),
+    if (online) ...[
+      ChatInboxRoom(
+        id: 1,
+        name: 'Watercooler',
+        people: people,
+        open: (_) async {
+          opened++;
+        },
+      ),
+      ChatInboxRoom(
+        id: 2,
+        name: 'Quiet room',
+        people: 0,
+        open: (_) async {
+          opened++;
+        },
+      ),
+    ],
   ];
+}
+
+class _CreatingRooms extends _Rooms implements ChatInboxRoomCreator {
+  @override
+  Future<void> Function(BuildContext context)? createRoom(String siteUrl) =>
+      online ? (_) async {} : null;
 }
 
 class _GatedApi extends FakeDiscourseApi {
