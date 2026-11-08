@@ -111,9 +111,11 @@ void main() {
         }
 
         final saving = composer.flushDraft();
-        for (var attempt = 0;
-            attempt < 20 && api.draftsSaved.isEmpty;
-            attempt++) {
+        for (
+          var attempt = 0;
+          attempt < 20 && api.draftsSaved.isEmpty;
+          attempt++
+        ) {
           await tester.pump(const Duration(milliseconds: 1));
         }
         expect(api.draftsSaved, hasLength(1));
