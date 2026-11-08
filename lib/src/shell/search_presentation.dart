@@ -3,10 +3,10 @@ import 'package:flutter/services.dart';
 import '../data/site_lifecycle.dart';
 import '../models/content_route.dart';
 import '../models/search_results.dart';
+import '../plugin_api/global_search_filters.dart';
+import '../plugin_api/global_search_models.dart';
 import 'content_page_contract.dart';
 import 'global_search_controller.dart';
-import 'global_search_filters.dart';
-import 'global_search_models.dart';
 import 'shell_search_controller.dart';
 
 enum SearchPresentationPhase { closed, open, leaving }

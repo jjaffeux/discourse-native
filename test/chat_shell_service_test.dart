@@ -20,6 +20,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
+import 'package:discourse_native/src/shell/composer/plugin_composer_host.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';

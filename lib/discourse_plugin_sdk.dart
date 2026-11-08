@@ -124,12 +124,16 @@ export 'src/plugin_api/composer_syntax.dart';
 export 'src/plugin_api/core_link_projection.dart';
 export 'src/plugin_api/core_plugin_host.dart';
 export 'src/plugin_api/global_search.dart';
+export 'src/plugin_api/global_search_models.dart'
+    show GlobalSearchCondition, GlobalSearchContext;
 export 'src/plugin_api/hashtag_kind.dart';
 export 'src/plugin_api/notification_feed_host.dart';
 export 'src/plugin_api/notification_types.dart';
 export 'src/plugin_api/plugin_manifest.dart';
 export 'src/plugin_api/plugin_runtime.dart';
 export 'src/plugin_api/plugin_scope.dart';
+export 'src/plugin_api/post_action.dart'
+    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/plugin_api/reaction_presentation.dart';
 export 'src/plugin_api/shell_extensions.dart';
 export 'src/plugin_api/site_plugin_api.dart';
@@ -176,6 +180,7 @@ export 'src/shell/composer/markdown_highlight.dart'
         sharedMarkdownScan;
 export 'src/shell/composer/marks.dart' show ComposerMark;
 export 'src/shell/composer/panel.dart' show ComposerEditor, ComposerUploadQueue;
+export 'src/shell/composer/plugin_composer_host.dart';
 export 'src/shell/composer/slash_menu.dart' show ComposerSlashAction;
 export 'src/shell/composer/upload_picker.dart'
     show
@@ -202,8 +207,6 @@ export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
 export 'src/shell/forum_search.dart' show ForumSearch;
 export 'src/shell/forum_theme_surfaces.dart' show ForumWindowBackground;
-export 'src/shell/global_search_models.dart'
-    show GlobalSearchCondition, GlobalSearchContext;
 export 'src/shell/group_flair.dart' show GroupFlairBadge;
 export 'src/shell/header_notification_button.dart'
     show headerNotificationButton;
@@ -234,8 +237,7 @@ export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
-export 'src/shell/post_action.dart'
-    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
+export 'src/shell/post_action_leading.dart' show PostActionLeading;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/progressive_html_mode.dart'

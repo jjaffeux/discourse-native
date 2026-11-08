@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../models/user_directory.dart';
-import 'global_search_models.dart';
+import '../plugin_api/global_search_models.dart';
 import 'recent_search_history.dart';
 
 enum SearchFocusMode { global, contextual }

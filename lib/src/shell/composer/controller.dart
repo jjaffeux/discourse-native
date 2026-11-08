@@ -20,6 +20,7 @@ import '../../models/site_config.dart';
 import '../../models/site_emoji.dart';
 import '../../models/topic_tag.dart';
 import '../../plugin_api/composer_syntax.dart';
+import '../../plugin_api/composer_target.dart';
 import '../../plugin_api/hashtag_kind.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
@@ -36,11 +37,10 @@ import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
 import 'pills.dart';
-import 'target.dart';
 import 'triggers.dart';
 import 'upload_preview.dart';
 
-export 'target.dart';
+export '../../plugin_api/composer_target.dart';
 
 part 'upload_transactions.dart';
 

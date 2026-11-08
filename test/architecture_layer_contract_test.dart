@@ -36,23 +36,14 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('data', 'shell'): {},
   ('data', 'styleguide'): {},
   ('data', 'plugins'): {},
-  ('plugin_api', 'shell'): {
-    'lib/src/plugin_api/core_plugin_host.dart -> lib/src/shell/composer/controller.dart',
-    'lib/src/plugin_api/global_search.dart -> lib/src/shell/global_search_filters.dart',
-    'lib/src/plugin_api/global_search.dart -> lib/src/shell/global_search_models.dart',
-    'lib/src/plugin_api/plugin_registry.dart -> lib/src/shell/composer/controller.dart',
-    'lib/src/plugin_api/plugin_registry.dart -> lib/src/shell/post_action.dart',
-    'lib/src/plugin_api/site_plugin_api.dart -> lib/src/shell/composer/controller.dart',
-    'lib/src/plugin_api/site_plugin_api.dart -> lib/src/shell/global_search_models.dart',
-    'lib/src/plugin_api/site_plugin_api.dart -> lib/src/shell/post_action.dart',
-  },
+  ('plugin_api', 'shell'): {},
   ('plugin_api', 'styleguide'): {},
   ('plugin_api', 'plugins'): {},
   ('shell', 'styleguide'): {},
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 194;
+const _largestImportCycle = 178;
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
@@ -61,6 +52,7 @@ const Map<String, Set<String>> _unreachableFromLayer = {
   'models': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
   'ui': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
+  'plugin_api': {'shell', 'styleguide', 'plugins'},
   'shell': {'styleguide', 'plugins'},
 };
 

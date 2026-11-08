@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';

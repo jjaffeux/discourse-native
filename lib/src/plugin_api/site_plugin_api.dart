@@ -19,13 +19,13 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../shell/composer/controller.dart';
-import '../shell/global_search_models.dart';
-import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
 import 'composer_syntax.dart';
+import 'composer_target.dart';
+import 'global_search_models.dart';
 import 'notification_feed_host.dart';
 import 'notification_types.dart';
+import 'post_action.dart';
 
 export '../data/live_channels.dart';
 export '../models/composer_metadata.dart';

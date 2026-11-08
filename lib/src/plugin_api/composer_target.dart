@@ -3,10 +3,10 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
-import '../../models/composer_draft.dart';
-import '../../models/composer_upload.dart';
-import '../../models/emoji_usage.dart';
-import '../../models/topic_tag.dart';
+import '../models/composer_draft.dart';
+import '../models/composer_upload.dart';
+import '../models/emoji_usage.dart';
+import '../models/topic_tag.dart';
 
 enum ComposerMode {
   reply,

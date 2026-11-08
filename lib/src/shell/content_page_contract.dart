@@ -1,5 +1,5 @@
 import '../models/content_route.dart';
-import 'global_search_models.dart';
+import '../plugin_api/global_search_models.dart';
 
 enum PageLoad {
   feed,

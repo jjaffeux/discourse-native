@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/recent_search_store.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:discourse_native/src/shell/recent_search_history.dart';
 import 'package:discourse_native/src/shell/shell_search_controller.dart';
 import 'package:flutter_test/flutter_test.dart';

@@ -3,11 +3,11 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/plugin_api/global_search_filters.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
-import 'package:discourse_native/src/shell/global_search_filters.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
