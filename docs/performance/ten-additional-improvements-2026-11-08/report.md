@@ -140,6 +140,15 @@ passed. The full test suite was not run, following `AGENTS.md`.
 Independent review inspected the owning callers, source invariants, normal-size
 diagnostics, cache bounds and final release measurements.
 
+Main advanced concurrently to `5118a7465` before landing. The conflict-free
+combined tree `5c3bae4b78bfdbd48626bc866848ba86d6145794` passed **455 tests** in
+the same fourteen files and focused analysis of the overlapping API and search
+files. Independent integration review verified that the category-search change
+and tag sort occupy separate methods and that shared authentication still
+replaces immutable request identities. See [integrated tests](integrated-tests.txt.gz)
+and [integrated analysis](integrated-analysis.txt). Release numbers above remain
+the controlled baseline-versus-performance-branch comparison.
+
 Run the added behavior/work-budget checks with:
 
 ```sh
