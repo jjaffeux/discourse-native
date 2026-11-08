@@ -7,15 +7,19 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_model_codec.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/emoji_preferences.dart';
 import 'package:discourse_native/src/models/emoji_usage.dart';
+import 'package:discourse_native/src/models/incoming_topics.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
+import 'package:discourse_native/src/shell/topic_feed_controller.dart';
 import 'package:discourse_native/src/theme/d_icons.dart';
 
 Future<Map<String, int>> measureRoundThreeServicePerformance() async {
@@ -74,6 +78,19 @@ Future<Map<String, int>> measureRoundThreeServicePerformance() async {
           ).check();
         },
       );
+    }
+  }
+  for (final (count, overlap) in [(30, true), (300, true), (300, false)]) {
+    final fixture = RoundThreeFeedFixture(count, overlap: overlap);
+    try {
+      await fixture.prepare();
+      await measure(
+        'feed_prepend_${count}_${overlap ? 'overlap' : 'new'}',
+        overlap ? 1000 : 100,
+        fixture.checkIncoming,
+      );
+    } finally {
+      fixture.controller.dispose();
     }
   }
   return times;
@@ -259,13 +276,14 @@ final class RoundThreeTopicPageFixture {
           session.removePost(7, 2);
         });
       }
+      for (var i = 1; i < removals; i++) {
+        session.removePost(7, 20000 + i);
+      }
       final loading = gap
           ? session.expandGap(7, anchorPostId: 1, before: false)
           : session.pageMega(detail, post(1), newer: true);
       await api.started.future;
-      for (var i = 0; i < removals; i++) {
-        session.removePost(7, 20000 + i);
-      }
+      if (removals > 0) session.removePost(7, 20000);
       api.response.complete([for (var i = 2; i <= 21; i++) post(i)]);
       await loading;
       final merged = store.read<TopicDetail>(site, 7)!;
@@ -349,6 +367,126 @@ final class _RoundThreeBookmarks implements BookmarkReadProjection {
   Topic prepareRow(Topic incoming, int? versionAtDispatch) => incoming;
   @override
   Topic projectTopicRow(Topic incoming) => incoming;
+}
+
+final class RoundThreeFeedFixture {
+  RoundThreeFeedFixture(this.count, {required this.overlap}) {
+    _api = _RoundThreeFeedApi(count);
+    expected = [for (var id = 1; id <= count; id++) id];
+    expectedRows = count;
+    controller = TopicFeedController(
+      api: _api,
+      credentials: const RoundThreeCredentials(),
+      lifecycle: SiteLifecycle(),
+      store: Store(),
+    );
+  }
+  static const site = DiscourseInstance(
+    url: 'https://feed.example',
+    title: 'Feed',
+    user: DiscourseUser(username: 'reader'),
+  );
+  static const destination = 'latest';
+  final int count;
+  final bool overlap;
+  late final _RoundThreeFeedApi _api;
+  late final TopicFeedController controller;
+  late List<int> expected;
+  late int expectedRows;
+  var turn = 0;
+
+  Future<void> prepare() async {
+    await controller.load(
+      instance: site,
+      destinationId: destination,
+      path: '/latest.json',
+      incoming: null,
+    );
+    for (
+      var page = 0;
+      controller.feedFor(site.url, destination)!.hasMore;
+      page++
+    ) {
+      if (page > 20) throw StateError('Initial feed never finished loading');
+      await controller.loadMore(instance: site, destinationId: destination);
+    }
+    _check();
+  }
+
+  Future<void> checkIncoming() async {
+    final size = count == 30 ? 10 : 30;
+    final start = overlap
+        ? count - size * (turn.isEven ? 1 : 2) + 1
+        : count + turn * size + 1;
+    final arrivals = [for (var i = 0; i < size; i++) start + i];
+    turn++;
+    final present = arrivals.toSet();
+    expectedRows += arrivals.length - expected.where(present.contains).length;
+    expected = [...arrivals, ...expected.where((id) => !present.contains(id))];
+    _api.arrivals = arrivals;
+    final incoming = IncomingTopics();
+    for (final id in arrivals) {
+      incoming.notify({'message_type': 'new_topic', 'topic_id': id});
+    }
+    await controller.showIncoming(
+      instance: site,
+      destinationId: destination,
+      path: '/latest.json',
+      incoming: incoming,
+    );
+    if (incoming.count(destination) != 0) {
+      throw StateError('Incoming topics were not consumed');
+    }
+    _check();
+  }
+
+  void _check() {
+    final feed = controller.feedFor(site.url, destination)!;
+    final retained = expected.length < 300 ? expected.length : 300;
+    if (feed.error != null ||
+        feed.rowCount != expectedRows ||
+        feed.topicIds.length != retained) {
+      throw StateError('Retained feed row count changed');
+    }
+    for (final row in feed.topicRows) {
+      if (feed.topicIdAt(row) != expected[row]) {
+        throw StateError(
+          'Retained feed ordering changed at $row: expected ${expected[row]}, got ${feed.topicIdAt(row)}; count=$count overlap=$overlap turn=$turn rows=${feed.topicRows}',
+        );
+      }
+    }
+  }
+}
+
+final class _RoundThreeFeedApi implements TopicFeedsApi {
+  _RoundThreeFeedApi(this.count);
+  final int count;
+  List<int> arrivals = const [];
+  @override
+  Future<TopicList> topicList({
+    required String siteUrl,
+    required String path,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    final arriving = uri.queryParameters.containsKey('topic_ids');
+    final start = uri.path == '/latest.json'
+        ? 0
+        : int.parse(uri.pathSegments.last.split('.').first);
+    final end = start + 30 < count ? start + 30 : count;
+    final ids = arriving ? arrivals : [for (var i = start; i < end; i++) i + 1];
+    return TopicList(
+      topics: [
+        for (final id in ids)
+          Topic(id: id, title: 'Topic $id', slug: 'topic-$id'),
+      ],
+      moreTopicsUrl: !arriving && end < count ? '/cursor/$end.json' : null,
+    );
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 final class RoundThreeBookmarkFixture {

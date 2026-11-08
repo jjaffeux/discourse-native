@@ -11,6 +11,23 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'retained feed prepends keep dense row positions with and without overlaps',
+    () async {
+      for (final (count, overlap) in [(30, true), (300, true), (300, false)]) {
+        final fixture = RoundThreeFeedFixture(count, overlap: overlap);
+        try {
+          await fixture.prepare();
+          for (var page = 0; page < 20; page++) {
+            await fixture.checkIncoming();
+          }
+        } finally {
+          fixture.controller.dispose();
+        }
+      }
+    },
+  );
+
+  test(
     'page publication retains removals made during a load or publication',
     () async {
       for (final gap in [false, true]) {

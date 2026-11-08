@@ -52,6 +52,21 @@ typedef _CursorCheckpoint = ({
   _PageShape? shape,
 });
 
+int _removedRowRank(List<int> removed, int row, {bool inclusive = false}) {
+  var first = 0;
+  var end = removed.length;
+  while (first < end) {
+    final middle = first + ((end - first) >> 1);
+    final value = removed[middle];
+    if (value < row || (inclusive && value == row)) {
+      first = middle + 1;
+    } else {
+      end = middle;
+    }
+  }
+  return first;
+}
+
 final class _PageShape {
   _PageShape(List<int> ids, Set<int> seen)
     : indices = [
@@ -204,7 +219,8 @@ final class _FeedWindow {
     if (removed.any(rows.containsKey)) {
       throw StateError('The duplicate topic slot changed. Refresh the list.');
     }
-    int shifted(int row) => row - removed.where((old) => old < row).length;
+    final sorted = removed.toList()..sort();
+    int shifted(int row) => row - _removedRowRank(sorted, row);
     final oldRows = rows.entries.toList();
     rows.clear();
     for (final entry in oldRows) {
@@ -224,7 +240,7 @@ final class _FeedWindow {
         first: shifted(entry.value.first),
         last:
             entry.value.last -
-            removed.where((old) => old <= entry.value.last).length,
+            _removedRowRank(sorted, entry.value.last, inclusive: true),
       );
     }
     return totalRows - removed.length;
@@ -235,9 +251,9 @@ final class _FeedWindow {
     final removed = [
       for (final entry in rows.entries)
         if (arrived.contains(entry.value)) entry.key,
-    ];
-    int shifted(int row) =>
-        row + ids.length - removed.where((old) => old < row).length;
+    ]..sort();
+    final removedRows = removed.toSet();
+    int shifted(int row) => row + ids.length - _removedRowRank(removed, row);
     final oldRows = rows.entries.toList();
     rows.clear();
     for (final entry in oldRows) {
@@ -251,7 +267,7 @@ final class _FeedWindow {
         row: shifted(checkpoint.row),
         path: checkpoint.path,
         resumePath: checkpoint.resumePath,
-        shape: checkpoint.shape?.removingRows(checkpoint.row, removed.toSet()),
+        shape: checkpoint.shape?.removingRows(checkpoint.row, removedRows),
       );
     }
     for (final entry in viewports.entries.toList()) {
@@ -260,7 +276,7 @@ final class _FeedWindow {
         last:
             entry.value.last +
             ids.length -
-            removed.where((old) => old <= entry.value.last).length,
+            _removedRowRank(removed, entry.value.last, inclusive: true),
       );
     }
     put(0, ids, maximum);
