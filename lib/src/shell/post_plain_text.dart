@@ -74,18 +74,16 @@ String _unmark(String markup) {
   // Links are handled here; the formatting scan need not rediscover bracket
   // pairs. Mask them without moving offsets, including on malformed markup.
   late final code = markdownCodeRanges(markup.replaceAll(_brackets, '.'));
-  final replacements = <({int start, int end, String text})>[
+  final removals = <({int start, int end})>[
     for (final token in composerMarkdownLinkCandidates(
       markup,
       excludesBracket: code.contains,
       overlapsCode: code.overlaps,
     ).values)
-      if (!code.overlaps(token.labelStart - 1, token.tokenEnd))
-        (
-          start: token.labelStart - 1,
-          end: token.tokenEnd,
-          text: markup.substring(token.labelStart, token.labelEnd),
-        ),
+      if (!code.overlaps(token.labelStart - 1, token.tokenEnd)) ...[
+        (start: token.labelStart - 1, end: token.labelStart),
+        (start: token.labelEnd, end: token.tokenEnd),
+      ],
   ];
   for (final match in _previewMarkup.allMatches(markup)) {
     if (code.overlaps(match.start, match.end)) continue;
@@ -94,17 +92,16 @@ String _unmark(String markup) {
       slashes++;
     }
     if (slashes.isEven) {
-      replacements.add((start: match.start, end: match.end, text: ''));
+      removals.add((start: match.start, end: match.end));
     }
   }
-  replacements.sort((a, b) => a.start.compareTo(b.start));
+  removals.sort((a, b) => a.start.compareTo(b.start));
   final unmarked = StringBuffer();
   var offset = 0;
-  for (final replacement in replacements) {
-    if (replacement.start < offset) continue;
-    unmarked.write(markup.substring(offset, replacement.start));
-    unmarked.write(replacement.text);
-    offset = replacement.end;
+  for (final removal in removals) {
+    if (removal.start < offset) continue;
+    unmarked.write(markup.substring(offset, removal.start));
+    offset = removal.end;
   }
   unmarked.write(markup.substring(offset));
   final source = unmarked.toString();

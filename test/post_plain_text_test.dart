@@ -11,6 +11,13 @@ Post _post({String cooked = '', String? raw}) => Post.fromJson({
 }, 'https://meta.example');
 
 void main() {
+  test('raw previews remove formatting inside link labels', () {
+    expect(
+      postPlainText(_post(raw: '[A [b]bold[/b] link](https://example.com)')),
+      'A bold link',
+    );
+  });
+
   test('regression nov8: raw previews retain labels of balanced links', () {
     expect(
       postPlainText(
