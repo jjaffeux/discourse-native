@@ -160,19 +160,13 @@ final class SearchPresentation {
     }
     _openingExpression = source.expression;
     final route = source.route;
-    final preferred = route == null
-        ? null
-        : ContentPageContract.resolve(route).searchScope ??
-              global.scopes
-                  .where(
-                    (scope) =>
-                        route.destination is ExtensionDestination &&
-                        !scope.isCore &&
-                        route.id.startsWith(scope.owner),
-                  )
-                  .firstOrNull;
     global.setPageContext(
-      preferredScope: preferred,
+      preferredScope: route == null
+          ? null
+          : ContentPageContract.resolve(route).searchScope,
+      extensionRouteId: route?.destination is ExtensionDestination
+          ? route!.id
+          : null,
       topicId: route?.topicId,
       topicTitle: route?.title,
     );

@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/global_search_panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -141,9 +142,88 @@ void main() {
       expect(_input(tester).text, isEmpty);
     });
   });
+
+  group('capability discovery', () {
+    testWidgets('waits for the first open and asks once per forum session', (
+      tester,
+    ) async {
+      final api = GlobalSearchFixtureApi();
+      final shell = createGlobalSearchFixtureController(api: api);
+      addTearDown(shell.dispose);
+      await shell.load();
+      await _pumpSearch(tester, shell, const ForumSearch());
+      await tester.pumpAndSettle();
+      final startup = _discoveryReads(api);
+
+      shell.selectInstance(1);
+      await tester.pumpAndSettle();
+      shell.selectInstance(0);
+      await tester.pumpAndSettle();
+      final forumSwitch = _discoveryReads(api) - startup;
+
+      shell.search.requestFocus();
+      await tester.pumpAndSettle();
+      final firstOpen = _discoveryReads(api) - startup - forumSwitch;
+
+      shell.search.closePanel();
+      await tester.pumpAndSettle();
+      shell.search.requestFocus();
+      await tester.pumpAndSettle();
+      final secondOpen =
+          _discoveryReads(api) - startup - forumSwitch - firstOpen;
+
+      _proof('startup_discovery_reads', startup);
+      _proof('forum_switch_discovery_reads', forumSwitch);
+      _proof('first_open_discovery_reads', firstOpen);
+      _proof('second_open_discovery_reads', secondOpen);
+      expect([startup, forumSwitch, firstOpen, secondOpen], [0, 0, 3, 0]);
+    });
+
+    testWidgets('offers plugin scopes once the first open is answered', (
+      tester,
+    ) async {
+      final shell = createGlobalSearchFixtureController();
+      addTearDown(shell.dispose);
+      await shell.load();
+      await _pumpSearch(tester, shell, const ForumSearch());
+      await tester.pumpAndSettle();
+
+      shell.search.requestFocus();
+      await tester.pumpAndSettle();
+
+      expect(shell.globalSearch.scopes, contains(chatSearchScope));
+      expect(find.text(chatSearchScope.label), findsOneWidget);
+    });
+
+    testWidgets('runs for a search page that opened without a field', (
+      tester,
+    ) async {
+      final api = GlobalSearchFixtureApi();
+      final shell = createGlobalSearchFixtureController(api: api);
+      addTearDown(shell.dispose);
+      await shell.load();
+      shell.pushContent(ContentRoute.search());
+
+      await _pumpSearch(tester, shell, const ForumSearch.page());
+      await tester.pumpAndSettle();
+
+      expect(_discoveryReads(api), 3);
+      expect(shell.globalSearch.scopes, contains(chatSearchScope));
+    });
+  });
 }
 
 const _clearKey = ValueKey('forum-search-clear');
+
+int _discoveryReads(GlobalSearchFixtureApi api) => api.requests
+    .where(
+      (request) => const {
+        '/site/settings.json',
+        '/session/current.json',
+        '/directory-columns.json',
+      }.contains(request.uri.path),
+    )
+    .length;
 
 TextEditingController _input(WidgetTester tester) => tester
     .widget<EditableText>(

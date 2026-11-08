@@ -262,6 +262,9 @@ class _ForumSearchState extends State<ForumSearch> {
               contributions: shell.plugins.registry.searchContributions,
             ),
     );
+    // A closed field parses its list's expression, which may name a filter
+    // only discovery can enable.
+    if (_open || _listExpression.isNotEmpty) _global.ensureCapabilities();
   }
 
   void _siteChanged() {
@@ -463,6 +466,7 @@ class _ForumSearchState extends State<ForumSearch> {
     final editingValue = _text.value;
     setState(() => _presentation.surfaceChanged(open, editingValue));
     if (open) {
+      _global.ensureCapabilities();
       _syncText();
       if (_presentation.restoredDraft case final draft?) {
         _text.value = draft;
