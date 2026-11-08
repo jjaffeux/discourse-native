@@ -1,0 +1,29 @@
+{
+ "unit": "tool/topic_row_cost.py on the same fixture; retained KB (1000 bytes) per shown row, three alternating runs per side",
+ "before": {
+  "retained_kb_per_shown_row": [
+   1558.2,
+   1559.3,
+   1559.0
+  ],
+  "median": 1559.0
+ },
+ "after": {
+  "retained_kb_per_shown_row": [
+   1524.6,
+   1524.6,
+   1524.6
+  ],
+  "median": 1524.6
+ },
+ "render_objects_per_row": {
+  "before": 343.1,
+  "after": 330.4
+ },
+ "elements_per_row": {
+  "before": 831.4,
+  "after": 815.5
+ },
+ "rows": 17,
+ "shownRows": 16
+}
