@@ -1988,15 +1988,25 @@ class _StreamState extends State<ChatMessageStream>
       revealOnlyAtEnd: true,
       child: DScrollFadeScope(
         bottomExtent: context.isTouch ? _composerFadeExtent : 0,
-        topInset: header == null ? null : () => header.visibleExtent,
+        topInset: header == null ? null : _fadeTopInset,
         bottomInset: context.isTouch && header != null
-            ? () => math.max(0, header.footerExtent - DComposerDock.topInset)
+            ? _fadeBottomInset
             : null,
         repaint: header,
         child: content,
       ),
     );
   }
+
+  // Tear-offs of these compare equal across builds. A fresh closure on every
+  // stream publish would notify the fade scope, replacing the list's
+  // ScrollPosition and rebuilding each row that reads it.
+  double _fadeTopInset() => _headerGeometry?.visibleExtent ?? 0;
+
+  double _fadeBottomInset() => math.max(
+    0,
+    (_headerGeometry?.footerExtent ?? 0) - DComposerDock.topInset,
+  );
 
   void _scheduleOlderPage(
     ChatController chat,

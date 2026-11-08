@@ -19,6 +19,7 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/shell/stream_day_separator.dart';
@@ -291,6 +292,128 @@ void main() {
       await tester.pump();
     }
   });
+
+  testWidgets('live arrivals keep the transcript scroll position', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController();
+    addTearDown(controller.dispose);
+
+    // Close under the fake clock even when the body fails: a close first
+    // reached from a tearDown never completes, because it waits on futures
+    // created under the fake clock, which nothing drives once the body has
+    // returned.
+    try {
+      await tester.pumpWidget(ChatScrollFixture(controller: controller));
+      await tester.pumpAndSettle();
+      final scroll = tester.state<ScrollableState>(_transcriptScrollable());
+      final position = scroll.position;
+
+      var replacements = 0;
+      for (var arrival = 1; arrival <= 10; arrival++) {
+        final before = scroll.position;
+        _deliverArrival(controller, arrival);
+        await tester.pumpAndSettle();
+        if (!identical(scroll.position, before)) replacements++;
+      }
+
+      // ignore: avoid_print
+      print('PERF_PROOF chat-arrival position_replacements=$replacements');
+      expect(replacements, 0);
+      expect(scroll.position, same(position));
+      expect(tester.takeException(), isNull);
+    } finally {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pump();
+    }
+  });
+
+  testWidgets('the transcript fade follows the page header it sits under', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final controller = await chatScrollController(count: 48);
+    addTearDown(controller.dispose);
+    final messages = [
+      for (var id = 1; id <= 48; id++)
+        controller.chat.messageRef(chatScrollSite, id).value!,
+    ];
+    final stream = GlobalKey();
+
+    Future<void> mount(String surface, double header, double footer) async {
+      await tester.pumpWidget(
+        ShellScope(
+          controller: controller,
+          child: PluginUiScope.own(
+            chatPluginId,
+            MaterialApp(
+              theme: AppTheme.light,
+              home: Scaffold(
+                body: SizedBox(
+                  width: 700,
+                  height: 500,
+                  child: DPageSurface.scrollable(
+                    key: ValueKey(surface),
+                    identity: surface,
+                    framed: false,
+                    floatingFooter: true,
+                    header: SizedBox(height: header),
+                    footer: SizedBox(height: footer),
+                    bodyBuilder: (_, _) => ChatMessageStream(
+                      key: stream,
+                      siteUrl: chatScrollSite,
+                      target: const ChatChannelTarget(9),
+                      items: buildChatStream(messages),
+                      stream: ChatStreamState(
+                        messageIds: [for (final m in messages) m.id],
+                        fetchedOnce: true,
+                        fetches: 1,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    DScrollFadeScope fade() => tester.widget<DScrollFadeScope>(
+      find
+          .ancestor(
+            of: _transcriptScrollable(),
+            matching: find.byType(DScrollFadeScope),
+          )
+          .first,
+    );
+    DPageHeaderGeometry geometry() =>
+        DPageSurface.headerGeometryOf(tester.element(find.byKey(stream)))!;
+    void expectFade({required double top, required double bottom}) {
+      expect(geometry().visibleExtent, top);
+      expect(fade().topInset!(), top);
+      expect(fade().bottomInset!(), bottom);
+      expect(fade().repaint, same(geometry()));
+    }
+
+    await mount('first', 40, 60);
+    expectFade(top: 40, bottom: 60 - DComposerDock.topInset);
+
+    await mount('first', 70, 90);
+    expectFade(top: 70, bottom: 90 - DComposerDock.topInset);
+
+    final firstGeometry = geometry();
+    await mount('second', 110, 150);
+    expect(geometry(), isNot(same(firstGeometry)));
+    expectFade(top: 110, bottom: 150 - DComposerDock.topInset);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   final richLayouts = ValueVariant({
     (width: 800.0, dark: false, directMessage: false),
@@ -1157,6 +1280,37 @@ void _expectChatFloatingMatchesFullScan(WidgetTester tester) {
     find.ancestor(of: floating, matching: find.byType(Positioned)).first,
   );
   expect(positioned.top, closeTo(offset, .1));
+}
+
+Finder _transcriptScrollable() => find.descendant(
+  of: find.byType(ChatMessageStream),
+  matching: find.byWidgetPredicate(
+    (widget) =>
+        widget is Scrollable &&
+        axisDirectionToAxis(widget.axisDirection) == Axis.vertical,
+  ),
+);
+
+/// Delivers the [ordinal]th live message after the fixture's newest, through
+/// the message bus, from an author none of the fixture's rows chain with.
+void _deliverArrival(ShellController controller, int ordinal) {
+  final chat = controller.pluginSession.require(chatControllerService);
+  final newestAt = chat.messageRef(chatScrollSite, 500).value!.createdAt!;
+  FakeSiteTracker.built
+      .lastWhere((tracker) => tracker.siteUrl == chatScrollSite)
+      .deliverPluginMessage('/chat/9', {
+        'type': 'sent',
+        'chat_message': {
+          'id': 500 + ordinal,
+          'chat_channel_id': 9,
+          'cooked': '<p>Live arrival $ordinal.</p>',
+          'created_at': newestAt
+              .add(Duration(minutes: ordinal))
+              .toUtc()
+              .toIso8601String(),
+          'user': {'id': 100 + ordinal, 'username': 'sender$ordinal'},
+        },
+      });
 }
 
 /// Scrolls outward and back so the retention window holds rows beyond the
