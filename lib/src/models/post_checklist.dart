@@ -103,7 +103,7 @@ class PostChecklistDocument {
   }
 
   String withStates(Map<int, bool> states) {
-    final copy = PostChecklistDocument(_document.outerHtml);
+    final copy = PostChecklistDocument._(_document.clone(true));
     for (final entry in states.entries) {
       if (entry.key < 0 || entry.key >= copy._boxes.length) continue;
       final box = copy._boxes[entry.key];
@@ -170,7 +170,7 @@ class PostChecklistDocument {
   }
 
   String get fingerprint {
-    final copy = PostChecklistDocument(_document.outerHtml);
+    final copy = PostChecklistDocument._(_document.clone(true));
     for (final box in copy._boxes) {
       box.attributes.remove(indexAttribute);
       box.attributes.remove('data-chk-src');

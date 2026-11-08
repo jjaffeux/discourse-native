@@ -45,18 +45,26 @@ final class ForumThemeLibrary {
   ForumThemeLibrary migrate(String site, ForumThemePreferences legacy) {
     if (forums.containsKey(site)) return this;
     final library = [...themes];
+    final byId = <String, ForumTheme>{};
+    if (legacy.customThemes.isNotEmpty) {
+      for (final theme in library) {
+        byId.putIfAbsent(theme.id, () => theme);
+      }
+    }
     var chosen = legacy.customId;
     for (final theme in legacy.customThemes) {
-      final existing = library.where((held) => held.id == theme.id).firstOrNull;
+      final existing = byId[theme.id];
       var id = theme.id;
       if (existing != null && !ForumThemeShare.matches(existing, theme)) {
         var suffix = 2;
-        while (library.any((held) => held.id == id)) {
+        while (byId.containsKey(id)) {
           id = '${theme.id}-${suffix++}';
         }
       }
-      if (!library.any((held) => held.id == id)) {
-        library.add(ForumTheme.fromJson(theme.toJson(), id: id));
+      if (!byId.containsKey(id)) {
+        final added = ForumTheme.fromJson(theme.toJson(), id: id);
+        library.add(added);
+        byId[id] = added;
       }
       if (legacy.customId == theme.id) chosen = id;
     }

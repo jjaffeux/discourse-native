@@ -201,17 +201,17 @@ final class ForumThemePreferences {
 
   static List<ForumTheme> _library(Object? raw) {
     final customs = <ForumTheme>[];
+    final ids = <String>{};
     if (raw is! List) return customs;
     for (final entry in raw) {
       if (entry is! Map<String, dynamic>) continue;
       final id = entry['id'];
-      if (id is! String ||
-          !id.startsWith('custom-') ||
-          customs.any((theme) => theme.id == id)) {
+      if (id is! String || !id.startsWith('custom-') || ids.contains(id)) {
         continue;
       }
       try {
         customs.add(ForumTheme.fromJson(entry, id: id));
+        ids.add(id);
       } on FormatException {
         // One damaged custom theme must not hide the rest of the library.
       }

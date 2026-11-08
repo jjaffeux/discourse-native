@@ -701,9 +701,11 @@ final class NestedRepliesController extends ChangeNotifier {
     for (final node in nodes)
       if (accepted.contains(node.postId)) node.postId,
   ];
-  static void _appendUnique(List<int> destination, Iterable<int> incoming) {
+  static void _appendUnique(List<int> destination, List<int> incoming) {
+    if (incoming.isEmpty) return;
+    final seen = destination.toSet();
     for (final id in incoming) {
-      if (!destination.contains(id)) destination.add(id);
+      if (seen.add(id)) destination.add(id);
     }
   }
 

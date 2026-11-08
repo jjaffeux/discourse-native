@@ -45,12 +45,32 @@ RegExp? searchWordPattern(String query) {
         );
 }
 
-bool searchWordsMatch(String query, Iterable<String> fields) =>
-    searchWords(query).every(
-      (word) => fields.any(
-        (field) => field.toLowerCase().contains(word.toLowerCase()),
-      ),
-    );
+({String query, List<String> words})? _matchingQuery;
+
+bool searchWordsMatch(String query, Iterable<String> fields) {
+  final cached = _matchingQuery;
+  final List<String> words;
+  if (cached != null && cached.query == query) {
+    words = cached.words;
+  } else {
+    words = searchWords(query).map((word) => word.toLowerCase()).toList();
+    // A tag page checks the same query against each row. Retain at most one
+    // bounded query; long pasted input must not stay alive after that page.
+    _matchingQuery = query.length <= 4096 ? (query: query, words: words) : null;
+  }
+  if (words.isEmpty) return true;
+  if (words.length == 1) {
+    final word = words.single;
+    return fields.any((field) => field.toLowerCase().contains(word));
+  }
+  final remaining = words.toSet();
+  for (final field in fields) {
+    final normalized = field.toLowerCase();
+    remaining.removeWhere(normalized.contains);
+    if (remaining.isEmpty) return true;
+  }
+  return false;
+}
 
 String searchSnippet(String text, String query) {
   final match = searchWordPattern(query)?.firstMatch(text);

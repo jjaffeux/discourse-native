@@ -53,7 +53,9 @@ final class DiscourseGetRequestKey {
       );
 
   @override
-  int get hashCode => Object.hash(
+  int get hashCode => _hashCode;
+
+  late final int _hashCode = Object.hash(
     url,
     identityHashCode(session),
     identityHashCode(authentication),

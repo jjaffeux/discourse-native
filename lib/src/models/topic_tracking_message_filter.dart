@@ -15,6 +15,7 @@ final class TopicTrackingMessageFilter {
   final DateTime Function() _clock;
   final Map<int, DateTime> _unmutedUntil = {};
   final Map<int, DateTime> _mutedUntil = {};
+  DateTime? _nextHintExpiry;
 
   bool accepts(
     Object? value, {
@@ -85,8 +86,19 @@ final class TopicTrackingMessageFilter {
 
   void _recordHint(Object? type, int? topicId) {
     final now = _clock();
-    _unmutedUntil.removeWhere((_, expiry) => !expiry.isAfter(now));
-    _mutedUntil.removeWhere((_, expiry) => !expiry.isAfter(now));
+    final nextExpiry = _nextHintExpiry;
+    if (nextExpiry != null && !nextExpiry.isAfter(now)) {
+      DateTime? earliest;
+      bool expired(int _, DateTime expiry) {
+        if (!expiry.isAfter(now)) return true;
+        if (earliest == null || expiry.isBefore(earliest!)) earliest = expiry;
+        return false;
+      }
+
+      _unmutedUntil.removeWhere(expired);
+      _mutedUntil.removeWhere(expired);
+      _nextHintExpiry = earliest;
+    }
     switch (type) {
       case 'unmuted':
         // Core targets this hint using topic, category and tag preferences.
@@ -105,7 +117,12 @@ final class TopicTrackingMessageFilter {
   void _refresh(Map<int, DateTime> hints, int? topicId, DateTime now) {
     if (topicId == null) return;
     hints.remove(topicId);
-    hints[topicId] = now.add(_hintLifetime);
+    final expiry = now.add(_hintLifetime);
+    hints[topicId] = expiry;
+    final nextExpiry = _nextHintExpiry;
+    if (nextExpiry == null || expiry.isBefore(nextExpiry)) {
+      _nextHintExpiry = expiry;
+    }
     if (hints.length > _maxHintedTopics) hints.remove(hints.keys.first);
   }
 
