@@ -4,11 +4,10 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/site_presentation_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

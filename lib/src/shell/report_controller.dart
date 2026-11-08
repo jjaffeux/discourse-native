@@ -4,8 +4,8 @@ import '../data/report_api.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/dashboard.dart';
+import '../models/preserved_json.dart';
 import '../models/report.dart';
-import '../plugin_api/preserved_json.dart';
 
 final class _ReportQuery {
   _ReportQuery(this.range, Map<String, Object?> filters)

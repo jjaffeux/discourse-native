@@ -2,11 +2,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/uri_path.dart';
-import '../plugin_api/notification_counters.dart';
-import '../plugin_api/plugin_data.dart';
 import '../theme/d_icons.dart';
 import 'discourse_user.dart';
+import 'notification_counters.dart';
 import 'notification_totals.dart';
+import 'plugin_data.dart';
 import 'sidebar.dart';
 import 'site_appearance.dart';
 import 'site_basic_info.dart';

@@ -808,7 +808,7 @@ void main() {
 
     test('keeps recommendation wire schemas with their owning codecs', () {
       final pluginData = File(
-        'lib/src/plugin_api/plugin_data.dart',
+        'lib/src/models/plugin_data.dart',
       ).readAsStringSync();
       final coreTopic = File('lib/src/models/topic.dart').readAsStringSync();
       final modelCodec = File(

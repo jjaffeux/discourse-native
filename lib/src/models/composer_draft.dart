@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/preserved_json.dart';
 import 'json.dart';
+import 'preserved_json.dart';
 import 'topic_tag.dart';
 
 @immutable

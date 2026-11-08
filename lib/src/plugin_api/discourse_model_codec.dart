@@ -2,8 +2,11 @@ import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
 import '../models/json.dart';
+import '../models/notification_counters.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
+import '../models/plugin_data.dart';
+import '../models/plugin_icon_catalog.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/sidebar_tag.dart';
@@ -12,9 +15,6 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_preferences.dart';
 import '../models/user_status.dart';
-import 'notification_counters.dart';
-import 'plugin_data.dart';
-import 'plugin_icon_catalog.dart';
 
 /// Contains only explicit worker factories, never a live codec or registry.
 final class TopicModelCodecRecipe {

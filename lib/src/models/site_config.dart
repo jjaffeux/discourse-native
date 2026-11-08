@@ -1,11 +1,11 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/plugin_data.dart';
 import 'composer_upload.dart';
 import 'homepage_option.dart';
 import 'invite.dart';
 import 'json.dart';
+import 'plugin_data.dart';
 
 @immutable
 class SiteConfig {

@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/plugin_data.dart';
 import 'discourse_instance.dart';
 import 'json.dart';
+import 'plugin_data.dart';
 import 'topic.dart';
 
 @immutable

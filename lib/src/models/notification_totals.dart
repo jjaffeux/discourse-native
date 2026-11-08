@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/notification_counters.dart';
 import 'json.dart';
+import 'notification_counters.dart';
 import 'notification_type_counts.dart';
 
 enum NotificationTotalsField {

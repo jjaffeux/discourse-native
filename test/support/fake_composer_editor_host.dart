@@ -1,5 +1,5 @@
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter/widgets.dart';
 
 final class FakeComposerEditorHost implements ComposerEditorHost {

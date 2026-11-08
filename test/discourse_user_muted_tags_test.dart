@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

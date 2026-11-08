@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/plugin_data.dart';
 import 'bookmark.dart';
 import 'json.dart';
 import 'notification_type_counts.dart';
+import 'plugin_data.dart';
 import 'sidebar_tag.dart';
 import 'user_status.dart';
 

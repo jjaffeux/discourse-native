@@ -1,6 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../plugin_api/topic_recommendation_source.dart';
+import '../models/topic_recommendation_source.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
 

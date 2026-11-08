@@ -1,7 +1,7 @@
 import '../models/discourse_user.dart';
+import '../models/plugin_data.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/discourse_model_codec.dart';
-import '../plugin_api/plugin_data.dart';
 import 'site_lifecycle.dart';
 import 'user_status_reconciler.dart';
 

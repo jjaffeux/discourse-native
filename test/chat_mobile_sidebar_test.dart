@@ -1,9 +1,9 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_inbox.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';

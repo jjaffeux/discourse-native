@@ -2,9 +2,9 @@ import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification_type_counts.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
 import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 const _site = 'https://forum.example';

@@ -3,10 +3,10 @@ import 'package:flutter/foundation.dart';
 import '../data/site_lifecycle.dart';
 import '../models/bookmark_feed.dart';
 import '../models/notification.dart';
+import '../models/notification_counters.dart';
 import '../models/notification_feed.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
-import '../plugin_api/notification_counters.dart';
 
 final class NotificationFeedSlot<T> {
   const NotificationFeedSlot._(this.empty, this._projection, this._notify);

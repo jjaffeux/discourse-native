@@ -1,5 +1,5 @@
+import 'package:discourse_native/src/models/notification_counters.dart';
 import 'package:discourse_native/src/models/notification_totals.dart';
-import 'package:discourse_native/src/plugin_api/notification_counters.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 

@@ -4,8 +4,8 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/shell/topic_read_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
