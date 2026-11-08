@@ -2,6 +2,9 @@
 
 # Desktop pane resizing
 
+For the UI-thread work of a resize since the glass rendering was retired, see
+[desktop-pane-resize-ui-thread.md](desktop-pane-resize-ui-thread.md).
+
 Investigated on October 23, 2026, against `e9496b05e` and `main` at
 `2ef563165`, on an M5 Pro Mac with a 120 Hz ultra-wide display (2560 by 1080
 points at 2x), using profile builds.

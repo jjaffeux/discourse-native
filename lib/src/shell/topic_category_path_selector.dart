@@ -46,9 +46,32 @@ class TopicCategoryPathSelector extends StatelessWidget {
   segmentBuilder;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(builder: _buildPath);
+  Widget build(BuildContext context) {
+    final resolved = _resolvePath();
+    final deeper = resolved.children[resolved.selectedId] ?? const [];
+    final levels =
+        resolved.path.length +
+        (resolved.path.isEmpty ||
+                resolved.path.length < maxCategoryNesting && deeper.isNotEmpty
+            ? 1
+            : 0);
+    return DLayoutSelector<bool>(
+      select: (context, constraints) {
+        final breakpoint = levels * _maxSegmentWidth;
+        DFitRow.reportRoomBreakpoint(context, breakpoint);
+        return DFitRow.tightOf(context) ||
+            !DControlStyle.isTouch(context) &&
+                constraints.constrainWidth(_maximumWidth(context)) < breakpoint;
+      },
+      builder: (context, short) =>
+          _buildPath(context, resolved: resolved, levels: levels, short: short),
+    );
+  }
 
-  Widget _buildPath(BuildContext context, BoxConstraints constraints) {
+  double _maximumWidth(BuildContext context) =>
+      (MediaQuery.sizeOf(context).width - 32).clamp(0.0, double.infinity);
+
+  _ResolvedPath _resolvePath() {
     final byId = {for (final category in categories) category.id: category};
     final selected = byId[selectedCategoryId];
     final path = selected == null
@@ -64,22 +87,23 @@ class TopicCategoryPathSelector extends StatelessWidget {
     for (final siblings in children.values) {
       siblings.sort(_compareCategories);
     }
-    final deeper = children[selected?.id] ?? const <TopicCategory>[];
-    final levels =
-        path.length +
-        (path.isEmpty || path.length < maxCategoryNesting && deeper.isNotEmpty
-            ? 1
-            : 0);
-    final desktop = !DControlStyle.isTouch(context);
-    final maximumWidth = (MediaQuery.sizeOf(context).width - 32).clamp(
-      0.0,
-      double.infinity,
+    return (
+      byId: byId,
+      path: path,
+      children: children,
+      selectedId: selected?.id,
     );
-    final short =
-        DFitRow.tightOf(context) ||
-        desktop &&
-            constraints.constrainWidth(maximumWidth) <
-                levels * _maxSegmentWidth;
+  }
+
+  Widget _buildPath(
+    BuildContext context, {
+    required _ResolvedPath resolved,
+    required int levels,
+    required bool short,
+  }) {
+    final (:byId, :path, :children, selectedId: _) = resolved;
+    final desktop = !DControlStyle.isTouch(context);
+    final maximumWidth = _maximumWidth(context);
 
     Widget segment(int level) {
       final category = level < path.length ? path[level] : null;
@@ -249,6 +273,13 @@ class TopicCategoryPathSelector extends StatelessWidget {
     );
   }
 }
+
+typedef _ResolvedPath = ({
+  Map<int, TopicCategory> byId,
+  List<TopicCategory> path,
+  Map<int?, List<TopicCategory>> children,
+  int? selectedId,
+});
 
 const noSubcategoriesIcon = DIconData(
   'no-subcategories',

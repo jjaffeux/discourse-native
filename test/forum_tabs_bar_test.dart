@@ -2236,6 +2236,53 @@ void main() {
       semantics.dispose();
     });
   });
+
+  testWidgets('a retained tab follows its current width at a new text size', (
+    tester,
+  ) async {
+    const badge = ValueKey('forum-tab-badge-a');
+    Widget bar(double width, double scale) => MaterialApp(
+      theme: AppTheme.light,
+      builder: (context, child) => MediaQuery(
+        data: MediaQuery.of(
+          context,
+        ).copyWith(textScaler: TextScaler.linear(scale)),
+        child: child!,
+      ),
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: width,
+            child: ForumTabsBar(
+              forumName: 'Forum',
+              items: const [
+                ForumTabItem(
+                  id: 'a',
+                  title: 'Latest',
+                  badge: SidebarBadge.count(5),
+                ),
+              ],
+              selectedId: 'a',
+              onAdd: () {},
+              onSelect: (_) {},
+              onClose: (_) {},
+              onReorder: (_, _) {},
+              onCloseOthers: (_) {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(bar(130, 1));
+    await tester.pumpWidget(bar(600, 1));
+    await tester.pumpWidget(bar(600, 1.35));
+    await tester.pump();
+
+    expect(find.byKey(badge), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _expectTabPixels(

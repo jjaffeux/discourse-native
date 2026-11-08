@@ -1,0 +1,291 @@
+{
+  "baseline@1280x942@2x": {
+    "runs": 5,
+    "sidebar": {
+      "build.meanMs": {
+        "median": 1.722213483146067,
+        "min": 1.6453670411985026,
+        "max": 1.9447453183520589
+      },
+      "build.p50Ms": {
+        "median": 1.857,
+        "min": 1.768,
+        "max": 2.046
+      },
+      "build.p95Ms": {
+        "median": 2.179,
+        "min": 1.999,
+        "max": 2.765
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 0.8421685393258423,
+        "min": 0.8081348314606743,
+        "max": 0.918670411985019
+      },
+      "raster.p50Ms": {
+        "median": 0.852,
+        "min": 0.808,
+        "max": 0.897
+      },
+      "raster.p95Ms": {
+        "median": 1.002,
+        "min": 0.946,
+        "max": 1.132
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 29.11111111111111,
+        "min": 28.647058823529413,
+        "max": 59
+      }
+    },
+    "main-panel": {
+      "build.meanMs": {
+        "median": 2.27098814229249,
+        "min": 2.184011811023622,
+        "max": 2.752539370078739
+      },
+      "build.p50Ms": {
+        "median": 2.327,
+        "min": 2.222,
+        "max": 2.716
+      },
+      "build.p95Ms": {
+        "median": 2.963,
+        "min": 2.753,
+        "max": 4.147
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 1.0130197628458502,
+        "min": 0.9640787401574795,
+        "max": 1.1402677165354336
+      },
+      "raster.p50Ms": {
+        "median": 1.037,
+        "min": 0.972,
+        "max": 1.14
+      },
+      "raster.p95Ms": {
+        "median": 1.162,
+        "min": 1.135,
+        "max": 1.628
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 29,
+        "min": 28.764705882352942,
+        "max": 59.76470588235294
+      }
+    },
+    "reader-scroll": {
+      "build.meanMs": {
+        "median": 0.24779699248120285,
+        "min": 0.20239473684210516,
+        "max": 0.28385338345864675
+      },
+      "build.p50Ms": {
+        "median": 0.211,
+        "min": 0.16,
+        "max": 0.253
+      },
+      "build.p95Ms": {
+        "median": 0.477,
+        "min": 0.449,
+        "max": 0.555
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 0.7614060150375938,
+        "min": 0.6721315789473686,
+        "max": 0.813496240601504
+      },
+      "raster.p50Ms": {
+        "median": 0.717,
+        "min": 0.602,
+        "max": 0.77
+      },
+      "raster.p95Ms": {
+        "median": 0.993,
+        "min": 0.934,
+        "max": 1.081
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 29.294117647058822,
+        "min": 28.823529411764707,
+        "max": 61.77777777777778
+      }
+    }
+  },
+  "candidate@1280x942@2x": {
+    "runs": 5,
+    "sidebar": {
+      "build.meanMs": {
+        "median": 0.9886284584980239,
+        "min": 0.9673992094861655,
+        "max": 1.2484466403162062
+      },
+      "build.p50Ms": {
+        "median": 1.01,
+        "min": 0.984,
+        "max": 1.296
+      },
+      "build.p95Ms": {
+        "median": 1.231,
+        "min": 1.198,
+        "max": 1.557
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 0.832426877470355,
+        "min": 0.8095494071146241,
+        "max": 0.9032411067193675
+      },
+      "raster.p50Ms": {
+        "median": 0.828,
+        "min": 0.813,
+        "max": 0.892
+      },
+      "raster.p95Ms": {
+        "median": 0.962,
+        "min": 0.958,
+        "max": 1.072
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 29,
+        "min": 28.529411764705884,
+        "max": 58
+      }
+    },
+    "main-panel": {
+      "build.meanMs": {
+        "median": 1.4049685039370083,
+        "min": 1.2889094488188972,
+        "max": 1.5903715415019761
+      },
+      "build.p50Ms": {
+        "median": 1.405,
+        "min": 1.279,
+        "max": 1.633
+      },
+      "build.p95Ms": {
+        "median": 1.9,
+        "min": 1.856,
+        "max": 2.048
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 0.9361456692913388,
+        "min": 0.9263976377952761,
+        "max": 1.0129683794466393
+      },
+      "raster.p50Ms": {
+        "median": 0.947,
+        "min": 0.937,
+        "max": 1.008
+      },
+      "raster.p95Ms": {
+        "median": 1.125,
+        "min": 1.058,
+        "max": 1.195
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 29.11764705882353,
+        "min": 28.647058823529413,
+        "max": 61.470588235294116
+      }
+    },
+    "reader-scroll": {
+      "build.meanMs": {
+        "median": 0.24970676691729313,
+        "min": 0.22013157894736846,
+        "max": 0.3063721804511278
+      },
+      "build.p50Ms": {
+        "median": 0.214,
+        "min": 0.166,
+        "max": 0.276
+      },
+      "build.p95Ms": {
+        "median": 0.5,
+        "min": 0.444,
+        "max": 0.55
+      },
+      "build.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "raster.meanMs": {
+        "median": 0.8452481203007515,
+        "min": 0.6874473684210526,
+        "max": 0.9007406015037593
+      },
+      "raster.p50Ms": {
+        "median": 0.798,
+        "min": 0.656,
+        "max": 0.868
+      },
+      "raster.p95Ms": {
+        "median": 1.172,
+        "min": 0.916,
+        "max": 1.241
+      },
+      "raster.over8msShare": {
+        "median": 0.0,
+        "min": 0.0,
+        "max": 0.0
+      },
+      "gpuBusyPct": {
+        "median": 30.176470588235293,
+        "min": 28.833333333333332,
+        "max": 62.529411764705884
+      }
+    }
+  },
+  "failures": []
+}

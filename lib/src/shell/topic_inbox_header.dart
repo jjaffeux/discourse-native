@@ -352,38 +352,41 @@ class _TopicHeaderToolbar extends StatelessWidget {
   final TopicInboxHeader header;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final lane = ContentReadingLane.geometryFor(
-        context,
-        availableWidth: constraints.maxWidth,
-      );
-      final padding = lane.padding.add(
-        const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
-      );
-      return ConstrainedBox(
-        key: const ValueKey('topic-content-header'),
-        constraints: const BoxConstraints(minHeight: readerHeaderHeight),
-        child: Padding(
-          padding: padding,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!ShellScope.read(context).mobileNavigationEnabled)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: TopicCloseButton(
-                    canReturnToSidebar: header.canReturnToSidebar,
-                    backToList: !header.keepTopicListOpen,
-                  ),
-                ),
-              _TopicHeaderTitle(header: header),
-            ],
+  Widget build(BuildContext context) {
+    // Only the padding follows the panel's width.
+    final content = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (!ShellScope.read(context).mobileNavigationEnabled)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 10),
+            child: TopicCloseButton(
+              canReturnToSidebar: header.canReturnToSidebar,
+              backToList: !header.keepTopicListOpen,
+            ),
           ),
-        ),
-      );
-    },
-  );
+        _TopicHeaderTitle(header: header),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final lane = ContentReadingLane.geometryFor(
+          context,
+          availableWidth: constraints.maxWidth,
+        );
+        return ConstrainedBox(
+          key: const ValueKey('topic-content-header'),
+          constraints: const BoxConstraints(minHeight: readerHeaderHeight),
+          child: Padding(
+            padding: lane.padding.add(
+              const EdgeInsetsDirectional.only(start: 16, end: 16, top: 16),
+            ),
+            child: content,
+          ),
+        );
+      },
+    );
+  }
 }
 
 class _TopicHeaderTitle extends StatelessWidget {

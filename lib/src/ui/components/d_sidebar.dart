@@ -207,6 +207,8 @@ class DSidebar extends StatefulWidget {
   }) : assert(width > 0);
   final Widget child;
   final Widget? header, footer;
+
+  /// Panel width; [double.infinity] fills the parent at whatever width it has.
   final double width;
 
   final DSidebarCollapsible collapsible;
@@ -373,6 +375,8 @@ class _DSidebarState extends State<DSidebar> {
         : icon
         ? 48.0 + 0
         : widget.width;
+    // An infinite [DSidebar.width] fills the parent at whatever width it has.
+    final pinned = hidden ? widget.width : width;
     return AnimatedContainer(
       duration: DMotion.duration(context, const Duration(milliseconds: 200)),
       curve: Curves.linear,
@@ -388,8 +392,8 @@ class _DSidebarState extends State<DSidebar> {
       ),
       child: OverflowBox(
         alignment: Alignment.centerLeft,
-        minWidth: hidden ? widget.width : width,
-        maxWidth: hidden ? widget.width : width,
+        minWidth: pinned.isFinite ? pinned : null,
+        maxWidth: pinned.isFinite ? pinned : null,
         child: ExcludeFocus(
           excluding: hidden,
           child: ExcludeSemantics(

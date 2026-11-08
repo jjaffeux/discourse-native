@@ -12,6 +12,19 @@ class TopicCardTaxonomyLayout {
     required this.stub,
     required this.remainingTags,
   });
+
+  @override
+  bool operator ==(Object other) =>
+      other is TopicCardTaxonomyLayout &&
+      other.abridged == abridged &&
+      other.leaf == leaf &&
+      other.visibleTags == visibleTags &&
+      other.stub == stub &&
+      other.remainingTags == remainingTags;
+
+  @override
+  int get hashCode =>
+      Object.hash(abridged, leaf, visibleTags, stub, remainingTags);
   final bool abridged;
   final String leaf;
   final int visibleTags;

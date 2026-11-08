@@ -265,27 +265,24 @@ class InstanceSidebar extends StatelessWidget {
       if (sidebar.siteUrl == null) {
         return ColoredBox(color: backgroundColor);
       }
-      return LayoutBuilder(
-        builder: (context, constraints) => DSidebarProvider(
-          mobileBreakpoint: 0,
-          open: true,
-          child: SafeArea(
-            top: !mobile,
-            bottom: !mobile,
-            left: false,
-            child: _SidebarPanelBody(
-              sidebar: sidebar,
-              backgroundColor: backgroundColor,
-              width: constraints.maxWidth,
-              mobile: mobile,
-              panelOwner: panelOwner,
-              onNavigate: onNavigate,
-              mobilePlaceOf: mobilePlaceOf,
-              footer: footer,
-              communityHeaderLeadingInset: communityHeaderLeadingInset,
-              sectionStore:
-                  sectionStore ?? ShellScope.read(context).sidebarSections,
-            ),
+      return DSidebarProvider(
+        mobileBreakpoint: 0,
+        open: true,
+        child: SafeArea(
+          top: !mobile,
+          bottom: !mobile,
+          left: false,
+          child: _SidebarPanelBody(
+            sidebar: sidebar,
+            backgroundColor: backgroundColor,
+            mobile: mobile,
+            panelOwner: panelOwner,
+            onNavigate: onNavigate,
+            mobilePlaceOf: mobilePlaceOf,
+            footer: footer,
+            communityHeaderLeadingInset: communityHeaderLeadingInset,
+            sectionStore:
+                sectionStore ?? ShellScope.read(context).sidebarSections,
           ),
         ),
       );
@@ -297,7 +294,6 @@ class _SidebarPanelBody extends StatefulWidget {
   const _SidebarPanelBody({
     required this.sidebar,
     required this.backgroundColor,
-    required this.width,
     required this.sectionStore,
     required this.mobile,
     required this.panelOwner,
@@ -309,7 +305,6 @@ class _SidebarPanelBody extends StatefulWidget {
 
   final _SidebarSnapshot sidebar;
   final Color backgroundColor;
-  final double width;
   final SidebarSectionStore sectionStore;
   final bool mobile;
   final String? panelOwner;
@@ -330,7 +325,6 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
   _SidebarSnapshot get sidebar => widget.sidebar;
   SidebarSectionStore get sectionStore => widget.sectionStore;
-  double get width => widget.width;
 
   bool _shortcuts = false;
   final _linkEdit = _SidebarLinkEditController();
@@ -528,7 +522,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
     return DSidebar(
       backgroundColor: widget.backgroundColor,
-      width: width,
+      width: double.infinity,
       collapsible: DSidebarCollapsible.none,
       semanticLabel: context.l10n.navigationInstancesidebar(
         (showShortcuts).toString(),

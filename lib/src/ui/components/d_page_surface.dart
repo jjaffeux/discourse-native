@@ -10,6 +10,7 @@ import 'package:flutter/widgets.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/header_motion.dart';
+import '../foundation/layout_selector.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
@@ -976,9 +977,10 @@ class _DPageSurfaceState extends State<DPageSurface>
         extent: () => _headerGeometry.naturalExtent,
         titleOpacity: _readerTitleOpacity,
         child: widget.header is _PageTitle
-            ? LayoutBuilder(
-                builder: (context, viewport) =>
-                    _buildPage(context, viewportExtent: viewport.maxHeight),
+            ? DLayoutSelector<double>(
+                select: (_, viewport) => viewport.maxHeight,
+                builder: (context, height) =>
+                    _buildPage(context, viewportExtent: height),
               )
             : _buildPage(context),
       ),

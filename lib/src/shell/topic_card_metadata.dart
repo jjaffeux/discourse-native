@@ -392,6 +392,13 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
   bool _allTags = false;
   _TopicRowBody get row => widget.row;
 
+  List<TopicCategory> _taxonomyPath() => [
+    if (!row.topic.privateMessage) ...[
+      if (row.showCategoryBreadcrumb) ...row.categoryAncestors,
+      if (row.category != null) row.category!,
+    ],
+  ];
+
   @override
   void didUpdateWidget(_TopicCardTaxonomy oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -402,17 +409,14 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
   }
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
+  Widget build(
+    BuildContext context,
+  ) => DLayoutSelector<TopicCardTaxonomyLayout>(
+    select: (context, constraints) {
       final topic = row.topic;
-      final path = <TopicCategory>[
-        if (!topic.privateMessage) ...[
-          if (row.showCategoryBreadcrumb) ...row.categoryAncestors,
-          if (row.category != null) row.category!,
-        ],
-      ];
       final measure = widget.measure;
-      final layout = TopicCardTaxonomyLayout.calculate(
+      final path = _taxonomyPath();
+      return TopicCardTaxonomyLayout.calculate(
         width: constraints.maxWidth,
         countsWidth: _topicCountsWidth(
           context,
@@ -425,6 +429,10 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
         tags: _allTags ? [] : topic.tags.map((t) => t.name).toList(),
         measure: measure,
       );
+    },
+    builder: (context, layout) {
+      final topic = row.topic;
+      final path = _taxonomyPath();
       final shownPath = layout.abridged
           ? path.skip(path.length - 1).toList()
           : path;

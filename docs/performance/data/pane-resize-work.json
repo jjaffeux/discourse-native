@@ -1,0 +1,211 @@
+{
+ "fixture": "test/desktop_panel_resize_work_test.dart with test/support/tab_switch_fixture.dart at the 1280x860 desktop fixture size, 20 two-pixel drag ticks, TargetPlatform.macOS; Flutter 3.47.7, widget-test JIT",
+ "steps": [
+  {
+   "step": "Baseline f00de6dc2",
+   "sidebar": {
+    "buildsPerTick": 693.0,
+    "elementsPerTick": 693.0
+   },
+   "seam": {
+    "buildsPerTick": 2270.0,
+    "elementsPerTick": 1226.0
+   }
+  },
+  {
+   "step": "Skip abandoned fit step",
+   "sidebar": {
+    "buildsPerTick": 693.0,
+    "elementsPerTick": 693.0
+   },
+   "seam": {
+    "buildsPerTick": 1899.0,
+    "elementsPerTick": 1225.0
+   }
+  },
+  {
+   "step": "Keep fitted step unless an earlier one could fit",
+   "sidebar": {
+    "buildsPerTick": 693.0,
+    "elementsPerTick": 693.0
+   },
+   "seam": {
+    "buildsPerTick": 1215.0,
+    "elementsPerTick": 1215.0
+   }
+  },
+  {
+   "step": "Select list header layout",
+   "sidebar": {
+    "buildsPerTick": 693.0,
+    "elementsPerTick": 693.0
+   },
+   "seam": {
+    "buildsPerTick": 961.0,
+    "elementsPerTick": 961.0
+   }
+  },
+  {
+   "step": "Sidebar fills its width",
+   "sidebar": {
+    "buildsPerTick": 363.0,
+    "elementsPerTick": 363.0
+   },
+   "seam": {
+    "buildsPerTick": 961.0,
+    "elementsPerTick": 961.0
+   }
+  },
+  {
+   "step": "Title bar breakpoints",
+   "sidebar": {
+    "buildsPerTick": 283.0,
+    "elementsPerTick": 283.0
+   },
+   "seam": {
+    "buildsPerTick": 961.0,
+    "elementsPerTick": 961.0
+   }
+  },
+  {
+   "step": "Reader toolbar and page body",
+   "sidebar": {
+    "buildsPerTick": 231.0,
+    "elementsPerTick": 231.0
+   },
+   "seam": {
+    "buildsPerTick": 911.0,
+    "elementsPerTick": 911.0
+   }
+  },
+  {
+   "step": "Document tabs and strip",
+   "sidebar": {
+    "buildsPerTick": 191.0,
+    "elementsPerTick": 191.0
+   },
+   "seam": {
+    "buildsPerTick": 648.0,
+    "elementsPerTick": 648.0
+   }
+  },
+  {
+   "step": "Topic row taxonomy",
+   "sidebar": {
+    "buildsPerTick": 191.0,
+    "elementsPerTick": 191.0
+   },
+   "seam": {
+    "buildsPerTick": 536.0,
+    "elementsPerTick": 536.0
+   }
+  },
+  {
+   "step": "Workspace panes",
+   "sidebar": {
+    "buildsPerTick": 191.0,
+    "elementsPerTick": 191.0
+   },
+   "seam": {
+    "buildsPerTick": 304.0,
+    "elementsPerTick": 304.0
+   }
+  },
+  {
+   "step": "Search field",
+   "sidebar": {
+    "buildsPerTick": 125.0,
+    "elementsPerTick": 125.0
+   },
+   "seam": {
+    "buildsPerTick": 304.0,
+    "elementsPerTick": 304.0
+   }
+  },
+  {
+   "step": "Panel chrome and swap control",
+   "sidebar": {
+    "buildsPerTick": 70.0,
+    "elementsPerTick": 70.0
+   },
+   "seam": {
+    "buildsPerTick": 249.0,
+    "elementsPerTick": 249.0
+   }
+  }
+ ],
+ "baselineCauses": {
+  "sidebar": {
+   "LayoutBuilder \u2190 DSidebarProvider \u2190 LayoutBuilder \u2190 ShellSelector<_SidebarSnapshot> \u2190 \u22ef": 278.0,
+   "LayoutBuilder \u2190 MediaQuery \u2190 Padding \u2190 SafeArea \u2190 \u22ef": 80.0,
+   "LayoutBuilder \u2190 DesktopPanels \u2190 SizedBox.expand-[GlobalKey#ea9e2] \u2190 LayoutBuilder \u2190 \u22ef": 80.0,
+   "LayoutBuilder \u2190 DTabList<String> \u2190 Flex \u2190 LayoutBuilder \u2190 \u22ef": 64.0,
+   "LayoutBuilder \u2190 _TopicHeaderToolbar \u2190 Column \u2190 RepaintBoundary \u2190 \u22ef": 52.0,
+   "LayoutBuilder \u2190 DIconGlyphTheme \u2190 Padding \u2190 _FocusInheritedScope \u2190 \u22ef": 45.0,
+   "LayoutBuilder \u2190 Expanded \u2190 Row \u2190 Padding \u2190 \u22ef": 40.0,
+   "LayoutBuilder \u2190 Expanded \u2190 Row \u2190 LayoutBuilder \u2190 \u22ef": 22.0,
+   "ValueListenableBuilder<double> \u2190 ResizablePane \u2190 Padding \u2190 _FocusInheritedScope \u2190 \u22ef": 11.0,
+   "LayoutBuilder \u2190 DResizablePanelGroup-[<'composer-dock'>] \u2190 Directionality \u2190 DDirection \u2190 \u22ef": 10.0,
+   "LayoutBuilder \u2190 ComposerDock-[GlobalKey#e29e7] \u2190 TopicWorkspace \u2190 _PageComposerDock \u2190 \u22ef": 3.0,
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 DPageReadingLaneBox \u2190 ContentReadingLaneBox \u2190 \u22ef": 2.0,
+   "Column \u2190 Expanded \u2190 Row \u2190 Semantics \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 ShellSelector<_SidebarSnapshot> \u2190 InstanceSidebar \u2190 Builder \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 _DTabScope<String> \u2190 Semantics \u2190 DTabs<String>-[<'sidebar-panel-tabs'>] \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 ForumSearch \u2190 Expanded \u2190 Row \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 _HeaderTagsLine \u2190 DHeaderTags \u2190 SizedBox-[GlobalKey#4956f] \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 Padding \u2190 Container-[<'topic-map'>] \u2190 _TopicMap \u2190 \u22ef": 1.0
+  },
+  "main-panel": {
+   "LayoutBuilder \u2190 TopicFeedMenu \u2190 Semantics \u2190 _DFitRowWidth \u2190 \u22ef": 258.0,
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 ContentReadingLane \u2190 Expanded \u2190 \u22ef": 149.0,
+   "LayoutBuilder \u2190 _ForumTab-[<'list-a'>] \u2190 Listener \u2190 Draggable<String> \u2190 \u22ef": 112.0,
+   "LayoutBuilder \u2190 _ForumTab-[<'list-b'>] \u2190 Listener \u2190 Draggable<String> \u2190 \u22ef": 112.0,
+   "LayoutBuilder \u2190 _TopicCardTaxonomy \u2190 Expanded \u2190 Row \u2190 \u22ef": 112.0,
+   "LayoutBuilder \u2190 DesktopPanels \u2190 SizedBox.expand-[GlobalKey#ea9e2] \u2190 LayoutBuilder \u2190 \u22ef": 80.0,
+   "LayoutBuilder \u2190 Expanded \u2190 Row \u2190 Padding \u2190 \u22ef": 80.0,
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 DPageReadingLaneBox \u2190 ContentReadingLaneBox \u2190 \u22ef": 60.0,
+   "DFitRowItem \u2190 DControlWrapItem \u2190 DControlWrap \u2190 Builder \u2190 \u22ef": 54.0,
+   "LayoutBuilder \u2190 TopicCategoryPathSelector \u2190 Semantics \u2190 _DFitRowWidth \u2190 \u22ef": 54.0,
+   "LayoutBuilder \u2190 _TopicHeaderToolbar \u2190 Column \u2190 RepaintBoundary \u2190 \u22ef": 52.0,
+   "LayoutBuilder \u2190 _ScrollFadeScope \u2190 _HeaderScope \u2190 DPageHeaderScope \u2190 \u22ef": 46.0,
+   "LayoutBuilder \u2190 _RetainedTopicListPane-[<(https://tabs.example, anonymous, list-a)>] \u2190 Padding \u2190 Positioned \u2190 \u22ef": 22.0,
+   "DFitRow \u2190 Align \u2190 KeyedSubtree-[<'topic-list-filter-bar'>] \u2190 TopicListFilterBar-[<(Instance of 'ShellController', https://tabs.example, anonymous, Instance of '_SiteSession', list-a, ShellRootMode.forum)>] \u2190 \u22ef": 10.0,
+   "LayoutBuilder \u2190 _TopicCardFooter \u2190 Column \u2190 DItemContent \u2190 \u22ef": 7.0,
+   "LayoutBuilder \u2190 ValueListenableBuilder<double> \u2190 Listener \u2190 ReadingShortcuts \u2190 \u22ef": 6.0,
+   "DFitRowItem \u2190 _DFitRowScope \u2190 DControlWrapItem \u2190 DControlWrap \u2190 \u22ef": 2.0,
+   "LayoutBuilder \u2190 ListenableBuilder \u2190 ReaderContentBounds \u2190 _FocusInheritedScope \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 _HeaderTagsLine \u2190 DHeaderTags \u2190 SizedBox-[GlobalKey#4956f] \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 Padding \u2190 Container-[<'topic-map'>] \u2190 _TopicMap \u2190 \u22ef": 1.0
+  }
+ },
+ "finalCauses": {
+  "sidebar": {
+   "LayoutBuilder \u2190 DesktopPanels \u2190 SizedBox.expand-[GlobalKey#e1851] \u2190 LayoutBuilder \u2190 \u22ef": 25.0,
+   "ValueListenableBuilder<double> \u2190 ResizablePane \u2190 Padding \u2190 _FocusInheritedScope \u2190 \u22ef": 11.0,
+   "LayoutBuilder \u2190 DTabList<String> \u2190 Flex \u2190 LayoutBuilder \u2190 \u22ef": 10.0,
+   "LayoutBuilder \u2190 DResizablePanelGroup-[<'composer-dock'>] \u2190 Directionality \u2190 DDirection \u2190 \u22ef": 10.0,
+   "LayoutBuilder \u2190 DSidebarProvider \u2190 ShellSelector<_SidebarSnapshot> \u2190 InstanceSidebar \u2190 \u22ef": 4.0,
+   "LayoutBuilder \u2190 ComposerDock-[GlobalKey#7a28f] \u2190 TopicWorkspace \u2190 _PageComposerDock \u2190 \u22ef": 3.0,
+   "LayoutBuilder \u2190 DIconGlyphTheme \u2190 Padding \u2190 _FocusInheritedScope \u2190 \u22ef": 2.0,
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 DPageReadingLaneBox \u2190 ContentReadingLaneBox \u2190 \u22ef": 2.0,
+   "Column \u2190 Expanded \u2190 Row \u2190 Semantics \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 _HeaderTagsLine \u2190 DHeaderTags \u2190 SizedBox-[GlobalKey#8d320] \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 Padding \u2190 Container-[<'topic-map'>] \u2190 _TopicMap \u2190 \u22ef": 1.0
+  },
+  "main-panel": {
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 ContentReadingLane \u2190 Expanded \u2190 \u22ef": 149.0,
+   "LayoutBuilder \u2190 DLayoutSelector<({double maxHeight, bool scrollTabs, double tabMaxWidth})> \u2190 Expanded \u2190 Row \u2190 \u22ef": 41.0,
+   "LayoutBuilder \u2190 DesktopPanels \u2190 SizedBox.expand-[GlobalKey#e1851] \u2190 LayoutBuilder \u2190 \u22ef": 25.0,
+   "DFitRow \u2190 Align \u2190 KeyedSubtree-[<'topic-list-filter-bar'>] \u2190 TopicListFilterBar-[<(Instance of 'ShellController', https://tabs.example, anonymous, Instance of '_SiteSession', list-a, ShellRootMode.forum)>] \u2190 \u22ef": 10.0,
+   "LayoutBuilder \u2190 _TopicCardFooter \u2190 Column \u2190 DItemContent \u2190 \u22ef": 7.0,
+   "LayoutBuilder \u2190 _RetainedTopicListPane-[<(https://tabs.example, anonymous, list-a)>] \u2190 Padding \u2190 Positioned \u2190 \u22ef": 5.0,
+   "LayoutBuilder \u2190 DPageReadingLane \u2190 DPageReadingLaneBox \u2190 ContentReadingLaneBox \u2190 \u22ef": 4.0,
+   "LayoutBuilder \u2190 ValueListenableBuilder<double> \u2190 Listener \u2190 ReadingShortcuts \u2190 \u22ef": 3.0,
+   "LayoutBuilder \u2190 ListenableBuilder \u2190 ReaderContentBounds \u2190 _FocusInheritedScope \u2190 \u22ef": 1.0,
+   "Row-[<'topic-list-feed-row'>] \u2190 MediaQuery \u2190 _ReadingTextScale \u2190 DReferenceTextScale \u2190 \u22ef": 1.0,
+   "DFitRowItem \u2190 _DFitRowScope \u2190 DControlWrapItem \u2190 DControlWrap \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 _HeaderTagsLine \u2190 DHeaderTags \u2190 SizedBox-[GlobalKey#8d320] \u2190 \u22ef": 1.0,
+   "LayoutBuilder \u2190 Padding \u2190 Container-[<'topic-map'>] \u2190 _TopicMap \u2190 \u22ef": 1.0
+  }
+ }
+}
