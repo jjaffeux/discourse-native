@@ -304,7 +304,6 @@ class _MainContentBody extends StatelessWidget {
     if (pluginContent == null &&
         !pluginOwnsChrome &&
         sourceRoute != null &&
-        (!panelScoped || !route.isTopic) &&
         (!sourceRoute.isMessages || state.isConnected)) {
       return Material(
         type:
@@ -776,7 +775,9 @@ class _TopicInboxWorkspaceState extends State<_TopicInboxWorkspace> {
                 limitContentSize: ContentSettingsScope.limitContentSizeOf(
                   context,
                 ),
-                tabs: const TopicPanelTabs(),
+                tabs: ForumTabScope.panelOf(context) == null
+                    ? const TopicPanelTabs()
+                    : null,
                 child: DesktopTopicPage(
                   sourceListVisible: split,
                   child: TopicReaderOutlet(

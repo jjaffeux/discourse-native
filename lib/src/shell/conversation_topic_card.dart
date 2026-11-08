@@ -14,6 +14,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   VoidCallback? _releaseHover;
   final _prefetchBounds = GlobalKey();
   _TopicListPrefetch? _prefetch;
+  ValueListenable<TickerModeData>? _tickerMode;
 
   void _stopHover() {
     _releaseHover?.call();
@@ -26,7 +27,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       return;
     }
     _stopHover();
-    if (hovered && TickerMode.valuesOf(context).enabled) {
+    if (hovered && _tickerMode!.value.enabled) {
       _releaseHover = ShellScope.maybeRead(
         context,
       )?.hoverTopic(row.siteUrl, row.topic);
@@ -61,7 +62,32 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
       _prefetch = prefetch;
     }
     _prefetch?.register(this);
-    if (!TickerMode.valuesOf(context).enabled) _stopHover();
+    _bindTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _bindTickerMode();
+  }
+
+  void _bindTickerMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_tickerModeChanged);
+      _tickerMode = mode..addListener(_tickerModeChanged);
+    }
+    _tickerModeChanged();
+  }
+
+  void _tickerModeChanged() {
+    if (!_tickerMode!.value.enabled) _stopHover();
+  }
+
+  @override
+  void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
+    super.dispose();
   }
 
   @override

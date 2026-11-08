@@ -281,7 +281,7 @@ class _TopicViewState extends State<TopicView>
 
   final _morePanelKey = GlobalKey();
   final _topicControlsKey = GlobalKey();
-  double? _topicControlsHeight;
+  final _topicControlsHeight = ValueNotifier<double?>(null);
   final _moreTopicsCovered = FrameSafeValueNotifier(false);
   final _topicControlsCovered = FrameSafeValueNotifier(false);
   bool _initialBodyChecked = false;
@@ -578,6 +578,7 @@ class _TopicViewState extends State<TopicView>
     _warmCacheIdentity.dispose();
     _moreTopicsCovered.dispose();
     _topicControlsCovered.dispose();
+    _topicControlsHeight.dispose();
     _interaction.dispose();
     _keyboardFocus.dispose();
     _entryFocus.dispose();
@@ -711,9 +712,7 @@ class _TopicViewState extends State<TopicView>
     final controller = _controller;
     if (controller == null) return;
     final controlsHeight = _topicControlsKey.currentContext?.size?.height;
-    if (controlsHeight != null && controlsHeight != _topicControlsHeight) {
-      setState(() => _topicControlsHeight = controlsHeight);
-    }
+    if (controlsHeight != null) _topicControlsHeight.value = controlsHeight;
     if (_openingPostId case final postId?) {
       final element = _reader.postContext(postId);
       if (element is! StatefulElement ||
@@ -2010,39 +2009,42 @@ class _TopicViewState extends State<TopicView>
         ],
         if (controller.mobileNavigationEnabled ||
             (!context.isTouch && snapshot.progressTotal > 1))
-          SliverLayoutBuilder(
-            builder: (context, constraints) {
-              var bottom =
-                  (controller.mobileNavigationEnabled
-                      ? DScrollChrome.bottomInsetOf(context)
-                      : 0) +
-                  (_topicControlsHeight ??
-                      TopicProgressButton.floatingHeightOf(context)) +
-                  DSpacing.sm;
-              final anchor = _openingScrollAnchor;
-              if (controller.mobileNavigationEnabled &&
-                  anchor != null &&
-                  constraints.precedingScrollExtent + bottom <
-                      constraints.viewportMainAxisExtent +
-                          header.naturalExtent) {
-                final target = _reader.offsetForPost(
-                  anchor.postId,
-                  viewportOffset: _reader.constrainPostViewportOffset(
+          ValueListenableBuilder<double?>(
+            valueListenable: _topicControlsHeight,
+            builder: (context, controlsHeight, _) => SliverLayoutBuilder(
+              builder: (context, constraints) {
+                var bottom =
+                    (controller.mobileNavigationEnabled
+                        ? DScrollChrome.bottomInsetOf(context)
+                        : 0) +
+                    (controlsHeight ??
+                        TopicProgressButton.floatingHeightOf(context)) +
+                    DSpacing.sm;
+                final anchor = _openingScrollAnchor;
+                if (controller.mobileNavigationEnabled &&
+                    anchor != null &&
+                    constraints.precedingScrollExtent + bottom <
+                        constraints.viewportMainAxisExtent +
+                            header.naturalExtent) {
+                  final target = _reader.offsetForPost(
                     anchor.postId,
-                    anchor.viewportOffset,
-                  ),
-                );
-                if (target != null) {
-                  bottom = math.max(
-                    bottom,
-                    constraints.viewportMainAxisExtent +
-                        target -
-                        constraints.precedingScrollExtent,
+                    viewportOffset: _reader.constrainPostViewportOffset(
+                      anchor.postId,
+                      anchor.viewportOffset,
+                    ),
                   );
+                  if (target != null) {
+                    bottom = math.max(
+                      bottom,
+                      constraints.viewportMainAxisExtent +
+                          target -
+                          constraints.precedingScrollExtent,
+                    );
+                  }
                 }
-              }
-              return SliverPadding(padding: EdgeInsets.only(bottom: bottom));
-            },
+                return SliverPadding(padding: EdgeInsets.only(bottom: bottom));
+              },
+            ),
           ),
       ];
       final postStream = NotificationListener<ScrollMetricsNotification>(
