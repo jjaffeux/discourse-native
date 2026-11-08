@@ -1,0 +1,852 @@
+{
+  "baseline": "634e5e50f",
+  "unit": "widget build callbacks, not milliseconds",
+  "platformOrder": [
+    "macOS",
+    "linux",
+    "windows"
+  ],
+  "fixture": "production shell, 8 main tabs and 2 secondary tabs, overflow strip, 3 open/close cycles",
+  "samples": [
+    {
+      "side": "baseline",
+      "run": 1,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        }
+      ]
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        }
+      ]
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        }
+      ]
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        }
+      ]
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        }
+      ]
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        }
+      ]
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        }
+      ]
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        }
+      ]
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        },
+        {
+          "open-0": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-0": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-1": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-1": {
+            "builds": 2461,
+            "existingControls": 8
+          },
+          "open-2": {
+            "builds": 4613,
+            "existingControls": 8
+          },
+          "close-2": {
+            "builds": 2461,
+            "existingControls": 8
+          }
+        }
+      ]
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "platforms": [
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        },
+        {
+          "open-0": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-0": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-1": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-1": {
+            "builds": 1677,
+            "existingControls": 1
+          },
+          "open-2": {
+            "builds": 3829,
+            "existingControls": 1
+          },
+          "close-2": {
+            "builds": 1677,
+            "existingControls": 1
+          }
+        }
+      ]
+    }
+  ]
+}

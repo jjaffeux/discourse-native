@@ -170,6 +170,80 @@ void main() {
 
   group('tab presentation', () {
     testWidgets(
+      'retained controls use current actions after a sibling changes',
+      (tester) async {
+        var items = [
+          for (var i = 0; i < 6; i++)
+            ForumTabItem(id: 'tab-$i', title: 'Tab $i'),
+        ];
+        var version = 'old';
+        final actions = <String>[];
+        late StateSetter update;
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: SizedBox(
+                width: 500,
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    update = setState;
+                    // Capture the version in each newly supplied callback.
+                    final current = version;
+                    return ForumTabsBar(
+                      forumName: 'Forum',
+                      items: items,
+                      selectedId: 'tab-2',
+                      onSelect: (id) => actions.add('$current:select:$id'),
+                      onClose: (id) => actions.add('$current:close:$id'),
+                      onReorder: (id, index) =>
+                          actions.add('$current:move:$id:$index'),
+                      onCloseOthers: (id) => actions.add('$current:others:$id'),
+                      onAdd: () {},
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final tab = find.byKey(const ValueKey('forum-tab-tab-2'));
+        final control = find.descendant(
+          of: tab,
+          matching: find.byType(DDocumentTab),
+        );
+        final before = tester.widget<DDocumentTab>(control);
+        update(() {
+          version = 'new';
+          items = [const ForumTabItem(id: 'new', title: 'New'), ...items];
+        });
+        await tester.pumpAndSettle();
+        expect(tester.widget<DDocumentTab>(control), same(before));
+        final semantics = tester.widget<Semantics>(tab).properties;
+        semantics.onTap!();
+        semantics.customSemanticsActions!.entries
+            .singleWhere((entry) => entry.key.label == 'Move right')
+            .value();
+        await tester.tap(find.byKey(const ValueKey('forum-tab-close-tab-2')));
+        await tester.pumpAndSettle();
+        await tester.tap(tab, buttons: kSecondaryMouseButton);
+        await tester.pumpAndSettle();
+        await tester.tap(
+          find.byKey(const ValueKey('forum-tab-menu-close-others-tab-2')),
+        );
+        await tester.pumpAndSettle();
+        expect(actions, [
+          'new:select:tab-2',
+          'new:move:tab-2:4',
+          'new:close:tab-2',
+          'new:others:tab-2',
+        ]);
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'unchanged presentation keeps controls clean and callbacks fresh',
       (tester) async {
         var selected = '';
