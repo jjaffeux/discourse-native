@@ -65,11 +65,22 @@ final class DsaNoticeHttpConnection implements DsaNoticeConnection {
     for (final value in header.split(RegExp(r',(?=\s*[^;,=\s]+=)'))) {
       try {
         final cookie = Cookie.fromSetCookieValue(value.trim());
-        final domain = cookie.domain?.replaceFirst(RegExp(r'^\.'), '');
-        if (domain != null && domain != _site.host) continue;
+        final domain = cookie.domain
+            ?.replaceFirst(RegExp(r'^\.'), '')
+            .toLowerCase();
+        final host = _site.host.toLowerCase();
+        if (domain != null &&
+            domain != host &&
+            (InternetAddress.tryParse(host) != null ||
+                !host.endsWith('.$domain'))) {
+          continue;
+        }
         if (cookie.secure && _site.scheme != 'https') continue;
-        if (cookie.maxAge == 0 ||
-            (cookie.expires?.isBefore(DateTime.now().toUtc()) ?? false)) {
+        final maxAge = cookie.maxAge;
+        final expired = maxAge != null
+            ? maxAge <= 0
+            : !(cookie.expires?.isAfter(DateTime.now().toUtc()) ?? true);
+        if (expired) {
           _cookies.remove(cookie.name);
         } else {
           _cookies[cookie.name] = cookie;
