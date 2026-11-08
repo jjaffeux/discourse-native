@@ -14,6 +14,7 @@ import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
+import 'foundation/startup_timeline.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
 import 'shell/shell_controller.dart';
@@ -269,6 +270,7 @@ final class AppRuntime {
     final controller = expectedController;
     final _ = controller.pluginSession;
     var pluginsStarted = false;
+    markStartup('runtime start');
     try {
       await plugins.startPhase(
         PluginStartupPhase.bootstrap,
@@ -279,6 +281,7 @@ final class AppRuntime {
       pluginsStarted = true;
     } catch (_) {}
     if (!_isCurrent(controller)) return;
+    markStartup('plugins bootstrapped');
     try {
       await controller.load();
       if (!_isCurrent(controller)) return;

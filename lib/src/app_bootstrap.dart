@@ -7,6 +7,7 @@ import 'data/byte_cache_store.dart';
 import 'data/linux_application_directories.dart';
 import 'data/linux_preferences_store.dart';
 import 'data/media_pipeline.dart';
+import 'foundation/startup_timeline.dart';
 import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
@@ -50,10 +51,14 @@ final class AppBootstrap {
     if (_admitted) return;
     _admitted = true;
     try {
+      markStartup('main');
       _host.ensureFlutterInitialized();
       _host.installPreferencesStore();
+      markStartup('binding ready');
       _host.initializePlugins();
+      markStartup('plugins installed');
       _host.launchApplication();
+      markStartup('first frame scheduled');
       _host.scheduleAfterFirstFrame(() async {
         await Future.wait([
           _runDeferredInitialization(_host.initializeTimezoneEnvironment),

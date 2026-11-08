@@ -10,6 +10,7 @@ import '../data/site_lifecycle.dart';
 import '../data/store.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/startup_timeline.dart';
 import '../models/discourse_instance.dart';
 import '../models/incoming_topics.dart';
 import '../models/topic.dart';
@@ -851,10 +852,12 @@ final class TopicFeedController extends FrameSafeNotifier {
       ).keyCredentials(credentials);
       final apiKey = auth.apiKey;
       if (!requestIsCurrent()) return;
+      markStartup('feed requested');
       final list = await auth.run(
         () => api.topicList(siteUrl: instance.url, path: path, apiKey: apiKey),
       );
       if (!requestIsCurrent()) return;
+      markStartup('feed received');
       await prepareFeed?.call(
         instance,
         apiKey,
@@ -905,6 +908,7 @@ final class TopicFeedController extends FrameSafeNotifier {
             order: _incomingFilterOrder++,
           );
         }
+        markStartup('feed shown');
         notifySafely();
         // Publishing can synchronously replace the account or forget the feed.
         // Its completion hook must retain the same owner as the response.
