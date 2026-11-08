@@ -1,0 +1,648 @@
+{
+ "head": "2df2fb496078c0b935f919c5652a976c69290178",
+ "failures": [],
+ "proven": [
+  {
+   "slug": "relative-time",
+   "subject": "PERF: redraw relative times together instead of one label at a time",
+   "commit": "5e1fa1c1fb11c34e5a0b2c5733c8f49b0e03c267",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/relative_time_test.dart",
+     "name": "labels due in the same",
+     "exit_code": 1,
+     "metrics": {
+      "relative-time.frames": "200",
+      "relative-time.active_timers": "20"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/relative_time_test.dart",
+     "name": "labels due in the same",
+     "exit_code": 0,
+     "metrics": {
+      "relative-time.frames": "20",
+      "relative-time.active_timers": "20"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/relative_time_test.dart",
+     "name": "labels due in the same",
+     "exit_code": 1,
+     "metrics": {
+      "relative-time.frames": "200",
+      "relative-time.active_timers": "20"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/relative_time_test.dart",
+     "name": "labels due in the same",
+     "exit_code": 0,
+     "metrics": {
+      "relative-time.frames": "20",
+      "relative-time.active_timers": "20"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-presence",
+   "subject": "PERF: stop waking a frame when a chat user off screen comes online",
+   "commit": "76ad02a76113580b91f22f95b9adfe5c06a61eca",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_user_avatar_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "chat-presence.frames_scheduled": "10",
+      "chat-presence.avatar_rebuilds": "30",
+      "chat-presence.element_rebuilds": "180"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_user_avatar_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "chat-presence.frames_scheduled": "0",
+      "chat-presence.avatar_rebuilds": "0",
+      "chat-presence.element_rebuilds": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_user_avatar_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "chat-presence.frames_scheduled": "10",
+      "chat-presence.avatar_rebuilds": "30",
+      "chat-presence.element_rebuilds": "180"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_user_avatar_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "chat-presence.frames_scheduled": "0",
+      "chat-presence.avatar_rebuilds": "0",
+      "chat-presence.element_rebuilds": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "cover-decode",
+   "subject": "PERF: decode user-card banners and event covers at their drawn size",
+   "commit": "5f5bc426fbda31b0dc4458d108a58af902916ff4",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/site_image_test.dart",
+     "name": "an uploaded cover",
+     "exit_code": 1,
+     "metrics": {
+      "cover-decode.user-card-header_decoded_bytes": "8294400",
+      "cover-decode.event-card_decoded_bytes": "8294400",
+      "cover-decode.event-onebox_decoded_bytes": "8294400",
+      "cover-decode.board-card_decoded_bytes": "8294400",
+      "cover-decode.badge-symbol_decoded_bytes": "8294400"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/user_card_activity_test.dart",
+     "name": "the phone sheet banner",
+     "exit_code": 1,
+     "metrics": {
+      "cover-decode.user-card-sheet_decoded_bytes": "8294400"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/site_image_test.dart",
+     "name": "an uploaded cover",
+     "exit_code": 0,
+     "metrics": {
+      "cover-decode.user-card-header_decoded_bytes": "1557504",
+      "cover-decode.event-card_decoded_bytes": "1327104",
+      "cover-decode.event-onebox_decoded_bytes": "921600",
+      "cover-decode.board-card_decoded_bytes": "746496",
+      "cover-decode.badge-symbol_decoded_bytes": "76544"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/user_card_activity_test.dart",
+     "name": "the phone sheet banner",
+     "exit_code": 0,
+     "metrics": {
+      "cover-decode.user-card-sheet_decoded_bytes": "1557504"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/site_image_test.dart",
+     "name": "an uploaded cover",
+     "exit_code": 1,
+     "metrics": {
+      "cover-decode.user-card-header_decoded_bytes": "8294400",
+      "cover-decode.event-card_decoded_bytes": "8294400",
+      "cover-decode.event-onebox_decoded_bytes": "8294400",
+      "cover-decode.board-card_decoded_bytes": "8294400",
+      "cover-decode.badge-symbol_decoded_bytes": "8294400"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/user_card_activity_test.dart",
+     "name": "the phone sheet banner",
+     "exit_code": 1,
+     "metrics": {
+      "cover-decode.user-card-sheet_decoded_bytes": "8294400"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/site_image_test.dart",
+     "name": "an uploaded cover",
+     "exit_code": 0,
+     "metrics": {
+      "cover-decode.user-card-header_decoded_bytes": "1557504",
+      "cover-decode.event-card_decoded_bytes": "1327104",
+      "cover-decode.event-onebox_decoded_bytes": "921600",
+      "cover-decode.board-card_decoded_bytes": "746496",
+      "cover-decode.badge-symbol_decoded_bytes": "76544"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/user_card_activity_test.dart",
+     "name": "the phone sheet banner",
+     "exit_code": 0,
+     "metrics": {
+      "cover-decode.user-card-sheet_decoded_bytes": "1557504"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "site-json",
+   "subject": "PERF: open Other notifications without refetching /site.json",
+   "commit": "5a8dd3eeb30a54d795b9781c609d210a0a423dc7",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "site notification catalog",
+     "exit_code": 1,
+     "metrics": {
+      "site-json.site_json_requests": "2",
+      "site-json.site_notification_types_calls": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "site notification catalog",
+     "exit_code": 0,
+     "metrics": {
+      "site-json.site_json_requests": "1",
+      "site-json.site_notification_types_calls": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "site notification catalog",
+     "exit_code": 1,
+     "metrics": {
+      "site-json.site_json_requests": "2",
+      "site-json.site_notification_types_calls": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "site notification catalog",
+     "exit_code": 0,
+     "metrics": {
+      "site-json.site_json_requests": "1",
+      "site-json.site_notification_types_calls": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "sidebar-badges",
+   "subject": "PERF: keep the sidebar built while reading an unread topic",
+   "commit": "ba7bafc5e6ac0d96ea5dc16466a0e0ff92dc52d2",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "topic tracking in the sidebar",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-badges.unchanged_badge_elements": "1454",
+      "sidebar-badges.unchanged_badge_tiles": "26",
+      "sidebar-badges.one_badge_elements": "1455",
+      "sidebar-badges.one_badge_tiles": "26"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "topic tracking in the sidebar",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-badges.unchanged_badge_elements": "0",
+      "sidebar-badges.unchanged_badge_tiles": "0",
+      "sidebar-badges.one_badge_elements": "45",
+      "sidebar-badges.one_badge_tiles": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "topic tracking in the sidebar",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-badges.unchanged_badge_elements": "1454",
+      "sidebar-badges.unchanged_badge_tiles": "26",
+      "sidebar-badges.one_badge_elements": "1455",
+      "sidebar-badges.one_badge_tiles": "26"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "topic tracking in the sidebar",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-badges.unchanged_badge_elements": "0",
+      "sidebar-badges.unchanged_badge_tiles": "0",
+      "sidebar-badges.one_badge_elements": "45",
+      "sidebar-badges.one_badge_tiles": "1"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "search-redraw",
+   "subject": "PERF: stop redrawing the search field on unrelated shell changes",
+   "commit": "1942ea298b1578b8080cc6c941eeb6cb317702f7",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "70",
+      "search.rebuilds_per_notify_trigger": "39"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "70",
+      "search.rebuilds_per_notify_trigger": "39"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "search-capabilities",
+   "subject": "PERF: load search capabilities when search is first needed",
+   "commit": "56d3815a0d1ceb3efbe4241beb5a343df582b284",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0",
+      "search.startup_discovery_reads": "3",
+      "search.forum_switch_discovery_reads": "6",
+      "search.first_open_discovery_reads": "0",
+      "search.second_open_discovery_reads": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0",
+      "search.startup_discovery_reads": "0",
+      "search.forum_switch_discovery_reads": "0",
+      "search.first_open_discovery_reads": "3",
+      "search.second_open_discovery_reads": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 1,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0",
+      "search.startup_discovery_reads": "3",
+      "search.forum_switch_discovery_reads": "6",
+      "search.first_open_discovery_reads": "0",
+      "search.second_open_discovery_reads": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/forum_search_test.dart",
+     "name": null,
+     "exit_code": 0,
+     "metrics": {
+      "search.rebuilds_per_notify_field": "0",
+      "search.rebuilds_per_notify_trigger": "0",
+      "search.startup_discovery_reads": "0",
+      "search.forum_switch_discovery_reads": "0",
+      "search.first_open_discovery_reads": "3",
+      "search.second_open_discovery_reads": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-position",
+   "subject": "PERF: keep the chat transcript's scroll position across new messages",
+   "commit": "268b50de83add95f4ddcf3c938988d65b24dff0e",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "live arrivals keep the transcript scroll position",
+     "exit_code": 1,
+     "metrics": {
+      "chat-arrival.position_replacements": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "live arrivals keep the transcript scroll position",
+     "exit_code": 0,
+     "metrics": {
+      "chat-arrival.position_replacements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "live arrivals keep the transcript scroll position",
+     "exit_code": 1,
+     "metrics": {
+      "chat-arrival.position_replacements": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "live arrivals keep the transcript scroll position",
+     "exit_code": 0,
+     "metrics": {
+      "chat-arrival.position_replacements": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-rows",
+   "subject": "PERF: stop rebuilding every held chat message on each new one",
+   "commit": "518970490dcc6ba801f9fb6d7d80ed3216f73f3d",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "a live arrival rebuilds only the rows it changes",
+     "exit_code": 1,
+     "metrics": {
+      "chat-arrival.tile_builds": "135",
+      "chat-arrival.cooked_html_builds": "135",
+      "chat-arrival.element_rebuilds": "15307"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "a live arrival rebuilds only the rows it changes",
+     "exit_code": 0,
+     "metrics": {
+      "chat-arrival.tile_builds": "19",
+      "chat-arrival.cooked_html_builds": "19",
+      "chat-arrival.element_rebuilds": "7416"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "a live arrival rebuilds only the rows it changes",
+     "exit_code": 1,
+     "metrics": {
+      "chat-arrival.tile_builds": "135",
+      "chat-arrival.cooked_html_builds": "135",
+      "chat-arrival.element_rebuilds": "15307"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_scroll_performance_test.dart",
+     "name": "a live arrival rebuilds only the rows it changes",
+     "exit_code": 0,
+     "metrics": {
+      "chat-arrival.tile_builds": "19",
+      "chat-arrival.cooked_html_builds": "19",
+      "chat-arrival.element_rebuilds": "7416"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-mobile-inbox",
+   "subject": "PERF: keep the phone chat inbox still while chat traffic arrives",
+   "commit": "2df2fb496078c0b935f919c5652a976c69290178",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_mobile_sidebar_test.dart",
+     "name": "tracking on an off-screen channel",
+     "exit_code": 1,
+     "metrics": {
+      "chat-mobile-inbox.elements": "11640",
+      "chat-mobile-inbox.entries": "130",
+      "chat-mobile-inbox.filter_bars": "10",
+      "chat-mobile-inbox.navigation": "20"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_mobile_sidebar_test.dart",
+     "name": "tracking on an off-screen channel",
+     "exit_code": 0,
+     "metrics": {
+      "chat-mobile-inbox.elements": "6420",
+      "chat-mobile-inbox.entries": "0",
+      "chat-mobile-inbox.filter_bars": "0",
+      "chat-mobile-inbox.navigation": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_mobile_sidebar_test.dart",
+     "name": "tracking on an off-screen channel",
+     "exit_code": 1,
+     "metrics": {
+      "chat-mobile-inbox.elements": "11640",
+      "chat-mobile-inbox.entries": "130",
+      "chat-mobile-inbox.filter_bars": "10",
+      "chat-mobile-inbox.navigation": "20"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_mobile_sidebar_test.dart",
+     "name": "tracking on an off-screen channel",
+     "exit_code": 0,
+     "metrics": {
+      "chat-mobile-inbox.elements": "6420",
+      "chat-mobile-inbox.entries": "0",
+      "chat-mobile-inbox.filter_bars": "0",
+      "chat-mobile-inbox.navigation": "0"
+     },
+     "tail": null
+    }
+   ]
+  }
+ ]
+}
