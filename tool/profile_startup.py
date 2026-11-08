@@ -243,6 +243,11 @@ def main():
     parser.add_argument("--pause", type=float, default=1.0)
     parser.add_argument("--device", help="UDID of an iOS device")
     parser.add_argument("--bundle-id", help="bundle id of the iOS build")
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="reseed before each launch, so every launch restores nothing",
+    )
     parser.add_argument("--dump", help="keep CPU samples and timelines in this file")
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
@@ -283,6 +288,8 @@ def main():
         for label, app in apps:
             prepare(app)
             load = os.getloadavg()[0]
+            if args.fresh:
+                launch(app, seed=True)
             try:
                 records, attribution = launch(app, dump=bool(args.dump))
                 found, requests = milestones(records)

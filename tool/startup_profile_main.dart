@@ -19,6 +19,7 @@ import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 const _forumCount = 6;
 const _firstPort = 47610;
@@ -41,6 +42,7 @@ void _report(String kind, String name, int micros) {
 Future<void> main() async {
   if (Platform.environment['DISCOURSE_STARTUP_SEED'] == '1') {
     WidgetsFlutterBinding.ensureInitialized();
+    await (await SharedPreferences.getInstance()).clear();
     await InstanceStore().save([
       for (var index = 0; index < _forumCount; index++)
         DiscourseInstance(
