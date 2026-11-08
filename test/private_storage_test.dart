@@ -661,6 +661,33 @@ void main() {
       expect((await lock.stat()).mode & 0x1ff, 0x180); // 0600
     });
 
+    test('replacement migrators share the primary transaction owner', () async {
+      final events = <String>[];
+      final gate = Completer<void>();
+      final started = Completer<void>();
+      final primary = _MemoryPrivateStorage('primary', events)
+        ..gatedWriteKey = key
+        ..writeGate = gate
+        ..writeStarted = started;
+      final legacy = _MemoryPrivateStorage('legacy', events, {key: 'old'});
+      final first = MigratingPrivateStorage(primary: primary, legacy: legacy);
+      final replacement = MigratingPrivateStorage(
+        primary: primary,
+        legacy: legacy,
+      );
+      final migration = first.read(key);
+      await started.future;
+      final deletion = replacement.delete(key);
+      await Future<void>.delayed(Duration.zero);
+      final deletedDuringMigration = primary.values[stateKey] == 'deleted';
+      gate.complete();
+      await Future.wait([migration, deletion]);
+      expect(deletedDuringMigration, isFalse);
+      expect(await replacement.read(key), isNull);
+      expect(primary.values.containsKey(key), isFalse);
+      expect(primary.values[stateKey], 'deleted');
+    });
+
     test('a failed operation does not poison a later repair', () async {
       final events = <String>[];
       final primary = _MemoryPrivateStorage('primary', events)

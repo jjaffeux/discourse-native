@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../foundation/private_file_document.dart';
 import '../foundation/private_file_permissions.dart';
+import 'serial_operation_queue.dart';
 
 abstract interface class PrivateStorage {
   Future<String?> read(String key);
@@ -244,8 +244,9 @@ final class AppleKeychainStorage implements PrivateStorage {
   }
 }
 
-/// Operations are serialized in-process and, in the platform instance, under
-/// an owner-only advisory file lock shared by app processes. Without that
+/// Wrappers sharing a primary store serialize operations in-process. The
+/// platform instance also uses an owner-only advisory file lock shared by app
+/// processes. Without that
 /// boundary a slow legacy read could finish after a newer write/delete and
 /// resurrect stale credentials as a migration side effect.
 final class MigratingPrivateStorage implements PrivateStorage {
@@ -258,7 +259,7 @@ final class MigratingPrivateStorage implements PrivateStorage {
   final PrivateStorage primary;
   final PrivateStorage legacy;
   final Future<File> Function()? lockFile;
-  Future<void> _tail = Future<void>.value();
+  static final _operations = SerialOperationQueue();
 
   static const String _migrationStatePrefix =
       'discourse_native.migration_state::';
@@ -341,22 +342,16 @@ final class MigratingPrivateStorage implements PrivateStorage {
     }
   }
 
-  Future<T> _serialize<T>(Future<T> Function() operation) {
-    final result = Completer<T>();
-    _tail = _tail.then((_) async {
-      try {
-        final lockFile = this.lockFile;
-        result.complete(
-          lockFile == null
-              ? await operation()
-              : await _withFileLock(await lockFile(), operation),
-        );
-      } catch (error, stackTrace) {
-        result.completeError(error, stackTrace);
-      }
-    });
-    return result.future;
-  }
+  Future<T> _serialize<T>(Future<T> Function() operation) => _operations.run(
+    owner: primary,
+    key: _migrationStatePrefix,
+    operation: () async {
+      final lockFile = this.lockFile;
+      return lockFile == null
+          ? await operation()
+          : await _withFileLock(await lockFile(), operation);
+    },
+  );
 
   static Future<T> _withFileLock<T>(
     File file,
