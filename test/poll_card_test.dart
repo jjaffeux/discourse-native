@@ -100,6 +100,50 @@ Future<void> pumpPoll(
 );
 
 void main() {
+  testWidgets('regression nov8: poll option semantics separate line breaks', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    try {
+      await pumpPoll(
+        tester,
+        poll(
+          options: const [
+            PollOption(id: 'a', html: 'Soup<br>and bread'),
+            PollOption(id: 'b', html: 'Other'),
+          ],
+        ),
+      );
+      expect(find.bySemanticsLabel('Soup and bread'), findsOneWidget);
+    } finally {
+      semantics.dispose();
+    }
+  });
+
+  testWidgets(
+    'regression nov8: emoji-only poll options have semantics labels',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      try {
+        await pumpPoll(
+          tester,
+          poll(
+            options: const [
+              PollOption(
+                id: 'a',
+                html:
+                    '<img class="emoji" alt=":smile:" src="/emoji/smile.png">',
+              ),
+              PollOption(id: 'b', html: 'Other'),
+            ],
+          ),
+        );
+        expect(find.bySemanticsLabel(':smile:'), findsOneWidget);
+      } finally {
+        semantics.dispose();
+      }
+    },
+  );
   group('poll models', () {
     test('normalize cooked labels once on immutable values', () {
       final value = Poll.fromJson({

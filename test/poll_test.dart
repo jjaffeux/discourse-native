@@ -63,6 +63,26 @@ Map<String, Object?> pollJson({
 };
 
 void main() {
+  test('regression nov8: poll option line breaks separate words', () {
+    const option = PollOption(id: 'a', html: 'Soup<br>and bread');
+    expect(option.plainText, 'Soup and bread');
+    expect(
+      PollOption.fromJson({'id': 'a', 'html': option.html})!.plainText,
+      'Soup and bread',
+    );
+  });
+
+  test('regression nov8: emoji-only poll options retain accessible labels', () {
+    const option = PollOption(
+      id: 'a',
+      html: '<img class="emoji" alt=":smile:" src="/emoji/smile.png">',
+    );
+    expect(option.plainText, ':smile:');
+    expect(
+      PollOption.fromJson({'id': 'a', 'html': option.html})!.plainText,
+      ':smile:',
+    );
+  });
   group('poll domain', () {
     test('absent plugin key stays absent', () {
       expect(Polls.fromJson(const {}, 'https://forum.example'), isNull);
