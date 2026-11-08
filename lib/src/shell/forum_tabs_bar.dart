@@ -943,7 +943,6 @@ class _ForumTabState extends State<_ForumTab> {
   bool _selectedOnPointerDown = false;
   bool _renaming = false;
   Widget? _tabWidget;
-  BoxConstraints? _tabConstraints;
   ({bool compact, bool badgeFits})? _tabDecisions;
   late final TextEditingController _renameController = TextEditingController();
   late final FocusNode _renameFocusNode = FocusNode(
@@ -1259,10 +1258,9 @@ class _ForumTabState extends State<_ForumTab> {
         final decisions = _tabContentDecisions(this.context, constraints);
         if (_tabDecisions != decisions) {
           _tabDecisions = decisions;
-          _tabConstraints = constraints;
           _tabWidget = null;
         }
-        return _tabWidget ??= _buildTab(this.context, _tabConstraints!);
+        return _tabWidget ??= _buildTab(this.context, constraints);
       },
     );
   }
