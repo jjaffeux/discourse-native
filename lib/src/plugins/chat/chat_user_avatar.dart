@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'chat_services.dart';
@@ -37,10 +38,10 @@ class ChatUserAvatar extends StatelessWidget {
       context,
       chatControllerService,
     ).onlineUserIdsListenable(siteUrl);
-    return ValueListenableBuilder<Set<int>>(
-      valueListenable: onlineUsers,
-      builder: (context, ids, _) {
-        final online = ids.contains(userId);
+    return _UserOnlineBuilder(
+      onlineUsers: onlineUsers,
+      userId: userId,
+      builder: (context, online) {
         final avatar = _avatar(
           key: online ? onlineRingKey(userId) : null,
           url: url,
@@ -87,6 +88,60 @@ class ChatUserAvatar extends StatelessWidget {
       },
     );
   }
+}
+
+/// The online set is replaced for every presence delivery about anyone on the
+/// site, so only a change in this user's own membership may schedule a frame.
+class _UserOnlineBuilder extends StatefulWidget {
+  const _UserOnlineBuilder({
+    required this.onlineUsers,
+    required this.userId,
+    required this.builder,
+  });
+
+  final ValueListenable<Set<int>> onlineUsers;
+  final int userId;
+  final Widget Function(BuildContext context, bool online) builder;
+
+  @override
+  State<_UserOnlineBuilder> createState() => _UserOnlineBuilderState();
+}
+
+class _UserOnlineBuilderState extends State<_UserOnlineBuilder> {
+  late bool _online;
+
+  bool get _isOnline => widget.onlineUsers.value.contains(widget.userId);
+
+  @override
+  void initState() {
+    super.initState();
+    _online = _isOnline;
+    widget.onlineUsers.addListener(_syncOnline);
+  }
+
+  @override
+  void didUpdateWidget(_UserOnlineBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.onlineUsers, widget.onlineUsers)) {
+      oldWidget.onlineUsers.removeListener(_syncOnline);
+      widget.onlineUsers.addListener(_syncOnline);
+    }
+    _online = _isOnline;
+  }
+
+  void _syncOnline() {
+    final online = _isOnline;
+    if (online != _online) setState(() => _online = online);
+  }
+
+  @override
+  void dispose() {
+    widget.onlineUsers.removeListener(_syncOnline);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.builder(context, _online);
 }
 
 Widget _avatar({
