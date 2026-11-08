@@ -28,10 +28,14 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/title_bar.dart';
+import 'package:discourse_native/src/shell/topic_category_picker.dart';
+import 'package:discourse_native/src/shell/topic_category_selector.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_feed_menu.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
@@ -1434,9 +1438,343 @@ void main() {
       expect(notifications, 0);
     });
   });
+
+  group('the reader controls across a shell notification', () {
+    for (final (name, size, platform, desktopChrome) in const [
+      ('macos', Size(1440, 844), TargetPlatform.macOS, true),
+      ('ios', Size(390, 844), TargetPlatform.iOS, false),
+    ]) {
+      testWidgets('$name keeps category, tag and reply controls built', (
+        tester,
+      ) async {
+        final reader = await _pumpReader(tester, size, platform);
+        final controls = <String, Set<Element>>{
+          'category': find.byType(TopicCategoryMenuAnchor).evaluate().toSet(),
+          'tag': find.byType(TopicTagMenuAnchor).evaluate().toSet(),
+          'title_bar_reply': find
+              .byKey(const ValueKey('title-bar-reply'))
+              .evaluate()
+              .toSet(),
+        };
+        expect(controls['category'], hasLength(1));
+        expect(controls['tag'], hasLength(1));
+        expect(controls['title_bar_reply'], hasLength(desktopChrome ? 1 : 0));
+        final rebuilt = {for (final control in controls.keys) control: 0};
+        var frameElements = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          frameElements++;
+          final control = _nearestControl(element, controls);
+          if (control != null) rebuilt[control] = rebuilt[control]! + 1;
+          previous?.call(element, builtOnce);
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+        final buildsBefore = reader.shellDependentBuilds();
+
+        reader.controller.notifyPluginStateChanged();
+        await tester.pump();
+        debugOnRebuildDirtyWidget = previous;
+
+        final total = rebuilt.values.reduce((a, b) => a + b);
+        rebuilt.forEach((control, count) {
+          // ignore: avoid_print
+          print('PERF_PROOF reader-controls ${name}_$control=$count');
+        });
+        // ignore: avoid_print
+        print('PERF_PROOF reader-controls ${name}_controls_total=$total');
+        // ignore: avoid_print
+        print('PERF_PROOF reader-controls ${name}_frame_total=$frameElements');
+        expect(
+          reader.shellDependentBuilds(),
+          buildsBefore + 1,
+          reason: 'the notification must reach shell dependents',
+        );
+        expect(total, 0);
+      });
+    }
+
+    testWidgets('a category or tag change on the topic redraws its anchors', (
+      tester,
+    ) async {
+      final payload = _readerTopic();
+      final reader = await _pumpReader(
+        tester,
+        const Size(390, 844),
+        TargetPlatform.iOS,
+        topic: (
+          detail: payload.detail.copyWith(canEdit: true, canEditTags: true),
+          posts: payload.posts,
+        ),
+      );
+      Finder tag(String name) =>
+          find.byKey(ValueKey(('topic-header-tag', name)));
+      Finder category(String name) => find.descendant(
+        of: find.byKey(const ValueKey('topic-header-parent-category')),
+        matching: find.text(name),
+      );
+      expect(tag('alpha'), findsOneWidget);
+      expect(category('Category 3'), findsOneWidget);
+
+      expect(
+        await reader.controller.updateTopicTagsFromSidebar(
+          siteUrl: _readerSite,
+          topicId: 7,
+          tags: const [TopicTag(id: 2, name: 'beta')],
+        ),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+      expect(tag('alpha'), findsNothing);
+      expect(tag('beta'), findsOneWidget);
+
+      expect(
+        await reader.controller.saveTopicCategory(
+          siteUrl: _readerSite,
+          topicId: 7,
+          categoryId: 4,
+        ),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+      expect(category('Category 3'), findsNothing);
+      expect(category('Category 4'), findsOneWidget);
+    });
+
+    testWidgets('a topic becoming a private message can be archived', (
+      tester,
+    ) async {
+      final reader = await _pumpReader(
+        tester,
+        const Size(1440, 844),
+        TargetPlatform.macOS,
+        topic: topicPayload(id: 7, title: 'A discussion', posts: _readerPosts),
+      );
+      final archive = find.descendant(
+        of: find.byType(ShellTitleBar),
+        matching: find.byKey(const ValueKey('message-archive-button')),
+      );
+      expect(archive, findsNothing);
+
+      reader.controller.store.put(
+        _readerSite,
+        reader.controller.currentTopic!.copyWith(privateMessage: true),
+      );
+      reader.controller.notifyPluginStateChanged();
+      await tester.pump();
+
+      expect(archive, findsOneWidget);
+    });
+
+    testWidgets('replacing the account retires a tag save in flight', (
+      tester,
+    ) async {
+      final shell = _TaxonomyShell();
+      addTearDown(shell.dispose);
+      VoidCallback? openMenu;
+      var saving = false;
+      await tester.pumpWidget(
+        ShellScope(
+          controller: shell,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Align(
+                alignment: Alignment.topLeft,
+                child: TopicTagMenuAnchor(
+                  siteUrl: _readerSite,
+                  topicId: 7,
+                  categoryId: 3,
+                  tags: const [TopicTag(id: 1, name: 'alpha')],
+                  enabled: true,
+                  builder: (context, open, isSaving) {
+                    openMenu = open;
+                    saving = isSaving;
+                    return TextButton(
+                      onPressed: open,
+                      child: const Text('Edit'),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Edit'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey(('topic-tag-picker-option', 'beta'))),
+      );
+      await tester.pumpAndSettle();
+      expect(saving, isTrue);
+      expect(openMenu, isNull);
+
+      shell.replaceAccount();
+      await tester.pump();
+
+      expect(saving, isFalse);
+      expect(openMenu, isNotNull);
+      shell.tagSave.complete(null);
+      await tester.pumpAndSettle();
+    });
+
+    for (final change in _categoryAnchorChanges) {
+      testWidgets('the category anchor follows ${change.name}', (tester) async {
+        final shell = _TaxonomyShell();
+        addTearDown(shell.dispose);
+        await tester.pumpWidget(
+          ShellScope(
+            controller: shell,
+            child: MaterialApp(
+              home: Scaffold(
+                body: TopicCategoryMenuAnchor(
+                  siteUrl: _readerSite,
+                  topicId: 7,
+                  categoryId: 3,
+                  parentCategoryId: change.parentCategoryId,
+                  enabled: true,
+                  builder: (context, _, _, _) => Text(
+                    shell.topicCategoryPathLabel(
+                      shell.categoryFor(3)!,
+                      siteUrl: _readerSite,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        final drawn = tester.widget<TopicCategorySelector>(
+          find.byType(TopicCategorySelector),
+        );
+        expect(find.text('Root › Parent › Leaf'), findsOneWidget);
+        expect(change.applied(drawn), isFalse);
+
+        change.apply(shell);
+        shell.notifyPluginStateChanged();
+        await tester.pump();
+
+        expect(
+          change.applied(
+            tester.widget<TopicCategorySelector>(
+              find.byType(TopicCategorySelector),
+            ),
+          ),
+          isTrue,
+        );
+      });
+    }
+  });
 }
 
 void _noop() {}
+
+String? _nearestControl(Element element, Map<String, Set<Element>> controls) {
+  String? owner(Element candidate) => controls.entries
+      .where((control) => control.value.contains(candidate))
+      .firstOrNull
+      ?.key;
+  var nearest = owner(element);
+  if (nearest == null) {
+    element.visitAncestorElements((ancestor) {
+      nearest = owner(ancestor);
+      return nearest == null;
+    });
+  }
+  return nearest;
+}
+
+const _readerSite = 'https://meta.discourse.org';
+
+final _readerPosts = [
+  Post(
+    id: 1,
+    postNumber: 1,
+    username: 'reader',
+    createdAt: DateTime.utc(2026, 10, 1),
+    cooked: '<p>First post.</p>',
+  ),
+];
+
+TopicPayload _readerTopic() => topicPayload(
+  id: 7,
+  title: 'A discussion',
+  canCreatePost: true,
+  categoryId: 3,
+  tags: const [TopicTag(id: 1, name: 'alpha')],
+  posts: _readerPosts,
+);
+
+Future<({ShellController controller, int Function() shellDependentBuilds})>
+_pumpReader(
+  WidgetTester tester,
+  Size size,
+  TargetPlatform platform, {
+  TopicPayload? topic,
+}) async {
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  const user = DiscourseUser(
+    id: 7,
+    username: 'reader',
+    canSendPrivateMessages: true,
+  );
+  final categories = [
+    for (var id = 1; id <= 21; id++)
+      TopicCategory(
+        id: id,
+        name: 'Category $id',
+        slug: 'c$id',
+        color: '0088cc',
+      ),
+  ];
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([
+      instance('meta.discourse.org').copyWith(user: user),
+    ]),
+    api: FakeDiscourseApi(
+      user: user,
+      feeds: const {
+        '/latest.json': [Topic(id: 7, title: 'A discussion', slug: 'topic-7')],
+      },
+      categoryList: categories,
+      feedCategoriesByPath: {'/latest.json': categories},
+      topics: {7: topic ?? _readerTopic()},
+    ),
+    authenticator: FakeAuthenticator()..keys[_readerSite] = 'key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updateStore: FakeUpdateStore(),
+    mobileNavigationEnabled: platform == TargetPlatform.iOS,
+  );
+  addTearDown(controller.dispose);
+  await controller.load();
+  var shellDependentBuilds = 0;
+  await tester.pumpWidget(
+    ShellScope(
+      controller: controller,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: platform),
+        builder: (context, child) {
+          ShellScope.of(context);
+          shellDependentBuilds++;
+          return child!;
+        },
+        home: const AdaptiveShell(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  controller.openTopic(
+    const Topic(id: 7, title: 'A discussion', slug: 'topic-7'),
+  );
+  await tester.pumpAndSettle();
+  return (
+    controller: controller,
+    shellDependentBuilds: () => shellDependentBuilds,
+  );
+}
 
 // A new tab opens on the Start page; these tests compare two topic lists.
 void _createTopicsTab(ShellController controller) {
@@ -1449,6 +1787,152 @@ Element _onlyChild(Element parent) {
   parent.visitChildren(children.add);
   expect(children, hasLength(1));
   return children.single;
+}
+
+const _root = TopicCategory(id: 1, name: 'Root', slug: 'root', color: '111111');
+const _parent = TopicCategory(
+  id: 2,
+  name: 'Parent',
+  slug: 'parent',
+  color: '222222',
+  parentCategoryId: 1,
+);
+const _leaf = TopicCategory(
+  id: 3,
+  name: 'Leaf',
+  slug: 'leaf',
+  color: '333333',
+  parentCategoryId: 2,
+);
+
+TopicCategory _restyled(
+  TopicCategory category, {
+  String? name,
+  String? color,
+}) => TopicCategory(
+  id: category.id,
+  name: name ?? category.name,
+  slug: category.slug,
+  color: color ?? category.color,
+  parentCategoryId: category.parentCategoryId,
+);
+
+/// Each change moves one input the anchor draws from, with the topic and the
+/// anchor's own configuration left exactly as they were.
+final _categoryAnchorChanges =
+    <
+      ({
+        String name,
+        int? parentCategoryId,
+        void Function(_TaxonomyShell shell) apply,
+        bool Function(TopicCategorySelector selector) applied,
+      })
+    >[
+      (
+        name: 'a newly offered category',
+        parentCategoryId: null,
+        apply: (shell) => shell.offered = [
+          ...shell.offered,
+          const TopicCategory(
+            id: 9,
+            name: 'New',
+            slug: 'new',
+            color: '999999',
+            permission: 1,
+          ),
+        ],
+        applied: (selector) =>
+            selector.categories.any((category) => category.id == 9),
+      ),
+      (
+        name: 'uncategorized being allowed',
+        parentCategoryId: null,
+        apply: (shell) => shell.allowUncategorized = true,
+        applied: (selector) =>
+            selector.categories.any((category) => category.isUncategorized),
+      ),
+      (
+        name: 'a restyled selected category',
+        parentCategoryId: null,
+        apply: (shell) => shell.byId[3] = _restyled(_leaf, color: 'ABCDEF'),
+        applied: (selector) => selector.selected?.color == 'ABCDEF',
+      ),
+      (
+        name: 'a restyled parent category',
+        parentCategoryId: 2,
+        apply: (shell) => shell.byId[2] = _restyled(_parent, color: 'ABCDEF'),
+        applied: (selector) => selector.parent?.color == 'ABCDEF',
+      ),
+      (
+        name: 'a renamed ancestor above the parent',
+        parentCategoryId: null,
+        apply: (shell) => shell.byId[1] = _restyled(_root, name: 'Renamed'),
+        applied: (_) =>
+            find.text('Renamed › Parent › Leaf').evaluate().isNotEmpty,
+      ),
+    ];
+
+final class _TaxonomyShell extends ShellController {
+  _TaxonomyShell()
+    : super(
+        instanceStore: FakeInstanceStore(),
+        api: FakeDiscourseApi(),
+        authenticator: FakeAuthenticator(),
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updateStore: FakeUpdateStore(),
+      );
+
+  static const uncategorized = TopicCategory(
+    id: 8,
+    name: 'Uncategorized',
+    slug: 'uncategorized',
+    color: '888888',
+    isUncategorized: true,
+    permission: 1,
+  );
+
+  final byId = {1: _root, 2: _parent, 3: _leaf};
+  final tagSave = Completer<String?>();
+  List<TopicCategory> offered = const [uncategorized];
+  bool allowUncategorized = false;
+
+  void replaceAccount() {
+    lifecycle.invalidate(_readerSite);
+    lifecycle.capture(_readerSite);
+    notifyPluginStateChanged();
+  }
+
+  @override
+  Future<TopicComposerCapabilities> prepareTopicTagEditor(
+    String siteUrl,
+  ) async => const TopicComposerCapabilities(canTagTopics: true);
+
+  @override
+  Future<TopicTagSearch> searchTopicTagsForEditor({
+    required String siteUrl,
+    required int? categoryId,
+    required Iterable<TopicTag> selectedTags,
+    required String term,
+  }) async => const TopicTagSearch(tags: [TopicTag(id: 2, name: 'beta')]);
+
+  @override
+  Future<String?> updateTopicTagsFromSidebar({
+    required String siteUrl,
+    required int topicId,
+    required Iterable<TopicTag> tags,
+  }) => tagSave.future;
+
+  @override
+  List<TopicCategory> topicComposerCategories(String siteUrl) => offered;
+
+  @override
+  TopicCategory? categoryFor(int? categoryId, {String? siteUrl}) =>
+      byId[categoryId];
+
+  @override
+  SiteConfig siteConfigFor(String siteUrl) =>
+      SiteConfig(allowUncategorizedTopics: allowUncategorized);
 }
 
 final class _AppendedRowsModule implements PluginModule {

@@ -540,6 +540,8 @@ class ChatController extends FrameSafeNotifier {
                   clear: clear,
                 ),
         scheduleThreadDetailRefresh: _scheduleThreadDetailRefresh,
+        isRefreshingThreadDetail: (siteUrl, target) =>
+            _threadMetadata.isRefreshingDetail(siteUrl, target),
         applyDeleteMutation: (siteUrl, data, channelId, thread) =>
             _applyDeleteEvent(
               siteUrl,

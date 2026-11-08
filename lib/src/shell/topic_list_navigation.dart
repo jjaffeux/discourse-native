@@ -25,10 +25,6 @@ typedef _TopicListNavigationSnapshot = ({
   bool signedIn,
   bool connected,
   bool unifiedNew,
-  int allCount,
-  int unreadCount,
-  int topicCount,
-  int replyCount,
   String? siteUrl,
   ContentRoute? route,
   List<TopicCategory> categories,
@@ -87,91 +83,84 @@ class TopicListNavigation extends StatelessWidget {
   final bool keepTopicOpen;
 
   @override
-  Widget build(
-    BuildContext context,
-  ) => ForumTabSelector<_TopicListNavigationSnapshot>(
-    select: (controller, tab) {
-      final counts = tab.topicListNewCounts;
-      final siteUrl = controller.currentInstance?.url;
-      final route = tab.topicListContent ?? tab.currentContent;
-      final showsFilters = route?.isTopicListFilter == true;
-      return (
-        mode: tab.currentTopicListMode,
-        signedIn: controller.currentInstance?.user != null,
-        connected: controller.currentInstance?.isConnected == true,
-        unifiedNew: controller.currentInstance?.user?.unifiedNewEnabled == true,
-        allCount: counts.all,
-        // Unread lists exactly the topics Replies counts, so it shares that
-        // count's category and tag scope and its live tracking.
-        unreadCount: counts.replies,
-        topicCount: counts.topics,
-        replyCount: counts.replies,
-        siteUrl: siteUrl,
-        route: route,
-        filterOwner: _filterOwner(controller, tab),
-        categories: showsFilters && siteUrl != null
-            ? controller.filterCategoriesFor(siteUrl)
-            : const <TopicCategory>[],
-        tags: showsFilters && siteUrl != null
-            ? controller.topicListFilterTagsFor(siteUrl)
-            : const <SidebarTag>[],
-        taggingEnabled:
-            showsFilters &&
-            siteUrl != null &&
-            controller.siteConfigFor(siteUrl).taggingEnabled,
-        maxCategoryNesting: siteUrl == null
-            ? SiteConfig.defaultMaxCategoryNesting
-            : controller.siteConfigFor(siteUrl).maxCategoryNesting,
+  Widget build(BuildContext context) =>
+      ForumTabSelector<_TopicListNavigationSnapshot>(
+        select: (controller, tab) {
+          final siteUrl = controller.currentInstance?.url;
+          final route = tab.topicListContent ?? tab.currentContent;
+          final showsFilters = route?.isTopicListFilter == true;
+          return (
+            mode: tab.currentTopicListMode,
+            signedIn: controller.currentInstance?.user != null,
+            connected: controller.currentInstance?.isConnected == true,
+            unifiedNew:
+                controller.currentInstance?.user?.unifiedNewEnabled == true,
+            siteUrl: siteUrl,
+            route: route,
+            filterOwner: _filterOwner(controller, tab),
+            categories: showsFilters && siteUrl != null
+                ? controller.filterCategoriesFor(siteUrl)
+                : const <TopicCategory>[],
+            tags: showsFilters && siteUrl != null
+                ? controller.topicListFilterTagsFor(siteUrl)
+                : const <SidebarTag>[],
+            taggingEnabled:
+                showsFilters &&
+                siteUrl != null &&
+                controller.siteConfigFor(siteUrl).taggingEnabled,
+            maxCategoryNesting: siteUrl == null
+                ? SiteConfig.defaultMaxCategoryNesting
+                : controller.siteConfigFor(siteUrl).maxCategoryNesting,
+          );
+        },
+        builder: (context, state, _) {
+          final showsTabs = state.mode != null;
+          final showsFilters =
+              state.siteUrl != null && state.route?.isTopicListFilter == true;
+          if (!showsTabs && !showsFilters && trailing == null) {
+            return child;
+          }
+          final controls = _TopicListNavigationControls(
+            state: state,
+            showsTabs: showsTabs,
+            showsFilters: showsFilters,
+            trailing: trailing,
+            headingBuilder: headingBuilder,
+            keepTopicOpen: keepTopicOpen,
+          );
+          if (headingBuilder == null) {
+            return DPageSurface(framed: false, header: controls, child: child);
+          }
+          final route = state.route;
+          final siteUrl = state.siteUrl;
+          final categoryId = route?.categoryId;
+          final category = categoryId == null || siteUrl == null
+              ? null
+              : ShellScope.read(context).categoryRef(siteUrl, categoryId);
+          // The page keeps one element shape whether or not a category scopes
+          // it, so changing scope never remounts the list or its open menus.
+          return ListenableBuilder(
+            listenable: category ?? Listenable.merge(const []),
+            builder: (context, _) => DPageSurface.headed(
+              retractControls: ShellScope.read(context).mobileNavigationEnabled,
+              titleText: category != null
+                  ? category.value?.name ?? context.l10n.category
+                  : state.mode == null
+                  ? route?.title ?? context.l10n.topics
+                  : context.l10n.topicsMaincontent(
+                      TopicFeedMenu.label(state.mode!),
+                    ),
+              identity: state.filterOwner,
+              title: KeyedSubtree(
+                key: const ValueKey('topic-list-primary-row'),
+                child: headingBuilder!(context, null),
+              ),
+              controls: controls,
+              child: child,
+            ),
+          );
+        },
       );
-    },
-    builder: (context, state, _) {
-      final showsTabs = state.mode != null;
-      final showsFilters =
-          state.siteUrl != null && state.route?.isTopicListFilter == true;
-      if (!showsTabs && !showsFilters && trailing == null) {
-        return child;
-      }
-      final controls = _TopicListNavigationControls(
-        state: state,
-        showsTabs: showsTabs,
-        showsFilters: showsFilters,
-        trailing: trailing,
-        headingBuilder: headingBuilder,
-        keepTopicOpen: keepTopicOpen,
-      );
-      if (headingBuilder == null) {
-        return DPageSurface(framed: false, header: controls, child: child);
-      }
-      final route = state.route;
-      final siteUrl = state.siteUrl;
-      final categoryId = route?.categoryId;
-      final category = categoryId == null || siteUrl == null
-          ? null
-          : ShellScope.read(context).categoryRef(siteUrl, categoryId);
-      // The page keeps one element shape whether or not a category scopes
-      // it, so changing scope never remounts the list or its open menus.
-      return ListenableBuilder(
-        listenable: category ?? Listenable.merge(const []),
-        builder: (context, _) => DPageSurface.headed(
-          retractControls: ShellScope.read(context).mobileNavigationEnabled,
-          titleText: category != null
-              ? category.value?.name ?? context.l10n.category
-              : state.mode == null
-              ? route?.title ?? context.l10n.topics
-              : context.l10n.topicsMaincontent(
-                  TopicFeedMenu.label(state.mode!),
-                ),
-          identity: state.filterOwner,
-          title: KeyedSubtree(
-            key: const ValueKey('topic-list-primary-row'),
-            child: headingBuilder!(context, null),
-          ),
-          controls: controls,
-          child: child,
-        ),
-      );
-    },
-  );
 }
 
 class _TopicListNavigationControls extends StatelessWidget {
@@ -198,15 +187,20 @@ class _TopicListNavigationControls extends StatelessWidget {
     final mode = state.mode ?? TopicListMode.latest;
     void selectMode(TopicListMode value) =>
         unawaited(tab.selectTopicListMode(value, keepTopicOpen: keepTopicOpen));
-    final navigation = TopicFeedMenu(
-      mode: mode,
-      signedIn: state.signedIn,
-      unreadCount: state.unreadCount,
-      newCount: state.allCount,
-      unifiedNew: state.unifiedNew,
-      topicCount: state.topicCount,
-      replyCount: state.replyCount,
-      onSelected: selectMode,
+    final navigation = ForumTabSelector<({int all, int topics, int replies})>(
+      select: (_, tab) => tab.topicListNewCounts,
+      builder: (context, counts, _) => TopicFeedMenu(
+        mode: mode,
+        signedIn: state.signedIn,
+        // Unread lists exactly the topics Replies counts, so it shares that
+        // count's category and tag scope and its live tracking.
+        unreadCount: counts.replies,
+        newCount: counts.all,
+        unifiedNew: state.unifiedNew,
+        topicCount: counts.topics,
+        replyCount: counts.replies,
+        onSelected: selectMode,
+      ),
     );
     final owner = state.filterOwner;
     final lease = state.siteUrl == null

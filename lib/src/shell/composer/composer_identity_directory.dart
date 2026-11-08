@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:discourse_native/l10n/strings.dart';
 
@@ -21,6 +22,11 @@ import 'pills.dart';
 import 'triggers.dart';
 
 const int _identityCacheCapacity = 2048;
+const int _recentAnswerCapacity = 256;
+
+/// How long core's autocomplete serves an answer before asking again
+/// (`user-search.js`, `hashtag-autocomplete.js`).
+const Duration _recentAnswerLifetime = Duration(seconds: 30);
 
 typedef ComposerEmojiSource = ({
   bool Function(String siteUrl) enabled,
@@ -67,6 +73,7 @@ final class ComposerIdentityDirectory {
     required this._pluginHashtagPresentation,
     required this._pluginHashtagTypes,
     required this._onChanged,
+    this._clock = DateTime.now,
   });
 
   final ApiCredentialReader _credentials;
@@ -78,6 +85,7 @@ final class ComposerIdentityDirectory {
   final PluginHashtagPresentationResolver _pluginHashtagPresentation;
   final Iterable<String> Function() _pluginHashtagTypes;
   final void Function(String siteUrl, bool artwork) _onChanged;
+  final DateTime Function() _clock;
   final Map<String, _ComposerIdentityResolution> _resolutions = {};
   bool _disposed = false;
 
@@ -98,6 +106,7 @@ final class ComposerIdentityDirectory {
       lookups: _lookups,
       pluginHashtagTypes: _pluginHashtagTypes(),
       onChanged: (artwork) => _onChanged(siteUrl, artwork),
+      clock: _clock,
     );
     if (_disposed) owner.retire();
     return _resolutions[siteUrl] = owner;
@@ -273,6 +282,33 @@ final class ComposerIdentityDirectory {
   }
 }
 
+/// What a site last answered for each search term.
+final class _RecentAnswers<K, V extends Object> {
+  _RecentAnswers(this._clock);
+
+  final DateTime Function() _clock;
+  final _answers = BoundedLruCache<K, ({V answer, DateTime askedAt})>(
+    _recentAnswerCapacity,
+  );
+
+  V? read(K key) {
+    final held = _answers.read(key);
+    if (held == null) return null;
+    final age = _clock().difference(held.askedAt);
+    return age > _recentAnswerLifetime ? null : held.answer;
+  }
+
+  /// Overlapping asks for one term can land out of order; the answer asked
+  /// last is the one that stays.
+  void remember(K key, V answer, DateTime askedAt) {
+    final held = _answers.read(key);
+    if (held != null && held.askedAt.isAfter(askedAt)) return;
+    _answers.put(key, (answer: answer, askedAt: askedAt));
+  }
+
+  void clear() => _answers.clear();
+}
+
 final class _ComposerIdentityResolution {
   _ComposerIdentityResolution({
     required this._session,
@@ -282,12 +318,15 @@ final class _ComposerIdentityResolution {
     required this._lookups,
     required Iterable<String> pluginHashtagTypes,
     required this._onChanged,
+    required this._clock,
   }) : _hashtagTypes = List.unmodifiable(
          {
            ...defaultDiscourseHashtagOrder,
            ...pluginHashtagTypes,
          }.take(maximumDiscourseHashtagsPerRequest),
-       );
+       ),
+       _recentHashtagAnswers = _RecentAnswers(_clock),
+       _recentMentionAnswers = _RecentAnswers(_clock);
 
   final AccountRequestSession _session;
   final ApiCredentialReader _credentials;
@@ -296,6 +335,10 @@ final class _ComposerIdentityResolution {
   final ShellLookupApi _lookups;
   final List<String> _hashtagTypes;
   final void Function(bool artwork) _onChanged;
+  final DateTime Function() _clock;
+  final _RecentAnswers<String, List<FoundHashtag>> _recentHashtagAnswers;
+  final _RecentAnswers<(String, int?), FoundUsersAndGroups>
+  _recentMentionAnswers;
   final _hashtags = BoundedLruCache<String, FoundHashtag?>(
     _identityCacheCapacity,
   );
@@ -314,19 +357,24 @@ final class _ComposerIdentityResolution {
       : {
           for (final entry in _hashtags.snapshot.entries)
             if (entry.value case final FoundHashtag hashtag)
-              entry.key: {
-                'type': hashtag.type,
-                'ref': hashtag.ref,
-                'slug': hashtag.slug,
-                'text': hashtag.text,
-                'relative_url': hashtag.relativeUrl,
-                'icon': hashtag.icon,
-                'id': hashtag.id,
-                'style_type': hashtag.styleType,
-                'emoji': hashtag.emoji,
-                'colors': hashtag.colors,
-              },
+              entry.key: _cookingIdentity(hashtag),
         };
+
+  static Map<String, Object?> _cookingIdentity(FoundHashtag hashtag) => {
+    'type': hashtag.type,
+    'ref': hashtag.ref,
+    'slug': hashtag.slug,
+    'text': hashtag.text,
+    'relative_url': hashtag.relativeUrl,
+    'icon': hashtag.icon,
+    'id': hashtag.id,
+    'style_type': hashtag.styleType,
+    'emoji': hashtag.emoji,
+    'colors': hashtag.colors,
+  };
+
+  static bool _cooksAlike(FoundHashtag a, FoundHashtag b) =>
+      jsonEncode(_cookingIdentity(a)) == jsonEncode(_cookingIdentity(b));
 
   Future<T> _run<T>(
     Future<T> Function(AccountRequestCredentials credential) operation,
@@ -342,6 +390,9 @@ final class _ComposerIdentityResolution {
   }
 
   Future<List<FoundHashtag>> searchHashtags(String term) async {
+    final recent = isCurrent ? _recentHashtagAnswers.read(term) : null;
+    if (recent != null) return recent;
+    final askedAt = _clock();
     final List<FoundHashtag> found;
     try {
       found = await _run(
@@ -357,14 +408,22 @@ final class _ComposerIdentityResolution {
       return const [];
     }
     if (!isCurrent) return const [];
+    _recentHashtagAnswers.remember(term, List.unmodifiable(found), askedAt);
+    var changed = false;
     for (final hashtag in found) {
+      final known = _hashtags.read(hashtag.ref);
       _hashtags.put(hashtag.ref, hashtag);
+      if (known == null || !_cooksAlike(known, hashtag)) changed = true;
     }
-    if (found.isNotEmpty) _onChanged(false);
+    if (changed) _onChanged(false);
     return found;
   }
 
   Future<FoundUsersAndGroups> searchMentions(String term, int? topicId) async {
+    final key = (term, topicId);
+    final recent = isCurrent ? _recentMentionAnswers.read(key) : null;
+    if (recent != null) return recent;
+    final askedAt = _clock();
     final FoundUsersAndGroups found;
     try {
       found = await _run(
@@ -381,6 +440,7 @@ final class _ComposerIdentityResolution {
       return const FoundUsersAndGroups();
     }
     if (!isCurrent) return const FoundUsersAndGroups();
+    _recentMentionAnswers.remember(key, found, askedAt);
     _seedMentions([
       for (final user in found.users) user.username,
       for (final group in found.groups) group.name,
@@ -409,10 +469,13 @@ final class _ComposerIdentityResolution {
   }
 
   void _seedMentions(List<String> names) {
+    var changed = false;
     for (final name in names) {
+      if (_mentions.read(name) == true) continue;
       _mentions.put(name, true);
+      changed = true;
     }
-    if (names.isNotEmpty) _onChanged(false);
+    if (changed) _onChanged(false);
   }
 
   ComposerPills pills(int? topicId) => (
@@ -515,6 +578,8 @@ final class _ComposerIdentityResolution {
 
   void retire() {
     _retired = true;
+    _recentHashtagAnswers.clear();
+    _recentMentionAnswers.clear();
     _hashtags.clear();
     _mentions.clear();
     _hashtagsInFlight.clear();

@@ -90,6 +90,9 @@ final class ChatThreadMetadataOwner {
   bool preventsEviction(String siteUrl, ChatThreadTarget target) =>
       _metadata[(siteUrl: siteUrl, target: target)]?.preventsEviction ?? false;
 
+  bool isRefreshingDetail(String siteUrl, ChatThreadTarget target) =>
+      _metadata[(siteUrl: siteUrl, target: target)]?.detail != null;
+
   void recordSourceMoved(
     String siteUrl,
     ChatThreadTarget target,

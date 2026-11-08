@@ -14,6 +14,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -356,9 +357,10 @@ void main() {
     Future<ShellController> start(
       _SiteJsonApi api, {
       FakeAuthenticator? authenticator,
+      DiscourseInstance? instance,
     }) async {
       final shell = ShellController(
-        instanceStore: FakeInstanceStore([_connected(site)]),
+        instanceStore: FakeInstanceStore([instance ?? _connected(site)]),
         api: api,
         authenticator:
             authenticator ?? (FakeAuthenticator()..keys[site] = 'key'),
@@ -461,11 +463,177 @@ void main() {
         );
       },
     );
+
+    test(
+      'the tag editor reuses the site read that loaded the categories',
+      () async {
+        final api = _SiteJsonApi([_composerSite()]);
+        final shell = await start(api);
+
+        final capabilities = await shell.prepareTopicTagEditor(site);
+
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF composer-site-json tag_editor_site_json_requests='
+          '${api.siteJsonRequests}',
+        );
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF composer-site-json tag_editor_capability_reads='
+          '${api.topicComposerCapabilityRequests.length}',
+        );
+        expect(capabilities.canTagTopics, isTrue);
+        expect(capabilities.canCreateTag, isTrue);
+        expect(capabilities.tagsFilterRegexp, '[/]');
+        expect(capabilities.uncategorizedCategoryId, 1);
+        expect(capabilities.maxTagLength, 20);
+        expect(capabilities.maxTagsPerTopic, 5);
+        expect(api.siteJsonRequests, 1);
+        expect(api.topicComposerCapabilityRequests, isEmpty);
+      },
+    );
+
+    test(
+      'a new topic reuses the site read that loaded the categories',
+      () async {
+        const author = DiscourseUser(
+          id: 7,
+          username: 'reader',
+          canCreateTopic: true,
+        );
+        final api = _SiteJsonApi([_composerSite()], user: author);
+        final shell = await start(
+          api,
+          instance: _connected(site).copyWith(user: author),
+        );
+
+        await shell.openNewTopicFromSidebar();
+
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF composer-site-json new_topic_site_json_requests='
+          '${api.siteJsonRequests}',
+        );
+        expect(shell.visibleComposer, isNotNull);
+        expect(shell.topicComposerCapabilities(site).canTagTopics, isTrue);
+        expect(api.siteJsonRequests, 1);
+      },
+    );
+
+    test(
+      'a composer fetches its own capabilities after a failed site read',
+      () async {
+        final api = _SiteJsonApi([http.Response('', 500), _composerSite()]);
+        final shell = await start(api);
+        expect(api.siteJsonRequests, 1);
+
+        final capabilities = await shell.prepareTopicTagEditor(site);
+
+        expect(capabilities.canTagTopics, isTrue);
+        expect(api.topicComposerCapabilityRequests, [site]);
+        expect(api.siteJsonRequests, 2);
+      },
+    );
+
+    test('an anonymous site read cannot seed the signed-in composer', () async {
+      final api = _SiteJsonApi([
+        _siteJson({'can_tag_topics': false, 'max_tag_length': 7}),
+        _composerSite(),
+      ]);
+      final shell = await start(
+        api,
+        instance: DiscourseInstance(
+          url: site,
+          title: Uri.parse(site).host,
+          apiVersion: 4,
+        ),
+      );
+      expect(api.siteJsonRequests, 1);
+
+      shell.applyAccountSessionInstance(
+        shell
+            .instanceFor(site)!
+            .copyWith(user: const DiscourseUser(id: 7, username: 'reader')),
+        AccountSessionPhase.connecting,
+      );
+      final capabilities = await shell.prepareTopicTagEditor(site);
+
+      expect(capabilities.canTagTopics, isTrue);
+      expect(capabilities.maxTagLength, 20);
+      expect(api.topicComposerCapabilityRequests, [site]);
+      expect(api.siteJsonRequests, 2);
+    });
+
+    test(
+      'a site read landing after a composer opened keeps its answer',
+      () async {
+        final categoryResult = Completer<void>();
+        final api = _SiteJsonApi([
+          _composerSite(maxTagLength: 7),
+          _composerSite(),
+        ])..heldCategoryResult = categoryResult;
+        final shell = await start(api);
+        expect(api.siteJsonRequests, 1);
+
+        final opened = await shell.prepareTopicTagEditor(site);
+        expect(opened.maxTagLength, 20);
+
+        categoryResult.complete();
+        await pumpEventQueue();
+
+        expect(shell.topicComposerCapabilities(site).maxTagLength, 20);
+        expect(api.siteJsonRequests, 2);
+      },
+    );
+
+    test(
+      'a replaced account\'s site read cannot seed the next account\'s composer',
+      () async {
+        final oldResult = Completer<void>();
+        final api = _SiteJsonApi([
+          _composerSite(maxTagLength: 7),
+          http.Response('', 500),
+          _composerSite(),
+        ])..heldCategoryResult = oldResult;
+        final authenticator = FakeAuthenticator()..keys[site] = 'old-key';
+        final shell = await start(api, authenticator: authenticator);
+        expect(api.siteJsonRequests, 1);
+
+        shell.lifecycle.invalidate(site);
+        shell.clearAccountSessionState(site);
+        authenticator.keys[site] = 'next-key';
+        shell.applyAccountSessionInstance(
+          shell
+              .instanceFor(site)!
+              .copyWith(user: const DiscourseUser(id: 8, username: 'next')),
+          AccountSessionPhase.connecting,
+        );
+        await shell.loadCategories(site);
+        expect(api.siteJsonRequests, 2);
+
+        oldResult.complete();
+        await pumpEventQueue();
+        final capabilities = await shell.prepareTopicTagEditor(site);
+
+        expect(capabilities.maxTagLength, 20);
+        expect(api.topicComposerCapabilityRequests, [site]);
+        expect(api.siteJsonRequests, 3);
+      },
+    );
   });
 }
 
 http.Response _siteJson(Map<String, Object?> body) =>
     http.Response(jsonEncode(body), 200);
+
+http.Response _composerSite({int maxTagLength = 20}) => _siteJson({
+  'can_tag_topics': true,
+  'can_create_tag': true,
+  'tags_filter_regexp': '[/]',
+  'uncategorized_category_id': 1,
+  'max_tag_length': maxTagLength,
+  'max_tags_per_topic': 5,
+});
 
 DiscourseInstance _connected(String url) => DiscourseInstance(
   url: url,
@@ -583,7 +751,7 @@ final class _IntentStartupApi extends FakeDiscourseApi {
 /// Runs the category and catalog reads over the production HTTP adapter, so
 /// each `/site.json` they spend is counted on the wire.
 final class _SiteJsonApi extends FakeDiscourseApi {
-  _SiteJsonApi(this.siteJsonAnswers)
+  _SiteJsonApi(this.siteJsonAnswers, {super.user})
     : super(
         otherNotificationList: const [],
         totals: const NotificationTotals(),
@@ -641,6 +809,20 @@ final class _SiteJsonApi extends FakeDiscourseApi {
   }) {
     siteNotificationTypesRequested.add(siteUrl);
     return _wire.siteNotificationTypes(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<TopicComposerCapabilities> topicComposerCapabilities({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) {
+    topicComposerCapabilityRequests.add(siteUrl);
+    return _wire.topicComposerCapabilities(
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,

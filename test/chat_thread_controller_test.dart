@@ -2941,6 +2941,96 @@ void main() {
     },
   );
 
+  group('a reply preview racing a detail read', () {
+    const heldPreview = ChatThreadPreview(
+      threadId: 22,
+      replyCount: 3,
+      lastReplyId: 103,
+    );
+    const replyPreview = ChatThreadPreview(
+      threadId: 22,
+      replyCount: 4,
+      lastReplyId: 104,
+    );
+
+    ({
+      _SequencedDetailApi api,
+      ChatController chat,
+      Store store,
+      FakeSiteTracker tracker,
+    })
+    arrange() {
+      final api = _SequencedDetailApi();
+      final store = Store()
+        ..put(site, threadDetail(preview: heldPreview))
+        ..put(
+          site,
+          const ChatMessage(
+            id: 100,
+            channelId: 9,
+            threadId: 22,
+            cooked: '<p>Original</p>',
+            author: ChatMessageAuthor(id: 2, username: 'sam'),
+            thread: heldPreview,
+          ),
+        );
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+      return (api: api, chat: subject.chat, store: store, tracker: tracker);
+    }
+
+    test('the read answered before the reply cannot overwrite it', () async {
+      final subject = arrange();
+      final refreshing = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => subject.api.calls == 1);
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9',
+        authoritativePreviewEvent(replyCount: 4),
+        messageId: 704,
+      );
+      subject.api.responses[0].complete(threadDetail(preview: heldPreview));
+      await waitUntil(() => subject.api.calls == 2);
+
+      expect(subject.chat.thread(site, 22)?.replyCount, 4);
+      expect(
+        subject.store.read<ChatMessage>(site, 100)?.thread?.lastReplyId,
+        104,
+      );
+
+      subject.api.responses[1].complete(
+        threadDetail(replyCount: 4, lastMessageId: 104, preview: replyPreview),
+      );
+      await refreshing;
+
+      expect(subject.chat.thread(site, 22)?.replyCount, 4);
+      final root = subject.store.read<ChatMessage>(site, 100)!;
+      expect(root.thread?.replyCount, 4);
+      expect(root.thread?.lastReplyId, 104);
+      expect(subject.api.calls, 2);
+    });
+
+    test('a reply after the read settled starts no other read', () async {
+      final subject = arrange();
+      final refreshing = subject.chat.refreshThreadDetail(site, target);
+      await waitUntil(() => subject.api.calls == 1);
+      subject.api.responses[0].complete(threadDetail(preview: heldPreview));
+      await refreshing;
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9',
+        authoritativePreviewEvent(replyCount: 4),
+        messageId: 704,
+      );
+      await pumpEventQueue();
+
+      expect(subject.chat.thread(site, 22)?.replyCount, 4);
+      expect(subject.api.calls, 1);
+    });
+  });
+
   test(
     'a stream listener can refresh detail during its initial publication',
     () async {

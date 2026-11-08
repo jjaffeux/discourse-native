@@ -264,7 +264,7 @@ void main() {
     expect(changes, [(_site, false)]);
 
     api.searchGate = Completer<void>();
-    final stale = directory.searchHashtags(siteUrl: _site, term: 'sail');
+    final stale = directory.searchHashtags(siteUrl: _site, term: 'saili');
     await pumpEventQueue();
     lifecycle.invalidate(_site);
     expect(retiredPills.hashtag('sailing'), isNull);
@@ -598,11 +598,285 @@ void main() {
       {'user0'},
     ]);
   });
+  group('recent search answers', () {
+    testWidgets('retyped mention terms reuse the answer and keep known names', (
+      tester,
+    ) async {
+      var now = DateTime(2026, 11, 8);
+      final api = _IdentityApi()
+        ..mentionAnswers.addAll({
+          '': ['alice'],
+          's': ['sam', 'sara'],
+          'sa': ['sam', 'sara'],
+          'san': ['sandra'],
+          'sam': ['sam'],
+        });
+      final shell = (await tester.runAsync(
+        () => _shell(api, clock: () => now),
+      ))!;
+      _pills(shell);
+      final composer = shell.visibleComposer!;
+      final revisionBefore = shell.cooking.contextRevisionFor(_site);
+
+      for (final typed in _retypedTrigger('@')) {
+        composer.text.value = TextEditingValue(
+          text: typed,
+          selection: TextSelection.collapsed(offset: typed.length),
+        );
+        await tester.pump(_keyInterval);
+        now = now.add(_keyInterval);
+      }
+
+      final searches = api.userSearchesRequested.length;
+      final bumps = shell.cooking.contextRevisionFor(_site) - revisionBefore;
+      // ignore: avoid_print
+      print('PERF_PROOF mention-cache user_searches=$searches');
+      // ignore: avoid_print
+      print('PERF_PROOF mention-cache context_bumps=$bumps');
+      expect(searches, lessThanOrEqualTo(5));
+      expect(bumps, lessThanOrEqualTo(3));
+      expect(api.userSearchesRequested.map((search) => search.term).toSet(), {
+        '',
+        's',
+        'sa',
+        'san',
+        'sam',
+      });
+      expect(bumps, 3, reason: 'each answer that taught a name still counts');
+      expect(composer.autocomplete.suggestions.map((row) => row.value), [
+        'sam',
+      ]);
+      expect(_pills(shell).mention('sandra'), isTrue);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.runAsync(() => pumpEventQueue());
+    });
+
+    testWidgets('retyped hashtag terms reuse the answer and keep known tags', (
+      tester,
+    ) async {
+      var now = DateTime(2026, 11, 8);
+      final api = _IdentityApi();
+      final shell = (await tester.runAsync(
+        () => _shell(api, clock: () => now),
+      ))!;
+      _pills(shell);
+      final composer = shell.visibleComposer!;
+      final revisionBefore = shell.cooking.contextRevisionFor(_site);
+
+      for (final typed in _retypedTrigger('#')) {
+        composer.text.value = TextEditingValue(
+          text: typed,
+          selection: TextSelection.collapsed(offset: typed.length),
+        );
+        await tester.pump(_keyInterval);
+        now = now.add(_keyInterval);
+      }
+
+      final searches = api.hashtagSearchesRequested.length;
+      final bumps = shell.cooking.contextRevisionFor(_site) - revisionBefore;
+      // ignore: avoid_print
+      print('PERF_PROOF mention-cache hashtag_searches=$searches');
+      // ignore: avoid_print
+      print('PERF_PROOF mention-cache hashtag_context_bumps=$bumps');
+      expect(searches, lessThanOrEqualTo(4));
+      expect(bumps, lessThanOrEqualTo(1));
+      expect(api.hashtagSearchesRequested.toSet(), {'s', 'sa', 'san', 'sam'});
+      expect(bumps, 1, reason: 'the first answer taught the tag');
+      expect(composer.autocomplete.suggestions.map((row) => row.value), [
+        'sailing',
+      ]);
+
+      await tester.pump(const Duration(seconds: 2));
+      await tester.runAsync(() => pumpEventQueue());
+    });
+
+    test(
+      'a term is asked again once its answer is thirty seconds old',
+      () async {
+        var now = DateTime(2026, 11, 8);
+        final api = _IdentityApi();
+        final shell = await _shell(api, clock: () => now);
+        _pills(shell);
+        final search = shell.visibleComposer!.autocomplete.search!;
+
+        await search.users('ali');
+        await search.hashtags('sail');
+        now = now.add(const Duration(seconds: 29));
+        expect((await search.users('ali')).map((row) => row.value), [
+          'crew',
+          'Alice',
+        ]);
+        expect((await search.hashtags('sail')).single.value, 'sailing');
+        expect(api.userSearchesRequested, hasLength(1));
+        expect(api.hashtagSearchesRequested, hasLength(1));
+
+        now = now.add(const Duration(seconds: 2));
+        await search.users('ali');
+        await search.hashtags('sail');
+        expect(api.userSearchesRequested, hasLength(2));
+        expect(api.hashtagSearchesRequested, hasLength(2));
+      },
+    );
+
+    test('a failed search is not remembered', () async {
+      final api = _IdentityApi()..failSearch = true;
+      final shell = await _shell(api);
+      _pills(shell);
+      final search = shell.visibleComposer!.autocomplete.search!;
+
+      await expectLater(search.users('ali'), throwsStateError);
+      expect(await search.hashtags('sail'), isEmpty);
+
+      api.failSearch = false;
+      expect(await search.users('ali'), hasLength(2));
+      expect(await search.hashtags('sail'), hasLength(1));
+      expect(api.mentionSearchTopicIds, hasLength(2));
+      expect(api.hashtagSearchesRequested, hasLength(2));
+    });
+
+    test('an empty answer is remembered like any other', () async {
+      final api = _IdentityApi()..mentionAnswers['nobody'] = const [];
+      final shell = await _shell(api);
+      _pills(shell);
+      final search = shell.visibleComposer!.autocomplete.search!;
+
+      await search.users('nobody');
+      expect(await search.users('nobody'), isEmpty);
+      expect(api.userSearchesRequested, hasLength(1));
+    });
+
+    test('a topic is not served another topic\'s mention answer', () async {
+      final api = _IdentityApi();
+      final shell = await _shell(api);
+      final first = shell.composerIdentities.search(_replyTo(7));
+      final second = shell.composerIdentities.search(_replyTo(8));
+
+      await first.users('ali');
+      await second.users('ali');
+      expect(api.mentionSearchTopicIds, [7, 8]);
+
+      await first.users('ali');
+      await second.users('ali');
+      expect(api.mentionSearchTopicIds, [7, 8]);
+    });
+
+    test('a replaced lease does not answer from the retired one', () async {
+      final api = _IdentityApi();
+      final shell = await _shell(api);
+      final search = shell.composerIdentities.search(_replyTo(7));
+
+      await search.users('ali');
+      await search.hashtags('sail');
+      shell.lifecycle.invalidate(_site);
+      await search.users('ali');
+      await search.hashtags('sail');
+
+      expect(api.userSearchesRequested, hasLength(2));
+      expect(api.hashtagSearchesRequested, hasLength(2));
+    });
+
+    test('an older answer landing last does not replace a newer one', () async {
+      var now = DateTime(2026, 11, 8);
+      final older = Completer<FoundUsersAndGroups>();
+      final newer = Completer<FoundUsersAndGroups>();
+      final api = _IdentityApi()..mentionReplies.addAll([older, newer]);
+      final shell = await _shell(api, clock: () => now);
+      final search = shell.composerIdentities.search(_replyTo(7));
+
+      final slow = search.users('ali');
+      await pumpEventQueue();
+      now = now.add(const Duration(seconds: 1));
+      final fast = search.users('ali');
+      await pumpEventQueue();
+      newer.complete(
+        const FoundUsersAndGroups(users: [FoundUser(username: 'newer')]),
+      );
+      await fast;
+      older.complete(
+        const FoundUsersAndGroups(users: [FoundUser(username: 'older')]),
+      );
+      await slow;
+
+      expect((await search.users('ali')).single.value, 'newer');
+      expect(api.userSearchesRequested, hasLength(2));
+    });
+
+    test('remembered answers stay bounded', () async {
+      final api = _IdentityApi();
+      final shell = await _shell(api);
+      final search = shell.composerIdentities.search(_replyTo(7));
+
+      for (var i = 0; i <= 256; i++) {
+        await search.users('term$i');
+      }
+      final asked = api.userSearchesRequested.length;
+      await search.users('term256');
+      expect(api.userSearchesRequested, hasLength(asked));
+      await search.users('term0');
+      expect(api.userSearchesRequested, hasLength(asked + 1));
+    });
+
+    test('a changed hashtag still invalidates prepared cooks', () async {
+      final api = _IdentityApi();
+      final shell = await _shell(api);
+      await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'a');
+      final known = shell.cooking.contextRevisionFor(_site);
+      await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'b');
+      expect(shell.cooking.contextRevisionFor(_site), known);
+
+      api.hashtagSearchAnswer = const [
+        FoundHashtag(
+          type: 'tag',
+          ref: 'sailing',
+          slug: 'sailing',
+          text: 'Sailing',
+          id: 8,
+          colors: ['ff0000'],
+        ),
+      ];
+      await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'c');
+
+      expect(shell.cooking.contextRevisionFor(_site), known + 1);
+      expect(
+        shell
+            .cookingRequest(siteUrl: _site, raw: '#sailing')
+            .snapshot
+            .hashtags['sailing'],
+        containsPair('colors', ['ff0000']),
+      );
+    });
+  });
 }
+
+const _keyInterval = Duration(milliseconds: 200);
+
+List<String> _retypedTrigger(String trigger) => [
+  trigger,
+  '${trigger}s',
+  '${trigger}sa',
+  '${trigger}san',
+  '${trigger}sa',
+  '${trigger}sam',
+  '${trigger}sam ',
+  '${trigger}sam $trigger',
+  '${trigger}sam ${trigger}s',
+  '${trigger}sam ${trigger}sa',
+  '${trigger}sam ${trigger}sam',
+];
+
+ReplyComposerTarget _replyTo(int topicId) => ReplyComposerTarget(
+  siteUrl: _site,
+  topicTitle: 'Topic',
+  topicId: topicId,
+  slug: 'topic',
+  privateMessageTopic: false,
+);
 
 Future<ShellController> _shell(
   _IdentityApi api, {
   FakeAuthenticator? authenticator,
+  DateTime Function()? clock,
 }) async {
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
@@ -615,6 +889,7 @@ Future<ShellController> _shell(
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
+    clock: clock,
   );
   addTearDown(() async {
     await shell.pluginSession.close();
@@ -648,6 +923,9 @@ final class _IdentityApi extends FakeDiscourseApi {
   final hashtagReplies = <Completer<List<FoundHashtag>>>[];
   final mentionSearchTopicIds = <int?>[];
   final mentionTopicIds = <int?>[];
+  final mentionAnswers = <String, List<String>>{};
+  final mentionReplies = <Completer<FoundUsersAndGroups>>[];
+  List<FoundHashtag>? hashtagSearchAnswer;
 
   @override
   Future<List<FoundHashtag>> searchHashtags({
@@ -666,6 +944,7 @@ final class _IdentityApi extends FakeDiscourseApi {
     );
     await searchGate?.future;
     if (failSearch) throw StateError('search failed');
+    if (hashtagSearchAnswer case final answer?) return answer;
     return bulk
         ? [
             for (var i = 0; i <= 2048; i++)
@@ -705,7 +984,15 @@ final class _IdentityApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     mentionSearchTopicIds.add(topicId);
+    userSearchesRequested.add((term: term, topicId: topicId));
     if (failSearch) throw StateError('search failed');
+    final reply = mentionSearchTopicIds.length - 1;
+    if (reply < mentionReplies.length) return mentionReplies[reply].future;
+    if (mentionAnswers[term] case final names?) {
+      return FoundUsersAndGroups(
+        users: [for (final name in names) FoundUser(username: name)],
+      );
+    }
     return const FoundUsersAndGroups(
       users: [FoundUser(username: 'Alice')],
       groups: [FoundGroup(name: 'crew')],

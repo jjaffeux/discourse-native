@@ -87,9 +87,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   }
 
   // Built once per content. The account button that hands the profile card
-  // down wraps the chrome in its menus and rebuilds on its own account,
-  // presence and unread counts among them; the chrome, the same widget each
-  // time, stays. New content, or a boundary, is the chrome's own change.
+  // down wraps the chrome in its menus and rebuilds on its own account and
+  // presence; the chrome, the same widget each time, stays. New content, or a
+  // boundary, is the chrome's own change.
   Widget? _chrome;
 
   @override
@@ -768,7 +768,9 @@ class _MobileForumRootState extends State<MobileForumRoot> {
     return ListenableBuilder(
       listenable: Listenable.merge([
         shell.doNotDisturb,
-        shell.accountActivity.totalsListenable,
+        shell.accountActivity.totalsSelection(
+          () => UserMenuButton.unreadCountOf(shell, instance.url),
+        ),
         _notificationsMenu,
       ]),
       builder: (context, _) {

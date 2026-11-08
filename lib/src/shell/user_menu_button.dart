@@ -253,10 +253,15 @@ class _UserMenuButtonState extends State<UserMenuButton> {
       bool isCurrentMenu() => mounted && generation == _menuGeneration;
 
       return ListenableBuilder(
-        listenable: Listenable.merge([
-          controller.accountActivity.totalsListenable,
-          controller.doNotDisturb,
-        ]),
+        // On a phone this wraps the whole shell; the profile reads no count.
+        listenable: profileOnly
+            ? controller.doNotDisturb
+            : Listenable.merge([
+                controller.accountActivity.totalsSelection(
+                  () => UserMenuButton.unreadCountOf(controller, siteUrl),
+                ),
+                controller.doNotDisturb,
+              ]),
         builder: (context, _) {
           final connecting = account.connecting;
           final unreadCount = UserMenuButton.unreadCountOf(controller, siteUrl);

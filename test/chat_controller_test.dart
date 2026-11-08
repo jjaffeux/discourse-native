@@ -11626,6 +11626,265 @@ void main() {
     );
   });
 
+  group('live thread preview events', () {
+    const heldPreview = ChatThreadPreview(
+      threadId: 3,
+      replyCount: 2,
+      lastReplyId: 17,
+    );
+    const heldThread = ChatThread(
+      id: 3,
+      channelId: 9,
+      status: 'open',
+      replyCount: 2,
+      title: 'Held title',
+      lastMessageId: 17,
+      preview: heldPreview,
+    );
+    final heldRoot = threadRoot().withThreadPreview(heldPreview);
+
+    Map<String, dynamic> previewEvent({
+      required int replies,
+      required int lastReplyId,
+    }) => {
+      'type': 'update_thread_original_message',
+      'original_message_id': 1,
+      'thread_id': 3,
+      'channel_id': 9,
+      'preview': {
+        'reply_count': replies,
+        'last_reply_id': lastReplyId,
+        'last_reply_excerpt': 'answer',
+        'last_reply_created_at': '2026-05-05T12:00:00.000Z',
+        'last_reply_user': {'id': 4, 'username': 'lee'},
+      },
+    };
+
+    Future<void> deliverReplies(
+      FakeSiteTracker tracker, {
+      required int count,
+    }) async {
+      for (var reply = 1; reply <= count; reply += 1) {
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          previewEvent(replies: 2 + reply, lastReplyId: 17 + reply),
+        );
+        await pumpEventQueue();
+      }
+    }
+
+    test('replies to a held thread read no detail', () async {
+      final subject = build(
+        api: FakeDiscourseApi(
+          chatMessagesByKey: {
+            key(9): page([heldRoot]),
+          },
+          chatThreadsByKey: {FakeDiscourseApi.chatThreadKey(9, 3): heldThread},
+        ),
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, threadingEnabled: true));
+      subject.store.put(site, heldThread);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      await deliverReplies(tracker, count: 10);
+
+      final gets = subject.api.chatThreadsRequested.length;
+      // ignore: avoid_print
+      print('PERF_PROOF chat-thread-refresh held_thread_detail_gets=$gets');
+      expect(gets, lessThanOrEqualTo(0));
+      final root = subject.store.read<ChatMessage>(site, 1)!;
+      expect(root.thread?.replyCount, 12);
+      expect(root.thread?.lastReplyId, 27);
+      final thread = subject.chat.thread(site, 3)!;
+      expect(thread.replyCount, 12);
+      expect(thread.preview?.lastReplyId, 27);
+      expect(thread.lastMessageId, 27);
+      expect(thread.title, 'Held title');
+    });
+
+    test(
+      'a reply to a thread known only by its root reads its detail once',
+      () async {
+        final subject = build(
+          api: FakeDiscourseApi(
+            chatMessagesByKey: {
+              key(9): page([heldRoot]),
+            },
+            chatThreadsByKey: {
+              FakeDiscourseApi.chatThreadKey(9, 3): heldThread.copyWith(
+                replyCount: 3,
+                preview: const ChatThreadPreview(
+                  threadId: 3,
+                  replyCount: 3,
+                  lastReplyId: 18,
+                ),
+              ),
+            },
+          ),
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, threadingEnabled: true));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        await deliverReplies(tracker, count: 10);
+
+        final gets = subject.api.chatThreadsRequested.length;
+        // ignore: avoid_print
+        print('PERF_PROOF chat-thread-refresh root_only_detail_gets=$gets');
+        expect(gets, lessThanOrEqualTo(1));
+        expect(gets, 1);
+        final root = subject.store.read<ChatMessage>(site, 1)!;
+        expect(root.thread?.replyCount, 12);
+        expect(subject.chat.thread(site, 3)?.replyCount, 12);
+      },
+    );
+
+    test('a preview that moved nothing still reads a renamed title', () async {
+      final subject = build(
+        api: FakeDiscourseApi(
+          chatMessagesByKey: {
+            key(9): page([heldRoot]),
+          },
+          chatThreadsByKey: {
+            FakeDiscourseApi.chatThreadKey(9, 3): const ChatThread(
+              id: 3,
+              channelId: 9,
+              status: 'open',
+              replyCount: 2,
+              title: 'Renamed',
+              lastMessageId: 17,
+              preview: heldPreview,
+            ),
+          },
+        ),
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      subject.store.put(site, channel(9, threadingEnabled: true));
+      subject.store.put(site, heldThread);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage(
+        '/chat/9',
+        previewEvent(replies: 2, lastReplyId: 17),
+      );
+      await pumpEventQueue();
+
+      final gets = subject.api.chatThreadsRequested.length;
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF chat-thread-refresh unchanged_preview_detail_gets=$gets',
+      );
+      expect(gets, 1);
+      expect(subject.chat.thread(site, 3)?.title, 'Renamed');
+    });
+
+    test(
+      'a preview naming a last reply no held preview had is not a reply',
+      () async {
+        const noLastReply = ChatThreadPreview(threadId: 3, replyCount: 2);
+        final subject = build(
+          api: FakeDiscourseApi(
+            chatMessagesByKey: {
+              key(9): page([threadRoot().withThreadPreview(noLastReply)]),
+            },
+            chatThreadsByKey: {
+              FakeDiscourseApi.chatThreadKey(9, 3): heldThread.copyWith(
+                title: 'Renamed',
+              ),
+            },
+          ),
+          currentUser: currentUser,
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(site, channel(9, threadingEnabled: true));
+        subject.store.put(site, heldThread.copyWith(preview: noLastReply));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage(
+          '/chat/9',
+          previewEvent(replies: 2, lastReplyId: 17),
+        );
+        await pumpEventQueue();
+
+        expect(subject.chat.thread(site, 3)?.title, 'Renamed');
+      },
+    );
+
+    test('a reply to a tracked thread known only by its root counts the next '
+        'reply unread', () async {
+      // Only the held record says the reader tracks this thread, and the
+      // new-messages projection declines a thread it knows nothing about.
+      final subject = build(
+        api: FakeDiscourseApi(
+          chatChannelsBySite: {
+            site: ChatChannels(
+              public: [channel(9, threadingEnabled: true, lastMessageId: 17)],
+              newMessageBusLastIds: const {9: 70},
+              channelMessageBusLastIds: const {9: 80},
+            ),
+          },
+          chatMessagesByKey: {
+            key(9): page([heldRoot]),
+          },
+          chatThreadsByKey: {
+            FakeDiscourseApi.chatThreadKey(9, 3): heldThread.copyWith(
+              membership: const ChatThreadMembership(
+                threadId: 3,
+                notificationLevel: ChatThreadNotificationLevel.tracking,
+                lastReadMessageId: 17,
+              ),
+            ),
+          },
+        ),
+        currentUser: currentUser,
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      await subject.chat.openChannel(site, 9);
+      final view = subject.chat.beginViewingChannel(site, 9);
+      addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+      tracker.deliverPluginMessage(
+        '/chat/9',
+        previewEvent(replies: 3, lastReplyId: 18),
+      );
+      await pumpEventQueue();
+      tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        newMessageEvent(
+          type: 'thread',
+          channelId: 9,
+          threadId: 3,
+          messageId: 19,
+          authorId: 2,
+          createdAt: '2026-05-05T13:00:00.000Z',
+        ),
+      );
+
+      expect(
+        subject.chat.channel(site, 9)?.unreadThreadOverview.keys,
+        contains(3),
+      );
+    });
+  });
+
   group('ordering the stream', () {
     testWidgets(
       'a live arrival lands in the same place whichever channel brings it',

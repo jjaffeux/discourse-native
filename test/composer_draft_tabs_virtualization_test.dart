@@ -626,12 +626,9 @@ Future<void> _tabKey(WidgetTester tester, {bool reverse = false}) async {
   await tester.pumpAndSettle();
 }
 
-Finder _tab(String title) => find.byWidgetPredicate(
-  (widget) =>
-      widget is DDocumentTab &&
-      widget.child is Text &&
-      (widget.child as Text).data == title,
-  skipOffstage: false,
+Finder _tab(String title) => find.ancestor(
+  of: find.text(title, skipOffstage: false),
+  matching: find.byType(DDocumentTab, skipOffstage: false),
 );
 
 Finder _buttons(String title) => find.descendant(

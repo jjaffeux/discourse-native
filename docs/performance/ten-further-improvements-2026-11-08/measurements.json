@@ -1,0 +1,1088 @@
+{
+ "head": "35de0bb52038f7e2a929ed79324964fa239bdb0e",
+ "failures": [],
+ "proven": [
+  {
+   "slug": "composer-site-json",
+   "subject": "PERF: open the first composer without refetching /site.json",
+   "commit": "5e1077cc477d809de66f26877960bb4e742ee2c6",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "the tag editor reuses the site read",
+     "exit_code": 1,
+     "metrics": {
+      "composer-site-json.tag_editor_site_json_requests": "2",
+      "composer-site-json.tag_editor_capability_reads": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "a new topic reuses the site read",
+     "exit_code": 1,
+     "metrics": {
+      "composer-site-json.new_topic_site_json_requests": "2"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "the tag editor reuses the site read",
+     "exit_code": 0,
+     "metrics": {
+      "composer-site-json.tag_editor_site_json_requests": "1",
+      "composer-site-json.tag_editor_capability_reads": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "a new topic reuses the site read",
+     "exit_code": 0,
+     "metrics": {
+      "composer-site-json.new_topic_site_json_requests": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "the tag editor reuses the site read",
+     "exit_code": 1,
+     "metrics": {
+      "composer-site-json.tag_editor_site_json_requests": "2",
+      "composer-site-json.tag_editor_capability_reads": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "a new topic reuses the site read",
+     "exit_code": 1,
+     "metrics": {
+      "composer-site-json.new_topic_site_json_requests": "2"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "the tag editor reuses the site read",
+     "exit_code": 0,
+     "metrics": {
+      "composer-site-json.tag_editor_site_json_requests": "1",
+      "composer-site-json.tag_editor_capability_reads": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/startup_request_budget_test.dart",
+     "name": "a new topic reuses the site read",
+     "exit_code": 0,
+     "metrics": {
+      "composer-site-json.new_topic_site_json_requests": "1"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "incoming-banner",
+   "subject": "PERF: update the incoming topics banner without rebuilding the list",
+   "commit": "dac8eaabaa310236beb99183f205db1a4f701a94",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/topic_list_incoming_banner_rebuild_test.dart",
+     "name": "a latest message redraws only the incoming banner",
+     "exit_code": 1,
+     "metrics": {
+      "incoming-banner.macos_topic_row_builds": "230",
+      "incoming-banner.macos_list_elements": "4600",
+      "incoming-banner.macos_elements_per_message": "696.0",
+      "incoming-banner.ios_topic_row_builds": "40",
+      "incoming-banner.ios_list_elements": "750",
+      "incoming-banner.ios_elements_per_message": "205.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/topic_list_incoming_banner_rebuild_test.dart",
+     "name": "a latest message redraws only the incoming banner",
+     "exit_code": 0,
+     "metrics": {
+      "incoming-banner.macos_topic_row_builds": "0",
+      "incoming-banner.macos_list_elements": "0",
+      "incoming-banner.macos_elements_per_message": "192.0",
+      "incoming-banner.ios_topic_row_builds": "0",
+      "incoming-banner.ios_list_elements": "0",
+      "incoming-banner.ios_elements_per_message": "108.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/topic_list_incoming_banner_rebuild_test.dart",
+     "name": "a latest message redraws only the incoming banner",
+     "exit_code": 1,
+     "metrics": {
+      "incoming-banner.macos_topic_row_builds": "230",
+      "incoming-banner.macos_list_elements": "4600",
+      "incoming-banner.macos_elements_per_message": "696.0",
+      "incoming-banner.ios_topic_row_builds": "40",
+      "incoming-banner.ios_list_elements": "750",
+      "incoming-banner.ios_elements_per_message": "205.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/topic_list_incoming_banner_rebuild_test.dart",
+     "name": "a latest message redraws only the incoming banner",
+     "exit_code": 0,
+     "metrics": {
+      "incoming-banner.macos_topic_row_builds": "0",
+      "incoming-banner.macos_list_elements": "0",
+      "incoming-banner.macos_elements_per_message": "192.0",
+      "incoming-banner.ios_topic_row_builds": "0",
+      "incoming-banner.ios_list_elements": "0",
+      "incoming-banner.ios_elements_per_message": "108.0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "notification-badges",
+   "subject": "PERF: redraw notification badges without rebuilding the sidebar and rail",
+   "commit": "a35b738fb31fd77701a7bd6a5d1b3e754c35759d",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on another forum rebuilds only its rail row",
+     "exit_code": 1,
+     "metrics": {
+      "notification-badges.iOS_other_notification_elements": "1071",
+      "notification-badges.iOS_other_notification_sidebar": "492",
+      "notification-badges.iOS_other_notification_account_menu": "376",
+      "notification-badges.iOS_other_notification_rail": "203",
+      "notification-badges.macOS_other_notification_elements": "868",
+      "notification-badges.macOS_other_notification_sidebar": "446",
+      "notification-badges.macOS_other_notification_account_menu": "179",
+      "notification-badges.macOS_other_notification_rail": "243",
+      "notification-badges.iOS_other_reviewable_elements": "1071",
+      "notification-badges.iOS_other_reviewable_sidebar": "492",
+      "notification-badges.iOS_other_reviewable_account_menu": "376",
+      "notification-badges.iOS_other_reviewable_rail": "203",
+      "notification-badges.macOS_other_reviewable_elements": "868",
+      "notification-badges.macOS_other_reviewable_sidebar": "446",
+      "notification-badges.macOS_other_reviewable_account_menu": "179",
+      "notification-badges.macOS_other_reviewable_rail": "243"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on the selected forum redraws only its badges",
+     "exit_code": 1,
+     "metrics": {
+      "notification-badges.iOS_selected_notification_first_elements": "1084",
+      "notification-badges.iOS_selected_notification_steady_elements": "1084",
+      "notification-badges.iOS_selected_notification_steady_sidebar": "492",
+      "notification-badges.macOS_selected_notification_first_elements": "879",
+      "notification-badges.macOS_selected_notification_steady_elements": "879",
+      "notification-badges.macOS_selected_notification_steady_sidebar": "446",
+      "notification-badges.iOS_selected_reviewable_first_elements": "1084",
+      "notification-badges.iOS_selected_reviewable_steady_elements": "1084",
+      "notification-badges.iOS_selected_reviewable_steady_sidebar": "492",
+      "notification-badges.macOS_selected_reviewable_first_elements": "879",
+      "notification-badges.macOS_selected_reviewable_steady_elements": "879",
+      "notification-badges.macOS_selected_reviewable_steady_sidebar": "446"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on another forum rebuilds only its rail row",
+     "exit_code": 0,
+     "metrics": {
+      "notification-badges.iOS_other_notification_elements": "70",
+      "notification-badges.iOS_other_notification_sidebar": "0",
+      "notification-badges.iOS_other_notification_account_menu": "0",
+      "notification-badges.iOS_other_notification_rail": "70",
+      "notification-badges.macOS_other_notification_elements": "69",
+      "notification-badges.macOS_other_notification_sidebar": "0",
+      "notification-badges.macOS_other_notification_account_menu": "0",
+      "notification-badges.macOS_other_notification_rail": "69",
+      "notification-badges.iOS_other_reviewable_elements": "70",
+      "notification-badges.iOS_other_reviewable_sidebar": "0",
+      "notification-badges.iOS_other_reviewable_account_menu": "0",
+      "notification-badges.iOS_other_reviewable_rail": "70",
+      "notification-badges.macOS_other_reviewable_elements": "69",
+      "notification-badges.macOS_other_reviewable_sidebar": "0",
+      "notification-badges.macOS_other_reviewable_account_menu": "0",
+      "notification-badges.macOS_other_reviewable_rail": "69"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on the selected forum redraws only its badges",
+     "exit_code": 0,
+     "metrics": {
+      "notification-badges.iOS_selected_notification_first_elements": "813",
+      "notification-badges.iOS_selected_notification_steady_elements": "321",
+      "notification-badges.iOS_selected_notification_steady_sidebar": "0",
+      "notification-badges.macOS_selected_notification_first_elements": "576",
+      "notification-badges.macOS_selected_notification_steady_elements": "130",
+      "notification-badges.macOS_selected_notification_steady_sidebar": "0",
+      "notification-badges.iOS_selected_reviewable_first_elements": "813",
+      "notification-badges.iOS_selected_reviewable_steady_elements": "321",
+      "notification-badges.iOS_selected_reviewable_steady_sidebar": "0",
+      "notification-badges.macOS_selected_reviewable_first_elements": "576",
+      "notification-badges.macOS_selected_reviewable_steady_elements": "130",
+      "notification-badges.macOS_selected_reviewable_steady_sidebar": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on another forum rebuilds only its rail row",
+     "exit_code": 1,
+     "metrics": {
+      "notification-badges.iOS_other_notification_elements": "1071",
+      "notification-badges.iOS_other_notification_sidebar": "492",
+      "notification-badges.iOS_other_notification_account_menu": "376",
+      "notification-badges.iOS_other_notification_rail": "203",
+      "notification-badges.macOS_other_notification_elements": "868",
+      "notification-badges.macOS_other_notification_sidebar": "446",
+      "notification-badges.macOS_other_notification_account_menu": "179",
+      "notification-badges.macOS_other_notification_rail": "243",
+      "notification-badges.iOS_other_reviewable_elements": "1071",
+      "notification-badges.iOS_other_reviewable_sidebar": "492",
+      "notification-badges.iOS_other_reviewable_account_menu": "376",
+      "notification-badges.iOS_other_reviewable_rail": "203",
+      "notification-badges.macOS_other_reviewable_elements": "868",
+      "notification-badges.macOS_other_reviewable_sidebar": "446",
+      "notification-badges.macOS_other_reviewable_account_menu": "179",
+      "notification-badges.macOS_other_reviewable_rail": "243"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on the selected forum redraws only its badges",
+     "exit_code": 1,
+     "metrics": {
+      "notification-badges.iOS_selected_notification_first_elements": "1084",
+      "notification-badges.iOS_selected_notification_steady_elements": "1084",
+      "notification-badges.iOS_selected_notification_steady_sidebar": "492",
+      "notification-badges.macOS_selected_notification_first_elements": "879",
+      "notification-badges.macOS_selected_notification_steady_elements": "879",
+      "notification-badges.macOS_selected_notification_steady_sidebar": "446",
+      "notification-badges.iOS_selected_reviewable_first_elements": "1084",
+      "notification-badges.iOS_selected_reviewable_steady_elements": "1084",
+      "notification-badges.iOS_selected_reviewable_steady_sidebar": "492",
+      "notification-badges.macOS_selected_reviewable_first_elements": "879",
+      "notification-badges.macOS_selected_reviewable_steady_elements": "879",
+      "notification-badges.macOS_selected_reviewable_steady_sidebar": "446"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on another forum rebuilds only its rail row",
+     "exit_code": 0,
+     "metrics": {
+      "notification-badges.iOS_other_notification_elements": "70",
+      "notification-badges.iOS_other_notification_sidebar": "0",
+      "notification-badges.iOS_other_notification_account_menu": "0",
+      "notification-badges.iOS_other_notification_rail": "70",
+      "notification-badges.macOS_other_notification_elements": "69",
+      "notification-badges.macOS_other_notification_sidebar": "0",
+      "notification-badges.macOS_other_notification_account_menu": "0",
+      "notification-badges.macOS_other_notification_rail": "69",
+      "notification-badges.iOS_other_reviewable_elements": "70",
+      "notification-badges.iOS_other_reviewable_sidebar": "0",
+      "notification-badges.iOS_other_reviewable_account_menu": "0",
+      "notification-badges.iOS_other_reviewable_rail": "70",
+      "notification-badges.macOS_other_reviewable_elements": "69",
+      "notification-badges.macOS_other_reviewable_sidebar": "0",
+      "notification-badges.macOS_other_reviewable_account_menu": "0",
+      "notification-badges.macOS_other_reviewable_rail": "69"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "count on the selected forum redraws only its badges",
+     "exit_code": 0,
+     "metrics": {
+      "notification-badges.iOS_selected_notification_first_elements": "813",
+      "notification-badges.iOS_selected_notification_steady_elements": "321",
+      "notification-badges.iOS_selected_notification_steady_sidebar": "0",
+      "notification-badges.macOS_selected_notification_first_elements": "576",
+      "notification-badges.macOS_selected_notification_steady_elements": "130",
+      "notification-badges.macOS_selected_notification_steady_sidebar": "0",
+      "notification-badges.iOS_selected_reviewable_first_elements": "813",
+      "notification-badges.iOS_selected_reviewable_steady_elements": "321",
+      "notification-badges.iOS_selected_reviewable_steady_sidebar": "0",
+      "notification-badges.macOS_selected_reviewable_first_elements": "576",
+      "notification-badges.macOS_selected_reviewable_steady_elements": "130",
+      "notification-badges.macOS_selected_reviewable_steady_sidebar": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-thread-refresh",
+   "subject": "PERF: stop fetching thread detail for every live thread reply",
+   "commit": "dfe8666ffbc66452cfd68b92d12d9ec49a87fa4e",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_controller_test.dart",
+     "name": "replies to a held thread read no detail",
+     "exit_code": 1,
+     "metrics": {
+      "chat-thread-refresh.held_thread_detail_gets": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_controller_test.dart",
+     "name": "a reply to a thread known only by its root reads its detail once",
+     "exit_code": 1,
+     "metrics": {
+      "chat-thread-refresh.root_only_detail_gets": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_controller_test.dart",
+     "name": "replies to a held thread read no detail",
+     "exit_code": 0,
+     "metrics": {
+      "chat-thread-refresh.held_thread_detail_gets": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_controller_test.dart",
+     "name": "a reply to a thread known only by its root reads its detail once",
+     "exit_code": 0,
+     "metrics": {
+      "chat-thread-refresh.root_only_detail_gets": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_controller_test.dart",
+     "name": "replies to a held thread read no detail",
+     "exit_code": 1,
+     "metrics": {
+      "chat-thread-refresh.held_thread_detail_gets": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_controller_test.dart",
+     "name": "a reply to a thread known only by its root reads its detail once",
+     "exit_code": 1,
+     "metrics": {
+      "chat-thread-refresh.root_only_detail_gets": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_controller_test.dart",
+     "name": "replies to a held thread read no detail",
+     "exit_code": 0,
+     "metrics": {
+      "chat-thread-refresh.held_thread_detail_gets": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_controller_test.dart",
+     "name": "a reply to a thread known only by its root reads its detail once",
+     "exit_code": 0,
+     "metrics": {
+      "chat-thread-refresh.root_only_detail_gets": "1"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "feed-switch",
+   "subject": "PERF: keep the feed switch's measured widths when a count changes",
+   "commit": "274f1eb0859bb47bbc1212186e7c8d4ac3b26bf7",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "keeps every measured segment on its first frame",
+     "exit_code": 1,
+     "metrics": {
+      "feed-switch.segments_missing_first_frame": "2",
+      "feed-switch.second_frame_scheduled": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "from live tracking rebuilds only the switch",
+     "exit_code": 1,
+     "metrics": {
+      "feed-switch.elements_per_count_change_desktop": "2755",
+      "feed-switch.elements_per_count_change_phone": "293"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "keeps every measured segment on its first frame",
+     "exit_code": 0,
+     "metrics": {
+      "feed-switch.segments_missing_first_frame": "0",
+      "feed-switch.second_frame_scheduled": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "from live tracking rebuilds only the switch",
+     "exit_code": 0,
+     "metrics": {
+      "feed-switch.elements_per_count_change_desktop": "819",
+      "feed-switch.elements_per_count_change_phone": "126"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "keeps every measured segment on its first frame",
+     "exit_code": 1,
+     "metrics": {
+      "feed-switch.segments_missing_first_frame": "2",
+      "feed-switch.second_frame_scheduled": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "from live tracking rebuilds only the switch",
+     "exit_code": 1,
+     "metrics": {
+      "feed-switch.elements_per_count_change_desktop": "2755",
+      "feed-switch.elements_per_count_change_phone": "293"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "keeps every measured segment on its first frame",
+     "exit_code": 0,
+     "metrics": {
+      "feed-switch.segments_missing_first_frame": "0",
+      "feed-switch.second_frame_scheduled": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/topic_feed_menu_test.dart",
+     "name": "from live tracking rebuilds only the switch",
+     "exit_code": 0,
+     "metrics": {
+      "feed-switch.elements_per_count_change_desktop": "819",
+      "feed-switch.elements_per_count_change_phone": "126"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "d-icon",
+   "subject": "PERF: paint a tinted icon with one render object instead of five",
+   "commit": "b0dbd14c6f3cbc9e4e9c1d9b751dc2c3fe28b517",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/d_icon_test.dart",
+     "name": "a tinted icon mounts one render object",
+     "exit_code": 1,
+     "metrics": {
+      "d-icon.render_objects_unlabelled": "5",
+      "d-icon.elements_unlabelled": "6",
+      "d-icon.render_objects_labelled": "5",
+      "d-icon.elements_labelled": "6"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/d_icon_test.dart",
+     "name": "a tinted icon mounts one render object",
+     "exit_code": 0,
+     "metrics": {
+      "d-icon.render_objects_unlabelled": "1",
+      "d-icon.elements_unlabelled": "1",
+      "d-icon.render_objects_labelled": "1",
+      "d-icon.elements_labelled": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/d_icon_test.dart",
+     "name": "a tinted icon mounts one render object",
+     "exit_code": 1,
+     "metrics": {
+      "d-icon.render_objects_unlabelled": "5",
+      "d-icon.elements_unlabelled": "6",
+      "d-icon.render_objects_labelled": "5",
+      "d-icon.elements_labelled": "6"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/d_icon_test.dart",
+     "name": "a tinted icon mounts one render object",
+     "exit_code": 0,
+     "metrics": {
+      "d-icon.render_objects_unlabelled": "1",
+      "d-icon.elements_unlabelled": "1",
+      "d-icon.render_objects_labelled": "1",
+      "d-icon.elements_labelled": "1"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "composer-title",
+   "subject": "PERF: stop a title keystroke or caret move rebuilding the whole composer",
+   "commit": "0cc465355841076c162a1befde09376b2e3e170b",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "title keys and caret moves leave the panel alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-title.title_key_elements_desktop": "1056",
+      "composer-title.title_key_notifications_desktop": "5",
+      "composer-title.title_caret_elements_desktop": "1056",
+      "composer-title.title_caret_notifications_desktop": "5",
+      "composer-title.title_caret_draft_saves_desktop": "1",
+      "composer-title.title_key_elements_phone": "599",
+      "composer-title.title_key_notifications_phone": "5",
+      "composer-title.title_caret_elements_phone": "599",
+      "composer-title.title_caret_notifications_phone": "5",
+      "composer-title.title_caret_draft_saves_phone": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_controller_test.dart",
+     "name": "title keystrokes",
+     "exit_code": 1,
+     "metrics": {
+      "composer-title.controller_caret_notifications": "7",
+      "composer-title.controller_caret_saves": "1",
+      "composer-title.controller_title_notifications_after_first": "4"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "title keys and caret moves leave the panel alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-title.title_key_elements_desktop": "45",
+      "composer-title.title_key_notifications_desktop": "0",
+      "composer-title.title_caret_elements_desktop": "39",
+      "composer-title.title_caret_notifications_desktop": "0",
+      "composer-title.title_caret_draft_saves_desktop": "0",
+      "composer-title.title_key_elements_phone": "43",
+      "composer-title.title_key_notifications_phone": "0",
+      "composer-title.title_caret_elements_phone": "37",
+      "composer-title.title_caret_notifications_phone": "0",
+      "composer-title.title_caret_draft_saves_phone": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_controller_test.dart",
+     "name": "title keystrokes",
+     "exit_code": 0,
+     "metrics": {
+      "composer-title.controller_caret_notifications": "0",
+      "composer-title.controller_caret_saves": "0",
+      "composer-title.controller_title_notifications_after_first": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "title keys and caret moves leave the panel alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-title.title_key_elements_desktop": "1056",
+      "composer-title.title_key_notifications_desktop": "5",
+      "composer-title.title_caret_elements_desktop": "1056",
+      "composer-title.title_caret_notifications_desktop": "5",
+      "composer-title.title_caret_draft_saves_desktop": "1",
+      "composer-title.title_key_elements_phone": "599",
+      "composer-title.title_key_notifications_phone": "5",
+      "composer-title.title_caret_elements_phone": "599",
+      "composer-title.title_caret_notifications_phone": "5",
+      "composer-title.title_caret_draft_saves_phone": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_controller_test.dart",
+     "name": "title keystrokes",
+     "exit_code": 1,
+     "metrics": {
+      "composer-title.controller_caret_notifications": "7",
+      "composer-title.controller_caret_saves": "1",
+      "composer-title.controller_title_notifications_after_first": "4"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "title keys and caret moves leave the panel alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-title.title_key_elements_desktop": "45",
+      "composer-title.title_key_notifications_desktop": "0",
+      "composer-title.title_caret_elements_desktop": "39",
+      "composer-title.title_caret_notifications_desktop": "0",
+      "composer-title.title_caret_draft_saves_desktop": "0",
+      "composer-title.title_key_elements_phone": "43",
+      "composer-title.title_key_notifications_phone": "0",
+      "composer-title.title_caret_elements_phone": "37",
+      "composer-title.title_caret_notifications_phone": "0",
+      "composer-title.title_caret_draft_saves_phone": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_controller_test.dart",
+     "name": "title keystrokes",
+     "exit_code": 0,
+     "metrics": {
+      "composer-title.controller_caret_notifications": "0",
+      "composer-title.controller_caret_saves": "0",
+      "composer-title.controller_title_notifications_after_first": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "composer-draft-status",
+   "subject": "PERF: stop rebuilding the composer for draft bookkeeping nothing displays",
+   "commit": "f1d8c918c408633d145d1b6d8c5db6ee4be6cbb3",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body burst and its save leave the panel alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-draft-status.burst_elements_desktop": "1394",
+      "composer-draft-status.burst_notifications_desktop": "1",
+      "composer-draft-status.save_elements_desktop": "1000",
+      "composer-draft-status.burst_and_save_notifications_desktop": "3",
+      "composer-draft-status.burst_elements_phone": "928",
+      "composer-draft-status.burst_notifications_phone": "1",
+      "composer-draft-status.save_elements_phone": "620",
+      "composer-draft-status.burst_and_save_notifications_phone": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_header_draft_status_test.dart",
+     "name": "a burst and its successful save notify nothing",
+     "exit_code": 1,
+     "metrics": {
+      "composer-draft-status.controller_burst_and_save_notifications": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body burst and its save leave the panel alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-draft-status.burst_elements_desktop": "470",
+      "composer-draft-status.burst_notifications_desktop": "0",
+      "composer-draft-status.save_elements_desktop": "7",
+      "composer-draft-status.burst_and_save_notifications_desktop": "0",
+      "composer-draft-status.burst_elements_phone": "385",
+      "composer-draft-status.burst_notifications_phone": "0",
+      "composer-draft-status.save_elements_phone": "7",
+      "composer-draft-status.burst_and_save_notifications_phone": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_header_draft_status_test.dart",
+     "name": "a burst and its successful save notify nothing",
+     "exit_code": 0,
+     "metrics": {
+      "composer-draft-status.controller_burst_and_save_notifications": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body burst and its save leave the panel alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-draft-status.burst_elements_desktop": "1394",
+      "composer-draft-status.burst_notifications_desktop": "1",
+      "composer-draft-status.save_elements_desktop": "1000",
+      "composer-draft-status.burst_and_save_notifications_desktop": "3",
+      "composer-draft-status.burst_elements_phone": "928",
+      "composer-draft-status.burst_notifications_phone": "1",
+      "composer-draft-status.save_elements_phone": "620",
+      "composer-draft-status.burst_and_save_notifications_phone": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_header_draft_status_test.dart",
+     "name": "a burst and its successful save notify nothing",
+     "exit_code": 1,
+     "metrics": {
+      "composer-draft-status.controller_burst_and_save_notifications": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body burst and its save leave the panel alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-draft-status.burst_elements_desktop": "470",
+      "composer-draft-status.burst_notifications_desktop": "0",
+      "composer-draft-status.save_elements_desktop": "7",
+      "composer-draft-status.burst_and_save_notifications_desktop": "0",
+      "composer-draft-status.burst_elements_phone": "385",
+      "composer-draft-status.burst_notifications_phone": "0",
+      "composer-draft-status.save_elements_phone": "7",
+      "composer-draft-status.burst_and_save_notifications_phone": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_header_draft_status_test.dart",
+     "name": "a burst and its successful save notify nothing",
+     "exit_code": 0,
+     "metrics": {
+      "composer-draft-status.controller_burst_and_save_notifications": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "reader-controls",
+   "subject": "PERF: keep the reader's category, tag and reply controls built across shell notifications",
+   "commit": "de49b577fd196a06011710a602d9c808de6b7f37",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "keeps category, tag and reply controls built",
+     "exit_code": 1,
+     "metrics": {
+      "reader-controls.macos_category": "85",
+      "reader-controls.macos_tag": "51",
+      "reader-controls.macos_title_bar_reply": "40",
+      "reader-controls.macos_controls_total": "176",
+      "reader-controls.macos_frame_total": "286",
+      "reader-controls.ios_category": "88",
+      "reader-controls.ios_tag": "73",
+      "reader-controls.ios_title_bar_reply": "0",
+      "reader-controls.ios_controls_total": "161",
+      "reader-controls.ios_frame_total": "234"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "keeps category, tag and reply controls built",
+     "exit_code": 0,
+     "metrics": {
+      "reader-controls.macos_category": "0",
+      "reader-controls.macos_tag": "0",
+      "reader-controls.macos_title_bar_reply": "0",
+      "reader-controls.macos_controls_total": "0",
+      "reader-controls.macos_frame_total": "101",
+      "reader-controls.ios_category": "0",
+      "reader-controls.ios_tag": "0",
+      "reader-controls.ios_title_bar_reply": "0",
+      "reader-controls.ios_controls_total": "0",
+      "reader-controls.ios_frame_total": "73"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "keeps category, tag and reply controls built",
+     "exit_code": 1,
+     "metrics": {
+      "reader-controls.macos_category": "85",
+      "reader-controls.macos_tag": "51",
+      "reader-controls.macos_title_bar_reply": "40",
+      "reader-controls.macos_controls_total": "176",
+      "reader-controls.macos_frame_total": "286",
+      "reader-controls.ios_category": "88",
+      "reader-controls.ios_tag": "73",
+      "reader-controls.ios_title_bar_reply": "0",
+      "reader-controls.ios_controls_total": "161",
+      "reader-controls.ios_frame_total": "234"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/shell_rebuild_isolation_test.dart",
+     "name": "keeps category, tag and reply controls built",
+     "exit_code": 0,
+     "metrics": {
+      "reader-controls.macos_category": "0",
+      "reader-controls.macos_tag": "0",
+      "reader-controls.macos_title_bar_reply": "0",
+      "reader-controls.macos_controls_total": "0",
+      "reader-controls.macos_frame_total": "101",
+      "reader-controls.ios_category": "0",
+      "reader-controls.ios_tag": "0",
+      "reader-controls.ios_title_bar_reply": "0",
+      "reader-controls.ios_controls_total": "0",
+      "reader-controls.ios_frame_total": "73"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "mention-cache",
+   "subject": "PERF: answer repeated mention and hashtag terms for 30 seconds, as core does",
+   "commit": "35de0bb52038f7e2a929ed79324964fa239bdb0e",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped mention terms reuse the answer and keep known names",
+     "exit_code": 1,
+     "metrics": {
+      "mention-cache.user_searches": "10",
+      "mention-cache.context_bumps": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped hashtag terms reuse the answer and keep known tags",
+     "exit_code": 1,
+     "metrics": {
+      "mention-cache.hashtag_searches": "8",
+      "mention-cache.hashtag_context_bumps": "8"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped mention terms reuse the answer and keep known names",
+     "exit_code": 0,
+     "metrics": {
+      "mention-cache.user_searches": "5",
+      "mention-cache.context_bumps": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped hashtag terms reuse the answer and keep known tags",
+     "exit_code": 0,
+     "metrics": {
+      "mention-cache.hashtag_searches": "4",
+      "mention-cache.hashtag_context_bumps": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped mention terms reuse the answer and keep known names",
+     "exit_code": 1,
+     "metrics": {
+      "mention-cache.user_searches": "10",
+      "mention-cache.context_bumps": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped hashtag terms reuse the answer and keep known tags",
+     "exit_code": 1,
+     "metrics": {
+      "mention-cache.hashtag_searches": "8",
+      "mention-cache.hashtag_context_bumps": "8"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped mention terms reuse the answer and keep known names",
+     "exit_code": 0,
+     "metrics": {
+      "mention-cache.user_searches": "5",
+      "mention-cache.context_bumps": "3"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_identity_resolution_test.dart",
+     "name": "retyped hashtag terms reuse the answer and keep known tags",
+     "exit_code": 0,
+     "metrics": {
+      "mention-cache.hashtag_searches": "4",
+      "mention-cache.hashtag_context_bumps": "1"
+     },
+     "tail": null
+    }
+   ]
+  }
+ ]
+}

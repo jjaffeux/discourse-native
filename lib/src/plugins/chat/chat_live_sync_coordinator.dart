@@ -54,6 +54,7 @@ final class ChatLiveSyncHost {
     required this.bumpStreamsHolding,
     required this.setLoadedThreadOriginalDeleted,
     required this.scheduleThreadDetailRefresh,
+    required this.isRefreshingThreadDetail,
     required this.applyDeleteMutation,
     required this.applyBulkDeleteMutation,
     required this.applyReactionMutation,
@@ -133,6 +134,8 @@ final class ChatLiveSyncHost {
   setLoadedThreadOriginalDeleted;
   final void Function(String siteUrl, ChatThreadTarget target)
   scheduleThreadDetailRefresh;
+  final bool Function(String siteUrl, ChatThreadTarget target)
+  isRefreshingThreadDetail;
   final void Function(
     String siteUrl,
     ChatMessageDeleted event,
@@ -683,10 +686,23 @@ final class ChatLiveSyncCoordinator {
           );
           _host.notifyCanonicalChange();
         }
-        _host.scheduleThreadDetailRefresh(
-          siteUrl,
-          ChatThreadTarget(channelId: channelId, threadId: threadId),
+        final target = ChatThreadTarget(
+          channelId: channelId,
+          threadId: threadId,
         );
+        // A reply states its own result here; a rename or reply edit publishes
+        // an unmoved preview that only detail can explain. The unread
+        // projection needs the record, so a thread not held yet still reads
+        // once. A read already running may predate this event, and must be
+        // dirtied or its answer overwrites this preview.
+        final carriesItsChange =
+            heldThread != null &&
+            _previewMoved(heldThread.preview, parsed) &&
+            (current?.thread == null || _previewMoved(current?.thread, parsed));
+        if (!carriesItsChange ||
+            _host.isRefreshingThreadDetail(siteUrl, target)) {
+          _host.scheduleThreadDetailRefresh(siteUrl, target);
+        }
         break;
       case 'delete':
         final event = ChatDeletionEvent.decode(data, clock: _host.clock);
@@ -735,6 +751,14 @@ final class ChatLiveSyncCoordinator {
         }
         break;
     }
+  }
+
+  static bool _previewMoved(ChatThreadPreview? held, ChatThreadPreview event) {
+    if (held == null) return false;
+    final heldReply = held.lastReplyId;
+    final eventReply = event.lastReplyId;
+    return held.replyCount != event.replyCount ||
+        heldReply != null && eventReply != null && heldReply != eventReply;
   }
 
   void _applyThreadEvent(

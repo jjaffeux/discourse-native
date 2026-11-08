@@ -161,6 +161,135 @@ void main() {
     },
   );
 
+  testWidgets('a burst and its successful save notify nothing', (tester) async {
+    var saves = 0;
+    final composer = ComposerController(
+      _replyTarget,
+      onSaveDraft: (_) async {
+        saves++;
+        return 1;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pump(tester, shell, composer);
+    composer.text.text = 'A draft in progress';
+    await _saveAndPump(tester);
+    expect(saves, 1);
+
+    var notifications = 0;
+    composer.addListener(() => notifications++);
+    for (var key = 1; key <= 5; key++) {
+      composer.text.text = 'A draft in progress ${'x' * key}';
+      await tester.pump();
+    }
+    await _saveAndPump(tester);
+
+    // ignore: avoid_print
+    print(
+      'PERF_PROOF composer-draft-status '
+      'controller_burst_and_save_notifications=$notifications',
+    );
+    expect(saves, 2);
+    expect(composer.draftStatus, DraftStatus.saved);
+    expect(notifications, 0);
+  });
+
+  testWidgets('a failing save shows its message and a later save clears it', (
+    tester,
+  ) async {
+    var fail = false;
+    final composer = ComposerController(
+      _replyTarget,
+      onSaveDraft: (_) async {
+        if (fail) throw StateError('site unavailable');
+        return 1;
+      },
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pump(tester, shell, composer);
+    composer.text.text = 'A draft in progress';
+    await _saveAndPump(tester);
+
+    fail = true;
+    composer.text.text = 'A draft that will not save';
+    await tester.pump();
+    expect(find.text('Device only'), findsNothing);
+    await _saveAndPump(tester);
+    expect(
+      find.descendant(of: _header, matching: find.text('Device only')),
+      findsOneWidget,
+    );
+    expect(
+      find.text('Not saved on the site — kept on this device only.'),
+      findsOneWidget,
+    );
+
+    fail = false;
+    composer.text.text = 'A draft that will save';
+    await _saveAndPump(tester);
+    expect(find.text('Device only'), findsNothing);
+    expect(
+      find.text('Not saved on the site — kept on this device only.'),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a save still clears a failure reported while it was out', (
+    tester,
+  ) async {
+    final saved = Completer<int?>();
+    final composer = ComposerController(
+      _replyTarget,
+      onSaveDraft: (_) => saved.future,
+    );
+    final shell = await _shell();
+    addTearDown(composer.dispose);
+    addTearDown(shell.dispose);
+    await _pump(tester, shell, composer);
+    composer.text.text = 'A draft in progress';
+    final pending = composer.flushDraft();
+    await tester.pump();
+
+    composer.draftRollbackWriteFailed(localFailed: false);
+    await tester.pump();
+    expect(find.text('Device only'), findsOneWidget);
+
+    saved.complete(1);
+    await pending;
+    await tester.pump();
+
+    expect(composer.draftStatus, DraftStatus.saved);
+    expect(find.text('Device only'), findsNothing);
+  });
+
+  test('the draft gaining or losing its only content still notifies', () {
+    final composer = ComposerController(
+      const NewTopicComposerTarget(
+        siteUrl: 'https://meta.discourse.org',
+        topicTitle: 'New topic',
+      ),
+    );
+    addTearDown(composer.dispose);
+    var notifications = 0;
+    composer.addListener(() => notifications++);
+
+    composer.text.text = ' ';
+    expect(notifications, 0, reason: 'blank is still empty');
+    composer.text.text = ' a';
+    expect(composer.draft.isEmpty, isFalse);
+    expect(notifications, 1);
+    composer.text.text = ' ab';
+    expect(notifications, 1);
+    composer.text.text = '';
+    expect(composer.draft.isEmpty, isTrue);
+    expect(notifications, 2);
+  });
+
   for (final scale in [1.0, 2.0, 3.0]) {
     testWidgets('header status fits narrow RTL layouts at ${scale}x text', (
       tester,
@@ -277,6 +406,11 @@ Future<void> _pump(
       ),
     ),
   );
+  await tester.pump();
+}
+
+Future<void> _saveAndPump(WidgetTester tester) async {
+  await tester.pump(ComposerController.draftDebounce);
   await tester.pump();
 }
 
