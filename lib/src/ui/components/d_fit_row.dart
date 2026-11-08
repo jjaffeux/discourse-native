@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart'
     show listEquals, precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
@@ -17,9 +19,11 @@ enum DFitRowStep { full, tight, wrapped, wrappedTight, isolated }
 /// labels take more than two rows, it shortens again, then puts the item marked
 /// [DFitRowItem.last] on the final row. Controls keep their elements and menus
 /// throughout these layout changes. Overflowing popup content needs no room.
-/// A change in the row's room or in any control's width fits it again from
-/// the first step within the same layout, so no intermediate step is painted;
-/// so does a rebuild, unless its [watch] is unchanged.
+/// A change in any control's width fits the row again from the first step
+/// within the same layout, so no intermediate step is painted; so does room
+/// that an earlier step could use, and a rebuild, unless its [watch] is
+/// unchanged. Other changes in room keep the step, so dragging a pane does not
+/// build the row's controls at every step on every tick.
 class DFitRow extends AbstractLayoutBuilder<DFitRowLayout> {
   const DFitRow({
     super.key,
@@ -280,19 +284,26 @@ class _RenderDFitRow extends RenderProxyBox
   var _step = DFitRowStep.full;
 
   // The row's width and each control's width at the step the row settled on.
-  // Any difference at that same step means the room or a control's content
-  // changed, which says nothing about which step fits now.
-  List<double>? _settled;
+  // Any difference in a control at that same step means its content changed,
+  // which says nothing about which step fits now.
+  double? _settledWidth;
+  List<double>? _settledExtents;
+
+  // Controls that fill the remaining room follow the room, so after a resize
+  // only the others can reveal a change of content.
+  List<double>? _settledFixedExtents;
+
+  // The narrowest room in which a step before the settled one could fit. A step
+  // that overflowed holds every adaptive control at its minimum, so it needs at
+  // least the room it overflowed by, and a smaller change in room need not try
+  // the earlier steps again.
+  double? _refitRoom;
 
   void reset() {
     _step = DFitRowStep.full;
+    _refitRoom = null;
     markNeedsLayout();
   }
-
-  static List<double> _widthsOf(double width, RenderDControlWrap controls) => [
-    width,
-    ...controls.childExtents,
-  ];
 
   @override
   DFitRowLayout get layoutInfo => (constraints: constraints, step: _step);
@@ -311,10 +322,11 @@ class _RenderDFitRow extends RenderProxyBox
 
   void _layoutControls() {
     final width = constraints.maxWidth;
-    // A new room restarts the fit whatever the settled step measures at it, so
-    // laying out and building that step first would only be discarded.
-    if (_step != DFitRowStep.full && _settled?.first != width) {
-      _step = DFitRowStep.full;
+    final roomChanged = _settledWidth != width;
+    if (_step != DFitRowStep.full &&
+        (_settledWidth == null ||
+            (roomChanged && _refitRoom != null && width >= _refitRoom!))) {
+      _restartFit();
     }
     for (var pass = 0; pass < DFitRowStep.values.length + 1; pass++) {
       runLayoutCallback();
@@ -347,22 +359,38 @@ class _RenderDFitRow extends RenderProxyBox
       // differ by the step this layout just took.
       if (pass == 0 &&
           _step != DFitRowStep.full &&
-          !listEquals(_widthsOf(width, controls), _settled)) {
-        _step = DFitRowStep.full;
+          !listEquals(
+            roomChanged ? controls.fixedChildExtents : controls.childExtents,
+            roomChanged ? _settledFixedExtents : _settledExtents,
+          )) {
+        _restartFit();
         continue;
       }
       final index = _step.index;
       if (index < DFitRowStep.wrapped.index &&
           controls.naturalMain > width + precisionErrorTolerance) {
+        _noteFailure(controls.naturalMain);
         _step = DFitRowStep.values[index + 1];
       } else if ((_step == DFitRowStep.wrapped ||
               _step == DFitRowStep.wrappedTight) &&
           controls.runCount > 2) {
+        // Two rows can come back with any room beyond this one.
+        _noteFailure(width + precisionErrorTolerance);
         _step = DFitRowStep.values[index + 1];
       } else {
-        _settled = _widthsOf(width, controls);
+        _settledWidth = width;
+        _settledExtents = controls.childExtents;
+        _settledFixedExtents = controls.fixedChildExtents;
         return;
       }
     }
   }
+
+  void _restartFit() {
+    _step = DFitRowStep.full;
+    _refitRoom = null;
+  }
+
+  void _noteFailure(double room) =>
+      _refitRoom = math.min(_refitRoom ?? double.infinity, room);
 }

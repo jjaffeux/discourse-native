@@ -696,7 +696,7 @@ void main() {
     },
   );
 
-  _desktopTest('a new room fits afresh without building the settled step', (
+  _desktopTest('a smaller room keeps the settled step without trying others', (
     tester,
   ) async {
     var builds = 0;
@@ -741,7 +741,61 @@ void main() {
     await tester.pump();
 
     expect(find.text('filters-tight'), findsOneWidget);
-    expect(builds, 2, reason: 'One build per step tried: full, then tight.');
+    expect(builds, 1, reason: 'Only the room changed.');
+    expect(tester.takeException(), isNull);
+  });
+
+  _desktopTest('dragging across room settles as a fresh layout would', (
+    tester,
+  ) async {
+    Widget row(double width) => MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: width,
+            child: const DFitRow(
+              watch: 1,
+              children: [
+                DFitRowItem(leading: true, child: _Views()),
+                _Pill('sort', full: 70, tight: 40),
+                DFitRowItem(
+                  last: true,
+                  child: _Pill('filters', full: 160, tight: 60),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+    String fitted() => [
+      find.textContaining(' views').evaluate().single.widget as Text,
+      for (final name in const ['sort', 'filters'])
+        find
+                .descendant(
+                  of: find.byKey(ValueKey(name)),
+                  matching: find.byType(Text),
+                )
+                .evaluate()
+                .single
+                .widget
+            as Text,
+    ].map((text) => text.data).join(' ');
+    final fresh = <double, String>{};
+    final rooms = [for (var room = 480.0; room >= 120; room -= 7) room];
+    for (final room in rooms) {
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(row(room));
+      fresh[room] = fitted();
+    }
+    await tester.pumpWidget(row(rooms.first));
+    for (final room in [...rooms, ...rooms.reversed]) {
+      await tester.pumpWidget(row(room));
+      expect(fitted(), fresh[room], reason: 'At ${room}px.');
+    }
+    expect(fresh.values.toSet().length, greaterThan(3));
     expect(tester.takeException(), isNull);
   });
 }
