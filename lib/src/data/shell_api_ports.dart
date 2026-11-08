@@ -1,4 +1,4 @@
-import '../plugin_api/discourse_model_codec.dart';
+import '../models/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'dsa_notices_api.dart';
 import 'plugin_transport.dart';

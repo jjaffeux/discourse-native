@@ -9,12 +9,10 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
-
 import '../foundation/count_label.dart';
 import '../models/app_settings.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
-import '../styleguide/styleguide_page.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
 import '../theme/d_icons.dart';
@@ -22,6 +20,7 @@ import '../theme/d_native_icons.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';
+import 'component_styleguide_scope.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
 import 'platform.dart';
@@ -897,14 +896,14 @@ class _RailFooter extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 2),
             child: Center(child: _ThemeModeButton()),
           )
-        else
+        else if (ComponentStyleguideScope.maybeOf(context) case final open?)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Center(
               child: _RailFooterButton(
                 buttonKey: const ValueKey('styleguide-rail-button'),
                 tooltip: context.l10n.openComponentStyleguide,
-                onTap: () => unawaited(showComponentStyleguide(context)),
+                onTap: () => unawaited(open(context)),
                 icon: const Icon(
                   Icons.palette_outlined,
                   size: _railFooterIconSize,

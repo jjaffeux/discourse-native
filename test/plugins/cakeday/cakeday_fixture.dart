@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
-import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
+import 'package:discourse_native/src/models/emoji_preferences.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_api.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_controller.dart';
 import 'package:discourse_native/src/plugins/cakeday/cakeday_data.dart';

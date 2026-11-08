@@ -22,7 +22,7 @@ class TopicSourceFooter extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.maybeOf(context);
-    final tab = shell == null ? null : ForumTabScope.tabOf(context);
+    final tab = shell == null ? null : ShellScope.tabOf(context);
     if (shell == null ||
         (!chooseForum &&
             !shell.canCreateTopicFromSidebar &&

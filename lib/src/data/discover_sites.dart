@@ -1,9 +1,9 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
-import '../models/discover_site.dart';
 import '../models/json.dart';
 import 'discourse_transport.dart';
+import 'discover_site.dart';
 
 class DiscoverSites {
   DiscoverSites({http.Client? client})

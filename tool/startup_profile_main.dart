@@ -17,6 +17,7 @@ import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/foundation/startup_timeline.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
+import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -77,7 +78,10 @@ Future<void> main() async {
     });
   }
 
-  AppBootstrap.production(manifest: bundledPluginManifest).start();
+  AppBootstrap.production(
+    manifest: bundledPluginManifest,
+    openComponentStyleguide: showComponentStyleguide,
+  ).start();
 
   var frames = 0;
   SchedulerBinding.instance.addTimingsCallback((timings) {

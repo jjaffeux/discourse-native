@@ -25,10 +25,13 @@ void main() {
     () async {
       final fixture = await _fixture();
       addTearDown(fixture.shell.dispose);
-      final search = fixture.shell.messageRecipientSearch(_siteUrl);
+      final search = fixture.shell.composerIdentities.messageRecipientSearch(
+        _siteUrl,
+      );
       fixture.shell.lifecycle.invalidate(_siteUrl);
       fixture.authenticator.keys[_siteUrl] = 'replacement-key';
-      final replacement = fixture.shell.messageRecipientSearch(_siteUrl);
+      final replacement = fixture.shell.composerIdentities
+          .messageRecipientSearch(_siteUrl);
 
       final result = await search.search('sam');
 
@@ -46,7 +49,9 @@ void main() {
         '${apiKey ? 'key' : 'client ID'} credential IO', () async {
       final fixture = await _fixture();
       addTearDown(fixture.shell.dispose);
-      final search = fixture.shell.messageRecipientSearch(_siteUrl);
+      final search = fixture.shell.composerIdentities.messageRecipientSearch(
+        _siteUrl,
+      );
       final gate = apiKey
           ? fixture.authenticator.gateNextApiKey()
           : fixture.authenticator.gateNextClientId();
@@ -230,7 +235,7 @@ void main() {
         addTearDown(fixture.shell.dispose);
         final credential = fixture.authenticator.gateNextApiKey();
 
-        final search = fixture.shell.searchUsers(
+        final search = fixture.shell.composerIdentities.searchUsers(
           siteUrl: _siteUrl,
           topicId: 7,
           term: 'sam',

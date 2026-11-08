@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
-import '../plugin_api/plugin_data.dart';
 import 'json.dart';
+import 'plugin_data.dart';
 import 'post.dart';
 
 enum PostOutcome { created, enqueued }

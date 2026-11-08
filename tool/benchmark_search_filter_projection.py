@@ -10,7 +10,7 @@ from statistics import median
 import subprocess
 
 CONTROLLER = Path('lib/src/shell/global_search_controller.dart')
-FILTERS = Path('lib/src/shell/global_search_filters.dart')
+FILTERS = Path('lib/src/plugin_api/global_search_filters.dart')
 PROBE = Path('test/search_filter_projection_paired_probe_test.dart')
 
 WORKLOAD = r'''

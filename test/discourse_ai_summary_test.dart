@@ -11,13 +11,12 @@ import 'package:discourse_native/discourse_plugin_sdk.dart'
         PluginTopicListNavigationHost;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
+import 'package:discourse_native/src/data/cooking_plugin.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
-
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/ai_generation_write.dart';
@@ -1312,7 +1311,7 @@ final class _SummaryFixture {
              credentials ??
              (FakeApiCredentialReader()..keys[_siteUrl] = 'api-key'),
        ) {
-    final cooking = ApplicationCooking(plugins: plugins);
+    final cooking = ApplicationCooking(plugins: plugins.cookingPlugins);
     addTearDown(cooking.dispose);
     session = plugins.openSession(
       PluginHostBindings([

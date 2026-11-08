@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/plugin_api/preserved_json.dart';
+import 'package:discourse_native/src/models/preserved_json.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

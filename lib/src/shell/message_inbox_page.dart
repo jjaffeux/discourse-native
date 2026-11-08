@@ -29,7 +29,7 @@ class MessageInboxPage extends StatelessWidget {
       children: [
         if (context.isTouch &&
             (!ShellScope.read(context).mobileNavigationEnabled ||
-                ForumTabScope.tabOf(context).canPopContent))
+                ShellScope.tabOf(context).canPopContent))
           DButton.iconOnly(
             icon: const DIcon(DIcons.arrowLeft),
             tooltip: context.l10n.back,
@@ -41,8 +41,8 @@ class MessageInboxPage extends StatelessWidget {
       ],
     ),
     controls:
-        ForumTabScope.tabOf(context).currentContent?.isSearchList != true &&
-            ForumTabScope.tabOf(context).topicListContent?.isSearchList != true
+        ShellScope.tabOf(context).currentContent?.isSearchList != true &&
+            ShellScope.tabOf(context).topicListContent?.isSearchList != true
         ? DReferenceTextScale(
             child: Row(
               children: [

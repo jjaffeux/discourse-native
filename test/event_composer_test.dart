@@ -1,6 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/composer_syntax.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_composer_parser.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';

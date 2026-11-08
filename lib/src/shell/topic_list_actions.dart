@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../models/topic_filter.dart';
 import '../theme/d_icons.dart';
+import 'forum_tab_scope.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'topic_filter_controller.dart';
@@ -143,7 +144,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     _shell?.removeListener(_checkOwner);
     _shell = shell;
     _tabId = tabId;
-    _tab = ForumTabScope.tabOf(context);
+    _tab = ShellScope.tabOf(context);
     _retired = false;
     _owner = _ownerOf(shell);
     shell.addListener(_checkOwner);

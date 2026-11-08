@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
-import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
+import 'package:discourse_native/src/data/cooking_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_cooking_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_prepared_cooking.dart';
 import 'package:flutter_test/flutter_test.dart';

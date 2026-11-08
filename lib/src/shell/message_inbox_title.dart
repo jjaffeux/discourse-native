@@ -69,7 +69,7 @@ class MessageInboxSelector extends StatelessWidget {
       },
       builder: (context, owner, _) {
         final controller = ShellScope.read(context);
-        final tab = ForumTabScope.tabOf(context);
+        final tab = ShellScope.tabOf(context);
         final lease = tab.lease;
         final groups = {
           ...owner.groups,

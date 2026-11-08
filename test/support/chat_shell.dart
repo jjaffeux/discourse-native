@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';

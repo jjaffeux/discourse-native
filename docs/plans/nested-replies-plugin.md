@@ -525,7 +525,7 @@ Native paths below are relative to this repository.
 
 | Concern | Owning source |
 | --- | --- |
-| Typed records and contribution interfaces | `lib/src/plugin_api/site_plugin_api.dart`, `lib/src/plugin_api/plugin_data.dart`. |
+| Typed records and contribution interfaces | `lib/src/plugin_api/site_plugin_api.dart`, `lib/src/models/plugin_data.dart`. |
 | Scoped host ports and navigation | `lib/src/plugin_api/core_plugin_host.dart`, `lib/src/plugin_api/shell_extensions.dart`. |
 | Registry ownership and reserved live channels | `lib/src/plugin_api/plugin_registry.dart`, `lib/src/plugin_api/plugin_runtime.dart`. |
 | Notification fallback and duplicate-type rejection | `lib/src/plugin_api/notification_types.dart:328`, `lib/src/plugin_api/plugin_registry.dart:1141`. |

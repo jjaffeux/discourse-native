@@ -3,9 +3,9 @@ import 'dart:convert';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/emoji_preferences.dart';
+import '../models/emoji_usage.dart';
 import '../models/site_emoji.dart';
-import '../plugin_api/emoji_preferences.dart';
-import '../plugin_api/emoji_usage.dart';
 import 'serial_operation_queue.dart';
 import 'site_preference_keys.dart';
 

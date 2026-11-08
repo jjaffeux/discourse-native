@@ -6,10 +6,10 @@ import 'package:discourse_native/src/data/application_cooking.dart';
 import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_card.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -26,7 +26,10 @@ void main() {
     'application epochs reject prepared work after metadata and reconnect',
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
-      final app = ApplicationCooking(plugins: plugins, service: _Service());
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: _Service(),
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       CookingRequest request() => app.request(
@@ -64,7 +67,10 @@ void main() {
     'application observations are deferred, coalesced and cancellable',
     () async {
       final plugins = PluginInstaller.install(const PluginManifest([]));
-      final app = ApplicationCooking(plugins: plugins, service: _Service());
+      final app = ApplicationCooking(
+        plugins: plugins.cookingPlugins,
+        service: _Service(),
+      );
       addTearDown(app.dispose);
       addTearDown(plugins.close);
       var calls = 0;

@@ -1,7 +1,7 @@
 import '../data/discourse_api_contracts.dart';
 import '../data/plugin_transport.dart';
+import '../models/preserved_json.dart';
 import 'core_plugin_host.dart';
-import 'preserved_json.dart';
 
 final class PluginCategorySettingsSnapshot {
   PluginCategorySettingsSnapshot({

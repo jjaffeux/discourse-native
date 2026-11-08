@@ -1,6 +1,6 @@
 import '../models/dashboard.dart';
 import '../models/json.dart';
-import '../plugin_api/dashboard_report_source.dart';
+import 'dashboard_report_source.dart';
 import 'plugin_transport.dart';
 
 abstract interface class DashboardApi {

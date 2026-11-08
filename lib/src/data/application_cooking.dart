@@ -4,8 +4,7 @@ import 'dart:convert';
 import 'package:discourse_cooking/discourse_cooking.dart';
 
 import '../models/site_config.dart';
-import '../plugin_api/cooking_plugin.dart';
-import '../plugin_api/plugin_runtime.dart';
+import 'cooking_plugin.dart';
 
 /// Session-owned cooking port. Never retains credentials, HTTP ports or live
 /// resolver callbacks. Uploads are explicitly ingested by later consumers.
@@ -23,10 +22,10 @@ final class CookingUploadLease {
 
 final class ApplicationCooking {
   ApplicationCooking({
-    required InstalledPlugins plugins,
+    required List<CookingPlugin> plugins,
     CookingServicePort? service,
-  }) : _plugins = List.unmodifiable(plugins.cookingPlugins),
-       configuration = cookingConfiguration(plugins.cookingPlugins),
+  }) : _plugins = List.unmodifiable(plugins),
+       configuration = cookingConfiguration(plugins),
        service = service ?? CookingHostService();
 
   final List<CookingPlugin> _plugins;

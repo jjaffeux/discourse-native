@@ -1,8 +1,8 @@
 import 'package:discourse_native/l10n/strings.dart';
-import '../shell/global_search_models.dart';
+import 'global_search_models.dart';
 
-export '../shell/global_search_filters.dart';
-export '../shell/global_search_models.dart';
+export 'global_search_filters.dart';
+export 'global_search_models.dart';
 
 enum GlobalSearchLookup { none, users, groups, contributed }
 

@@ -25,6 +25,7 @@ import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
 import '../data/composer_media_optimizer.dart';
+import '../data/cooking_plugin.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/current_user_refresh.dart';
 import '../data/custom_sidebar_sections.dart';
@@ -56,7 +57,6 @@ import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
-import '../foundation/bounded_lru_cache.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/startup_timeline.dart';
 import '../foundation/timezone_environment.dart';
@@ -70,11 +70,11 @@ import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
+import '../models/emoji_preferences.dart';
 import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
-import '../models/found_group.dart';
-import '../models/found_hashtag.dart';
 import '../models/found_user.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
@@ -113,12 +113,11 @@ import '../models/user_preferences.dart';
 import '../models/user_status.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/bookmark_host.dart';
-import '../plugin_api/cooking_plugin.dart';
 import '../plugin_api/core_link_projection.dart';
 import '../plugin_api/core_plugin_host.dart';
 import '../plugin_api/core_plugin_manifest.dart';
-import '../plugin_api/discourse_model_codec.dart';
-import '../plugin_api/emoji_preferences.dart';
+import '../plugin_api/global_search_filters.dart';
+import '../plugin_api/global_search_models.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../plugin_api/topic_reader.dart';
@@ -131,15 +130,13 @@ import 'badges_controller.dart';
 import 'bookmark_link_resolver.dart';
 import 'bookmark_transactions.dart';
 import 'checklist_transactions.dart';
-import 'composer/autocomplete.dart';
-import 'composer/components/quote.dart';
+import 'composer/components/quote_source.dart';
+import 'composer/composer_identity_directory.dart';
 import 'composer/controller.dart';
 import 'composer/draft_coordinator.dart';
 import 'composer/existing_topic_opening_owner.dart';
 import 'composer/opening_owner.dart';
-import 'composer/pills.dart';
-import 'composer/recipient_lookup.dart';
-import 'composer/triggers.dart';
+import 'composer/plugin_composer_host.dart';
 import 'content_page_contract.dart';
 import 'cooking_context_owner.dart';
 import 'core_link_resolver.dart';
@@ -147,12 +144,10 @@ import 'do_not_disturb_controller.dart';
 import 'draft_list_controller.dart';
 import 'flag_transactions.dart';
 import 'forum_settings_controller.dart';
+import 'forum_tab_scope.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
-import 'global_search_filters.dart';
-import 'global_search_models.dart';
 import 'groups_controller.dart';
-import 'hashtag.dart';
 import 'mobile_navigation.dart';
 import 'notification_feed_refresh_owner.dart';
 import 'notification_preference_transactions.dart';
@@ -162,7 +157,6 @@ import 'preferences_controller.dart';
 import 'preview_requests.dart';
 import 'profile_write_transactions.dart';
 import 'recent_search_history.dart';
-import 'shell_scope.dart' show ForumTabScope;
 import 'shell_search_controller.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
@@ -182,24 +176,22 @@ import 'user_directory_controller.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
-part 'composer_identity_resolution.dart';
 part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
 part 'instance_rail_transactions.dart';
-part 'post_commands.dart';
-
-part 'selected_post_moderation.dart';
-part 'post_mutation_policy.dart';
-part 'topic_action_transactions.dart';
 part 'message_archive_transactions.dart';
+part 'post_commands.dart';
+part 'post_mutation_policy.dart';
+part 'selected_post_moderation.dart';
+part 'shell_tab_context.dart';
+part 'site_live_composition.dart';
+part 'taxonomy_directory_controller.dart';
+part 'topic_action_transactions.dart';
 part 'topic_metadata_transactions.dart';
 part 'topic_navigation_attempts.dart';
-part 'shell_tab_context.dart';
-part 'taxonomy_directory_controller.dart';
 part 'workspace_controller.dart';
-part 'site_live_composition.dart';
 
 enum MobilePane { sidebar, content }
 
@@ -396,7 +388,7 @@ class ShellController extends FrameSafeNotifier
 
   final CookingServicePort? _providedCookingService;
   late final ApplicationCooking cooking = ApplicationCooking(
-    plugins: plugins,
+    plugins: plugins.cookingPlugins,
     service: _providedCookingService,
   );
   CookingContextOwner? _cookingContextOwner;
@@ -407,10 +399,7 @@ class ShellController extends FrameSafeNotifier
         presentation: _presentation,
         timezones: TimezoneEnvironment.instance,
         currentUserFor: currentUserFor,
-        identitiesFor: (siteUrl) => (
-          mentions: _composerIdentities[siteUrl]?.mentions ?? const {},
-          hashtags: _composerIdentities[siteUrl]?.hashtags ?? const {},
-        ),
+        identitiesFor: composerIdentities.cookingIdentities,
       );
 
   /// Original request identity is retained for host preflight decisions.
@@ -4727,7 +4716,7 @@ class ShellController extends FrameSafeNotifier
         mobilePane: _mobilePane,
       );
       final lease = lifecycle.capture(siteUrl);
-      final found = await searchHashtags(
+      final found = await composerIdentities.searchHashtags(
         siteUrl: siteUrl,
         term: resolvedTag.name,
       );
@@ -6154,7 +6143,7 @@ class ShellController extends FrameSafeNotifier
       editReason: editReason,
       onSaveDraft: draftSession?.save,
       onStageDraft: draftSession?.stage,
-      search: _composerSearch(target),
+      search: composerIdentities.search(target),
       onEmojiAccepted: (code) => unawaited(
         emojiPickerStore.trackEmoji(
           siteUrl: target.siteUrl,
@@ -6170,7 +6159,7 @@ class ShellController extends FrameSafeNotifier
             : emojiUrlFor(target.siteUrl, canonical);
       },
       emojiChanges: _presentation.emojiChangesFor(target.siteUrl),
-      pills: _composerPills(target),
+      pills: composerIdentities.pills(target),
       pluginHashtagPresentation: plugins.registry.pluginHashtagPresentation,
       formatQuoteContents: (block) =>
           quoteContentsFor(target, block) ?? block.contents,
@@ -6955,94 +6944,6 @@ class ShellController extends FrameSafeNotifier
     } catch (_) {}
   }
 
-  ComposerSearch _composerSearch(ComposerTarget target) {
-    if (siteConfigFor(target.siteUrl).emojiEnabled) {
-      unawaited(ensureEmojiCatalog(target.siteUrl));
-      unawaited(ensureEmojiSearchAliases(target.siteUrl));
-    }
-
-    final mentionTopicId = target.mentionTopicId;
-    return (
-      users: (term) async {
-        final found = await _searchMentions(
-          siteUrl: target.siteUrl,
-          topicId: mentionTopicId != null && mentionTopicId > 0
-              ? mentionTopicId
-              : null,
-          term: term,
-        );
-        return [
-          for (final group in found.groups)
-            ComposerSuggestion(
-              kind: ComposerTriggerKind.mention,
-              value: group.name,
-              label: group.name,
-              detail: group.fullName ?? appL10n.group,
-              art: const ArtIcon(null, fallback: DIcons.users),
-            ),
-          for (final user in found.users)
-            ComposerSuggestion(
-              kind: ComposerTriggerKind.mention,
-              value: user.username,
-              label: user.username,
-              detail: user.name,
-              art: ArtAvatar(user.avatarUrl),
-              siteUrl: target.siteUrl,
-              userId: user.id,
-              userStatus: user.status,
-            ),
-        ];
-      },
-      hashtags: (term) async {
-        final found = await searchHashtags(siteUrl: target.siteUrl, term: term);
-        return [
-          for (final hashtag in found)
-            ComposerSuggestion(
-              kind: ComposerTriggerKind.hashtag,
-              // The ref, not the slug: it is what the site cooks against, and
-              // the only form that finds a subcategory or tells two things
-              // that share a name apart.
-              value: hashtag.ref,
-              label: hashtag.text,
-              detail: hashtag.secondaryText,
-              art: _hashtagArt(target.siteUrl, hashtag),
-            ),
-        ];
-      },
-      emojis: (query) async {
-        if (!siteConfigFor(target.siteUrl).emojiEnabled) return const [];
-        final catalog = await ensureEmojiCatalog(target.siteUrl);
-        if (catalog == null ||
-            catalog.isEmpty ||
-            !siteConfigFor(target.siteUrl).emojiEnabled) {
-          return const [];
-        }
-
-        unawaited(ensureEmojiSearchAliases(target.siteUrl));
-        await emojiPickerStore.ensureLoaded(siteUrl: target.siteUrl);
-        if (!siteConfigFor(target.siteUrl).emojiEnabled) return const [];
-        final tone = emojiPickerStore.skinToneFor(siteUrl: target.siteUrl);
-        final found = searchEmojis(target.siteUrl, query, limit: 5);
-        return [
-          for (final emoji in found)
-            ComposerSuggestion(
-              kind: ComposerTriggerKind.emoji,
-              value: emoji.codeFor(tone),
-              label: emoji.codeFor(tone),
-              art: ArtImage(emoji.urlFor(tone)),
-            ),
-          ComposerSuggestion(
-            kind: ComposerTriggerKind.emoji,
-            value: query,
-            label: appL10n.moreEmoji,
-            art: const ArtIcon('discourse-emojis'),
-            action: ComposerSuggestionAction.openEmojiPicker,
-          ),
-        ];
-      },
-    );
-  }
-
   late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
     store: store,
     instanceFor: _instanceAt,
@@ -7291,7 +7192,7 @@ class ShellController extends FrameSafeNotifier
     String term,
   ) async {
     if (!_ownsTopicPostOwnerTarget(target)) return const [];
-    final users = await searchUsers(
+    final users = await composerIdentities.searchUsers(
       siteUrl: target.siteUrl,
       topicId: target.topicId,
       term: term,
@@ -8000,101 +7901,34 @@ class ShellController extends FrameSafeNotifier
   List<SiteEmoji> searchEmojis(String siteUrl, String query, {int limit = 7}) =>
       _presentation.searchEmojis(siteUrl, query, limit: limit);
 
-  SuggestionArt _hashtagArt(String siteUrl, FoundHashtag hashtag) {
-    final presentation = resolveHashtagPresentation(
-      HashtagPresentationRequest(
-        type: hashtag.type,
-        style: HashtagStyle.parse(hashtag.styleType),
-        icon: hashtag.icon,
-        emoji: hashtag.emoji,
-        colorValues: hashtag.colorValues,
-      ),
-      pluginPresentation: plugins.registry.pluginHashtagPresentation,
-    );
-    return hashtagSuggestionArt(
-      presentation,
-      resolveEmoji: (emoji) => emojiUrlFor(siteUrl, emoji),
-    );
-  }
-
-  static const int composerIdentityCacheCapacity = 2048;
-
-  final Map<String, _ComposerIdentityResolution> _composerIdentities = {};
-
-  _ComposerIdentityResolution _composerIdentityFor(String siteUrl) {
-    final existing = _composerIdentities[siteUrl];
-    if (existing != null && existing.isCurrent) return existing;
-    existing?.retire();
-    final owner = _ComposerIdentityResolution(
-      session: AccountRequestSession(siteUrl, lifecycle.capture(siteUrl)),
-      credentials: credentials,
-      authenticated: _instanceAt(siteUrl)?.isConnected == true,
-      search: api.search,
-      lookups: api.lookups,
-      pluginHashtagTypes: plugins.registry.pluginHashtagWireTypes,
-      onChanged: (artwork) {
-        cooking.contextChanged(siteUrl);
-        if (artwork) {
-          for (final composer in _composerRegistry.forSite(siteUrl)) {
-            composer.text.artworkArrived();
+  late final ComposerIdentityDirectory composerIdentities =
+      ComposerIdentityDirectory(
+        credentials: credentials,
+        lifecycle: lifecycle,
+        search: api.search,
+        lookups: api.lookups,
+        isConnected: (siteUrl) => _instanceAt(siteUrl)?.isConnected == true,
+        emoji: (
+          enabled: (siteUrl) => siteConfigFor(siteUrl).emojiEnabled,
+          ensureCatalog: ensureEmojiCatalog,
+          ensureSearchAliases: ensureEmojiSearchAliases,
+          search: searchEmojis,
+          urlFor: emojiUrlFor,
+          ensurePreferences: (siteUrl) =>
+              emojiPickerStore.ensureLoaded(siteUrl: siteUrl),
+          skinTone: (siteUrl) => emojiPickerStore.skinToneFor(siteUrl: siteUrl),
+        ),
+        pluginHashtagPresentation: plugins.registry.pluginHashtagPresentation,
+        pluginHashtagTypes: () => plugins.registry.pluginHashtagWireTypes,
+        onChanged: (siteUrl, artwork) {
+          cooking.contextChanged(siteUrl);
+          if (artwork) {
+            for (final composer in _composerRegistry.forSite(siteUrl)) {
+              composer.text.artworkArrived();
+            }
           }
-        }
-      },
-    );
-    if (isDisposed) owner.retire();
-    return _composerIdentities[siteUrl] = owner;
-  }
-
-  Future<List<FoundHashtag>> searchHashtags({
-    required String siteUrl,
-    required String term,
-  }) => _composerIdentityFor(siteUrl).searchHashtags(term);
-
-  ComposerPills _composerPills(ComposerTarget target) =>
-      _composerIdentityFor(target.siteUrl).pills(target.mentionTopicId);
-
-  ComposerRecipientSearch messageRecipientSearch(String siteUrl) {
-    final lease = lifecycle.capture(siteUrl);
-    return ComposerRecipientSearch(
-      siteUrl: siteUrl,
-      sourceIdentity: this,
-      lease: lease,
-      isSourceCurrent: () => !accountSessionDisposed,
-      search: (term) async {
-        try {
-          final session = AccountRequestSession(siteUrl, lease);
-          final credential = _instanceAt(siteUrl)?.isConnected == true
-              ? await session.credentials(credentials)
-              : session.anonymousCredentials();
-          if (!lease.isCurrent) return const FoundUsersAndGroups();
-          final found = await credential.run(
-            () => api.search.searchUsersAndGroups(
-              siteUrl: siteUrl,
-              term: term,
-              limit: 20,
-              apiKey: credential.apiKey,
-              clientId: credential.clientId,
-            ),
-          );
-          return lease.isCurrent ? found : const FoundUsersAndGroups();
-        } catch (error) {
-          return const FoundUsersAndGroups();
-        }
-      },
-    );
-  }
-
-  Future<FoundUsersAndGroups> _searchMentions({
-    required String siteUrl,
-    required int? topicId,
-    required String term,
-  }) => _composerIdentityFor(siteUrl).searchMentions(term, topicId);
-
-  Future<List<FoundUser>> searchUsers({
-    required String siteUrl,
-    required int? topicId,
-    required String term,
-  }) => _composerIdentityFor(siteUrl).searchUsers(term, topicId);
+        },
+      );
 
   String emojiUrlFor(String siteUrl, String name) =>
       _presentation.emojiUrlFor(siteUrl, name);
@@ -8429,7 +8263,7 @@ class ShellController extends FrameSafeNotifier
     _notificationFeeds.forget(siteUrl);
     _sitePresentation?.forget(siteUrl);
     _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
-    _composerIdentities.remove(siteUrl)?.retire();
+    composerIdentities.forget(siteUrl);
     _connectErrors.remove(siteUrl);
     _unavailableForums.remove(siteUrl);
     _retryingUnavailableForums.remove(siteUrl);
@@ -9472,10 +9306,7 @@ class ShellController extends FrameSafeNotifier
     }
     _discoverSites?.dispose();
     _cookingContextOwner?.dispose();
-    for (final owner in _composerIdentities.values) {
-      owner.retire();
-    }
-    _composerIdentities.clear();
+    composerIdentities.dispose();
     unawaited(cooking.dispose());
 
     // A window can close in the frame immediately after a selection or a

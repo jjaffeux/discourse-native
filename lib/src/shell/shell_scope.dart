@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
-import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_scope.dart';
+import 'forum_tab_scope.dart';
 import 'header_preferences.dart';
 import 'mobile_place_order.dart';
 import 'shell_controller.dart';
@@ -50,6 +50,16 @@ class ShellScope extends InheritedNotifier<ShellController> {
 
   static ShellController? maybeRead(BuildContext context) =>
       context.getInheritedWidgetOfExactType<ShellScope>()?.notifier;
+
+  static ShellTabContext tabOf(BuildContext context) {
+    final shell = read(context);
+    final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
+    final tab = scope == null
+        ? shell.focusedTabContext
+        : shell.tabContext(scope.tabId);
+    final route = ForumContentScope.routeOf(context);
+    return route == null ? tab : tab.atContent(route);
+  }
 }
 
 class ShellSelector<T> extends StatefulWidget {
@@ -127,38 +137,6 @@ class _ShellControllerIdentity extends InheritedWidget {
 }
 
 /// The visible document, independent of which panel currently has input focus.
-class ForumTabScope extends InheritedWidget {
-  const ForumTabScope({
-    super.key,
-    required this.tabId,
-    required this.panel,
-    required super.child,
-  });
-
-  final String? tabId;
-  final ForumPanel panel;
-
-  static String? idOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ForumTabScope>()?.tabId;
-
-  static ForumPanel? panelOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<ForumTabScope>()?.panel;
-
-  static ShellTabContext tabOf(BuildContext context) {
-    final shell = ShellScope.read(context);
-    final scope = context.dependOnInheritedWidgetOfExactType<ForumTabScope>();
-    final tab = scope == null
-        ? shell.focusedTabContext
-        : shell.tabContext(scope.tabId);
-    final route = ForumContentScope.routeOf(context);
-    return route == null ? tab : tab.atContent(route);
-  }
-
-  @override
-  bool updateShouldNotify(ForumTabScope oldWidget) =>
-      tabId != oldWidget.tabId || panel != oldWidget.panel;
-}
-
 class ForumContentScope extends InheritedWidget {
   const ForumContentScope({
     super.key,

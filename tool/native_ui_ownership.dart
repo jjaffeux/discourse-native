@@ -245,8 +245,13 @@ List<NativeUiFinding> inspectNativeUiSource(
       final destination = Uri.parse(
         'package:discourse_native/${path.substring(4)}',
       ).resolve(value).toString();
+      // The facade re-exports the theme layer, so a theme library importing it
+      // would make every colour and icon depend on the whole kit.
+      final facadeAuthorized =
+          (path == 'lib/discourse_ui.dart' && directive is ExportDirective) ||
+          (path.startsWith('lib/src/theme/') && directive is ImportDirective);
       if (destination.startsWith('package:discourse_native/src/ui/') &&
-          !(path == 'lib/discourse_ui.dart' && directive is ExportDirective)) {
+          !facadeAuthorized) {
         report(directive, NativeUiFindingKind.internalImport, value);
       }
     }

@@ -16,6 +16,7 @@ import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'destination_bookmark_ui.dart';
+import 'emoji.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
 import 'shell_scope.dart';

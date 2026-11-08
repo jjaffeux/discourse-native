@@ -3,9 +3,9 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/emoji_preferences.dart';
+import '../models/emoji_usage.dart';
 import '../models/site_emoji.dart';
-import '../plugin_api/emoji_preferences.dart';
-import '../plugin_api/emoji_usage.dart';
 
 typedef EmojiCatalogLoader = Future<SiteEmojiCatalog?> Function({bool refresh});
 typedef EmojiSearchAliasLoader =

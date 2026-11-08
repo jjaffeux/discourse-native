@@ -125,7 +125,7 @@ final class NotesFixture {
   final installed = PluginInstaller.install(
     const PluginManifest([cookingModule]),
   );
-  late final cooker = ApplicationCooking(plugins: installed);
+  late final cooker = ApplicationCooking(plugins: installed.cookingPlugins);
   late final PluginCookingHost cookingHost;
   late final UserNotesController controller;
   int regularCooking = 0, transientCooking = 0;

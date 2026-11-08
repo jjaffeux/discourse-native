@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/store.dart';
-import '../plugin_api/plugin_data.dart';
 import 'badge.dart';
 import 'json.dart';
+import 'plugin_data.dart';
+import 'storable.dart';
 import 'user_status.dart';
 
 @immutable

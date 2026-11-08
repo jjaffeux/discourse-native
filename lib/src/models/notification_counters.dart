@@ -1,7 +1,7 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
-import '../models/json.dart';
+import 'json.dart';
 import 'preserved_json.dart';
 
 /// The identity is independent of the server field name so a plugin may own

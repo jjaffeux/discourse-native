@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/models/discover_site.dart';
+import 'package:discourse_native/src/data/discover_site.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 
 Map<String, int> measureAdditionalSelectionPerformance() {

@@ -1,8 +1,8 @@
 import '../models/json.dart';
-import '../plugin_api/dashboard_report_source.dart';
+import 'dashboard_report_source.dart';
 import 'plugin_transport.dart';
 
-export '../plugin_api/dashboard_report_source.dart' show ReportApi;
+export 'dashboard_report_source.dart' show ReportApi;
 
 final class DiscourseReportApi implements ReportApi {
   const DiscourseReportApi(

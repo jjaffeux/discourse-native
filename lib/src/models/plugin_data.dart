@@ -1,8 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../models/user_preferences.dart';
 import 'preserved_json.dart';
 import 'topic_reading_policy.dart';
+import 'user_preferences.dart';
 
 export 'topic_reading_policy.dart';
 

@@ -32,6 +32,7 @@ import 'forum_about_host.dart';
 import 'forum_about_page.dart';
 import 'forum_search.dart';
 import 'forum_settings_page.dart';
+import 'forum_tab_scope.dart';
 import 'forum_theme_surfaces.dart';
 import 'group_pages_coordinator.dart';
 import 'group_pages_host.dart';

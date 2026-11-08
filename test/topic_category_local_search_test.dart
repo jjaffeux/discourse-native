@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/topic_category_selector.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

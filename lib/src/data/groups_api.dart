@@ -1,8 +1,8 @@
+import '../models/discourse_model_codec.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../models/json.dart';
 import '../models/topic.dart';
-import '../plugin_api/discourse_model_codec.dart';
 import 'plugin_transport.dart';
 
 final class GroupUpdateAcknowledgment {

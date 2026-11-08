@@ -1,6 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 
-import '../plugin_api/global_search.dart' show GlobalSearchLookup;
+import 'global_search.dart' show GlobalSearchLookup;
 import 'global_search_models.dart';
 
 List<GlobalSearchFilter> get globalSearchFilters => <GlobalSearchFilter>[

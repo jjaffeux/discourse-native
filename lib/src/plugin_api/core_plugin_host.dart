@@ -2,19 +2,18 @@ import 'package:flutter/foundation.dart';
 
 import '../data/discourse_api_contracts.dart';
 import '../data/store.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
+import '../models/emoji_preferences.dart';
+import '../models/notification_counters.dart';
+import '../models/plugin_data.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/topic.dart';
-import '../shell/composer/controller.dart';
 import 'bookmark_host.dart';
-import 'discourse_model_codec.dart';
-import 'emoji_preferences.dart';
-import 'notification_counters.dart';
 import 'notification_feed_host.dart';
-import 'plugin_data.dart';
 import 'plugin_manifest.dart';
 import 'shell_extensions.dart';
 import 'timezone_host.dart';
@@ -46,8 +45,6 @@ typedef PluginWriteCredential = ({
   PluginRequestCredentials? credentials,
   WriteException? failure,
 });
-typedef PluginComposerBuilder =
-    ComposerController? Function(ComposerTargetRequest request);
 typedef PluginNewTopicComposerOpener =
     Future<OpenComposerResult> Function(OpenNewTopicComposerRequest request);
 typedef PluginEmojiCatalogLoader =
@@ -323,26 +320,6 @@ final class PluginTopicRefreshHost {
 
 enum PluginTopicRefreshResult { refreshed, needsRefresh, sourceChanged }
 
-/// This facade deliberately exposes no navigation, topic mutation, or shell
-/// state. [siteConfigListenableFor] exposes only the configuration for the
-/// composer's own site rather than a broad shell change signal. The core port
-/// scopes [buildComposer] to target kinds owned by the consuming plugin.
-final class PluginComposerHost {
-  const PluginComposerHost({
-    required this.buildComposer,
-    required this.openNewTopic,
-    required this.isActive,
-    required this.siteConfigFor,
-    required this.siteConfigListenableFor,
-  });
-
-  final PluginComposerBuilder buildComposer;
-  final PluginNewTopicComposerOpener openNewTopic;
-  final bool Function(ComposerController composer) isActive;
-  final PluginSiteConfigReader siteConfigFor;
-  final PluginSiteConfigListenableReader siteConfigListenableFor;
-}
-
 final class PluginEmojiHost {
   const PluginEmojiHost({
     required this.preferences,
@@ -505,11 +482,6 @@ const corePluginTopicListNavigationPort =
 const corePluginBookmarkPort = PluginHostPortKey<PluginBookmarkHostFactory>(
   owner: PluginId('core'),
   name: 'bookmarks',
-);
-
-const corePluginComposerPort = PluginHostPortKey<PluginComposerHost>(
-  owner: PluginId('core'),
-  name: 'composer',
 );
 
 const corePluginEmojiPort = PluginHostPortKey<PluginEmojiHost>(

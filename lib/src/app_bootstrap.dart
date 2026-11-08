@@ -12,6 +12,7 @@ import 'foundation/timezone_environment.dart';
 import 'macos_launch_screen.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
+import 'shell/component_styleguide_scope.dart';
 
 abstract interface class AppBootstrapHost {
   void ensureFlutterInitialized();
@@ -38,7 +39,10 @@ final class AppBootstrap {
 
   factory AppBootstrap.production({
     PluginManifest manifest = corePluginManifest,
-  }) => AppBootstrap(host: _ProductionAppBootstrapHost(manifest));
+    required ComponentStyleguideOpener openComponentStyleguide,
+  }) => AppBootstrap(
+    host: _ProductionAppBootstrapHost(manifest, openComponentStyleguide),
+  );
 
   final AppBootstrapHost _host;
   bool _admitted = false;
@@ -86,9 +90,10 @@ final class AppBootstrap {
 }
 
 final class _ProductionAppBootstrapHost implements AppBootstrapHost {
-  _ProductionAppBootstrapHost(this._manifest);
+  _ProductionAppBootstrapHost(this._manifest, this._openComponentStyleguide);
 
   final PluginManifest _manifest;
+  final ComponentStyleguideOpener _openComponentStyleguide;
   late final InstalledPlugins _plugins;
 
   @override
@@ -127,7 +132,12 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
 
   @override
   void launchApplication() {
-    runApp(DiscourseApp(plugins: _plugins));
+    runApp(
+      DiscourseApp(
+        plugins: _plugins,
+        openComponentStyleguide: _openComponentStyleguide,
+      ),
+    );
     MacOSLaunchScreen.dismissAfterFirstFlutterFrame();
   }
 }

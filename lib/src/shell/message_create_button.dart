@@ -21,7 +21,7 @@ class MessageCreateButton extends StatelessWidget {
 
   void _compose(BuildContext context) {
     final controller = ShellScope.read(context);
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     final instance = controller.currentInstance;
     final source = tab.topicListContent ?? tab.currentContent;
     if (!tab.isCurrent || controller.activeTabId != tab.tabId) return;

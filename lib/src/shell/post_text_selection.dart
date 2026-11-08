@@ -137,7 +137,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
   void _insertQuote() {
     final quote = _quote;
     if (quote.isEmpty) return;
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     _dismiss(clearSelection: true);
     unawaited(tab.openQuote(widget.post, quote));
   }
@@ -161,7 +161,7 @@ class _PostTextSelectionState extends State<PostTextSelection> {
     final controller = ShellScope.read(context);
     _dismiss(clearSelection: true);
     if (_transformed) {
-      ForumTabScope.tabOf(context).openEdit(widget.post);
+      ShellScope.tabOf(context).openEdit(widget.post);
       return;
     }
     if (!selection.supportsFastEdit) {

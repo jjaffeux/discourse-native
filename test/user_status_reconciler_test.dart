@@ -1,9 +1,9 @@
 import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/user_status_reconciler.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/user_status.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/user_status_overrides.dart';
 import 'package:flutter_test/flutter_test.dart';
 

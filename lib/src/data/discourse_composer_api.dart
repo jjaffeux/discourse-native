@@ -4,15 +4,15 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
 import '../models/composer_draft.dart';
+import '../models/composer_metadata.dart';
 import '../models/composer_upload.dart';
+import '../models/discourse_model_codec.dart';
 import '../models/json.dart';
 import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_creation.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../plugin_api/composer_metadata.dart';
-import '../plugin_api/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';

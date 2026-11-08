@@ -1,9 +1,9 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
+import 'package:discourse_native/src/models/emoji_preferences.dart';
+import 'package:discourse_native/src/models/emoji_usage.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
-import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
-import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 

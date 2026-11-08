@@ -3,9 +3,8 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/emoji_picker_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-
+import 'package:discourse_native/src/models/emoji_usage.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
-import 'package:discourse_native/src/plugin_api/emoji_usage.dart';
 import 'package:discourse_native/src/plugins/chat/chat_emoji_usage.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_emoji_usage.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';

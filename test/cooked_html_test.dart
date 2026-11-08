@@ -20,6 +20,7 @@ import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
+import 'package:discourse_native/src/shell/hashtag_presentation.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/inline_code.dart';
 import 'package:discourse_native/src/shell/mention.dart';

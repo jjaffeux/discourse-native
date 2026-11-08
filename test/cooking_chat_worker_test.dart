@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_card.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
@@ -27,7 +27,7 @@ void main() {
           final installed = PluginInstaller.install(
             PluginManifest([cookingModule, chatModule, localDatesModule]),
           );
-          final app = ApplicationCooking(plugins: installed);
+          final app = ApplicationCooking(plugins: installed.cookingPlugins);
           addTearDown(app.dispose);
           addTearDown(installed.close);
           final config = SiteConfig(

@@ -79,8 +79,8 @@ change a persistence failure into a successful empty document.
 Run explicit test files for the owner and its directly affected callers. Useful
 cross-cutting checks include `owner_dependency_graph_test.dart`,
 `standalone_owner_dependency_boundary_test.dart`,
-`plugin_dependency_boundary_test.dart`, and `site_preference_inventory_test.dart`
-when their boundaries change. Follow the repository's focused-test rule in
+`plugin_dependency_boundary_test.dart`, `site_preference_inventory_test.dart`,
+and `architecture_layer_contract_test.dart` when their boundaries change. Follow the repository's focused-test rule in
 `AGENTS.md`; CI runs the full suite.
 
 Concurrency tests should hold the relevant boundary with a completer and
@@ -99,3 +99,7 @@ behavior and focused commands to reproduce their proof.
 [Runtime state integrity](runtime-state-integrity.md) records ten further
 improvements to replacement-store transactions, shared preference documents,
 request retirement, cache admission, recovery, and immutable publication.
+
+[Layer dependencies](layer-dependencies-round6.md) records how the import graph
+went from one 721-library cycle to a one-way layer order, with the measurements
+and the remaining limits.

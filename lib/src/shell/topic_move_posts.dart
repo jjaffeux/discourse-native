@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../models/post.dart';
 import '../models/post_mutation_outcome.dart';
 import '../models/topic.dart';
+import 'category_icon.dart';
 import 'platform.dart';
 import 'post_mutation_feedback.dart';
 import 'shell_controller.dart';
@@ -23,7 +24,7 @@ Future<void> showTopicMovePosts({
   final target = controller.captureTopicPostMoveTarget(siteUrl, topic.id);
   final current = capturePostMutationPresentation(context, controller, siteUrl);
   final openingTabId = identical(ShellScope.maybeRead(context), controller)
-      ? ForumTabScope.tabOf(context).tabId
+      ? ShellScope.tabOf(context).tabId
       : controller.activeTabId;
   final openingDestination = openingTabId == null
       ? null

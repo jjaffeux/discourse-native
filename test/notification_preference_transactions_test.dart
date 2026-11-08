@@ -5,10 +5,10 @@ import 'package:discourse_native/src/data/current_user_reconciler.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
 import 'package:discourse_native/src/shell/notification_preference_transactions.dart';
 import 'package:flutter_test/flutter_test.dart';
 

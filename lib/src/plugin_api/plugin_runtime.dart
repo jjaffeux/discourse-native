@@ -1,8 +1,8 @@
 import 'dart:async';
 
+import '../data/cooking_plugin.dart';
 import '../models/bookmark.dart';
-import 'cooking_plugin.dart';
-import 'discourse_model_codec.dart';
+import '../models/discourse_model_codec.dart';
 import 'plugin_manifest.dart';
 import 'plugin_registry.dart';
 import 'site_plugin_api.dart';

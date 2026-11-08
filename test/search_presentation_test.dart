@@ -1,7 +1,7 @@
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/search_results.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/shell/search_presentation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

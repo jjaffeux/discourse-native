@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
+import 'package:discourse_native/src/data/cooking_plugin.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
@@ -24,7 +24,7 @@ void main() {
           final installed = PluginInstaller.install(
             const PluginManifest([cookingModule, chatModule, _FixtureModule()]),
           );
-          final app = ApplicationCooking(plugins: installed);
+          final app = ApplicationCooking(plugins: installed.cookingPlugins);
           addTearDown(app.dispose);
           addTearDown(installed.close);
           expect(await app.start(), isTrue);

@@ -7,6 +7,7 @@ import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'topic_category_path.dart';
+import 'topic_category_selector.dart';
 
 /// A joined category path with a searchable sibling menu at every level.
 class TopicCategoryPathSelector extends StatelessWidget {

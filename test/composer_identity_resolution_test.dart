@@ -3,13 +3,17 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/found_group.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/models/found_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/composer_target.dart';
+import 'package:discourse_native/src/shell/composer/composer_identity_directory.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/pills.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
@@ -208,8 +212,12 @@ void main() {
     final api = _IdentityApi();
     final shell = await _shell(api);
     final pills = _pills(shell);
-    await shell.searchHashtags(siteUrl: _site, term: 'sail');
-    await shell.searchUsers(siteUrl: _site, topicId: 7, term: 'ali');
+    await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'sail');
+    await shell.composerIdentities.searchUsers(
+      siteUrl: _site,
+      topicId: 7,
+      term: 'ali',
+    );
     expect(pills.hashtag('sailing'), _hashtag);
     expect(pills.mention('Alice'), isTrue);
     shell.lifecycle.invalidate(_site);
@@ -217,13 +225,73 @@ void main() {
     expect(pills.mention('Alice'), isNull);
   });
 
+  test('a directory built without a shell retires with its lease', () async {
+    final lifecycle = SiteLifecycle();
+    final api = _IdentityApi();
+    final changes = <(String, bool)>[];
+    final directory = ComposerIdentityDirectory(
+      credentials: FakeAuthenticator()..keys[_site] = 'key',
+      lifecycle: lifecycle,
+      search: api,
+      lookups: api,
+      isConnected: (_) => true,
+      emoji: (
+        enabled: (_) => false,
+        ensureCatalog: (_) async => null,
+        ensureSearchAliases: (_) async => null,
+        search: (_, _, {limit = 0}) => const [],
+        urlFor: (_, name) => name,
+        ensurePreferences: (_) async {},
+        skinTone: (_) => EmojiSkinTone.neutral,
+      ),
+      pluginHashtagPresentation: (_) => null,
+      pluginHashtagTypes: () => const [],
+      onChanged: (siteUrl, artwork) => changes.add((siteUrl, artwork)),
+    );
+    addTearDown(directory.dispose);
+    const target = ReplyComposerTarget(
+      siteUrl: _site,
+      topicTitle: 'Topic',
+      topicId: 7,
+      slug: 'topic',
+      privateMessageTopic: false,
+    );
+
+    final retiredPills = directory.pills(target);
+    await directory.searchHashtags(siteUrl: _site, term: 'sail');
+    expect(retiredPills.hashtag('sailing'), _hashtag);
+    expect(directory.cookingIdentities(_site).hashtags, contains('sailing'));
+    expect(changes, [(_site, false)]);
+
+    api.searchGate = Completer<void>();
+    final stale = directory.searchHashtags(siteUrl: _site, term: 'sail');
+    await pumpEventQueue();
+    lifecycle.invalidate(_site);
+    expect(retiredPills.hashtag('sailing'), isNull);
+    expect(directory.cookingIdentities(_site).hashtags, isEmpty);
+    api.searchGate!.complete();
+    expect(await stale, isEmpty);
+    expect(changes, hasLength(1));
+
+    api.searchGate = null;
+    final replacementPills = directory.pills(target);
+    expect(replacementPills.hashtag('sailing'), isNull);
+    await directory.searchHashtags(siteUrl: _site, term: 'sail');
+    expect(replacementPills.hashtag('sailing'), _hashtag);
+    expect(retiredPills.hashtag('sailing'), isNull);
+  });
+
   test('search seeds the same pills and frozen cooking identity', () async {
     final api = _IdentityApi();
     final shell = await _shell(api);
     final pills = _pills(shell);
     final before = shell.cookingRequest(siteUrl: _site, raw: '#sailing @Alice');
-    await shell.searchHashtags(siteUrl: _site, term: 'sail');
-    await shell.searchUsers(siteUrl: _site, topicId: 7, term: 'ali');
+    await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'sail');
+    await shell.composerIdentities.searchUsers(
+      siteUrl: _site,
+      topicId: 7,
+      term: 'ali',
+    );
     expect(pills.hashtag('sailing'), _hashtag);
     expect(pills.mention('Alice'), isTrue);
     pills.resolve({'sailing'}, {'Alice'});
@@ -425,7 +493,10 @@ void main() {
       final shell = await _shell(api);
       final oldPills = _pills(shell);
       oldPills.resolve({'sailing'}, {});
-      final oldSearch = shell.searchHashtags(siteUrl: _site, term: 'sail');
+      final oldSearch = shell.composerIdentities.searchHashtags(
+        siteUrl: _site,
+        term: 'sail',
+      );
       await pumpEventQueue();
       shell.lifecycle.invalidate(_site);
       shell.clearAccountSessionState(_site);
@@ -470,10 +541,20 @@ void main() {
       api.failSearch = true;
       await expectLater(search.users('bad'), throwsStateError);
       expect(
-        await shell.searchUsers(siteUrl: _site, topicId: 7, term: 'bad'),
+        await shell.composerIdentities.searchUsers(
+          siteUrl: _site,
+          topicId: 7,
+          term: 'bad',
+        ),
         isEmpty,
       );
-      expect(await shell.searchHashtags(siteUrl: _site, term: 'bad'), isEmpty);
+      expect(
+        await shell.composerIdentities.searchHashtags(
+          siteUrl: _site,
+          term: 'bad',
+        ),
+        isEmpty,
+      );
     },
   );
 
@@ -482,7 +563,10 @@ void main() {
     final api = _IdentityApi();
     final shell = await _shell(api, authenticator: auth);
     auth.gate = Completer<void>();
-    final pending = shell.searchHashtags(siteUrl: _site, term: 'sail');
+    final pending = shell.composerIdentities.searchHashtags(
+      siteUrl: _site,
+      term: 'sail',
+    );
     await pumpEventQueue();
     shell.lifecycle.invalidate(_site);
     shell.clearAccountSessionState(_site);
@@ -495,8 +579,12 @@ void main() {
     final api = _IdentityApi()..bulk = true;
     final shell = await _shell(api);
     final pills = _pills(shell);
-    await shell.searchHashtags(siteUrl: _site, term: 'bulk');
-    await shell.searchUsers(siteUrl: _site, topicId: 7, term: 'bulk');
+    await shell.composerIdentities.searchHashtags(siteUrl: _site, term: 'bulk');
+    await shell.composerIdentities.searchUsers(
+      siteUrl: _site,
+      topicId: 7,
+      term: 'bulk',
+    );
     expect(pills.hashtag('tag0'), isNull);
     expect(pills.hashtag('tag1'), isNotNull);
     expect(pills.mention('user0'), isNull);

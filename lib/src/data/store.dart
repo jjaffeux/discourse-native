@@ -2,14 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 
-abstract mixin class Storable<T extends Storable<T>> {
-  Object get storeId;
-
-  /// Whether a replacement preserves the fields used by a loaded window.
-  bool hasSameStoreStructure(covariant T incoming) => identical(this, incoming);
-
-  T merge(covariant T incoming) => incoming;
-}
+import '../models/storable.dart';
 
 /// Bounds an identity store while keeping sites and record kinds from
 /// monopolizing its retained working set.

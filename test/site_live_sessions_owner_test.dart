@@ -2,15 +2,15 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/current_user_reconciler.dart';
+import 'package:discourse_native/src/data/live_channels.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
+import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
-import 'package:discourse_native/src/plugin_api/discourse_model_codec.dart';
-import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:discourse_native/src/shell/site_live_sessions.dart';
 import 'package:discourse_native/src/shell/topic_tracking_directory.dart';

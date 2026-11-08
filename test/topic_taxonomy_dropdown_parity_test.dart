@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/shell/topic_category_path_selector.dart';
 import 'package:discourse_native/src/shell/topic_list_actions.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';

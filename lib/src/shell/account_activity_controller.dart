@@ -7,23 +7,22 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
-
 import '../foundation/frame_safe_notifier.dart';
 import '../models/bookmark_feed.dart';
 import '../models/discourse_instance.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
+import '../models/notification_counters.dart';
 import '../models/notification_totals.dart';
 import '../models/notification_type_counts.dart';
 import '../models/user_activity_feed.dart';
-import '../plugin_api/notification_counters.dart';
 import '../plugin_api/notification_feed_host.dart';
 import 'account_history_feed_owners.dart';
 import 'notification_reconciliation.dart';
 
+part 'account_bookmark_refresh.dart';
 part 'account_totals_refresh.dart';
 part 'notification_feed_load.dart';
-part 'account_bookmark_refresh.dart';
 
 typedef TotalsLoaded =
     void Function(DiscourseInstance instance, NotificationTotals totals);

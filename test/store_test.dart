@@ -3,6 +3,7 @@ import 'dart:math';
 
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

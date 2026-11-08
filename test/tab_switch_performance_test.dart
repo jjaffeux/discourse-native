@@ -2,8 +2,8 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/forum_tab_scope.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
-import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:flutter/foundation.dart';

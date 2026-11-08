@@ -4,25 +4,8 @@ import 'package:flutter/foundation.dart';
 
 import '../../data/site_lifecycle.dart';
 import '../../models/found_group.dart';
+import 'composer_identity_directory.dart';
 import 'controller.dart';
-
-final class ComposerRecipientSearch {
-  const ComposerRecipientSearch({
-    required this.siteUrl,
-    required this.sourceIdentity,
-    required this.lease,
-    required this.isSourceCurrent,
-    required this.search,
-  });
-
-  final String siteUrl;
-  final Object sourceIdentity;
-  final SiteLease lease;
-  final bool Function() isSourceCurrent;
-  final Future<FoundUsersAndGroups> Function(String term) search;
-
-  bool get isCurrent => lease.isCurrent && isSourceCurrent();
-}
 
 final class ComposerRecipientLookup extends ChangeNotifier {
   ComposerRecipientLookup({

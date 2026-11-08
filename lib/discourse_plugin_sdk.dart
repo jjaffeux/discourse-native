@@ -24,6 +24,8 @@ export 'discourse_ui.dart'
 export 'discourse_ui.dart' show monospaceTextStyle;
 export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
 export 'src/data/app_release.dart';
+export 'src/data/cooking_plugin.dart';
+export 'src/data/dashboard_report_source.dart';
 export 'src/data/discourse_api_contracts.dart'
     hide
         CategoryLoadResult,
@@ -45,6 +47,7 @@ export 'src/data/discourse_api_contracts.dart'
         defaultDiscourseHashtagOrder,
         maximumDiscourseHashtagsPerRequest,
         maximumDiscourseSearchTermLength;
+export 'src/data/live_channels.dart';
 export 'src/data/origin_cooldown.dart' show OriginCooldown;
 export 'src/data/plugin_transport.dart';
 export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
@@ -59,7 +62,7 @@ export 'src/data/site_preference_keys.dart'
         SitePreferenceIdentity,
         SitePreferenceScope,
         SitePreferenceValue;
-export 'src/data/store.dart' show Ref, Store, StorePolicy, Storable;
+export 'src/data/store.dart' show Ref, Store, StorePolicy;
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
@@ -73,12 +76,15 @@ export 'src/foundation/private_file_staging.dart';
 export 'src/foundation/timezone_environment.dart' show TimezoneEnvironment;
 export 'src/foundation/uri_path.dart' show tryUriPathSegments;
 export 'src/models/bookmark.dart' show Bookmark, BookmarkTargetType;
+export 'src/models/composer_metadata.dart';
 export 'src/models/composer_upload.dart'
     show ComposerUploadResult, ComposerUploadType;
 export 'src/models/content_route.dart';
 export 'src/models/discourse_instance.dart'
     show DiscourseInstance, mostSpecificServingForum;
+export 'src/models/discourse_model_codec.dart';
 export 'src/models/discourse_user.dart' show DiscourseUser;
+export 'src/models/emoji_usage.dart';
 export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
 export 'src/models/group_route.dart' show GroupRoute;
 export 'src/models/homepage_option.dart';
@@ -86,13 +92,18 @@ export 'src/models/json.dart';
 export 'src/models/live_refresh_id.dart' show liveRefreshId;
 export 'src/models/notification.dart'
     show DiscourseNotification, NotificationWireType;
+export 'src/models/notification_counters.dart';
 export 'src/models/notification_totals.dart' show NotificationTotals;
+export 'src/models/plugin_data.dart';
+export 'src/models/plugin_icon_catalog.dart';
 export 'src/models/post.dart' show Post, TopicDetail;
 export 'src/models/post_flag.dart' show PostFlagType;
+export 'src/models/preserved_json.dart';
 export 'src/models/search_results.dart' show SearchExcerpt;
 export 'src/models/sidebar.dart';
 export 'src/models/site_config.dart';
 export 'src/models/site_emoji.dart' show SiteEmojiCatalog;
+export 'src/models/storable.dart' show Storable;
 export 'src/models/topic.dart'
     show Topic, TopicList, TopicRecommendations, TopicRecommendationSource;
 export 'src/models/topic_feed.dart' show TopicFeed;
@@ -107,28 +118,22 @@ export 'src/plugin_api/background_retention.dart';
 export 'src/plugin_api/bookmark_host.dart';
 export 'src/plugin_api/category_settings.dart';
 export 'src/plugin_api/composer_component.dart';
-export 'src/plugin_api/composer_metadata.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/composer_syntax.dart';
-export 'src/plugin_api/cooking_plugin.dart';
 export 'src/plugin_api/core_link_projection.dart';
 export 'src/plugin_api/core_plugin_host.dart';
-export 'src/plugin_api/dashboard_report_source.dart';
-export 'src/plugin_api/discourse_model_codec.dart';
-export 'src/plugin_api/emoji_usage.dart';
 export 'src/plugin_api/global_search.dart';
+export 'src/plugin_api/global_search_models.dart'
+    show GlobalSearchCondition, GlobalSearchContext;
 export 'src/plugin_api/hashtag_kind.dart';
-export 'src/plugin_api/live_channels.dart';
-export 'src/plugin_api/notification_counters.dart';
 export 'src/plugin_api/notification_feed_host.dart';
 export 'src/plugin_api/notification_types.dart';
-export 'src/plugin_api/plugin_data.dart';
-export 'src/plugin_api/plugin_icon_catalog.dart';
 export 'src/plugin_api/plugin_manifest.dart';
 export 'src/plugin_api/plugin_runtime.dart';
 export 'src/plugin_api/plugin_scope.dart';
-export 'src/plugin_api/preserved_json.dart';
+export 'src/plugin_api/post_action.dart'
+    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/plugin_api/reaction_presentation.dart';
 export 'src/plugin_api/shell_extensions.dart';
 export 'src/plugin_api/site_plugin_api.dart';
@@ -137,8 +142,10 @@ export 'src/plugin_api/topic_reader.dart';
 export 'src/shell/adaptive_dialog_action.dart';
 export 'src/shell/adaptive_shell.dart' show ShellLayout;
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
+export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
+export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
 export 'src/shell/composer/autocomplete.dart' show ComposerSuggestionAction;
 export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
@@ -173,6 +180,7 @@ export 'src/shell/composer/markdown_highlight.dart'
         sharedMarkdownScan;
 export 'src/shell/composer/marks.dart' show ComposerMark;
 export 'src/shell/composer/panel.dart' show ComposerEditor, ComposerUploadQueue;
+export 'src/shell/composer/plugin_composer_host.dart';
 export 'src/shell/composer/slash_menu.dart' show ComposerSlashAction;
 export 'src/shell/composer/upload_picker.dart'
     show
@@ -193,15 +201,12 @@ export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
-
 export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
 export 'src/shell/external_link.dart' show openExternalLink;
 export 'src/shell/forum_search.dart' show ForumSearch;
 export 'src/shell/forum_theme_surfaces.dart' show ForumWindowBackground;
-export 'src/shell/global_search_models.dart'
-    show GlobalSearchCondition, GlobalSearchContext;
 export 'src/shell/group_flair.dart' show GroupFlairBadge;
 export 'src/shell/header_notification_button.dart'
     show headerNotificationButton;
@@ -232,8 +237,7 @@ export 'src/shell/platform.dart'
     show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
-export 'src/shell/post_action.dart'
-    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
+export 'src/shell/post_action_leading.dart' show PostActionLeading;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
 export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/progressive_html_mode.dart'

@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/data/application_cooking.dart';
+import 'package:discourse_native/src/data/cooking_plugin.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/cooking_plugin.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/cooking/cooking_module.dart';
@@ -19,7 +20,10 @@ void main() {
           const PluginManifest([cookingModule]),
         );
         final service = _Service()..transientGate = Completer<CookingResult>();
-        final app = ApplicationCooking(plugins: installed, service: service);
+        final app = ApplicationCooking(
+          plugins: installed.cookingPlugins,
+          service: service,
+        );
         addTearDown(app.dispose);
         addTearDown(installed.close);
         final request = app.request(
@@ -52,7 +56,10 @@ void main() {
     final installed = PluginInstaller.install(
       const PluginManifest([cookingModule]),
     );
-    final app = ApplicationCooking(plugins: installed, service: _Service());
+    final app = ApplicationCooking(
+      plugins: installed.cookingPlugins,
+      service: _Service(),
+    );
     for (final enabled in [true, false]) {
       final config = SiteConfig.fromSettings({
         'checklist_enabled': enabled,
@@ -77,12 +84,14 @@ void main() {
 
   test('core only is empty; installed owner enables bundled behavior', () {
     final core = ApplicationCooking(
-      plugins: PluginInstaller.install(const PluginManifest([])),
+      plugins: PluginInstaller.install(const PluginManifest([])).cookingPlugins,
       service: _Service(),
     );
     expect(core.configuration.modules, isEmpty);
     final bundled = ApplicationCooking(
-      plugins: PluginInstaller.install(const PluginManifest([cookingModule])),
+      plugins: PluginInstaller.install(
+        const PluginManifest([cookingModule]),
+      ).cookingPlugins,
       service: _Service(),
     );
     expect(
@@ -98,7 +107,10 @@ void main() {
     );
     capability.owner = 'foreign';
     capability.modules.clear();
-    final app = ApplicationCooking(plugins: installed, service: _Service());
+    final app = ApplicationCooking(
+      plugins: installed.cookingPlugins,
+      service: _Service(),
+    );
     expect(capability.moduleReads, 1);
     expect(capability.profileReads, 1);
     expect(app.configuration.modules.single.owner, 'cooking-fixture');
@@ -137,7 +149,9 @@ void main() {
     () async {
       final capability = _Capability();
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(PluginManifest([_Module(capability)])),
+        plugins: PluginInstaller.install(
+          PluginManifest([_Module(capability)]),
+        ).cookingPlugins,
         service: _Service(),
       );
       capability.owner = 'foreign'; // Any projection would throw.
@@ -160,7 +174,9 @@ void main() {
     'large independent caches select before merging and retain precedence',
     () async {
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: _Service(),
       );
       addTearDown(app.dispose);
@@ -211,7 +227,9 @@ void main() {
     'aggregate enrichment is bounded across fields and required policy fails readably',
     () async {
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: _Service(),
       );
       addTearDown(app.dispose);
@@ -284,7 +302,9 @@ void main() {
     'selection preserves token matching, layer precedence and fresh values',
     () {
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: _Service(),
       );
       addTearDown(app.dispose);
@@ -370,7 +390,9 @@ void main() {
     'selection applies exact UTF-8 entry, field and count limits in key order',
     () {
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: _Service(),
       );
       addTearDown(app.dispose);
@@ -414,7 +436,9 @@ void main() {
     'selection reserves policy bytes before the exact aggregate boundary',
     () {
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: _Service(),
       );
       addTearDown(app.dispose);
@@ -453,7 +477,9 @@ void main() {
     () async {
       final service = _Service();
       final app = ApplicationCooking(
-        plugins: PluginInstaller.install(const PluginManifest([])),
+        plugins: PluginInstaller.install(
+          const PluginManifest([]),
+        ).cookingPlugins,
         service: service,
       );
       await app.start();
@@ -513,7 +539,9 @@ void main() {
     HttpOverrides.runZoned(
       () {
         final app = ApplicationCooking(
-          plugins: PluginInstaller.install(const PluginManifest([])),
+          plugins: PluginInstaller.install(
+            const PluginManifest([]),
+          ).cookingPlugins,
           service: _Service(),
         );
         final mentions = <String, Object?>{'sam': true};

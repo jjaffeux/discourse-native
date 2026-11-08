@@ -3,12 +3,15 @@ import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_preference_keys.dart';
-
+import '../models/composer_metadata.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
 import '../models/group_route.dart';
+import '../models/notification_counters.dart';
 import '../models/notification_totals.dart';
+import '../models/plugin_data.dart';
+import '../models/plugin_icon_catalog.dart';
 import '../models/post.dart';
 import '../models/sidebar.dart';
 import '../models/site_config.dart';
@@ -16,34 +19,30 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../shell/composer/controller.dart';
-import '../shell/global_search_models.dart';
-import '../shell/post_action.dart';
 import '../theme/d_icon.dart';
-import 'composer_metadata.dart';
 import 'composer_syntax.dart';
-import 'notification_counters.dart';
+import 'composer_target.dart';
+import 'global_search_models.dart';
 import 'notification_feed_host.dart';
 import 'notification_types.dart';
-import 'plugin_data.dart';
-import 'plugin_icon_catalog.dart';
+import 'post_action.dart';
 
+export '../data/live_channels.dart';
+export '../models/composer_metadata.dart';
+export '../models/emoji_usage.dart';
+export '../models/notification_counters.dart';
+export '../models/plugin_data.dart';
+export '../models/plugin_icon_catalog.dart';
+export '../models/topic_recommendation_source.dart';
 export 'background_retention.dart';
 export 'composer_component.dart';
 export 'composer_footer_layout.dart';
-export 'composer_metadata.dart';
 export 'composer_syntax.dart';
-export 'emoji_usage.dart';
 export 'hashtag_kind.dart';
-export 'live_channels.dart';
-export 'notification_counters.dart';
 export 'notification_feed_host.dart';
 export 'notification_types.dart';
-export 'plugin_data.dart';
-export 'plugin_icon_catalog.dart';
 export 'plugin_manifest.dart' show PluginId;
 export 'shell_extensions.dart';
-export 'topic_recommendation_source.dart';
 
 /// Serializer field presence decides whether a feature exists on a record.
 /// `/site/settings.json` only describes how to render it or what new values may

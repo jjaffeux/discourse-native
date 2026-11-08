@@ -14,12 +14,15 @@ import '../models/topic.dart';
 import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
+import 'category_icon.dart';
 import 'directory_skeleton.dart';
+import 'forum_tab_scope.dart';
 import 'open_link.dart';
 import 'relative_time.dart';
 import 'search_words.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
+import 'topic_category_path_selector.dart';
 
 class CategoriesPage extends StatefulWidget {
   const CategoriesPage({super.key, required this.siteUrl, required this.feed});

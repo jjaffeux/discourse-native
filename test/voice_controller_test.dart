@@ -5,15 +5,13 @@ import 'dart:io';
 import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/data/discourse_api.dart';
-
+import 'package:discourse_native/src/data/live_channels.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
-import 'package:discourse_native/src/plugin_api/live_channels.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';
-
 import 'package:discourse_native/src/plugins/voice/voice_idle.dart';
 import 'package:discourse_native/src/plugins/voice/voice_incoming_calls.dart'
     show voiceAnswerConfirmationWindow;

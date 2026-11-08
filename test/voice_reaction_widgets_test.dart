@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/plugin_api/emoji_preferences.dart';
+import 'package:discourse_native/src/models/emoji_preferences.dart';
 import 'package:discourse_native/src/plugins/voice/voice_api.dart';
 import 'package:discourse_native/src/plugins/voice/voice_callkit.dart';
 import 'package:discourse_native/src/plugins/voice/voice_controller.dart';

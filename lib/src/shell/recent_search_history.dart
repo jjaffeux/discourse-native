@@ -7,10 +7,9 @@ import '../data/api_credentials.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/recent_search_store.dart';
 import '../data/site_lifecycle.dart';
-
+import '../plugin_api/global_search_filters.dart';
+import '../plugin_api/global_search_models.dart';
 import 'global_search_api.dart';
-import 'global_search_filters.dart';
-import 'global_search_models.dart';
 
 enum RecentSearchClearOutcome { cleared, failed, superseded }
 

@@ -1,20 +1,20 @@
-import '../models/bookmark.dart';
-import '../models/discourse_instance.dart';
-import '../models/discourse_user.dart';
-import '../models/json.dart';
-import '../models/notification_totals.dart';
-import '../models/notification_type_counts.dart';
-import '../models/post.dart';
-import '../models/post_creation.dart';
-import '../models/sidebar_tag.dart';
-import '../models/site_config.dart';
-import '../models/topic.dart';
-import '../models/user_card.dart';
-import '../models/user_preferences.dart';
-import '../models/user_status.dart';
+import 'bookmark.dart';
+import 'discourse_instance.dart';
+import 'discourse_user.dart';
+import 'json.dart';
 import 'notification_counters.dart';
+import 'notification_totals.dart';
+import 'notification_type_counts.dart';
 import 'plugin_data.dart';
 import 'plugin_icon_catalog.dart';
+import 'post.dart';
+import 'post_creation.dart';
+import 'sidebar_tag.dart';
+import 'site_config.dart';
+import 'topic.dart';
+import 'user_card.dart';
+import 'user_preferences.dart';
+import 'user_status.dart';
 
 /// Contains only explicit worker factories, never a live codec or registry.
 final class TopicModelCodecRecipe {

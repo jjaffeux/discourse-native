@@ -1,4 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/topic_category_selector.dart';
+import 'package:discourse_native/src/shell/topic_tag_selector.dart';
 import 'package:discourse_native/src/styleguide/examples/taxonomy_selector_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

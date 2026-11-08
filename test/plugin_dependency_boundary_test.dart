@@ -704,7 +704,7 @@ void main() {
         'lib/src/models/discourse_user.dart',
       ).readAsStringSync();
       final modelCodec = File(
-        'lib/src/plugin_api/discourse_model_codec.dart',
+        'lib/src/models/discourse_model_codec.dart',
       ).readAsStringSync();
 
       for (final identifier in const [
@@ -808,11 +808,11 @@ void main() {
 
     test('keeps recommendation wire schemas with their owning codecs', () {
       final pluginData = File(
-        'lib/src/plugin_api/plugin_data.dart',
+        'lib/src/models/plugin_data.dart',
       ).readAsStringSync();
       final coreTopic = File('lib/src/models/topic.dart').readAsStringSync();
       final modelCodec = File(
-        'lib/src/plugin_api/discourse_model_codec.dart',
+        'lib/src/models/discourse_model_codec.dart',
       ).readAsStringSync();
 
       expect(pluginData, isNot(contains('TopicRecommendationSource')));

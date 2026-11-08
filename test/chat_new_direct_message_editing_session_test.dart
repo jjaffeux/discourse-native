@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart'
     show PluginSiteLease, WriteException, WriteFailure;
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_new_direct_message_session.dart';

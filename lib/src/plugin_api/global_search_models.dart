@@ -6,7 +6,7 @@ import '../models/discourse_user.dart';
 import '../models/search_results.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../plugin_api/global_search.dart';
+import 'global_search.dart';
 
 @immutable
 final class GlobalSearchScope {

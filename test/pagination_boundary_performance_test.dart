@@ -4,6 +4,7 @@ import 'dart:collection';
 import 'package:discourse_native/src/data/store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

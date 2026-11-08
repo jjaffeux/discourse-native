@@ -7,12 +7,13 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/emoji_preferences.dart';
+import '../models/emoji_usage.dart';
 import '../models/site_emoji.dart';
-import '../plugin_api/emoji_preferences.dart';
-import '../plugin_api/emoji_usage.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
+import 'emoji.dart';
 import 'emoji_picker_controller.dart';
 import 'platform.dart';
 

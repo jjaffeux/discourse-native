@@ -19,7 +19,7 @@ final class PostActionOwner {
     required String siteUrl,
     required int postId,
   }) {
-    final tab = ForumTabScope.tabOf(context);
+    final tab = ShellScope.tabOf(context);
     return PostActionOwner._(
       tab,
       siteUrl,
@@ -47,6 +47,6 @@ final class PostActionOwner {
       postId == _postId &&
       _tab.isCurrent &&
       _tab.siteUrl == _siteUrl &&
-      ForumTabScope.tabOf(context).tabId == _tab.tabId &&
+      ShellScope.tabOf(context).tabId == _tab.tabId &&
       _tab.currentContent?.destination.identity == _destinationIdentity;
 }

@@ -1,7 +1,7 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
+import '../theme/d_icon_sets.dart';
 import 'forum_background.dart';
 import 'forum_font.dart';
 

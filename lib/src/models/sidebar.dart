@@ -1,10 +1,10 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../plugin_api/plugin_icon_catalog.dart';
 import '../theme/d_icon.dart';
 import '../theme/d_icons.dart';
 import 'json.dart';
+import 'plugin_icon_catalog.dart';
 
 typedef SidebarRowDecorationBuilder =
     Widget Function(BuildContext context, double size);

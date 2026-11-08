@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart' show BuildContext;
 
 import '../data/discourse_api_contracts.dart';
+import '../data/live_channels.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -17,11 +18,10 @@ import '../theme/d_icon.dart';
 import 'bookmark_host.dart';
 import 'composer_syntax.dart';
 import 'global_search.dart';
-import 'live_channels.dart';
 import 'plugin_manifest.dart';
 
+export '../data/live_channels.dart';
 export 'background_retention.dart';
-export 'live_channels.dart';
 
 /// Unlike [DiscourseInstance], this carries no account record, site settings,
 /// or appearance data. A plugin with route-only authority can identify and

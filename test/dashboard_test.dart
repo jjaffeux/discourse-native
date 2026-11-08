@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/dashboard_api.dart';
+import 'package:discourse_native/src/data/dashboard_report_source.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -10,7 +11,6 @@ import 'package:discourse_native/src/models/dashboard.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/json.dart';
-import 'package:discourse_native/src/plugin_api/dashboard_report_source.dart';
 import 'package:discourse_native/src/plugins/data_explorer/data_explorer_reports.dart';
 import 'package:discourse_native/src/shell/dashboard_controller.dart';
 import 'package:flutter_test/flutter_test.dart';

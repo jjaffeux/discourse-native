@@ -8,6 +8,8 @@ import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/global_search.dart'
     show GlobalSearchContribution;
+import 'package:discourse_native/src/plugin_api/global_search_filters.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/plugins/assign/assign_global_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
 import 'package:discourse_native/src/plugins/poll/poll_global_search.dart';
@@ -15,8 +17,6 @@ import 'package:discourse_native/src/plugins/solved/solved_global_search.dart';
 import 'package:discourse_native/src/plugins/topic_voting/topic_voting_global_search.dart';
 import 'package:discourse_native/src/shell/global_search_api.dart';
 import 'package:discourse_native/src/shell/global_search_controller.dart';
-import 'package:discourse_native/src/shell/global_search_filters.dart';
-import 'package:discourse_native/src/shell/global_search_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';

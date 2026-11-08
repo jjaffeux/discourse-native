@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_workspace.dart';
 import 'composer/presentation.dart';
+import 'forum_tab_scope.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
 import 'reader_content_bounds.dart';

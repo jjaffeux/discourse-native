@@ -10,18 +10,18 @@ import 'package:flutter/widgets.dart';
 import '../../data/discourse_api.dart';
 import '../../data/draft_store.dart';
 import '../../data/site_pdf_thumbnail_repository.dart';
-
 import '../../foundation/count_label.dart';
 import '../../models/composer_draft.dart';
+import '../../models/composer_metadata.dart';
 import '../../models/composer_upload.dart';
+import '../../models/plugin_data.dart';
+import '../../models/preserved_json.dart';
 import '../../models/site_config.dart';
 import '../../models/site_emoji.dart';
 import '../../models/topic_tag.dart';
-import '../../plugin_api/composer_metadata.dart';
 import '../../plugin_api/composer_syntax.dart';
+import '../../plugin_api/composer_target.dart';
 import '../../plugin_api/hashtag_kind.dart';
-import '../../plugin_api/plugin_data.dart';
-import '../../plugin_api/preserved_json.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
 import 'components/core.dart';
@@ -30,18 +30,17 @@ import 'components/document_body_editor.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/list_source.dart';
-import 'components/quote.dart';
+import 'components/quote_source.dart';
 import 'components/upload.dart';
 import 'edit_history.dart';
 import 'markdown_editing_controller.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
 import 'pills.dart';
-import 'target.dart';
 import 'triggers.dart';
 import 'upload_preview.dart';
 
-export 'target.dart';
+export '../../plugin_api/composer_target.dart';
 
 part 'upload_transactions.dart';
 
