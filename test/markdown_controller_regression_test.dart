@@ -60,76 +60,71 @@ void main() {
     expect(_textStyle(build(), 'label').color, Colors.green);
   });
 
-  testWidgets('todo read-only preserves plain spans and refreshes todo markers', (
-    tester,
-  ) async {
-    final controller = MarkdownEditingController(
-      text: List.generate(120, (index) => 'Paragraph $index').join('\n\n'),
-    );
-    addTearDown(controller.dispose);
+  testWidgets(
+    'todo read-only preserves plain spans and refreshes todo markers',
+    (tester) async {
+      final controller = MarkdownEditingController(
+        text: List.generate(120, (index) => 'Paragraph $index').join('\n\n'),
+      );
+      addTearDown(controller.dispose);
 
-    late BuildContext themedContext;
-    late StateSetter rebuild;
-    late TextSpan rendered;
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: AppTheme.light,
-        home: Builder(
-          builder: (context) {
-            themedContext = context;
-            return StatefulBuilder(
-              builder: (_, setState) {
-                rebuild = setState;
-                rendered = controller.buildTextSpan(
-                  context: themedContext,
-                  style: const TextStyle(fontSize: 14),
-                  withComposing: false,
-                );
-                return RichText(text: rendered);
-              },
-            );
-          },
+      late BuildContext themedContext;
+      late StateSetter rebuild;
+      late TextSpan rendered;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Builder(
+            builder: (context) {
+              themedContext = context;
+              return StatefulBuilder(
+                builder: (_, setState) {
+                  rebuild = setState;
+                  rendered = controller.buildTextSpan(
+                    context: themedContext,
+                    style: const TextStyle(fontSize: 14),
+                    withComposing: false,
+                  );
+                  return RichText(text: rendered);
+                },
+              );
+            },
+          ),
         ),
-      ),
-    );
+      );
 
-    final plain = rendered;
-    controller.todosReadOnly = true;
-    rebuild(() {});
-    await tester.pump();
-    expect(rendered, same(plain));
+      final plain = rendered;
+      controller.todosReadOnly = true;
+      rebuild(() {});
+      await tester.pump();
+      expect(rendered, same(plain));
 
-    controller.text = '[ ] First';
-    rebuild(() {});
-    await tester.pump();
-    final locked = rendered;
-    final todoMarker = find.byType(ComposerTodoMarker);
-    expect(todoMarker, findsOneWidget);
-    expect(
-      tester.widget<ComposerTodoMarker>(todoMarker).onChanged,
-      isNull,
-    );
+      controller.text = '[ ] First';
+      rebuild(() {});
+      await tester.pump();
+      final locked = rendered;
+      final todoMarker = find.byType(ComposerTodoMarker);
+      expect(todoMarker, findsOneWidget);
+      expect(tester.widget<ComposerTodoMarker>(todoMarker).onChanged, isNull);
 
-    controller.todosReadOnly = false;
-    rebuild(() {});
-    await tester.pump();
-    final editable = rendered;
-    expect(editable, isNot(same(locked)));
-    expect(
-      tester.widget<ComposerTodoMarker>(todoMarker).onChanged,
-      isNotNull,
-    );
+      controller.todosReadOnly = false;
+      rebuild(() {});
+      await tester.pump();
+      final editable = rendered;
+      expect(editable, isNot(same(locked)));
+      expect(
+        tester.widget<ComposerTodoMarker>(todoMarker).onChanged,
+        isNotNull,
+      );
 
-    controller.todosReadOnly = true;
-    rebuild(() {});
-    await tester.pump();
-    final relocked = rendered;
-    expect(relocked, isNot(same(editable)));
-    expect(
-      tester.widget<ComposerTodoMarker>(todoMarker).onChanged,
-      isNull,
-    );
-  });
+      controller.todosReadOnly = true;
+      rebuild(() {});
+      await tester.pump();
+      final relocked = rendered;
+      expect(relocked, isNot(same(editable)));
+      expect(tester.widget<ComposerTodoMarker>(todoMarker).onChanged, isNull);
+    },
+  );
 
   testWidgets('transient emoji failures retry after the cache cooldown', (
     tester,
