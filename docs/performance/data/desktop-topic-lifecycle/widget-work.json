@@ -1,0 +1,425 @@
+{
+  "baseline": "f00de6dc2177ed4f0fc16e6e3ca5bf2ed6bcf487",
+  "samples": [
+    {
+      "side": "baseline",
+      "run": 1,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2379, "readerBuilds": 2},
+        "close-0": {"total": 2908, "sourceMounts": 1},
+        "open-1": {"total": 2276, "readerBuilds": 2},
+        "close-1": {"total": 2908, "sourceMounts": 1},
+        "open-2": {"total": 2276, "readerBuilds": 2},
+        "close-2": {"total": 2908, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 1,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 1,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2379, "readerBuilds": 2},
+        "close-0": {"total": 2908, "sourceMounts": 1},
+        "open-1": {"total": 2276, "readerBuilds": 2},
+        "close-1": {"total": 2908, "sourceMounts": 1},
+        "open-2": {"total": 2276, "readerBuilds": 2},
+        "close-2": {"total": 2908, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 2,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2379, "readerBuilds": 2},
+        "close-0": {"total": 2908, "sourceMounts": 1},
+        "open-1": {"total": 2276, "readerBuilds": 2},
+        "close-1": {"total": 2908, "sourceMounts": 1},
+        "open-2": {"total": 2276, "readerBuilds": 2},
+        "close-2": {"total": 2908, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 3,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2379, "readerBuilds": 2},
+        "close-0": {"total": 2908, "sourceMounts": 1},
+        "open-1": {"total": 2276, "readerBuilds": 2},
+        "close-1": {"total": 2908, "sourceMounts": 1},
+        "open-2": {"total": 2276, "readerBuilds": 2},
+        "close-2": {"total": 2908, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 4,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2379, "readerBuilds": 2},
+        "close-0": {"total": 2908, "sourceMounts": 1},
+        "open-1": {"total": 2276, "readerBuilds": 2},
+        "close-1": {"total": 2908, "sourceMounts": 1},
+        "open-2": {"total": 2276, "readerBuilds": 2},
+        "close-2": {"total": 2908, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "baseline",
+      "run": 5,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2374, "readerBuilds": 2},
+        "close-0": {"total": 2903, "sourceMounts": 1},
+        "open-1": {"total": 2271, "readerBuilds": 2},
+        "close-1": {"total": 2903, "sourceMounts": 1},
+        "open-2": {"total": 2271, "readerBuilds": 2},
+        "close-2": {"total": 2903, "sourceMounts": 1}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2558, "readerBuilds": 1},
+        "close-0": {"total": 1775},
+        "open-1": {"total": 2572, "readerBuilds": 1},
+        "close-1": {"total": 1775},
+        "open-2": {"total": 2572, "readerBuilds": 1},
+        "close-2": {"total": 1775}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 1,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2558, "readerBuilds": 1},
+        "close-0": {"total": 1775},
+        "open-1": {"total": 2572, "readerBuilds": 1},
+        "close-1": {"total": 1775},
+        "open-2": {"total": 2572, "readerBuilds": 1},
+        "close-2": {"total": 1775}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 2,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2558, "readerBuilds": 1},
+        "close-0": {"total": 1775},
+        "open-1": {"total": 2572, "readerBuilds": 1},
+        "close-1": {"total": 1775},
+        "open-2": {"total": 2572, "readerBuilds": 1},
+        "close-2": {"total": 1775}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 3,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2558, "readerBuilds": 1},
+        "close-0": {"total": 1775},
+        "open-1": {"total": 2572, "readerBuilds": 1},
+        "close-1": {"total": 1775},
+        "open-2": {"total": 2572, "readerBuilds": 1},
+        "close-2": {"total": 1775}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 4,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "platform": "macOS",
+      "counts": {
+        "open-0": {"total": 2558, "readerBuilds": 1},
+        "close-0": {"total": 1775},
+        "open-1": {"total": 2572, "readerBuilds": 1},
+        "close-1": {"total": 1775},
+        "open-2": {"total": 2572, "readerBuilds": 1},
+        "close-2": {"total": 1775}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "platform": "linux",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    },
+    {
+      "side": "candidate",
+      "run": 5,
+      "platform": "windows",
+      "counts": {
+        "open-0": {"total": 2555, "readerBuilds": 1},
+        "close-0": {"total": 1770},
+        "open-1": {"total": 2569, "readerBuilds": 1},
+        "close-1": {"total": 1770},
+        "open-2": {"total": 2569, "readerBuilds": 1},
+        "close-2": {"total": 1770}
+      },
+      "errors": 0
+    }
+  ]
+}
