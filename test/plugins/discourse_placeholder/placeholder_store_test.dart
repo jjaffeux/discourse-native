@@ -74,6 +74,31 @@ void main() {
     expect(await store.read(post), {'X': 'restored'});
   });
 
+  test(
+    'corrupt recovery preserves the damaged bytes before new values',
+    () async {
+      const damaged = '{corrupt';
+      await file.writeAsString(damaged);
+      await store.write(post, 'X', 'fresh');
+      expect(await store.read(post), {'X': 'fresh'});
+      final backups = await directory
+          .list()
+          .where((entry) => entry.path.contains('.damaged-'))
+          .toList();
+      expect(backups, hasLength(1));
+      expect(await File(backups.single.path).readAsString(), damaged);
+    },
+  );
+
+  test('unknown document versions survive optional reads and writes', () async {
+    const future = '{"version":99,"values":{"future":"kept"}}';
+    await file.writeAsString(future);
+    expect(await store.read(post), isEmpty);
+    await store.write(post, 'X', 'new');
+    await store.forget(post.siteUrl);
+    expect(await file.readAsString(), future);
+  });
+
   test('storage failure degrades to empty values', () async {
     final broken = PlaceholderStore(file: File('${file.path}/child'));
     await file.writeAsString('not a directory');

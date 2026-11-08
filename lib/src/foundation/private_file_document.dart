@@ -78,6 +78,7 @@ final class PrivateFileDocument<T> {
   final FutureOr<String> Function(T value) _encode;
   final Object Function(T value)? _snapshot;
   final void Function(File damaged)? _setAsideUndecodable;
+  Future<void> _admissionTail = Future<void>.value();
 
   /// The decoded value is transaction-local and must not escape through
   /// [inspect].
@@ -122,22 +123,30 @@ final class PrivateFileDocument<T> {
     }
   }
 
-  Future<R> _transact<R>(Future<R> Function(File target) operation) async {
-    final target = File((await _target()).absolute.path);
-    final path = target.path;
-    late final _PrivateFileCoordinator coordinator;
-    coordinator = _coordinators.putIfAbsent(
-      path,
-      () => _PrivateFileCoordinator(
-        target,
-        onIdle: () {
-          if (identical(_coordinators[path], coordinator)) {
-            _coordinators.remove(path);
-          }
-        },
-      ),
-    );
-    return coordinator.run(operation);
+  Future<R> _transact<R>(Future<R> Function(File target) operation) {
+    final result = Completer<R>();
+    _admissionTail = _admissionTail.then((_) async {
+      try {
+        final target = File((await _target()).absolute.path);
+        final path = target.path;
+        late final _PrivateFileCoordinator coordinator;
+        coordinator = _coordinators.putIfAbsent(
+          path,
+          () => _PrivateFileCoordinator(
+            target,
+            onIdle: () {
+              if (identical(_coordinators[path], coordinator)) {
+                _coordinators.remove(path);
+              }
+            },
+          ),
+        );
+        result.complete(coordinator.run(operation));
+      } catch (error, stackTrace) {
+        result.completeError(error, stackTrace);
+      }
+    });
+    return result.future;
   }
 
   static final Map<String, _PrivateFileCoordinator> _coordinators = {};

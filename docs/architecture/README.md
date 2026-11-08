@@ -95,3 +95,7 @@ behavior from incidental sequencing.
 [Ten verified ownership improvements](verified-owner-improvements.md) records
 the storage, request identity, and media scheduling changes, with before/after
 behavior and focused commands to reproduce their proof.
+
+[Runtime state integrity](runtime-state-integrity.md) records ten further
+improvements to replacement-store transactions, shared preference documents,
+request retirement, cache admission, recovery, and immutable publication.

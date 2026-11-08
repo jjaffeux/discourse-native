@@ -6,15 +6,15 @@ import '../foundation/frame_safe_notifier.dart';
 import '../models/dashboard.dart';
 
 final class DashboardState {
-  const DashboardState({
+  DashboardState({
     this.period = DashboardPeriod.last30Days,
     this.snapshot,
-    this.reports = const {},
+    Map<String, DashboardReportResult> reports = const {},
     this.loading = false,
     this.mutating = false,
     this.error = false,
     this.mutationError = false,
-  });
+  }) : reports = Map.unmodifiable(reports);
   final DashboardPeriod period;
   final DashboardSnapshot? snapshot;
   final Map<String, DashboardReportResult> reports;
@@ -37,7 +37,7 @@ final class DashboardController extends FrameSafeNotifier {
   }) : _now = now ?? DateTime.now {
     _detach = lease.onRetire(() {
       _generation++;
-      _state = const DashboardState();
+      _state = DashboardState();
       if (!isDisposed) notifySafely();
     });
   }
@@ -53,7 +53,7 @@ final class DashboardController extends FrameSafeNotifier {
   int _problemRevision = 0;
   List<DashboardProblem>? _latestProblems;
   final Set<int> _dismissed = {};
-  DashboardState _state = const DashboardState();
+  DashboardState _state = DashboardState();
   DashboardState get state => _state;
   bool get _current => !isDisposed && lease.isCurrent && staff;
 

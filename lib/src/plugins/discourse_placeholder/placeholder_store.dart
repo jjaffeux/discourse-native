@@ -33,6 +33,7 @@ final class PlaceholderStore implements PlaceholderPersistence {
         ),
     empty: () => {},
     decode: _decode,
+    setAsideUndecodable: (_) {},
     encode: (values) => jsonEncode({
       'version': 1,
       'values': {
@@ -109,14 +110,15 @@ final class PlaceholderStore implements PlaceholderPersistence {
   }
 
   static Map<String, _SavedValue> _decode(String contents) {
-    final Object? json;
-    try {
-      json = jsonDecode(contents);
-    } on FormatException {
-      return {};
+    final json = jsonDecode(contents);
+    if (json is! Map || json['version'] is! int) {
+      throw const FormatException('Invalid placeholder document.');
     }
-    if (json is! Map || json['version'] != 1 || json['values'] is! Map) {
-      return {};
+    if (json['version'] != 1) {
+      throw UnsupportedError('Unsupported placeholder document version.');
+    }
+    if (json['values'] is! Map) {
+      throw const FormatException('Invalid placeholder values.');
     }
     final result = <String, _SavedValue>{};
     for (final entry in (json['values'] as Map).entries) {

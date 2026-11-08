@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:discourse_native/src/data/emoji_picker_store.dart';
+import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -20,9 +22,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// calling [SharedPreferences.setMockInitialValues] from their own `setUp`,
 /// which runs after this one.
 ///
-/// Only the platform store is swapped, so no binding is initialized here and
+/// The reset initializes no binding, so
 /// `frame_safe_notifier_headless_test.dart`'s no-binding contract holds.
 Future<void> testExecutable(FutureOr<void> Function() testMain) async {
-  setUp(() => SharedPreferences.setMockInitialValues(const {}));
+  setUp(() {
+    EmojiPickerStore().forgetSites(ForgottenSites.except(const []));
+    SharedPreferences.setMockInitialValues(const {});
+  });
   await testMain();
 }

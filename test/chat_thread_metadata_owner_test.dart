@@ -145,6 +145,76 @@ Future<void> _waitUntil(bool Function() condition) async {
 }
 
 void main() {
+  for (final retire in ['forget', 'dispose', 'revoke']) {
+    test(
+      '$retire settles abandoned metadata before transport completes',
+      () async {
+        final api = _MetadataApi();
+        final subject = _ownerFor(api, held: _detail('Held'));
+        var detailSettled = false;
+        final detail = subject.owner.refreshThreadDetail(_site, _target).then((
+          value,
+        ) {
+          detailSettled = true;
+          return value;
+        });
+        final writes = <Future<bool>>[];
+        var writesSettled = 0;
+        for (final level in [
+          ChatThreadNotificationLevel.watching,
+          ChatThreadNotificationLevel.normal,
+          ChatThreadNotificationLevel.tracking,
+        ]) {
+          writes.add(
+            subject.owner
+                .updateThreadNotificationLevel(_site, _target, level)
+                .then((value) {
+                  writesSettled++;
+                  return value;
+                }),
+          );
+          if (writes.length == 1) {
+            await _waitUntil(() => api.notificationResponses.length == 1);
+          }
+        }
+        await _waitUntil(() => api.details.length == 1);
+        switch (retire) {
+          case 'forget':
+            subject.owner.forget(_site);
+          case 'dispose':
+            subject.owner.dispose();
+          case 'revoke':
+            subject.owner.revokeChannel(_site, 9);
+        }
+        await Future<void>.delayed(Duration.zero);
+        expect(
+          detailSettled,
+          isTrue,
+          reason: 'Caller lifetime ends before physical I/O',
+        );
+        expect(
+          writesSettled,
+          3,
+          reason: 'Active and queued callers retire together',
+        );
+        expect(await detail, isNull);
+        expect(await Future.wait(writes), [false, false, false]);
+        expect(subject.owner.preventsEviction(_site, _target), isFalse);
+        api.details.single.complete(_detail('Late'));
+        api.notificationResponses.single.complete(
+          const ChatThreadMembership(
+            threadId: 22,
+            notificationLevel: ChatThreadNotificationLevel.watching,
+          ),
+        );
+        await Future<void>.delayed(Duration.zero);
+        expect(subject.events.stored, isEmpty);
+        expect(subject.events.subscriptions, isEmpty);
+        expect(api.notificationResponses, hasLength(1));
+      },
+    );
+  }
+
   test(
     'coalesced detail retains its target until the final response',
     () async {

@@ -70,6 +70,84 @@ void main() {
   });
 
   test(
+    'topic lookups keep active admission separate from cached answers',
+    () async {
+      final ports = EventTestPorts();
+      addTearDown(ports.close);
+      final responses = <Completer<Map<String, dynamic>>>[];
+      final lookups = <Future<PostEvent?>>[];
+      for (var topic = 1; topic <= 65; topic++) {
+        final response = Completer<Map<String, dynamic>>();
+        responses.add(response);
+        ports
+                .transport
+                .responders['GET /discourse-post-event/events.json?topic_id=$topic&include_details=true&include_closed=true&limit=1'] =
+            (_) => response.future;
+        lookups.add(ports.controller.eventForTopic(eventSite, topic));
+      }
+      final joined = ports.controller.eventForTopic(eventSite, 1);
+      await Future<void>.delayed(Duration.zero);
+      expect(ports.transport.reads, hasLength(65));
+      expect(joined, same(lookups.first));
+      for (var i = 0; i < responses.length; i++) {
+        responses[i].complete({
+          'events': [
+            eventJson(
+              overrides: {
+                'post': {
+                  'id': 42,
+                  'topic': {'id': i + 1},
+                },
+              },
+            ),
+          ],
+        });
+      }
+      await Future.wait(lookups);
+      await ports.controller.eventForTopic(eventSite, 65);
+      expect(ports.transport.reads, hasLength(65));
+      await ports.controller.eventForTopic(eventSite, 1);
+      expect(
+        ports.transport.reads,
+        hasLength(66),
+        reason: 'Completed answers stay bounded at 64',
+      );
+    },
+  );
+
+  test('retired topic completion cannot cache over a successor', () async {
+    final ports = EventTestPorts();
+    addTearDown(ports.close);
+    final oldResponse = Completer<Map<String, dynamic>>();
+    final newResponse = Completer<Map<String, dynamic>>();
+    ports.transport.responders['GET $_topicPath'] = (_) => oldResponse.future;
+    final old = ports.controller.eventForTopic(eventSite, 700);
+    await Future<void>.delayed(Duration.zero);
+    ports.controller.pluginCurrentUserRefreshed(eventSite);
+    ports.transport.responders['GET $_topicPath'] = (_) => newResponse.future;
+    final successor = ports.controller.eventForTopic(eventSite, 700);
+    await Future<void>.delayed(Duration.zero);
+    oldResponse.complete({
+      'events': [
+        eventJson(overrides: {'name': 'Old'}),
+      ],
+    });
+    expect(await old, isNull);
+    expect(ports.controller.eventForTopic(eventSite, 700), same(successor));
+    newResponse.complete({
+      'events': [
+        eventJson(overrides: {'name': 'Current'}),
+      ],
+    });
+    expect((await successor)!.title, 'Current');
+    expect(
+      (await ports.controller.eventForTopic(eventSite, 700))!.title,
+      'Current',
+    );
+    expect(ports.transport.reads, hasLength(2));
+  });
+
+  test(
     'topic lookup joins requests and retires personalized responses',
     () async {
       final ports = EventTestPorts();

@@ -40,37 +40,47 @@ final class EventController extends FrameSafeNotifier
   final _entries = <(String, int), _EventEntry>{};
   final _upcoming = <String, List<PostEvent>>{};
   final _topicEvents = <(String, int), Future<PostEvent?>>{};
+  final _topicEventLoads = <(String, int), Future<PostEvent?>>{};
 
   Future<PostEvent?> eventForTopic(String site, int topicId) {
     if (isDisposed || topicId <= 0 || !settings(site).enabled) {
       return Future.value();
     }
     final key = (site, topicId);
+    if (_topicEventLoads[key] case final held?) return held;
     if (_topicEvents[key] case final held?) return held;
-    if (_topicEvents.length >= 64) {
-      final oldest = _topicEvents.keys.first;
-      _topicEvents.removeWhere((key, _) => key == oldest);
-    }
+    final result = Completer<PostEvent?>();
+    final future = result.future;
+    _topicEventLoads[key] = future;
     final lease = requests.capture(site);
     final revision = accountRevision(site);
-    bool current() => lease.isCurrent && isAccountCurrent(site, revision);
-    late final Future<PostEvent?> future;
-    future = () async {
-      try {
-        final credentials = await requests.credentialsFor(site);
-        if (!current()) return null;
-        final event = await credentials.run(
-          () => api.byTopic(site, topicId, credentials),
-        );
-        return current() ? event : null;
-      } catch (_) {
-        _topicEvents.removeWhere(
-          (heldKey, held) => heldKey == key && identical(held, future),
-        );
-        return null;
-      }
-    }();
-    _topicEvents[key] = future;
+    bool current() =>
+        lease.isCurrent &&
+        isAccountCurrent(site, revision) &&
+        identical(_topicEventLoads[key], future);
+    unawaited(
+      () async {
+        try {
+          final credentials = await requests.credentialsFor(site);
+          if (!current()) return null;
+          final event = await credentials.run(
+            () => api.byTopic(site, topicId, credentials),
+          );
+          if (!current()) return null;
+          if (_topicEvents.length >= 64) {
+            final _ = _topicEvents.remove(_topicEvents.keys.first);
+          }
+          _topicEvents[key] = future;
+          return event;
+        } catch (_) {
+          return null;
+        } finally {
+          if (identical(_topicEventLoads[key], future)) {
+            final _ = _topicEventLoads.remove(key);
+          }
+        }
+      }().then(result.complete),
+    );
     return future;
   }
 
@@ -425,6 +435,7 @@ final class EventController extends FrameSafeNotifier
 
   @override
   void pluginCurrentUserRefreshed(String siteUrl) {
+    _topicEventLoads.removeWhere((key, _) => key.$1 == siteUrl);
     _topicEvents.removeWhere((key, _) => key.$1 == siteUrl);
     _upcoming.remove(siteUrl);
     _accountRevisions[siteUrl] = accountRevision(siteUrl) + 1;
@@ -459,6 +470,7 @@ final class EventController extends FrameSafeNotifier
     _foreground = foreground;
     if (foreground) {
       _foregroundRevision++;
+      _topicEventLoads.clear();
       _topicEvents.clear();
       _readerChanges.changed();
     }
@@ -477,6 +489,7 @@ final class EventController extends FrameSafeNotifier
   }
 
   void forget(String site) {
+    _topicEventLoads.removeWhere((key, _) => key.$1 == site);
     _topicEvents.removeWhere((key, _) => key.$1 == site);
     _upcoming.remove(site);
     _accountRevisions[site] = accountRevision(site) + 1;
@@ -503,6 +516,7 @@ final class EventController extends FrameSafeNotifier
       entry.subscription?.cancel();
     }
     _entries.clear();
+    _topicEventLoads.clear();
     _topicEvents.clear();
     _trackers.clear();
     _readerChanges.dispose();
