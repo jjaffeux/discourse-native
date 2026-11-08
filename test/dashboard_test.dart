@@ -23,6 +23,30 @@ const site = 'https://forum.example/discuss';
 final snapshot = DashboardSnapshot.fromJson(dashboardFixture);
 
 void main() {
+  test('dashboard state owns its published report map', () {
+    final report = DashboardReportResult(error: true);
+    final source = {'report': report};
+    final state = DashboardState(reports: source);
+    source.clear();
+    expect(state.reports, {'report': same(report)});
+    expect(() => state.reports.clear(), throwsUnsupportedError);
+  });
+
+  test('dashboard publication isolates API report ownership', () async {
+    final api = FakeDashboardApi();
+    final report = DashboardReportResult(error: true);
+    api.reportValues['report'] = report;
+    final controller = makeController(api, FakeCredentials());
+    addTearDown(controller.dispose);
+    await controller.refresh();
+    var notifications = 0;
+    controller.addListener(() => notifications++);
+    api.reportValues.clear();
+    expect(controller.state.reports['report'], same(report));
+    expect(() => controller.state.reports.clear(), throwsUnsupportedError);
+    expect(notifications, 0);
+  });
+
   test(
     'optional report sources decode both periods through their own handler',
     () async {
@@ -755,6 +779,7 @@ class FakeCredentials implements ApiCredentialReader {
 
 class FakeDashboardApi implements DashboardApi {
   final loads = <DashboardRange>[];
+  final reportValues = <String, DashboardReportResult>{};
   final pendingLoads = <Completer<DashboardSnapshot>>[];
   bool deferLoad = false, failWrite = false;
   int writes = 0;
@@ -783,7 +808,7 @@ class FakeDashboardApi implements DashboardApi {
     required String clientId,
     required DashboardRange range,
     required List<DashboardReport> items,
-  }) async => {};
+  }) async => reportValues;
   Future<void> write() async {
     writes++;
     if (failWrite) throw StateError('failed');

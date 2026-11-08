@@ -229,19 +229,14 @@ void main() {
   ) async {
     final semantics = tester.ensureSemantics();
     try {
-      for (final state in [
-        const DashboardState(),
-        const DashboardState(loading: true),
-      ]) {
+      for (final state in [DashboardState(), DashboardState(loading: true)]) {
         await tester.pumpWidget(dashboard(state: state));
         await tester.pump();
         expect(find.bySemanticsLabel('Loading dashboard'), findsOneWidget);
         expect(find.byType(DProgress), findsNothing);
         expect(find.text('No data for the selected period.'), findsNothing);
       }
-      await tester.pumpWidget(
-        dashboard(state: const DashboardState(error: true)),
-      );
+      await tester.pumpWidget(dashboard(state: DashboardState(error: true)));
       await tester.pump();
       expect(
         find.text('Could not load the dashboard. Try again.'),
