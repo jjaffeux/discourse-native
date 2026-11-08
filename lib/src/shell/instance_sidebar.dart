@@ -146,10 +146,26 @@ final class _SidebarPanelShape {
 }
 
 /// What a plugin's sidebar panel contribution is read from.
-Listenable _sidebarPanelChanges(BuildContext context) => Listenable.merge([
-  ShellScope.read(context).accountActivity.totalsListenable,
-  ...PluginScope.of(context).registry.sidebarPanelListenables(context),
-]);
+Listenable _sidebarPanelChanges(BuildContext context) {
+  final shell = ShellScope.read(context);
+  return Listenable.merge([
+    shell.accountActivity.totalsSelection(
+      () => shell.currentTotals?.pluginCounters,
+    ),
+    ...PluginScope.of(context).registry.sidebarPanelListenables(context),
+  ]);
+}
+
+/// The counts the core sections draw. The facade never announces totals, so
+/// a row's own badge selector re-reads them when these rebuild the sections.
+Object? _sidebarSectionCounts(ShellController shell) {
+  final totals = shell.currentTotals;
+  return (
+    totals?.unreadPersonalMessages,
+    totals?.topicTrackingSidebarCount,
+    totals?.pluginCounters,
+  );
+}
 
 const String _moreDestinationId = 'sidebar-more-destinations';
 
@@ -589,7 +605,9 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                             builder: (context, loadingDestinationId) => ListenableBuilder(
                               listenable: Listenable.merge([
                                 _linkEdit,
-                                controller.accountActivity.totalsListenable,
+                                controller.accountActivity.totalsSelection(
+                                  () => _sidebarSectionCounts(controller),
+                                ),
                                 controller.draftList,
                                 ...registry.communitySidebarListenables(
                                   context,
