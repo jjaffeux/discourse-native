@@ -183,6 +183,66 @@ void main() {
   });
 
   group('write coordination', () {
+    test(
+      'target resolution preserves one document\'s submission order',
+      () async {
+        final firstTarget = Completer<File>();
+        final secondTarget = Completer<File>();
+        var resolutions = 0;
+        final order = <String>[];
+        final document = PrivateFileDocument<Map<String, String>>(
+          target: () =>
+              ++resolutions == 1 ? firstTarget.future : secondTarget.future,
+          empty: () => {},
+          decode: _decodeMap,
+          encode: _encodeMap,
+        );
+        final first = document.update<void>((values) {
+          values['value'] = 'first';
+          order.add('first');
+          return PrivateFileResult.done;
+        });
+        final second = document.update<void>((values) {
+          values['value'] = 'second';
+          order.add('second');
+          return PrivateFileResult.done;
+        });
+        secondTarget.complete(target);
+        await Future<void>.delayed(Duration.zero);
+        firstTarget.complete(target);
+        await Future.wait([first, second]);
+
+        expect(order, ['first', 'second']);
+        expect(await target.readAsString(), '{"value":"second"}');
+      },
+    );
+
+    test(
+      'a failed target resolution does not poison later admission',
+      () async {
+        var resolutions = 0;
+        final document = PrivateFileDocument<Map<String, String>>(
+          target: () {
+            if (++resolutions == 1) throw StateError('location unavailable');
+            return target;
+          },
+          empty: () => {},
+          decode: _decodeMap,
+          encode: _encodeMap,
+        );
+        await expectLater(
+          document.update<void>((_) => PrivateFileResult.done),
+          throwsStateError,
+        );
+        await document.update<void>((values) {
+          values['retry'] = 'saved';
+          return PrivateFileResult.done;
+        });
+
+        expect(await target.readAsString(), '{"retry":"saved"}');
+      },
+    );
+
     test('awaits codecs before releasing the transaction to a read', () async {
       await target.writeAsString('{"kept":"original"}');
       final decoding = Completer<void>();
