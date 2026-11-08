@@ -266,6 +266,8 @@ DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
   if (!responseAllowsPersistentByteCache(headers)) return null;
 
   final directives = _cacheControlDirectives(headers);
+  final parsedAge = int.tryParse(_headerValue(headers, 'age') ?? '') ?? 0;
+  final age = parsedAge < 0 ? 0 : parsedAge;
   final sharedMaxAge = _freshnessDirective(directives, 's-maxage');
   final generalMaxAge = _freshnessDirective(directives, 'max-age');
   if (sharedMaxAge.specified || generalMaxAge.specified) {
@@ -273,8 +275,6 @@ DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
         ? sharedMaxAge.seconds
         : generalMaxAge.seconds;
     if (maxAge == null) return null;
-    final parsedAge = int.tryParse(_headerValue(headers, 'age') ?? '') ?? 0;
-    final age = parsedAge < 0 ? 0 : parsedAge;
     final seconds = (maxAge - age).clamp(
       0,
       const Duration(days: 366).inSeconds,
@@ -291,9 +291,25 @@ DateTime? persistentByteCacheExpiry(Map<String, String> headers, DateTime now) {
   } on HttpException {
     return null;
   }
-  if (!expires.isAfter(now.toUtc())) return null;
-  final maximum = now.toUtc().add(const Duration(days: 366));
-  return expires.isAfter(maximum) ? maximum : expires;
+  final receivedAt = now.toUtc();
+  if (!expires.isAfter(receivedAt)) return null;
+  var responseDate = receivedAt;
+  final dateHeader = _headerValue(headers, 'date');
+  if (dateHeader != null) {
+    try {
+      responseDate = HttpDate.parse(dateHeader);
+    } on HttpException {
+      // Without a usable Date, receipt time supplies the response reference.
+    }
+  }
+  final lifetime = expires.difference(responseDate);
+  if (age > lifetime.inSeconds) return null;
+  final remaining = lifetime - Duration(seconds: age);
+  if (remaining <= Duration.zero) return null;
+  final ageExpiry = receivedAt.add(remaining);
+  final freshUntil = ageExpiry.isBefore(expires) ? ageExpiry : expires;
+  final maximum = receivedAt.add(const Duration(days: 366));
+  return freshUntil.isAfter(maximum) ? maximum : freshUntil;
 }
 
 /// The native byte store has no validator metadata and is shared by the app's
