@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/composer_draft.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
@@ -13,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/fakes.dart';
 
 const _titleKeyBudget = 50;
+const _saveBudget = 20;
 
 void main() {
   for (final mobile in [false, true]) {
@@ -95,6 +97,97 @@ void main() {
     });
   }
 
+  for (final mobile in [false, true]) {
+    final surface = mobile ? 'phone' : 'desktop';
+    final burstBudget = mobile ? 420 : 500;
+
+    testWidgets('$surface body burst and its save leave the panel alone', (
+      tester,
+    ) async {
+      final (:composer, :api) = await _openNewTopic(tester, mobile: mobile);
+      composer.title.text = 'Title';
+      _type(composer.text, 'Body');
+      await tester.pump();
+      await _saveDraftAndSettle(tester);
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+      final field = _fieldOf(composer.text);
+      final savesBefore = api.draftsSaved.length;
+
+      var notifications = 0;
+      void listener() => notifications++;
+      composer.addListener(listener);
+      addTearDown(() => composer.removeListener(listener));
+
+      const burst = 'Body words';
+      final burstElements = await _elementsRebuilt(() async {
+        for (var length = 'Body'.length + 1; length <= 9; length++) {
+          _type(composer.text, burst.substring(0, length));
+          await tester.pump();
+        }
+      });
+      final drawn = tester
+          .state<EditableTextState>(field)
+          .renderEditable
+          .text
+          ?.toPlainText();
+      final burstNotifications = notifications;
+      final saveElements = await _elementsRebuilt(
+        () => _saveDraftAndSettle(tester),
+      );
+      final saved = api.draftsSaved.length - savesBefore;
+
+      const slug = 'composer-draft-status';
+      _proof('burst_elements_$surface', burstElements, slug: slug);
+      _proof('burst_notifications_$surface', burstNotifications, slug: slug);
+      _proof('save_elements_$surface', saveElements, slug: slug);
+      _proof(
+        'burst_and_save_notifications_$surface',
+        notifications,
+        slug: slug,
+      );
+
+      expect(drawn, burst.substring(0, 9));
+      expect(saved, 1);
+      expect(burstElements, greaterThan(0));
+      expect(burstElements, lessThanOrEqualTo(burstBudget));
+      expect(saveElements, lessThanOrEqualTo(_saveBudget));
+      expect(notifications, 0);
+    });
+  }
+
+  testWidgets('the phone close menu weighs the draft as it opens', (
+    tester,
+  ) async {
+    final (:composer, api: _) = await _openNewTopic(tester, mobile: true);
+    expect(
+      composer.restore(
+        const ComposerDraft(
+          action: ComposerDraft.createTopicAction,
+          title: 'Saved title',
+          reply: 'Saved body',
+        ),
+      ),
+      isTrue,
+    );
+    await tester.pump();
+
+    _type(composer.text, 'Saved body, edited');
+    await tester.pump();
+    await _saveDraftAndSettle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('composer-close')));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('composer-save-draft')),
+        matching: find.text('Save changes'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('a desktop draft tab and the all-drafts menu follow the title', (
     tester,
   ) async {
@@ -161,9 +254,9 @@ void main() {
   });
 }
 
-void _proof(String metric, int value) {
+void _proof(String metric, int value, {String slug = 'composer-title'}) {
   // ignore: avoid_print
-  print('PERF_PROOF composer-title $metric=$value');
+  print('PERF_PROOF $slug $metric=$value');
 }
 
 Future<void> _saveDraftAndSettle(WidgetTester tester) async {

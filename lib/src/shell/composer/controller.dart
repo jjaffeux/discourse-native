@@ -2261,32 +2261,41 @@ class ComposerController extends ChangeNotifier
       // status is left as it was: the site still does not have the text.
       try {
         await save(request);
-        if (!_disposed && request.isCurrent()) _localDraftFailed = false;
+        _updateDraftOutcome(() {
+          if (!_disposed && request.isCurrent()) _localDraftFailed = false;
+        });
       } catch (error) {
-        if (!_disposed && request.isCurrent()) {
-          // DraftStore reports the original storage exception before wrapping
-          // it. Reporting that wrapper here would both duplicate the failure
-          // and risk retaining a nested cause supplied by another backend.
+        _updateDraftOutcome(() {
+          if (!_disposed && request.isCurrent()) {
+            // DraftStore reports the original storage exception before
+            // wrapping it. Reporting that wrapper here would both duplicate
+            // the failure and risk retaining a nested cause supplied by
+            // another backend.
 
-          _localDraftFailed = error is DraftWriteException;
-        }
+            _localDraftFailed = error is DraftWriteException;
+          }
+        });
       }
-      _notify();
       return;
     }
 
-    _draftStatus = DraftStatus.saving;
-    _localDraftFailed = false;
-    _notify();
+    _updateDraftOutcome(() {
+      _draftStatus = DraftStatus.saving;
+      _localDraftFailed = false;
+    });
 
     try {
       final sequence = await save(request);
       if (sequence != null) draftSequence = sequence;
-      _draftFailures = 0;
-      if (!_disposed && request.isCurrent()) {
-        _localDraftFailed = false;
-        _draftStatus = _draftConflict ? DraftStatus.failing : DraftStatus.saved;
-      }
+      _updateDraftOutcome(() {
+        _draftFailures = 0;
+        if (!_disposed && request.isCurrent()) {
+          _localDraftFailed = false;
+          _draftStatus = _draftConflict
+              ? DraftStatus.failing
+              : DraftStatus.saved;
+        }
+      });
     } catch (error) {
       if (!_disposed &&
           settlement == _draftSettlement &&
@@ -2294,17 +2303,35 @@ class ComposerController extends ChangeNotifier
           error.failure == WriteFailure.conflict) {
         draftSaveConflicted();
       }
-      _draftFailures++;
-      // No immediate retry: the next keystroke reschedules, which throttles
-      // this to the speed someone types rather than the speed of a loop.
-      if (_draftFailures >= maxDraftFailures) _draftsGaveUp = true;
-      if (!_disposed && request.isCurrent()) {
-        _localDraftFailed = error is DraftWriteException;
-        _draftStatus = DraftStatus.failing;
-      }
+      _updateDraftOutcome(() {
+        _draftFailures++;
+        // No immediate retry: the next keystroke reschedules, which throttles
+        // this to the speed someone types rather than the speed of a loop.
+        if (_draftFailures >= maxDraftFailures) _draftsGaveUp = true;
+        if (!_disposed && request.isCurrent()) {
+          _localDraftFailed = error is DraftWriteException;
+          _draftStatus = DraftStatus.failing;
+        }
+      });
     }
-    _notify();
   }
+
+  /// Autosave draws nothing unless it fails, so a transition notifies only
+  /// when it changes a failure the panel or header shows. Each transition
+  /// compares across its own mutation: other paths also change these flags
+  /// while a save is awaited.
+  void _updateDraftOutcome(VoidCallback transition) {
+    final before = _draftFailureShown;
+    transition();
+    if (_draftFailureShown != before) _notify();
+  }
+
+  (bool, bool, bool, bool) get _draftFailureShown => (
+    _localDraftFailed,
+    _draftConflict,
+    _draftsGaveUp,
+    _draftStatus == DraftStatus.failing,
+  );
 
   ComposerDraftSave _draftSaveRequest(_PendingDraft pending) =>
       ComposerDraftSave(
@@ -2528,9 +2555,9 @@ class ComposerController extends ChangeNotifier
     if (!_replacingDocument) autocomplete.update(text.value);
 
     if (text.text == _lastText) return;
-    final wasDraftPending = draftPending;
     final couldSubmit = _canSubmit;
     final before = _lastText;
+    final presenceChanged = _bodyIsBlank(before) != _bodyIsBlank(text.text);
     _lastText = text.text;
     _uploadTransactions.documentChanged(before, text.text);
     _draftRevision++;
@@ -2541,13 +2568,17 @@ class ComposerController extends ChangeNotifier
       _scheduleDraft();
     }
 
-    // Update the send button and save status when they change, without
-    // rebuilding the panel for every keystroke during the debounce window.
+    // The send button and the close action follow the draft's presence, not
+    // its contents, so a keystroke does not rebuild the panel.
     _recomputeCanSubmit();
-    if (_canSubmit == couldSubmit && draftPending != wasDraftPending) {
+    final titleIsBlank = !_target.createsTopic || title.text.trim().isEmpty;
+    if (_canSubmit == couldSubmit && presenceChanged && titleIsBlank) {
       _notify();
     }
   }
+
+  bool _bodyIsBlank(String source) =>
+      _uploadTransactions.uploadPlaceholders.strip(source).trim().isEmpty;
 
   /// Moves [offset], measured against [measuredAgainst], to the same place in
   /// the current text, as a pending upload's anchor would have moved.
