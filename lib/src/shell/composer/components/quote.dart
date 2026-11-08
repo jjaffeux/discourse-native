@@ -218,14 +218,11 @@ TextSelection quoteSafeSelection(
     end = math.max(end, block.end);
   }
   if (start == selection.start && end == selection.end) return selection;
-  return selection.isDirectional &&
-          selection.baseOffset > selection.extentOffset
-      ? TextSelection(baseOffset: end, extentOffset: start, isDirectional: true)
-      : TextSelection(
-          baseOffset: start,
-          extentOffset: end,
-          isDirectional: selection.isDirectional,
-        );
+  final reversed = selection.baseOffset > selection.extentOffset;
+  return selection.copyWith(
+    baseOffset: reversed ? end : start,
+    extentOffset: reversed ? start : end,
+  );
 }
 
 class ComposerQuoteInputFormatter extends TextInputFormatter {

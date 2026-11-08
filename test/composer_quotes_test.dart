@@ -19,10 +19,7 @@ void main() {
       selection,
       const TextSelection.collapsed(offset: source.length),
     );
-    expect(
-      expanded,
-      selection.copyWith(extentOffset: quote.start),
-    );
+    expect(expanded, selection.copyWith(extentOffset: quote.start));
   });
 
   group('parseComposerQuotes', () {
