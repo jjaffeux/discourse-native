@@ -1356,6 +1356,20 @@ void main() {
       },
     );
 
+    test('regression nov8: Expires freshness accounts for upstream Age', () {
+      final now = DateTime.utc(2026, 8, 11, 12);
+      final headers = {
+        'date': HttpDate.format(now),
+        'expires': HttpDate.format(now.add(const Duration(hours: 1))),
+        'age': '7200',
+      };
+      expect(persistentByteCacheExpiry(headers, now), isNull);
+      expect(
+        persistentByteCacheExpiry({...headers, 'age': '1800'}, now),
+        now.add(const Duration(minutes: 30)),
+      );
+    });
+
     test(
       'rejects an oversized disk entry before returning its bytes',
       () async {

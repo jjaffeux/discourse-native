@@ -11,6 +11,36 @@ const _site = 'https://forum.example/community';
 final _token = 'a' * 64;
 
 void main() {
+  test('regression nov8: guest cookies honor Max-Age before Expires', () async {
+    final cookies = <String?>[];
+    final api = DiscourseApi(
+      client: MockClient((request) async {
+        if (request.url.path.endsWith('/session/csrf.json')) {
+          return http.Response(
+            '{"csrf":"csrf-token"}',
+            200,
+            headers: {
+              'set-cookie':
+                  '_forum_session=anonymous; Path=/; Secure; Max-Age=3600; '
+                  'Expires=Thu, 01 Jan 1970 00:00:00 GMT',
+            },
+          );
+        }
+        cookies.add(request.headers['Cookie']);
+        if (request.url.path.endsWith('/verify-email')) {
+          return http.Response(jsonEncode({'token': _token}), 202);
+        }
+        return http.Response('{"success":"OK"}', 200);
+      }),
+    );
+    addTearDown(api.close);
+    final connection = api.dsaNoticeConnection(siteUrl: _site, apiKey: null);
+    addTearDown(connection.dispose);
+    await connection.requestVerification('guest@example.com');
+    await connection.verifyEmail('guest@example.com', _token, '123456');
+    expect(cookies, ['_forum_session=anonymous', '_forum_session=anonymous']);
+  });
+
   test(
     'guest notice establishes CSRF session and retains it through verification',
     () async {
