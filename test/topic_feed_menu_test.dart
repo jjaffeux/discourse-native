@@ -1,14 +1,24 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/content_route.dart';
+import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/topic.dart';
+import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/bundled_plugins.dart';
+import 'support/fakes.dart';
 
 void main() {
   testWidgets('returning feed switch keeps its first-frame width', (
@@ -50,6 +60,235 @@ void main() {
       expect(tester.getSize(controls), size);
     }
     expect(tester.takeException(), isNull);
+  });
+
+  group('a count change', () {
+    final segment = find.byKey(const ValueKey('topic-list-view-newActivity'));
+    final theme = AppTheme.light.copyWith(platform: TargetPlatform.macOS);
+
+    Widget menu(int newCount, {Key? key, PageStorageBucket? bucket}) {
+      final switcher = Align(
+        alignment: Alignment.topLeft,
+        child: SizedBox(
+          width: 900,
+          child: TopicFeedMenu(
+            key: key,
+            mode: TopicListMode.latest,
+            newCount: newCount,
+            onSelected: (_) {},
+          ),
+        ),
+      );
+      return MaterialApp(
+        theme: theme,
+        home: bucket == null
+            ? switcher
+            : PageStorage(bucket: bucket, child: switcher),
+      );
+    }
+
+    Finder count(Finder within, String text) =>
+        find.descendant(of: within, matching: find.text(text));
+
+    testWidgets('keeps every measured segment on its first frame', (
+      tester,
+    ) async {
+      await tester.pumpWidget(menu(1));
+      await tester.pumpAndSettle();
+      final shown = _shownSegments();
+      expect(shown, ['latest', 'unread', 'newActivity']);
+
+      await tester.pumpWidget(menu(2));
+      final missing = shown.toSet().difference(_shownSegments().toSet()).length;
+      final measuredAgain = tester.binding.hasScheduledFrame ? 1 : 0;
+      // ignore: avoid_print
+      print('PERF_PROOF feed-switch segments_missing_first_frame=$missing');
+      // ignore: avoid_print
+      print('PERF_PROOF feed-switch second_frame_scheduled=$measuredAgain');
+
+      expect(missing, lessThanOrEqualTo(0));
+      expect(measuredAgain, lessThanOrEqualTo(0));
+      expect(count(segment, '2'), findsOneWidget);
+      expect(count(segment, '1'), findsNothing);
+    });
+
+    testWidgets('that widens a badge corrects the measured widths', (
+      tester,
+    ) async {
+      await tester.pumpWidget(menu(9));
+      await tester.pumpAndSettle();
+      final narrow = tester.getSize(segment).width;
+
+      await tester.pumpWidget(menu(10));
+      expect(_shownSegments(), ['latest', 'unread', 'newActivity']);
+      expect(tester.binding.hasScheduledFrame, isTrue);
+      await tester.pumpAndSettle();
+      expect(count(segment, '10'), findsOneWidget);
+      final corrected = tester.getSize(segment).width;
+      expect(corrected, greaterThan(narrow));
+
+      await tester.pumpWidget(menu(10, key: UniqueKey()));
+      await tester.pumpAndSettle();
+      expect(tester.getSize(segment).width, corrected);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('that adds a badge beside a tight switch does not overflow', (
+      tester,
+    ) async {
+      Widget tight(int newCount) => MaterialApp(
+        theme: theme,
+        home: Align(
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: 340,
+            child: TopicFeedMenu(
+              mode: TopicListMode.newActivity,
+              newCount: newCount,
+              onSelected: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpWidget(tight(0));
+      await tester.pumpAndSettle();
+      await tester.pumpWidget(tight(1));
+      expect(tester.takeException(), isNull);
+      await tester.pumpAndSettle();
+      expect(count(segment, '1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('applied while away corrects the stored widths', (
+      tester,
+    ) async {
+      final bucket = PageStorageBucket();
+      await tester.pumpWidget(menu(9, bucket: bucket));
+      await tester.pumpAndSettle();
+      final narrow = tester.getSize(segment).width;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: theme,
+          home: PageStorage(bucket: bucket, child: const SizedBox.shrink()),
+        ),
+      );
+      await tester.pumpWidget(menu(10, bucket: bucket));
+      expect(_shownSegments(), ['latest', 'unread', 'newActivity']);
+      await tester.pumpAndSettle();
+      expect(count(segment, '10'), findsOneWidget);
+      expect(tester.getSize(segment).width, greaterThan(narrow));
+    });
+
+    for (final (name, size, platform, budget) in [
+      ('desktop', const Size(1440, 844), TargetPlatform.macOS, 830),
+      ('phone', const Size(390, 844), TargetPlatform.iOS, 130),
+    ]) {
+      testWidgets('from live tracking rebuilds only the switch ($name)', (
+        tester,
+      ) async {
+        await tester.binding.setSurfaceSize(size);
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        const user = DiscourseUser(
+          id: 7,
+          username: 'reader',
+          unifiedNewEnabled: true,
+        );
+        final controller = ShellController(
+          instanceStore: FakeInstanceStore([
+            instance('meta.discourse.org').copyWith(user: user),
+          ]),
+          api: FakeDiscourseApi(
+            user: user,
+            feeds: {
+              '/latest.json': [
+                for (var id = 1; id <= 40; id++)
+                  Topic(
+                    id: id,
+                    title: 'Topic $id',
+                    slug: 'topic-$id',
+                    bumpedAt: DateTime.utc(2026, 9, 1),
+                  ),
+              ],
+            },
+          ),
+          authenticator: FakeAuthenticator()
+            ..keys['https://meta.discourse.org'] = 'key',
+          drafts: FakeDraftStore(),
+          trackers: FakeSiteTracker.reset(),
+          updateStore: FakeUpdateStore(),
+          plugins: PluginInstaller.install(bundledWidgetTestManifest),
+        );
+        addTearDown(controller.dispose);
+        await controller.load();
+        await tester.pumpWidget(
+          ShellScope(
+            controller: controller,
+            child: MaterialApp(
+              theme: AppTheme.light.copyWith(platform: platform),
+              home: const AdaptiveShell(),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final tracker = FakeSiteTracker.built.single;
+        final badgeOwner = find.byKey(
+          ValueKey(
+            platform == TargetPlatform.iOS
+                ? 'topic-list-feed-menu'
+                : 'topic-list-view-unread',
+          ),
+        );
+
+        void deliver(int topicId) => tracker.deliverTopicTracking({
+          'topic_id': topicId,
+          'message_type': 'unread',
+          'payload': {
+            'highest_post_number': 50,
+            'last_read_post_number': 1,
+            'notification_level': 2,
+          },
+        });
+
+        deliver(100);
+        await tester.pumpAndSettle();
+        expect(count(badgeOwner, '1'), findsOneWidget);
+
+        var elements = 0;
+        final previous = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          previous?.call(element, builtOnce);
+          elements++;
+        };
+        addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+        var mostElements = 0;
+        for (var round = 2; round <= 4; round++) {
+          elements = 0;
+          deliver(99 + round);
+          await tester.pumpAndSettle();
+          expect(count(badgeOwner, '$round'), findsOneWidget);
+          mostElements = math.max(mostElements, elements);
+        }
+        debugOnRebuildDirtyWidget = previous;
+
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF feed-switch elements_per_count_change_$name=$mostElements',
+        );
+        expect(mostElements, lessThanOrEqualTo(budget));
+
+        for (var round = 5; round <= 10; round++) {
+          deliver(99 + round);
+          await tester.pumpAndSettle();
+        }
+        expect(
+          count(find.byKey(const ValueKey('topic-list-feed-menu')), '10'),
+          findsWidgets,
+        );
+        expect(tester.takeException(), isNull);
+      });
+    }
   });
 
   setUpAll(() async {
@@ -282,6 +521,19 @@ void main() {
     }
   }
 }
+
+List<String> _shownSegments() => [
+  for (final view in const [
+    'latest',
+    'unread',
+    'newActivity',
+    'unseen',
+    'top',
+    'trending',
+  ])
+    if (find.byKey(ValueKey('topic-list-view-$view')).evaluate().isNotEmpty)
+      view,
+];
 
 Future<void> _capture(WidgetTester tester, String name) async {
   final directory = Platform.environment['TOPIC_FEED_CAPTURE_DIR'];

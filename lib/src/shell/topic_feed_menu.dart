@@ -480,12 +480,10 @@ class _TopicFeedMenuState extends State<TopicFeedMenu> {
 
   Widget _build(BuildContext context) {
     if (context.isTouch) return _pill();
+    // Counts stay out of the identity. [_measure] corrects the widths when a
+    // badge resizes, and the old widths keep every segment on screen until then.
     final identity = (
       widget.mode,
-      widget.unreadCount,
-      widget.newCount,
-      widget.topicCount,
-      widget.replyCount,
       widget.signedIn,
       widget.unifiedNew,
       MediaQuery.textScalerOf(context),
