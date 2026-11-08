@@ -80,6 +80,44 @@ void main() {
     );
   });
 
+  test('reads homepage options beside the settings', () async {
+    final requested = <String>[];
+    final settings = Completer<http.Response>();
+    final site = Completer<http.Response>();
+    final api = DiscourseApi(
+      client: MockClient((request) {
+        requested.add(request.url.path);
+        return request.url.path.endsWith('/site/settings.json')
+            ? settings.future
+            : site.future;
+      }),
+    );
+    addTearDown(api.close);
+
+    final config = api.siteConfig(siteUrl: _site, apiKey: 'account-key');
+    await pumpEventQueue();
+
+    expect(requested, [
+      '/community/site/settings.json',
+      '/community/site.json',
+    ]);
+
+    settings.complete(
+      http.Response(jsonEncode({'default_homepage': 'chat'}), 200),
+    );
+    site.complete(
+      http.Response(
+        jsonEncode({
+          'homepage_options': [
+            {'id': 'chat', 'path': '/chat/c/general/9'},
+          ],
+        }),
+        200,
+      ),
+    );
+    expect((await config).homepageOptions!.single.path, '/chat/c/general/9');
+  });
+
   test(
     'loads viewer-scoped paths from site JSON with the same credentials',
     () async {
