@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
@@ -189,6 +190,25 @@ class _UserActivityBody extends StatelessWidget {
 
 enum _ActivityKind { all, topics, replies, likes }
 
+/// An embedded list shares its parent's scroll view, so nothing virtualizes it.
+/// It builds one row a frame, which fits the budget where a page of rows does
+/// not: enough to outgrow a raised sheet, then more as the reader nears the end
+/// of what exists. The first rows are built beneath the rest line, behind
+/// [_embeddedRowExtent] of reserved height, so filling them moves nothing.
+const _embeddedFirstRows = 8;
+const _embeddedRowExtent = 110.0;
+
+/// A history this short may not fill the sheet, so it is laid out at once at
+/// its real height: an estimate would nudge the resting card as rows replace it.
+const _embeddedShortHistory = 4;
+
+typedef _EmbeddedRow = ({
+  GlobalKey key,
+  UserActivityItem item,
+  TopicCategory? category,
+  Widget widget,
+});
+
 class _ActivityList extends StatefulWidget {
   const _ActivityList({
     super.key,
@@ -238,7 +258,11 @@ class _ActivityListState extends State<_ActivityList> {
     _keepEmbeddedAnchor(oldWidget);
   }
 
-  final _embeddedKeys = <String, GlobalKey>{};
+  final _embeddedRows = <String, _EmbeddedRow>{};
+  int _embeddedRowCount = 1;
+  int _embeddedItemCount = 0;
+  bool _extensionScheduled = false;
+
   void _keepEmbeddedAnchor(_ActivityList oldWidget) {
     if (!widget.embedded ||
         oldWidget.feed.items == feed.items ||
@@ -250,7 +274,7 @@ class _ActivityListState extends State<_ActivityList> {
     double? top;
     for (final item in oldWidget.feed.items) {
       if (!retained.contains(item.identity)) continue;
-      final key = _embeddedKeys[item.identity];
+      final key = _embeddedRows[item.identity]?.key;
       final box = key?.currentContext?.findRenderObject();
       if (box is! RenderBox || !box.hasSize) continue;
       final y = box.localToGlobal(Offset.zero).dy;
@@ -260,7 +284,7 @@ class _ActivityListState extends State<_ActivityList> {
         break;
       }
     }
-    _embeddedKeys.removeWhere((id, _) => !retained.contains(id));
+    _embeddedRows.removeWhere((id, _) => !retained.contains(id));
     if (anchor == null || top == null) return;
     final position = _outerScroll!;
     final savedTop = top;
@@ -296,7 +320,34 @@ class _ActivityListState extends State<_ActivityList> {
     position?.addListener(_outerMoved);
   }
 
+  bool get _embeddedRowsAllBuilt => _embeddedRowCount >= _embeddedItemCount;
+
+  void _scheduleRowExtension() {
+    if (_extensionScheduled || _embeddedRowsAllBuilt) return;
+    _extensionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _extensionScheduled = false;
+      _extendEmbeddedRows();
+    });
+  }
+
+  // Past the first rows, a resting sheet only needs to outgrow its viewport;
+  // rows beyond that wait for the reader to scroll.
+  void _extendEmbeddedRows() {
+    final position = _outerScroll;
+    if (!mounted || _embeddedRowsAllBuilt || position == null) return;
+    if (_embeddedRowCount >= _embeddedFirstRows) {
+      if (!position.hasContentDimensions) return;
+      final lead = position.pixels > 0
+          ? paginationPrefetchDistance(position)
+          : 1.0;
+      if (position.extentAfter >= lead) return;
+    }
+    setState(() => _embeddedRowCount++);
+  }
+
   void _outerMoved() {
+    _scheduleRowExtension();
     final position = _outerScroll;
     if (position == null ||
         !position.hasContentDimensions ||
@@ -309,6 +360,7 @@ class _ActivityListState extends State<_ActivityList> {
       unawaited(widget.onLoadPrevious());
     } else if (position.pixels > 0 &&
         feed.hasMore &&
+        _embeddedRowsAllBuilt &&
         position.extentAfter < paginationPrefetchDistance(position)) {
       unawaited(onLoadMore());
     }
@@ -320,6 +372,43 @@ class _ActivityListState extends State<_ActivityList> {
     super.dispose();
   }
 
+  // The widget is held per row so a feed change rebuilds only the rows it
+  // actually changed. Each row keeps its own layer: this list scrolls by
+  // repainting its parent's whole content.
+  Widget _embeddedRow(UserActivityItem item) {
+    final category = feed.categoryFor(item.categoryId);
+    final held = _embeddedRows[item.identity];
+    if (held != null &&
+        identical(held.item, item) &&
+        held.category == category) {
+      return held.widget;
+    }
+    final key = held?.key ?? GlobalKey();
+    final row = KeyedSubtree(
+      key: key,
+      child: RepaintBoundary(
+        child: UserActivityRow(
+          siteUrl: siteUrl,
+          item: item,
+          category: category,
+          onTap: () => onOpen(item),
+        ),
+      ),
+    );
+    _embeddedRows[item.identity] = (
+      key: key,
+      item: item,
+      category: category,
+      widget: row,
+    );
+    return row;
+  }
+
+  int _reservedRows(List<UserActivityItem> items) => math.max(
+    0,
+    math.min(_embeddedFirstRows, items.length) - _embeddedRowCount,
+  );
+
   Widget _embedded(List<UserActivityItem> items) => Column(
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -330,7 +419,10 @@ class _ActivityListState extends State<_ActivityList> {
           value: _kind,
           onChanged: (value) {
             if (value == null) return;
-            setState(() => _kind = value);
+            setState(() {
+              _kind = value;
+              _embeddedRowCount = _embeddedFirstRows;
+            });
             if (feed.hasPrevious) unawaited(onRefresh());
           },
           children: [
@@ -359,18 +451,12 @@ class _ActivityListState extends State<_ActivityList> {
                 : () => unawaited(widget.onLoadPrevious()),
           ),
         ),
-      for (final (index, item) in items.indexed) ...[
+      for (final (index, item) in items.take(_embeddedRowCount).indexed) ...[
         if (index > 0) const DSeparator(indent: 16, endIndent: 16),
-        KeyedSubtree(
-          key: _embeddedKeys.putIfAbsent(item.identity, GlobalKey.new),
-          child: UserActivityRow(
-            siteUrl: siteUrl,
-            item: item,
-            category: feed.categoryFor(item.categoryId),
-            onTap: () => onOpen(item),
-          ),
-        ),
+        _embeddedRow(item),
       ],
+      if (_reservedRows(items) case final rows when rows > 0)
+        SizedBox(height: rows * _embeddedRowExtent),
       if (!feed.loaded || feed.loading)
         AccountActivityPagingSkeleton(semanticsLabel: appL10n.loadingActivity),
       if (feed.error case final error?)
@@ -389,7 +475,10 @@ class _ActivityListState extends State<_ActivityList> {
           padding: const EdgeInsets.all(24),
           child: Text(appL10n.noActivityYet),
         ),
-      if (feed.hasMore && !feed.loading && feed.error == null)
+      if (feed.hasMore &&
+          !feed.loading &&
+          feed.error == null &&
+          _embeddedRowsAllBuilt)
         Center(
           child: DButton(
             label: Text(appL10n.loadMore),
@@ -429,7 +518,14 @@ class _ActivityListState extends State<_ActivityList> {
         )
         .toList();
     final hasFooter = feed.loading || feed.error != null || feed.hasMore;
-    if (widget.embedded) return _embedded(items);
+    if (widget.embedded) {
+      _embeddedItemCount = items.length;
+      if (items.length <= _embeddedShortHistory) {
+        _embeddedRowCount = math.max(_embeddedRowCount, items.length);
+      }
+      _scheduleRowExtension();
+      return _embedded(items);
+    }
     final content = DPageSurface.headed(
       title: Text(widget.title),
       controls: DReferenceTextScale(
@@ -626,6 +722,7 @@ class UserActivityRow extends StatelessWidget {
 
   Widget _row(BuildContext context, String? when) {
     final category = this.category;
+    final excerpt = item.plainExcerpt;
     final semanticLabel = [
       item.title,
       item.isLike
@@ -639,7 +736,7 @@ class UserActivityRow extends StatelessWidget {
       ?when,
       if (item.deleted) context.l10n.deleted,
       if (item.hidden) context.l10n.hidden,
-      if (item.plainExcerpt.isNotEmpty) item.plainExcerpt,
+      if (excerpt.isNotEmpty) excerpt,
     ].join(', ');
 
     final tokens = DTokens.of(context);
@@ -703,7 +800,7 @@ class UserActivityRow extends StatelessWidget {
                   const SizedBox(height: 5),
                   DItemDescription(
                     child: Text(
-                      item.plainExcerpt,
+                      excerpt,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(

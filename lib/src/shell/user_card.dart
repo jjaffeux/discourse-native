@@ -419,10 +419,42 @@ class _ControllerUserCardPopup extends StatefulWidget {
 }
 
 class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
+  // The requests announce every card on every forum; this one cares only
+  // about what they change for it. The parent remounts it for each account
+  // session, which starts from new store refs.
+  late final _changes = Listenable.merge([
+    widget.controller.userCardRequests,
+    widget.controller.store.ref<UserCard>(
+      widget.siteUrl,
+      widget.username.toLowerCase(),
+    ),
+  ]);
+  late ({UserCard? card, String? error}) _view = _read();
+
+  ({UserCard? card, String? error}) _read() => (
+    card: widget.controller.userCard(widget.username, siteUrl: widget.siteUrl),
+    error: widget.controller.userCardError(
+      widget.username,
+      siteUrl: widget.siteUrl,
+    ),
+  );
+
+  void _changed() {
+    final next = _read();
+    if (next != _view) setState(() => _view = next);
+  }
+
   @override
   void initState() {
     super.initState();
+    _changes.addListener(_changed);
     unawaited(_load());
+  }
+
+  @override
+  void dispose() {
+    _changes.removeListener(_changed);
+    super.dispose();
   }
 
   Future<void> _load() async {
@@ -441,45 +473,11 @@ class _ControllerUserCardPopupState extends State<_ControllerUserCardPopup> {
     await controller.loadUserCard(widget.username, siteUrl: widget.siteUrl);
   }
 
-  // The parent remounts this for each account session, which starts from new
-  // store refs; within one session only the card and its fetch change.
-  @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: Listenable.merge([
-      widget.controller.userCardRequests,
-      widget.controller.store.ref<UserCard>(
-        widget.siteUrl,
-        widget.username.toLowerCase(),
-      ),
-    ]),
-    builder: (context, _) => _CardBody(
-      controller: widget.controller,
-      username: widget.username,
-      siteUrl: widget.siteUrl,
-      close: widget.close,
-      restAt: widget.restAt,
-    ),
-  );
-}
-
-class _CardBody extends StatelessWidget {
-  const _CardBody({
-    required this.controller,
-    required this.username,
-    required this.siteUrl,
-    required this.close,
-    this.restAt,
-  });
-
-  final GlobalKey? restAt;
-  final ShellController controller;
-  final String username;
-  final String siteUrl;
-  final VoidCallback close;
-
   @override
   Widget build(BuildContext context) {
-    final card = controller.userCard(username, siteUrl: siteUrl);
+    final (:card, :error) = _view;
+    final controller = widget.controller;
+    final siteUrl = widget.siteUrl;
     final lease = controller.lifecycle.capture(siteUrl);
     if (card != null) {
       if (context.isTouch) {
@@ -488,11 +486,11 @@ class _CardBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             SizedBox(
-              key: restAt,
+              key: widget.restAt,
               child: _MobileCardContent(
                 card: card,
                 siteUrl: siteUrl,
-                close: close,
+                close: widget.close,
               ),
             ),
             DSheetSwipeHint(label: context.l10n.swipeUpToViewActivity),
@@ -502,7 +500,7 @@ class _CardBody extends StatelessWidget {
               embedded: true,
               onOpen: (item) {
                 if (!lease.isCurrent) return;
-                close();
+                widget.close();
                 if (controller.currentInstance?.url != siteUrl) {
                   controller.selectInstance(
                     controller.instances.indexWhere(
@@ -516,16 +514,18 @@ class _CardBody extends StatelessWidget {
           ],
         );
       }
-      return _CardContent(card: card, siteUrl: siteUrl, close: close);
+      return _CardContent(card: card, siteUrl: siteUrl, close: widget.close);
     }
 
-    final error = controller.userCardError(username, siteUrl: siteUrl);
     if (error != null) {
       return UserMenuMessage(
         text: error,
         height: 132,
-        onRetry: () =>
-            controller.loadUserCard(username, force: true, siteUrl: siteUrl),
+        onRetry: () => controller.loadUserCard(
+          widget.username,
+          force: true,
+          siteUrl: siteUrl,
+        ),
       );
     }
     return const Padding(padding: EdgeInsets.all(12), child: _CardSkeleton());
