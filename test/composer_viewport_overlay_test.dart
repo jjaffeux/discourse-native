@@ -166,12 +166,7 @@ void main() {
           find.byKey(const ValueKey('composer-footer')),
         );
         expect((footer.decoration! as BoxDecoration).gradient, isNull);
-        final topBlur = find.byKey(const ValueKey('composer-header-blur'));
         final bottomBlur = find.byKey(const ValueKey('composer-footer-blur'));
-        expect(
-          tester.widget<DGradientBlur>(topBlur).edge,
-          DGradientBlurEdge.top,
-        );
         expect(
           tester.widget<DGradientBlur>(bottomBlur).edge,
           DGradientBlurEdge.bottom,
@@ -252,6 +247,14 @@ void main() {
         await tester.drag(viewport, const Offset(0, -137));
         await tester.pumpAndSettle();
         expect(scroll.offset, greaterThan(50));
+        expect(
+          tester
+              .widget<DGradientBlur>(
+                find.byKey(const ValueKey('composer-header-blur')),
+              )
+              .edge,
+          DGradientBlurEdge.top,
+        );
         final after = await _pixelsUnderKeyboard(tester);
         expect(
           [
@@ -292,6 +295,88 @@ void main() {
       },
     );
   }
+
+  testWidgets('phone composer header is untouched until content scrolls', (
+    tester,
+  ) async {
+    const user = DiscourseUser(id: 7, username: 'sam', canCreateTopic: true);
+    final controller = ShellController(
+      mobileNavigationEnabled: true,
+      forumTabsEnabled: false,
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org').copyWith(user: user),
+      ]),
+      api: FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': []},
+        creatableFeedPaths: const {'/latest.json'},
+      ),
+      authenticator: FakeAuthenticator()
+        ..keys['https://meta.discourse.org'] = 'key',
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.viewInsets = const FakeViewPadding(bottom: 336);
+    tester.view.padding = const FakeViewPadding(top: 59);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          home: const RepaintBoundary(key: _captureKey, child: AdaptiveShell()),
+        ),
+      ),
+    );
+    await controller.openNewTopicFromSidebar();
+    await tester.pumpAndSettle();
+
+    final handle = tester.getRect(
+      find.byKey(const ValueKey('sheet-drag-handle')),
+    );
+    final title = tester.getRect(
+      find.byKey(const ValueKey('composer-topic-title')),
+    );
+    final headerColumn = await _pixelColumn(
+      tester,
+      x: 195,
+      from: handle.bottom.ceil() + 1,
+      to: title.top.floor(),
+    );
+    expect(
+      headerColumn.toSet(),
+      hasLength(1),
+      reason: 'At rest the header must show the plain sheet background.',
+    );
+
+    final composer = controller.visibleComposer!;
+    composer.focus.unfocus();
+    composer.text.value = TextEditingValue(
+      text: List.generate(60, (i) => 'Line $i').join('\n'),
+      selection: const TextSelection.collapsed(offset: 0),
+    );
+    await tester.pumpAndSettle();
+    final blur = find.byKey(const ValueKey('composer-header-blur'));
+    expect(blur, findsNothing);
+
+    final viewport = find.byKey(const ValueKey('composer-mobile-scroll'));
+    final scroll = tester.widget<CustomScrollView>(viewport).controller!;
+    await tester.drag(viewport, const Offset(0, -137));
+    await tester.pumpAndSettle();
+    expect(scroll.offset, greaterThan(50));
+    expect(blur, findsOneWidget);
+
+    scroll.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(blur, findsNothing);
+    await tester.pump(const Duration(seconds: 3));
+    expect(tester.takeException(), isNull);
+  });
 
   for (final (foot, keyboard) in [(34.0, 0.0), (0.0, 336.0)]) {
     testWidgets('a phone composer\'s foot stands where the bar of places sits '
@@ -346,6 +431,31 @@ void main() {
       expect(tester.takeException(), isNull);
     }, variant: const TargetPlatformVariant({TargetPlatform.iOS}));
   }
+}
+
+Future<List<int>> _pixelColumn(
+  WidgetTester tester, {
+  required int x,
+  required int from,
+  required int to,
+}) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_captureKey),
+  );
+  return (await tester.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    try {
+      final data = (await image.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      ))!;
+      return [
+        for (var y = from; y < to; y++)
+          data.getUint32((y * image.width + x) * 4),
+      ];
+    } finally {
+      image.dispose();
+    }
+  }))!;
 }
 
 Future<List<int>> _pixelsUnderKeyboard(WidgetTester tester) async {

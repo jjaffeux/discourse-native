@@ -974,9 +974,12 @@ class _ComposerPinnedHeader extends SliverPersistentHeaderDelegate {
     return Stack(
       fit: StackFit.expand,
       children: [
-        const Positioned.fill(
-          child: DGradientBlur(key: ValueKey('composer-header-blur')),
-        ),
+        // The blur also samples the darker backdrop above the sheet, which
+        // reads as a shadow when no content has reached the header.
+        if (shrinkOffset > 2)
+          const Positioned.fill(
+            child: DGradientBlur(key: ValueKey('composer-header-blur')),
+          ),
         RepaintBoundary(child: child),
       ],
     );
