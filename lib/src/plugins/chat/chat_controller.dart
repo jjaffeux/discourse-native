@@ -576,6 +576,7 @@ class ChatController extends FrameSafeNotifier {
   final ChatApi api;
   final PluginRequestHost _requests;
   final Store _store;
+  final _sidebarMessageText = Expando<({String? text})>();
   final Duration minimumWindowRefreshInterval;
   final int? _maxRetainedCanonicalMessageIdsPerSite;
   final DiscourseUser? Function(String siteUrl) _currentUserFor;
@@ -966,7 +967,9 @@ class ChatController extends FrameSafeNotifier {
       if (message == null || message.isDeleted) continue;
       fields[message.channelId]?.addAll([
         message.raw,
-        jsonHtmlText(message.cooked),
+        (_sidebarMessageText[message] ??= (
+          text: jsonHtmlText(message.cooked),
+        )).text,
         message.author.username,
         message.author.name,
       ]);

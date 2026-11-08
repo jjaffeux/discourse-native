@@ -37,8 +37,25 @@ final class TopicTrackingState {
   /// site keeps by identity between configuration loads.
   Iterable<TopicCategory>? _childrenSource;
   Map<int, List<int>>? _childrenByParent;
+  Map<int, int>? _unreadTopicCountsByCategory;
 
   Iterable<TrackedTopicState> get topics => _topics.values;
+
+  Map<int, int> get unreadTopicCountsByCategory {
+    final cached = _unreadTopicCountsByCategory;
+    if (cached != null) return cached;
+    final counts = <int, int>{};
+    for (final topic in topics) {
+      if (topic.isUnread && topic.categoryId != null) {
+        counts.update(
+          topic.categoryId!,
+          (count) => count + 1,
+          ifAbsent: () => 1,
+        );
+      }
+    }
+    return _unreadTopicCountsByCategory = Map.unmodifiable(counts);
+  }
 
   TrackedTopicState? topic(int topicId) => _topics[topicId];
 
@@ -241,6 +258,7 @@ final class TopicTrackingState {
   }
 
   void _updateDerived(TrackedTopicState? previous, TrackedTopicState? next) {
+    _unreadTopicCountsByCategory = null;
     if (_topicsByCategory == null &&
         _topicsByTag == null &&
         _newActivityCounts == null &&
@@ -318,6 +336,7 @@ final class TopicTrackingState {
   }
 
   void _invalidateCounts() {
+    _unreadTopicCountsByCategory = null;
     _topicsByCategory = null;
     _topicsByTag = null;
     _newActivityCounts = null;
