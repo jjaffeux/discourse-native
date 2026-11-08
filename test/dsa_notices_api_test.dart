@@ -11,6 +11,36 @@ const _site = 'https://forum.example/community';
 final _token = 'a' * 64;
 
 void main() {
+  test('regression nov8: guest sessions accept matching parent cookie domains', () async {
+    for (final domain in ['example.com', '.EXAMPLE.COM']) {
+      String? cookie;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          if (request.url.path.endsWith('/session/csrf.json')) {
+            return http.Response(
+              '{"csrf":"csrf-token"}',
+              200,
+              headers: {
+                'set-cookie':
+                    '_forum_session=anonymous; Path=/; Secure; Domain=$domain',
+              },
+            );
+          }
+          cookie = request.headers['Cookie'];
+          return http.Response(jsonEncode({'token': _token}), 202);
+        }),
+      );
+      addTearDown(api.close);
+      final connection = api.dsaNoticeConnection(
+        siteUrl: 'https://forum.example.com/community',
+        apiKey: null,
+      );
+      addTearDown(connection.dispose);
+      await connection.requestVerification('guest@example.com');
+      expect(cookie, '_forum_session=anonymous', reason: domain);
+    }
+  });
+
   test('regression nov8: guest cookies honor Max-Age before Expires', () async {
     final cookies = <String?>[];
     final api = DiscourseApi(
