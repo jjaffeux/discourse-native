@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app.dart';
 import 'data/byte_cache_store.dart';
+import 'data/http_basic_auth.dart';
 import 'data/linux_application_directories.dart';
 import 'data/linux_preferences_store.dart';
 import 'data/media_pipeline.dart';
@@ -20,6 +21,10 @@ abstract interface class AppBootstrapHost {
   /// Runs before anything can reach preferences: `SharedPreferences` caches
   /// its first read for the rest of the process.
   void installPreferencesStore();
+
+  /// Starts the slow local reads that do not need the widget tree, so they
+  /// run alongside the first build rather than after it.
+  void preloadLocalState();
 
   Future<void> initializeTimezoneEnvironment();
 
@@ -58,6 +63,7 @@ final class AppBootstrap {
       markStartup('main');
       _host.ensureFlutterInitialized();
       _host.installPreferencesStore();
+      _host.preloadLocalState();
       markStartup('binding ready');
       _host.initializePlugins();
       markStartup('plugins installed');
@@ -104,6 +110,13 @@ final class _ProductionAppBootstrapHost implements AppBootstrapHost {
   @override
   void installPreferencesStore() {
     LinuxPreferencesStore.install();
+  }
+
+  @override
+  void preloadLocalState() {
+    // A failure here is left for the load that needs the credentials, which
+    // retries and reports it.
+    unawaited(HttpBasicAuthStore.instance.load().catchError((Object _) {}));
   }
 
   @override

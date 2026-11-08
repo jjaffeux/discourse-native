@@ -108,6 +108,8 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     @visibleForTesting bool installMethodCallHandlerForTesting = false,
     @visibleForTesting VoiceAudioSession? audioSessionForTesting,
     @visibleForTesting bool invokeNativeCommandsForTesting = false,
+    @visibleForTesting
+    Duration preparationDelayForTesting = _preparationDelayAfterLaunch,
   }) : _handlesMethodCalls =
            Platform.isIOS ||
            installMethodCallHandlerForTesting ||
@@ -125,9 +127,7 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     }
     if (_managesAudioSession) {
       _audioSessionOwner = this;
-      _ready = _prepareAudioSessionSafely();
-    } else {
-      _ready = Future<void>.value();
+      _preparationDelay = Timer(preparationDelayForTesting, _prepare);
     }
   }
 
@@ -143,7 +143,13 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
   final bool _invokesNativeCommands;
   final bool _managesAudioSession;
   final VoiceAudioSession _audioSession;
-  late final Future<void> _ready;
+  Future<void>? _preparation;
+  Timer? _preparationDelay;
+
+  // Preparing builds WebRTC's native stack on the main thread, which a launch
+  // pays for by serving its first feed later. It waits until the launch has
+  // settled, and anything needing the audio session sooner starts it itself.
+  static const _preparationDelayAfterLaunch = Duration(seconds: 5);
   Future<void>? _disposeOperation;
   Object? _readyError;
   StackTrace? _readyStackTrace;
@@ -175,8 +181,15 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     }
   }
 
+  Future<void> _prepare() {
+    _preparationDelay?.cancel();
+    return _preparation ??= _managesAudioSession
+        ? _prepareAudioSessionSafely()
+        : Future<void>.value();
+  }
+
   Future<void> _awaitReady() async {
-    await _ready;
+    await _prepare();
     if (_readyError case final error?) {
       Error.throwWithStackTrace(error, _readyStackTrace ?? StackTrace.current);
     }
@@ -201,11 +214,13 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
 
   Future<void> _onMethodCall(MethodCall call) async {
     if (call.method == 'audioActivated') {
+      await _prepare();
       await _runOwnedAudioSessionOperation(_audioSession.activate);
 
       return;
     }
     if (call.method == 'audioDeactivated') {
+      if (_preparation == null) return;
       await _runOwnedAudioSessionOperation(_audioSession.deactivate);
 
       return;
@@ -227,7 +242,7 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
   Future<void> handleNativeMethodCall(MethodCall call) => _onMethodCall(call);
 
   @visibleForTesting
-  Future<void> get audioSessionReadyForTesting => _ready;
+  Future<void> get audioSessionReadyForTesting => _prepare();
 
   // Both boundaries are shared across instances, including while work is held
   // on readiness or a native response.
@@ -312,6 +327,7 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     final active = _disposeOperation;
     if (active != null) return active;
     if (_handlesMethodCalls) _releaseMethodCallHandler();
+    _preparationDelay?.cancel();
     return _disposeOperation = _dispose();
   }
 
@@ -320,9 +336,12 @@ final class NativeVoiceSystemCall implements VoiceSystemCall {
     StackTrace? firstStackTrace;
     if (_managesAudioSession) {
       try {
-        await _ready;
-        if (_readyError == null) {
-          await _runOwnedAudioSessionOperation(_audioSession.reset);
+        final preparation = _preparation;
+        if (preparation != null) {
+          await preparation;
+          if (_readyError == null) {
+            await _runOwnedAudioSessionOperation(_audioSession.reset);
+          }
         }
       } catch (error, stackTrace) {
         firstError = error;

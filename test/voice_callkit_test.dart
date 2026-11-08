@@ -78,6 +78,49 @@ Future<bool> _reportIncomingCall(NativeVoiceSystemCall systemCall) => systemCall
     .reportIncomingCall(callerName: 'Kim', roomName: 'Call', handle: 'kim');
 
 void main() {
+  group('deferred audio preparation', () {
+    test('builds WebRTC on its own once the launch has settled', () async {
+      final state = _AudioState();
+      final audio = _FakeAudioSession('audio', state)
+        ..prepareStarted = Completer<void>();
+      final systemCall = NativeVoiceSystemCall(
+        audioSessionForTesting: audio,
+        preparationDelayForTesting: Duration.zero,
+      );
+      addTearDown(systemCall.dispose);
+
+      expect(state.calls, isEmpty);
+      await audio.prepareStarted!.future;
+
+      expect(state.calls, ['audio.prepare']);
+    });
+
+    test('leaves WebRTC alone during the launch', () async {
+      final state = _AudioState();
+      final systemCall = NativeVoiceSystemCall(
+        audioSessionForTesting: _FakeAudioSession('audio', state),
+      );
+      addTearDown(systemCall.dispose);
+
+      await Future<void>.delayed(Duration.zero);
+
+      expect(state.calls, isEmpty);
+    });
+
+    test('a call released before the delay never builds WebRTC', () async {
+      final state = _AudioState();
+      final systemCall = NativeVoiceSystemCall(
+        audioSessionForTesting: _FakeAudioSession('audio', state),
+        preparationDelayForTesting: Duration.zero,
+      );
+
+      await systemCall.dispose();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+
+      expect(state.calls, isEmpty);
+    });
+  });
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test('system answer and decline arrive as call actions', () async {
@@ -369,6 +412,49 @@ void main() {
       addTearDown(systemCall.dispose);
       return systemCall;
     }
+
+    test(
+      'a command sent before the launch settles prepares audio first',
+      () async {
+        final state = _AudioState();
+        final systemCall = createSystemCall(
+          audio: _FakeAudioSession('audio', state),
+        );
+        expect(state.calls, isEmpty);
+
+        await systemCall.start(roomName: 'Room', siteName: 'Forum');
+        await systemCall.connected();
+
+        expect(state.calls, ['audio.prepare']);
+        expect(commands.map((call) => call.method), ['start', 'connected']);
+      },
+    );
+
+    test('CallKit activating audio prepares it first', () async {
+      final state = _AudioState();
+      final systemCall = createSystemCall(
+        audio: _FakeAudioSession('audio', state),
+      );
+
+      await systemCall.handleNativeMethodCall(
+        const MethodCall('audioActivated'),
+      );
+
+      expect(state.calls, ['audio.prepare', 'audio.activate']);
+    });
+
+    test('CallKit deactivating unprepared audio builds nothing', () async {
+      final state = _AudioState();
+      final systemCall = createSystemCall(
+        audio: _FakeAudioSession('audio', state),
+      );
+
+      await systemCall.handleNativeMethodCall(
+        const MethodCall('audioDeactivated'),
+      );
+
+      expect(state.calls, isEmpty);
+    });
 
     for (final retirement in ['disposal', 'replacement']) {
       test(
