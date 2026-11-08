@@ -837,6 +837,10 @@ final class _TaxonomyDirectoryController
         if (result.postActionCatalog case final catalog?) {
           _shell._postActionCatalogs[instance.url] = catalog;
         }
+        // A composer opened during this read holds a later answer.
+        if (result.composerCapabilities case final capabilities?) {
+          _shell._topicComposerCapabilities[instance.url] ??= capabilities;
+        }
         _shell._notificationFeeds.seedSiteTypes(
           instance.url,
           result.notificationTypes,
