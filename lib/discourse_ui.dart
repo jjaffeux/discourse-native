@@ -1,12 +1,6 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
-export 'src/shell/category_icon.dart' show CategoryIcon;
-export 'src/shell/emoji.dart' show EmojiImage;
-export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
-export 'src/shell/topic_category_path_selector.dart';
-export 'src/shell/topic_category_selector.dart';
-export 'src/shell/topic_tag_selector.dart';
 export 'src/theme/d_icon.dart';
 export 'src/theme/d_icon_sets.dart' show DIconSet, DIconSetScope;
 export 'src/ui/components/d_accordion.dart';
@@ -14,7 +8,6 @@ export 'src/ui/components/d_action_transition.dart';
 export 'src/ui/components/d_alert.dart';
 export 'src/ui/components/d_alert_dialog.dart';
 export 'src/ui/components/d_alphabet_index.dart';
-export 'src/ui/components/d_animated_emoji.dart';
 export 'src/ui/components/d_aspect_ratio.dart';
 export 'src/ui/components/d_attachment.dart';
 export 'src/ui/components/d_audio_player.dart';

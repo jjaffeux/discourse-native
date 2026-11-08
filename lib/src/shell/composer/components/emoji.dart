@@ -9,6 +9,7 @@ import '../../../plugin_api/core_plugin_host.dart';
 import '../../../plugin_api/emoji_usage.dart';
 import '../../../theme/discourse_typography.dart';
 import '../../emoji.dart';
+import '../../emoji_picker.dart';
 import '../../shell_scope.dart';
 import '../controller.dart';
 import '../source_projection.dart';

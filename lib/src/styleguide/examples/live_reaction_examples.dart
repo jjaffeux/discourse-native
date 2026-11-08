@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../shell/animated_emoji.dart';
 import '../styleguide_example.dart';
 
 final animatedEmojiExamples = ComponentExamples(

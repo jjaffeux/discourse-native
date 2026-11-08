@@ -11,7 +11,6 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../app_shortcuts.dart';
 import '../data/site_lifecycle.dart';
-
 import '../foundation/count_label.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
@@ -23,6 +22,7 @@ import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'keyboard_navigation.dart';
 import 'list_boundary_shortcuts.dart';
@@ -45,9 +45,9 @@ import 'topic_title.dart';
 import 'user_card.dart';
 
 part 'conversation_topic_card.dart';
+part 'topic_card_metadata.dart';
 part 'topic_list_prefetch.dart';
 part 'topic_row_content.dart';
-part 'topic_card_metadata.dart';
 
 typedef _TopicListIdentity = (String?, String?, String?, String, Object?);
 

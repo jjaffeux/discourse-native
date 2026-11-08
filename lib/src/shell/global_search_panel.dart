@@ -14,6 +14,7 @@ import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icons.dart';
 import 'avatar_image.dart';
+import 'category_icon.dart';
 import 'global_search_api.dart';
 import 'global_search_controller.dart';
 import 'global_search_filters.dart';

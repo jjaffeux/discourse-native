@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../shell/emoji.dart';
+import 'emoji.dart';
 
 /// Optional animated artwork with static fallback and reduced-motion support.
 class DAnimatedEmoji extends StatelessWidget {

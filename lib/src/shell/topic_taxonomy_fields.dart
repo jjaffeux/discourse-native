@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../models/topic.dart';
 import '../theme/d_icons.dart';
+import 'category_icon.dart';
 import 'open_link.dart';
 import 'topic_tag_picker.dart';
 

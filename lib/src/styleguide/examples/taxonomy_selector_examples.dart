@@ -1,7 +1,9 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../models/topic.dart';
+import '../../shell/topic_category_path_selector.dart';
+import '../../shell/topic_category_selector.dart';
+import '../../shell/topic_tag_selector.dart';
 import '../styleguide_example.dart';
 
 const _categories = [

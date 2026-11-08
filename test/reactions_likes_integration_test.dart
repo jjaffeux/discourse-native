@@ -17,6 +17,7 @@ import 'package:discourse_native/src/plugins/reactions/reaction_toggle_result.da
 import 'package:discourse_native/src/plugins/reactions/reactions_row.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_services.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
+import 'package:discourse_native/src/shell/emoji.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/post_actions.dart';
@@ -31,7 +32,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
-
 import 'support/shell_test_harness.dart';
 
 void main() {

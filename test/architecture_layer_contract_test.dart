@@ -51,15 +51,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('ui', 'models'): {},
   ('ui', 'data'): {},
   ('ui', 'plugin_api'): {},
-  ('ui', 'shell'): {
-    'lib/discourse_ui.dart -> lib/src/shell/category_icon.dart',
-    'lib/discourse_ui.dart -> lib/src/shell/emoji.dart',
-    'lib/discourse_ui.dart -> lib/src/shell/emoji_picker.dart',
-    'lib/discourse_ui.dart -> lib/src/shell/topic_category_path_selector.dart',
-    'lib/discourse_ui.dart -> lib/src/shell/topic_category_selector.dart',
-    'lib/discourse_ui.dart -> lib/src/shell/topic_tag_selector.dart',
-    'lib/src/ui/components/d_animated_emoji.dart -> lib/src/shell/emoji.dart',
-  },
+  ('ui', 'shell'): {},
   ('ui', 'styleguide'): {},
   ('ui', 'plugins'): {},
   ('data', 'ui'): {},
@@ -112,12 +104,13 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 516;
+const _largestImportCycle = 345;
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
 const Map<String, Set<String>> _unreachableFromLayer = {
   'theme': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
+  'ui': {'data', 'plugin_api', 'shell', 'styleguide', 'plugins'},
 };
 
 void main() {

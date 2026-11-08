@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'shell_scope.dart';
+import 'topic_category_selector.dart';
 
 typedef TopicCategoryMenuAnchorBuilder =
     Widget Function(

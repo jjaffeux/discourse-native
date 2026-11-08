@@ -137,8 +137,10 @@ export 'src/plugin_api/topic_reader.dart';
 export 'src/shell/adaptive_dialog_action.dart';
 export 'src/shell/adaptive_shell.dart' show ShellLayout;
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
+export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
+export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
 export 'src/shell/composer/autocomplete.dart' show ComposerSuggestionAction;
 export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
@@ -193,7 +195,6 @@ export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
 export 'src/shell/destination_bookmark_ui.dart'
     show DestinationBookmarkMenuItem;
-
 export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
