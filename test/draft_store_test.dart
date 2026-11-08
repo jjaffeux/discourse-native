@@ -7,6 +7,8 @@ import 'package:discourse_native/src/data/linux_preferences_store.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 
 import 'package:flutter_test/flutter_test.dart';
+// ignore: depend_on_referenced_packages
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shared_preferences_platform_interface/shared_preferences_platform_interface.dart';
 
@@ -28,6 +30,38 @@ void main() {
   });
 
   group('secure persistence and write ordering', () {
+    test(
+      'default stores share ordering while their document location resolves',
+      () async {
+        final directory = await Directory.systemTemp.createTemp(
+          'draft-default-owner-',
+        );
+        final paths = _DelayedSupportPath(directory.path);
+        final previous = PathProviderPlatform.instance;
+        PathProviderPlatform.instance = paths;
+        addTearDown(() async {
+          PathProviderPlatform.instance = previous;
+          await directory.delete(recursive: true);
+        });
+        final first = DraftStore();
+        final second = DraftStore();
+        final writing = first.write(siteUrl, draftKey, 'retired default text');
+        await paths.started.future;
+        final clearing = second.clearSite(siteUrl);
+        addTearDown(() async {
+          if (!paths.release.isCompleted) paths.release.complete();
+          await Future.wait([writing, clearing]);
+        });
+        await Future<void>.delayed(Duration.zero);
+        expect(paths.calls, 1);
+        paths.release.complete();
+        await Future.wait([writing, clearing]);
+
+        expect(await first.read(siteUrl, draftKey), isNull);
+      },
+      skip: !(Platform.isMacOS || Platform.isIOS || Platform.isAndroid),
+    );
+
     test(
       'replacement stores serialize writes for their shared persistence',
       () async {
@@ -578,6 +612,24 @@ void main() {
       },
     );
   });
+}
+
+final class _DelayedSupportPath extends PathProviderPlatform {
+  _DelayedSupportPath(this.path);
+
+  final String path;
+  final started = Completer<void>();
+  final release = Completer<void>();
+  int calls = 0;
+
+  @override
+  Future<String?> getApplicationSupportPath() async {
+    if (++calls == 1) {
+      started.complete();
+      await release.future;
+    }
+    return path;
+  }
 }
 
 final class MemoryDraftPersistence implements DraftPersistence {
