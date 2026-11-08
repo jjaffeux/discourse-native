@@ -7916,6 +7916,7 @@ class ShellController extends FrameSafeNotifier
             }
           }
         },
+        clock: _clock,
       );
 
   String emojiUrlFor(String siteUrl, String name) =>
