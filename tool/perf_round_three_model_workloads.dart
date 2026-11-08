@@ -12,9 +12,10 @@ import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.
 import 'package:discourse_native/src/plugins/poll/poll.dart';
 import 'package:discourse_native/src/plugins/poll/poll_ballot_draft.dart';
 
-Map<String, int> measureRoundThreeModelPerformance() {
+Map<String, int> measureRoundThreeModelPerformance({Set<String>? only}) {
   final times = <String, int>{};
   void measure(String name, int iterations, void Function() action) {
+    if (only != null && !only.contains(name)) return;
     for (var i = 0; i < 10; i++) {
       action();
     }

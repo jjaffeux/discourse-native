@@ -47,9 +47,12 @@ Future<({ChatController chat, Store store})> roundThreeChatFixture({
   return (chat: chat, store: store);
 }
 
-Future<Map<String, int>> measureRoundThreeAppPerformance() async {
+Future<Map<String, int>> measureRoundThreeAppPerformance({
+  Set<String>? only,
+}) async {
   final results = <String, int>{};
   for (final count in [30, 300]) {
+    if (only != null && !only.contains('chat_sidebar_search_$count')) continue;
     final fixture = await roundThreeChatFixture(messages: count);
     try {
       var query = 0;
@@ -76,6 +79,9 @@ Future<Map<String, int>> measureRoundThreeAppPerformance() async {
     } finally {
       fixture.chat.dispose();
     }
+  }
+  if (only != null && !only.contains('chat_sidebar_search_cold')) {
+    return results;
   }
   final cold = await roundThreeChatFixture(messages: 0);
   try {
