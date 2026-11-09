@@ -495,7 +495,9 @@ String _codeMarkdown(String text, {required bool block}) {
 
 bool _ignoredCookedElement(dom.Element element) =>
     const {'script', 'style'}.contains(element.localName) ||
-    element.classes.contains('quote-controls');
+    element.classes.contains('quote-controls') ||
+    (element.classes.contains('meta') &&
+        element.parent?.classes.contains('lightbox') == true);
 
 bool _cookedBlockElement(dom.Element element) => const {
   'address',
