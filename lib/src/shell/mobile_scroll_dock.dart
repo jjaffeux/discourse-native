@@ -13,6 +13,7 @@ class MobileScrollDock extends StatelessWidget {
     this.keepActionVisible = false,
     this.floating = true,
     this.hiddenFraction = 0,
+    this.startFolded = false,
   });
 
   final Widget body;
@@ -27,6 +28,7 @@ class MobileScrollDock extends StatelessWidget {
   final bool keepActionVisible;
   final bool floating;
   final double hiddenFraction;
+  final bool startFolded;
 
   @override
   Widget build(BuildContext context) => RepaintBoundary(
@@ -39,6 +41,7 @@ class MobileScrollDock extends StatelessWidget {
       floatingFooter: floating,
       footerHiddenFraction: hiddenFraction,
       fadeUnderFooter: floating,
+      startFolded: startFolded,
       footerBuilder: (hidden) => RepaintBoundary(
         child: dockBuilder(floating ? hidden : hidden && keepActionVisible),
       ),

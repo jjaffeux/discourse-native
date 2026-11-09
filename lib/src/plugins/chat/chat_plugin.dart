@@ -69,6 +69,7 @@ class ChatPlugin
         ContentChromePlugin,
         ContentMobilePageSheetPlugin,
         ContentMobileComposerPlugin,
+        ContentMobileChromePlugin,
         ContentHeaderPlugin,
         ContentHeaderLeadingPlugin,
         ContentHeaderTitleTrailingPlugin,
@@ -720,6 +721,25 @@ class ChatPlugin
   @override
   bool ownsMobileComposer(BuildContext context, ContentRoute route) =>
       ChatRoute.parse(route.id)?.isInfo == false;
+
+  @override
+  bool startsMobileChromeFolded(BuildContext context, ContentRoute route) {
+    final chatRoute = ChatRoute.parse(route.id);
+    if (chatRoute == null || chatRoute.isThread || chatRoute.isInfo) {
+      return false;
+    }
+    final shell = PluginUiScope.require(context, chatShellService);
+    final siteUrl = shell.currentSiteUrl;
+    if (siteUrl == null) return false;
+    final pending = shell.navigation.value;
+    return shell.chat.opensAwayFromLatest(
+      siteUrl,
+      chatRoute.channelId,
+      messageId: pending?.siteUrl == siteUrl && pending?.route == chatRoute
+          ? pending?.messageId
+          : null,
+    );
+  }
 
   @override
   List<Widget> contentHeaderActions(BuildContext context, ContentRoute route) {

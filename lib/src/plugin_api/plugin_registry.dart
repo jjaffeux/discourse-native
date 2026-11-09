@@ -2595,6 +2595,13 @@ final class PluginRegistry
         (plugin) => plugin.hidesMobileDock(_uiContext(context, plugin), route),
       );
 
+  bool startsMobileChromeFolded(BuildContext context, ContentRoute route) =>
+      route.destination is ExtensionDestination &&
+      plugins.whereType<ContentMobileChromePlugin>().any(
+        (plugin) =>
+            plugin.startsMobileChromeFolded(_uiContext(context, plugin), route),
+      );
+
   bool ownsMobileComposer(BuildContext context, ContentRoute route) =>
       route.destination is ExtensionDestination &&
       plugins.whereType<ContentMobileComposerPlugin>().any(

@@ -119,9 +119,10 @@ class HeaderMotion extends ChangeNotifier implements ValueListenable<double> {
   bool _held = false;
   Duration? _last;
 
-  void reset() {
+  /// Comes to rest at once, open unless [hidden] says the page starts folded.
+  void reset({bool hidden = false}) {
     _ticker.stop();
-    target = 0;
+    target = hidden ? 1 : 0;
     _direction = 0;
     _way = 0;
     _slack = 0;
@@ -131,7 +132,7 @@ class HeaderMotion extends ChangeNotifier implements ValueListenable<double> {
     _holdTimer = null;
     _held = false;
     _last = null;
-    _show(0, hold: false);
+    _show(target, hold: false);
   }
 
   void reveal({bool fresh = false}) {

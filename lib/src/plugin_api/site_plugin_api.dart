@@ -1012,6 +1012,13 @@ abstract interface class ContentMobileDockPlugin {
   bool hidesMobileDock(BuildContext context, ContentRoute route);
 }
 
+abstract interface class ContentMobileChromePlugin {
+  /// Whether this route expects to open away from its end, where a phone's
+  /// retracting chrome rests folded. Asked as the page begins, before it has
+  /// loaded, so answer from what is already held and without a request.
+  bool startsMobileChromeFolded(BuildContext context, ContentRoute route);
+}
+
 abstract interface class ContentMobileComposerPlugin {
   /// Whether this route docks its own composer over a phone's bar, where a
   /// parked draft would otherwise wait.
