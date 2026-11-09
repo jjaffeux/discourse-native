@@ -81,7 +81,6 @@ import '../models/group.dart';
 import '../models/group_route.dart';
 import '../models/incoming_topics.dart';
 import '../models/json.dart';
-import '../models/live_refresh_id.dart';
 import '../models/notification_totals.dart';
 import '../models/pending_post.dart';
 import '../models/post.dart';
@@ -161,6 +160,7 @@ import 'site_presentation_controller.dart';
 import 'site_read_policy.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
+import 'topic_channel_router.dart';
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
 import 'topic_filter_lookups.dart';
@@ -3354,10 +3354,21 @@ class ShellController extends FrameSafeNotifier
 
   bool _foreground = true;
 
-  final _readerEvents =
-      StreamController<
-        ({String siteUrl, Object account, int topicId, Object? data})
-      >.broadcast(sync: true);
+  final _readerEvents = StreamController<TopicReaderEvent>.broadcast(
+    sync: true,
+  );
+
+  late final _topicChannels = TopicChannelRouter(
+    trackerFor: _liveSessions.trackerFor,
+    tracking: _topicTracking,
+    observeTopicMessage: _notificationPreferences.observeTopicMessage,
+    topics: _topicData,
+    store: store,
+    lifecycle: lifecycle,
+    plugins: plugins.registry,
+    publishReaderEvent: _readerEvents.add,
+    isDisposed: () => isDisposed,
+  );
 
   PluginTopicReader createTopicReader(
     ShellTabContext context,
@@ -3488,155 +3499,14 @@ class ShellController extends FrameSafeNotifier
                 selectedTabIn(panel)?.currentContent,
           ]
         : [currentContent];
-    final routes = <int, ContentRoute>{
-      for (final route in visible.nonNulls) ?route.topicId: route,
+    final slugsByTopic = <int, String>{
+      for (final route in visible.nonNulls) ?route.topicId: route.slug ?? '',
     };
-    if (routes.isEmpty) {
+    if (slugsByTopic.isEmpty) {
       tracker.unwatchTopic();
       return;
     }
-    final channelsByTopic = {
-      for (final topicId in routes.keys)
-        topicId: [
-          '/topic/$topicId',
-          ...plugins.registry.topicChannels(topicId),
-        ],
-    };
-    final lease = lifecycle.capture(siteUrl);
-    final tracking = _topicTracking.capture(siteUrl, lease: lease);
-    if (tracking == null) return;
-    bool ownsTopic() =>
-        !isDisposed &&
-        tracking.isCurrent &&
-        identical(_liveSessions.trackerFor(siteUrl), tracker);
-    tracker.watchTopic(
-      routes.keys.first,
-      channelsByTopic.values.expand((channels) => channels).toSet().toList(),
-      (channel, data) {
-        if (!ownsTopic()) {
-          return;
-        }
-        for (final entry in channelsByTopic.entries) {
-          if (!ownsTopic()) return;
-          if (!entry.value.contains(channel)) continue;
-          final topicId = entry.key;
-          final coreChannel = '/topic/$topicId';
-          if (channel == coreChannel) {
-            _readerEvents.add((
-              siteUrl: siteUrl,
-              account: lease.session,
-              topicId: topicId,
-              data: data,
-            ));
-            _notificationPreferences.observeTopicMessage(
-              siteUrl,
-              topicId,
-              data,
-              lease,
-            );
-            if (!ownsTopic()) return;
-            _applyTopicStatsMessage(siteUrl, topicId, data, lease);
-            if (!ownsTopic()) return;
-          }
-          final core = channel == coreChannel
-              ? _coreTopicMessageInvalidation(siteUrl, data)
-              : _noCoreTopicInvalidation;
-          if ((core.stream &&
-                  !_topicData.forSite(siteUrl).usesReader(topicId)) ||
-              plugins.registry.staleTopic(topicId, channel, data)) {
-            unawaited(
-              _topicData
-                  .forSite(siteUrl)
-                  .refresh(topicId, slug: routes[topicId]?.slug ?? ''),
-            );
-          }
-          final stale = plugins.registry.stalePosts(channel, data);
-          if (stale.isNotEmpty) {
-            _topicData.forSite(siteUrl).invalidatePosts(topicId, stale);
-          }
-          if (core.post case final id?) {
-            _topicData.forSite(siteUrl).invalidatePosts(topicId, {
-              id,
-            }, deletion: core.deletion);
-          }
-        }
-      },
-      // Each visible conversation resumes from its own HTTP snapshot cursor.
-      lastIds: {
-        for (final topicId in routes.keys)
-          '/topic/$topicId': store
-              .read<TopicDetail>(siteUrl, topicId)
-              ?.messageBusLastId,
-      },
-    );
-  }
-
-  /// `Post#publish_change_to_clients!` types, each naming one post by `id`.
-  static const _corePostMessageTypes = {
-    'revised',
-    'rebaked',
-    'acted',
-    'liked',
-    'unliked',
-    'deleted',
-    'destroyed',
-    'recovered',
-  };
-
-  static const ({bool stream, int? post, bool deletion})
-  _noCoreTopicInvalidation = (stream: false, post: null, deletion: false);
-
-  /// Whether a core `/topic/{id}` message changes the stream, or only the one
-  /// post it names. A named post is re-read only while held, so an edit, like
-  /// or deletion reaches a reader who is looking at it, including one whose
-  /// cached topic is replayed from `messageBusLastId`. `deletion` marks the
-  /// messages after which a re-read that omits the post means it is gone.
-  ({bool stream, int? post, bool deletion}) _coreTopicMessageInvalidation(
-    String siteUrl,
-    Object? data,
-  ) {
-    if (data is! Map) return _noCoreTopicInvalidation;
-    final type = data['type'];
-    // As on the web client, a reload replaces the message's per-post handling.
-    // An inbox move names no post, and only a topic read carries its state.
-    if (type == 'created' ||
-        type == 'archived' ||
-        type == 'move_to_inbox' ||
-        data['reload_topic'] == true) {
-      return (stream: true, post: null, deletion: false);
-    }
-    final postId = _corePostMessageTypes.contains(type)
-        ? liveRefreshId(data['id'])
-        : null;
-    if (postId == null) return _noCoreTopicInvalidation;
-    // A reader who could not see the deleted post no longer holds it, and its
-    // recovery has to put it back at its place in the stream.
-    if (type == 'recovered' && store.read<Post>(siteUrl, postId) == null) {
-      return (stream: true, post: null, deletion: false);
-    }
-    return (
-      stream: false,
-      post: postId,
-      deletion: type == 'deleted' || type == 'destroyed',
-    );
-  }
-
-  void _applyTopicStatsMessage(
-    String siteUrl,
-    int topicId,
-    Object? data,
-    SiteLease lease,
-  ) {
-    if (!lease.isCurrent || isDisposed) return;
-    if (data is! Map || data['type'] != 'stats') return;
-    int? total(Object? value) => value is int && value >= 0 ? value : null;
-    _topicData
-        .forLease(siteUrl, lease)
-        ?.acceptTotals(
-          topicId,
-          likeCount: total(data['like_count']),
-          postsCount: total(data['posts_count']),
-        );
+    _topicChannels.watch(siteUrl, tracker, slugsByTopic);
   }
 
   void _acceptLiveNotificationState(
