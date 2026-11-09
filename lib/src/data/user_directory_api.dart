@@ -40,38 +40,39 @@ final class UserDirectoryApi {
       apiKey: apiKey,
       clientId: clientId,
     );
-    final groupNames = <String>[];
+    return UserDirectoryMetadata.fromColumns(columns, editable: editable);
+  }
+
+  /// The groups a viewer can filter the directory by. A failure leaves the
+  /// filter empty, because browsing users does not depend on it.
+  Future<List<String>> groupNames({
+    required String siteUrl,
+    String? apiKey,
+    String? clientId,
+  }) async {
     final transport = _transport;
-    if (apiKey != null && transport is PluginJsonListTransport) {
-      try {
-        // Match the web directory: this unpaginated lookup works even when
-        // the separate Groups directory is disabled.
-        final groups = await (transport as PluginJsonListTransport)
-            .pluginGetJsonList(
-              siteUrl: siteUrl,
-              path: '/groups/search.json?ignore_automatic=true',
-              apiKey: apiKey,
-              clientId: clientId,
-            );
-        for (final raw in groups) {
-          final group = Group.fromWire(
-            raw,
-            siteUrl,
-            extensions: _models.extensions,
-          );
-          if (!group.automatic && group.canSeeMembers) {
-            groupNames.add(group.name);
-          }
-        }
-      } catch (_) {
-        // User browsing remains available when group discovery fails.
-      }
+    if (apiKey == null || transport is! PluginJsonListTransport) {
+      return const [];
     }
-    return UserDirectoryMetadata.fromColumns(
-      columns,
-      groupNames: groupNames,
-      editable: editable,
-    );
+    try {
+      // Match the web directory: this unpaginated lookup works even when
+      // the separate Groups directory is disabled.
+      final groups = await (transport as PluginJsonListTransport)
+          .pluginGetJsonList(
+            siteUrl: siteUrl,
+            path: '/groups/search.json?ignore_automatic=true',
+            apiKey: apiKey,
+            clientId: clientId,
+          );
+      return normalizedDirectoryGroupNames([
+        for (final raw in groups)
+          if (Group.fromWire(raw, siteUrl, extensions: _models.extensions)
+              case final group when !group.automatic && group.canSeeMembers)
+            group.name,
+      ]);
+    } catch (_) {
+      return const [];
+    }
   }
 
   Future<void> updateColumns({

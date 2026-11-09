@@ -24,6 +24,22 @@ const String _identityColumnWidthKey = 'identity';
 String _metricColumnWidthKey(UserDirectoryColumn column) =>
     'metric.${column.type.name}.${column.id}';
 
+String _columnLabel(
+  BuildContext context,
+  String siteUrl,
+  UserDirectoryColumn column,
+) =>
+    (PluginRegistryScope.maybeOf(context) ??
+            PluginScope.maybeOf(context)?.registry)
+        ?.userDirectoryColumnLabel(context, siteUrl, column.name) ??
+    column.label;
+
+typedef _MetricCells = ({
+  UserDirectoryColumn column,
+  double maximum,
+  DDataTableCellBuilder<UserDirectoryItem> build,
+});
+
 @immutable
 final class UsersPageData {
   const UsersPageData({
@@ -53,6 +69,38 @@ final class UsersPageData {
   final bool hasMore;
   final String? error;
   final bool pageError;
+
+  @override
+  bool operator ==(Object other) =>
+      other is UsersPageData &&
+      listEquals(other.items, items) &&
+      listEquals(other.columns, columns) &&
+      listEquals(other.groupNames, groupNames) &&
+      other.currentUsername == currentUsername &&
+      other.totalRows == totalRows &&
+      other.query == query &&
+      other.loading == loading &&
+      other.loadingMore == loadingMore &&
+      other.loaded == loaded &&
+      other.hasMore == hasMore &&
+      other.error == error &&
+      other.pageError == pageError;
+
+  @override
+  int get hashCode => Object.hash(
+    Object.hashAll(items),
+    Object.hashAll(columns),
+    Object.hashAll(groupNames),
+    currentUsername,
+    totalRows,
+    query,
+    loading,
+    loadingMore,
+    loaded,
+    hasMore,
+    error,
+    pageError,
+  );
 }
 
 class UsersDirectoryHost extends StatefulWidget {
@@ -67,6 +115,9 @@ class UsersDirectoryHost extends StatefulWidget {
 class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
   Object? _owner;
   Object? _scheduledLoad;
+  UsersPage? _page;
+  Object? _pageRoute;
+  List<String> _pageColumnLabels = const [];
 
   @override
   Widget build(BuildContext context) {
@@ -102,27 +153,49 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
             });
           }
         }
+        final data = UsersPageData(
+          items: state.items,
+          columns: state.columns,
+          groupNames: shell.userDirectory.groupNamesFor(widget.siteUrl),
+          currentUsername: instance?.user?.username,
+          totalRows: state.totalRows,
+          query: query,
+          loading: state.loading,
+          loadingMore: state.loadingMore,
+          loaded: state.loaded,
+          hasMore: state.hasMore,
+          error: state.error,
+          pageError: state.pageError,
+        );
+        final columnLabels = [
+          for (final column in data.columns)
+            _columnLabel(context, widget.siteUrl, column),
+        ];
+        // The shell, search and directory controllers each announce changes
+        // for every tab, query and account. Handing back the same widget
+        // leaves the page and its rows out of the ones that do not apply here.
+        // Its callbacks are bound to one route object, and an equal route
+        // pushed over it would leave them refusing every action.
+        final held = _page;
+        if (held != null &&
+            identical(_pageRoute, route) &&
+            held.key == ValueKey(owner) &&
+            held.siteUrl == widget.siteUrl &&
+            held.data == data &&
+            listEquals(_pageColumnLabels, columnLabels)) {
+          return held;
+        }
+        _pageRoute = route;
+        _pageColumnLabels = columnLabels;
+
         Future<void> reload({bool refresh = true, bool more = false}) async {
           if (owns()) await tab.loadUsers(refresh: refresh, more: more);
         }
 
-        return UsersPage(
+        return _page = UsersPage(
           key: ValueKey(owner),
           siteUrl: widget.siteUrl,
-          data: UsersPageData(
-            items: state.items,
-            columns: state.columns,
-            groupNames: state.groupNames,
-            currentUsername: instance?.user?.username,
-            totalRows: state.totalRows,
-            query: query,
-            loading: state.loading,
-            loadingMore: state.loadingMore,
-            loaded: state.loaded,
-            hasMore: state.hasMore,
-            error: state.error,
-            pageError: state.pageError,
-          ),
+          data: data,
           onPeriodChanged: (period) {
             if (owns()) tab.setUsersPeriod(period);
           },
@@ -172,9 +245,9 @@ class UsersPage extends StatefulWidget {
 }
 
 class _UsersPageState extends State<UsersPage> {
-  late String _searchText;
+  late final ValueNotifier<String> _searchText;
   String? _sentSearch;
-  Map<String, double> _columnMaxima = const {};
+  Map<String, _MetricCells> _metricCells = const {};
   final ScrollController _horizontal = ScrollController();
   final ScrollController _vertical = ScrollController();
   Timer? _searchDebounce;
@@ -199,8 +272,8 @@ class _UsersPageState extends State<UsersPage> {
   @override
   void initState() {
     super.initState();
-    _searchText = widget.data.query.search;
-    _deriveColumnMaxima();
+    _searchText = ValueNotifier(widget.data.query.search);
+    _deriveMetricCells();
     _vertical.addListener(_onVerticalScroll);
 
     _restoreColumnWidths();
@@ -228,22 +301,22 @@ class _UsersPageState extends State<UsersPage> {
     }
     final search = widget.data.query.search;
     if (ownerChanged) {
-      _searchText = search;
+      _searchText.value = search;
       _sentSearch = null;
     } else if (oldWidget.data.query.search != search) {
       // The field's own search comes back trimmed, possibly after further
       // keystrokes: rewriting the field for it would drop trailing whitespace
       // or characters typed since, and move the caret, so only a search the
       // field did not send replaces its text.
-      if (search != _sentSearch && search != _searchText.trim()) {
+      if (search != _sentSearch && search != _searchText.value.trim()) {
         _searchDebounce?.cancel();
-        _searchText = search;
+        _searchText.value = search;
       }
       _sentSearch = null;
     }
     if (!listEquals(oldWidget.data.items, widget.data.items) ||
         !listEquals(oldWidget.data.columns, widget.data.columns)) {
-      _deriveColumnMaxima();
+      _deriveMetricCells();
     }
     final columnIds = {
       'name',
@@ -264,31 +337,49 @@ class _UsersPageState extends State<UsersPage> {
   void dispose() {
     _searchDebounce?.cancel();
     _flushColumnWidths();
+    _searchText.dispose();
     _horizontal.dispose();
     _vertical.dispose();
     super.dispose();
   }
 
-  void _deriveColumnMaxima() {
-    _columnMaxima = {
-      for (final column in widget.data.columns)
-        _metricColumnWidthKey(column): widget.data.items.fold<double>(
-          0,
-          (maximum, item) => math.max(
-            maximum,
-            item.numericValueFor(column)?.abs().toDouble() ?? 0,
-          ),
+  void _deriveMetricCells() {
+    final previous = _metricCells;
+    final next = <String, _MetricCells>{};
+    for (final column in widget.data.columns) {
+      final key = _metricColumnWidthKey(column);
+      final maximum = widget.data.items.fold<double>(
+        0,
+        (maximum, item) => math.max(
+          maximum,
+          item.numericValueFor(column)?.abs().toDouble() ?? 0,
         ),
-    };
+      );
+      final held = previous[key];
+      // Keeping the builder keeps the rows: only a column whose scale moved
+      // has to draw its bars again when a page lands.
+      next[key] =
+          held != null &&
+              identical(held.column, column) &&
+              held.maximum == maximum
+          ? held
+          : (
+              column: column,
+              maximum: maximum,
+              build: (context, cell) =>
+                  _metricCell(context, cell.row, column, maximum),
+            );
+    }
+    _metricCells = next;
   }
 
   Widget _metricCell(
     BuildContext context,
     UserDirectoryItem item,
     UserDirectoryColumn column,
+    double maximum,
   ) {
     final numeric = item.numericValueFor(column);
-    final maximum = _columnMaxima[_metricColumnWidthKey(column)] ?? 0;
     final fraction = maximum > 0 && numeric != null
         ? (numeric.abs() / maximum).clamp(0.0, 1.0).toDouble()
         : 0.0;
@@ -406,7 +497,7 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _search(String value) {
-    setState(() => _searchText = value);
+    _searchText.value = value;
     _searchDebounce?.cancel();
     _searchDebounce = Timer(const Duration(milliseconds: 350), () {
       final search = value.trim();
@@ -414,6 +505,56 @@ class _UsersPageState extends State<UsersPage> {
       widget.onSearchChanged?.call(search);
     });
   }
+
+  Widget _identityCell(
+    BuildContext context,
+    DDataTableCellContext<UserDirectoryItem> cell,
+  ) => Row(
+    key: ValueKey('user-row-${cell.row.user.username}'),
+    children: [
+      UserCardTarget.avatar(
+        username: cell.row.user.username,
+        siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+        child: DAvatar(
+          size: DAvatarSize.sm,
+          decorative: true,
+          child: AvatarImage(
+            url: cell.row.user.avatarUrl,
+            size: DAvatarSize.sm.dimension,
+            fallback: DAvatarFallback(
+              child: Text(
+                cell.row.user.username.characters.firstOrNull?.toUpperCase() ??
+                    '?',
+              ),
+            ),
+          ),
+        ),
+      ),
+      const SizedBox(width: DSpacing.sm),
+      Flexible(
+        child: UserCardTarget(
+          username: cell.row.user.username,
+          siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+          child: SearchText(cell.row.user.username),
+        ),
+      ),
+    ],
+  );
+
+  Widget _nameCell(
+    BuildContext context,
+    DDataTableCellContext<UserDirectoryItem> cell,
+  ) => cell.row.user.name == null
+      ? const Text('—')
+      : Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: UserCardTarget(
+            key: ValueKey('user-name-${cell.row.user.username}'),
+            username: cell.row.user.username,
+            siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
+            child: SearchText(cell.row.user.name!),
+          ),
+        );
 
   List<DDataTableColumn<UserDirectoryItem>> _columns(double metricWidth) => [
     DDataTableColumn(
@@ -428,40 +569,7 @@ class _UsersPageState extends State<UsersPage> {
           ? null
           : (a, b) => a.user.username.compareTo(b.user.username),
       headerBuilder: _header,
-      cellBuilder: (context, cell) {
-        return Row(
-          key: ValueKey('user-row-${cell.row.user.username}'),
-          children: [
-            UserCardTarget.avatar(
-              username: cell.row.user.username,
-              siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-              child: DAvatar(
-                size: DAvatarSize.sm,
-                decorative: true,
-                child: AvatarImage(
-                  url: cell.row.user.avatarUrl,
-                  size: DAvatarSize.sm.dimension,
-                  fallback: DAvatarFallback(
-                    child: Text(
-                      cell.row.user.username.characters.firstOrNull
-                              ?.toUpperCase() ??
-                          '?',
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(width: DSpacing.sm),
-            Flexible(
-              child: UserCardTarget(
-                username: cell.row.user.username,
-                siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-                child: SearchText(cell.row.user.username),
-              ),
-            ),
-          ],
-        );
-      },
+      cellBuilder: _identityCell,
     ),
     DDataTableColumn(
       id: 'name',
@@ -470,30 +578,12 @@ class _UsersPageState extends State<UsersPage> {
       width: const FixedColumnWidth(186),
       minWidth: 120,
       maxWidth: 800,
-      cellBuilder: (context, cell) => cell.row.user.name == null
-          ? const Text('—')
-          : Align(
-              alignment: AlignmentDirectional.centerStart,
-              child: UserCardTarget(
-                key: ValueKey('user-name-${cell.row.user.username}'),
-                username: cell.row.user.username,
-                siteUrl: widget.siteUrl.isEmpty ? null : widget.siteUrl,
-                child: SearchText(cell.row.user.name!),
-              ),
-            ),
+      cellBuilder: _nameCell,
     ),
     for (final column in widget.data.columns)
       DDataTableColumn(
         id: _metricColumnWidthKey(column),
-        label:
-            (PluginRegistryScope.maybeOf(context) ??
-                    PluginScope.maybeOf(context)?.registry)
-                ?.userDirectoryColumnLabel(
-                  context,
-                  widget.siteUrl,
-                  column.name,
-                ) ??
-            column.label,
+        label: _columnLabel(context, widget.siteUrl, column),
         resizable: true,
         width: FixedColumnWidth(metricWidth),
         minWidth: 88,
@@ -508,7 +598,7 @@ class _UsersPageState extends State<UsersPage> {
         alignment: column.type == UserDirectoryColumnType.userField
             ? AlignmentDirectional.centerStart
             : AlignmentDirectional.centerEnd,
-        cellBuilder: (context, cell) => _metricCell(context, cell.row, column),
+        cellBuilder: _metricCells[_metricColumnWidthKey(column)]!.build,
       ),
   ];
 
@@ -616,13 +706,17 @@ class _UsersPageState extends State<UsersPage> {
                       children: [
                         SizedBox(
                           width: searchWidth,
-                          child: DDataTableFilterField(
-                            key: const ValueKey('users-search'),
-                            size: DControlSize.field,
-                            maxWidth: double.infinity,
-                            value: _searchText,
-                            hintText: context.l10n.filterUsers,
-                            onChanged: _search,
+                          child: ValueListenableBuilder<String>(
+                            valueListenable: _searchText,
+                            builder: (context, text, _) =>
+                                DDataTableFilterField(
+                                  key: const ValueKey('users-search'),
+                                  size: DControlSize.field,
+                                  maxWidth: double.infinity,
+                                  value: text,
+                                  hintText: context.l10n.filterUsers,
+                                  onChanged: _search,
+                                ),
                           ),
                         ),
                         SizedBox(

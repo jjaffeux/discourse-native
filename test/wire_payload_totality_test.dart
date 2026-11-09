@@ -1442,7 +1442,6 @@ void main() {
               withFields({'name': 'n'}),
             ]),
           }),
-          groupNames: [if (loose is String) loose, 'g'],
           editable: run % 4 < 2,
         ),
         (metadata) => metadata.availableColumns.isNotEmpty,

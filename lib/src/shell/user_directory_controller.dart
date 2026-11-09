@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
@@ -16,7 +18,6 @@ final class UserDirectoryState {
     List<UserDirectoryItem> items = const [],
     List<UserDirectoryColumn> columns = const [],
     List<UserDirectoryColumn> availableColumns = const [],
-    List<String> groupNames = const [],
     bool canManageColumns = false,
     int totalRows = 0,
     int nextPage = 0,
@@ -31,7 +32,6 @@ final class UserDirectoryState {
     items: List.unmodifiable(items),
     columns: List.unmodifiable(columns),
     availableColumns: List.unmodifiable(availableColumns),
-    groupNames: List.unmodifiable(groupNames),
     canManageColumns: canManageColumns,
     totalRows: totalRows,
     nextPage: nextPage,
@@ -50,7 +50,6 @@ final class UserDirectoryState {
     this.items = const [],
     this.columns = const [],
     this.availableColumns = const [],
-    this.groupNames = const [],
     this.canManageColumns = false,
     this.totalRows = 0,
     this.nextPage = 0,
@@ -66,7 +65,6 @@ final class UserDirectoryState {
   final List<UserDirectoryItem> items;
   final List<UserDirectoryColumn> columns;
   final List<UserDirectoryColumn> availableColumns;
-  final List<String> groupNames;
   final bool canManageColumns;
   final int totalRows;
   final int nextPage;
@@ -100,6 +98,8 @@ final class _DirectoryAccount {
   Object metadataGeneration = Object();
   UserDirectoryMetadata? metadata;
   Future<UserDirectoryMetadata>? metadataLoad;
+  List<String> groupNames = const [];
+  Object? groupLookup;
   final Map<UserDirectoryQuery, Object> requests = {};
   Object? columnUpdate;
   void Function()? detach;
@@ -118,7 +118,6 @@ final class _DirectoryAccount {
         : UserDirectoryState(
             columns: shared.columns,
             availableColumns: shared.availableColumns,
-            groupNames: shared.groupNames,
             canManageColumns: shared.canManageColumns,
           );
   }
@@ -143,6 +142,7 @@ final class _DirectoryAccount {
     metadata = null;
     metadataLoad?.ignore();
     metadataLoad = null;
+    groupLookup = null;
   }
 
   void clearQueries() {
@@ -194,6 +194,9 @@ final class UserDirectoryController extends FrameSafeNotifier {
   UserDirectoryState stateFor(String siteUrl, UserDirectoryQuery query) =>
       _accountFor(siteUrl)?.stateFor(query) ?? const UserDirectoryState.empty();
 
+  List<String> groupNamesFor(String siteUrl) =>
+      _accountFor(siteUrl)?.groupNames ?? const [];
+
   bool updatingColumnsFor(String siteUrl) =>
       _accountFor(siteUrl)?.columnUpdate != null;
 
@@ -229,7 +232,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
         items: held.items,
         columns: held.columns,
         availableColumns: held.availableColumns,
-        groupNames: held.groupNames,
         canManageColumns: held.canManageColumns,
         totalRows: held.totalRows,
         nextPage: held.nextPage,
@@ -300,7 +302,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
                 items: rows,
                 columns: metadata.columns,
                 availableColumns: metadata.availableColumns,
-                groupNames: metadata.groupNames,
                 canManageColumns: metadata.canManageColumns,
                 totalRows: page.totalRows,
                 nextPage: requestedPage + 1,
@@ -329,7 +330,6 @@ final class UserDirectoryController extends FrameSafeNotifier {
                 items: held.items,
                 columns: held.columns,
                 availableColumns: held.availableColumns,
-                groupNames: held.groupNames,
                 canManageColumns: held.canManageColumns,
                 totalRows: held.totalRows,
                 nextPage: held.nextPage,
@@ -426,6 +426,7 @@ final class UserDirectoryController extends FrameSafeNotifier {
         canManageColumns: instance.user?.staff == true,
       ),
     );
+    _lookUpGroups(instance, auth, account);
     if (identical(account.metadataGeneration, generation)) {
       account.metadataLoad = future;
     }
@@ -444,6 +445,43 @@ final class UserDirectoryController extends FrameSafeNotifier {
         account.metadataLoad = null;
       }
     }
+  }
+
+  /// Runs beside the columns rather than ahead of the rows: this lookup is
+  /// unpaginated and only feeds the group filter.
+  void _lookUpGroups(
+    DiscourseInstance instance,
+    AccountRequestCredentials auth,
+    _DirectoryAccount account,
+  ) {
+    final lookup = Object();
+    account.groupLookup = lookup;
+    final lease = account.lease;
+    unawaited(() async {
+      final List<String> names;
+      try {
+        names = await auth.run(
+          () => api.groupNames(
+            siteUrl: instance.url,
+            apiKey: auth.apiKey,
+            clientId: auth.apiKey == null ? null : auth.clientId,
+          ),
+        );
+      } catch (_) {
+        return;
+      }
+      lease.commit(() {
+        if (isDisposed ||
+            !identical(_accounts[instance.url], account) ||
+            !identical(account.groupLookup, lookup)) {
+          return;
+        }
+        account.groupLookup = null;
+        if (listEquals(account.groupNames, names)) return;
+        account.groupNames = names;
+        notifySafely();
+      });
+    }());
   }
 
   Future<AccountRequestCredentials?> _credentialsFor(
