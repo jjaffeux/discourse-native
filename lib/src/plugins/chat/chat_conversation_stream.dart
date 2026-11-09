@@ -578,6 +578,17 @@ final class _ChatConversationStream {
     return null;
   }
 
+  /// A person started a new scroll, so a page that failed may be asked for
+  /// once more.
+  void allowFailedPageRetry() {
+    final held = _window;
+    if (held == null ||
+        (held.olderPageFailedAt == null && held.newerPageFailedAt == null)) {
+      return;
+    }
+    publish(held.copyWith(clearPageFailures: true));
+  }
+
   Future<void> loadOlder() async {
     if (!isCurrent || target.channelId <= 0) return;
     final held = snapshot;
@@ -596,6 +607,7 @@ final class _ChatConversationStream {
         identical(_olderRequest, request);
     publish(held.copyWith(loadingOlder: true));
 
+    var failed = false;
     _ChatMessageRead? read;
     try {
       final requestCredentials = await _controller._requests.credentialsFor(
@@ -674,6 +686,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return;
       }
+      failed = true;
     } finally {
       read?.release();
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
@@ -683,7 +696,12 @@ final class _ChatConversationStream {
           }
           final current = _window;
           if (current != null) {
-            publish(current.copyWith(loadingOlder: false));
+            publish(
+              current.copyWith(
+                loadingOlder: false,
+                olderPageFailedAt: failed ? before : null,
+              ),
+            );
           }
           if (ownsRequest()) _olderRequest = null;
         });
@@ -709,6 +727,7 @@ final class _ChatConversationStream {
         identical(_newerRequest, request);
     publish(held.copyWith(loadingNewer: true));
 
+    var failed = false;
     _ChatMessageRead? read;
     try {
       final requestCredentials = await _controller._requests.credentialsFor(
@@ -803,6 +822,7 @@ final class _ChatConversationStream {
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return;
       }
+      failed = true;
     } finally {
       read?.release();
       if (_controller._requestIsCurrent(lease, ownsRequest)) {
@@ -812,7 +832,12 @@ final class _ChatConversationStream {
           }
           final current = _window;
           if (current != null) {
-            publish(current.copyWith(loadingNewer: false));
+            publish(
+              current.copyWith(
+                loadingNewer: false,
+                newerPageFailedAt: failed ? after : null,
+              ),
+            );
           }
           if (ownsRequest()) _newerRequest = null;
         });

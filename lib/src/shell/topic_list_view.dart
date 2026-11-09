@@ -582,13 +582,12 @@ class _TopicListViewState extends State<TopicListView> {
     _TopicListIdentity feedIdentity,
     TopicFeed feed,
   ) {
-    if (!feed.hasMore ||
-        feed.loading ||
-        feed.loadingMore ||
-        feed.error != null ||
-        _loadMoreToken != null) {
-      return;
-    }
+    final paging = ScrollPagingGate(
+      hasMore: feed.hasMore,
+      busy: feed.loading || feed.loadingMore || _loadMoreToken != null,
+      lastPageFailed: feed.error != null,
+    );
+    if (!paging.admits) return;
 
     final token = Object();
     _loadMoreToken = token;

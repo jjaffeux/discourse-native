@@ -75,11 +75,14 @@ class _PostVotingReaderState extends State<PostVotingReader> {
           (id) => reader.post(id)?.contentRedacted == false,
         ),
       );
+      final paging = ScrollPagingGate(
+        hasMore: _controller.hasMore,
+        busy: _controller.loading || _controller.loadingMore,
+        lastPageFailed: _controller.error != null,
+      );
       if (_scroll.hasClients &&
           _scroll.position.extentAfter < 220 &&
-          _controller.hasMore &&
-          !_controller.loading &&
-          !_controller.loadingMore) {
+          paging.admits) {
         unawaited(_page());
       }
     });

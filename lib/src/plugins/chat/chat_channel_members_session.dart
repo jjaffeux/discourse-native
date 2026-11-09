@@ -91,12 +91,12 @@ final class ChatChannelMembersSession extends ChangeNotifier {
   Future<void> loadMore({bool prefetch = false}) async {
     if (_disposed) return;
     final query = _query;
-    if (!query.target.lease.isCurrent ||
-        query.request != null ||
-        !query.canLoadMore ||
-        (prefetch && query.error != null)) {
-      return;
-    }
+    final paging = ScrollPagingGate(
+      hasMore: query.canLoadMore,
+      busy: query.request != null,
+      lastPageFailed: prefetch && query.error != null,
+    );
+    if (!query.target.lease.isCurrent || !paging.admits) return;
     final request = _MemberRequest(query: query, offset: query.nextOffset);
     query.request = request;
     query.error = null;

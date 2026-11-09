@@ -179,6 +179,8 @@ class ChatStreamState {
     this.error,
     this.threadUnavailable = false,
     this.revision = 0,
+    this.olderPageFailedAt,
+    this.newerPageFailedAt,
   });
 
   /// Oldest first and contiguous; paging can only extend either edge.
@@ -228,6 +230,25 @@ class ChatStreamState {
   /// Invalidates grouped projections when a record changes without an ID change.
   final int revision;
 
+  /// The oldest id when an older page last failed. Moving that edge, replacing
+  /// the window, or a new scroll gesture ends the failure.
+  final int? olderPageFailedAt;
+
+  /// The newest id when a newer page last failed.
+  final int? newerPageFailedAt;
+
+  ScrollPagingGate get olderPaging => ScrollPagingGate(
+    hasMore: canLoadMorePast,
+    busy: loadingOlder,
+    lastPageFailed: olderPageFailedAt != null && olderPageFailedAt == oldestId,
+  );
+
+  ScrollPagingGate get newerPaging => ScrollPagingGate(
+    hasMore: canLoadMoreFuture,
+    busy: loadingNewer,
+    lastPageFailed: newerPageFailedAt != null && newerPageFailedAt == newestId,
+  );
+
   bool get isEmpty =>
       fetchedOnce &&
       error == null &&
@@ -258,6 +279,9 @@ class ChatStreamState {
     bool clearNotice = false,
     bool? threadUnavailable,
     int? revision,
+    int? olderPageFailedAt,
+    int? newerPageFailedAt,
+    bool clearPageFailures = false,
   }) => ChatStreamState(
     messageIds: messageIds ?? this.messageIds,
     localMessageIds: localMessageIds ?? this.localMessageIds,
@@ -278,6 +302,12 @@ class ChatStreamState {
     error: clearError ? null : (error ?? this.error),
     threadUnavailable: threadUnavailable ?? this.threadUnavailable,
     revision: revision ?? this.revision,
+    olderPageFailedAt: clearPageFailures
+        ? null
+        : (olderPageFailedAt ?? this.olderPageFailedAt),
+    newerPageFailedAt: clearPageFailures
+        ? null
+        : (newerPageFailedAt ?? this.newerPageFailedAt),
   );
 
   @override
@@ -301,7 +331,9 @@ class ChatStreamState {
           other.notice == notice &&
           other.error == error &&
           other.threadUnavailable == threadUnavailable &&
-          other.revision == revision;
+          other.revision == revision &&
+          other.olderPageFailedAt == olderPageFailedAt &&
+          other.newerPageFailedAt == newerPageFailedAt;
 
   @override
   int get hashCode => Object.hash(
@@ -323,6 +355,8 @@ class ChatStreamState {
     error,
     threadUnavailable,
     revision,
+    olderPageFailedAt,
+    newerPageFailedAt,
   );
 }
 
@@ -3653,6 +3687,11 @@ class ChatController extends FrameSafeNotifier {
     if (isDisposed || target.channelId <= 0) return Future.value();
     return _conversations[_targetKey(siteUrl, target)]?.loadNewer() ??
         Future.value();
+  }
+
+  void allowFailedPageRetryFor(String siteUrl, ChatStreamTarget target) {
+    if (isDisposed || target.channelId <= 0) return;
+    _conversations[_targetKey(siteUrl, target)]?.allowFailedPageRetry();
   }
 
   /// Optimistic read receipts are not rolled back; the next channel snapshot

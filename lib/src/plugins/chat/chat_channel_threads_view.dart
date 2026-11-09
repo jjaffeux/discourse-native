@@ -72,15 +72,21 @@ class _ChatChannelThreadsViewState extends State<ChatChannelThreadsView> {
     super.dispose();
   }
 
-  // A failed page is retried only from its Try again row: every scroll
-  // update near the end would otherwise resend it as soon as it fails.
   void _maybeLoadMore() {
     if (!_scroll.hasClients ||
-        _chat.channelThreadsError(widget.siteUrl, widget.channelId) != null ||
         _scroll.position.extentAfter >
             paginationPrefetchDistance(_scroll.position)) {
       return;
     }
+    final paging = ScrollPagingGate(
+      hasMore: _chat.channelThreadsHaveMore(widget.siteUrl, widget.channelId),
+      busy:
+          _chat.channelThreadsLoading(widget.siteUrl, widget.channelId) ||
+          _chat.channelThreadsLoadingMore(widget.siteUrl, widget.channelId),
+      lastPageFailed:
+          _chat.channelThreadsError(widget.siteUrl, widget.channelId) != null,
+    );
+    if (!paging.admits) return;
     unawaited(
       _chat.loadChannelThreads(widget.siteUrl, widget.channelId, more: true),
     );

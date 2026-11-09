@@ -665,6 +665,26 @@ Map<String, dynamic> newDirectChannelEvent({
 };
 
 void main() {
+  test('a failed page bars only the edge it failed at', () {
+    const failed = ChatStreamState(
+      messageIds: [5, 6],
+      canLoadMorePast: true,
+      canLoadMoreFuture: true,
+      olderPageFailedAt: 5,
+      newerPageFailedAt: 6,
+    );
+    expect(failed.olderPaging.admits, isFalse);
+    expect(failed.newerPaging.admits, isFalse);
+
+    final moved = failed.copyWith(messageIds: [4, 5, 6, 7]);
+    expect(moved.olderPaging.admits, isTrue);
+    expect(moved.newerPaging.admits, isTrue);
+
+    final retried = failed.copyWith(clearPageFailures: true);
+    expect(retried.olderPaging.admits, isTrue);
+    expect(retried.newerPaging.admits, isTrue);
+  });
+
   // The controller uses frame-safe notifiers, whose scheduler-phase check needs
   // a binding even in these non-widget tests.
   TestWidgetsFlutterBinding.ensureInitialized();

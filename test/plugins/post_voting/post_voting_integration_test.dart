@@ -507,6 +507,21 @@ void main() {
       await tester.pumpWidget(const SizedBox());
     },
   );
+  testWidgets('a failed answer page is requested once while near the end', (
+    tester,
+  ) async {
+    const path = '/t/7/posts.json?post_ids[]=102';
+    final fixture = await pumpFixture(
+      tester,
+      desktop,
+      topicJson: topic(posts: [post(1), post(3)]),
+    );
+    await frames(tester);
+
+    expect(fixture.api.pluginReadPaths.where((read) => read == path), [path]);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  });
   testWidgets(
     'late full comment read cannot replace a later authenticated mutation read',
     (tester) async {

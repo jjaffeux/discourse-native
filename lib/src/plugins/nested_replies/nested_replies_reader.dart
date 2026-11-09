@@ -687,10 +687,12 @@ class _NestedRepliesReaderState extends State<NestedRepliesReader> {
       return;
     }
     final prefetch = paginationPrefetchDistance(_scroll.position);
-    if (_controller.hasMoreRoots &&
-        !_controller.loadingMoreRoots &&
-        _controller.rootPageError == null &&
-        _scroll.position.extentAfter <= prefetch) {
+    final rootPaging = ScrollPagingGate(
+      hasMore: _controller.hasMoreRoots,
+      busy: _controller.loadingMoreRoots,
+      lastPageFailed: _controller.rootPageError != null,
+    );
+    if (rootPaging.admits && _scroll.position.extentAfter <= prefetch) {
       unawaited(_loadMoreRoots());
     }
     final viewport = _viewport.currentContext?.findRenderObject();

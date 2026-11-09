@@ -133,16 +133,16 @@ class _GroupsPageState extends State<GroupsPage> {
     widget.onSearchChanged?.call(value.trim());
   }
 
-  // A failed page is retried only from its Try again row: every scroll
-  // notification near the end would otherwise resend it as soon as it fails.
   bool _onScroll(ScrollNotification notification) {
+    final paging = ScrollPagingGate(
+      hasMore: widget.data.hasMore,
+      busy: widget.data.loading || widget.data.loadingMore,
+      lastPageFailed: widget.data.pageError,
+    );
     if (notification.depth == 0 &&
         notification.metrics.extentAfter <
             paginationPrefetchDistance(notification.metrics) &&
-        widget.data.hasMore &&
-        !widget.data.loading &&
-        !widget.data.loadingMore &&
-        !widget.data.pageError) {
+        paging.admits) {
       widget.onLoadMore?.call();
     }
     return false;

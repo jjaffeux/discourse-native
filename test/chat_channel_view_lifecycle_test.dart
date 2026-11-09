@@ -51,6 +51,7 @@ import 'support/button_surface.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
 import 'support/media_pipeline.dart';
+import 'support/scroll_gestures.dart';
 
 const _messageList = ValueKey('d-message-scroller-list');
 
@@ -1103,6 +1104,144 @@ void main() {
         await tester.pump();
       }
       expect(api.olderSites, hasLength(asked));
+    });
+
+    for (final older in [true, false]) {
+      testWidgets(
+        'a failed ${older ? 'older' : 'newer'} page is asked for once per drag',
+        (tester) async {
+          addTearDown(() => tester.binding.setSurfaceSize(null));
+          await tester.binding.setSurfaceSize(const Size(800, 400));
+          final api = _ChatApi(
+            openPages: {
+              firstSite: [
+                _messagesPage(
+                  1,
+                  20,
+                  canLoadMorePast: older,
+                  canLoadMoreFuture: !older,
+                ),
+              ],
+            },
+            failOlder: older,
+            failNewer: !older,
+          );
+          final controller = await _controller(api, sites: const [firstSite]);
+          addTearDown(controller.dispose);
+          controller.chatRecords.put(
+            firstSite,
+            _channel(lastRead: older ? 20 : 1),
+          );
+
+          await tester.pumpWidget(_TestView(controller: controller));
+          await tester.pumpAndSettle();
+          final requests = older ? api.olderSites : api.newerSites;
+          final position = tester
+              .state<ScrollableState>(_verticalChatScroll())
+              .position;
+          expect(position.maxScrollExtent, greaterThan(16));
+          final travel = position.pixels < position.maxScrollExtent / 2
+              ? 8.0
+              : -8.0;
+
+          Future<int> requestsDuringDrag() async {
+            final before = requests.length;
+            await dragOnceThroughUpdates(
+              tester,
+              _verticalChatScroll(),
+              travel: travel,
+            );
+            return requests.length - before;
+          }
+
+          expect(
+            [await requestsDuringDrag(), await requestsDuringDrag()],
+            [1, 1],
+          );
+
+          final start = position.pixels.clamp(
+            8.0,
+            position.maxScrollExtent - 8,
+          );
+          final afterDrags = requests.length;
+          for (var update = 0; update < 20; update++) {
+            position.jumpTo(start + (update.isEven ? 8 : -8));
+            await tester.pump();
+          }
+          expect(requests, hasLength(afterDrags));
+        },
+      );
+    }
+
+    testWidgets('a fresh load lets a failed page be asked for again', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(800, 400));
+      final page = _messagesPage(1, 20, canLoadMorePast: true);
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [page, page],
+        },
+        failOlder: true,
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 20));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      Future<void> nudge() async {
+        final position = tester
+            .state<ScrollableState>(_verticalChatScroll())
+            .position;
+        position.jumpTo(position.pixels + 8);
+        await tester.pump();
+        position.jumpTo(position.pixels - 8);
+        await tester.pump();
+      }
+
+      await nudge();
+      expect(api.olderSites, [firstSite]);
+
+      await _mountedReader(tester).open(force: true);
+      await tester.pumpAndSettle();
+      await nudge();
+
+      expect(api.olderSites, [firstSite, firstSite]);
+    });
+
+    testWidgets('a page that loaded asks for the next one on the next scroll', (
+      tester,
+    ) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(800, 400));
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(10, 20, canLoadMorePast: true)],
+        },
+        olderCanLoadMorePast: true,
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 29));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pumpAndSettle();
+      final position = tester
+          .state<ScrollableState>(_verticalChatScroll())
+          .position;
+      final start = position.pixels;
+      Future<void> nudge(double offset) async {
+        position.jumpTo(start + offset);
+        await tester.pump();
+      }
+
+      await nudge(8);
+      final asked = api.olderSites.length;
+      expect(asked, greaterThan(0));
+      await nudge(16);
+      expect(api.olderSites.length, greaterThan(asked));
     });
 
     testWidgets('a paging flag does not reproject the whole message window', (
@@ -4406,6 +4545,7 @@ final class _ChatApi extends FakeDiscourseApi {
     required this.openPages,
     this.failNewer = false,
     this.failOlder = false,
+    this.olderCanLoadMorePast = false,
     this.gatedOpen,
     this.failedOpen,
     this.gatedOlder,
@@ -4416,6 +4556,7 @@ final class _ChatApi extends FakeDiscourseApi {
   final Map<String, List<ChatMessagePage>> openPages;
   final bool failNewer;
   final bool failOlder;
+  final bool olderCanLoadMorePast;
   final _OpenGate? gatedOpen;
   final _FailedOpen? failedOpen;
   final Completer<ChatMessagePage>? gatedOlder;
@@ -4443,7 +4584,9 @@ final class _ChatApi extends FakeDiscourseApi {
       if (failOlder) throw StateError('older page refused');
       final gate = gatedOlder;
       if (gate != null) return gate.future;
-      return SynchronousFuture(_messagesPage(before - 1, 1));
+      return SynchronousFuture(
+        _messagesPage(before - 1, 1, canLoadMorePast: olderCanLoadMorePast),
+      );
     }
     if (after != null) {
       newerSites.add(siteUrl);

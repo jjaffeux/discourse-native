@@ -54,7 +54,12 @@ class _CakedayDirectoryState extends State<CakedayDirectory> {
   void _scrollChanged() {
     if (_scroll.hasClients && _scroll.position.extentAfter < 300) {
       final state = widget.controller.state(widget.site, widget.query);
-      if (state.failure == null) {
+      final paging = ScrollPagingGate(
+        hasMore: state.loaded && state.nextPage != null,
+        busy: state.loading || state.loadingMore,
+        lastPageFailed: state.failure != null,
+      );
+      if (paging.admits) {
         unawaited(
           widget.controller.load(widget.site, widget.query, more: true),
         );

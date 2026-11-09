@@ -206,8 +206,15 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
+  static bool _admits(BookmarkListFeed feed, {required bool hasMore}) =>
+      ScrollPagingGate(
+        hasMore: hasMore,
+        busy: feed.loading,
+        lastPageFailed: feed.error != null,
+      ).admits;
+
   static bool _canLoadMore(BookmarkListFeed feed) =>
-      feed.loaded && feed.hasMore && !feed.loading && feed.error == null;
+      feed.loaded && _admits(feed, hasMore: feed.hasMore);
 
   void _loadMore({bool automatic = false}) {
     if (automatic) {
@@ -271,9 +278,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
             (_list.retainedPageCount == 1
                 ? 0.5
                 : paginationPrefetchDistance(notification.metrics)) &&
-        _list.hasPrevious &&
-        !_list.loading &&
-        _list.error == null) {
+        _admits(_list, hasMore: _list.hasPrevious)) {
       _loadPrevious();
     } else if (notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) > 0 &&

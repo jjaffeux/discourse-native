@@ -12,6 +12,7 @@ import '../models/discourse_instance.dart';
 import '../models/draft_feed.dart';
 import '../models/topic.dart';
 import '../models/user_draft.dart';
+import '../utils/pagination.dart';
 import 'account_feed_viewport.dart';
 import 'adaptive_dialog_action.dart';
 import 'category_icon.dart';
@@ -404,9 +405,11 @@ class _Drafts extends StatelessWidget {
                         (notification.scrollDelta ?? 0) < 0) &&
                 notification.metrics.extentBefore <
                     (feed.retainedPageCount == 1 ? 0.5 : 200) &&
-                feed.hasPrevious &&
-                !feed.loading &&
-                feed.error == null) {
+                ScrollPagingGate(
+                  hasMore: feed.hasPrevious,
+                  busy: feed.loading,
+                  lastPageFailed: feed.error != null,
+                ).admits) {
               unawaited(
                 controller.draftList.load(instance, loadPrevious: true),
               );

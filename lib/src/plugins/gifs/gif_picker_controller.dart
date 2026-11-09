@@ -69,6 +69,12 @@ final class GifPickerController extends ChangeNotifier {
       _nextPosition != null &&
       !_atLimit;
 
+  ScrollPagingGate get paging => ScrollPagingGate(
+    hasMore: _nextPosition != null && !_atLimit,
+    busy: _searching || _loadingMore,
+    lastPageFailed: error != null,
+  );
+
   bool get _isCurrent => !_disposed && _lease.isCurrent;
 
   bool get _atLimit {

@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/native_ui_evidence.dart';
 import 'support/page_scrollbar.dart';
+import 'support/scroll_gestures.dart';
 
 const _group = Group(
   id: 9,
@@ -508,6 +509,86 @@ void main() {
 
     expect(loadMoreCalls, 1);
     expect(find.byKey(loadingIndicator), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a failed member page is asked for once per drag', (
+    tester,
+  ) async {
+    final members = List.generate(
+      80,
+      (index) => GroupMember(
+        id: index + 1,
+        username: 'member${index + 1}',
+        name: 'Member ${index + 1}',
+      ),
+    );
+    late StateSetter update;
+    var loadingMore = false;
+    String? sectionError;
+    var loadMoreCalls = 0;
+
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return GroupPage(
+            siteUrl: 'https://meta.discourse.org',
+            route: GroupRoute.detail('support'),
+            registry: PluginRegistry.empty,
+            data: GroupPageData(
+              detail: _detail,
+              members: GroupMembersPage(members: members, total: 160),
+              loadingMore: loadingMore,
+              hasMore: true,
+              sectionError: sectionError,
+            ),
+            onOpenMember: _ignoreMember,
+            onLoadMore: () {
+              loadMoreCalls += 1;
+              update(() => loadingMore = true);
+            },
+          );
+        },
+      ),
+      size: const Size(390, 600),
+    );
+    final membersList = find.byKey(
+      const PageStorageKey('group-members-scroll'),
+    );
+
+    // Each reversal crosses the prefetch distance, leaving the edge and
+    // returning to it within the one drag.
+    Future<int> requestsDuringDrag() async {
+      final before = loadMoreCalls;
+      await dragOnceThroughUpdates(
+        tester,
+        membersList,
+        reach: -20000,
+        travel: 2000,
+        afterUpdate: () {
+          if (loadingMore) {
+            update(() {
+              loadingMore = false;
+              sectionError = 'Members could not be loaded.';
+            });
+          }
+        },
+      );
+      return loadMoreCalls - before;
+    }
+
+    // The first failure moves the list under its banner and remounts it, so
+    // only the later drags pin what one mounted list remembers.
+    expect(
+      [
+        await requestsDuringDrag(),
+        await requestsDuringDrag(),
+        await requestsDuringDrag(),
+      ],
+      [1, 1, 1],
+    );
     expect(tester.takeException(), isNull);
   });
 

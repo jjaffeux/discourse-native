@@ -946,8 +946,6 @@ class _StreamState extends State<ChatMessageStream>
       _cancelReadDwell();
       _recheckVisibleRead = false;
       _seen = null;
-      _filled = null;
-      _olderFilled = null;
       _dayExtents.clear();
       _floatingDay.value = null;
       _floatingDayOffset.value = 0;
@@ -1171,32 +1169,20 @@ class _StreamState extends State<ChatMessageStream>
     _recentMessages.noteScroll(_scroll.position);
   }
 
+  final _scrollGestures = UserScrollGestures();
+
   void _fillTowardsPresent() {
-    final stream = widget.stream;
-    if (!stream.canLoadMoreFuture || !_scroll.hasClients) return;
+    if (!widget.stream.newerPaging.admits || !_scroll.hasClients) return;
     if (_scroll.position.extentBefore >
         paginationPrefetchDistance(_scroll.position)) {
       return;
     }
-
-    // Ask once per window state so a failed request cannot retry every frame.
-    final asked = (
-      siteUrl: widget.siteUrl,
-      target: widget.target,
-      fetches: stream.fetches,
-      newestId: stream.newestId,
-    );
-    if (_filled == asked) return;
-    _filled = asked;
 
     unawaited(
       widget.reader?.loadNewer() ??
           _chat?.loadNewerFor(widget.siteUrl, widget.target),
     );
   }
-
-  ({String siteUrl, ChatStreamTarget target, int fetches, int? newestId})?
-  _filled;
 
   bool _anchorIfFresh() {
     final stream = widget.stream;
@@ -1804,17 +1790,33 @@ class _StreamState extends State<ChatMessageStream>
                   _viewport.cancelArrivalHold();
                 }
 
+                if (_scrollGestures.starts(notification)) {
+                  if (widget.reader case final reader?) {
+                    reader.allowFailedPageRetry();
+                  } else {
+                    chat.allowFailedPageRetryFor(siteUrl, widget.target);
+                  }
+                }
+
+                // Read past the widget: a page that failed since this build
+                // must already bar the next update.
+                final live =
+                    widget.reader?.stream ??
+                    chat.streamFor(siteUrl, widget.target);
+
                 // In the reversed list, extentAfter points toward older messages
                 // and extentBefore back toward the present.
-                if (notification.metrics.extentAfter <
-                    paginationPrefetchDistance(notification.metrics)) {
+                if (live.olderPaging.admits &&
+                    notification.metrics.extentAfter <
+                        paginationPrefetchDistance(notification.metrics)) {
                   unawaited(
                     (widget.reader?.loadOlder() ??
                         chat.loadOlderFor(siteUrl, widget.target)),
                   );
                 }
-                if (notification.metrics.extentBefore <
-                    paginationPrefetchDistance(notification.metrics)) {
+                if (live.newerPaging.admits &&
+                    notification.metrics.extentBefore <
+                        paginationPrefetchDistance(notification.metrics)) {
                   unawaited(
                     (widget.reader?.loadNewer() ??
                         chat.loadNewerFor(siteUrl, widget.target)),
@@ -2058,16 +2060,7 @@ class _StreamState extends State<ChatMessageStream>
     ChatStreamState stream,
   ) {
     if (identical(_olderPageScheduledFor, stream)) return;
-    // Ask once per window state: a failed page republishes the stream and
-    // rebuilds this row, so the stream's identity cannot bound retries. A
-    // scroll toward the oldest edge still retries.
-    final asked = (
-      siteUrl: siteUrl,
-      target: widget.target,
-      fetches: stream.fetches,
-      oldestId: stream.oldestId,
-    );
-    if (_olderFilled == asked) return;
+    if (!stream.olderPaging.admits) return;
     _olderPageScheduledFor = stream;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (identical(_olderPageScheduledFor, stream)) {
@@ -2083,7 +2076,6 @@ class _StreamState extends State<ChatMessageStream>
           )) {
         return;
       }
-      _olderFilled = asked;
       unawaited(
         (widget.reader?.loadOlder() ??
             chat.loadOlderFor(siteUrl, widget.target)),
@@ -2092,9 +2084,6 @@ class _StreamState extends State<ChatMessageStream>
   }
 
   ChatStreamState? _olderPageScheduledFor;
-
-  ({String siteUrl, ChatStreamTarget target, int fetches, int? oldestId})?
-  _olderFilled;
 
   Future<void> _jumpToPresent(
     ChatController chat,
