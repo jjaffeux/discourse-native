@@ -20,10 +20,10 @@ import 'chat_message_blocks_view.dart';
 import 'chat_plugin_data.dart';
 import 'chat_preview.dart';
 import 'chat_preview_body.dart';
+import 'chat_reader_time.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_stream_target.dart';
-import 'chat_time.dart';
 import 'chat_uploads.dart';
 import 'chat_user_avatar.dart';
 

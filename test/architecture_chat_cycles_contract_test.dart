@@ -26,4 +26,37 @@ void main() {
     expect(graph.edges.keys.toSet().intersection(leaves), leaves);
     expect(librariesInCycles().intersection(leaves), isEmpty);
   });
+
+  const chatDataLayer = {
+    'lib/src/plugins/chat/chat_api.dart',
+    'lib/src/plugins/chat/chat_bookmark.dart',
+    'lib/src/plugins/chat/chat_channel.dart',
+    'lib/src/plugins/chat/chat_conversation_contract.dart',
+    'lib/src/plugins/chat/chat_message.dart',
+    'lib/src/plugins/chat/chat_message_contract.dart',
+    'lib/src/plugins/chat/chat_message_timeline.dart',
+    'lib/src/plugins/chat/chat_pin.dart',
+    'lib/src/plugins/chat/chat_search.dart',
+    'lib/src/plugins/chat/chat_thread.dart',
+    'lib/src/plugins/chat/chat_time.dart',
+  };
+
+  test('chat models and wire contracts reach no controller or service key', () {
+    const forbidden = {
+      'lib/src/plugins/chat/chat_controller.dart',
+      'lib/src/plugins/chat/chat_services.dart',
+    };
+    expect(graph.edges.keys.toSet().intersection(forbidden), forbidden);
+    expect({
+      for (final library in chatDataLayer)
+        if (graph.closureOf(library).intersection(forbidden) case final reached
+            when reached.isNotEmpty)
+          library: reached,
+    }, isEmpty);
+  });
+
+  test('chat data layer libraries participate in no import cycle', () {
+    expect(graph.edges.keys.toSet().intersection(chatDataLayer), chatDataLayer);
+    expect(librariesInCycles().intersection(chatDataLayer), isEmpty);
+  });
 }

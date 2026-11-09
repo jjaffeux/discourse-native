@@ -1,8 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:flutter/widgets.dart';
 import 'package:timezone/timezone.dart' as tz;
-
-import 'chat_services.dart';
 
 /// The reader's calendar and wall clock for one Chat presentation.
 final class ChatTime {
@@ -31,11 +28,4 @@ final class ChatTime {
     final name = zones.readerTimezone(accountTimezone);
     return ChatTime(zones.location(name));
   }
-}
-
-ChatTime chatTimeFor(BuildContext context, String? siteUrl) {
-  final chat = PluginUiScope.maybe(context, chatControllerService);
-  return chat != null && siteUrl != null
-      ? chat.timeFor(siteUrl)
-      : ChatTime.forReader();
 }

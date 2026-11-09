@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
-import 'chat_message_contract.dart';
 import 'chat_search_response.dart';
 
 enum ChatSearchSort { relevance, latest }

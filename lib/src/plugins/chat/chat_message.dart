@@ -3,8 +3,10 @@ import 'package:flutter/foundation.dart';
 
 import 'chat_bookmark.dart';
 import 'chat_message_blocks.dart';
-import 'chat_message_contract.dart';
 import 'chat_preview.dart';
+
+typedef ChatMessageDecoder =
+    ChatMessage Function(Map<String, dynamic> json, String siteUrl);
 
 /// Preview metadata is trusted only when supplied by an app-owned picker.
 @immutable

@@ -3,7 +3,6 @@ import 'package:flutter/foundation.dart' show immutable;
 
 import 'chat_channel.dart';
 import 'chat_message.dart';
-import 'chat_message_contract.dart';
 
 typedef ChatPins = ({List<ChatPin> pins, ChatMembership? membership});
 

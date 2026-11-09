@@ -15,9 +15,6 @@ abstract interface class ChatMessageContribution<T extends Object> {
   Widget? buildHeader(BuildContext context, T data);
 }
 
-typedef ChatMessageDecoder =
-    ChatMessage Function(Map<String, dynamic> json, String siteUrl);
-
 final class ChatMessageCodec {
   ChatMessageCodec(Iterable<ChatMessageContribution<Object>> contributions)
     : contributions = List.unmodifiable(contributions) {

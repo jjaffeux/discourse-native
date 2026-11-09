@@ -8,7 +8,6 @@ import 'package:flutter/foundation.dart';
 import 'chat_channel.dart';
 import 'chat_deletion_event.dart';
 import 'chat_message.dart';
-import 'chat_message_contract.dart';
 import 'chat_message_summary.dart';
 import 'chat_plugin_data.dart';
 import 'chat_stream_target.dart';
