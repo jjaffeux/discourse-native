@@ -796,9 +796,9 @@ void main() {
     await _pumpPage(tester, fixture);
     await _section(tester, PreferenceSection.interface);
     expect(find.byType(HeaderTuningPreferences), findsOneWidget);
-    await tester.tap(find.text('When the reminder is cleared'));
+    await tester.tap(find.text('Keep bookmark and clear reminder'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Never').last);
+    await tester.tap(find.text('Keep bookmark').last);
     await tester.pumpAndSettle();
     expect(
       fixture.shell.instanceFor(_siteUrl)!.user!.bookmarkAutoDeletePreference,
