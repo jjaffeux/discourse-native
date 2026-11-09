@@ -231,6 +231,10 @@ final class Group {
   bool get isPrivate => visibilityLevel > 1;
   bool get canManage => canAdminGroup || isGroupOwner;
 
+  /// Core lets staff manage an automatic group's settings, but its membership
+  /// is computed: `can_edit_group?` refuses every member write on one.
+  bool get canManageMembers => canManage && !automatic;
+
   bool canShowMessages({
     required bool canSendPrivateMessages,
     required bool isAdmin,
