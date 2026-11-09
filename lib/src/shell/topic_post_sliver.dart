@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
@@ -10,6 +12,7 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../models/post.dart';
 import '../utils/pagination.dart';
+import 'late_media_extent.dart';
 import 'topic_viewport_coordinator.dart';
 
 part 'topic_reader_geometry.dart';
@@ -137,12 +140,15 @@ class TopicPostSliver extends SuperSliverList {
     required super.itemCount,
     super.delayPopulatingCacheArea,
     super.layoutKeptAliveChildren,
-  }) : super.separated(
+  }) : _readingInset = geometry.topInset,
+       super.separated(
          key: geometry.sliverKey,
          listController: geometry._list,
          findChildIndexCallback: geometry.findChildIndexCallback,
          extentEstimation: TopicReaderGeometry.estimateChildExtent,
        );
+
+  final double Function() _readingInset;
 
   @override
   SliverMultiBoxAdaptorElement createElement() => _TopicPostSliverElement(this);
@@ -154,20 +160,29 @@ class TopicPostSliver extends SuperSliverList {
         estimateExtent: extentEstimation!,
         delayPopulatingCacheArea: delayPopulatingCacheArea,
         layoutKeptAliveChildren: layoutKeptAliveChildren,
+        readingInset: _readingInset,
       );
 }
 
-class _TopicPostRenderSliver extends RenderSuperSliverList {
+class _TopicPostRenderSliver extends RenderSuperSliverList
+    implements LateMediaExtentListener {
   _TopicPostRenderSliver({
     required super.childManager,
     required super.estimateExtent,
     required super.delayPopulatingCacheArea,
     required super.layoutKeptAliveChildren,
+    required this.readingInset,
   });
 
+  final double Function() readingInset;
   double? _precedingExtent;
   bool _resizing = false;
   RenderBox? _prependAnchor;
+  List<(RenderBox, double)>? _rowMediaResizes;
+
+  @override
+  void lateMediaResized(RenderBox box, double heightChange) =>
+      _rowMediaResizes?.add((box, heightChange));
 
   void retainPrependAnchor(int firstPostChild) {
     _prependAnchor = null;
@@ -277,13 +292,18 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
         break;
       }
     }
-    if (anchor == null || anchor == firstChild) return 0;
+    if (anchor == null) return 0;
 
     // Measure the cached prefix before normal layout can collect a visible
     // child's state using the newly expanded prefix's uncorrected offsets.
     final manager = (childManager as _TopicPostSliverElement).extentManager;
     if (indexOf(anchor) >= manager.numberOfItems) return 0;
     final childConstraints = constraints.asBoxConstraints();
+    final mediaAboveReadingLine = _layoutRowsAcrossReadingLine(
+      anchor,
+      childConstraints,
+      math.max(leading, constraints.scrollOffset + readingInset()),
+    );
     var correction = 0.0;
     var beforeAnchor = true;
     for (var child = firstChild; child != null; child = childAfter(child)) {
@@ -300,6 +320,31 @@ class _TopicPostRenderSliver extends RenderSuperSliverList {
       if (extent != previousExtent) {
         manager.setExtent(index, extent);
         correction += extent - previousExtent;
+      }
+    }
+    return correction + mediaAboveReadingLine;
+  }
+
+  /// Scrolls past media that took its height above the reading line.
+  ///
+  /// The list keeps a straddling row's top in place as it grows. That is right
+  /// for growth the reader can see, but growth above the line would otherwise
+  /// push the text under it down the screen.
+  double _layoutRowsAcrossReadingLine(
+    RenderBox first,
+    BoxConstraints childConstraints,
+    double readingLine,
+  ) {
+    var correction = 0.0;
+    for (RenderBox? row = first; row != null; row = childAfter(row)) {
+      final offset = childScrollOffset(row);
+      if (offset == null || offset >= readingLine) break;
+      final resizes = _rowMediaResizes = [];
+      row.layout(childConstraints, parentUsesSize: true);
+      _rowMediaResizes = null;
+      for (final (box, heightChange) in resizes) {
+        final top = box.localToGlobal(Offset.zero, ancestor: row).dy;
+        if (offset + top < readingLine) correction += heightChange;
       }
     }
     return correction;
