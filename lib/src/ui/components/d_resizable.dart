@@ -771,6 +771,10 @@ class _DResizableHandleState extends State<DResizableHandle> {
             key: widget.focusKey,
             focusNode: _focus,
             canRequestFocus: enabled,
+            // The slider below reports focus. Flags of its own here would
+            // conflict with a sibling handle's and give the slider an extra
+            // parent only while that sibling exists.
+            includeSemantics: false,
             onKeyEvent: _key,
             onFocusChange: (v) {
               if (!v) _commit();

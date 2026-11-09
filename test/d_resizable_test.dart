@@ -2,6 +2,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -289,6 +290,61 @@ void main() {
     expect(find.text('retained'), findsOneWidget);
     await tester.pumpWidget(const SizedBox());
     expect(tester.takeException(), isNull);
+  });
+
+  // Flutter reuses a node that stops and starts forming without its children,
+  // so a sibling's arrival must not change what holds this handle's slider.
+  testWidgets('a sibling handle coming and going never re-parents a slider', (
+    tester,
+  ) async {
+    final sibling = ValueNotifier(true);
+    addTearDown(sibling.dispose);
+    Widget handle(String label) => SizedBox(
+      width: 24,
+      child: DResizableHandle.standalone(
+        semanticLabel: label,
+        value: 100,
+        onChanged: (_) {},
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Semantics(
+          container: true,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              handle('Sidebar'),
+              ValueListenableBuilder<bool>(
+                valueListenable: sibling,
+                builder: (context, shown, _) =>
+                    shown ? handle('Editor') : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    SemanticsNode slider() =>
+        tester.getSemantics(find.bySemanticsLabel('Sidebar'));
+    final holder = slider().parent;
+
+    for (final shown in [false, true, false]) {
+      sibling.value = shown;
+      await tester.pump();
+      expect(slider().parent, same(holder));
+      expect(
+        slider(),
+        isSemantics(
+          label: 'Sidebar',
+          isSlider: true,
+          isEnabled: true,
+          hasEnabledState: true,
+          isFocusable: true,
+          isFocused: false,
+        ),
+      );
+    }
   });
 }
 
