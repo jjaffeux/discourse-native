@@ -609,6 +609,46 @@ void main() {
     });
   }
 
+  for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+    testWidgets('over-media action is a 36px circle on $platform', (
+      tester,
+    ) async {
+      for (final (scale, side) in [(1.0, 36.0), (2.0, 50.0)]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.dark.copyWith(platform: platform),
+            home: MediaQuery(
+              data: MediaQueryData(textScaler: TextScaler.linear(scale)),
+              child: Scaffold(
+                body: Center(
+                  child: DButton.iconOnly(
+                    density: DButtonDensity.overMedia,
+                    variant: DButtonVariant.ghost,
+                    backgroundColor: Colors.white12,
+                    foregroundColor: Colors.white,
+                    tooltip: 'Close',
+                    icon: const DIcon(DIcons.xmark),
+                    onPressed: () {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final bounds = tester.getRect(find.byType(DButton));
+        expect(bounds.size, Size.square(side));
+        expect(buttonSurface(tester).color, Colors.white12);
+        expect(
+          buttonSurface(tester).borderRadius.resolve(TextDirection.ltr).topLeft,
+          Radius.circular(side / 2),
+        );
+        expect(tester.getSize(find.byType(DIcon)).height, 14);
+      }
+    });
+  }
+
   testWidgets('chat message action matches compact mockup geometry', (
     tester,
   ) async {

@@ -9495,6 +9495,18 @@
   "@nextImage": {
     "description": "English UI message used by shell/image_grid.dart. Keep placeholders intact."
   },
+  "lightboxPosition": "{number} of {total}",
+  "@lightboxPosition": {
+    "description": "Which image of a gallery is showing, in the lightbox's top bar. Keep placeholders intact.",
+    "placeholders": {
+      "number": {
+        "type": "String"
+      },
+      "total": {
+        "type": "String"
+      }
+    }
+  },
   "goToImageOf": "Go to image {number} of {total}",
   "@goToImageOf": {
     "description": "English UI message used by shell/image_grid.dart. Keep placeholders intact.",
