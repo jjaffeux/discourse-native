@@ -576,6 +576,47 @@ void main() {
       expect(first, isNot(differentFuture));
     });
 
+    test('only anchors can differ between tabs the same except anchors', () {
+      final topic = ContentRoute.topic(topicId: 1, slug: 'one', title: 'One');
+      final other = ContentRoute.topic(topicId: 2, slug: 'two', title: 'Two');
+      ForumTab tab(
+        String id, {
+        ContentRoute? route,
+        ForumPanel panel = ForumPanel.main,
+        Map<String, ForumTabAnchor> anchors = const {},
+      }) => ForumTab(
+        id: id,
+        rootDestinationId: 'latest',
+        panel: panel,
+        contentStack: [route ?? topic],
+        anchors: anchors,
+      );
+      ForumWorkspace workspace(List<ForumTab> tabs, {String active = 'a'}) =>
+          ForumWorkspace(
+            siteUrl: 'https://example.com',
+            accountIdentity: 'reader',
+            tabs: tabs,
+            activeTabId: active,
+          );
+      const anchors = {'topic-1': ForumTabAnchor(kind: 'topic', itemId: 9)};
+
+      final plain = workspace([tab('a'), tab('b')]);
+      final scrolled = workspace([tab('a', anchors: anchors), tab('b')]);
+
+      expect(scrolled, isNot(plain));
+      expect(scrolled.sameExceptAnchors(plain), isTrue);
+      expect(tab('a', anchors: anchors).sameExceptAnchors(tab('a')), isTrue);
+      for (final different in [
+        workspace([tab('a', route: other), tab('b')]),
+        workspace([tab('a', panel: ForumPanel.secondary), tab('b')]),
+        workspace([tab('a'), tab('c')]),
+        workspace([tab('a')]),
+        workspace([tab('a'), tab('b')], active: 'b'),
+      ]) {
+        expect(different.sameExceptAnchors(plain), isFalse);
+      }
+    });
+
     test('discarded restored routes cannot retain orphaned anchors', () {
       final restored = ForumTab.tryFromJson({
         'id': 'bounded',

@@ -77,7 +77,7 @@ class TopicPanelTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.of(context);
+    final shell = ShellScope.identityOf(context);
     if (context.isTouch) return const SizedBox.shrink();
     final target = panel ?? ForumTabScope.panelOf(context);
     return DragTarget<String>(

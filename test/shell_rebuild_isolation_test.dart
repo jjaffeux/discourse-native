@@ -25,10 +25,12 @@ import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/composer/presentation_controller.dart';
 import 'package:discourse_native/src/shell/composer/presentation_scope.dart';
+import 'package:discourse_native/src/shell/desktop_panels.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
 import 'package:discourse_native/src/shell/reader_content_bounds.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -40,6 +42,7 @@ import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_feed_menu.dart';
 import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
+import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_card_target.dart';
@@ -1773,9 +1776,143 @@ void main() {
       });
     }
   });
+
+  group('the desktop panels across a shell notification', () {
+    const size = Size(1440, 844);
+    const platform = TargetPlatform.macOS;
+
+    testWidgets('a current-site tracking message leaves them unbuilt', (
+      tester,
+    ) async {
+      final reader = await _pumpReader(tester, size, platform);
+      final controller = reader.controller;
+      final tracker = FakeSiteTracker.built.singleWhere(
+        (tracker) => tracker.siteUrl == _readerSite,
+      );
+      final owners = {
+        'frame': find.byType(DesktopPanels).evaluate().toSet(),
+        'document': find.byType(MainContent).evaluate().toSet(),
+      };
+      final unscrolled = controller.currentWorkspace;
+      // Scrolling rewrites an anchor without notifying, so the next
+      // notification is the one that could mistake it for a workspace change.
+      controller.saveTopicScrollPost(7, 1, viewportOffset: 12);
+      expect(controller.currentWorkspace, isNot(unscrolled));
+      final revision = controller.topicTrackingRevisionFor(_readerSite);
+      var notifications = 0;
+      void count() => notifications++;
+      controller.addListener(count);
+      addTearDown(() => controller.removeListener(count));
+      final rebuilt = _recordRebuilds();
+
+      tracker.deliverTopicTracking(const {
+        'topic_id': 99,
+        'message_type': 'unread',
+        'payload': {'highest_post_number': 3, 'notification_level': 2},
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final frameElements = rebuilt
+          .where((element) => _nearestControl(element, owners) == 'frame')
+          .toList();
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF desktop-panel-selector rebuilt_elements=${rebuilt.length}',
+      );
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF desktop-panel-selector '
+        'frame_elements=${frameElements.length}',
+      );
+      expect(notifications, greaterThan(0));
+      expect(
+        controller.topicTrackingRevisionFor(_readerSite),
+        greaterThan(revision),
+      );
+      expect(
+        frameElements.map((element) => element.widget.runtimeType),
+        isEmpty,
+      );
+      expect(rebuilt.length, lessThanOrEqualTo(4));
+    });
+
+    testWidgets('selecting another tab rebuilds the panel showing it', (
+      tester,
+    ) async {
+      final reader = await _pumpReader(tester, size, platform);
+      final controller = reader.controller;
+      final topicTab = controller.activeTab!;
+      controller.createTab(panel: topicTab.panel);
+      await tester.pumpAndSettle();
+      expect(controller.activeTabId, isNot(topicTab.id));
+      expect(find.text('First post.', findRichText: true), findsNothing);
+      final rebuilt = _recordRebuilds();
+
+      controller.selectTab(topicTab.id);
+      await tester.pumpAndSettle();
+
+      expect(
+        rebuilt.map((element) => element.widget.runtimeType),
+        contains(TopicPanelTabs),
+      );
+      expect(find.text('First post.', findRichText: true), findsOneWidget);
+    });
+
+    testWidgets('a tab activated in a minimized panel brings it back', (
+      tester,
+    ) async {
+      final reader = await _pumpReader(tester, size, platform);
+      final controller = reader.controller;
+      final tab = controller.selectedTabIn(ForumPanel.secondary)!;
+      await tester.tap(
+        find.byKey(const ValueKey('panel-split-view-secondary')),
+      );
+      await tester.pumpAndSettle();
+      expect(controller.isTabVisible(tab.id), isFalse);
+
+      controller.selectTab(tab.id);
+      await tester.pumpAndSettle();
+
+      expect(controller.activeTabId, tab.id);
+      expect(controller.isTabVisible(tab.id), isTrue);
+      expect(
+        controller.isTabVisible(controller.selectedTabIn(ForumPanel.main)!.id),
+        isTrue,
+      );
+    });
+
+    testWidgets(
+      'a retired session replaces the documents of an unchanged workspace',
+      (tester) async {
+        final reader = await _pumpReader(tester, size, platform);
+        final controller = reader.controller;
+        final document = tester.state(find.byType(MainContent).first);
+        final workspace = controller.currentWorkspace;
+
+        controller.lifecycle.invalidate(_readerSite);
+        controller.notifyPluginStateChanged();
+        await tester.pumpAndSettle();
+
+        expect(controller.currentWorkspace, workspace);
+        expect(document.mounted, isFalse);
+      },
+    );
+  });
 }
 
 void _noop() {}
+
+Set<Element> _recordRebuilds() {
+  final rebuilt = <Element>{};
+  final previous = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    rebuilt.add(element);
+    previous?.call(element, builtOnce);
+  };
+  addTearDown(() => debugOnRebuildDirtyWidget = previous);
+  return rebuilt;
+}
 
 String? _nearestControl(Element element, Map<String, Set<Element>> controls) {
   String? owner(Element candidate) => controls.entries

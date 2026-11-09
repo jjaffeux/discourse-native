@@ -317,15 +317,28 @@ class _DesktopPanelsState extends State<DesktopPanels>
   }
 
   @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.of(context);
-    final workspace = shell.currentWorkspace;
-    final identity = workspace == null
+  Widget build(BuildContext context) => ShellSelector<_PanelsSource?>(
+    select: (shell) {
+      final workspace = shell.currentWorkspace;
+      return workspace == null
+          ? null
+          : _PanelsSource(
+              workspace,
+              shell.lifecycle.capture(workspace.siteUrl).session,
+            );
+    },
+    builder: (context, source, _) => _panels(source),
+  );
+
+  Widget _panels(_PanelsSource? source) {
+    final shell = ShellScope.read(context);
+    final workspace = source?.workspace;
+    final identity = source == null
         ? null
         : (
-            workspace.siteUrl,
-            workspace.accountIdentity,
-            shell.lifecycle.capture(workspace.siteUrl).session,
+            source.workspace.siteUrl,
+            source.workspace.accountIdentity,
+            source.session,
           );
     if (_contentWorkspace != identity) {
       _contentWorkspace = identity;
@@ -353,7 +366,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
     // Whatever becomes active in a minimized panel, whether a topic opened
     // from the list, a link or another forum's workspace, is what the reader
     // asked to see, so the panel comes back to show it.
-    if (_minimized case final panel? when shell.activeTab?.panel == panel) {
+    if (_minimized case final panel? when workspace?.activeTab.panel == panel) {
       _minimized = null;
       _move(panel, away: false);
     }
@@ -394,12 +407,12 @@ class _DesktopPanelsState extends State<DesktopPanels>
           (null, _) => null,
           (_, true)
               when _minimized == null &&
-                  shell.selectedTabIn(ForumPanel.secondary) != null &&
+                  workspace?.selectedTabIn(ForumPanel.secondary) != null &&
                   requestedMainWidth < minimumMainWidth =>
             ForumPanel.main,
           (_, false)
               when _minimized == null &&
-                  shell.selectedTabIn(ForumPanel.main) != null &&
+                  workspace?.selectedTabIn(ForumPanel.main) != null &&
                   total - requestedMainWidth < 320 =>
             ForumPanel.secondary,
           _ => null,
@@ -426,8 +439,9 @@ class _DesktopPanelsState extends State<DesktopPanels>
           }
         }
         shell.topicPanelsVisible = horizontal;
-        if (autoCollapsed != null && shell.activeTab?.panel == autoCollapsed) {
-          final tabId = shell.selectedTabIn(_other(autoCollapsed))?.id;
+        if (autoCollapsed != null &&
+            workspace?.activeTab.panel == autoCollapsed) {
+          final tabId = workspace?.selectedTabIn(_other(autoCollapsed))?.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && tabId != null) {
               ShellScope.read(context).selectTab(tabId);
@@ -436,14 +450,14 @@ class _DesktopPanelsState extends State<DesktopPanels>
         }
         // `minimizable` is null where a panel offers no minimize action.
         Widget panel(ForumPanel target, {bool? minimizable}) {
-          final tab = shell.selectedTabIn(target);
+          final tab = workspace?.selectedTabIn(target);
           final contents = <_TabContent>[
             for (final tab in workspace?.tabsIn(target) ?? <ForumTab>[])
               if (_tabContents[tab.id] case final content?)
                 (tabId: tab.id, content: content),
           ];
-          // This build runs on every shell change. While a panel's inputs are
-          // unchanged it keeps the same widget, so a change elsewhere, such
+          // This build runs on every workspace change. While a panel's inputs
+          // are unchanged it keeps the same widget, so a change elsewhere, such
           // as a tab settling while a panel folds, does not rebuild its frame
           // and header.
           final inputs = (
@@ -507,17 +521,17 @@ class _DesktopPanelsState extends State<DesktopPanels>
             ? ForumPanel.secondary
             : ForumPanel.main;
         final active =
-            autoCollapsed != null && shell.selectedTabIn(remaining) != null
+            autoCollapsed != null && workspace?.selectedTabIn(remaining) != null
             ? remaining
-            : shell.activeTab?.panel ?? ForumPanel.main;
+            : workspace?.activeTab.panel ?? ForumPanel.main;
         shell.presentForumPanels({
           for (final panel in ForumPanel.values)
             if (horizontal ? panel != minimized : panel == active) panel,
         });
         if (!horizontal &&
             autoCollapsed != null &&
-            shell.activeTab?.panel != active) {
-          final tabId = shell.selectedTabIn(active)?.id;
+            workspace?.activeTab.panel != active) {
+          final tabId = workspace?.selectedTabIn(active)?.id;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && tabId != null) {
               ShellScope.read(context).selectTab(tabId);
@@ -532,7 +546,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
             target: panel(
               target,
               minimizable: horizontal
-                  ? shell.selectedTabIn(_other(target)) != null
+                  ? workspace?.selectedTabIn(_other(target)) != null
                   : null,
             ),
         };
@@ -543,7 +557,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
           children: [
             if (!horizontal)
               ForumTabScope(
-                tabId: shell.selectedTabIn(active)?.id,
+                tabId: workspace?.selectedTabIn(active)?.id,
                 panel: active,
                 child: TopicPanelTabs(panel: active),
               ),
@@ -826,6 +840,31 @@ class _DesktopPanelsState extends State<DesktopPanels>
 }
 
 typedef _TabContent = ({String tabId, MainContent content});
+
+/// Everything the panels read from the shell. The whole workspace but its tabs'
+/// anchors, so that a new read of it cannot go stale: the panels draw no anchor,
+/// and one is rewritten at every scroll without the shell notifying anyone.
+@immutable
+final class _PanelsSource {
+  const _PanelsSource(this.workspace, this.session);
+
+  final ForumWorkspace workspace;
+  final Object session;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PanelsSource &&
+      identical(other.session, session) &&
+      other.workspace.sameExceptAnchors(workspace);
+
+  @override
+  int get hashCode => Object.hash(
+    workspace.siteUrl,
+    workspace.accountIdentity,
+    workspace.activeTabId,
+    identityHashCode(session),
+  );
+}
 
 class _DesktopPanel extends StatelessWidget {
   const _DesktopPanel({

@@ -1473,10 +1473,8 @@ final class _CurrentForumTabsSnapshot {
   const _CurrentForumTabsSnapshot({
     required this.siteUrl,
     required this.forumName,
-    required this.tabs,
-    required this.activeTabId,
+    required this.workspace,
     required this.presentationToken,
-    required this.listTabId,
   });
 
   factory _CurrentForumTabsSnapshot.of(ShellController controller) {
@@ -1484,9 +1482,7 @@ final class _CurrentForumTabsSnapshot {
     return _CurrentForumTabsSnapshot(
       siteUrl: instance?.url,
       forumName: instance?.title,
-      tabs: controller.tabsForCurrentForum,
-      activeTabId: controller.activeTabId,
-      listTabId: controller.listPanelTab?.id,
+      workspace: controller.currentWorkspace,
       presentationToken: instance == null
           ? null
           : controller.presentationTokenFor(instance.url),
@@ -1495,28 +1491,32 @@ final class _CurrentForumTabsSnapshot {
 
   final String? siteUrl;
   final String? forumName;
-  final List<ForumTab> tabs;
-  final String? activeTabId;
+  final ForumWorkspace? workspace;
   final Object? presentationToken;
-  final String? listTabId;
+
+  List<ForumTab> get tabs => workspace?.tabs ?? const [];
+  String? get activeTabId => workspace?.activeTabId;
+
+  // The strip draws no anchor, and scrolling rewrites them without notifying.
+  bool _sameWorkspace(ForumWorkspace? other) => switch ((workspace, other)) {
+    (final mine?, final theirs?) => mine.sameExceptAnchors(theirs),
+    (null, null) => true,
+    _ => false,
+  };
 
   @override
   bool operator ==(Object other) =>
       other is _CurrentForumTabsSnapshot &&
       siteUrl == other.siteUrl &&
       forumName == other.forumName &&
-      identical(tabs, other.tabs) &&
-      activeTabId == other.activeTabId &&
-      listTabId == other.listTabId &&
+      _sameWorkspace(other.workspace) &&
       identical(presentationToken, other.presentationToken);
 
   @override
   int get hashCode => Object.hash(
     siteUrl,
     forumName,
-    identityHashCode(tabs),
     activeTabId,
-    listTabId,
     identityHashCode(presentationToken),
   );
 }
