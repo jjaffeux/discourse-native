@@ -45,6 +45,26 @@ void main() {
     contentStack: [ContentRoute.topicList(TopicListMode.latest)],
   );
 
+  test('a reader beside its list keeps that only while it stays a reader', () {
+    final list = ContentRoute.topicList(TopicListMode.latest);
+    final beside = ForumTab(
+      id: 'beside',
+      rootDestinationId: 'latest',
+      contentStack: [list, _topic(1)],
+      readsBesideSource: true,
+    );
+
+    expect(
+      ForumTab.tryFromJson(jsonDecode(jsonEncode(beside.toJson()))),
+      beside,
+    );
+    expect(beside.push(_topic(2)).readsBesideSource, isTrue);
+
+    final returned = beside.navigate(contentStack: [list]);
+    expect(returned.readsBesideSource, isFalse);
+    expect(returned.push(_topic(2)).readsBesideSource, isFalse);
+  });
+
   test('retains the 50 most recent visits in both directions', () {
     var tab = initial();
     for (var id = 1; id <= 60; id++) {

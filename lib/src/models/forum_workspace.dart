@@ -124,6 +124,7 @@ final class ForumTab {
     List<ForumTabLocation>? backHistory,
     List<ForumTabLocation>? forwardHistory,
     Map<String, ForumTabAnchor> anchors = const {},
+    bool readsBesideSource = false,
   }) : assert(id.isNotEmpty),
        assert(rootDestinationId.isNotEmpty),
        assert(contentStack.isNotEmpty),
@@ -148,7 +149,8 @@ final class ForumTab {
                forwardStack,
              ),
        ),
-       anchors = Map.unmodifiable(anchors);
+       anchors = Map.unmodifiable(anchors),
+       readsBesideSource = readsBesideSource && contentStack.last.isTopic;
 
   static const int maximumContentRoutes = 64;
   static const int maximumHistoryEntries = 50;
@@ -168,6 +170,11 @@ final class ForumTab {
 
   final Map<String, ForumTabAnchor> anchors;
 
+  /// The list under this reader was copied from the tab in the other panel it
+  /// was opened beside, so the list is not this tab's own to return to. Only a
+  /// reader holds this: landing on any other page makes the list its own.
+  final bool readsBesideSource;
+
   ContentRoute get currentContent => contentStack.last;
   bool get canGoBack => backHistory.isNotEmpty;
   bool get canGoForward => forwardHistory.isNotEmpty;
@@ -184,6 +191,7 @@ final class ForumTab {
     List<ForumTabLocation>? backHistory,
     List<ForumTabLocation>? forwardHistory,
     Map<String, ForumTabAnchor>? anchors,
+    bool? readsBesideSource,
   }) => ForumTab(
     id: id,
     panel: panel ?? this.panel,
@@ -192,6 +200,7 @@ final class ForumTab {
     backHistory: backHistory ?? this.backHistory,
     forwardHistory: forwardHistory ?? this.forwardHistory,
     anchors: anchors ?? this.anchors,
+    readsBesideSource: readsBesideSource ?? this.readsBesideSource,
   );
 
   ForumTab push(ContentRoute route) {
@@ -352,6 +361,7 @@ final class ForumTab {
       'anchors': {
         for (final entry in anchors.entries) entry.key: entry.value.toJson(),
       },
+    if (readsBesideSource) 'reads_beside_source': true,
   };
 
   static final Expando<String> _encodings = Expando('encoded forum tab');
@@ -430,6 +440,7 @@ final class ForumTab {
       backHistory: backHistory,
       forwardHistory: forwardHistory,
       anchors: anchors,
+      readsBesideSource: json['reads_beside_source'] == true,
     );
   }
 
@@ -476,7 +487,8 @@ final class ForumTab {
       listEquals(other.contentStack, contentStack) &&
       listEquals(other.backHistory, backHistory) &&
       listEquals(other.forwardHistory, forwardHistory) &&
-      mapEquals(other.anchors, anchors);
+      mapEquals(other.anchors, anchors) &&
+      other.readsBesideSource == readsBesideSource;
 
   @override
   int get hashCode => Object.hash(
@@ -492,6 +504,7 @@ final class ForumTab {
     Object.hashAllUnordered([
       for (final entry in anchors.entries) Object.hash(entry.key, entry.value),
     ]),
+    readsBesideSource,
   );
 }
 

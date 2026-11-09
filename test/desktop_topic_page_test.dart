@@ -56,6 +56,101 @@ final _allLists = _primary(
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
+  testWidgets(
+    'Back to list returns in place when the other panel shows the same feed',
+    (tester) async {
+      final h = await _setup(tester, size: const Size(1800, 1000));
+      final listTab = h.shell.selectedTabIn(ForumPanel.main)!;
+      expect(
+        h.shell
+            .selectedTabIn(ForumPanel.secondary)!
+            .currentContent
+            .sameDestinationAs(listTab.currentContent),
+        isTrue,
+      );
+      final listState = tester.state(_primaryLists);
+      final position = tester
+          .state<ScrollableState>(
+            find
+                .descendant(
+                  of: _primaryLists,
+                  matching: find.byWidgetPredicate(
+                    (widget) =>
+                        widget is Scrollable &&
+                        widget.axisDirection == AxisDirection.down,
+                  ),
+                )
+                .first,
+          )
+          .position;
+      position.jumpTo(120);
+      await tester.pumpAndSettle();
+
+      h.shell.openTopicFromList(h.topics.first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+      await tester.pumpAndSettle();
+
+      expect(h.shell.selectedTabIn(ForumPanel.main)!.id, listTab.id);
+      expect(tester.state(_primaryLists), same(listState));
+      expect(position.pixels, 120);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('Back to list closes a reader opened beside its list', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(1800, 1000));
+    final companion = h.shell.selectedTabIn(ForumPanel.secondary)!;
+    _openTopicTab(h.shell, h.topics.first);
+    await tester.pumpAndSettle();
+    final reader = h.shell.selectedTabIn(ForumPanel.secondary)!;
+    expect(reader.id, isNot(companion.id));
+
+    await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+    await tester.pumpAndSettle();
+
+    expect(
+      h.shell.tabsForCurrentForum.map((tab) => tab.id),
+      isNot(contains(reader.id)),
+    );
+    expect(h.shell.selectedTabIn(ForumPanel.secondary)!.id, companion.id);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets('Back to list closes a reader that replaced a tab beside it', (
+    tester,
+  ) async {
+    final h = await _setup(tester, size: const Size(1800, 1000));
+    final listTab = h.shell.selectedTabIn(ForumPanel.main)!;
+    final companion = h.shell.selectedTabIn(ForumPanel.secondary)!;
+    h.shell.createTab(panel: ForumPanel.secondary);
+    final replaced = h.shell.selectedTabIn(ForumPanel.secondary)!;
+    expect(replaced.id, isNot(companion.id));
+    h.shell.selectTab(listTab.id);
+    await tester.pumpAndSettle();
+    final topic = h.topics.first;
+    h.shell.openLinkInPanel(
+      '/t/${topic.slug}/${topic.id}',
+      title: topic.title,
+      panel: ForumPanel.secondary,
+    );
+    await tester.pumpAndSettle();
+    expect(h.shell.selectedTabIn(ForumPanel.secondary)!.id, replaced.id);
+
+    await tester.tap(find.byKey(const ValueKey('topic-close-reader')));
+    await tester.pumpAndSettle();
+
+    expect(
+      h.shell.tabsForCurrentForum.map((tab) => tab.id),
+      isNot(contains(replaced.id)),
+    );
+    expect(h.shell.selectedTabIn(ForumPanel.secondary)!.id, companion.id);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   testWidgets('minimized reader panel is not foreground', (tester) async {
     final h = await _setup(tester, size: const Size(1800, 1000));
     _openTopicTab(h.shell, h.topics.first);

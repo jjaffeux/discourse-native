@@ -385,9 +385,18 @@ void main() {
           title: 'Plugin page',
           icon: DIcons.list,
         );
-        controller.openContentInPanel(source, panel: ForumPanel.secondary);
-        final readerId = controller.activeTabId;
-        controller.pushContent(_topic(42, 'A topic'));
+        final listId = controller.activeTabId!;
+        controller.pushContent(source);
+        controller.openContentInPanel(
+          _topic(42, 'A topic'),
+          panel: ForumPanel.secondary,
+        );
+        final readerId = controller.activeTabId!;
+        controller.selectTab(listId);
+        controller.handleBack(canReturnToSidebar: false);
+        expect(controller.currentContent, isNot(source));
+        expect(controller.currentContent?.id, source.id);
+        controller.selectTab(readerId);
 
         controller.closeTopic();
 
