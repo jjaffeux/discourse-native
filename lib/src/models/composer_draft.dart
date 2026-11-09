@@ -122,6 +122,10 @@ class ComposerDraft {
 
   bool get isEmpty => reply.trim().isEmpty && (title?.trim().isEmpty ?? true);
 
+  /// A post edit in progress on the web. It shares a topic's draft key with
+  /// replies, and its [reply] is the whole post rather than a reply to it.
+  bool get isEdit => action.startsWith('edit');
+
   Map<String, dynamic> toJson() => {
     'reply': reply,
     'action': action,

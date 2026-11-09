@@ -764,6 +764,7 @@ class ComposerController extends ChangeNotifier
 
   bool canRestoreDraft(ComposerDraft draft) =>
       !_disposed &&
+      !draft.isEdit &&
       (!_target.isPrivateMessage ||
           (draft.archetypeId == ComposerDraft.privateMessageArchetype &&
               (_target.targetRecipients?.isEmpty == true ||

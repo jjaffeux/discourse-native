@@ -81,9 +81,7 @@ class UserDraft {
   bool get isPrivateMessage =>
       key.startsWith('new_private_message') || archetype == 'private_message';
 
-  bool get isEdit =>
-      key.startsWith('edit_topic') ||
-      (data?.action.startsWith('edit') ?? false);
+  bool get isEdit => key.startsWith('edit_topic') || (data?.isEdit ?? false);
 
   bool get canResume =>
       data != null &&
