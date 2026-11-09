@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
+import 'package:discourse_native/src/shell/preference_fields.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -765,6 +766,29 @@ void main() {
       semantics.dispose();
     },
   );
+  testWidgets('bookmark choices name what happens to the bookmark', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.interface);
+    final select = tester
+        .widget<PreferenceSelect<BookmarkAutoDeletePreference>>(
+          find.byType(PreferenceSelect<BookmarkAutoDeletePreference>),
+        );
+    expect(
+      [
+        for (final entry in select.entries)
+          (entry as DSelectItem<BookmarkAutoDeletePreference>).textValue,
+      ],
+      [
+        'Keep bookmark',
+        'Delete after the reminder',
+        'Delete once I reply',
+        'Keep bookmark and clear reminder',
+      ],
+    );
+  });
   testWidgets('server bookmark preference still mirrors after confirmation', (
     tester,
   ) async {
