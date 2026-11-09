@@ -2516,9 +2516,14 @@ class ShellController extends FrameSafeNotifier
   NotificationFeed notificationsFor(String siteUrl) =>
       accountActivity.notificationsFor(siteUrl);
 
-  Future<void> loadNotifications(String siteUrl) async {
+  Future<void> loadNotifications(
+    String siteUrl, {
+    bool background = false,
+  }) async {
     final instance = _instanceAt(siteUrl);
-    if (instance != null) await accountActivity.loadNotifications(instance);
+    if (instance != null) {
+      await accountActivity.loadNotifications(instance, background: background);
+    }
   }
 
   Future<void> markAllNotificationsRead(String siteUrl) =>
@@ -9782,7 +9787,7 @@ final class _ShellTopicReader extends ChangeNotifier
       if (delay != Duration.zero) await Future<void>.delayed(delay);
       if (!foreground || !isConnected) return;
       _shell._liveSessions.resyncTracking(siteUrl);
-      await _shell.loadNotifications(siteUrl);
+      await _shell.loadNotifications(siteUrl, background: true);
       if (!foreground) return;
       final source = _context.topicListContent;
       if (source != null && !source.isTopic) {

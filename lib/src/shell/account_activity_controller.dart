@@ -249,24 +249,29 @@ final class AccountActivityController extends FrameSafeNotifier {
     return account.refresh(instance, force: force);
   }
 
-  Future<void> loadNotifications(DiscourseInstance instance) =>
-      _coalescedActivityLoad(
-        instance.url,
-        loads: _notificationLoads,
-        start: (load) => _loadNotificationFeed(
-          instance,
-          load: load,
-          slot: _notifications,
-          fetch: (apiKey, _) =>
-              api.notifications(siteUrl: instance.url, apiKey: apiKey),
-          reconnectMessage: appL10n.reconnectToToSeeNotifications(
-            (instance.host).toString(),
-          ),
-          failureMessage: appL10n.couldnTLoadNotificationsFrom(
-            (instance.host).toString(),
-          ),
-        ),
-      );
+  Future<void> loadNotifications(
+    DiscourseInstance instance, {
+    bool background = false,
+  }) => _coalescedActivityLoad(
+    instance.url,
+    loads: _notificationLoads,
+    start: (load) => _loadNotificationFeed(
+      instance,
+      load: load,
+      slot: _notifications,
+      fetch: (apiKey, _) => api.notifications(
+        siteUrl: instance.url,
+        apiKey: apiKey,
+        background: background,
+      ),
+      reconnectMessage: appL10n.reconnectToToSeeNotifications(
+        (instance.host).toString(),
+      ),
+      failureMessage: appL10n.couldnTLoadNotificationsFrom(
+        (instance.host).toString(),
+      ),
+    ),
+  );
 
   Future<void> loadReplyNotifications(DiscourseInstance instance) =>
       _coalescedActivityLoad(
