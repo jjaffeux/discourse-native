@@ -2734,6 +2734,16 @@ final class PluginRegistry
       .whereType<TopicLiveReloadPlugin>()
       .any((plugin) => plugin.staleTopic(topicId, channel, data));
 
+  Set<int> staleHeldPosts(
+    int topicId,
+    String channel,
+    Object? data,
+    Iterable<Post> held,
+  ) => {
+    for (final plugin in plugins.whereType<TopicLiveHeldPostsPlugin>())
+      ...plugin.staleHeldPosts(topicId, channel, data, held),
+  };
+
   Set<String> ignoredUsernames(DiscourseUser user) => {
     for (final plugin in plugins.whereType<IgnoredUsersPlugin>())
       ...plugin.ignoredUsernames(user),

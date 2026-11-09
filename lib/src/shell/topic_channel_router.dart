@@ -117,7 +117,15 @@ final class TopicChannelRouter {
                   username: created.username,
                 );
           }
-          final stale = _plugins.stalePosts(channel, data);
+          final stale = {
+            ..._plugins.stalePosts(channel, data),
+            ..._plugins.staleHeldPosts(
+              topicId,
+              channel,
+              data,
+              _heldPosts(siteUrl, topicId),
+            ),
+          };
           if (stale.isNotEmpty) {
             _topics.forSite(siteUrl).invalidatePosts(topicId, stale);
           }
@@ -136,6 +144,13 @@ final class TopicChannelRouter {
               ?.messageBusLastId,
       },
     );
+  }
+
+  Iterable<Post> _heldPosts(String siteUrl, int topicId) sync* {
+    final stream = _store.read<TopicDetail>(siteUrl, topicId)?.stream;
+    for (final id in stream ?? const <int>[]) {
+      if (_store.read<Post>(siteUrl, id) case final post?) yield post;
+    }
   }
 
   /// `Post#publish_change_to_clients!` types, each naming one post by `id`.

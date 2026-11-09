@@ -66,7 +66,8 @@ final class SolvedPlugin
         PostRecordPlugin<SolvedPost>,
         PostMenuPlugin,
         PostHeaderPlugin,
-        PostCardTonePlugin {
+        PostCardTonePlugin,
+        TopicLiveHeldPostsPlugin {
   const SolvedPlugin();
 
   @override
@@ -86,6 +87,35 @@ final class SolvedPlugin
   @override
   SolvedPost? mergeAfterPostEdit(SolvedPost? held, SolvedPost? incoming) =>
       incoming ?? held;
+
+  // The message lists the answers that remain, so the one that lost its mark
+  // is found only by comparing. Its permissions need a guardian read anyway.
+  @override
+  Iterable<int> staleHeldPosts(
+    int topicId,
+    String channel,
+    Object? data,
+    Iterable<Post> held,
+  ) {
+    if (channel != '/topic/$topicId' ||
+        data is! Map ||
+        !const {
+          'accepted_solution',
+          'unaccepted_solution',
+        }.contains(data['type'])) {
+      return const [];
+    }
+    final answers = {
+      for (final answer in jsonArray(data['accepted_answers']))
+        if (answer is Map) liveRefreshId(answer['id']),
+    };
+    return [
+      for (final post in held)
+        if (post.plugins.get(solvedPostKey)?.accepted case final accepted?
+            when accepted != answers.contains(post.id))
+          post.id,
+    ];
+  }
 
   PostAction? _action(
     BuildContext context,

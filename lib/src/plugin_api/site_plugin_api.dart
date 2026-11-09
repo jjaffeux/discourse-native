@@ -1086,6 +1086,17 @@ abstract interface class TopicLiveReloadPlugin {
   bool staleTopic(int topicId, String channel, Object? data);
 }
 
+/// For a message that changes posts without naming them, so only what the
+/// reader already holds can say which ones.
+abstract interface class TopicLiveHeldPostsPlugin {
+  Iterable<int> staleHeldPosts(
+    int topicId,
+    String channel,
+    Object? data,
+    Iterable<Post> held,
+  );
+}
+
 abstract interface class IgnoredUsersPlugin {
   /// Usernames whose posts a topic read leaves out for [user].
   Iterable<String> ignoredUsernames(DiscourseUser user);
