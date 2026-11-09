@@ -109,13 +109,12 @@ programmatic jumps until the reader's own first scroll, after which the layout
 follows the scroll position. The reference follows the position from the start,
 so a topic resumed further down shows its full head until that first scroll.
 
-The title and the tools move between the layouts as `DHeaderMorph` parts. Two
-parts of this differ from the reference, because the kit's morph and
-`DHeaderTags` do not offer what it needs. `DHeaderMorph` resizes a part to its
-measured box, where the reference scales the title by the font-size ratio and
-only moves everything else, so a title that wraps in the full head stretches
-during the 260ms. The path and tags change in place rather than moving, because
-`DHeaderTags` lays them out together with the tools.
+The title, the path and tags, and the tools are `DHeaderMorph` parts in both
+layouts, as `title`, `meta` and `tools` are `data-morph` in the reference. The
+title scales by the ratio of its font sizes, keeping its proportions. The path
+and tags and the tools only move. `DHeaderTags` places the `meta` and `tools`
+parts itself. An opened run of tags has no path and tags apart from its tools,
+so only the tools travel from it.
 
 ## Validation
 

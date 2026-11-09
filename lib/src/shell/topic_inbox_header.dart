@@ -32,10 +32,6 @@ import 'topic_header_tags.dart';
 import 'topic_skeleton.dart';
 import 'topic_title.dart';
 
-typedef _HeadPart = Widget Function(String id, Widget child);
-
-Widget _unmoved(String id, Widget child) => child;
-
 /// The states Discourse marks before a topic's title, declared in the order
 /// they are drawn.
 enum _TopicStatus {
@@ -104,7 +100,7 @@ class TopicInboxHeader extends StatelessWidget {
     final hasTopic = topic != null && siteUrl != null;
     final placeholders = loading && !hasTopic;
     final preview = this.preview;
-    List<Widget> rows({_HeadPart part = _unmoved}) {
+    List<Widget> rows({DHeaderMorphPart? part}) {
       final Widget? taxonomy = hasTopic
           ? _TopicHeaderTaxonomy(
               siteUrl: siteUrl,
@@ -272,7 +268,7 @@ class TopicInboxHeader extends StatelessWidget {
 
   Widget _morphHeader(
     BuildContext context, {
-    required List<Widget> Function({_HeadPart part}) rows,
+    required List<Widget> Function({DHeaderMorphPart? part}) rows,
   }) {
     if (!ShellScope.read(context).mobileNavigationEnabled) {
       return DHeaderMorph(
@@ -450,10 +446,11 @@ class _TopicHeaderToolbar extends StatelessWidget {
   const _TopicHeaderToolbar({required this.header, required this.part});
 
   final TopicInboxHeader header;
-  final _HeadPart part;
+  final DHeaderMorphPart? part;
 
   @override
   Widget build(BuildContext context) {
+    final title = _TopicHeaderTitle(header: header);
     // Only the padding follows the panel's width.
     final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -466,7 +463,12 @@ class _TopicHeaderToolbar extends StatelessWidget {
               backToList: !header.keepTopicListOpen,
             ),
           ),
-        _TopicHeaderTitle(header: header, part: part),
+        part?.call(
+              'title',
+              title,
+              fontSize: Theme.of(context).textTheme.headlineSmall?.fontSize,
+            ) ??
+            title,
       ],
     );
     return LayoutBuilder(
@@ -491,9 +493,8 @@ class _TopicHeaderToolbar extends StatelessWidget {
 }
 
 class _TopicHeaderTitle extends StatelessWidget {
-  const _TopicHeaderTitle({required this.header, required this.part});
+  const _TopicHeaderTitle({required this.header});
   final TopicInboxHeader header;
-  final _HeadPart part;
 
   @override
   Widget build(BuildContext context) {
@@ -506,7 +507,6 @@ class _TopicHeaderTitle extends StatelessWidget {
         ).scale(style?.fontSize ?? DiscourseTypography.lg) *
         (style?.height ?? DiscourseTypography.lineHeightLarge);
     final known = header.title;
-    final editable = topic?.canEdit == true && siteUrl != null;
     final Widget title;
     if (known == null && header.loading) {
       title = SizedBox(
@@ -527,7 +527,7 @@ class _TopicHeaderTitle extends StatelessWidget {
           ),
         ),
       );
-    } else if (editable) {
+    } else if (topic?.canEdit == true && siteUrl != null) {
       title = InlineTopicTitleEditor(
         key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
         title: topic.title,
@@ -582,16 +582,7 @@ class _TopicHeaderTitle extends StatelessWidget {
               ),
             ),
           ),
-        Expanded(
-          // A title left to its own width resizes in its proportions; the
-          // editor keeps the whole line.
-          child: editable
-              ? part('title', title)
-              : Align(
-                  alignment: AlignmentDirectional.centerStart,
-                  child: part('title', title),
-                ),
-        ),
+        Expanded(child: title),
       ],
     );
   }
@@ -830,7 +821,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.registry,
     this.showTaxonomy = true,
     this.floating = false,
-    this.part = _unmoved,
+    this.part,
   });
   final String siteUrl;
   final TopicDetail topic;
@@ -838,7 +829,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
   final PluginRegistry registry;
   final bool showTaxonomy;
   final bool floating;
-  final _HeadPart part;
+  final DHeaderMorphPart? part;
 
   @override
   Widget build(
@@ -965,7 +956,8 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
             topic: topic,
             editOnTap: mobile,
             path: _path(context, shell),
-            tools: mobile ? null : part('tools', tools),
+            tools: mobile ? null : tools,
+            part: mobile ? null : part,
             onTagNavigate: (tag, {newTab = false, panel}) => shell.openTopicTag(
               tag,
               siteUrl: siteUrl,

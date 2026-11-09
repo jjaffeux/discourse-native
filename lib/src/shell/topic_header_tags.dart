@@ -20,6 +20,7 @@ class TopicHeaderTags extends StatelessWidget {
     this.path = const [],
     this.tools,
     this.editOnTap = false,
+    this.part,
   });
 
   final String siteUrl;
@@ -28,6 +29,7 @@ class TopicHeaderTags extends StatelessWidget {
   final List<DHeaderStep> path;
   final Widget? tools;
   final bool editOnTap;
+  final DHeaderMorphPart? part;
 
   @override
   Widget build(BuildContext context) {
@@ -139,6 +141,7 @@ class TopicHeaderTags extends StatelessWidget {
           emptyAction: editTags,
           expandedAction: editOnTap ? null : editTags,
           tools: tools,
+          part: part,
         );
       },
     );

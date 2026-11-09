@@ -8,6 +8,7 @@ import '../foundation/control_style.dart';
 import 'd_button.dart';
 import 'd_control_wrap.dart';
 import 'd_direction.dart';
+import 'd_header_morph.dart';
 
 /// A category step displayed before a header's tags.
 class DHeaderStep {
@@ -79,6 +80,7 @@ class DHeaderTags extends StatefulWidget {
     this.expandedAction,
     this.tools,
     this.moreKey,
+    this.part,
   });
 
   final Object identity;
@@ -89,6 +91,11 @@ class DHeaderTags extends StatefulWidget {
   final Widget? expandedAction;
   final Widget? tools;
   final Key? moreKey;
+
+  /// Carries the path and tags (`meta`) and the [tools] (`tools`) through the
+  /// surrounding [DHeaderMorph]. An opened run has no path and tags apart from
+  /// its tools, so only the tools travel then.
+  final DHeaderMorphPart? part;
 
   @override
   State<DHeaderTags> createState() => _DHeaderTagsState();
@@ -166,7 +173,9 @@ class _DHeaderTagsState extends State<DHeaderTags> {
       label: Text('+$hidden', maxLines: 1, overflow: TextOverflow.ellipsis),
     );
 
-    final tools = widget.tools;
+    Widget place(String id, Widget child) =>
+        widget.part?.call(id, child) ?? child;
+    final tools = widget.tools == null ? null : place('tools', widget.tools!);
     final steps = widget.path;
     final own = math.max(0, steps.lastIndexWhere((step) => step.own));
     ({bool wholePath, int tags}) fit(double available) => fitHeaderTags(
@@ -224,9 +233,8 @@ class _DHeaderTagsState extends State<DHeaderTags> {
             : Row(spacing: DSpacing.sm, children: children);
       },
     );
-    return tools == null
-        ? identity
-        : _HeaderTagsLine(children: [identity, tools]);
+    final placed = place('meta', identity);
+    return tools == null ? placed : _HeaderTagsLine(children: [placed, tools]);
   }
 }
 
