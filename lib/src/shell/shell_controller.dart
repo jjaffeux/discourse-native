@@ -121,6 +121,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../plugin_api/topic_reader.dart';
 import '../site_preference_inventory.g.dart';
 import 'account_activity_controller.dart';
+import 'account_destination_bookmarks.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
 import 'badges_controller.dart';
@@ -235,15 +236,6 @@ int? _destinationNumericId(String destinationId, String prefix) {
   if (!destinationId.startsWith(prefix)) return null;
   final id = int.tryParse(destinationId.substring(prefix.length));
   return id != null && id > 0 ? id : null;
-}
-
-final class DestinationBookmarkAction {
-  const DestinationBookmarkAction({
-    required this.bookmarked,
-    required this.invoke,
-  });
-  final bool bookmarked;
-  final Future<BookmarkWriteResult> Function() invoke;
 }
 
 final class PostPermanentDeleteTarget {
@@ -433,8 +425,14 @@ class ShellController extends FrameSafeNotifier
   final ForumTabStore forumTabs;
   final RecentDestinationsStore recentDestinations;
   final DestinationBookmarksStore destinationBookmarks;
-  int _destinationBookmarksRevision = 0;
-  int get destinationBookmarksRevision => _destinationBookmarksRevision;
+  late final AccountDestinationBookmarks accountDestinationBookmarks =
+      AccountDestinationBookmarks(
+        store: destinationBookmarks,
+        lifecycle: lifecycle,
+        isConnected: (siteUrl) => _instanceAt(siteUrl)?.isConnected == true,
+        currentSiteUrl: () => currentInstance?.url,
+        accountIdentityFor: _recentAccountIdentity,
+      );
   final AppSettingsController appSettings;
   final ForumSettingsController forumSettings;
   final sidebarSections = SidebarSectionStore();
@@ -1437,60 +1435,6 @@ class ShellController extends FrameSafeNotifier
   List<ContentRoute> recentCategoriesFor(String siteUrl) => recentDestinations
       .categoriesFor(siteUrl, _recentAccountIdentity(siteUrl));
 
-  List<DestinationBookmark> destinationBookmarksFor(String siteUrl) =>
-      destinationBookmarks.entriesFor(siteUrl, _recentAccountIdentity(siteUrl));
-
-  DestinationBookmarkAction? destinationBookmarkAction(
-    ContentRoute route, {
-    String? siteUrl,
-  }) {
-    final site = siteUrl ?? currentInstance?.url;
-    final bookmark = DestinationBookmark.fromRoute(route);
-    if (site == null ||
-        _instanceAt(site)?.isConnected != true ||
-        bookmark == null) {
-      return null;
-    }
-    final account = _recentAccountIdentity(site);
-    final lease = lifecycle.capture(site);
-    final bookmarked = destinationBookmarksFor(
-      site,
-    ).any((entry) => entry.identity == bookmark.identity);
-    bool current() =>
-        !isDisposed &&
-        lease.isCurrent &&
-        _recentAccountIdentity(site) == account;
-    return DestinationBookmarkAction(
-      bookmarked: bookmarked,
-      invoke: () async {
-        if (!current()) {
-          return BookmarkWriteResult.refused(
-            appL10n.bookmarkChangedRefreshMenu,
-          );
-        }
-        try {
-          await destinationBookmarks.set(
-            site,
-            account,
-            bookmark,
-            bookmarked: !bookmarked,
-            isCurrent: current,
-          );
-          if (!current()) {
-            return BookmarkWriteResult.refused(
-              appL10n.bookmarkChangedRefreshMenu,
-            );
-          }
-          _destinationBookmarksRevision++;
-          _notify();
-          return const BookmarkWriteResult.saved();
-        } catch (error) {
-          return BookmarkWriteResult.refused(appL10n.couldNotSaveChanges);
-        }
-      },
-    );
-  }
-
   String? destinationBookmarkSiteForUrl(String url, {String? siteUrl}) {
     final target = Uri.tryParse(absoluteUrl(url, siteUrl: siteUrl));
     return target == null
@@ -1538,7 +1482,7 @@ class ShellController extends FrameSafeNotifier
     ForumPanel? panel,
   }) async {
     if (currentInstance?.url != siteUrl ||
-        !destinationBookmarksFor(siteUrl).contains(bookmark)) {
+        !accountDestinationBookmarks.entriesFor(siteUrl).contains(bookmark)) {
       return false;
     }
     return await openDestinationRoute(
@@ -8871,6 +8815,7 @@ class ShellController extends FrameSafeNotifier
     _workspace.dispose();
     _topicNavigation.dispose();
     _topicPropertyRequests.dispose();
+    accountDestinationBookmarks.dispose();
     unawaited(_topicListRevealRequests.close());
     _notificationPreferences.dispose();
     _currentUsers.dispose();

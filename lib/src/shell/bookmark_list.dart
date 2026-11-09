@@ -327,9 +327,12 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   Widget build(BuildContext context) {
     final activity = widget.controller.accountActivity;
     return ListenableBuilder(
-      listenable: widget.page
-          ? activity.bookmarkListListenable
-          : activity.bookmarksListenable,
+      listenable: Listenable.merge([
+        widget.page
+            ? activity.bookmarkListListenable
+            : activity.bookmarksListenable,
+        widget.controller.accountDestinationBookmarks,
+      ]),
       builder: (context, _) => ShellSelector<_ShellDrawn>(
         select: (_) => _shellDrawn(),
         builder: (context, _, _) =>
@@ -350,7 +353,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final now = DateTime.now();
     return _ShellDrawn([
       controller.lifecycle.capture(siteUrl).session,
-      ...controller.destinationBookmarksFor(siteUrl),
+      ...controller.accountDestinationBookmarks.entriesFor(siteUrl),
       for (final bookmark in bookmarks) bookmark.reminderExpiredAt(now),
       if (menu == null) ...[
         for (final bookmark in bookmarks) _present(bookmark),
@@ -368,7 +371,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 
   Widget _menu(BuildContext context) {
-    final entries = widget.controller.destinationBookmarksFor(widget.siteUrl);
+    final entries = widget.controller.accountDestinationBookmarks.entriesFor(
+      widget.siteUrl,
+    );
     if (entries.isEmpty || DesktopHeaderMenu.isActiveOf(context)) {
       return _serverMenu(context);
     }
@@ -458,7 +463,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       for (final bookmark in feed.bookmarks)
         (bookmark: bookmark, presentation: _present(bookmark)),
     ];
-    final localEntries = controller.destinationBookmarksFor(widget.siteUrl);
+    final localEntries = controller.accountDestinationBookmarks.entriesFor(
+      widget.siteUrl,
+    );
     final filters = <String>{
       for (final entry in localEntries)
         destinationBookmarkTypeLabel(entry.kind),

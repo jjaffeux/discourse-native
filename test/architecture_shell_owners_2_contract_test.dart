@@ -2,7 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../tool/architecture_graph.dart';
 
-const _owners = ['lib/src/shell/topic_channel_router.dart'];
+const _owners = [
+  'lib/src/shell/topic_channel_router.dart',
+  'lib/src/shell/account_destination_bookmarks.dart',
+];
 const _shellLibraries = {
   'lib/src/shell/shell_controller.dart',
   'lib/src/shell/shell_scope.dart',

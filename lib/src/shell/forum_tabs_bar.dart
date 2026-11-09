@@ -1477,7 +1477,6 @@ final class _CurrentForumTabsSnapshot {
     required this.activeTabId,
     required this.presentationToken,
     required this.listTabId,
-    required this.bookmarksRevision,
   });
 
   factory _CurrentForumTabsSnapshot.of(ShellController controller) {
@@ -1488,7 +1487,6 @@ final class _CurrentForumTabsSnapshot {
       tabs: controller.tabsForCurrentForum,
       activeTabId: controller.activeTabId,
       listTabId: controller.listPanelTab?.id,
-      bookmarksRevision: controller.destinationBookmarksRevision,
       presentationToken: instance == null
           ? null
           : controller.presentationTokenFor(instance.url),
@@ -1501,13 +1499,11 @@ final class _CurrentForumTabsSnapshot {
   final String? activeTabId;
   final Object? presentationToken;
   final String? listTabId;
-  final int bookmarksRevision;
 
   @override
   bool operator ==(Object other) =>
       other is _CurrentForumTabsSnapshot &&
       siteUrl == other.siteUrl &&
-      bookmarksRevision == other.bookmarksRevision &&
       forumName == other.forumName &&
       identical(tabs, other.tabs) &&
       activeTabId == other.activeTabId &&
@@ -1517,7 +1513,6 @@ final class _CurrentForumTabsSnapshot {
   @override
   int get hashCode => Object.hash(
     siteUrl,
-    bookmarksRevision,
     forumName,
     identityHashCode(tabs),
     activeTabId,

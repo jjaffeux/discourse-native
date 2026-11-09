@@ -522,13 +522,17 @@ void main() {
       expect(find.text('Preferences'), findsNothing);
 
       await tester.runAsync(
-        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+        () => shell.accountDestinationBookmarks
+            .actionFor(place, siteUrl: _site)!
+            .invoke(),
       );
       await tester.pumpAndSettle();
       expect(find.text('Preferences'), findsOneWidget);
 
       await tester.runAsync(
-        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+        () => shell.accountDestinationBookmarks
+            .actionFor(place, siteUrl: _site)!
+            .invoke(),
       );
       await tester.pumpAndSettle();
       expect(find.text('Preferences'), findsNothing);
@@ -667,7 +671,9 @@ void main() {
       expect(find.text('Preferences'), findsNothing);
 
       await tester.runAsync(
-        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+        () => shell.accountDestinationBookmarks
+            .actionFor(place, siteUrl: _site)!
+            .invoke(),
       );
       await tester.pumpAndSettle();
 

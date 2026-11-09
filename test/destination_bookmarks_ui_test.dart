@@ -79,7 +79,7 @@ void main() {
               title: 'Saved category $id',
               icon: DIcons.folder,
             );
-            await shell.destinationBookmarkAction(route)!.invoke();
+            await shell.accountDestinationBookmarks.actionFor(route)!.invoke();
           }
         });
         await _pump(
@@ -156,10 +156,41 @@ void main() {
     await tester.tap(find.text('Bookmark'));
     await tester.pumpAndSettle();
     expect(
-      shell.destinationBookmarksFor(_site).single.route.destination,
+      shell.accountDestinationBookmarks
+          .entriesFor(_site)
+          .single
+          .route
+          .destination,
       isA<FeedDestination>(),
     );
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('an open menu shows a toggle made elsewhere', (tester) async {
+    final shell = await tester.runAsync(() => _shell());
+    addTearDown(shell!.dispose);
+    await _pump(
+      tester,
+      shell,
+      LinkTarget.content(
+        content: _page,
+        child: DButton(label: Text(_page.title), onPressed: () {}),
+      ),
+    );
+    await tester.tap(
+      find.text(_page.title),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Bookmark'), findsOneWidget);
+
+    await tester.runAsync(
+      () => shell.accountDestinationBookmarks.actionFor(_page)!.invoke(),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Remove bookmark'), findsOneWidget);
   });
 
   testWidgets(
@@ -189,8 +220,8 @@ void main() {
         await tester.tap(find.text('Bookmark'));
         await tester.pumpAndSettle();
         expect(
-          shell
-              .destinationBookmarksFor(_site)
+          shell.accountDestinationBookmarks
+              .entriesFor(_site)
               .any((entry) => entry.route.id == route.id),
           isTrue,
         );
@@ -203,7 +234,7 @@ void main() {
         expect(find.text('Remove bookmark'), findsOneWidget);
         await tester.tap(find.text('Remove bookmark'));
         await tester.pumpAndSettle();
-        expect(shell.destinationBookmarksFor(_site), isEmpty);
+        expect(shell.accountDestinationBookmarks.entriesFor(_site), isEmpty);
       }
       const bookmarks = ContentRoute(
         destination: PageDestination(CorePage.bookmarks),
@@ -323,7 +354,7 @@ void main() {
         addTearDown(shell!.dispose);
         await tester.runAsync(() async {
           for (final route in [_page, _category, _chat]) {
-            await shell.destinationBookmarkAction(route)!.invoke();
+            await shell.accountDestinationBookmarks.actionFor(route)!.invoke();
           }
         });
         await _pump(
@@ -430,7 +461,7 @@ void main() {
     );
     persistence.gate.complete(false);
     await tester.pumpAndSettle();
-    expect(shell.destinationBookmarksFor(_site), isEmpty);
+    expect(shell.accountDestinationBookmarks.entriesFor(_site), isEmpty);
     expect(find.text('Could not save changes.'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -443,7 +474,7 @@ void main() {
     );
     addTearDown(shell!.dispose);
     await tester.runAsync(
-      () => shell.destinationBookmarkAction(_page)!.invoke(),
+      () => shell.accountDestinationBookmarks.actionFor(_page)!.invoke(),
     );
     await _pump(
       tester,
@@ -488,7 +519,10 @@ void main() {
     );
     await tester.tap(find.text('Bookmark'));
     await tester.pumpAndSettle();
-    expect(shell.destinationBookmarksFor(_site).single.route, _category);
+    expect(
+      shell.accountDestinationBookmarks.entriesFor(_site).single.route,
+      _category,
+    );
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 

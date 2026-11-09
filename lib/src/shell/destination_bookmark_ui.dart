@@ -37,33 +37,39 @@ class DestinationBookmarkMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final shell = ShellScope.maybeOf(context);
-    final action = shell?.destinationBookmarkAction(route, siteUrl: siteUrl);
-    if (action == null) return const SizedBox.shrink();
-    final label = action.bookmarked
-        ? context.l10n.removeBookmark
-        : context.l10n.bookmark;
-    final toasts = DToast.maybeOf(context);
-    void invoke() => unawaited(
-      action.invoke().then((result) {
-        if (result.message case final message?) {
-          toasts?.add(DToastOptions(description: message));
-        }
-      }),
+    final bookmarks = ShellScope.maybeOf(context)?.accountDestinationBookmarks;
+    if (bookmarks == null) return const SizedBox.shrink();
+    return ListenableBuilder(
+      listenable: bookmarks,
+      builder: (context, _) {
+        final action = bookmarks.actionFor(route, siteUrl: siteUrl);
+        if (action == null) return const SizedBox.shrink();
+        final label = action.bookmarked
+            ? context.l10n.removeBookmark
+            : context.l10n.bookmark;
+        final toasts = DToast.maybeOf(context);
+        void invoke() => unawaited(
+          action.invoke().then((result) {
+            if (result.message case final message?) {
+              toasts?.add(DToastOptions(description: message));
+            }
+          }),
+        );
+        return dropdown
+            ? DDropdownMenuItem(
+                key: ValueKey('destination-bookmark-${route.id}'),
+                leading: const DIcon(DIcons.bookmark),
+                onPressed: invoke,
+                child: Text(label),
+              )
+            : DContextMenuItem(
+                key: ValueKey('destination-bookmark-${route.id}'),
+                leading: const DIcon(DIcons.bookmark),
+                onPressed: invoke,
+                child: Text(label),
+              );
+      },
     );
-    return dropdown
-        ? DDropdownMenuItem(
-            key: ValueKey('destination-bookmark-${route.id}'),
-            leading: const DIcon(DIcons.bookmark),
-            onPressed: invoke,
-            child: Text(label),
-          )
-        : DContextMenuItem(
-            key: ValueKey('destination-bookmark-${route.id}'),
-            leading: const DIcon(DIcons.bookmark),
-            onPressed: invoke,
-            child: Text(label),
-          );
   }
 }
 
