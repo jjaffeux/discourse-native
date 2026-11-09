@@ -6492,6 +6492,67 @@ void main() {
     );
 
     test(
+      'keeps a connected LiveKit call while the local participant resumes',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_livekit',
+        );
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        final media = mediaFactory.sessions.single;
+        expect(media.transport, VoiceTransport.livekit);
+        const remote = {
+          'id': 2,
+          'username': 'lee',
+          'avatar_template': '/user/lee/{size}.png',
+          'role': 'participant',
+          'can_publish_video': true,
+          'can_screen_share': true,
+        };
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'room_id': 7,
+          'participants': [
+            remote,
+            {...remote, 'id': 1, 'username': 'sam'},
+          ],
+          'resuming_ids': const <int>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'room_id': 7,
+          'participants': const [remote],
+          'resuming_ids': const [1],
+        });
+        await Future<void>.delayed(Duration.zero);
+
+        expect(controller.call, isNotNull);
+        expect(media.disposeCount, 0);
+        expect(
+          controller.call!.room.participants.map((p) => p.id),
+          containsAll(const [1, 2]),
+        );
+
+        firstTracker.deliver('/voice/rooms/7', {
+          'type': 'participants',
+          'room_id': 7,
+          'participants': const [remote],
+          'resuming_ids': const <int>[],
+        });
+        await Future<void>.delayed(Duration.zero);
+
+        expect(controller.call, isNull);
+        expect(media.disposeCount, 1);
+      },
+    );
+
+    test(
       'ends the local call when another client removes it from the roster',
       () async {
         await controller.ensureLoaded(firstSite);
