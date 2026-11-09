@@ -51,6 +51,28 @@ final class NotificationPresentation {
   final String? menuPhrase;
   final String? subject;
   final String? avatarUrl;
+
+  @override
+  bool operator ==(Object other) =>
+      other is NotificationPresentation &&
+      other.icon == icon &&
+      other.actor == actor &&
+      other.phrase == phrase &&
+      other.menuLead == menuLead &&
+      other.menuPhrase == menuPhrase &&
+      other.subject == subject &&
+      other.avatarUrl == avatarUrl;
+
+  @override
+  int get hashCode => Object.hash(
+    icon,
+    actor,
+    phrase,
+    menuLead,
+    menuPhrase,
+    subject,
+    avatarUrl,
+  );
 }
 
 @immutable
@@ -72,6 +94,15 @@ final class ResolvedNotification {
   /// so every path means the same thing and the prefix is added exactly once;
   /// a link that is not under the forum leaves no path.
   final String? path;
+
+  @override
+  bool operator ==(Object other) =>
+      other is ResolvedNotification &&
+      other.presentation == presentation &&
+      other.path == path;
+
+  @override
+  int get hashCode => Object.hash(presentation, path);
 }
 
 /// [siteUrl] is the forum [notification] came from, which a decoder needs

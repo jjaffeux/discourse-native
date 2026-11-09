@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:super_sliver_list/super_sliver_list.dart';
@@ -296,29 +297,69 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     _endCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _endCheckScheduled = false;
-      final scroll = _scrollController;
-      if (!mounted || scroll == null || !scroll.hasClients) return;
-      if (_canLoadMore(_list) &&
-          !_list.hasPrevious &&
-          _automaticPages < _maximumAutomaticPages &&
-          scroll.position.extentAfter <= 0.5) {
-        _loadMore(automatic: true);
-      }
+      _loadMoreIfEndVisible();
     });
+  }
+
+  void _loadMoreIfEndVisible() {
+    final scroll = _scrollController;
+    if (!mounted || scroll == null || !scroll.hasClients) return;
+    if (_canLoadMore(_list) &&
+        !_list.hasPrevious &&
+        _automaticPages < _maximumAutomaticPages &&
+        scroll.position.extentAfter <= 0.5) {
+      _loadMore(automatic: true);
+    }
+  }
+
+  // A taller viewport reveals the end without rebuilding this page.
+  bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth == 0) _loadMoreIfEndVisible();
+    return false;
   }
 
   @override
   Widget build(BuildContext context) {
-    final controller = widget.controller;
+    final activity = widget.controller.accountActivity;
     return ListenableBuilder(
-      listenable: Listenable.merge([
-        widget.page
-            ? controller.accountActivity.bookmarkListListenable
-            : controller.accountActivity.bookmarksListenable,
-        controller,
-      ]),
-      builder: (context, _) => widget.page ? _page(context) : _menu(context),
+      listenable: widget.page
+          ? activity.bookmarkListListenable
+          : activity.bookmarksListenable,
+      builder: (context, _) => ShellSelector<_ShellDrawn>(
+        select: (_) => _shellDrawn(),
+        builder: (context, _, _) =>
+            widget.page ? _page(context) : _menu(context),
+      ),
     );
+  }
+
+  /// What this section draws from the shell and the clock. A row's
+  /// presentation can read any plugin's state, so a shell notification is
+  /// judged by what would be drawn, not by a list of sources believed to feed
+  /// it.
+  _ShellDrawn _shellDrawn() {
+    final controller = widget.controller;
+    final siteUrl = widget.siteUrl;
+    final menu = widget.page ? null : controller.bookmarksFor(siteUrl);
+    final bookmarks = menu?.bookmarks ?? _list.bookmarks;
+    final now = DateTime.now();
+    return _ShellDrawn([
+      controller.lifecycle.capture(siteUrl).session,
+      ...controller.destinationBookmarksFor(siteUrl),
+      for (final bookmark in bookmarks) bookmark.reminderExpiredAt(now),
+      if (menu == null) ...[
+        for (final bookmark in bookmarks) _present(bookmark),
+        for (final presenter
+            in controller.pluginSession.capabilities<PluginBookmarkPresenter>())
+          presenter.bookmarkFilterLabel,
+      ] else
+        for (final reminder in menu.reminders)
+          controller.pluginSession.resolveNotification(
+            controller.plugins.registry,
+            siteUrl,
+            reminder,
+          ),
+    ]);
   }
 
   Widget _menu(BuildContext context) {
@@ -503,30 +544,33 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           separated: true,
           builder: (context, viewport) {
             _scrollController = viewport.scrollController;
-            return NotificationListener<ScrollNotification>(
-              onNotification: (notification) =>
-                  viewport.restoring ? false : _onScroll(notification),
-              child: CustomScrollView(
-                controller: viewport.scrollController,
-                slivers: [
-                  SliverToBoxAdapter(child: header.spacer),
-                  SliverPadding(
-                    padding: EdgeInsets.only(
-                      left: lane.leftInset + 16,
-                      right: lane.rightInset + 16,
-                    ),
-                    sliver: SliverMainAxisGroup(
-                      slivers: _pageSlivers(
-                        context,
-                        feed: feed,
-                        state: state,
-                        viewport: viewport,
-                        visibleEntries: visibleEntries,
-                        visibleLocalEntries: visibleLocalEntries,
+            return NotificationListener<ScrollMetricsNotification>(
+              onNotification: _onScrollMetrics,
+              child: NotificationListener<ScrollNotification>(
+                onNotification: (notification) =>
+                    viewport.restoring ? false : _onScroll(notification),
+                child: CustomScrollView(
+                  controller: viewport.scrollController,
+                  slivers: [
+                    SliverToBoxAdapter(child: header.spacer),
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        left: lane.leftInset + 16,
+                        right: lane.rightInset + 16,
+                      ),
+                      sliver: SliverMainAxisGroup(
+                        slivers: _pageSlivers(
+                          context,
+                          feed: feed,
+                          state: state,
+                          viewport: viewport,
+                          visibleEntries: visibleEntries,
+                          visibleLocalEntries: visibleLocalEntries,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             );
           },
@@ -659,6 +703,20 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       ),
     ],
   );
+}
+
+@immutable
+final class _ShellDrawn {
+  const _ShellDrawn(this.values);
+
+  final List<Object?> values;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _ShellDrawn && listEquals(values, other.values);
+
+  @override
+  int get hashCode => Object.hashAll(values);
 }
 
 class BookmarkRow extends StatelessWidget {
