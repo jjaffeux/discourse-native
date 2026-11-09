@@ -305,13 +305,11 @@ final class UserDirectoryMetadata {
   const UserDirectoryMetadata({
     this.columns = const [],
     this.availableColumns = const [],
-    this.groupNames = const [],
     this.canManageColumns = false,
   });
 
   factory UserDirectoryMetadata.fromColumns(
     Map<String, dynamic> json, {
-    Iterable<String> groupNames = const [],
     bool editable = false,
   }) {
     final columns = <UserDirectoryColumn>[];
@@ -323,22 +321,25 @@ final class UserDirectoryMetadata {
       }
     }
     columns.sort((a, b) => a.position.compareTo(b.position));
-    final normalizedGroups = <String>{
-      for (final group in groupNames)
-        if (group.trim().isNotEmpty) group.trim(),
-    }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return UserDirectoryMetadata(
       columns: List.unmodifiable(
         editable ? columns.where((column) => column.enabled) : columns,
       ),
       availableColumns: List.unmodifiable(columns),
-      groupNames: List.unmodifiable(normalizedGroups),
       canManageColumns: editable,
     );
   }
 
   final List<UserDirectoryColumn> columns;
   final List<UserDirectoryColumn> availableColumns;
-  final List<String> groupNames;
   final bool canManageColumns;
 }
+
+/// The directory's group filter choices: distinct, trimmed and alphabetical.
+List<String> normalizedDirectoryGroupNames(Iterable<String> names) =>
+    List.unmodifiable(
+      <String>{
+        for (final name in names)
+          if (name.trim().isNotEmpty) name.trim(),
+      }.toList()..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase())),
+    );

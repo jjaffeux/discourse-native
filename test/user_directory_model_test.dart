@@ -47,34 +47,34 @@ void main() {
   });
 
   test('decodes dynamic columns, directory values, and public user fields', () {
-    final metadata = UserDirectoryMetadata.fromColumns(
-      const {
-        'directory_columns': [
-          {
-            'id': 2,
-            'name': 'Team',
-            'type': 'user_field',
-            'position': 2,
-            'user_field_id': 7,
-          },
-          {
-            'id': 1,
-            'name': 'likes_received',
-            'type': 'automatic',
-            'position': 1,
-            'icon': 'heart',
-          },
-        ],
-      },
-      groupNames: const ['staff', 'design', 'staff'],
-    );
+    final metadata = UserDirectoryMetadata.fromColumns(const {
+      'directory_columns': [
+        {
+          'id': 2,
+          'name': 'Team',
+          'type': 'user_field',
+          'position': 2,
+          'user_field_id': 7,
+        },
+        {
+          'id': 1,
+          'name': 'likes_received',
+          'type': 'automatic',
+          'position': 1,
+          'icon': 'heart',
+        },
+      ],
+    });
 
     expect(metadata.columns.map((column) => column.name), [
       'likes_received',
       'Team',
     ]);
     expect(metadata.columns.first.label, 'Likes received');
-    expect(metadata.groupNames, ['design', 'staff']);
+    expect(
+      normalizedDirectoryGroupNames(const ['staff', ' design', 'staff', '  ']),
+      ['design', 'staff'],
+    );
 
     final page = UserDirectoryPage.fromWire(const {
       'directory_items': [

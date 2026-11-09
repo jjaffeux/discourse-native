@@ -392,7 +392,7 @@ void main() {
     expect(state.loaded, isTrue);
     expect(state.items.map((item) => item.user.username), ['sam', 'hawk']);
     expect(state.columns.single.name, 'likes_received');
-    expect(state.groupNames, ['design']);
+    expect(controller.groupNamesFor(instance.url), ['design']);
     expect(state.totalRows, 75);
     expect(state.hasMore, isTrue);
 
@@ -665,7 +665,7 @@ void main() {
         final state = controller.stateFor(site.url, query);
         expect(state.items, isEmpty);
         expect(state.columns, isEmpty);
-        expect(state.groupNames, isEmpty);
+        expect(controller.groupNamesFor(site.url), isEmpty);
         expect(state.canManageColumns, isFalse);
         expect(state.loaded, isFalse);
       }
@@ -912,7 +912,7 @@ void main() {
     await loading;
 
     expect(controller.stateFor(instance.url, defaultQuery).columns, isEmpty);
-    expect(controller.stateFor(instance.url, defaultQuery).groupNames, isEmpty);
+    expect(controller.groupNamesFor(instance.url), isEmpty);
     expect(transport.requests, [
       '/directory-columns.json',
       '/groups/search.json?ignore_automatic=true',
@@ -926,7 +926,48 @@ void main() {
     expect(replacement.columns.map((column) => column.name), [
       'likes_received',
     ]);
-    expect(replacement.groupNames, ['design']);
+    expect(controller.groupNamesFor(instance.url), ['design']);
+  });
+
+  test('a late group lookup never replaces a newer one', () async {
+    final lookups = <Completer<List<Map<String, dynamic>>>>[];
+    final transport = _ControllerTransport()
+      ..groupsReply = () {
+        final lookup = Completer<List<Map<String, dynamic>>>();
+        lookups.add(lookup);
+        return lookup.future;
+      };
+    final controller = UserDirectoryController(
+      api: UserDirectoryApi(transport, const DiscourseModelCodec.core()),
+      credentials: const _Credentials(),
+      lifecycle: SiteLifecycle(),
+    );
+    addTearDown(controller.dispose);
+    const instance = DiscourseInstance(
+      url: 'https://example.com',
+      title: 'Example',
+      user: DiscourseUser(username: 'reader'),
+    );
+
+    await controller.load(instance, query: defaultQuery);
+    expect(
+      controller.stateFor(instance.url, defaultQuery).loaded,
+      isTrue,
+      reason: 'rows must not wait for the group lookup',
+    );
+    await controller.load(instance, query: defaultQuery, refresh: true);
+    expect(lookups, hasLength(2));
+
+    lookups[1].complete([
+      {'id': 5, 'name': 'newer', 'can_see_members': true},
+    ]);
+    await pumpEventQueue();
+    lookups[0].complete([
+      {'id': 4, 'name': 'older', 'can_see_members': true},
+    ]);
+    await pumpEventQueue();
+
+    expect(controller.groupNamesFor(instance.url), ['newer']);
   });
 
   test('updating columns invalidates cached directory queries', () async {
@@ -985,6 +1026,7 @@ final class _ControllerTransport
   Object? columnsError;
   Future<void> Function(Uri uri)? beforeDirectoryReply;
   Future<void> Function()? beforeWriteReply;
+  Future<List<Map<String, dynamic>>> Function()? groupsReply;
 
   @override
   Future<Map<String, dynamic>> pluginGetJson({
@@ -1078,6 +1120,7 @@ final class _ControllerTransport
     String? clientId,
   }) async {
     requests.add(path);
+    if (groupsReply case final reply?) return reply();
     return [
       {'id': 4, 'name': 'design', 'can_see_members': true},
     ];

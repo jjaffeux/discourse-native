@@ -43,14 +43,19 @@ void main() {
         apiKey: 'secret',
         clientId: 'client',
       );
+      final groupNames = await api.groupNames(
+        siteUrl: siteUrl,
+        apiKey: 'secret',
+        clientId: 'client',
+      );
 
       expect(metadata.columns.single.name, 'likes_received');
-      expect(metadata.groupNames, hasLength(41));
-      expect(metadata.groupNames.first, 'design');
-      expect(metadata.groupNames, contains('team-39'));
-      expect(metadata.groupNames, isNot(contains('hidden-members')));
-      expect(metadata.groupNames, isNot(contains('unknown-members')));
-      expect(metadata.groupNames, isNot(contains('staff')));
+      expect(groupNames, hasLength(41));
+      expect(groupNames.first, 'design');
+      expect(groupNames, contains('team-39'));
+      expect(groupNames, isNot(contains('hidden-members')));
+      expect(groupNames, isNot(contains('unknown-members')));
+      expect(groupNames, isNot(contains('staff')));
       expect(transport.requests.map((request) => request.path), [
         '/directory-columns.json',
         '/groups/search.json?ignore_automatic=true',
@@ -75,13 +80,19 @@ void main() {
               {'id': 1, 'name': 'likes_received', 'type': 'automatic'},
             ],
           };
-        final metadata = await UserDirectoryApi(
+        final api = UserDirectoryApi(
           transport,
           const DiscourseModelCodec.core(),
-        ).metadata(siteUrl: siteUrl, apiKey: authenticated ? 'secret' : null);
+        );
+        final apiKey = authenticated ? 'secret' : null;
+        final metadata = await api.metadata(siteUrl: siteUrl, apiKey: apiKey);
+        final groupNames = await api.groupNames(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+        );
 
         expect(metadata.columns.single.name, 'likes_received');
-        expect(metadata.groupNames, isEmpty);
+        expect(groupNames, isEmpty);
         expect(transport.requests.map((request) => request.path), [
           '/directory-columns.json',
           if (authenticated) '/groups/search.json?ignore_automatic=true',

@@ -112,7 +112,7 @@ class _UsersDirectoryHostState extends State<UsersDirectoryHost> {
           data: UsersPageData(
             items: state.items,
             columns: state.columns,
-            groupNames: state.groupNames,
+            groupNames: shell.userDirectory.groupNamesFor(widget.siteUrl),
             currentUsername: instance?.user?.username,
             totalRows: state.totalRows,
             query: query,
