@@ -7,6 +7,7 @@ import 'dart:isolate';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/shell/composer/blocks.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/list_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
@@ -196,15 +197,18 @@ final class _EditStream {
   }
 }
 
-ComposerController _composer(TextEditingValue value) => ComposerController(
-  const ReplyComposerTarget(
-    privateMessageTopic: false,
-    siteUrl: 'https://example.test',
-    topicId: 1,
-    slug: 'topic',
-    topicTitle: 'Topic',
-  ),
-)..text.value = value;
+ComposerController _composer(TextEditingValue value) =>
+    ComposerController(
+        const ReplyComposerTarget(
+          privateMessageTopic: false,
+          siteUrl: 'https://example.test',
+          topicId: 1,
+          slug: 'topic',
+          topicTitle: 'Topic',
+        ),
+      )
+      ..artwork = const CoreComposerArtwork()
+      ..text.value = value;
 
 Map<String, Object?> _measureCpu(
   String source,

@@ -1,12 +1,12 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 import '../foundation/bounded_lru_cache.dart';
+import '../theme/tokens.dart';
 
 /// Words belong to one page in one tab, never to the global search editor.
 class SearchWords extends InheritedWidget {

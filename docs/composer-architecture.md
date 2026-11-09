@@ -12,17 +12,17 @@ composition, history, overlap resolution, and span caching.
 editor behavior, and declare no widget. Their widgets live beside them in
 `code_editor.dart`, `details_editor.dart`, `table_editor.dart`,
 `list_item_editor.dart`, `link_pill.dart` and `link_dialog.dart`;
-`image.dart`, `gallery.dart`, `quote.dart`, `todo.dart`, `blockquote.dart` and
-`emoji.dart` construct their own presentation. Image and gallery toolbars and
+`image.dart`, `gallery.dart`, `quote.dart`, `todo_marker.dart`, `blockquote.dart`
+and `emoji.dart` construct their own presentation. Image and gallery toolbars and
 menus also live with their features. The mobile image toolbar receives the
 shared history controls from the panel. Lossless parsers live beside their
 feature in `*_source.dart` files when they need a separate module.
 
-The controllers never import a widget library of the shell. A projection owns
-its source geometry: the spans, hidden tail, keys and caret rules around a
-component. The widget placed inside its span comes from `ComposerArtwork`
+The controllers never import a widget library of the shell or the UI kit
+barrel. A projection owns its source geometry: the spans, hidden tail, keys and
+caret rules around a component. The widget placed inside its span comes from `ComposerArtwork`
 (`composer/artwork.dart`, what the document controller draws itself: media,
-quotes, pills and links) and `ComposerComponentArtwork`
+quotes, pills, links, keycaps and task checkboxes) and `ComposerComponentArtwork`
 (`composer/component_artwork.dart`, the core components whose widgets embed an
 editor bound to their `ComposerController`). `components/core_artwork.dart`
 is the one implementation, and `ComposerEditor` installs it on the composer at

@@ -9,10 +9,11 @@ import 'components/link_source.dart';
 import 'components/quote_source.dart';
 
 /// How a rendered composer draws the components its document controller
-/// projects: media, quotes, pills and links. The controller owns every source
-/// offset, span, key and caret rule around a component; the editor that
-/// renders the controller supplies these widgets, so the controllers compile
-/// without the shell's widget libraries.
+/// projects: media, quotes, pills, links, keycaps and task checkboxes. The
+/// controller owns every source offset, span, key and caret rule around a
+/// component; the editor that renders the controller supplies these widgets,
+/// so the controllers compile without the shell's widget libraries or the UI
+/// kit.
 ///
 /// Each method returns the widget placed inside the component's span, with
 /// the same tree the component drew before the split, so hit regions,
@@ -80,6 +81,19 @@ abstract interface class ComposerArtwork {
     ComposerEditorHost editor,
     ComposerLinkBlock link,
   );
+
+  /// [child] is the styled text of a `<kbd>` run. [semanticLabel] names the
+  /// whole key, which can span several styled runs.
+  Widget keyboardKey({required String semanticLabel, required Widget child});
+
+  /// [label] is the task's text and is empty for a task with none written
+  /// yet. A null [onChanged] draws the marker read-only.
+  Widget todoMarker({
+    required bool checked,
+    required String label,
+    required TextStyle style,
+    required VoidCallback? onChanged,
+  });
 }
 
 /// The editor rendering a controller installs its artwork before the first

@@ -1,7 +1,8 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:discourse_native/src/shell/composer/components/todo.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
+import 'package:discourse_native/src/shell/composer/components/todo_marker.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
 import 'package:discourse_native/src/shell/emoji.dart';
@@ -65,6 +66,7 @@ void main() {
     (tester) async {
       final controller = MarkdownEditingController(
         text: List.generate(120, (index) => 'Paragraph $index').join('\n\n'),
+        artwork: const CoreComposerArtwork(),
       );
       addTearDown(controller.dispose);
 
