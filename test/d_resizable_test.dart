@@ -243,6 +243,47 @@ void main() {
       expect(c.layout['a'], 100);
     });
   }
+
+  testWidgets('a screen reader moves focus to the handle itself', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    final c = _LayoutProbe();
+    addTearDown(c.dispose);
+    const focusKey = ValueKey('handle-focus');
+    const semanticsKey = ValueKey('handle-semantics');
+    await tester.pumpWidget(
+      _host(
+        c,
+        children: const [
+          DResizablePanel(
+            id: 'a',
+            minSize: DResizableSize.pixels(100),
+            child: Text('A'),
+          ),
+          DResizableHandle(focusKey: focusKey, semanticsKey: semanticsKey),
+          DResizablePanel(
+            id: 'b',
+            minSize: DResizableSize.pixels(100),
+            child: Text('B'),
+          ),
+        ],
+      ),
+    );
+
+    final node = tester.getSemantics(find.byKey(semanticsKey));
+    expect(node.getSemanticsData().hasAction(SemanticsAction.focus), isTrue);
+
+    node.owner!.performAction(node.id, SemanticsAction.focus);
+    await tester.pump();
+
+    expect(
+      tester.widget<Focus>(find.byKey(focusKey)).focusNode!.hasPrimaryFocus,
+      isTrue,
+    );
+    semantics.dispose();
+  });
+
   testWidgets('controlled parent may reject proposed layout', (tester) async {
     final c = _LayoutProbe();
     addTearDown(c.dispose);
