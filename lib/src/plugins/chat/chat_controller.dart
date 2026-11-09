@@ -3868,6 +3868,7 @@ final class _ChatThreadMetadataEvents implements ChatThreadMetadataEvents {
       target,
       detail.messageBusLastId,
     );
+    _controller._liveSync.settleUnheldThreadReplies(siteUrl, detail);
     final originalId = detail.originalMessage?.id;
     final preview = detail.preview;
     if (originalId != null && preview != null) {
@@ -3892,6 +3893,7 @@ final class _ChatThreadMetadataEvents implements ChatThreadMetadataEvents {
     ChatThreadTarget target, {
     required bool terminal,
   }) {
+    _controller._liveSync.forgetUnheldThreadReplies(siteUrl, target);
     _controller._conversationFor(siteUrl, target);
     for (final owner in _controller._windowsFor(siteUrl, target)) {
       final window = owner.snapshot;
