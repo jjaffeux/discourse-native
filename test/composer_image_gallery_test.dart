@@ -316,17 +316,23 @@ void main() {
       final preview = find.byType(ComposerImageGalleryPreview);
       final size = tester.getSize(preview);
       final middle = size.height / 2;
+      final primary = Theme.of(tester.element(preview)).colorScheme.primary;
+      // Icon glyphs inside the preview draw paths of their own, ahead of the
+      // border, so the border is picked out by its stroke and not its position.
       expect(
         preview,
-        paints
-          ..path(color: const Color(0x00000000))
-          ..path(
-            includes: [Offset(2, middle), Offset(size.width - 2, middle)],
-            excludes: [Offset(0.5, middle), Offset(size.width - 0.5, middle)],
-            color: Theme.of(tester.element(preview)).colorScheme.primary,
-            strokeWidth: 2.5,
-            style: PaintingStyle.stroke,
-          ),
+        paints..something((method, arguments) {
+          if (method != #drawPath) return false;
+          final path = arguments[0] as Path;
+          final paint = arguments[1] as Paint;
+          return paint.style == PaintingStyle.stroke &&
+              paint.strokeWidth == 2.5 &&
+              paint.color.toARGB32() == primary.toARGB32() &&
+              path.contains(Offset(2, middle)) &&
+              path.contains(Offset(size.width - 2, middle)) &&
+              !path.contains(Offset(0.5, middle)) &&
+              !path.contains(Offset(size.width - 0.5, middle));
+        }),
       );
     });
 
