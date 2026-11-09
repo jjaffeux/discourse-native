@@ -3,6 +3,7 @@ import 'dart:async';
 import '../data/site_lifecycle.dart';
 import '../data/site_tracker.dart';
 import '../data/store.dart';
+import '../models/json.dart';
 import '../models/live_refresh_id.dart';
 import '../models/post.dart';
 import '../plugin_api/plugin_registry.dart';
@@ -14,6 +15,13 @@ typedef TopicReaderEvent = ({
   Object account,
   int topicId,
   Object? data,
+});
+
+typedef _CoreInvalidation = ({
+  bool stream,
+  int? post,
+  bool deletion,
+  ({int id, int? postNumber, String? username})? created,
 });
 
 /// Applies what arrives on the visible topics' message-bus channels to the
@@ -97,6 +105,17 @@ final class TopicChannelRouter {
                   .forSite(siteUrl)
                   .refresh(topicId, slug: slugsByTopic[topicId] ?? ''),
             );
+          } else if (core.created case final created?
+              when !_topics.forSite(siteUrl).usesReader(topicId)) {
+            _topics
+                .forSite(siteUrl)
+                .acceptCreatedPost(
+                  topicId,
+                  created.id,
+                  slug: slugsByTopic[topicId] ?? '',
+                  postNumber: created.postNumber,
+                  username: created.username,
+                );
           }
           final stale = _plugins.stalePosts(channel, data);
           if (stale.isNotEmpty) {
@@ -131,30 +150,49 @@ final class TopicChannelRouter {
     'recovered',
   };
 
-  static const ({bool stream, int? post, bool deletion}) _noCoreInvalidation = (
+  static const _CoreInvalidation _noCoreInvalidation = (
     stream: false,
     post: null,
     deletion: false,
+    created: null,
   );
 
-  /// Whether a core `/topic/{id}` message changes the stream, or only the one
-  /// post it names. A named post is re-read only while held, so an edit, like
-  /// or deletion reaches a reader who is looking at it, including one whose
-  /// cached topic is replayed from `messageBusLastId`. `deletion` marks the
-  /// messages after which a re-read that omits the post means it is gone.
-  ({bool stream, int? post, bool deletion}) _coreInvalidation(
-    String siteUrl,
-    Object? data,
-  ) {
+  static const _CoreInvalidation _streamInvalidation = (
+    stream: true,
+    post: null,
+    deletion: false,
+    created: null,
+  );
+
+  /// Whether a core `/topic/{id}` message changes the stream, adds one post to
+  /// it, or changes only the one post it names. A named post is re-read only
+  /// while held, so an edit, like or deletion reaches a reader who is looking
+  /// at it, including one whose cached topic is replayed from
+  /// `messageBusLastId`. `deletion` marks the messages after which a re-read
+  /// that omits the post means it is gone.
+  _CoreInvalidation _coreInvalidation(String siteUrl, Object? data) {
     if (data is! Map) return _noCoreInvalidation;
     final type = data['type'];
     // As on the web client, a reload replaces the message's per-post handling.
     // An inbox move names no post, and only a topic read carries its state.
-    if (type == 'created' ||
-        type == 'archived' ||
+    if (type == 'archived' ||
         type == 'move_to_inbox' ||
         data['reload_topic'] == true) {
-      return (stream: true, post: null, deletion: false);
+      return _streamInvalidation;
+    }
+    if (type == 'created') {
+      final id = liveRefreshId(data['id']);
+      if (id == null) return _streamInvalidation;
+      return (
+        stream: false,
+        post: null,
+        deletion: false,
+        created: (
+          id: id,
+          postNumber: jsonIntOrNull(data['post_number']),
+          username: jsonText(data['username']),
+        ),
+      );
     }
     final postId = _corePostMessageTypes.contains(type)
         ? liveRefreshId(data['id'])
@@ -163,12 +201,13 @@ final class TopicChannelRouter {
     // A reader who could not see the deleted post no longer holds it, and its
     // recovery has to put it back at its place in the stream.
     if (type == 'recovered' && _store.read<Post>(siteUrl, postId) == null) {
-      return (stream: true, post: null, deletion: false);
+      return _streamInvalidation;
     }
     return (
       stream: false,
       post: postId,
       deletion: type == 'deleted' || type == 'destroyed',
+      created: null,
     );
   }
 

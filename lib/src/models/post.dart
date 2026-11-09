@@ -1057,6 +1057,23 @@ class TopicDetail with Storable<TopicDetail> {
     );
   }
 
+  /// [postIds] the topic's channel announced after the end of the stream.
+  ///
+  /// Each arrives with a `stats` message that sets [postsCount], which can be
+  /// delivered first, so counting them here as well would count them twice.
+  TopicDetail withAnnouncedPosts(Iterable<int> postIds) {
+    final added = [
+      for (final id in postIds)
+        if (!stream.contains(id)) id,
+    ];
+    return added.isEmpty ? this : copyWith(stream: [...stream, ...added]);
+  }
+
+  TopicDetail withHighestPostNumber(int postNumber) =>
+      postNumber > highestPostNumber
+      ? copyWith(highestPostNumber: postNumber)
+      : this;
+
   /// A mega topic with [postIds], a page read past its run by post number
   /// from [anchorPostId], on the newer side when [newer].
   ///
@@ -1312,6 +1329,7 @@ class TopicDetail with Storable<TopicDetail> {
     bool clearLocalizedTitle = false,
     List<int>? stream,
     int? lastPostId,
+    int? highestPostNumber,
     Map<int, List<int>>? gapsBefore,
     Map<int, List<int>>? gapsAfter,
     int? postsCount,
@@ -1353,7 +1371,7 @@ class TopicDetail with Storable<TopicDetail> {
     stream: stream == null ? this.stream : List.unmodifiable(stream),
     isMegaTopic: isMegaTopic,
     lastPostId: lastPostId ?? this.lastPostId,
-    highestPostNumber: highestPostNumber,
+    highestPostNumber: highestPostNumber ?? this.highestPostNumber,
     gapsBefore: gapsBefore == null
         ? this.gapsBefore
         : _freezePostGaps(gapsBefore),

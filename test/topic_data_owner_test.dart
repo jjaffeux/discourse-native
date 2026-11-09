@@ -2333,6 +2333,26 @@ void main() {
     );
   }
   test(
+    'a reply announced before its own request answers appears once',
+    () async {
+      final f = _Fixture()..seed();
+      f.store.put(_site, _post(2, 'second'));
+      final data = f.data;
+      final held = f.store.read<TopicDetail>(_site, 7)!.stream;
+      final reply = held.last + 1;
+
+      data.acceptCreatedPost(7, reply, slug: 'topic');
+      await f.api.waitPosts(1);
+      data.acceptReply(7, _post(reply, 'accepted'));
+      f.api.postReads.single.result.complete([_post(reply, 'announced')]);
+      await pumpEventQueue();
+
+      expect(f.store.read<TopicDetail>(_site, 7)!.stream, [...held, reply]);
+      expect(f.store.read<Post>(_site, reply)!.cooked, contains('accepted'));
+    },
+  );
+
+  test(
     'a cached resume callback cannot supersede newer explicit navigation',
     () async {
       final f = _Fixture()..seed();

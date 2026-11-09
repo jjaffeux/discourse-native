@@ -82,6 +82,7 @@ final class TopicDataOwner {
     this.usesReader,
     this.postSelected,
     this.acceptedPost,
+    this.ignoredUsernames,
   });
 
   final TopicContentApi content;
@@ -105,6 +106,7 @@ final class TopicDataOwner {
   final bool Function(String siteUrl, TopicDetail topic)? usesReader;
   final bool Function(String siteUrl, int topicId, int postId)? postSelected;
   final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
+  final List<String> Function(String siteUrl)? ignoredUsernames;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -179,6 +181,8 @@ final class _TopicState {
   final Map<int, int> removedAt = {};
   _LiveBatch? queuedLive;
   int? deferredPostsCount;
+  final Set<int> createdPosts = {};
+  bool readingCreated = false;
 }
 
 enum _MetadataField { title, category, tags }
@@ -1734,6 +1738,8 @@ final class TopicDataSession implements BookmarkTopicData {
       final post = _post(id);
       if (_store.read<Post>(siteUrl, id) == null) {
         post.deletion = false;
+        if (deletion) _dropUnreadPost(topicId, id);
+        if (!isCurrent) return;
         continue;
       }
       if (deletion) post.deletion = true;
@@ -1762,6 +1768,16 @@ final class TopicDataSession implements BookmarkTopicData {
         post.refreshPending = true;
       }
     }
+  }
+
+  /// An id announced with no read behind it has no re-read to remove it, and
+  /// a later topic read keeps an id past the posts it returned.
+  void _dropUnreadPost(int topicId, int postId) {
+    _topic(topicId).createdPosts.remove(postId);
+    final stream = _store.read<TopicDetail>(siteUrl, topicId)?.stream;
+    if (stream?.contains(postId) != true) return;
+    removePost(topicId, postId);
+    _changed();
   }
 
   void _sendLive(_LiveBatch batch) {
@@ -2216,6 +2232,130 @@ final class TopicDataSession implements BookmarkTopicData {
       _update<TopicDetail>(topicId, (held) => held.withPostId(post.id));
     }
     if (isCurrent) _owner.acceptedPost?.call(siteUrl, topicId, post);
+  }
+
+  /// A post announced on the topic's channel, handled as the web client's
+  /// PostStream#triggerNewPostsInStream does: a reader holding the stream's
+  /// end reads the post, and any other reader only learns the id for paging
+  /// to reach. A mega topic has no stream to append to.
+  void acceptCreatedPost(
+    int topicId,
+    int postId, {
+    required String slug,
+    int? postNumber,
+    String? username,
+  }) {
+    if (!isCurrent) return;
+    final detail = _store.read<TopicDetail>(siteUrl, topicId);
+    if (detail == null || detail.isMegaTopic || !readerResolved(topicId)) {
+      unawaited(refresh(topicId, slug: slug));
+      return;
+    }
+    final state = _topic(topicId);
+    // A read already out can answer with the count from before this post, on
+    // top of the `stats` message that follows it.
+    if (state.reading != null) state.refreshPending = true;
+    if (postNumber != null) {
+      _update<TopicDetail>(
+        topicId,
+        (held) => held.withHighestPostNumber(postNumber),
+      );
+      if (!isCurrent) return;
+    }
+    if (username != null && _ignores(username)) return;
+    state.createdPosts.add(postId);
+    if (state.readingCreated) return;
+    state.readingCreated = true;
+    scheduleMicrotask(() => unawaited(_readCreatedPosts(topicId, slug)));
+  }
+
+  bool _ignores(String username) =>
+      _owner.ignoredUsernames?.call(siteUrl).contains(username) == true;
+
+  Future<void> _readCreatedPosts(int topicId, String slug) async {
+    final state = _topic(topicId);
+    try {
+      while (isCurrent && state.createdPosts.isNotEmpty) {
+        await _readCreatedBatch(topicId, slug);
+      }
+    } finally {
+      if (isCurrent) state.readingCreated = false;
+    }
+  }
+
+  Future<void> _readCreatedBatch(int topicId, String slug) async {
+    final state = _topic(topicId);
+    final detail = _store.read<TopicDetail>(siteUrl, topicId);
+    if (detail == null || detail.isMegaTopic) {
+      state.createdPosts.clear();
+      return;
+    }
+    final wanted = [
+      for (final id in state.createdPosts)
+        if (!detail.stream.contains(id) && !state.removedAt.containsKey(id)) id,
+    ];
+    state.createdPosts.clear();
+    final tail = detail.stream.lastOrNull;
+    if (tail != null && _store.read<Post>(siteUrl, tail) == null) {
+      _appendCreated(topicId, wanted);
+      return;
+    }
+    final batch = wanted.take(TopicDetail.maximumInitialPosts).toList();
+    state.createdPosts.addAll(wanted.skip(batch.length));
+    if (batch.isEmpty) return;
+    final stamp = _stamp(topicId);
+    try {
+      final credential = await _requests.keyCredentials(_owner.credentials);
+      if (!isCurrent) return;
+      final posts = await credential.run(
+        () => _owner.content.posts(
+          siteUrl: siteUrl,
+          topicId: topicId,
+          ids: batch,
+          apiKey: credential.apiKey,
+        ),
+      );
+      if (!isCurrent) return;
+      final byId = {for (final post in posts) post.id: post};
+      final visible = [
+        for (final id in batch)
+          if (byId[id] case final post? when !_ignores(post.username)) post,
+      ];
+      if (!_publishPosts(topicId, visible, stamp, onlyUnloaded: true)) return;
+      _update<TopicDetail>(
+        topicId,
+        (held) => held.withAnnouncedPosts([
+          for (final post in visible)
+            if (!_removedAfter(topicId, post.id, stamp.removals)) post.id,
+        ]),
+      );
+      if (!isCurrent) return;
+      if (_store.read<TopicDetail>(siteUrl, topicId) case final held?) {
+        _owner.published(siteUrl, held);
+      }
+      _changed();
+      // A status change is announced as a small action, and only a topic read
+      // carries the status itself.
+      if (isCurrent && visible.any((post) => post.isSmallAction)) {
+        unawaited(refresh(topicId, slug: slug));
+      }
+    } catch (_) {
+      if (isCurrent) {
+        _appendCreated(topicId, [
+          for (final id in batch)
+            if (!_removedAfter(topicId, id, stamp.removals)) id,
+        ]);
+      }
+    }
+  }
+
+  /// Leaves [postIds] for paging to read. Whether one of them changed the
+  /// topic's status is unknown until then, so the next open reads the topic.
+  void _appendCreated(int topicId, List<int> postIds) {
+    if (postIds.isEmpty) return;
+    _update<TopicDetail>(topicId, (held) => held.withAnnouncedPosts(postIds));
+    refreshWhenOpened(topicId);
+    _changed();
   }
 
   void acceptNewTopicPost(Post post) => _put(post);
