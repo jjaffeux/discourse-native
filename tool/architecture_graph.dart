@@ -12,6 +12,8 @@ import 'package:analyzer/dart/ast/ast.dart';
 
 /// Declared imports and exports between libraries, with parts folded into the
 /// library that owns them, because Dart compiles those as one unit.
+const _shellController = 'lib/src/shell/shell_controller.dart';
+
 final class LibraryGraph {
   LibraryGraph._(this.edges, this.widgetLibraries);
 
@@ -193,6 +195,63 @@ final class LibraryGraph {
     return result..sort((a, b) => b.length.compareTo(a.length));
   }
 
+  /// Pairs of layers with an import in each direction, as `a <-> b`.
+  Set<String> mutualLayerPairs() {
+    final directed = <(String, String)>{
+      for (final entry in edges.entries)
+        for (final target in entry.value)
+          if (_layers.contains(areaOf(entry.key)) &&
+              _layers.contains(areaOf(target)) &&
+              areaOf(entry.key) != areaOf(target))
+            (areaOf(entry.key), areaOf(target)),
+    };
+    return SplayTreeSet.of({
+      for (final (from, to) in directed)
+        if (from.compareTo(to) < 0 && directed.contains((to, from)))
+          '$from <-> $to',
+    });
+  }
+
+  /// Widget libraries that compile whenever [entry] compiles.
+  Set<String> widgetLibrariesReachedBy(String entry) =>
+      closureOf(entry).intersection(widgetLibraries);
+
+  /// For each `*_test.dart` under [root], how many application libraries its
+  /// direct imports compile.
+  List<int> testFileReach([String root = 'test']) {
+    final reach = <int>[];
+    for (final entity in Directory(root).listSync(recursive: true)) {
+      if (entity is! File || !entity.path.endsWith('_test.dart')) continue;
+      final path = entity.path.replaceAll('\\', '/');
+      final unit = parseString(
+        content: entity.readAsStringSync(),
+        path: path,
+        throwIfDiagnostics: false,
+      ).unit;
+      final compiled = <String>{};
+      for (final directive in unit.directives.whereType<ImportDirective>()) {
+        final target = _resolve(path, directive.uri.stringValue!);
+        if (target != null && edges.containsKey(target)) {
+          compiled.addAll(closureOf(target));
+        }
+      }
+      reach.add(compiled.length);
+    }
+    return reach;
+  }
+
+  static const _layers = {
+    'foundation',
+    'models',
+    'theme',
+    'ui',
+    'data',
+    'plugin_api',
+    'shell',
+    'styleguide',
+    'plugins',
+  };
+
   /// Every edge from one area to another, as `source -> target`.
   Set<String> edgesBetween(String from, String to) => {
     for (final entry in edges.entries)
@@ -208,6 +267,21 @@ void main(List<String> entries) {
   stdout.writeln('libraries ${graph.edges.length}');
   stdout.writeln('largest cycle ${cycles.isEmpty ? 0 : cycles.first.length}');
   stdout.writeln('cycles ${cycles.map((cycle) => cycle.length).toList()}');
+  stdout.writeln(
+    'libraries in cycles '
+    '${cycles.fold<int>(0, (sum, cycle) => sum + cycle.length)}',
+  );
+  stdout.writeln('mutual layer pairs ${graph.mutualLayerPairs().toList()}');
+  stdout.writeln(
+    'widget libraries reached by ShellController '
+    '${graph.widgetLibrariesReachedBy(_shellController).length}',
+  );
+  final testReach = graph.testFileReach();
+  stdout.writeln(
+    'mean application libraries per test file '
+    '${(testReach.fold<int>(0, (sum, reach) => sum + reach) / testReach.length).round()} '
+    'over ${testReach.length} files',
+  );
   final targets = entries.isNotEmpty
       ? entries
       : const [
