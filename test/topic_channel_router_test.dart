@@ -6,6 +6,8 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
+import 'package:discourse_native/src/plugins/solved/solved_module.dart';
+import 'package:discourse_native/src/plugins/solved/solved_post.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/topic_channel_router.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
@@ -241,6 +243,82 @@ void main() {
     expect(h.tracker.watchedTopic, 7);
     expect(h.tracker.watchedChannelLastIds, {'/topic/7': 31});
   });
+
+  group('a solution changed by someone else', () {
+    Post answer(int id, {required bool accepted}) => Post(
+      id: id,
+      postNumber: id,
+      username: 'sam',
+      cooked: '<p>Answer</p>',
+      plugins: PluginData.none.withValue(
+        solvedPostKey,
+        SolvedPost(accepted: accepted, canAccept: true, canUnaccept: accepted),
+      ),
+    );
+
+    _Harness held({required Map<int, bool> before, required Set<int> after}) {
+      final h = _Harness(
+        extraPlugins: const [SolvedPlugin()],
+        api: FakeDiscourseApi(
+          postsById: {
+            for (final id in before.keys)
+              id: answer(id, accepted: after.contains(id)),
+          },
+        ),
+      );
+      h.store.put(
+        _site,
+        TopicDetail(
+          id: 7,
+          title: 'Topic',
+          stream: before.keys.toList(),
+          postsCount: before.length,
+        ),
+      );
+      for (final entry in before.entries) {
+        h.store.put(_site, answer(entry.key, accepted: entry.value));
+      }
+      return h;
+    }
+
+    bool accepted(_Harness h, int id) =>
+        h.store.read<Post>(_site, id)!.plugins.get(solvedPostKey)!.accepted;
+
+    // accept_answer.rb publishes AcceptedAnswersHelper.serialize, a
+    // BasicPostSerializer row per remaining answer.
+    test('moves the mark from the old answer to the new one', () async {
+      final h = held(before: {2: true, 3: false, 4: false}, after: {3});
+      addTearDown(h.dispose);
+      h.watch();
+
+      h.tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'accepted_solution',
+        'accepted_answers': [
+          {'id': 3, 'post_number': 3, 'topic_id': 7, 'username': 'sam'},
+        ],
+      });
+      await _drain();
+
+      expect(accepted(h, 3), isTrue);
+      expect(accepted(h, 2), isFalse);
+      expect(h.api.postFetches.expand((ids) => ids), isNot(contains(4)));
+    });
+
+    // AcceptedAnswersHelper.serialize returns nil once no answer remains.
+    test('removes the mark from the only answer', () async {
+      final h = held(before: {2: true, 3: false}, after: const {});
+      addTearDown(h.dispose);
+      h.watch();
+
+      h.tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'unaccepted_solution',
+        'accepted_answers': null,
+      });
+      await _drain();
+
+      expect(accepted(h, 2), isFalse);
+    });
+  });
 }
 
 Future<void> _drain() async {
@@ -273,8 +351,11 @@ final class _Plugin
 }
 
 final class _Harness {
-  _Harness({this.usesReader = false, FakeDiscourseApi? api})
-    : api = api ?? FakeDiscourseApi() {
+  _Harness({
+    this.usesReader = false,
+    FakeDiscourseApi? api,
+    this.extraPlugins = const [],
+  }) : api = api ?? FakeDiscourseApi() {
     store.put(
       _site,
       const TopicDetail(id: 7, title: 'Topic', stream: [1], postsCount: 1),
@@ -283,6 +364,7 @@ final class _Harness {
   }
 
   final bool usesReader;
+  final List<SitePlugin> extraPlugins;
   final FakeDiscourseApi api;
   final store = Store();
   final lifecycle = SiteLifecycle();
@@ -349,7 +431,7 @@ final class _Harness {
     topics: topics,
     store: store,
     lifecycle: lifecycle,
-    plugins: PluginRegistry([plugin]),
+    plugins: PluginRegistry([plugin, ...extraPlugins]),
     publishReaderEvent: (event) {
       readerEvents.add(event);
       onReaderEvent?.call();
