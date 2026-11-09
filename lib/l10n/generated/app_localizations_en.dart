@@ -5128,9 +5128,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loadingTopicTitle => 'Loading topic title';
 
   @override
-  String get topicClosed => 'Topic closed';
-
-  @override
   String get latestTopics => 'Latest topics';
 
   @override

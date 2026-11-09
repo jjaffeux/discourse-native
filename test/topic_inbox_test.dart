@@ -6,6 +6,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
@@ -2271,6 +2272,133 @@ void main() {
     },
   );
 
+  group('status marks before the title', () {
+    final marks = [
+      (status: 'deleted', icon: DIcons.trashCan, label: 'Deleted'),
+      (status: 'closed', icon: DIcons.lock, label: 'Closed'),
+      (status: 'archived', icon: DNativeIcons.boxArchive, label: 'Archived'),
+      (status: 'unlisted', icon: DIcons.farEyeSlash, label: 'Unlisted'),
+      (status: 'pinned', icon: DIcons.thumbtack, label: 'Pinned'),
+    ];
+    Finder mark(String status) => find.byKey(ValueKey('topic-header-$status'));
+
+    Future<void> openFirstTopic(
+      WidgetTester tester,
+      TargetPlatform platform, {
+      bool deleted = false,
+      bool closed = false,
+      bool archived = false,
+      bool unlisted = false,
+      bool pinned = false,
+    }) async {
+      final setup = await _setup(
+        tester,
+        theme: AppTheme.light.copyWith(platform: platform),
+        closed: closed,
+        archived: archived,
+        visible: !unlisted,
+        pinned: pinned,
+        deletedAt: deleted ? DateTime.utc(2026, 11, 1) : null,
+      );
+      tester.view.physicalSize = Size(
+        platform == TargetPlatform.macOS ? 1100 : 390,
+        800,
+      );
+      setup.controller.openTopicFromList(setup.rows.first);
+      await tester.pumpAndSettle();
+      await _scrollReaderToTop(tester);
+    }
+
+    for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+      for (final expected in marks) {
+        testWidgets('a ${expected.status} topic says so on $platform', (
+          tester,
+        ) async {
+          final semantics = tester.ensureSemantics();
+          await openFirstTopic(
+            tester,
+            platform,
+            deleted: expected.status == 'deleted',
+            closed: expected.status == 'closed',
+            archived: expected.status == 'archived',
+            unlisted: expected.status == 'unlisted',
+            pinned: expected.status == 'pinned',
+          );
+
+          for (final other in marks) {
+            expect(
+              mark(other.status),
+              other.status == expected.status ? findsOneWidget : findsNothing,
+              reason: other.status,
+            );
+          }
+          final icon = tester.widget<DIcon>(mark(expected.status));
+          expect(icon.icon, expected.icon);
+          expect(icon.size, 17);
+          expect(icon.semanticLabel, expected.label);
+          expect(
+            tester.getSemantics(mark(expected.status)).label,
+            expected.label,
+          );
+          expect(tester.takeException(), isNull);
+          semantics.dispose();
+        });
+      }
+
+      testWidgets('every status draws in Discourse order on $platform', (
+        tester,
+      ) async {
+        await openFirstTopic(
+          tester,
+          platform,
+          deleted: true,
+          closed: true,
+          archived: true,
+          unlisted: true,
+          pinned: true,
+        );
+
+        final rects = [
+          for (final expected in marks) tester.getRect(mark(expected.status)),
+        ];
+        for (var i = 1; i < rects.length; i++) {
+          expect(rects[i].left, rects[i - 1].right + DSpacing.sm);
+        }
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    testWidgets('a list row marks the title until its topic answers', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final setup = await _setup(tester, topicGate: gate);
+      final shell = setup.controller;
+      final row = setup.rows.first.copyWith(
+        deletedAt: DateTime.utc(2026, 11, 1),
+        closed: true,
+        archived: true,
+        visible: false,
+        pinned: true,
+      );
+      shell.store.put(shell.currentInstance!.url, row);
+      shell.openTopicFromList(row);
+      await tester.pump();
+
+      for (final expected in marks) {
+        expect(mark(expected.status), findsOneWidget, reason: expected.status);
+      }
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      for (final expected in marks) {
+        expect(mark(expected.status), findsNothing, reason: expected.status);
+      }
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   testWidgets(
     'closed status is readable in narrow headers without edit permissions',
     (tester) async {
@@ -2314,7 +2442,7 @@ void main() {
             await tester.pumpAndSettle();
             final lock = find.byKey(const ValueKey('topic-header-closed'));
             expect(find.text('Closed'), findsNothing);
-            expect(find.bySemanticsLabel('Topic closed'), findsOneWidget);
+            expect(find.bySemanticsLabel('Closed'), findsOneWidget);
             expect(find.byType(InlineTopicTitleEditor), findsNothing);
             final rect = tester.getRect(lock);
             final title = tester.getRect(
@@ -3844,6 +3972,10 @@ _setup(
   bool privateMessage = false,
   bool canCreatePost = true,
   bool closed = false,
+  bool archived = false,
+  bool visible = true,
+  bool pinned = false,
+  DateTime? deletedAt,
   bool canCloseTopic = false,
   bool canEditTopic = true,
   Map<String, dynamic> topicPluginPayload = const {},
@@ -3972,6 +4104,10 @@ _setup(
                 : null,
             categoryId: detailCategoryId,
             closed: closed,
+            archived: archived,
+            visible: visible,
+            pinned: pinned,
+            deletedAt: deletedAt,
             canCloseTopic: canCloseTopic,
             canEdit: canEditTopic,
             canEditTags: canEditTags,

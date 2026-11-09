@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
@@ -29,6 +30,28 @@ import 'topic_category_picker.dart';
 import 'topic_header_tags.dart';
 import 'topic_skeleton.dart';
 import 'topic_title.dart';
+
+/// The states Discourse marks before a topic's title, declared in the order
+/// they are drawn.
+enum _TopicStatus {
+  deleted(DIcons.trashCan),
+  closed(DIcons.lock),
+  archived(DNativeIcons.boxArchive),
+  unlisted(DIcons.farEyeSlash),
+  pinned(DIcons.thumbtack);
+
+  const _TopicStatus(this.icon);
+
+  final DIconData icon;
+
+  String label(BuildContext context) => switch (this) {
+    deleted => context.l10n.deleted,
+    closed => context.l10n.closed,
+    archived => context.l10n.archived,
+    unlisted => context.l10n.unlisted,
+    pinned => context.l10n.pinned,
+  };
+}
 
 /// Topic title, actions and taxonomy floating above the post viewport.
 /// [bodyBuilder] inserts the header spacer into the virtualized post list.
@@ -192,20 +215,33 @@ class TopicInboxHeader extends StatelessWidget {
     );
   }
 
+  /// The cached row answers until the topic loads, so a marked title does not
+  /// shift sideways when the topic arrives.
+  Iterable<_TopicStatus> get _statuses {
+    final detail = topic;
+    final row = preview;
+    return _TopicStatus.values.where(
+      (status) => switch (status) {
+        _TopicStatus.deleted =>
+          (detail == null ? row?.deletedAt : detail.deletedAt) != null,
+        _TopicStatus.closed => detail?.closed ?? row?.closed ?? false,
+        _TopicStatus.archived => detail?.archived ?? row?.archived ?? false,
+        _TopicStatus.unlisted => !(detail?.visible ?? row?.visible ?? true),
+        _TopicStatus.pinned => detail?.pinned ?? row?.pinned ?? false,
+      },
+    );
+  }
+
   Widget? _barStatus() {
-    final icons = [
-      if (topic?.deletedAt != null) DIcons.trashCan,
-      if ((topic?.closed ?? preview?.closed) == true) DIcons.lock,
-      if (topic?.archived == true) DIcons.folder,
-      if (topic?.visible == false) DIcons.farEyeSlash,
-      if ((topic?.pinned ?? preview?.pinned) == true) DIcons.thumbtack,
-    ];
-    return icons.isEmpty
+    final statuses = _statuses;
+    return statuses.isEmpty
         ? null
         : Row(
             mainAxisSize: MainAxisSize.min,
             spacing: 4,
-            children: [for (final icon in icons) DIcon(icon, size: 13)],
+            children: [
+              for (final status in statuses) DIcon(status.icon, size: 13),
+            ],
           );
   }
 
@@ -465,15 +501,19 @@ class _TopicHeaderTitle extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: DSpacing.sm,
       children: [
-        if ((topic?.closed ?? header.preview?.closed) == true)
+        for (final status in header._statuses)
           Padding(
-            padding: EdgeInsets.only(top: math.max(0, (lineHeight - 16) / 2)),
-            child: DIcon(
-              DIcons.lock,
-              key: const ValueKey('topic-header-closed'),
-              size: 16,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-              semanticLabel: context.l10n.topicClosed,
+            padding: EdgeInsets.only(top: math.max(0, (lineHeight - 17) / 2)),
+            child: DTooltip(
+              message: status.label(context),
+              excludeFromSemantics: true,
+              child: DIcon(
+                status.icon,
+                key: ValueKey('topic-header-${status.name}'),
+                size: 17,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+                semanticLabel: status.label(context),
+              ),
             ),
           ),
         Expanded(child: title),

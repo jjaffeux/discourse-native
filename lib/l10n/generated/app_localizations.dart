@@ -8879,12 +8879,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Topic closed'**
-  String get topicClosed;
-
-  /// English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Latest topics'**
   String get latestTopics;
 

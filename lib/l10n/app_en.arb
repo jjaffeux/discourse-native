@@ -6546,10 +6546,6 @@
   "@loadingTopicTitle": {
     "description": "English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact."
   },
-  "topicClosed": "Topic closed",
-  "@topicClosed": {
-    "description": "English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact."
-  },
   "latestTopics": "Latest topics",
   "@latestTopics": {
     "description": "English UI message used by shell/topic_inbox_header.dart. Keep placeholders intact."
