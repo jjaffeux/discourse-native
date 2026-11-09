@@ -330,6 +330,7 @@ void main() {
           if (directive.target.startsWith('lib/src/plugins/')) continue;
           if (_publicPluginContracts.containsKey(directive.target)) continue;
           if (!const {
+            'lib/discourse_plugin_contracts.dart',
             'lib/discourse_plugin_sdk.dart',
             'lib/discourse_ui.dart',
             'lib/l10n/strings.dart',

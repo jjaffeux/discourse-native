@@ -218,7 +218,7 @@ void main() {
 
       expect(
         module,
-        contains('package:discourse_native/discourse_plugin_sdk.dart'),
+        contains('package:discourse_native/discourse_plugin_contracts.dart'),
       );
       expect(module, isNot(contains('package:discourse_native/src/')));
       expect(module, contains('PluginDependency(chatPluginId)'));

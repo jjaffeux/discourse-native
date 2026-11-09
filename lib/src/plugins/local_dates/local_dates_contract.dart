@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:html/dom.dart' as dom;
 
 const localDatesPluginId = PluginId('discourse-local-dates');

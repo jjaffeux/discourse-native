@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 const mathServiceKey = PluginServiceKey<MathService>(
   owner: PluginId('discourse-math'),

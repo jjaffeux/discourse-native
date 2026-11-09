@@ -20,6 +20,11 @@ import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
 
+const chatComposerHostService = PluginServiceKey<PluginComposerHost>(
+  owner: chatPluginId,
+  name: 'composer-host',
+);
+
 bool get _usesCommandModifier =>
     defaultTargetPlatform == TargetPlatform.macOS ||
     defaultTargetPlatform == TargetPlatform.iOS;

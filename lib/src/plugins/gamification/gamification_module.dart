@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'gamification_api.dart';
 import 'gamification_controller.dart';
 import 'gamification_models.dart';

@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart' show DIcons;
+import 'package:discourse_native/discourse_plugin_contracts.dart' show DIcons;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/services.dart';

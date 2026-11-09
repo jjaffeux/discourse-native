@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'cakeday_api.dart';
 import 'cakeday_controller.dart';
 import 'cakeday_data.dart';

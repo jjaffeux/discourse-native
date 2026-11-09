@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 abstract interface class ChatThreadPanelWidthPersistence {

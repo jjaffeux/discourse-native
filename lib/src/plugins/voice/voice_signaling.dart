@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:math' as math;
 
-import 'package:discourse_native/discourse_plugin_sdk.dart' show freezeJson;
+import 'package:discourse_native/discourse_plugin_contracts.dart'
+    show freezeJson;
 
 typedef VoiceSignalBatchRequest =
     Future<void> Function(Map<String, Object?> payload);

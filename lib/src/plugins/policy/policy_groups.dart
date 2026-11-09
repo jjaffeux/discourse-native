@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 final class PolicyGroup {
   const PolicyGroup(this.id, this.name, this.automatic);

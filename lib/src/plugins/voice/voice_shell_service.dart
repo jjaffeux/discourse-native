@@ -1,6 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/widgets.dart';
 
 import 'voice_controller.dart';

@@ -1,5 +1,5 @@
 import 'package:discourse_native/discourse_chat.dart';
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 import 'ai_chat_message.dart';
 import 'ai_conversations_plugin.dart';
