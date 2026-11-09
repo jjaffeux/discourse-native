@@ -3021,6 +3021,43 @@ void main() {
       expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
     });
 
+    testWidgets('a visible-edge recheck in a hidden pane credits on return', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(api.chatReadsMarked, isEmpty);
+
+      await tester.pumpWidget(
+        _TestView(controller: controller, tickerEnabled: false),
+      );
+      controller.chatRecords.put(
+        firstSite,
+        _channel(lastRead: 0, tracking: const ChatTracking(unreadCount: 1)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(api.chatReadsMarked, isEmpty);
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump(const Duration(milliseconds: 499));
+      expect(api.chatReadsMarked, isEmpty);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+    });
+
     testWidgets(
       'a ticker-disabled dwell resumes without crediting hidden time',
       (tester) async {
