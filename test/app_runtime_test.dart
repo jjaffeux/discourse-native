@@ -245,6 +245,17 @@ void main() {
     expect(fixture.api.closeCalls, 1);
   });
 
+  test('the app lifecycle starts and ends active use', () async {
+    final runtime = _runtime(_Fixture().dependencies());
+    addTearDown(runtime.dispose);
+
+    expect(runtime.activeUse.isActive, isTrue);
+    runtime.observeAppState('paused', foreground: false);
+    expect(runtime.activeUse.isActive, isFalse);
+    runtime.observeAppState('resumed', foreground: true);
+    expect(runtime.activeUse.isActive, isTrue);
+  });
+
   test('pending bootstrap observes the latest foreground state', () async {
     final gate = Completer<void>();
     final probe = _LifecycleProbe(bootstrap: gate.future);

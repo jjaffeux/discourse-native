@@ -3582,6 +3582,10 @@
       }
     }
   },
+  "thisCallContinuedOnAnotherDeviceOrWindow": "This call continued on another device or window, so it was disconnected here.",
+  "@thisCallContinuedOnAnotherDeviceOrWindow": {
+    "description": "Shown when the same user joins a Live call elsewhere and this connection is replaced."
+  },
   "yourCallSessionHasExpiredRejoinTheRoomToStartA": "Your call session has expired. Rejoin the room to start a new one.",
   "@yourCallSessionHasExpiredRejoinTheRoomToStartA": {
     "description": "English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact."

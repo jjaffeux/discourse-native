@@ -7,6 +7,8 @@ import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/foundation/active_use.dart';
+import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
@@ -627,6 +629,93 @@ void main() {
       expect(sent.headers, containsPair('User-Agent', discourseUserAgent));
       expect(sent.headers, containsPair('Content-Type', 'application/json'));
       expect(sent.headers, containsPair('Dont-Chunk', 'true'));
+    });
+
+    Future<List<http.Request>> keyedRequests(ActiveUse? activeUse) async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('{}', 200);
+        }),
+        activeUse: activeUse,
+      );
+      addTearDown(api.close);
+
+      await api.notificationTotals(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+      );
+      await api.updateTopicNotificationLevel(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        topicId: 7,
+        notificationLevel: TopicNotificationLevel.tracking,
+      );
+      return sent;
+    }
+
+    test('requests made while a person uses the app say so', () async {
+      final sent = await keyedRequests(ActiveUse(foreground: true));
+
+      expect(sent.map((request) => request.headers['Discourse-Present']), [
+        'true',
+        'true',
+      ]);
+    });
+
+    for (final (label, activeUse) in [
+      ('in the background', ActiveUse(foreground: false)),
+      ('with nobody behind them', null),
+    ]) {
+      test('requests made $label do not claim a visitor', () async {
+        final sent = await keyedRequests(activeUse);
+
+        expect(sent, hasLength(2));
+        for (final request in sent) {
+          expect(request.headers, isNot(contains('Discourse-Present')));
+        }
+      });
+    }
+
+    test('a read-only site explains a refused action', () async {
+      const refusal =
+          'The site is in read only mode. Interactions are disabled.';
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          // ApplicationController's rescue of Discourse::ReadOnly renders by
+          // format, and a request that names none is HTML.
+          final namesJson =
+              request.url.path.endsWith('.json') ||
+              request.headers['Accept'] == 'application/json';
+          return namesJson
+              ? http.Response(
+                  jsonEncode({
+                    'errors': [refusal],
+                    'error_type': 'read_only',
+                  }),
+                  503,
+                  headers: {'content-type': 'application/json; charset=utf-8'},
+                )
+              : http.Response(
+                  '<html><body>Read only</body></html>',
+                  503,
+                  headers: {'content-type': 'text/html; charset=utf-8'},
+                );
+        }),
+      );
+      addTearDown(api.close);
+
+      final failure = await api
+          .updateTopicNotificationLevel(
+            siteUrl: 'https://example.com',
+            apiKey: 'secret',
+            topicId: 7,
+            notificationLevel: TopicNotificationLevel.tracking,
+          )
+          .then<Object?>((_) => null, onError: (Object error) => error);
+
+      expect((failure! as WriteException).message, refusal);
     });
 
     test('anonymous reads identify the app', () async {

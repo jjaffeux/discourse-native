@@ -25,6 +25,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart' as rtc;
+import 'package:livekit_client/livekit_client.dart' as lk;
 
 import 'support/fake_voice_video_handle.dart';
 import 'support/manual_scheduler.dart';
@@ -61,6 +62,56 @@ Map<String, dynamic> speakerRosterEvent(String username) => {
     {'id': 2, 'username': username, 'role': 'speaker'},
   ],
 };
+
+final class _TakeoverLiveKitAdapter implements VoiceLiveKitRoomAdapter {
+  @override
+  final lk.Room room = lk.Room();
+  void Function(lk.RoomEvent)? deliver;
+  int connects = 0;
+
+  @override
+  void listen({
+    required VoidCallback onChanged,
+    required VoidCallback onDisconnected,
+    ValueChanged<lk.RoomEvent>? onRoomEvent,
+  }) => deliver = onRoomEvent;
+
+  @override
+  Future<void> connect(
+    String endpoint,
+    String token, {
+    required lk.ConnectOptions connectOptions,
+  }) async => connects++;
+
+  @override
+  Future<void> cancelListener() async {}
+
+  @override
+  Future<void> disconnect() async {}
+
+  @override
+  Future<void> disposeRoom() => room.dispose();
+}
+
+final class _LiveKitAdapterMediaFactory implements VoiceMediaFactory {
+  const _LiveKitAdapterMediaFactory(this.adapter);
+
+  final VoiceLiveKitRoomAdapter adapter;
+
+  @override
+  VoiceMediaSession create({
+    required VoiceJoinResponse join,
+    required int localUserId,
+    required VoiceSignalSender sendSignal,
+    required VoiceLiveKitCredentialRefresher refreshLiveKitCredentials,
+  }) => LiveKitVoiceMediaSession(
+    join: join,
+    localUserId: localUserId,
+    audioPublishingAllowed: true,
+    refreshCredentials: refreshLiveKitCredentials,
+    roomAdapter: adapter,
+  );
+}
 
 final class FakeVoiceMediaFactory implements VoiceMediaFactory {
   final List<FakeVoiceMediaSession> sessions = [];
@@ -6602,6 +6653,65 @@ void main() {
 
         expect(controller.call, isNull);
         expect(media.disposeCount, 1);
+      },
+    );
+
+    test(
+      'a LiveKit call taken over by a newer device ends without reclaiming it',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_livekit',
+        );
+        transport.responses['POST /voice/rooms/7/livekit_token.json'] = {
+          ...(fixture('join_livekit')['livekit'] as Map<String, dynamic>),
+          'participant_session_id': 'reclaimed-session',
+        };
+        final adapter = _TakeoverLiveKitAdapter();
+        controller.dispose();
+        controller = VoiceController(
+          api: VoiceApi(transport, namespaceFor: (_) => VoiceNamespace.voice),
+          chatConversations: chatConversations,
+          requests: requests,
+          trackerFor: (_) => firstTracker,
+          userIdFor: (_) => 1,
+          onCallSiteChanged: () {},
+          mediaFactory: _LiveKitAdapterMediaFactory(adapter),
+          systemCall: systemCall,
+          preferences: preferences,
+          heartbeatInterval: const Duration(days: 1),
+        );
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        expect(controller.call?.status, VoiceCallStatus.connected);
+
+        adapter.deliver!(
+          lk.RoomDisconnectedEvent(
+            reason: lk.DisconnectReason.duplicateIdentity,
+          ),
+        );
+        await pumpEventQueue();
+
+        expect(
+          transport.writes.where(
+            (write) => write.path.endsWith('/livekit_token.json'),
+          ),
+          isEmpty,
+        );
+        expect(adapter.connects, 1);
+        expect(controller.call, isNull);
+        expect(
+          controller.errorFor(firstSite),
+          'This call continued on another device or window, so it was '
+          'disconnected here.',
+        );
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/leave.json')),
+          isEmpty,
+        );
       },
     );
 

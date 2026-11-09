@@ -2914,6 +2914,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get thisCallContinuedOnAnotherDeviceOrWindow =>
+      'This call continued on another device or window, so it was disconnected here.';
+
+  @override
   String get yourCallSessionHasExpiredRejoinTheRoomToStartA =>
       'Your call session has expired. Rejoin the room to start a new one.';
 

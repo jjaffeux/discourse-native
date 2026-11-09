@@ -1,0 +1,9 @@
+[
+  {"slug": "automatic-group-writes", "repro": "FIX: reproduce member writes offered on an automatic group", "fix": "FIX: offer no member writes on an automatic group", "test": "test/group_page_test.dart", "name": "an admin gets no member writes on an automatic group"},
+  {"slug": "group-invite-gate", "repro": "FIX: reproduce a group invite offered to a member who cannot send it", "fix": "FIX: offer a group invite only to whoever can edit the group", "test": "test/group_page_test.dart", "name": "a member who cannot edit the group is not offered its invites"},
+  {"slug": "read-only-write", "repro": "FIX: reproduce a read-only forum reporting itself unreachable", "fix": "FIX: ask for JSON on every write", "test": "test/discourse_transport_contract_test.dart", "name": "a read-only site explains a refused action"},
+  {"slug": "report-preset", "repro": "FIX: reproduce a report preset naming a range no longer shown", "fix": "FIX: name a report's range preset only while that range is shown", "test": "test/report_page_test.dart", "name": "the range preset names only the range on screen"},
+  {"slug": "livekit-takeover", "repro": "FIX: reproduce an older device reclaiming a LiveKit call", "fix": "FIX: let a newer device keep a LiveKit call", "test": "test/voice_controller_test.dart", "name": "a LiveKit call taken over by a newer device ends without reclaiming it"},
+  {"slug": "discourse-present", "repro": "FIX: reproduce a forum never seeing its app user visit", "fix": "FIX: tell the forum a person is using the app", "test": "test/discourse_transport_contract_test.dart", "name": "requests made while a person uses the app say so"},
+  {"slug": "search-discovery-partial", "repro": "FIX: reproduce search discovery losing the answers it got", "fix": "FIX: keep the search features a partial discovery answered", "test": "test/global_search_controller_test.dart", "name": "a discovery read with no answer keeps the ones that answered"}
+]

@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
+import '../foundation/active_use.dart';
 import '../models/json.dart';
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
@@ -32,12 +33,14 @@ final class DiscourseTransport {
     HttpBasicAuthStore? basicAuth,
     Duration timeout = const Duration(seconds: 10),
     int maxResponseBytes = 16 * 1024 * 1024,
+    ActiveUse? activeUse,
   }) => DiscourseTransport(
     client == null
         ? SafeHttpClient.create(basicAuth: basicAuth)
         : SafeHttpClient.owned(client, basicAuth: basicAuth),
     timeout,
     maxResponseBytes,
+    activeUse: activeUse,
   );
 
   DiscourseTransport(
@@ -48,6 +51,7 @@ final class DiscourseTransport {
     int maxConcurrentPerOrigin = 4,
     int maxQueuedPerOrigin = 64,
     Duration defaultRateLimitCooldown = const Duration(seconds: 15),
+    this._activeUse,
   }) : coordinator =
            coordinator ??
            DiscourseRequestCoordinator(
@@ -57,6 +61,7 @@ final class DiscourseTransport {
            );
 
   final SafeHttpClient _client;
+  final ActiveUse? _activeUse;
   final Duration timeout;
   final int _maxResponseBytes;
   final DiscourseRequestCoordinator coordinator;
@@ -499,6 +504,9 @@ final class DiscourseTransport {
     final http.Response response;
     try {
       final request = http.Request(method, url)
+        // Several paths carry no `.json`, and core renders its refusals by
+        // format: unnamed, a read-only or forbidden answer is an HTML page.
+        ..headers['Accept'] = 'application/json'
         // Rails reads a missing optional parameter and explicit null
         // differently. Null here means that the server should choose.
         ..body = jsonEncode({
@@ -617,15 +625,16 @@ final class DiscourseTransport {
     }
   }
 
-  static Map<String, String> _authHeaders(
-    String apiKey, {
-    String? clientId,
-  }) => {
+  Map<String, String> _authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
     if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
     'User-Agent': discourseUserAgent,
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',
+    // Core records a visit from an API key only when told a person is there.
+    // Without it `last_seen_at` stands still, and a month later core stops
+    // publishing this account's `/notification` channel.
+    if (_activeUse?.isActive ?? false) 'Discourse-Present': 'true',
   };
 
   void close() {

@@ -156,8 +156,8 @@ class _MembersSectionState extends State<_MembersSection> {
       children: [
         _MembersToolbar(
           controller: controller.searchController,
-          canManage: widget.group.canManage,
-          canInvite: widget.canInviteToForum,
+          canManage: widget.group.canManageMembers,
+          canInvite: widget.canInviteToForum && widget.group.canManageMembers,
           mutating: widget.mutating,
           onSearch: controller.search,
           onAddMembers: widget.onAddMembers == null ? null : _addMembers,
@@ -741,15 +741,17 @@ class _MemberActions extends StatelessWidget {
   final GroupMemberActionCallback? onAction;
 
   List<GroupMemberAction> get actions => [
-    if (group.canAdminGroup || (group.canEditGroup && !member.owner))
-      member.owner
-          ? GroupMemberAction.removeOwner
-          : GroupMemberAction.makeOwner,
-    if (currentUserStaff)
-      member.primary
-          ? GroupMemberAction.removePrimary
-          : GroupMemberAction.makePrimary,
-    if (group.canManage) GroupMemberAction.remove,
+    if (group.canManageMembers) ...[
+      if (group.canAdminGroup || (group.canEditGroup && !member.owner))
+        member.owner
+            ? GroupMemberAction.removeOwner
+            : GroupMemberAction.makeOwner,
+      if (currentUserStaff)
+        member.primary
+            ? GroupMemberAction.removePrimary
+            : GroupMemberAction.makePrimary,
+      GroupMemberAction.remove,
+    ],
   ];
 
   Future<void> _run(BuildContext context, GroupMemberAction action) async {
