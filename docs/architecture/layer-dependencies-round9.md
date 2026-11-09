@@ -42,7 +42,7 @@ started.
 | # | Improvement | Before | After and primary proof |
 | --- | --- | --- | --- |
 | 1 | `test/support/fakes.dart` stops compiling the bundled plugins, and the graph tool sees test helpers. | 655 test files reached the fake, and it compiled the plugin manifest. | Closure 1,087 to 225. 370 test files stop reaching the manifest. Restoring the old fake fails `the shared test fakes stay within their closure budget`, `Expected: <225>`, `Actual: <1087>`. |
-| 2 | Desktop panels and panel tabs select the workspace rather than the whole shell. Scroll anchors are the one named field excluded. | 46 elements rebuilt, 42 of them panel frame. | 4 and 0. A tab switch, a minimized restore and a retired session still rebuild, each pinned by a test. |
+| 2 | Desktop panels and panel tabs select the workspace rather than the whole shell. Scroll anchors and the post a topic route targets are the named exclusions. A route's title, colour, icon and subtitle all count. | 46 elements rebuilt, 42 of them panel frame. | 4 and 0. A tab switch, a minimized restore and a retired session still rebuild, each pinned by a test. |
 | 3 | `SitePresentationScope` and `DestinationBookmarksScope` hand leaf widgets their owners. | 100 emoji images made 102 shell listeners and 1,000 URL resolutions over 10 notifications. | 2 and 0. Bookmark item rebuilds 10 to 0. `site_emoji_image` reach 520 to 55. Four paths that changed an emoji's answer without any signal now report it. |
 | 4 | The topic viewport coordinator compiles without the shell. | Reach 517, kernel 133.2 MB. | Reach 41 when landed, kernel 65.9 MB. The contract fails with `not contains shell_controller.dart`. |
 | 5 | The plugin runtime and scope leave the contracts barrel. | A registry API change recompiled 581 libraries. The registry changed in 96 commits since August. | 340. Contracts closure 166 to 163. Exporting either file from the barrel fails the contract. |
@@ -62,8 +62,9 @@ and item 3 has two small timing effects, listed last:
 
 - A failed Boards read or move shows the reason or a localized fallback. A 401 or
   403 reads "This account can't access that."
-- Post voting, events and Voice now show the unreachable message where they
-  showed a generic fallback.
+- Post voting, events, chat and Voice say "Couldn't reach" a site only when
+  nothing answered. A site that answered with an error gets the caller's own
+  fallback, and an ambiguous Boards write says its result is unknown.
 - Assign no longer prints the raw text of an unknown error.
 - A chat read credit owed while the app is inactive costs a full dwell after
   resume instead of being lost. A clock moved back during a dwell credits at once
@@ -96,3 +97,22 @@ and item 3 has two small timing effects, listed last:
   fail when the fake answers without the plugin's value.
 - Nobody looked at the running app. The desktop panel and emoji changes were
   checked by widget tests on macOS and iOS variants.
+
+## Independent review
+
+Two reviewers read the merged round without its conclusions and found six
+defects. Each is fixed with a failing-first test in
+[the review fixes](../bug-fixes/2026-11-09-round9-review.md):
+
+- Item 2 compared routes with `ContentRoute ==`, which ignores colour, icon and
+  subtitle, so a topic moved to another category kept its old colour in the tab
+  strip. This was a regression from this round.
+- Item 10 called a site that answered unreachable, gave an ambiguous Boards write a
+  plain-failure sentence, and its contract missed two shapes, which left four hand
+  copies in chat and Voice.
+- Item 7's owner says callers sync on every change to its inputs. Two older paths
+  did not: a topic dwell never resumed after Settings closed, and a hidden chat
+  pane dropped its unread recheck.
+
+The reviewers found no defect in the forum access and site capability owners, the
+emoji signals, the viewport move, the contracts barrel or the composer artwork.
