@@ -22,6 +22,7 @@ import 'composer/presentation_scope.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_theme_surfaces.dart';
+import 'instance_actions.dart';
 import 'mobile_navigation.dart';
 import 'open_link.dart';
 import 'platform.dart';
@@ -1023,31 +1024,26 @@ class _SidebarPanelTabs extends StatelessWidget {
   }
 }
 
-/// What the community header shows: the current forum and every forum in its
-/// switcher, compared by the fields drawn, so the shell's other changes leave
-/// the header, its menu and its button as built.
+/// What the community header shows of the current forum, compared by the
+/// fields drawn, so the shell's other changes leave the header, its menu and
+/// its button as built.
 @immutable
 final class _CommunityHeaderSnapshot {
-  const _CommunityHeaderSnapshot(this.current, this.forums);
+  const _CommunityHeaderSnapshot(this.current);
 
   final DiscourseInstance? current;
-  final List<DiscourseInstance> forums;
 
-  static (String, String, String?)? _shown(DiscourseInstance? forum) =>
-      forum == null ? null : (forum.url, forum.title, forum.iconUrl);
+  (String, String, String?)? get _shown {
+    final forum = current;
+    return forum == null ? null : (forum.url, forum.title, forum.iconUrl);
+  }
 
   @override
   bool operator ==(Object other) =>
-      other is _CommunityHeaderSnapshot &&
-      _shown(current) == _shown(other.current) &&
-      listEquals(
-        forums.map(_shown).toList(),
-        other.forums.map(_shown).toList(),
-      );
+      other is _CommunityHeaderSnapshot && _shown == other._shown;
 
   @override
-  int get hashCode =>
-      Object.hash(_shown(current), Object.hashAll(forums.map(_shown)));
+  int get hashCode => _shown.hashCode;
 }
 
 class _SidebarCommunityHeader extends StatelessWidget {
@@ -1055,14 +1051,32 @@ class _SidebarCommunityHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ShellSelector<_CommunityHeaderSnapshot>(
-    select: (shell) =>
-        _CommunityHeaderSnapshot(shell.currentInstance, shell.instances),
+    select: (shell) => _CommunityHeaderSnapshot(shell.currentInstance),
     builder: (context, snapshot, _) => _header(context, snapshot),
   );
+
+  Future<void> _openInBrowser(
+    BuildContext context,
+    DiscourseInstance forum,
+  ) async {
+    final opened = await openExternalLink(forum.url);
+    if (opened || !context.mounted) return;
+    DToast.show(
+      context,
+      context.l10n.aboutLinkOpenFailed,
+      type: DToastType.error,
+    );
+  }
 
   Widget _header(BuildContext context, _CommunityHeaderSnapshot snapshot) {
     final instance = snapshot.current;
     if (instance == null) return const SizedBox.shrink();
+    final tokens = DTokens.of(context);
+    final rowPadding = EdgeInsetsDirectional.symmetric(
+      horizontal: 10,
+      vertical: DControlStyle.menuVerticalInset(context),
+    );
+    const rowLabel = TextStyle(fontSize: DiscourseTypography.compact);
     return DSidebarHeader(
       child: Row(
         spacing: DSpacing.sm,
@@ -1075,22 +1089,46 @@ class _SidebarCommunityHeader extends StatelessWidget {
           ),
           Expanded(
             child: DDropdownMenu(
+              // Moving between forums is the rail's job, so this holds only
+              // what can be done to the forum you are in.
               content: DDropdownMenuContent(
-                semanticLabel: context.l10n.forum,
+                semanticLabel: context.l10n.forumActions,
+                width: 220,
+                highlightInitialFocus: false,
                 children: [
-                  for (final (index, forum) in snapshot.forums.indexed)
-                    DDropdownMenuItem(
-                      key: ValueKey(('sidebar-community-option', forum.url)),
-                      onPressed: () =>
-                          ShellScope.read(context).selectInstance(index),
-                      leading: ForumIdentityHeader(
-                        name: forum.title,
-                        iconUrl: forum.iconUrl,
-                        monogram: forum.monogram,
-                        accentColor: forum.accentColor,
-                      ),
-                      child: Text(forum.title),
+                  DDropdownMenuItem(
+                    padding: rowPadding,
+                    leadingGap: 10,
+                    leading: DIcon(
+                      DIcons.upRightFromSquare,
+                      size: 13,
+                      color: tokens.mutedForeground,
                     ),
+                    onPressed: () =>
+                        unawaited(_openInBrowser(context, instance)),
+                    child: Text(
+                      context.l10n.openForumInBrowser,
+                      style: rowLabel,
+                    ),
+                  ),
+                  DDropdownMenuSeparator(
+                    inset: true,
+                    space: 11,
+                    color: Color.lerp(
+                      tokens.background,
+                      tokens.foreground,
+                      .12,
+                    ),
+                  ),
+                  DDropdownMenuItem(
+                    padding: rowPadding,
+                    leadingGap: 10,
+                    variant: DDropdownMenuItemVariant.destructive,
+                    leading: const DIcon(DIcons.trashCan, size: 13),
+                    onPressed: () =>
+                        unawaited(confirmInstanceRemoval(context, instance)),
+                    child: Text(context.l10n.removeForum, style: rowLabel),
+                  ),
                 ],
               ),
               child: DDropdownMenuTrigger(

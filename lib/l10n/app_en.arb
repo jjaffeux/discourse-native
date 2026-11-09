@@ -9277,6 +9277,10 @@
   "@removeForum": {
     "description": "English UI message used by shell/instance_actions.dart. Keep placeholders intact."
   },
+  "openForumInBrowser": "Open forum in browser",
+  "@openForumInBrowser": {
+    "description": "Sidebar forum-name menu row that opens the current forum in the external browser."
+  },
   "moreOptionsInstanceactions": "More Options",
   "@moreOptionsInstanceactions": {
     "description": "English UI message used by shell/instance_actions.dart. Keep placeholders intact."

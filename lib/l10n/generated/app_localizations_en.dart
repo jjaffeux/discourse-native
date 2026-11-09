@@ -7096,6 +7096,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get removeForum => 'Remove forum';
 
   @override
+  String get openForumInBrowser => 'Open forum in browser';
+
+  @override
   String get moreOptionsInstanceactions => 'More Options';
 
   @override
