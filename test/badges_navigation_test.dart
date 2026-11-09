@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/badge_fixtures.dart';
 import 'support/fakes.dart';
+import 'support/finders.dart';
 import 'support/shell_test_harness.dart';
 
 void main() {
@@ -176,12 +177,6 @@ void main() {
     expect(shell.openBadgeUrl('${site.url}/badges'), isFalse);
     await tester.tap(find.text('More'));
     await tester.pumpAndSettle();
-    expect(
-      find.descendant(
-        of: find.byKey(const ValueKey('sidebar-more-content')),
-        matching: find.text('Badges'),
-      ),
-      findsNothing,
-    );
+    expect(sidebarMoreLabels(tester), isNot(contains('Badges')));
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

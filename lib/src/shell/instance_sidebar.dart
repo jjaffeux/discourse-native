@@ -178,11 +178,18 @@ typedef _SidebarNavigation = ({
 });
 
 const String _moreDestinationId = 'sidebar-more-destinations';
+const String _lessDestinationId = 'sidebar-less-destinations';
 
 SidebarDestination get _moreDestination => SidebarDestination(
   id: _moreDestinationId,
   label: appL10n.more,
   icon: DIcons.ellipsisVertical,
+);
+
+SidebarDestination get _lessDestination => SidebarDestination(
+  id: _lessDestinationId,
+  label: appL10n.less,
+  icon: DIcons.chevronDown,
 );
 
 class InstanceSidebar extends StatelessWidget {
@@ -1363,6 +1370,11 @@ class _SectionState extends State<_Section> {
   bool _collapsed = false;
   bool _moreOpen = false;
   String? _selectedMoreId;
+  final FocusNode _moreFocus = FocusNode(debugLabel: 'sidebar more');
+  final FocusNode _lessFocus = FocusNode(debugLabel: 'sidebar less');
+  final FocusNode _firstMoreRowFocus = FocusNode(
+    debugLabel: 'sidebar more row',
+  );
   bool _reordering = false;
   List<SidebarDestination>? _pendingDestinations;
 
@@ -1585,6 +1597,36 @@ class _SectionState extends State<_Section> {
     }
   }
 
+  @override
+  void dispose() {
+    _moreFocus.dispose();
+    _lessFocus.dispose();
+    _firstMoreRowFocus.dispose();
+    super.dispose();
+  }
+
+  /// More and Less leave the tree when they are activated, and focus would go
+  /// with them. Only a row the keyboard already held has primary focus here: a
+  /// press has only asked for it, and must not draw a ring on the next row.
+  void _setMoreOpen(bool open) {
+    final follow = (open ? _moreFocus : _lessFocus).hasPrimaryFocus;
+    setState(() => _moreOpen = open);
+    if (!follow) return;
+    final next = open ? _firstMoreRowFocus : _moreFocus;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final row = next.context;
+      if (!mounted || row == null) return;
+      next.requestFocus();
+      // Folding can leave More above a list scrolled down to Less.
+      unawaited(
+        Scrollable.ensureVisible(
+          row,
+          alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtStart,
+        ),
+      );
+    });
+  }
+
   void _setOpen(bool open) {
     final collapsed = !open;
     setState(() => _collapsed = collapsed);
@@ -1634,11 +1676,13 @@ class _SectionState extends State<_Section> {
           ? pending ?? _pendingDestinations ?? section.destinations
           : section.destinations,
       ...widget.appendedDestinations,
-      if (!_moreOpen)
-        ...section.moreDestinations.where(
-          (destination) => destination.id == _selectedMoreId,
-        ),
-      if (section.moreDestinations.isNotEmpty) _moreDestination,
+      ..._moreOpen
+          ? section.moreDestinations
+          : section.moreDestinations.where(
+              (destination) => destination.id == _selectedMoreId,
+            ),
+      if (section.moreDestinations.isNotEmpty)
+        _moreOpen ? _lessDestination : _moreDestination,
     ];
     final runs = <List<SidebarDestination>>[];
     for (final destination in destinations) {
@@ -1663,12 +1707,14 @@ class _SectionState extends State<_Section> {
           key is ValueKey<String> ? indexes[key.value] : null;
       Widget rowBuilder(BuildContext context, int index) {
         final destination = run[index];
-        if (destination.id == _moreDestinationId) {
+        if (destination.id == _moreDestinationId ||
+            destination.id == _lessDestinationId) {
+          final open = destination.id == _lessDestinationId;
           return _MoreDestinationsTile(
             navigation: navigation,
-            open: _moreOpen,
-            selected: _selectedMore,
-            onToggle: () => setState(() => _moreOpen = !_moreOpen),
+            open: open,
+            focusNode: open ? _lessFocus : _moreFocus,
+            onToggle: () => _setMoreOpen(!open),
           );
         }
         // Each row selects its own badge because reading a topic moves
@@ -1687,6 +1733,10 @@ class _SectionState extends State<_Section> {
             badge: badge,
             iconSize: section.id.startsWith('custom-') ? 12 : 16,
             reorderable: reorderable,
+            focusNode:
+                destination.id == section.moreDestinations.firstOrNull?.id
+                ? _firstMoreRowFocus
+                : null,
             onSecondaryTap:
                 (section.id == 'categories' || section.id == 'tags') &&
                     destination.trailingIcon == DIcons.plus
@@ -1741,47 +1791,7 @@ class _SectionState extends State<_Section> {
             : menu,
       );
     }
-    if (section.moreDestinations.isEmpty) {
-      return SliverMainAxisGroup(slivers: menus);
-    }
-    menus.add(
-      DCollapsibleContent.sliver(
-        key: const ValueKey('sidebar-more-content'),
-        sliver: SliverPadding(
-          padding: const EdgeInsetsDirectional.only(start: 20),
-          sliver: DSidebarMenu.sliverBuilder(
-            itemCount: section.moreDestinations.length,
-            itemBuilder: (context, index) {
-              final destination = section.moreDestinations[index];
-              return Padding(
-                key: ValueKey(destination.id),
-                padding: EdgeInsets.only(
-                  bottom: DSidebarMenuButton.rowGapOf(context),
-                ),
-                child: ShellSelector<SidebarBadge>(
-                  select: (controller) =>
-                      controller.sidebarBadgeFor(destination.id),
-                  builder: (context, badge, _) => SidebarDestinationTile(
-                    destination: destination,
-                    selected: widget.isSelected(context, destination.id),
-                    loading: destination.id == widget.loadingDestinationId,
-                    badge: badge,
-                    onTap: () => _selectDestination(destination),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-      ),
-    );
-    return DCollapsible(
-      open: _moreOpen,
-      child: FocusTraversalGroup(
-        policy: WidgetOrderTraversalPolicy(),
-        child: SliverMainAxisGroup(slivers: menus),
-      ),
-    );
+    return SliverMainAxisGroup(slivers: menus);
   }
 
   @override
@@ -1869,41 +1879,52 @@ class _SectionState extends State<_Section> {
 class _MoreDestinationsTile extends StatelessWidget {
   const _MoreDestinationsTile({
     required this.open,
-    required this.selected,
+    required this.focusNode,
     required this.onToggle,
     required this.navigation,
   });
+
+  /// Less, the quiet foot of the rows More gave way to, rather than More.
   final bool open;
-  final bool selected;
+  final FocusNode focusNode;
   final VoidCallback onToggle;
   final bool navigation;
 
   @override
-  Widget build(BuildContext context) => DSidebarMenuButton(
-    key: const ValueKey('sidebar-more-toggle'),
-    variant: navigation
-        ? DSidebarMenuButtonVariant.navigation
-        : DSidebarMenuButtonVariant.menu,
-    size: DSidebarMenuButtonSize.regular,
-    iconSize: context.isTouch ? 22 : 18,
-    icon: const Center(child: DIcon(DIcons.ellipsisVertical, size: 16)),
-    isActive: selected,
-    expanded: open,
-    onPressed: onToggle,
-    child: Row(
-      children: [
-        Expanded(child: Text(context.l10n.more)),
-        RotatedBox(
-          quarterTurns: open ? 2 : 0,
-          child: DIcon(
-            DIcons.chevronDown,
-            size: 10,
-            color: Theme.of(context).discourse.whisper,
-          ),
-        ),
-      ],
-    ),
-  );
+  Widget build(BuildContext context) {
+    final touch = context.isTouch;
+    // Mockup --text-muted maps to --primary-medium.
+    final quiet = Theme.of(context).discourse.whisper;
+    return DSidebarMenuButton(
+      key: const ValueKey('sidebar-more-toggle'),
+      focusNode: focusNode,
+      variant: navigation
+          ? DSidebarMenuButtonVariant.navigation
+          : DSidebarMenuButtonVariant.menu,
+      size: DSidebarMenuButtonSize.regular,
+      iconSize: touch ? 22 : 18,
+      icon: Center(
+        child: open
+            ? RotatedBox(
+                quarterTurns: 2,
+                child: DIcon(
+                  DIcons.chevronDown,
+                  size: touch ? 13 : 11,
+                  color: quiet,
+                ),
+              )
+            : const DIcon(DIcons.ellipsisVertical, size: 16),
+      ),
+      expanded: open,
+      onPressed: onToggle,
+      child: open
+          ? Text(
+              context.l10n.less,
+              style: TextStyle(fontSize: touch ? 14 : 12, color: quiet),
+            )
+          : Text(context.l10n.more),
+    );
+  }
 }
 
 class _SectionHeader extends StatelessWidget {
@@ -2038,6 +2059,7 @@ class SidebarDestinationTile extends StatelessWidget {
     this.navigation = false,
     this.iconSize = 16,
     this.reorderable = false,
+    this.focusNode,
     required this.onTap,
     this.onSecondaryTap,
   });
@@ -2051,6 +2073,9 @@ class SidebarDestinationTile extends StatelessWidget {
   /// Whether a touch long press on this row starts a reordering drag, which
   /// the link context menu must then leave to the reorderable list.
   final bool reorderable;
+
+  /// Borrowed; lets the section hand focus to this row.
+  final FocusNode? focusNode;
   final VoidCallback onTap;
   final VoidCallback? onSecondaryTap;
 
@@ -2214,6 +2239,7 @@ class SidebarDestinationTile extends StatelessWidget {
                   ),
                 )),
       child: DSidebarMenuButton(
+        focusNode: focusNode,
         size: DSidebarMenuButtonSize.regular,
         isActive: selected,
         variant: navigation
