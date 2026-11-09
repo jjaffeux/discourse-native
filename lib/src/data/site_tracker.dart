@@ -281,6 +281,8 @@ class SiteTracker {
           if (_disposed || !committed || !gate.isOpen) return;
           if (channel == '/delete') {
             _onDeleteMessage(data);
+          } else if (channel.startsWith('/unread')) {
+            _onUnreadMessage(data);
           } else {
             _emitTopicTrackingState(data);
           }
@@ -340,6 +342,17 @@ class SiteTracker {
     if (_disposed) return;
     _emitTopicTrackingState(data);
     if (_disposed || !(admitIncoming?.call(data) ?? true)) return;
+    if (incoming.notify(data)) onIncomingTopics();
+  }
+
+  /// [admitIncoming] judges a reply by the topic's row as the message found
+  /// it, so it runs before the message updates that row.
+  void _onUnreadMessage(Object? data) {
+    if (_disposed) return;
+    final admitted = admitIncoming?.call(data) ?? true;
+    if (_disposed) return;
+    _emitTopicTrackingState(data);
+    if (_disposed || !admitted) return;
     if (incoming.notify(data)) onIncomingTopics();
   }
 

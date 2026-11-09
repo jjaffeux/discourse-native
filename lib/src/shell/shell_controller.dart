@@ -3754,25 +3754,27 @@ class ShellController extends FrameSafeNotifier
     // New – replies announces nothing. Core counts a new topic there too, as
     // the subset is only a query parameter, and then asks the replies subset
     // for it, which never returns one.
-    final (String, bool)? kind = switch (mode) {
-      TopicListMode.latest => ('latest', true),
-      TopicListMode.newActivity || TopicListMode.newTopics => ('new', false),
-      TopicListMode.unseen => ('unseen', false),
-      null when defaultList => ('latest', true),
+    final kind = switch (mode) {
+      TopicListMode.latest => ('latest', IncomingTopicsFilter.latest),
+      TopicListMode.newActivity => ('new', IncomingTopicsFilter.newActivity),
+      TopicListMode.newTopics => ('new', IncomingTopicsFilter.created),
+      TopicListMode.unseen => ('unseen', IncomingTopicsFilter.unseen),
+      TopicListMode.unread => ('unread', IncomingTopicsFilter.unread),
+      null when defaultList => ('latest', IncomingTopicsFilter.latest),
       _ => null,
     };
     if (kind == null) return null;
-    final (served, countsBumps) = kind;
+    final (served, filter) = kind;
     // A category link is its default view, which is Latest unless the site
     // names another; sites that do not say are taken to be Latest.
     if (list.filter case final resolved? when resolved != served) return null;
     // Without tagging, or for `/tag/none`, the server names no tag, and a
     // list that cannot be matched to its topics announces none of them.
     if (tagged && list.tagIds.isEmpty) return null;
-    final tagIds = tagged ? list.tagIds.toSet() : const <int>{};
-    return countsBumps
-        ? IncomingTopicsFilter.latest(categoryId: categoryId, tagIds: tagIds)
-        : IncomingTopicsFilter.created(categoryId: categoryId, tagIds: tagIds);
+    return filter(
+      categoryId: categoryId,
+      tagIds: tagged ? list.tagIds.toSet() : const <int>{},
+    );
   }
 
   /// Gives the site's tracker every list loaded so far, including those that
@@ -3785,6 +3787,7 @@ class ShellController extends FrameSafeNotifier
           topicFeeds.incomingFiltersFor(siteUrl),
           parentCategoryOf: (categoryId) =>
               categoryFor(categoryId, siteUrl: siteUrl)?.parentCategoryId,
+          unifiedNew: _instanceAt(siteUrl)?.user?.unifiedNewEnabled == true,
         );
   }
 

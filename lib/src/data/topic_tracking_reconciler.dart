@@ -176,7 +176,16 @@ final class TopicTrackingReconciler {
     Object? data, {
     DiscourseUser? user,
     SiteConfig config = const SiteConfig.unknown(),
-  }) => _current && _filter.admitsIncoming(data, user: user, config: config);
+  }) {
+    if (!_current ||
+        !_filter.admitsIncoming(data, user: user, config: config)) {
+      return false;
+    }
+    if (data is! Map || data['message_type'] != 'unread') return true;
+    // A reply to a topic still unread adds nothing to the list it is on.
+    final held = _state.topic(jsonIntOrNull(data['topic_id']) ?? 0);
+    return held == null || held.lastReadPostNumber == held.highestPostNumber;
+  }
 
   /// Null means rejected. A false value is an admitted event with no row
   /// change; dismissals still need publication to loaded list records.
