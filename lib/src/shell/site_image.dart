@@ -20,6 +20,7 @@ import '../plugin_api/plugin_registry.dart';
 import 'broken_image.dart';
 import 'html_paragraph_selection.dart';
 import 'image_decode.dart';
+import 'late_media_extent.dart';
 import 'open_link.dart';
 import 'progressive_html_mode.dart';
 import 'server_image.dart';
@@ -976,7 +977,7 @@ final class SiteImageWidgetFactory extends WidgetFactory {
         }
         final layoutOwned =
             columnBodyMode is ProgressiveHtmlMode && !_hasImageDimensions(src);
-        return SiteImage(
+        final image = SiteImage(
           viewportAware: !layoutOwned,
           url: _densitySource(context, src.url, srcset),
           siteUrl: siteUrl,
@@ -994,6 +995,7 @@ final class SiteImageWidgetFactory extends WidgetFactory {
                     const SizedBox.shrink()
               : const BrokenImage(),
         );
+        return _hasImageDimensions(src) ? image : LateMediaExtent(child: image);
       },
     );
   }
