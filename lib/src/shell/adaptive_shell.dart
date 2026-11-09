@@ -37,6 +37,7 @@ import 'main_content.dart';
 import 'mobile_dock_panel_scope.dart';
 import 'mobile_shell.dart';
 import 'platform.dart';
+import 'reader_content_bounds.dart';
 import 'resizable_pane.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';
@@ -62,6 +63,9 @@ class AdaptiveShell extends StatefulWidget {
 
   static const double railWidth = 53;
   static const double compactRailWidth = 53;
+
+  /// The mockup's sidebar transition.
+  static const sidebarRevealDuration = Duration(milliseconds: 220);
   static const double sidebarWidth = 208 + workspacePanelGap;
   // ResizablePane includes the gutter in its width.
   static const double sidebarMinWidth = 200 + workspacePanelGap;
@@ -930,6 +934,13 @@ class _MobileShellState extends State<_MobileShell> {
   );
 }
 
+// Clearance the title bar keeps from a docked sidebar.
+const double _dockedTitleBarInset = 12;
+
+// How far the card's avatar sits from where the rail centres it, so closing
+// lands on the rail's avatar rather than jumping to it.
+const double _profileAvatarRailShift = -13.5;
+
 class _WideShell extends StatefulWidget {
   const _WideShell({
     required this.layout,
@@ -952,7 +963,8 @@ class _WideShell extends StatefulWidget {
   State<_WideShell> createState() => _WideShellState();
 }
 
-class _WideShellState extends State<_WideShell> {
+class _WideShellState extends State<_WideShell>
+    with SingleTickerProviderStateMixin {
   // Window constraints change on every resize tick, but the fixed-width rail
   // only needs new configuration when the sidebar opens or closes. Its own
   // selectors and inherited dependencies still update it normally.
@@ -967,6 +979,16 @@ class _WideShellState extends State<_WideShell> {
           !context.isTouch && ShellTitleBar.hasWindowChrome ? 40 : 0,
     ),
   );
+
+  // Eased only from the rail's toggle: a window crossing the width breakpoint
+  // is already moving everything under the pointer.
+  late final _reveal = AnimationController(
+    vsync: this,
+    duration: AdaptiveShell.sidebarRevealDuration,
+  )..addStatusListener(_revealStatusChanged);
+
+  // Where a new reveal starts from when none is running.
+  var _sidebarOpen = true;
 
   @override
   void initState() {
@@ -985,10 +1007,26 @@ class _WideShellState extends State<_WideShell> {
   @override
   void dispose() {
     widget.sidebarExpanded.removeListener(_sidebarChoiceChanged);
+    _reveal.dispose();
     super.dispose();
   }
 
-  void _sidebarChoiceChanged() => setState(() {});
+  void _sidebarChoiceChanged() {
+    final open = widget.sidebarExpanded.value ?? _sidebarOpen;
+    if (MediaQuery.disableAnimationsOf(context)) {
+      _reveal.stop();
+    } else if (open != _sidebarOpen || _reveal.isAnimating) {
+      if (!_reveal.isAnimating) _reveal.value = _sidebarOpen ? 1 : 0;
+      unawaited(_reveal.animateTo(open ? 1 : 0, curve: Curves.ease));
+    }
+    setState(() {});
+  }
+
+  // A settled shell draws from constants, so only the two transition edges
+  // rebuild it.
+  void _revealStatusChanged(AnimationStatus status) {
+    if (!status.isAnimating) setState(() {});
+  }
 
   Widget _buildRail(bool sidebarExpanded) => ShellSelector<bool>(
     select: (controller) =>
@@ -1015,20 +1053,30 @@ class _WideShellState extends State<_WideShell> {
         );
         final sidebarExpanded =
             sidebarChoice ?? (context.isTouch || constraints.maxWidth >= 1100);
-        double chromeHeight() => ShellTitleBar.heightFor(
-          context,
-          sidebarExpanded
-              ? constraints.maxWidth -
-                    AdaptiveShell.railWidth -
-                    widget.sidebarWidth.effectiveWidth(maximum: windowMaximum)
-              : constraints.maxWidth,
-        );
-        Widget chromeSized({Widget? child}) => ListenableBuilder(
-          listenable: widget.sidebarWidth,
-          builder: (context, child) =>
-              SizedBox(height: chromeHeight(), child: child),
-          child: child,
-        );
+        _sidebarOpen = sidebarExpanded;
+        final revealing = _reveal.isAnimating;
+        final Animation<double> reveal = revealing
+            ? _reveal
+            : sidebarExpanded
+            ? kAlwaysCompleteAnimation
+            : kAlwaysDismissedAnimation;
+        double dockedWidth() =>
+            widget.sidebarWidth.effectiveWidth(maximum: windowMaximum);
+        // While the sidebar moves the bar starts at its search field, and its
+        // inset is zero, so only this box changes on each tick.
+        double titleBarWidth() {
+          final docked = AdaptiveShell.railWidth + dockedWidth();
+          if (revealing) {
+            final clear = ShellTitleBar.defaultLeadingInset;
+            return constraints.maxWidth -
+                (clear +
+                    (docked + _dockedTitleBarInset - clear) * reveal.value);
+          }
+          return sidebarExpanded
+              ? constraints.maxWidth - docked
+              : constraints.maxWidth;
+        }
+
         return ShellSelector<bool>(
           select: (shell) =>
               shell.rootMode == ShellRootMode.forum &&
@@ -1086,22 +1134,42 @@ class _WideShellState extends State<_WideShell> {
                                   child: DesktopNavigation(
                                     compact: !sidebarExpanded,
                                     showTrigger: sidebarChoice == null,
-                                    header: chromeSized(
-                                      child: OverflowBox(
-                                        alignment:
-                                            AlignmentDirectional.centerEnd,
-                                        minWidth: sidebarExpanded
-                                            ? null
-                                            : constraints.maxWidth,
-                                        maxWidth: sidebarExpanded
-                                            ? null
-                                            : constraints.maxWidth,
-                                        child: ShellTitleBar(
-                                          panelsLayout: widget.panelsLayout,
-                                          leadingInset: sidebarExpanded
-                                              ? 12
-                                              : null,
-                                        ),
+                                    sidebarReveal: reveal,
+                                    contentWidth: revealing
+                                        ? constraints.maxWidth -
+                                              AdaptiveShell.railWidth -
+                                              (sidebarExpanded
+                                                  ? dockedWidth()
+                                                  : 0)
+                                        : null,
+                                    header: ListenableBuilder(
+                                      listenable: Listenable.merge([
+                                        widget.sidebarWidth,
+                                        reveal,
+                                      ]),
+                                      builder: (context, child) {
+                                        final width = titleBarWidth();
+                                        return SizedBox(
+                                          height: ShellTitleBar.heightFor(
+                                            context,
+                                            width,
+                                          ),
+                                          child: OverflowBox(
+                                            alignment:
+                                                AlignmentDirectional.centerEnd,
+                                            minWidth: width,
+                                            maxWidth: width,
+                                            child: child,
+                                          ),
+                                        );
+                                      },
+                                      child: ShellTitleBar(
+                                        panelsLayout: widget.panelsLayout,
+                                        leadingInset: revealing
+                                            ? 0
+                                            : sidebarExpanded
+                                            ? _dockedTitleBarInset
+                                            : null,
                                       ),
                                     ),
                                     sidebar: Padding(
@@ -1127,24 +1195,27 @@ class _WideShellState extends State<_WideShell> {
                                         ),
                                       ),
                                     ),
-                                    child: ShellWorkspace(
-                                      atWindowEdge: widget.atWindowEdge,
-                                      child: _PageComposerDock(
-                                        child:
-                                            !context.isTouch &&
-                                                ShellScope.read(
-                                                  context,
-                                                ).forumTabsEnabled
-                                            ? _desktopPanels
-                                            : MainContent(
-                                                key:
-                                                    ComposerPresentationScope.contentKeyOf(
-                                                      context,
-                                                    ),
-                                                layout: context.isTouch
-                                                    ? widget.layout
-                                                    : ShellLayout.expanded,
-                                              ),
+                                    child: ReaderMotionScope(
+                                      motion: _reveal,
+                                      child: ShellWorkspace(
+                                        atWindowEdge: widget.atWindowEdge,
+                                        child: _PageComposerDock(
+                                          child:
+                                              !context.isTouch &&
+                                                  ShellScope.read(
+                                                    context,
+                                                  ).forumTabsEnabled
+                                              ? _desktopPanels
+                                              : MainContent(
+                                                  key:
+                                                      ComposerPresentationScope.contentKeyOf(
+                                                        context,
+                                                      ),
+                                                  layout: context.isTouch
+                                                      ? widget.layout
+                                                      : ShellLayout.expanded,
+                                                ),
+                                        ),
                                       ),
                                     ),
                                   ),
@@ -1165,32 +1236,63 @@ class _WideShellState extends State<_WideShell> {
                     start: 0,
                     bottom: 0,
                     child: ListenableBuilder(
-                      listenable: widget.sidebarWidth,
-                      builder: (context, _) => SizedBox(
-                        width:
+                      listenable: Listenable.merge([
+                        widget.sidebarWidth,
+                        reveal,
+                      ]),
+                      builder: (context, child) {
+                        final openWidth =
                             AdaptiveShell.railWidth +
-                            (sidebarExpanded
-                                ? widget.sidebarWidth.effectiveWidth(
-                                        maximum: windowMaximum,
-                                      ) -
-                                      (context.isTouch ? 0 : workspacePanelGap)
-                                : 0),
-                        height: profileExtent,
-                        child: SafeArea(
-                          top: false,
-                          left: false,
-                          right: false,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: sidebarExpanded ? 8 : 0,
-                              vertical: 6,
+                            dockedWidth() -
+                            (context.isTouch ? 0 : workspacePanelGap);
+                        final t = reveal.value;
+                        final start =
+                            (1 - t) *
+                            _profileAvatarRailShift *
+                            (Directionality.of(context) == TextDirection.rtl
+                                ? -1
+                                : 1);
+                        return SizedBox(
+                          width:
+                              AdaptiveShell.railWidth +
+                              (openWidth - AdaptiveShell.railWidth) * t,
+                          height: profileExtent,
+                          child: ClipRect(
+                            clipBehavior: revealing ? Clip.hardEdge : Clip.none,
+                            // Laid out at its open width whatever the strip
+                            // shows of it, so closing covers the name rather
+                            // than squeezing it.
+                            child: OverflowBox(
+                              alignment: AlignmentDirectional.centerStart,
+                              minWidth: sidebarExpanded || revealing
+                                  ? openWidth
+                                  : null,
+                              maxWidth: sidebarExpanded || revealing
+                                  ? openWidth
+                                  : null,
+                              child: Transform.translate(
+                                offset: Offset(revealing ? start : 0, 0),
+                                child: child,
+                              ),
                             ),
-                            child: UserMenuButton(
-                              key: const ValueKey('desktop-profile-owner'),
-                              presentation: sidebarExpanded
-                                  ? UserMenuPresentation.profileCard
-                                  : UserMenuPresentation.profileRail,
-                            ),
+                          ),
+                        );
+                      },
+                      child: SafeArea(
+                        top: false,
+                        left: false,
+                        right: false,
+                        child: Padding(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: sidebarExpanded || revealing ? 8 : 0,
+                            vertical: 6,
+                          ),
+                          child: UserMenuButton(
+                            key: const ValueKey('desktop-profile-owner'),
+                            cardReveal: reveal,
+                            presentation: sidebarExpanded || revealing
+                                ? UserMenuPresentation.profileCard
+                                : UserMenuPresentation.profileRail,
                           ),
                         ),
                       ),

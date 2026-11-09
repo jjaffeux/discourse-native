@@ -107,6 +107,52 @@ void main() {
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
   }
 
+  testWidgets('closing fades the name and lands the avatar on the rail', (
+    tester,
+  ) async {
+    await _pumpProduction(tester, desktop);
+    final profile = find.byKey(UserMenuButton.avatarKey);
+    final avatar = find
+        .descendant(of: profile, matching: find.byType(DAvatar))
+        .first;
+    final strip = find
+        .ancestor(
+          of: find.byKey(const ValueKey('desktop-profile-owner')),
+          matching: find.byType(ClipRect),
+        )
+        .first;
+    final openStrip = tester.getSize(strip).width;
+    final name = find.ancestor(
+      of: find.text('Ty'),
+      matching: find.byType(FadeTransition),
+    );
+
+    tester
+        .widget<DButton>(find.byKey(const ValueKey('rail-sidebar-toggle')))
+        .onPressed!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+    final eased = Curves.ease.transform(.5);
+    expect(
+      tester.widget<FadeTransition>(name.first).opacity.value,
+      closeTo(1 - eased, .01),
+    );
+    expect(
+      tester.getSize(strip).width,
+      closeTo(openStrip + (AdaptiveShell.railWidth - openStrip) * eased, .5),
+    );
+
+    await tester.pump(const Duration(milliseconds: 109));
+    final landing = tester.getRect(avatar);
+    await tester.pumpAndSettle();
+    expect(landing.left, closeTo(tester.getRect(avatar).left, 1));
+    expect(
+      find.descendant(of: profile, matching: find.text('Ty')),
+      findsNothing,
+    );
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   for (final key in [
     UserMenuButton.avatarKey,
     const ValueKey('user-presence-menu'),
