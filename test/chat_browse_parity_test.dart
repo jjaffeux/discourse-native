@@ -856,7 +856,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Watercooler'), findsOneWidget);
     expect(find.text('Quiet room'), findsOneWidget);
-    expect(find.text('Empty'), findsNothing);
+    expect(find.text('3 people here'), findsOneWidget);
+    expect(find.text('Empty'), findsOneWidget);
     expect(find.text('general'), findsOneWidget);
     expect(find.text('Voice rooms'), findsOneWidget);
     await _pick(tester, 'chat-inbox-activity-filter', 'Unread');

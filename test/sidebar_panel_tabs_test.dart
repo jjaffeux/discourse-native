@@ -526,7 +526,13 @@ void main() {
     expect(find.byTooltip('Create voice room'), findsNothing);
     expect(find.bySemanticsLabel('Collapse Voice rooms'), findsOneWidget);
     expect(find.bySemanticsLabel('Expand Voice rooms'), findsNothing);
-    expect(find.text('Empty'), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('chat-inbox-room-7')),
+        matching: find.text('Empty'),
+      ),
+      findsOneWidget,
+    );
     expect(sidebarDestination('Topics'), findsNothing);
   });
 
