@@ -12,6 +12,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugins/discourse_lazy_videos/discourse_lazy_videos_plugin.dart';
+import 'package:discourse_native/src/shell/broken_image.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -227,9 +228,13 @@ void main() {
             );
             final post = find.byKey(const ValueKey(1));
             var sawLoadedImage = false;
+            final revealedPixels = <double>[];
             for (var frame = 0; frame < 8; frame++) {
               await tester.pump(const Duration(milliseconds: 16));
               if (post.evaluate().isEmpty) continue;
+              revealedPixels.add(
+                topicPostList(tester).controller!.position.pixels,
+              );
               if (tester.getSize(post).height > 1000) {
                 sawLoadedImage = true;
                 expect(
@@ -249,8 +254,21 @@ void main() {
             await tester.pump();
 
             expect(
-              topicPostList(tester).controller!.position.pixels,
-              closeTo(imageFails ? 0 : 600, 1),
+              find.byType(BrokenImage),
+              imageFails ? findsOneWidget : findsNothing,
+            );
+            final position = topicPostList(tester).controller!.position;
+            // The broken-image box is shorter than the picture, so the saved
+            // offset lies past the end of the stream and the reader lands there.
+            expect(
+              position.pixels,
+              closeTo(imageFails ? position.maxScrollExtent : 600, 1),
+            );
+            expect(revealedPixels, isNotEmpty);
+            expect(
+              revealedPixels,
+              everyElement(closeTo(position.pixels, 1)),
+              reason: 'the post must not move once it is revealed',
             );
           },
         );
