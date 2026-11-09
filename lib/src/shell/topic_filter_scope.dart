@@ -12,6 +12,10 @@ export '../models/content_route.dart' show topicFilterScopeValue;
   String? tag;
   final conjunctionTags = <String>[];
   final remainder = <String>[];
+  // The list's first row of an id wins, as a walk of the list would find it.
+  late final byId = {
+    for (final category in categories.reversed) category.id: category,
+  };
   for (final clause in splitTopicFilterQuery(query)) {
     final colon = clause.indexOf(':');
     final key = colon < 0 ? '' : clause.substring(0, colon).toLowerCase();
@@ -20,6 +24,7 @@ export '../models/content_route.dart' show topicFilterScopeValue;
     );
     if (key == 'category') {
       final id = int.tryParse(value);
+      final lowered = value.toLowerCase();
       final category = categories.where((item) {
         if (item.id == id) return true;
         final path = <String>[];
@@ -27,10 +32,9 @@ export '../models/content_route.dart' show topicFilterScopeValue;
         TopicCategory? current = item;
         while (current != null && visited.add(current.id)) {
           path.insert(0, current.slug);
-          final parent = current.parentCategoryId;
-          current = categories.where((item) => item.id == parent).firstOrNull;
+          current = byId[current.parentCategoryId];
         }
-        return path.join(':').toLowerCase() == value.toLowerCase();
+        return path.join(':').toLowerCase() == lowered;
       }).firstOrNull;
       if (category != null) {
         categoryId = category.id;
