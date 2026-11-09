@@ -964,16 +964,15 @@ final class TopicDataSession implements BookmarkTopicData {
 
   void Function() prefetch(
     Topic topic, {
+    required int? postNumber,
     required TopicPrefetchIntent intent,
     required bool Function() isInterested,
   }) {
     if (!isCurrent ||
         loading(topic.id) ||
-        (!_topic(topic.id).stale &&
-            _hasPost(topic.id, topic.lastUnreadPostNumber))) {
+        (!_topic(topic.id).stale && _hasPost(topic.id, postNumber))) {
       return () {};
     }
-    final postNumber = topic.lastUnreadPostNumber;
     return _owner._prefetch.hover(
       (
         siteUrl: siteUrl,

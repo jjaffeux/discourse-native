@@ -42,6 +42,7 @@ void main() {
         final navigation = AssignShellService(
           host: host,
           canOpenGroupAssignments: (_) => true,
+          openingPostFor: (_, _) => null,
         );
 
         if (fromLink) {
@@ -66,6 +67,7 @@ void main() {
     final navigation = AssignShellService(
       host: host,
       canOpenGroupAssignments: (_) => true,
+      openingPostFor: (_, _) => null,
     );
 
     navigation.openTopicPost(

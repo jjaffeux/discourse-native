@@ -1,5 +1,14 @@
 part of 'topic_list_view.dart';
 
+/// The post a tap on this row opens, which a prefetch must also load.
+int? _topicRowOpeningPost(
+  ShellController? shell,
+  String siteUrl,
+  Topic topic,
+) => topic.listOpeningPostNumber(
+  shell?.categoryFor(topic.categoryId, siteUrl: siteUrl),
+);
+
 /// Observes intent without participating in hit testing or changing DItem's
 /// bounds. All input sources share one lease on the shell's prefetch request.
 final class _TopicListPrefetch {
@@ -59,8 +68,11 @@ final class _TopicListPrefetch {
     if (_intent == TopicPrefetchIntent.trajectory) _releaseCurrent();
   }
 
-  (String, int, int?) _rowKey(_ConversationTopicCardState row) =>
-      (row.row.siteUrl, row.row.topic.id, row.row.topic.lastUnreadPostNumber);
+  (String, int, int?) _rowKey(_ConversationTopicCardState row) => (
+    row.row.siteUrl,
+    row.row.topic.id,
+    _topicRowOpeningPost(owner._controller, row.row.siteUrl, row.row.topic),
+  );
 
   void hover(_ConversationTopicCardState row, bool hovered) {
     if (hovered) {
@@ -195,7 +207,11 @@ final class _TopicListPrefetch {
   }
 
   void _select(String siteUrl, Topic topic, TopicPrefetchIntent intent) {
-    final key = (siteUrl, topic.id, topic.lastUnreadPostNumber);
+    final key = (
+      siteUrl,
+      topic.id,
+      _topicRowOpeningPost(owner._controller, siteUrl, topic),
+    );
     _expiry?.cancel();
     _expiry = null;
     if (_key == key) {

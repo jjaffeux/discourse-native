@@ -1,0 +1,14 @@
+[
+ {
+  "slug": "opening-post-owner",
+  "subject": "FIX: open a fully read topic at the same post from every list surface",
+  "proofs": [
+   {
+    "path": "test/opening_post_owner_proof_test.dart"
+   },
+   {
+    "path": "test/architecture_opening_post_contract_test.dart"
+   }
+  ]
+ }
+]

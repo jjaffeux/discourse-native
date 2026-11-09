@@ -37,15 +37,20 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
   @override
   void didUpdateWidget(_ConversationTopicCard oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final shell = ShellScope.maybeRead(context);
+    final previousPost = _topicRowOpeningPost(
+      shell,
+      oldWidget.row.siteUrl,
+      oldWidget.row.topic,
+    );
     if (oldWidget.row.siteUrl != row.siteUrl ||
         oldWidget.row.topic.id != row.topic.id ||
-        oldWidget.row.topic.lastUnreadPostNumber !=
-            row.topic.lastUnreadPostNumber) {
+        previousPost != _topicRowOpeningPost(shell, row.siteUrl, row.topic)) {
       _stopHover();
       _prefetch?.invalidate((
         oldWidget.row.siteUrl,
         oldWidget.row.topic.id,
-        oldWidget.row.topic.lastUnreadPostNumber,
+        previousPost,
       ));
     }
   }
@@ -148,7 +153,7 @@ class _ConversationTopicCardState extends State<_ConversationTopicCard> {
         bookmarkUrl: resolveSiteRootPath(row.siteUrl, '/t/${topic.id}'),
         url: resolveSiteRootPath(
           row.siteUrl,
-          '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+          '/t/${topic.slug}/${topic.id}/${_topicRowOpeningPost(shell, row.siteUrl, topic) ?? 1}',
         ),
         title: topic.displayTitle,
         siteUrl: row.siteUrl,

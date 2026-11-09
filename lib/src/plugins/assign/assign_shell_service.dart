@@ -5,16 +5,20 @@ import 'assigned_group.dart';
 import 'assigned_group_link.dart';
 
 typedef AssignGroupRoutePermission = bool Function(String siteUrl);
+typedef AssignTopicOpeningPost = int? Function(String siteUrl, Topic topic);
 
 final class AssignShellService implements PluginLinkHandler {
   const AssignShellService({
     required PluginRouteNavigationHost host,
     required AssignGroupRoutePermission canOpenGroupAssignments,
+    required AssignTopicOpeningPost openingPostFor,
   }) : _host = host,
-       _canOpenGroupAssignments = canOpenGroupAssignments;
+       _canOpenGroupAssignments = canOpenGroupAssignments,
+       _openingPostFor = openingPostFor;
 
   final PluginRouteNavigationHost _host;
   final AssignGroupRoutePermission _canOpenGroupAssignments;
+  final AssignTopicOpeningPost _openingPostFor;
 
   void selectGroupFilter(String groupName, AssignedGroupFilter filter) {
     final route = ContentRoute.group(
@@ -34,18 +38,19 @@ final class AssignShellService implements PluginLinkHandler {
   void openTopic(Topic topic) {
     final siteUrl = _host.currentSite?.url;
     if (siteUrl == null) return;
+    final postNumber = _openingPostFor(siteUrl, topic);
     _host.pushContent(
       ContentRoute.topic(
         topicId: topic.id,
         slug: topic.slug,
         title: topic.displayTitle,
-        postNumber: topic.lastUnreadPostNumber,
+        postNumber: postNumber,
       ),
     );
     _host.openTopicPost(
       siteUrl: siteUrl,
       topicId: topic.id,
-      postNumber: topic.lastUnreadPostNumber ?? 1,
+      postNumber: postNumber ?? 1,
     );
   }
 

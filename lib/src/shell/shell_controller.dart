@@ -4877,11 +4877,14 @@ class ShellController extends FrameSafeNotifier
       currentContent?.destination.identity,
       topicListContent?.destination.identity,
     );
-    final postNumber = topic.lastUnreadPostNumber;
+    final postNumber = topic.listOpeningPostNumber(
+      categoryFor(topic.categoryId, siteUrl: siteUrl),
+    );
     return _topicData
         .forSite(siteUrl)
         .prefetch(
           topic,
+          postNumber: postNumber,
           intent: intent,
           isInterested: () =>
               !isDisposed &&

@@ -438,9 +438,12 @@ void main() {
             },
           }, siteUrl).topics.single;
 
-      expect(parsed(lastRead: 5, highest: 10).lastUnreadPostNumber, 6);
-      expect(parsed(lastRead: 10, highest: 10).lastUnreadPostNumber, 10);
-      expect(parsed(lastRead: null, highest: 10).lastUnreadPostNumber, 1);
+      expect(parsed(lastRead: 5, highest: 10).listOpeningPostNumber(null), 6);
+      expect(parsed(lastRead: 10, highest: 10).listOpeningPostNumber(null), 10);
+      expect(
+        parsed(lastRead: null, highest: 10).listOpeningPostNumber(null),
+        1,
+      );
     });
 
     test('core-only topic rows ignore unregistered reader fields', () {
@@ -480,7 +483,7 @@ void main() {
       expect(nested.showUnreadCount, isTrue);
       expect(nested.showNewTopicDot, isTrue);
       expect(nested.showNewRepliesDot, isFalse);
-      expect(nested.lastUnreadPostNumber, 5);
+      expect(nested.listOpeningPostNumber(null), 5);
     });
 
     test('topic parsers retain only the first five resolved posters', () {

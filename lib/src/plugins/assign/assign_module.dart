@@ -87,6 +87,11 @@ final class AssignModule implements PluginModule {
                   .recordFor(siteUrl, assignCurrentUserDataKey)
                   ?.canAssignGlobally ==
               true,
+          openingPostFor: (siteUrl, topic) =>
+              topic.listOpeningPostNumber(switch (topic.categoryId) {
+                final id? => siteState.categoryFor?.call(siteUrl, id),
+                null => null,
+              }),
         );
         final assignedGroups = AssignedGroupController(
           api: AssignedGroupApiClient(

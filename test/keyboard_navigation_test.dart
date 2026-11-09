@@ -1203,7 +1203,7 @@ Future<void> _readBeside(
   Topic topic,
 ) async {
   shell.openLinkInPanel(
-    '/t/${topic.slug}/${topic.id}/${topic.lastUnreadPostNumber ?? 1}',
+    '/t/${topic.slug}/${topic.id}/${topic.listOpeningPostNumber(null) ?? 1}',
     title: topic.title,
     panel: ForumPanel.secondary,
   );
