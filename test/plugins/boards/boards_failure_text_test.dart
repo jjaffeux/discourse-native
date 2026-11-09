@@ -1,6 +1,10 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/boards/boards_controller.dart';
 import 'package:discourse_native/src/plugins/boards/boards_data.dart';
+import 'package:discourse_native/src/plugins/boards/boards_navigation.dart';
+import 'package:discourse_native/src/plugins/boards/boards_page.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../support/boards_fixture.dart';
@@ -101,5 +105,71 @@ void main() {
       500: "Couldn't load this board.",
       404: "Couldn't load this board.",
     });
+  });
+
+  testWidgets('a move sent without an answer says its result is unknown', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1100, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    fixture.transport.failures['PUT /boards/api/boards/1/cards/102'] =
+        const WriteException(WriteFailure.unreachable);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) => DToaster(child: child!),
+        home: Scaffold(
+          body: BoardsPage(
+            site: boardsSite,
+            route: const BoardsRoute(boardId: 1),
+            controller: fixture.controller,
+            navigation: fixture.navigation,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final card = find.ancestor(
+      of: find.text('Write release notes'),
+      matching: find.byType(DItem),
+    );
+    await tester.tap(
+      find.descendant(of: card, matching: find.byType(DDropdownMenuTrigger)),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Move to…'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find
+          .descendant(
+            of: find.byType(DDialogContent),
+            matching: find.byType(DSelect<int>),
+          )
+          .first,
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('In progress').last);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(DButton, 'Move').last);
+    await tester.pumpAndSettle();
+
+    expect(
+      fixture.transport.writes.map((write) => write.path),
+      contains('/boards/api/boards/1/cards/102'),
+    );
+    expect(
+      find.descendant(
+        of: find.byType(DToaster),
+        matching: find.textContaining('result is unknown'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.text("Couldn't reach the site."), findsNothing);
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 }
