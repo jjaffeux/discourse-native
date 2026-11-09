@@ -496,18 +496,29 @@ final class ForumTab {
     return entries;
   }
 
-  /// Whether these differ at most in [anchors]. Scrolling rewrites those
-  /// without notifying anyone, so a selector holding an older tab must not read
-  /// that difference as a change.
+  /// Whether these differ at most in [anchors] and in destination details
+  /// outside [ContentDestination.identity], such as the post a topic route
+  /// targets. Scrolling rewrites anchors without notifying anyone, and a
+  /// timeline drag retargets the post at every step. A selector holding an
+  /// older tab reads neither as a change, so neither may be drawn from it.
+  /// Every other field counts, and routes, history included, compare by
+  /// [ContentRoute.sameDisplayAs].
   bool sameExceptAnchors(ForumTab other) =>
       identical(other, this) ||
       (other.id == id &&
           other.panel == panel &&
           other.rootDestinationId == rootDestinationId &&
-          listEquals(other.contentStack, contentStack) &&
-          listEquals(other.backHistory, backHistory) &&
-          listEquals(other.forwardHistory, forwardHistory) &&
+          _sameRoutes(other.contentStack, contentStack) &&
+          _pairwiseSame(other.backHistory, backHistory, _sameVisit) &&
+          _pairwiseSame(other.forwardHistory, forwardHistory, _sameVisit) &&
           other.readsBesideSource == readsBesideSource);
+
+  static bool _sameRoutes(List<ContentRoute> a, List<ContentRoute> b) =>
+      _pairwiseSame(a, b, (a, b) => a.sameDisplayAs(b));
+
+  static bool _sameVisit(ForumTabLocation a, ForumTabLocation b) =>
+      a.rootDestinationId == b.rootDestinationId &&
+      _sameRoutes(a.contentStack, b.contentStack);
 
   @override
   bool operator ==(Object other) =>
@@ -783,16 +794,10 @@ final class ForumWorkspace {
       other.mobile == mobile;
 
   /// [ForumTab.sameExceptAnchors] across the workspace.
-  bool sameExceptAnchors(ForumWorkspace other) {
-    if (identical(other, this)) return true;
-    if (!_sameApartFromTabs(other) || other.tabs.length != tabs.length) {
-      return false;
-    }
-    for (var index = 0; index < tabs.length; index++) {
-      if (!tabs[index].sameExceptAnchors(other.tabs[index])) return false;
-    }
-    return true;
-  }
+  bool sameExceptAnchors(ForumWorkspace other) =>
+      identical(other, this) ||
+      (_sameApartFromTabs(other) &&
+          _pairwiseSame(other.tabs, tabs, (a, b) => a.sameExceptAnchors(b)));
 
   @override
   bool operator ==(Object other) =>
@@ -811,6 +816,17 @@ final class ForumWorkspace {
     mobile,
     Object.hashAll(tabs),
   );
+}
+
+bool _pairwiseSame<T>(List<T> a, List<T> b, bool Function(T a, T b) same) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (var index = 0; index < a.length; index++) {
+    if (!identical(a[index], b[index]) && !same(a[index], b[index])) {
+      return false;
+    }
+  }
+  return true;
 }
 
 /// Array elements that are already JSON text.
