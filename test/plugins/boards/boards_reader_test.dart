@@ -933,6 +933,32 @@ void boardsReaderTests({
     );
   }
 
+  testWidgets('add-topic reads a slugless link as its topic, not its post', (
+    tester,
+  ) async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    await tester.pumpWidget(page(fixture));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('board-add-10')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(DDropdownMenuItem, 'Add topic as card'),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), '$boardsSite/t/123/4');
+    await tester.tap(find.widgetWithText(DButton, 'Save'));
+    await tester.pumpAndSettle();
+
+    // ignore: avoid_print
+    print(
+      'PERF_PROOF topic-link-owner boards_topic='
+      '${fixture.refreshedTopics.join(',')}',
+    );
+    expect(fixture.refreshedTopics, [123]);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets('large text reader and add menu use bounded Native controls', (
     tester,
   ) async {

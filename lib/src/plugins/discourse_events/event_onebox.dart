@@ -79,11 +79,10 @@ final class EventOneboxData {
     if (title.isEmpty) return null;
     int? topicId;
     if (siteUrl != null && DiscourseInstance.urlServes(siteUrl, uri)) {
-      final path = DiscourseInstance.pathWithinUrl(siteUrl, uri);
-      final match =
-          RegExp(r'^/t/([1-9]\d*)(?:/1)?/?$').firstMatch(path ?? '') ??
-          RegExp(r'^/t/[^/]+/([1-9]\d*)(?:/1)?/?$').firstMatch(path ?? '');
-      topicId = int.tryParse(match?[1] ?? '');
+      final target = TopicLink.parse(uri.toString(), siteUrl: siteUrl);
+      if (target != null && (target.postNumber ?? 1) == 1) {
+        topicId = target.topicId;
+      }
     }
     return EventOneboxData(
       title: title,

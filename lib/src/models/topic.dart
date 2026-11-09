@@ -405,7 +405,7 @@ class Topic with Storable<Topic> {
   bool get hasUnseenActivity =>
       readingPolicy.hasUnseenActivity(seen: seen, unreadCount: unreadCount);
 
-  int? get lastUnreadPostNumber {
+  int? get _lastUnreadPostNumber {
     if (!readingPolicy.allowsChronologicalResume) return null;
     if (highestPostNumber <= 0) return null;
     final next = (lastReadPostNumber ?? 0) + 1;
@@ -419,7 +419,7 @@ class Topic with Storable<Topic> {
           (lastReadPostNumber ?? 0) >= highestPostNumber &&
           readingPolicy.allowsChronologicalResume
       ? 1
-      : lastUnreadPostNumber;
+      : _lastUnreadPostNumber;
 
   String get path => '/t/$slug/$id';
 

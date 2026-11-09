@@ -21,12 +21,6 @@ TextStyle _topicMetadataStyle(BuildContext context) {
   }();
 }
 
-String _topicCompactCount(int count) => count >= 10000
-    ? '${(count / 1000).round()}k'
-    : count >= 1000
-    ? '${(count / 1000).toStringAsFixed(1)}k'
-    : '$count';
-
 double _topicCategoryMarkWidth(TopicCategory category) =>
     (category.styleType == 'icon' ||
             (category.styleType == 'emoji' && category.emoji != null)
@@ -369,7 +363,7 @@ double _topicCountsWidth(
         width +
         11 +
         4 +
-        measure(_topicCompactCount(count.$1)) +
+        measure(shortNumber(count.$1, wholeThousands: true)) +
         _topicTailGap +
         (order == count.$4 ? 18 : 0),
   );
@@ -650,7 +644,10 @@ class _TopicCardTaxonomyState extends State<_TopicCardTaxonomy> {
             .32,
           ),
         ),
-        Text(_topicCompactCount(count.$1), style: _topicMetadataStyle(context)),
+        Text(
+          shortNumber(count.$1, wholeThousands: true),
+          style: _topicMetadataStyle(context),
+        ),
       ],
     );
     return DTooltip(

@@ -9,6 +9,32 @@ import '../../support/shell_test_harness.dart';
 import 'post_voting_integration_test.dart' as fixture;
 
 void main() {
+  testWidgets('a slugless comment link opens its topic at its post', (
+    tester,
+  ) async {
+    final f = await fixture.pumpFixture(tester, desktop);
+
+    expect(
+      await openLink(
+        tester.element(primaryMainContent),
+        '${fixture.site}/t/7/3#post-voting-comment-51',
+      ),
+      isTrue,
+    );
+
+    final opened = f.shell.currentContent!;
+    // ignore: avoid_print
+    print(
+      'PERF_PROOF topic-link-owner voting_topic=${opened.topicId} '
+      'voting_post=${opened.postNumber} voting_slug=${opened.slug}',
+    );
+    expect(opened.topicId, 7);
+    expect(opened.postNumber, 3);
+    expect(opened.slug, 'topic');
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(seconds: 1));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
   for (final newTab in [true, false]) {
     testWidgets(
       'topic comment fragment survives ${newTab ? 'background tab' : 'panel'} opening',

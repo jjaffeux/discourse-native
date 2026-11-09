@@ -428,6 +428,29 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('large topic counts read as the short number owner writes them', (
+    tester,
+  ) async {
+    const topic = Topic(
+      id: 31,
+      title: 'Very busy conversation',
+      slug: 'busy',
+      replyCount: 999500,
+      likeCount: 1500000,
+    );
+    await _pump(tester, width: 590, topics: [topic]);
+
+    final counts = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((text) => text.data)
+        .whereType<String>()
+        .where(RegExp(r'^[0-9.]+[kM]$').hasMatch)
+        .join(',');
+    // ignore: avoid_print
+    print('PERF_PROOF card-count-owner counts=$counts');
+    expect(counts, '999k,1.5M');
+  });
+
   testWidgets(
     'muted topic counts and latest-poster semantics follow server state',
     (tester) async {

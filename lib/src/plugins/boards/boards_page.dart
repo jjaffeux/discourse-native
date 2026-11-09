@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_plugin_sdk.dart'
-    show CategoryIcon, DIcons, failureText, skeletonFill;
+    show CategoryIcon, DIcons, TopicLink, failureText, skeletonFill;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
@@ -1030,11 +1030,10 @@ class _BoardsPageState extends State<BoardsPage> {
         !widget.controller.sourceCurrent(widget.site, lease, revision)) {
       return;
     }
+    final entered = value.trim();
     final id =
-        int.tryParse(value.trim()) ??
-        int.tryParse(
-          RegExp(r'/t/(?:[^/]+/)?([0-9]+)').firstMatch(value)?.group(1) ?? '',
-        );
+        int.tryParse(entered) ??
+        TopicLink.parse(entered, siteUrl: widget.site)?.topicId;
     if (id == null) {
       _report(const BoardWriteResult(BoardWriteState.refused));
       return;

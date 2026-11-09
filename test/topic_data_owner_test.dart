@@ -1070,6 +1070,7 @@ void main() {
           highestPostNumber: 100,
           lastReadPostNumber: 89,
         ),
+        postNumber: 90,
         intent: TopicPrefetchIntent.trajectory,
         isInterested: () => true,
       );
@@ -1191,6 +1192,7 @@ void main() {
           highestPostNumber: 100,
           lastReadPostNumber: 89,
         ),
+        postNumber: 90,
         intent: TopicPrefetchIntent.trajectory,
         isInterested: () => true,
       );
@@ -2500,6 +2502,7 @@ void main() {
           lastReadPostNumber: 89,
           highestPostNumber: 100,
         ),
+        postNumber: 90,
         intent: TopicPrefetchIntent.trajectory,
         isInterested: () => true,
       );

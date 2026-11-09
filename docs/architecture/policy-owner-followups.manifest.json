@@ -1,0 +1,48 @@
+[
+ {
+  "slug": "opening-post-owner",
+  "subject": "FIX: open a fully read topic at the same post from every list surface",
+  "proofs": [
+   {
+    "path": "test/opening_post_owner_proof_test.dart"
+   },
+   {
+    "path": "test/architecture_opening_post_contract_test.dart"
+   }
+  ]
+ },
+ {
+  "slug": "topic-link-owner",
+  "subject": "FIX: read every topic link with TopicLink",
+  "proofs": [
+   {
+    "path": "test/plugins/boards/boards_reader_test.dart",
+    "name": "add-topic reads a slugless link as its topic, not its post"
+   },
+   {
+    "path": "test/plugins/post_voting/post_voting_fragment_navigation_test.dart",
+    "name": "a slugless comment link opens its topic at its post"
+   },
+   {
+    "path": "test/event_onebox_test.dart",
+    "name": "onebox parsing scopes local lookups and external image origins"
+   },
+   {
+    "path": "test/architecture_topic_link_contract_test.dart"
+   }
+  ]
+ },
+ {
+  "slug": "card-count-owner",
+  "subject": "FIX: abbreviate topic card counts with the short number owner",
+  "proofs": [
+   {
+    "path": "test/mobile_topic_card_test.dart",
+    "name": "large topic counts read as the short number owner writes them"
+   },
+   {
+    "path": "test/architecture_count_format_contract_test.dart"
+   }
+  ]
+ }
+]
