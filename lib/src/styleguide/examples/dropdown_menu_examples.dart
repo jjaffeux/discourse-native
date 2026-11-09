@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../styleguide_example.dart';
 
@@ -76,7 +78,7 @@ final dropdownMenuExamples = ComponentExamples(
               onChanged: (_) {},
               leadingGap: 9,
               indicatorSize: 11,
-              leading: const Icon(Icons.toggle_on, size: 13),
+              leading: const DIcon(DIcons.toggleOn, size: 13),
               child: const Text('Online'),
             ),
             DDropdownMenuItem(
@@ -277,13 +279,13 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
 
   Widget _item(
     String label, {
-    IconData? icon,
+    DIconData? icon,
     String? shortcut,
     bool enabled = true,
     bool destructive = false,
   }) => DDropdownMenuItem(
     onPressed: enabled ? () => _selected(label) : null,
-    leading: icon == null ? null : Icon(icon),
+    leading: icon == null ? null : DIcon(icon),
     trailing: shortcut == null ? null : DDropdownMenuShortcut(shortcut),
     variant: destructive
         ? DDropdownMenuItemVariant.destructive
@@ -363,11 +365,11 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
   ];
 
   List<Widget> get _icons => [
-    _item('Profile', icon: Icons.person_outline),
-    _item('Billing', icon: Icons.credit_card_outlined),
-    _item('Settings', icon: Icons.settings_outlined),
+    _item('Profile', icon: DIcons.user),
+    _item('Billing', icon: DNativeIcons.creditCard),
+    _item('Settings', icon: DIcons.gear),
     const DDropdownMenuSeparator(),
-    _item('Log out', icon: Icons.logout, destructive: true),
+    _item('Log out', icon: DIcons.rightFromBracket, destructive: true),
   ];
 
   List<Widget> get _checkboxes => [
@@ -394,19 +396,19 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     DDropdownMenuCheckboxItem(
       checked: _email,
       onChanged: (value) => setState(() => _email = value),
-      leading: const Icon(Icons.mail_outline),
+      leading: const DIcon(DIcons.envelope),
       child: const Text('Email notifications'),
     ),
     DDropdownMenuCheckboxItem(
       checked: _sms,
       onChanged: (value) => setState(() => _sms = value),
-      leading: const Icon(Icons.chat_bubble_outline),
+      leading: const DIcon(DIcons.comment),
       child: const Text('SMS notifications'),
     ),
     DDropdownMenuCheckboxItem(
       checked: _push,
       onChanged: (value) => setState(() => _push = value),
-      leading: const Icon(Icons.notifications_none),
+      leading: const DIcon(DIcons.farBell),
       child: const Text('Push notifications'),
     ),
   ];
@@ -432,17 +434,17 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
       children: const [
         DDropdownMenuRadioItem(
           value: 'card',
-          leading: Icon(Icons.credit_card_outlined),
+          leading: DIcon(DNativeIcons.creditCard),
           child: Text('Credit Card'),
         ),
         DDropdownMenuRadioItem(
           value: 'paypal',
-          leading: Icon(Icons.account_balance_wallet_outlined),
+          leading: DIcon(DNativeIcons.wallet),
           child: Text('PayPal'),
         ),
         DDropdownMenuRadioItem(
           value: 'bank',
-          leading: Icon(Icons.account_balance_outlined),
+          leading: DIcon(DNativeIcons.buildingColumns),
           child: Text('Bank Transfer'),
         ),
       ],
@@ -450,18 +452,18 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
   ];
 
   List<Widget> get _destructive => [
-    _item('Edit', icon: Icons.edit_outlined),
-    _item('Share', icon: Icons.share_outlined),
+    _item('Edit', icon: DIcons.pencil),
+    _item('Share', icon: DIcons.shareNodes),
     const DDropdownMenuSeparator(),
-    _item('Delete', icon: Icons.delete_outline, destructive: true),
+    _item('Delete', icon: DIcons.trashCan, destructive: true),
   ];
 
   List<Widget> get _avatar => [
-    _item('Account', icon: Icons.verified_outlined),
-    _item('Billing', icon: Icons.credit_card_outlined),
-    _item('Notifications', icon: Icons.notifications_none),
+    _item('Account', icon: DIcons.circleCheck),
+    _item('Billing', icon: DNativeIcons.creditCard),
+    _item('Notifications', icon: DIcons.farBell),
     const DDropdownMenuSeparator(),
-    _item('Sign Out', icon: Icons.logout),
+    _item('Sign Out', icon: DIcons.rightFromBracket),
   ];
 
   List<Widget> get _composition => [
@@ -503,53 +505,49 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
 
   List<Widget> get _complex => [
     const DDropdownMenuLabel(child: Text('File')),
-    _item('New File', icon: Icons.insert_drive_file_outlined, shortcut: '⌘N'),
-    _item(
-      'New Folder',
-      icon: Icons.create_new_folder_outlined,
-      shortcut: '⇧⌘N',
-    ),
+    _item('New File', icon: DIcons.fileLines, shortcut: '⌘N'),
+    _item('New Folder', icon: DNativeIcons.folderPlus, shortcut: '⇧⌘N'),
     DDropdownMenuSub(
       trigger: const Text('Open Recent'),
-      leading: const Icon(Icons.folder_open_outlined),
+      leading: const DIcon(DIcons.folderOpen),
       width: 160,
       children: [
         const DDropdownMenuLabel(child: Text('Recent Projects')),
-        _item('Project Alpha', icon: Icons.code),
-        _item('Project Beta', icon: Icons.code),
+        _item('Project Alpha', icon: DIcons.code),
+        _item('Project Beta', icon: DIcons.code),
         DDropdownMenuSub(
           trigger: const Text('More Projects'),
-          leading: const Icon(Icons.more_horiz),
+          leading: const DIcon(DIcons.ellipsis),
           width: 144,
           children: [
-            _item('Project Gamma', icon: Icons.code),
-            _item('Project Delta', icon: Icons.code),
+            _item('Project Gamma', icon: DIcons.code),
+            _item('Project Delta', icon: DIcons.code),
           ],
         ),
         const DDropdownMenuSeparator(),
-        _item('Browse...', icon: Icons.folder_outlined),
+        _item('Browse...', icon: DIcons.folder),
       ],
     ),
     const DDropdownMenuSeparator(),
-    _item('Save', icon: Icons.save_outlined, shortcut: '⌘S'),
-    _item('Export', icon: Icons.download_outlined, shortcut: '⇧⌘E'),
+    _item('Save', icon: DNativeIcons.floppyDisk, shortcut: '⌘S'),
+    _item('Export', icon: DIcons.download, shortcut: '⇧⌘E'),
     const DDropdownMenuSeparator(),
     const DDropdownMenuLabel(child: Text('View')),
     DDropdownMenuCheckboxItem(
       checked: _email,
       onChanged: (value) => setState(() => _email = value),
-      leading: const Icon(Icons.visibility_outlined),
+      leading: const DIcon(DNativeIcons.eye),
       child: const Text('Show Sidebar'),
     ),
     DDropdownMenuCheckboxItem(
       checked: _sms,
       onChanged: (value) => setState(() => _sms = value),
-      leading: const Icon(Icons.view_compact_outlined),
+      leading: const DIcon(DNativeIcons.tableCellsLarge),
       child: const Text('Show Status Bar'),
     ),
     DDropdownMenuSub(
       trigger: const Text('Theme'),
-      leading: const Icon(Icons.palette_outlined),
+      leading: const DIcon(DNativeIcons.palette),
       children: [
         const DDropdownMenuLabel(child: Text('Appearance')),
         DDropdownMenuRadioGroup<String>(
@@ -558,17 +556,17 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
           children: const [
             DDropdownMenuRadioItem(
               value: 'light',
-              leading: Icon(Icons.light_mode_outlined),
+              leading: DIcon(DNativeIcons.sun),
               child: Text('Light'),
             ),
             DDropdownMenuRadioItem(
               value: 'dark',
-              leading: Icon(Icons.dark_mode_outlined),
+              leading: DIcon(DNativeIcons.moon),
               child: Text('Dark'),
             ),
             DDropdownMenuRadioItem(
               value: 'system',
-              leading: Icon(Icons.computer_outlined),
+              leading: DIcon(DIcons.display),
               child: Text('System'),
             ),
           ],
@@ -577,40 +575,45 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
     ),
     const DDropdownMenuSeparator(),
     const DDropdownMenuLabel(child: Text('Account')),
-    _item('Profile', icon: Icons.person_outline, shortcut: '⇧⌘P'),
-    _item('Billing', icon: Icons.credit_card_outlined),
+    _item('Profile', icon: DIcons.user, shortcut: '⇧⌘P'),
+    _item('Billing', icon: DNativeIcons.creditCard),
     DDropdownMenuSub(
       trigger: const Text('Settings'),
-      leading: const Icon(Icons.settings_outlined),
+      leading: const DIcon(DIcons.gear),
       width: 176,
       children: [
         const DDropdownMenuLabel(child: Text('Preferences')),
-        _item('Keyboard Shortcuts', icon: Icons.keyboard_outlined),
-        _item('Language', icon: Icons.language_outlined),
+        _item('Keyboard Shortcuts', icon: DNativeIcons.keyboard),
+        _item('Language', icon: DNativeIcons.language),
         DDropdownMenuSub(
           trigger: const Text('Notifications'),
-          leading: const Icon(Icons.notifications_none),
+          leading: const DIcon(DIcons.farBell),
           width: 192,
           children: _checkboxIcons,
         ),
         const DDropdownMenuSeparator(),
-        _item('Privacy & Security', icon: Icons.security_outlined),
+        _item('Privacy & Security', icon: DNativeIcons.shieldHalved),
       ],
     ),
     const DDropdownMenuSeparator(),
-    _item('Help & Support', icon: Icons.help_outline),
-    _item('Documentation', icon: Icons.description_outlined),
+    _item('Help & Support', icon: DIcons.circleQuestion),
+    _item('Documentation', icon: DIcons.fileLines),
     const DDropdownMenuSeparator(),
-    _item('Sign Out', icon: Icons.logout, shortcut: '⇧⌘Q', destructive: true),
+    _item(
+      'Sign Out',
+      icon: DIcons.rightFromBracket,
+      shortcut: '⇧⌘Q',
+      destructive: true,
+    ),
   ];
 
   List<Widget> get _rtl => [
     const DDropdownMenuLabel(child: Text('الحساب')),
-    _item('الملف الشخصي', icon: Icons.person_outline, shortcut: '⇧⌘P'),
-    _item('الفوترة', icon: Icons.credit_card_outlined),
+    _item('الملف الشخصي', icon: DIcons.user, shortcut: '⇧⌘P'),
+    _item('الفوترة', icon: DNativeIcons.creditCard),
     DDropdownMenuSub(
       trigger: const Text('الإعدادات'),
-      leading: const Icon(Icons.settings_outlined),
+      leading: const DIcon(DIcons.gear),
       width: 144,
       children: [_item('الفريق'), _item('دعوة المستخدمين')],
     ),
@@ -621,7 +624,7 @@ class _DropdownMenuExampleState extends State<_DropdownMenuExample> {
       child: const Text('شريط الحالة'),
     ),
     const DDropdownMenuSeparator(),
-    _item('تسجيل الخروج', icon: Icons.logout, destructive: true),
+    _item('تسجيل الخروج', icon: DIcons.rightFromBracket, destructive: true),
   ];
 
   @override

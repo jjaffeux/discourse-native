@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/badge.dart';
 import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/plugins/boards/board_reader_card.dart';
@@ -32,6 +34,7 @@ import 'package:photo_view/photo_view.dart';
 import 'support/blank_png.dart';
 import 'support/event_fixtures.dart';
 import 'support/fakes.dart';
+import 'support/finders.dart';
 
 const _siteUrl = 'https://forum.example';
 const _imageUrl = '$_siteUrl/image.png';
@@ -475,10 +478,10 @@ void main() {
     final second = tester.widget<RawImage>(find.byType(RawImage)).image!;
     expect(first.isCloneOf(second), isFalse);
     expect(sizes, [const Size(1, 1)]);
-    expect(find.byIcon(Icons.pause), findsOneWidget);
+    expect(find.dIcon(DNativeIcons.pause), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('gif-playback-toggle')));
     await tester.pump();
-    expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+    expect(find.dIcon(DIcons.play), findsOneWidget);
     final paused = tester.widget<RawImage>(find.byType(RawImage)).image!;
     final pausedHandle = paused.clone();
     addTearDown(pausedHandle.dispose);

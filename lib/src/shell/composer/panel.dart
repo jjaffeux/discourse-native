@@ -4120,7 +4120,7 @@ class _ExistingGalleryImagesDialogState
               return DCheckbox(
                 key: ValueKey('gallery-existing-image-${image.start}'),
                 value: selected,
-                secondary: const Icon(Icons.image_outlined),
+                secondary: const DIcon(DNativeIcons.image),
                 title: Text(
                   image.alt.isEmpty
                       ? context.l10n.imageComposerpanel((index + 1).toString())

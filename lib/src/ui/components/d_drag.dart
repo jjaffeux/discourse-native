@@ -5,6 +5,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../foundation/icons/d_native_icons.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/tokens.dart';
 import 'd_button.dart';
 
@@ -199,7 +201,7 @@ class _DDragHandleState<T extends Object> extends State<DDragHandle<T>> {
       hasPopup: widget.onPressed != null,
       expanded: widget.expanded,
       onPressed: widget.enabled ? widget.onPressed : null,
-      icon: const Icon(Icons.drag_indicator),
+      icon: const DIcon(DNativeIcons.gripVertical),
     );
     return Listener(
       onPointerDown: (event) {

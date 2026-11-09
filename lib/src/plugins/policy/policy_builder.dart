@@ -361,8 +361,8 @@ class _PolicyBuilderState extends State<PolicyBuilder> {
                       onPressedChanged: (value) =>
                           setState(() => _private = value),
                       variant: DToggleVariant.outline,
-                      child: Icon(
-                        _private ? Icons.lock_outline : Icons.lock_open,
+                      child: DIcon(
+                        _private ? DIcons.lock : DIcons.unlock,
                         size: 16,
                       ),
                     ),

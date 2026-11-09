@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/src/data/avif.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:flutter/material.dart';
@@ -13,6 +14,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
+import 'support/finders.dart';
 
 void main() {
   final animated = File('test/fixtures/avif/animated.avif').readAsBytesSync();
@@ -118,7 +120,7 @@ void main() {
 
       await tester.tap(find.byKey(const ValueKey('gif-playback-toggle')));
       await tester.pump();
-      expect(find.byIcon(Icons.play_arrow), findsOneWidget);
+      expect(find.dIcon(DIcons.play), findsOneWidget);
       final paused = _image(tester).clone();
       addTearDown(paused.dispose);
       await _nextFrame(tester);

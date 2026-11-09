@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final tooltipExamples = ComponentExamples(
@@ -53,7 +54,7 @@ final tooltipExamples = ComponentExamples(
     ),
 ])
 // Icon actions expose the same placement option:
-DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add to library',
+DButton.iconOnly(icon: DIcon(DIcons.plus), tooltip: 'Add to library',
   tooltipSide: DTooltipSide.right, onPressed: addToLibrary)''',
       builder: (_) => _Space(
         child: Wrap(
@@ -76,7 +77,7 @@ DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add to library',
                 ),
               ),
             DButton.iconOnly(
-              icon: const Icon(Icons.add),
+              icon: const DIcon(DIcons.plus),
               tooltip: 'Add to library',
               tooltipSide: DTooltipSide.right,
               variant: DButtonVariant.outline,

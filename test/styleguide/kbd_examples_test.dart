@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/styleguide/examples/kbd_examples.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -6,6 +7,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/finders.dart';
 
 void main() {
   for (final palette in [
@@ -250,7 +253,7 @@ void main() {
           find.descendant(of: addon, matching: find.text('K')),
           mobile ? findsNothing : findsOneWidget,
         );
-        expect(find.byIcon(Icons.search), findsOneWidget);
+        expect(find.dIcon(DIcons.magnifyingGlass), findsOneWidget);
         expect(tester.getSize(find.byType(DInputGroup)).width, 320);
         final input = tester
             .widget<DInputGroupInput>(find.byType(DInputGroupInput))

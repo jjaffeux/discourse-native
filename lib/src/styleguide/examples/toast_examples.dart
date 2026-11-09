@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final toastExamples = ComponentExamples(
@@ -247,7 +248,7 @@ class _StackToastExampleState extends State<_StackToastExample> {
                   const SizedBox(width: 12),
                   const Expanded(child: Text('A custom composed notification')),
                   DButton.iconOnly(
-                    icon: const Icon(Icons.close, size: 16),
+                    icon: const DIcon(DIcons.xmark, size: 16),
                     tooltip: 'Close toast',
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,

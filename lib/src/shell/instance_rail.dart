@@ -906,8 +906,8 @@ class _RailFooter extends StatelessWidget {
                 buttonKey: const ValueKey('styleguide-rail-button'),
                 tooltip: context.l10n.openComponentStyleguide,
                 onTap: () => unawaited(open(context)),
-                icon: const Icon(
-                  Icons.palette_outlined,
+                icon: const DIcon(
+                  DNativeIcons.palette,
                   size: _railFooterIconSize,
                 ),
               ),

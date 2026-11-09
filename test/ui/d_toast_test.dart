@@ -2,9 +2,13 @@ import 'dart:async';
 import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/theme/d_icon_glyph.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/finders.dart';
 
 void main() {
   test('manager upserts ids, enforces limits, and reports close reasons', () {
@@ -127,7 +131,14 @@ void main() {
     await tester.pump();
     expect(find.text('Success'), findsOneWidget);
     expect(find.text('Event created.'), findsOneWidget);
-    expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+    final glyph = tester.widget<TintedIconGlyph>(
+      find.descendant(
+        of: find.dIcon(DIcons.check),
+        matching: find.byType(TintedIconGlyph),
+      ),
+    );
+    expect(glyph.height, 12);
+    expect(glyph.box, const Size.square(16));
     expect(
       find.bySemanticsLabel(RegExp(r'Success[\s\S]*Event created')),
       findsOneWidget,

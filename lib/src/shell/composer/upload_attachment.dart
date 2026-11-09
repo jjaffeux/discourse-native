@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 
 import '../../data/site_pdf_thumbnail_repository.dart';
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../inline_video.dart';
@@ -106,9 +107,9 @@ class ComposerUploadAttachment extends StatelessWidget {
                   url: thumbnail.previewUrl,
                 )
               : failed
-              ? const Icon(Icons.error_outline)
+              ? const DIcon(DIcons.triangleExclamation)
               : completed
-              ? Icon(isImage ? Icons.image_outlined : Icons.attach_file)
+              ? DIcon(isImage ? DNativeIcons.image : DIcons.paperclip)
               : const DSpinner(size: 16, semanticLabel: null),
         ),
         DAttachmentContent(
@@ -125,14 +126,14 @@ class ComposerUploadAttachment extends StatelessWidget {
           children: [
             if (failed && upload.retryable)
               DAttachmentAction(
-                icon: const Icon(Icons.refresh),
+                icon: const DIcon(DIcons.arrowRotateRight),
                 tooltip: context.l10n.retryUpload,
                 onPressed: composer.canUpload
                     ? () => composer.retryUpload(upload.id)
                     : null,
               ),
             DAttachmentAction(
-              icon: const Icon(Icons.close),
+              icon: const DIcon(DIcons.xmark),
               tooltip: completed || failed
                   ? context.l10n.removeUpload
                   : processing && upload.file.isVideo
@@ -278,8 +279,8 @@ class _ComposerUploadThumbnail extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fallback = Icon(
-      Icons.image_outlined,
+    final fallback = DIcon(
+      DNativeIcons.image,
       size: 18,
       color: Theme.of(context).colorScheme.onSurfaceVariant,
     );

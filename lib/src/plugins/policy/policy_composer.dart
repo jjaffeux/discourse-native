@@ -229,10 +229,7 @@ class _PolicyProjection
                       action: policy.canAuthor(editor)
                           ? DCardAction(
                               child: DButton.iconOnly(
-                                icon: const Icon(
-                                  Icons.settings_outlined,
-                                  size: 16,
-                                ),
+                                icon: const DIcon(DIcons.gear, size: 16),
                                 tooltip: buildContext.l10n.policyEditSettings,
                                 variant: DButtonVariant.ghost,
                                 onPressed: () => unawaited(

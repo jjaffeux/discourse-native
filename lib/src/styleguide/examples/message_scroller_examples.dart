@@ -4,6 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final messageScrollerExamples = ComponentExamples(
@@ -86,7 +88,7 @@ final messageScrollerExamples = ComponentExamples(
       description:
           'The canonical read-only chat card combines an empty transcript, reset action, queued prompt, composer tools, and send control.',
       code:
-          "DMessageScrollerProvider(\n  child: Column(children: [\n    DCard(\n      spacing: DSpacing.xl,\n      children: [\n        DCardHeader(\n          \n          title: DCardTitle(child: Text('New Chat')),\n          description: DCardDescription(\n            child: Text('How can I help you today?')),\n          action: DCardAction(child: resetButton),\n        ),\n        DCardContent(\n          \n          joinNext: true,\n          child: SizedBox(\n            height: 294,\n            child: messages.isEmpty\n              ? DEmpty(\n                  padding: EdgeInsets.all(DSpacing.xl),\n                  children: [\n                    DEmptyHeader(children: [\n                      DEmptyMedia(\n                        variant: DEmptyMediaVariant.icon,\n                        child: Icon(Icons.chat_bubble_outline),\n                      ),\n                      DEmptyTitle('Morning, Alex!'),\n                      DEmptyDescription(\n                        'What are we working on today? Press send to start a new conversation'),\n                    ]),\n                  ],\n                )\n              : DMessageScroller(children: [\n                  DMessageScrollerViewport.builder(/* messages */),\n                  DMessageScrollerButton(),\n                ]),\n          ),\n        ),\n      ],\n      footer: DCardFooter(\n        \n        \n        child: messageComposer,\n      ),\n    ),\n    SizedBox(height: DSpacing.lg),\n    Text('Demo is read only. Press send to send messages.'),\n  ]),\n)",
+          "DMessageScrollerProvider(\n  child: Column(children: [\n    DCard(\n      spacing: DSpacing.xl,\n      children: [\n        DCardHeader(\n          \n          title: DCardTitle(child: Text('New Chat')),\n          description: DCardDescription(\n            child: Text('How can I help you today?')),\n          action: DCardAction(child: resetButton),\n        ),\n        DCardContent(\n          \n          joinNext: true,\n          child: SizedBox(\n            height: 294,\n            child: messages.isEmpty\n              ? DEmpty(\n                  padding: EdgeInsets.all(DSpacing.xl),\n                  children: [\n                    DEmptyHeader(children: [\n                      DEmptyMedia(\n                        variant: DEmptyMediaVariant.icon,\n                        child: DIcon(DIcons.comment),\n                      ),\n                      DEmptyTitle('Morning, Alex!'),\n                      DEmptyDescription(\n                        'What are we working on today? Press send to start a new conversation'),\n                    ]),\n                  ],\n                )\n              : DMessageScroller(children: [\n                  DMessageScrollerViewport.builder(/* messages */),\n                  DMessageScrollerButton(),\n                ]),\n          ),\n        ),\n      ],\n      footer: DCardFooter(\n        \n        \n        child: messageComposer,\n      ),\n    ),\n    SizedBox(height: DSpacing.lg),\n    Text('Demo is read only. Press send to send messages.'),\n  ]),\n)",
       states: const ['Empty', 'Messages', 'Reset', 'Composer', 'Read only'],
       builder: (_) => const _MessageScrollerReferenceDemo(),
     ),
@@ -160,13 +162,13 @@ class _MessageScrollerReferenceDemoState
                             width: 176,
                             children: [
                               for (final (label, icon) in const [
-                                ('Add Photos & Files', Icons.attach_file),
-                                ('Create Image', Icons.image_outlined),
-                                ('Deep Research', Icons.travel_explore),
-                                ('Web Search', Icons.public),
+                                ('Add Photos & Files', DIcons.paperclip),
+                                ('Create Image', DNativeIcons.image),
+                                ('Deep Research', DIcons.globe),
+                                ('Web Search', DIcons.globe),
                               ])
                                 DDropdownMenuItem(
-                                  leading: Icon(icon),
+                                  leading: DIcon(icon),
                                   onPressed: () =>
                                       setState(() => _selectedTool = label),
                                   child: Text(label),
@@ -175,7 +177,7 @@ class _MessageScrollerReferenceDemoState
                           ),
                           child: DDropdownMenuTrigger(
                             builder: (context, menu) => DInputGroupButton.icon(
-                              icon: const Icon(Icons.add),
+                              icon: const DIcon(DIcons.plus),
                               tooltip: 'Add files',
                               hasPopup: true,
                               focusNode: menu.focusNode,
@@ -186,7 +188,7 @@ class _MessageScrollerReferenceDemoState
                         ),
                         const Spacer(),
                         DInputGroupButton.icon(
-                          icon: const Icon(Icons.arrow_upward),
+                          icon: const DIcon(DIcons.arrowUp),
                           tooltip: 'Send',
                           onPressed: _messages.length < _script.length
                               ? _send
@@ -209,7 +211,7 @@ class _MessageScrollerReferenceDemoState
                   child: DTooltip(
                     message: 'Reset',
                     child: DButton.iconOnly(
-                      icon: const Icon(Icons.refresh),
+                      icon: const DIcon(DIcons.arrowRotateRight),
                       tooltip: 'Reset conversation',
                       variant: DButtonVariant.outline,
                       onPressed: () => setState(() {
@@ -234,7 +236,7 @@ class _MessageScrollerReferenceDemoState
                               children: [
                                 DEmptyMedia(
                                   variant: DEmptyMediaVariant.icon,
-                                  child: Icon(Icons.chat_bubble_outline),
+                                  child: DIcon(DIcons.comment),
                                 ),
                                 DEmptyTitle('Morning, Alex!'),
                                 DEmptyDescription(
@@ -415,7 +417,7 @@ class _StreamingExampleState extends State<_StreamingExample> {
                     children: [
                       DEmptyMedia(
                         variant: DEmptyMediaVariant.icon,
-                        child: Icon(Icons.chat_bubble_outline),
+                        child: DIcon(DIcons.comment),
                       ),
                       DEmptyTitle('New conversation'),
                       DEmptyDescription(
@@ -483,7 +485,7 @@ class _StreamingExampleState extends State<_StreamingExample> {
                   ),
                   child: DDropdownMenuTrigger(
                     builder: (context, menu) => DInputGroupButton.icon(
-                      icon: const Icon(Icons.add),
+                      icon: const DIcon(DIcons.plus),
                       tooltip: 'Composer tools',
                       hasPopup: true,
                       focusNode: menu.focusNode,
@@ -493,7 +495,7 @@ class _StreamingExampleState extends State<_StreamingExample> {
                   ),
                 ),
                 DInputGroupButton.icon(
-                  icon: const Icon(Icons.arrow_upward),
+                  icon: const DIcon(DIcons.arrowUp),
                   tooltip: 'Send message',
                   onPressed: _streaming ? null : _streamReply,
                   size: DInputGroupButtonSize.small,

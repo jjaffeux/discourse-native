@@ -5,6 +5,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final calendarExamples = ComponentExamples(
@@ -364,7 +365,7 @@ class _DateTimeCalendarState extends State<_DateTimeCalendar> {
                       DInputGroupInput(),
                       const DInputGroupAddon(
                         alignment: DInputGroupAddonAlignment.inlineEnd,
-                        child: Icon(Icons.access_time, size: 16),
+                        child: DIcon(DNativeIcons.clock, size: 16),
                       ),
                     ],
                   ),

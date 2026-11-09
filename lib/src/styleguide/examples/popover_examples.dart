@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final popoverExamples = ComponentExamples(
@@ -516,7 +517,7 @@ class _MovingAnchorPopoverState extends State<_MovingAnchorPopover> {
                 dimension: 24,
                 child: DecoratedBox(
                   decoration: BoxDecoration(color: Colors.transparent),
-                  child: Icon(Icons.adjust, size: 18),
+                  child: DIcon(DNativeIcons.circleDot, size: 18),
                 ),
               ),
             ),

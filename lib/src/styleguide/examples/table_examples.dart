@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final tableExamples = ComponentExamples(
@@ -266,7 +267,7 @@ class _TableActionsExampleState extends State<TableActionsExample> {
                           size: DButtonSize.regular,
                           hasPopup: true,
                           tooltip: 'Open menu for ${product.$2}',
-                          icon: const Icon(Icons.more_horiz),
+                          icon: const DIcon(DIcons.ellipsis),
                           focusNode: trigger.focusNode,
                           onPressed: trigger.toggle,
                         ),

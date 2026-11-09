@@ -1,8 +1,11 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/finders.dart';
 
 void main() {
   testWidgets('compact grid clamps edges and keeps its colour ring visible', (
@@ -104,7 +107,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(selected, green);
       expect(recent, [green, red]);
-      expect(find.byIcon(Icons.check), findsNWidgets(2));
+      expect(find.dIcon(DIcons.check), findsNWidgets(2));
       await tester.tap(find.byTooltip('Text color: Default'));
       await tester.pumpAndSettle();
       expect(selected, isNull);

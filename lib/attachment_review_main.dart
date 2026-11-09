@@ -4,6 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import 'src/foundation/icons/d_icons.dart';
+import 'src/foundation/icons/d_native_icons.dart';
 import 'src/models/composer_upload.dart';
 import 'src/plugins/chat/chat_message.dart';
 import 'src/plugins/chat/chat_uploads.dart';
@@ -54,7 +56,7 @@ class _AttachmentReviewAppState extends State<AttachmentReviewApp> {
                   onPressed: () => setState(() => dark = !dark),
                   variant: DButtonVariant.ghost,
                   tooltip: dark ? 'Use light theme' : 'Use dark theme',
-                  icon: Icon(dark ? Icons.light_mode : Icons.dark_mode),
+                  icon: DIcon(dark ? DNativeIcons.sun : DNativeIcons.moon),
                 ),
                 DButton.iconOnly(
                   onPressed: () =>
@@ -63,19 +65,19 @@ class _AttachmentReviewAppState extends State<AttachmentReviewApp> {
                   tooltip: customPalette
                       ? 'Use default palette'
                       : 'Use custom palette and radius',
-                  icon: const Icon(Icons.palette_outlined),
+                  icon: const DIcon(DNativeIcons.palette),
                 ),
                 DButton.iconOnly(
                   onPressed: () => setState(() => rtl = !rtl),
                   variant: DButtonVariant.ghost,
                   tooltip: rtl ? 'Use left-to-right' : 'Use right-to-left',
-                  icon: const Icon(Icons.format_textdirection_r_to_l),
+                  icon: const DIcon(DNativeIcons.arrowRightArrowLeft),
                 ),
                 DButton.iconOnly(
                   onPressed: () => setState(() => largeText = !largeText),
                   variant: DButtonVariant.ghost,
                   tooltip: largeText ? 'Use 100% text' : 'Use 200% text',
-                  icon: const Icon(Icons.text_increase),
+                  icon: const DIcon(DNativeIcons.textHeight),
                 ),
                 DButton.iconOnly(
                   onPressed: () =>
@@ -84,13 +86,13 @@ class _AttachmentReviewAppState extends State<AttachmentReviewApp> {
                   tooltip: reducedMotion
                       ? 'Use standard motion'
                       : 'Use reduced motion',
-                  icon: const Icon(Icons.motion_photos_off_outlined),
+                  icon: const DIcon(DIcons.videoSlash),
                 ),
                 DButton.iconOnly(
                   onPressed: () => setState(() => narrow = !narrow),
                   variant: DButtonVariant.ghost,
                   tooltip: narrow ? 'Use wide canvas' : 'Use narrow canvas',
-                  icon: const Icon(Icons.width_normal),
+                  icon: const DIcon(DIcons.expand),
                 ),
               ],
             ),

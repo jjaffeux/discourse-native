@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 import 'control_comparison_example.dart';
@@ -428,7 +429,7 @@ final buttonExamples = ComponentExamples(
       description: 'Three sizes and their corresponding square icon buttons.',
       states: const ['Small 24px', 'Default 28px', 'Large 32px', 'Icon'],
       code:
-          "DButton.iconOnly(icon: const Icon(Icons.north_east), tooltip: 'Submit', size: DButtonSize.small, variant: DButtonVariant.outline, onPressed: submit)",
+          "DButton.iconOnly(icon: const DIcon(DIcons.upRightFromSquare), tooltip: 'Submit', size: DButtonSize.small, variant: DButtonVariant.outline, onPressed: submit)",
       builder: (_) => const _ButtonSizes(),
     ),
     StyleguideExample(
@@ -437,7 +438,7 @@ final buttonExamples = ComponentExamples(
           'Icons follow the reading direction. Pill shape scales its radius with the control size.',
       states: const ['Leading icon', 'Trailing icon', 'Rounded', 'RTL'],
       code:
-          "DButton(label: const Text('Fork'), icon: const Icon(Icons.fork_right), iconPosition: DButtonIconPosition.end, variant: DButtonVariant.outline, onPressed: fork)",
+          "DButton(label: const Text('Fork'), icon: const DIcon(DNativeIcons.codeBranch), iconPosition: DButtonIconPosition.end, variant: DButtonVariant.outline, onPressed: fork)",
       builder: (_) => const _ButtonComposition(),
     ),
     StyleguideExample(
@@ -473,7 +474,7 @@ final buttonExamples = ComponentExamples(
       child: DDropdownMenuTrigger(builder: (_, state) => DButton.iconOnly(
         variant: DButtonVariant.outline, hasPopup: true, expanded: state.open,
         focusNode: state.focusNode, tooltip: 'More Options',
-        icon: Icon(Icons.more_horiz), onPressed: state.toggle)),
+        icon: DIcon(DIcons.ellipsis), onPressed: state.toggle)),
     ),
   ]),
 ])''',
@@ -509,7 +510,7 @@ final buttonExamples = ComponentExamples(
           'The documented Arabic composition mirrors icons and spacing.',
       states: const ['Arabic', 'RTL', 'Disabled spinner'],
       code:
-          "Directionality(textDirection: TextDirection.rtl, child: DButton(label: const Text('إرسال'), iconPosition: DButtonIconPosition.end, icon: const Icon(Icons.arrow_back), variant: DButtonVariant.outline, onPressed: submit))",
+          "Directionality(textDirection: TextDirection.rtl, child: DButton(label: const Text('إرسال'), iconPosition: DButtonIconPosition.end, icon: const DIcon(DIcons.arrowLeft), variant: DButtonVariant.outline, onPressed: submit))",
       builder: (_) => const _ButtonRtl(),
     ),
     StyleguideExample(
@@ -583,7 +584,7 @@ DButtonGroup(children: [
     onPressed: togglePicker,
   ),
   DButton.iconOnly(
-    icon: Icon(Icons.open_in_new),
+    icon: DIcon(DIcons.upRightFromSquare),
     tooltip: 'Browse $categoryName',
     isLink: true,
     variant: DButtonVariant.outline,
@@ -802,10 +803,10 @@ class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
                 children: [
                   Text(name),
                   const SizedBox(width: DSpacing.xs),
-                  const Icon(Icons.keyboard_arrow_down, size: 12),
+                  const DIcon(DIcons.chevronDown, size: 12),
                 ],
               ),
-              icon: Icon(Icons.square_rounded, size: 12, color: color),
+              icon: DIcon(DNativeIcons.square, size: 12, color: color),
               semanticLabel: 'Edit $name',
               variant: DButtonVariant.outline,
               size: DButtonSize.small,
@@ -837,7 +838,7 @@ class _ButtonCustomColorsState extends State<_ButtonCustomColors> {
           ),
         ),
         DButton.iconOnly(
-          icon: const Icon(Icons.open_in_new),
+          icon: const DIcon(DIcons.upRightFromSquare),
           tooltip: 'Browse $name',
           isLink: true,
           variant: DButtonVariant.outline,
@@ -1315,7 +1316,7 @@ class _ButtonEdgesState extends State<_ButtonEdges> {
       ),
       DButton(
         label: const Text('إرسال'),
-        icon: const Icon(Icons.arrow_forward, textDirection: TextDirection.rtl),
+        icon: const DIcon(DIcons.arrowLeft),
         iconPosition: DButtonIconPosition.end,
         variant: DButtonVariant.outline,
         onPressed: () => _buttonFeedback(context),

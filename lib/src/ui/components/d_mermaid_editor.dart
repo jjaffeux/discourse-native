@@ -4,6 +4,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/tokens.dart';
 import 'd_button.dart';
 import 'd_card.dart';
@@ -109,11 +112,11 @@ class DMermaidEditorState extends State<DMermaidEditor> {
           padding: const EdgeInsets.all(DSpacing.sm),
           child: Row(
             children: [
-              const Icon(Icons.account_tree_outlined, size: 16),
+              const DIcon(DNativeIcons.diagramProject, size: 16),
               const SizedBox(width: DSpacing.sm),
               Expanded(child: Text(context.l10n.mermaidChart)),
               DButton.iconOnly(
-                icon: const Icon(Icons.copy_outlined),
+                icon: const DIcon(DIcons.copy),
                 tooltip: _copyLabel,
                 semanticLabel: _copyLabel,
                 variant: DButtonVariant.ghost,
@@ -122,9 +125,7 @@ class DMermaidEditorState extends State<DMermaidEditor> {
               ),
               const SizedBox(width: DSpacing.controlGap),
               DButton.iconOnly(
-                icon: Icon(
-                  _expanded ? Icons.fullscreen_exit : Icons.fullscreen,
-                ),
+                icon: DIcon(_expanded ? DNativeIcons.compress : DIcons.expand),
                 tooltip: _expanded
                     ? context.l10n.collapseChartEditor
                     : context.l10n.expandChartEditor,

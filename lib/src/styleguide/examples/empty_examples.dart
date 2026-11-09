@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 import 'empty_artwork.dart';
 import 'empty_example_source.dart';
@@ -302,7 +303,7 @@ class _EmptySearchSampleState extends State<EmptySearchSample> {
                           onSubmitted: (_) => _submit(),
                         ),
                         const DInputGroupAddon(
-                          child: Icon(Icons.search, size: 16),
+                          child: DIcon(DIcons.magnifyingGlass, size: 16),
                         ),
                         const DInputGroupAddon(
                           alignment: DInputGroupAddonAlignment.inlineEnd,

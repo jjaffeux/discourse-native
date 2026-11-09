@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final breadcrumbExamples = ComponentExamples(
@@ -336,7 +337,7 @@ class _DropdownBreadcrumbState extends State<_DropdownBreadcrumb> {
     child: DDropdownMenuTrigger(
       builder: (context, state) => DButton(
         label: Text(label),
-        icon: const Icon(Icons.keyboard_arrow_down),
+        icon: const DIcon(DIcons.chevronDown),
         iconPosition: DButtonIconPosition.end,
         variant: DButtonVariant.ghost,
         size: DButtonSize.small,

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
 import 'package:discourse_native/src/models/forum_theme_preferences.dart';
@@ -20,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../support/fakes.dart';
+import '../support/finders.dart';
 
 const _site = 'https://example.com/forum';
 final _theme = ForumThemeShare.decode(
@@ -266,8 +268,8 @@ void main() {
               ),
             );
             await tester.pumpAndSettle();
-            await tester.ensureVisible(find.byIcon(Icons.dark_mode_outlined));
-            await tester.tap(find.byIcon(Icons.dark_mode_outlined));
+            await tester.ensureVisible(find.dIcon(DNativeIcons.moon));
+            await tester.tap(find.dIcon(DNativeIcons.moon));
             await tester.pumpAndSettle();
             expect(
               tester

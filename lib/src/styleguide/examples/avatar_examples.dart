@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 /// In-memory 32px checker artwork: no asset lookup or runtime network dependency.
@@ -63,7 +64,7 @@ final avatarExamples = ComponentExamples(
           ),
           DAvatar(
             decorative: true,
-            fallback: DAvatarFallback(child: Icon(Icons.person_outline)),
+            fallback: DAvatarFallback(child: DIcon(DIcons.user)),
           ),
         ],
       ),

@@ -296,7 +296,7 @@ class _InlineError extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
     child: DAlert(
       variant: DAlertVariant.destructive,
-      icon: const Icon(Icons.error_outline),
+      icon: const DIcon(DIcons.triangleExclamation),
       description: DAlertDescription(child: Text(message)),
     ),
   );

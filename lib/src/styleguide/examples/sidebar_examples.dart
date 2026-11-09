@@ -3,6 +3,8 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final sidebarExamples = ComponentExamples(
@@ -170,7 +172,7 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
                   const Expanded(child: Text('Community')),
                   DButton.iconOnly(
                     tooltip: 'Increase unread count',
-                    icon: const Icon(Icons.add),
+                    icon: const DIcon(DIcons.plus),
                     onPressed: () => setState(() => _count += 1000),
                   ),
                 ],
@@ -188,10 +190,8 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
                         child: Row(
                           children: [
                             const Expanded(child: Text('Channels')),
-                            Icon(
-                              _open
-                                  ? Icons.keyboard_arrow_down
-                                  : Icons.chevron_right,
+                            DIcon(
+                              _open ? DIcons.chevronDown : DIcons.chevronRight,
                               size: 16,
                             ),
                           ],
@@ -231,12 +231,12 @@ class _LazySidebarDemoState extends State<_LazySidebarDemo> {
                               builder: (context, menu) => DSidebarMenuAction(
                                 semanticLabel: 'Channel $index actions',
                                 onPressed: menu.toggle,
-                                child: const Icon(Icons.more_horiz),
+                                child: const DIcon(DIcons.ellipsis),
                               ),
                             ),
                           ),
                           child: DSidebarMenuButton(
-                            icon: const Icon(Icons.tag, size: 16),
+                            icon: const DIcon(DIcons.hashtag, size: 16),
                             isActive: _selected == index,
                             onPressed: () => setState(() {
                               _selected = index;
@@ -271,10 +271,10 @@ class _ApplicationSidebarDemo extends StatefulWidget {
 }
 
 class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
-  static const _teams = <({String name, String plan, IconData icon})>[
-    (name: 'Acme Inc', plan: 'Enterprise', icon: Icons.view_column_outlined),
-    (name: 'Acme Corp.', plan: 'Startup', icon: Icons.graphic_eq),
-    (name: 'Evil Corp.', plan: 'Free', icon: Icons.code),
+  static const _teams = <({String name, String plan, DIconData icon})>[
+    (name: 'Acme Inc', plan: 'Enterprise', icon: DNativeIcons.columns),
+    (name: 'Acme Corp.', plan: 'Startup', icon: DNativeIcons.waveSquare),
+    (name: 'Evil Corp.', plan: 'Free', icon: DIcons.code),
   ];
   static const _navigation =
       <({String title, String icon, List<String> children})>[
@@ -393,7 +393,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
                       context,
                       dimension: 24,
                       filled: false,
-                      icon: Icon(candidate.icon),
+                      icon: DIcon(candidate.icon),
                     ),
                   ),
                   trailing: DDropdownMenuShortcut('⌘${index + 1}'),
@@ -407,7 +407,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
           ),
           const DDropdownMenuSeparator(),
           DDropdownMenuItem(
-            leading: const Icon(Icons.add),
+            leading: const DIcon(DIcons.plus),
             onPressed: () => setState(() => _message = 'Add team selected'),
             child: const Text('Add team'),
           ),
@@ -613,7 +613,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
         ),
         const DDropdownMenuSeparator(),
         DDropdownMenuItem(
-          leading: const Icon(Icons.auto_awesome_outlined),
+          leading: const DIcon(DNativeIcons.wandMagicSparkles),
           onPressed: () => setState(() => _message = 'Upgrade selected'),
           child: const Text('Upgrade to Pro'),
         ),
@@ -621,17 +621,17 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
         DDropdownMenuGroup(
           children: [
             DDropdownMenuItem(
-              leading: const Icon(Icons.verified_outlined),
+              leading: const DIcon(DIcons.circleCheck),
               onPressed: () => setState(() => _message = 'Account selected'),
               child: const Text('Account'),
             ),
             DDropdownMenuItem(
-              leading: const Icon(Icons.credit_card_outlined),
+              leading: const DIcon(DNativeIcons.creditCard),
               onPressed: () => setState(() => _message = 'Billing selected'),
               child: const Text('Billing'),
             ),
             DDropdownMenuItem(
-              leading: const Icon(Icons.notifications_none),
+              leading: const DIcon(DIcons.farBell),
               onPressed: () =>
                   setState(() => _message = 'Notifications selected'),
               child: const Text('Notifications'),
@@ -640,7 +640,7 @@ class _ApplicationSidebarDemoState extends State<_ApplicationSidebarDemo> {
         ),
         const DDropdownMenuSeparator(),
         DDropdownMenuItem(
-          leading: const Icon(Icons.logout),
+          leading: const DIcon(DIcons.rightFromBracket),
           onPressed: () => setState(() => _message = 'Logged out locally'),
           child: const Text('Log out'),
         ),
@@ -907,14 +907,14 @@ class _SidebarDemoState extends State<_SidebarDemo> {
               workspace = name;
               message = '$name workspace selected';
             }),
-            trailing: workspace == name ? const Icon(Icons.check) : null,
+            trailing: workspace == name ? const DIcon(DIcons.check) : null,
             child: Text(name),
           ),
       ],
     ),
     child: DDropdownMenuTrigger(
       builder: (context, state) => DSidebarMenuButton(
-        icon: const Icon(Icons.layers_outlined),
+        icon: const DIcon(DIcons.layerGroup),
 
         semanticLabel: 'Switch workspace, $workspace',
         focusNode: state.focusNode,
@@ -923,7 +923,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
         child: Row(
           children: [
             Expanded(child: Text(workspace)),
-            Icon(state.open ? Icons.expand_less : Icons.expand_more),
+            DIcon(state.open ? DNativeIcons.chevronUp : DIcons.chevronDown),
           ],
         ),
       ),
@@ -939,18 +939,18 @@ class _SidebarDemoState extends State<_SidebarDemo> {
       children: [
         const DDropdownMenuLabel(child: Text('Alex Morgan')),
         DDropdownMenuItem(
-          leading: const Icon(Icons.person_outline),
+          leading: const DIcon(DIcons.user),
           onPressed: () => setState(() => message = 'Profile selected'),
           child: const Text('Profile'),
         ),
         DDropdownMenuItem(
-          leading: const Icon(Icons.settings_outlined),
+          leading: const DIcon(DIcons.gear),
           onPressed: () => setState(() => message = 'Settings selected'),
           child: const Text('Settings'),
         ),
         const DDropdownMenuSeparator(),
         DDropdownMenuItem(
-          leading: const Icon(Icons.logout),
+          leading: const DIcon(DIcons.rightFromBracket),
           onPressed: () => setState(() => message = 'Signed out locally'),
           child: const Text('Sign out'),
         ),
@@ -1077,20 +1077,20 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                                           onPressed: () => setState(
                                             () => message = 'Shortcut added',
                                           ),
-                                          child: const Icon(Icons.add),
+                                          child: const DIcon(DIcons.plus),
                                         )
                                       : null,
                                   child: DSidebarMenuButton(
                                     icon: widget.documentation
                                         ? null
-                                        : Icon(
+                                        : DIcon(
                                             [
-                                              Icons.home_outlined,
-                                              Icons.inbox_outlined,
-                                              Icons.calendar_today_outlined,
-                                              Icons.search,
-                                              Icons.settings_outlined,
-                                              Icons.description_outlined,
+                                              DIcons.house,
+                                              DIcons.inbox,
+                                              DIcons.calendarDays,
+                                              DIcons.magnifyingGlass,
+                                              DIcons.gear,
+                                              DIcons.fileLines,
                                             ][index],
                                           ),
                                     semanticLabel: name,
@@ -1100,7 +1100,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                                   ),
                                 ),
                             const DSidebarMenuButton(
-                              icon: Icon(Icons.lock_outline),
+                              icon: DIcon(DIcons.lock),
                               child: Text('Disabled'),
                             ),
                           ],
@@ -1139,8 +1139,8 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                                                   milliseconds: 200,
                                                 ),
                                               ),
-                                              child: const Icon(
-                                                Icons.expand_more,
+                                              child: const DIcon(
+                                                DIcons.chevronDown,
                                               ),
                                             ),
                                           ],
@@ -1152,7 +1152,7 @@ class _SidebarDemoState extends State<_SidebarDemo> {
                                 semanticLabel: 'New project',
                                 onPressed: () =>
                                     setState(() => message = 'Project created'),
-                                child: const Icon(Icons.add),
+                                child: const DIcon(DIcons.plus),
                               ),
                             ],
                           ),

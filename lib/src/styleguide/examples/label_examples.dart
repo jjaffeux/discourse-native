@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final labelExamples = ComponentExamples(
@@ -66,7 +67,7 @@ DCheckbox(
       crossAxisAlignment: CrossAxisAlignment.center,
       spacing: DSpacing.sm,
       children: [
-        ExcludeSemantics(child: Icon(Icons.mail_outline, size: 20)),
+        ExcludeSemantics(child: DIcon(DIcons.envelope, size: 20)),
         Expanded(child: Text.rich(TextSpan(children: [
           TextSpan(text: 'Send me '),
           TextSpan(
@@ -213,7 +214,7 @@ class _RichPreviewState extends State<_RichPreview> {
             crossAxisAlignment: CrossAxisAlignment.center,
             spacing: DSpacing.sm,
             children: [
-              ExcludeSemantics(child: Icon(Icons.mail_outline, size: 20)),
+              ExcludeSemantics(child: DIcon(DIcons.envelope, size: 20)),
               Expanded(
                 child: Text.rich(
                   TextSpan(

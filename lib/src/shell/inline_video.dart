@@ -13,6 +13,7 @@ import '../data/http_url_safety.dart';
 import '../data/site_lifecycle.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../foundation/uri_path.dart';
 import 'external_link.dart';
 import 'generated_video_poster.dart';
@@ -818,9 +819,7 @@ class _PlaybackControls extends StatelessWidget {
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
                 tooltip: isPlaying ? context.l10n.pause : context.l10n.play,
-                icon: Icon(
-                  isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                ),
+                icon: DIcon(isPlaying ? DNativeIcons.pause : DIcons.play),
               ),
             ),
             Expanded(
@@ -833,7 +832,7 @@ class _PlaybackControls extends StatelessWidget {
                 variant: DButtonVariant.secondary,
                 size: DButtonSize.post,
                 tooltip: context.l10n.exitFullScreen,
-                icon: const Icon(Icons.fullscreen_exit_rounded),
+                icon: const DIcon(DNativeIcons.compress),
               )
             else if (onEnterFullscreen != null && controls.supportsFullscreen)
               DButton.iconOnly(

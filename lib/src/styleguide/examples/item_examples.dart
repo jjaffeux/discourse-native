@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 const _assets = 'packages/discourse_native/src/styleguide/assets/item/';
@@ -94,7 +96,7 @@ final itemExamples = ComponentExamples(
           'The corner action appears on hover or focus, stays visible on touch '
           'and with accessible navigation, and activates independently of the card.',
       code:
-          "DItem(shape: DItemShape.card, variant: DItemVariant.outline, onPressed: select, cornerAction: DButton.iconOnly(size: DButtonSize.small, icon: Icon(Icons.delete_outline), tooltip: 'Remove saved item', onPressed: remove), header: DItemHeader(child: preview), children: [DItemContent(children: [Text('Saved item')])])",
+          "DItem(shape: DItemShape.card, variant: DItemVariant.outline, onPressed: select, cornerAction: DButton.iconOnly(size: DButtonSize.small, icon: DIcon(DIcons.trashCan), tooltip: 'Remove saved item', onPressed: remove), header: DItemHeader(child: preview), children: [DItemContent(children: [Text('Saved item')])])",
       builder: (_) => const _CornerActionExample(),
     ),
     StyleguideExample(
@@ -316,14 +318,14 @@ class _CornerActionExampleState extends State<_CornerActionExample> {
         cornerAction: DButton.iconOnly(
           size: DButtonSize.small,
           variant: DButtonVariant.outline,
-          icon: const Icon(Icons.delete_outline),
+          icon: const DIcon(DIcons.trashCan),
           tooltip: 'Remove saved item',
           onPressed: () => setState(() => _actions++),
         ),
         header: const DItemHeader(
           child: SizedBox(
             height: 72,
-            child: Center(child: Icon(Icons.palette_outlined, size: 32)),
+            child: Center(child: DIcon(DNativeIcons.palette, size: 32)),
           ),
         ),
         children: const [
@@ -1059,7 +1061,7 @@ class _FitContentExampleState extends State<_FitContentExample> {
                 ),
                 onPressed: () => setState(() => _status = 'Opened $title'),
                 children: [
-                  const DItemMedia(child: Icon(Icons.chat_bubble_outline)),
+                  const DItemMedia(child: DIcon(DIcons.comment)),
                   DItemContent(children: [DItemTitle(child: Text(title))]),
                 ],
               ),

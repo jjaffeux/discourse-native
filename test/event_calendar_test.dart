@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_calendar_data.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_data.dart';
@@ -10,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:kalender/kalender.dart' as kalender;
 
 import 'support/event_fixtures.dart';
+import 'support/finders.dart';
 
 void main() {
   late EventTestPorts ports;
@@ -309,7 +311,7 @@ void main() {
       matching: find.byType(DCalendarEventAction),
     );
     expect(
-      find.descendant(of: lane, matching: find.byIcon(Icons.repeat)),
+      find.descendant(of: lane, matching: find.dIcon(DNativeIcons.repeat)),
       findsNothing,
     );
     final text = tester.widget<RichText>(

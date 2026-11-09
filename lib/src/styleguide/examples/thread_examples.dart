@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final threadExamples = ComponentExamples(
@@ -45,7 +46,7 @@ class _ThreadPreviewState extends State<_ThreadPreview> {
     children: [
       DToggle.iconOnly(
         semanticLabel: 'Toggle replies',
-        icon: Icon(expanded ? Icons.remove : Icons.add),
+        icon: DIcon(expanded ? DIcons.minus : DIcons.plus),
         pressed: expanded,
         onPressedChanged: (_) => setState(() => expanded = !expanded),
       ),

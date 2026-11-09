@@ -3,6 +3,7 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final inputExamples = ComponentExamples(
@@ -450,7 +451,7 @@ class _SearchExampleState extends State<_SearchExample> {
               focusNode: _focus,
               hintText: 'Search...',
               textInputAction: TextInputAction.search,
-              prefix: const Icon(Icons.search, size: 16),
+              prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
               onSubmitted: (_) => _search(),
             ),
           ),
@@ -481,7 +482,7 @@ const _searchCode = '''// Dispose controller and focusNode in State.dispose.
 Row(children: [
   Expanded(child: DInput(controller: controller, focusNode: focusNode,
     hintText: 'Search...', textInputAction: TextInputAction.search,
-    prefix: const Icon(Icons.search, size: 16), onSubmitted: (_) => search())),
+    prefix: const DIcon(DIcons.magnifyingGlass, size: 16), onSubmitted: (_) => search())),
   const SizedBox(width: 8),
   DButton(label: const Text('Search'), onPressed: search),
 ])''';

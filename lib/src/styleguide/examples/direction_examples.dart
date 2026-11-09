@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../discourse_ui.dart';
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final directionExamples = ComponentExamples(
@@ -675,8 +677,12 @@ class _DirectionReadout extends StatelessWidget {
     liveRegion: true,
     child: Row(
       children: [
-        // A matchTextDirection glyph: it points along the reading direction.
-        const Icon(Icons.arrow_forward),
+        // It points along the reading direction.
+        DIcon(
+          Directionality.of(context) == TextDirection.rtl
+              ? DIcons.arrowLeft
+              : DNativeIcons.arrowRight,
+        ),
         const SizedBox(width: DSpacing.sm),
         Expanded(
           child: Text('$label: ${DDirection.of(context).name.toUpperCase()}'),

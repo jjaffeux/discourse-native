@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final alertDialogExamples = ComponentExamples(
@@ -179,7 +180,7 @@ class _AlertDialogExampleState extends State<_AlertDialogExample> {
       child: DIcon(DIcons.shareNodes),
     ),
     _ExampleKind.smallMedia || _ExampleKind.rtlSmall => const DAlertDialogMedia(
-      child: Icon(Icons.bluetooth),
+      child: DIcon(DNativeIcons.bolt),
     ),
     _ExampleKind.destructive => const DAlertDialogMedia(
       destructive: true,

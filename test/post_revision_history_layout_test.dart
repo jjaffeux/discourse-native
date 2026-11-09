@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_revision.dart';
@@ -14,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/finders.dart';
 
 const _site = 'https://meta.example';
 const _post = Post(
@@ -44,61 +47,7 @@ void main() {
     testWidgets(
       'post edit history navigation fits ${width}px at 200% text',
       (tester) async {
-        final api = _RevisionApi();
-        final shell = ShellController(
-          instanceStore: FakeInstanceStore([instance('meta.example')]),
-          api: api,
-          authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
-          drafts: FakeDraftStore(),
-          trackers: FakeSiteTracker.reset(),
-          updater: FakeUpdater(),
-          updateStore: FakeUpdateStore(),
-        );
-        await shell.load();
-        addTearDown(shell.dispose);
-        shell.pushContent(
-          ContentRoute.topic(topicId: 7, slug: 'edited', title: 'Edited'),
-        );
-        shell.store.put(
-          _site,
-          const TopicDetail(id: 7, title: 'Edited', stream: [42]),
-        );
-        await tester.binding.setSurfaceSize(Size(width, 900));
-        addTearDown(() => tester.binding.setSurfaceSize(null));
-        addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
-        await tester.pumpWidget(
-          ShellScope(
-            controller: shell,
-            child: MaterialApp(
-              theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
-              home: const Scaffold(
-                body: Center(
-                  child: SizedBox(
-                    width: 320,
-                    height: 100,
-                    child: PostActions(
-                      siteUrl: _site,
-                      post: _post,
-                      child: Center(child: Text('Post body')),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
-        await mouse.addPointer(location: Offset.zero);
-        addTearDown(mouse.removePointer);
-        await mouse.moveTo(tester.getCenter(find.text('Post body')));
-        await tester.pump();
-        await tester.tap(find.byTooltip('More actions'));
-        await tester.pumpAndSettle();
-        await tester.tap(
-          find.widgetWithText(DDropdownMenuItem, 'View edit history'),
-        );
-        await tester.pumpAndSettle();
+        final api = await _openHistory(tester, width);
         expect(api.postRevisionsRequested, [(postId: 42, revision: null)]);
         tester.platformDispatcher.textScaleFactorTestValue = 2;
         await tester.pumpAndSettle();
@@ -165,6 +114,109 @@ void main() {
       }),
     );
   }
+
+  for (final (direction, glyphs) in [
+    (
+      TextDirection.ltr,
+      [
+        DNativeIcons.anglesLeft,
+        DIcons.chevronLeft,
+        DIcons.chevronRight,
+        DNativeIcons.anglesRight,
+      ],
+    ),
+    (
+      TextDirection.rtl,
+      [
+        DNativeIcons.anglesRight,
+        DIcons.chevronRight,
+        DIcons.chevronLeft,
+        DNativeIcons.anglesLeft,
+      ],
+    ),
+  ]) {
+    testWidgets('compact edit history paging points ${direction.name}', (
+      tester,
+    ) async {
+      await _openHistory(tester, 390, direction: direction);
+      final actions = ['First', 'Previous', 'Next', 'Latest'];
+      for (final (index, action) in actions.indexed) {
+        expect(
+          find.descendant(
+            of: _button(action),
+            matching: find.dIcon(glyphs[index]),
+          ),
+          findsOneWidget,
+          reason: action,
+        );
+      }
+    });
+  }
+}
+
+Future<_RevisionApi> _openHistory(
+  WidgetTester tester,
+  double width, {
+  TextDirection? direction,
+}) async {
+  final api = _RevisionApi();
+  final shell = ShellController(
+    instanceStore: FakeInstanceStore([instance('meta.example')]),
+    api: api,
+    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    drafts: FakeDraftStore(),
+    trackers: FakeSiteTracker.reset(),
+    updater: FakeUpdater(),
+    updateStore: FakeUpdateStore(),
+  );
+  await shell.load();
+  addTearDown(shell.dispose);
+  shell.pushContent(
+    ContentRoute.topic(topicId: 7, slug: 'edited', title: 'Edited'),
+  );
+  shell.store.put(
+    _site,
+    const TopicDetail(id: 7, title: 'Edited', stream: [42]),
+  );
+  await tester.binding.setSurfaceSize(Size(width, 900));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+  addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light.copyWith(platform: defaultTargetPlatform),
+        builder: direction == null
+            ? null
+            : (context, child) =>
+                  Directionality(textDirection: direction, child: child!),
+        home: const Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 320,
+              height: 100,
+              child: PostActions(
+                siteUrl: _site,
+                post: _post,
+                child: Center(child: Text('Post body')),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: Offset.zero);
+  addTearDown(mouse.removePointer);
+  await mouse.moveTo(tester.getCenter(find.text('Post body')));
+  await tester.pump();
+  await tester.tap(find.byTooltip('More actions'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.widgetWithText(DDropdownMenuItem, 'View edit history'));
+  await tester.pumpAndSettle();
+  return api;
 }
 
 class _RevisionApi extends FakeDiscourseApi {

@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 import 'button_reference_icons.dart';
 
@@ -66,8 +67,8 @@ final buttonGroupExamples = ComponentExamples(
   orientation: DButtonGroupOrientation.vertical,
   semanticLabel: 'Zoom controls',
   children: [
-    DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Zoom in', onPressed: zoomIn),
-    DButton.iconOnly(icon: Icon(Icons.remove), tooltip: 'Zoom out', onPressed: zoomOut),
+    DButton.iconOnly(icon: DIcon(DIcons.plus), tooltip: 'Zoom in', onPressed: zoomIn),
+    DButton.iconOnly(icon: DIcon(DIcons.minus), tooltip: 'Zoom out', onPressed: zoomOut),
   ],
 )''',
       builder: (_) => const _OrientationGroup(),
@@ -118,7 +119,7 @@ final buttonGroupExamples = ComponentExamples(
       states: const ['Small', 'Default', 'Large', 'Mixed icon size'],
       code: '''DButtonGroup(children: [
   DButton(size: DButtonSize.small, label: Text('Small'), onPressed: action),
-  DButton.iconOnly(size: DButtonSize.small, icon: Icon(Icons.add),
+  DButton.iconOnly(size: DButtonSize.small, icon: DIcon(DIcons.plus),
     tooltip: 'Add', onPressed: action),
 ])''',
       builder: (_) => const _SizeGroups(),
@@ -146,7 +147,7 @@ final buttonGroupExamples = ComponentExamples(
                 DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.inlineEnd,
                   child: DInputGroupButton.icon(
-                    icon: Icon(Icons.graphic_eq),
+                    icon: DIcon(DNativeIcons.waveSquare),
                     tooltip: 'Voice mode',
                     onPressed: enableVoice,
                   ),
@@ -170,7 +171,7 @@ final buttonGroupExamples = ComponentExamples(
       code: '''DButtonGroup(children: [
   DButton(variant: DButtonVariant.secondary, label: Text('Create'), onPressed: create),
   DButtonGroupSeparator(),
-  DButton.iconOnly(variant: DButtonVariant.secondary, icon: Icon(Icons.add),
+  DButton.iconOnly(variant: DButtonVariant.secondary, icon: DIcon(DIcons.plus),
     tooltip: 'Create another', onPressed: createAnother),
 ])''',
       builder: (_) => const _SplitGroup(),
@@ -189,7 +190,7 @@ final buttonGroupExamples = ComponentExamples(
       DButtonGroupExpanded(child: DInput(hintText: 'Search...')),
       DButton.iconOnly(
         variant: DButtonVariant.outline,
-        icon: Icon(Icons.search),
+        icon: DIcon(DIcons.magnifyingGlass),
         tooltip: 'Search',
         onPressed: search,
       ),
@@ -214,7 +215,7 @@ final buttonGroupExamples = ComponentExamples(
       code: '''
 DButtonGroup(children: [
   DButtonGroup(children: [
-    DButton.iconOnly(icon: Icon(Icons.add), tooltip: 'Add attachment', onPressed: add),
+    DButton.iconOnly(icon: DIcon(DIcons.plus), tooltip: 'Add attachment', onPressed: add),
   ]),
   DButtonGroupExpanded(
     child: DButtonGroup(mainAxisSize: MainAxisSize.max, children: [
@@ -224,7 +225,7 @@ DButtonGroup(children: [
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: DInputGroupButton.icon(
-              icon: Icon(Icons.graphic_eq),
+              icon: DIcon(DNativeIcons.waveSquare),
               tooltip: 'Enable voice mode',
               onPressed: toggleVoice,
             ),
@@ -248,7 +249,7 @@ DButtonGroup(children: [
     content: DDropdownMenuContent(children: followActions),
     child: DDropdownMenuTrigger(builder: (_, state) => DButton.iconOnly(
       hasPopup: true, expanded: state.open, focusNode: state.focusNode,
-      tooltip: 'More follow actions', icon: Icon(Icons.keyboard_arrow_down),
+      tooltip: 'More follow actions', icon: DIcon(DIcons.chevronDown),
       onPressed: state.toggle)),
   ),
 ])''',
@@ -263,7 +264,7 @@ DButtonGroup(children: [
       code: '''DButtonGroup(children: [
   DSelect(value: currency, entries: currencies, onChanged: setCurrency),
   DButtonGroupExpanded(child: DInput(keyboardType: TextInputType.number)),
-  DButton.iconOnly(icon: Icon(Icons.arrow_forward), tooltip: 'Send payment',
+  DButton.iconOnly(icon: DIcon(DNativeIcons.arrowRight), tooltip: 'Send payment',
     onPressed: send),
 ])''',
       builder: (_) => const _CurrencyFixture(),
@@ -282,7 +283,7 @@ DButtonGroup(children: [
         hasPopup: true,
         expanded: state.open,
         tooltip: 'Open Copilot task form',
-        icon: Icon(Icons.keyboard_arrow_down),
+        icon: DIcon(DIcons.chevronDown),
         onPressed: state.toggle,
       ),
     ),
@@ -571,13 +572,13 @@ class _OrientationGroup extends StatelessWidget {
     children: [
       DButton.iconOnly(
         variant: DButtonVariant.outline,
-        icon: const Icon(Icons.add),
+        icon: const DIcon(DIcons.plus),
         tooltip: 'Zoom in',
         onPressed: () {},
       ),
       DButton.iconOnly(
         variant: DButtonVariant.outline,
-        icon: const Icon(Icons.remove),
+        icon: const DIcon(DIcons.minus),
         tooltip: 'Zoom out',
         onPressed: () {},
       ),
@@ -610,7 +611,7 @@ class _SizeGroups extends StatelessWidget {
               DButton.iconOnly(
                 variant: DButtonVariant.outline,
                 size: entry.$2,
-                icon: const Icon(Icons.add),
+                icon: const DIcon(DIcons.plus),
                 tooltip: 'Add ${entry.$1.toLowerCase()}',
                 onPressed: () {},
               ),
@@ -636,7 +637,7 @@ class _NestedGroup extends StatelessWidget {
           children: [
             DButton.iconOnly(
               variant: DButtonVariant.outline,
-              icon: const Icon(Icons.add),
+              icon: const DIcon(DIcons.plus),
               tooltip: 'Add attachment',
               onPressed: () {},
             ),
@@ -654,7 +655,7 @@ class _NestedGroup extends StatelessWidget {
                     DInputGroupAddon(
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       child: DInputGroupButton.icon(
-                        icon: const Icon(Icons.graphic_eq),
+                        icon: const DIcon(DNativeIcons.waveSquare),
                         tooltip: 'Voice mode',
                         onPressed: () {},
                       ),
@@ -684,7 +685,7 @@ class _SplitGroup extends StatelessWidget {
       const DButtonGroupSeparator(),
       DButton.iconOnly(
         variant: DButtonVariant.secondary,
-        icon: const Icon(Icons.add),
+        icon: const DIcon(DIcons.plus),
         tooltip: 'Create another',
         onPressed: () {},
       ),
@@ -706,7 +707,7 @@ class _InputFixture extends StatelessWidget {
         ),
         DButton.iconOnly(
           variant: DButtonVariant.outline,
-          icon: const Icon(Icons.search),
+          icon: const DIcon(DIcons.magnifyingGlass),
           tooltip: 'Search',
           onPressed: () {},
         ),
@@ -733,7 +734,7 @@ class _VoiceFixtureState extends State<_VoiceFixture> {
           children: [
             DButton.iconOnly(
               variant: DButtonVariant.outline,
-              icon: const Icon(Icons.add),
+              icon: const DIcon(DIcons.plus),
               tooltip: 'Add attachment',
               onPressed: () {},
             ),
@@ -756,7 +757,7 @@ class _VoiceFixtureState extends State<_VoiceFixture> {
                     DInputGroupAddon(
                       alignment: DInputGroupAddonAlignment.inlineEnd,
                       child: DInputGroupButton.icon(
-                        icon: const Icon(Icons.graphic_eq),
+                        icon: const DIcon(DNativeIcons.waveSquare),
                         tooltip: _voice
                             ? 'Disable voice mode'
                             : 'Enable voice mode',
@@ -814,7 +815,7 @@ class _MenuFixture extends StatelessWidget {
             hasPopup: true,
             expanded: state.open,
             focusNode: state.focusNode,
-            icon: const Icon(Icons.keyboard_arrow_down),
+            icon: const DIcon(DIcons.chevronDown),
             tooltip: 'More follow actions',
             onPressed: state.toggle,
           ),
@@ -860,7 +861,7 @@ class _CurrencyFixtureState extends State<_CurrencyFixture> {
         ),
         DButton.iconOnly(
           variant: DButtonVariant.outline,
-          icon: const Icon(Icons.arrow_forward),
+          icon: const DIcon(DNativeIcons.arrowRight),
           tooltip: 'Send payment',
           onPressed: () {},
         ),
@@ -877,7 +878,7 @@ class _PopoverFixture extends StatelessWidget {
     children: [
       DButton(
         variant: DButtonVariant.outline,
-        icon: const Icon(Icons.smart_toy_outlined),
+        icon: const DIcon(DIcons.robot),
         label: const Text('Copilot'),
         onPressed: () {},
       ),
@@ -898,7 +899,7 @@ class _PopoverFixture extends StatelessWidget {
             variant: DButtonVariant.outline,
             hasPopup: true,
             expanded: state.open,
-            icon: const Icon(Icons.keyboard_arrow_down),
+            icon: const DIcon(DIcons.chevronDown),
             tooltip: 'Open Copilot task form',
             focusNode: state.focusNode,
             onPressed: state.toggle,

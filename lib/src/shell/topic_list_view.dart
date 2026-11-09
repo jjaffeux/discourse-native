@@ -1325,7 +1325,7 @@ class _FeedErrorBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) => DAlert(
     variant: DAlertVariant.destructive,
-    icon: const Icon(Icons.error_outline),
+    icon: const DIcon(DIcons.triangleExclamation),
     description: DAlertDescription(child: Text(message)),
     action: DAlertAction(
       child: DButton(

@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 
 import '../../foundation/icons/d_icons.dart';
 
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final inputGroupExamples = ComponentExamples(
@@ -46,7 +47,7 @@ final inputGroupExamples = ComponentExamples(
   size: DControlSize.field,
   children: [
     DInputGroupInput(hintText: 'Search this forum', semanticLabel: 'Search'),
-    DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+    DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass, size: 16)),
     DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
       child: DShortcutKeycaps(compact: true, listenToKeyboard: false,
         shortcut: DShortcut(SingleActivator(LogicalKeyboardKey.keyF, meta: true)))),
@@ -60,7 +61,9 @@ final inputGroupExamples = ComponentExamples(
             hintText: 'Search this forum',
             semanticLabel: 'Search',
           ),
-          const DInputGroupAddon(child: Icon(Icons.search, size: 16)),
+          const DInputGroupAddon(
+            child: DIcon(DIcons.magnifyingGlass, size: 16),
+          ),
           const DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: DShortcutKeycaps(
@@ -106,7 +109,7 @@ final inputGroupExamples = ComponentExamples(
   padding: EdgeInsets.all(8),
   child: DInputGroup(borderless: true, children: [
     DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
-    DInputGroupAddon(child: Icon(Icons.search)),
+    DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
   ]),
 ))''',
       builder: (_) => DCard(
@@ -116,7 +119,7 @@ final inputGroupExamples = ComponentExamples(
             borderless: true,
             children: [
               DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
-              const DInputGroupAddon(child: Icon(Icons.search)),
+              const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
             ],
           ),
         ),
@@ -129,7 +132,7 @@ final inputGroupExamples = ComponentExamples(
       states: const ['Inline start', 'Icon', 'Focus'],
       code: '''DInputGroup(children: [
   DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
-  DInputGroupAddon(child: Icon(Icons.search)),
+  DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
   DInputGroupAddon(
     alignment: DInputGroupAddonAlignment.inlineEnd,
     child: DInputGroupText(Text('12 results')),
@@ -138,7 +141,7 @@ final inputGroupExamples = ComponentExamples(
       builder: (_) => DInputGroup(
         children: [
           DInputGroupInput(hintText: 'Search...', semanticLabel: 'Search'),
-          const DInputGroupAddon(child: Icon(Icons.search)),
+          const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
           const DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: DInputGroupText(Text('12 results')),
@@ -155,7 +158,7 @@ final inputGroupExamples = ComponentExamples(
   DInputGroup(children: [
     DInputGroupInput(hintText: 'Enter password'),
     DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
-      child: Icon(Icons.visibility_off)),
+      child: DIcon(DNativeIcons.eyeSlash)),
   ]),
   DInputGroup(children: [
     DInputGroupTextarea(hintText: 'console.log("hello")'),
@@ -257,7 +260,7 @@ final inputGroupExamples = ComponentExamples(
       code: '''Directionality(textDirection: TextDirection.rtl,
   child: DInputGroup(children: [
     DInputGroupInput(hintText: 'بحث...', semanticLabel: 'بحث'),
-    DInputGroupAddon(child: Icon(Icons.search)),
+    DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
     DInputGroupAddon(alignment: DInputGroupAddonAlignment.inlineEnd,
       child: DInputGroupText(Text('١٢ نتيجة'))),
   ]))''',
@@ -269,7 +272,7 @@ final inputGroupExamples = ComponentExamples(
             DInputGroup(
               children: [
                 DInputGroupInput(hintText: 'بحث...', semanticLabel: 'بحث'),
-                const DInputGroupAddon(child: Icon(Icons.search)),
+                const DInputGroupAddon(child: DIcon(DIcons.magnifyingGlass)),
                 const DInputGroupAddon(
                   alignment: DInputGroupAddonAlignment.inlineEnd,
                   child: DInputGroupText(Text('١٢ نتيجة')),
@@ -352,7 +355,7 @@ class _AlignmentExample extends StatelessWidget {
           DInputGroupInput(hintText: 'Enter password'),
           const DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
-            child: Icon(Icons.visibility_off),
+            child: DIcon(DNativeIcons.eyeSlash),
           ),
         ],
       ),
@@ -387,7 +390,7 @@ class _AlignmentExample extends StatelessWidget {
             alignment: DInputGroupAddonAlignment.blockStart,
             child: Row(
               children: [
-                Icon(Icons.code, size: 16),
+                DIcon(DIcons.code, size: 16),
                 SizedBox(width: DSpacing.sm),
                 Flexible(child: Text('script.js')),
               ],
@@ -493,7 +496,7 @@ class _InputGroupButtonActionsExampleState
           DInputGroupAddon(
             alignment: DInputGroupAddonAlignment.inlineEnd,
             child: DInputGroupButton.icon(
-              icon: const Icon(Icons.copy, size: 14),
+              icon: const DIcon(DIcons.copy, size: 14),
               tooltip: 'Copy URL',
               onPressed: () => setState(() => _status = 'Copied URL'),
             ),
@@ -568,7 +571,7 @@ class _KbdSpinnerExample extends StatelessWidget {
                   expanded: menu.open,
                   child: DInputGroupButton(
                     label: const Text('Search in'),
-                    icon: const Icon(Icons.arrow_drop_down, size: 16),
+                    icon: const DIcon(DNativeIcons.caretDown, size: 16),
 
                     hasPopup: true,
                     focusNode: menu.focusNode,

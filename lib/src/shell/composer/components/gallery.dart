@@ -5,6 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../foundation/icons/d_icons.dart';
+import '../../../foundation/icons/d_native_icons.dart';
 import '../../site_image.dart';
 import '../../skeleton_fill.dart';
 import '../block_surface.dart';
@@ -299,7 +301,7 @@ class ComposerImageGalleryControl extends StatelessWidget {
           tooltip: context.l10n.galleryOptions,
           semanticLabel: context.l10n.galleryOptions,
           variant: DButtonVariant.ghost,
-          icon: const Icon(Icons.tune),
+          icon: const DIcon(DNativeIcons.sliders),
         ),
       ),
     );
@@ -406,8 +408,8 @@ class ComposerImageGalleryTile extends StatelessWidget {
             child: source == null
                 ? ExcludeSemantics(
                     child: Center(
-                      child: Icon(
-                        Icons.image_outlined,
+                      child: DIcon(
+                        DNativeIcons.image,
                         size: 22,
                         color: scheme.onSurfaceVariant,
                       ),
@@ -433,8 +435,8 @@ class ComposerImageGalleryTile extends StatelessWidget {
                     ),
                     errorBuilder: (_, _, _) => ExcludeSemantics(
                       child: Center(
-                        child: Icon(
-                          Icons.broken_image_outlined,
+                        child: DIcon(
+                          DNativeIcons.image,
                           size: 22,
                           color: scheme.onSurfaceVariant,
                         ),
@@ -566,22 +568,17 @@ class ComposerGalleryMenu extends StatelessWidget {
                           value: ComposerGalleryMode.grid,
                           semanticLabel: context.l10n.gridGalleryMode,
                           tooltip: context.l10n.gridGalleryMode,
-                          icon: const Icon(Icons.grid_view_outlined, size: 18),
-                          selectedIcon: const Icon(Icons.grid_view, size: 18),
+                          icon: const DIcon(
+                            DNativeIcons.tableCellsLarge,
+                            size: 18,
+                          ),
                           visualStyle: const DToggleVisualStyle(),
                         ),
                         DToggleGroupItem.iconOnly(
                           value: ComposerGalleryMode.carousel,
                           semanticLabel: context.l10n.carouselGalleryMode,
                           tooltip: context.l10n.carouselGalleryMode,
-                          icon: const Icon(
-                            Icons.view_carousel_outlined,
-                            size: 18,
-                          ),
-                          selectedIcon: const Icon(
-                            Icons.view_carousel,
-                            size: 18,
-                          ),
+                          icon: const DIcon(DNativeIcons.film, size: 18),
                           visualStyle: const DToggleVisualStyle(),
                         ),
                       ],
@@ -609,7 +606,7 @@ class ComposerGalleryMenu extends StatelessWidget {
                                   onPressed: canUpload
                                       ? () => onSelect(_GalleryAddChoice.upload)
                                       : null,
-                                  leading: const Icon(Icons.upload_outlined),
+                                  leading: const DIcon(DIcons.upload),
                                   child: Text(context.l10n.uploadNewImages),
                                 ),
                                 DDropdownMenuItem(
@@ -617,9 +614,7 @@ class ComposerGalleryMenu extends StatelessWidget {
                                       ? () =>
                                             onSelect(_GalleryAddChoice.existing)
                                       : null,
-                                  leading: const Icon(
-                                    Icons.photo_library_outlined,
-                                  ),
+                                  leading: const DIcon(DNativeIcons.images),
                                   child: Text(
                                     context.l10n.addExistingDraftImages,
                                   ),
@@ -636,8 +631,8 @@ class ComposerGalleryMenu extends StatelessWidget {
                                             dimension: 18,
                                             child: DSpinner(),
                                           )
-                                        : const Icon(
-                                            Icons.add_photo_alternate_outlined,
+                                        : const DIcon(
+                                            DNativeIcons.images,
                                             size: 18,
                                           ),
                                     focusNode: state.focusNode,
@@ -656,7 +651,7 @@ class ComposerGalleryMenu extends StatelessWidget {
                       onPressed: onUnwrap,
                       variant: DButtonVariant.ghost,
                       tooltip: context.l10n.removeGalleryKeepImages,
-                      icon: const Icon(Icons.grid_off_outlined),
+                      icon: const DIcon(DNativeIcons.objectUngroup),
                     ),
                   ],
                 ),

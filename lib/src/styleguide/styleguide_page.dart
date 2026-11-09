@@ -7,6 +7,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../discourse_ui.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import 'application_component_catalogue.dart';
 import 'component_catalogue.dart';
 import 'component_examples.dart';
@@ -253,7 +255,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                 child: Row(
                   children: [
                     if (wide) ...[
-                      const Icon(Icons.layers_outlined, size: 20),
+                      const DIcon(DIcons.layerGroup, size: 20),
                       const SizedBox(width: 10),
                     ],
                     Flexible(
@@ -284,8 +286,8 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                 key: const ValueKey('styleguide-documentation-theme'),
                 label: context.l10n.toggleDocumentationTheme,
                 icon: Theme.of(context).brightness == Brightness.dark
-                    ? Icons.light_mode_outlined
-                    : Icons.dark_mode_outlined,
+                    ? DNativeIcons.sun
+                    : DNativeIcons.moon,
                 iconOnly: true,
                 onPressed: () => setState(
                   () => _documentationBrightness =
@@ -298,7 +300,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
               StyleguideAction(
                 key: const ValueKey('styleguide-close'),
                 label: context.l10n.closeStyleguide,
-                icon: Icons.close,
+                icon: DIcons.xmark,
                 iconOnly: true,
                 onPressed: _close,
               ),
@@ -315,12 +317,12 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       controller: _search,
       focusNode: _searchFocus,
       hintText: context.l10n.searchComponents,
-      prefix: const Icon(Icons.search, size: 16),
+      prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
       suffix: _search.text.isEmpty
           ? null
           : StyleguideAction(
               label: context.l10n.clearSearch,
-              icon: Icons.close,
+              icon: DIcons.xmark,
               iconOnly: true,
               onPressed: () => setState(_search.clear),
             ),
@@ -460,7 +462,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       const SizedBox(width: 12),
                       StyleguideAction(
                         label: context.l10n.previousComponent,
-                        icon: Icons.arrow_back,
+                        icon: DIcons.arrowLeft,
                         iconOnly: true,
                         onPressed: index > 0
                             ? () => _select(_entries[index - 1])
@@ -469,7 +471,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
                       const SizedBox(width: 4),
                       StyleguideAction(
                         label: context.l10n.nextComponent,
-                        icon: Icons.arrow_forward,
+                        icon: DNativeIcons.arrowRight,
                         iconOnly: true,
                         onPressed: index < _entries.length - 1
                             ? () => _select(_entries[index + 1])
@@ -668,7 +670,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       StyleguideAction(
         key: const ValueKey('styleguide-settings'),
         label: context.l10n.previewSettings,
-        icon: Icons.tune,
+        icon: DNativeIcons.sliders,
         iconOnly: true,
         selected: _settingsOpen,
         onPressed: () => setState(() => _settingsOpen = !_settingsOpen),
@@ -676,7 +678,7 @@ class _ComponentStyleguidePageState extends State<ComponentStyleguidePage> {
       StyleguideAction(
         key: const ValueKey('styleguide-reset'),
         label: context.l10n.resetExamples,
-        icon: Icons.refresh,
+        icon: DIcons.arrowRotateRight,
         iconOnly: true,
         onPressed: () => setState(() => _reset++),
       ),
@@ -952,7 +954,7 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                           label: _codeOpen
                               ? context.l10n.hideCode
                               : context.l10n.viewCode,
-                          icon: Icons.code,
+                          icon: DIcons.code,
                           alignment: AlignmentDirectional.centerStart,
                           onPressed: () =>
                               setState(() => _codeOpen = !_codeOpen),
@@ -962,7 +964,7 @@ class _StyleguideExamplePanelState extends State<_StyleguideExamplePanel> {
                         label: _copied
                             ? context.l10n.copied
                             : context.l10n.copyCode,
-                        icon: _copied ? Icons.check : Icons.copy_outlined,
+                        icon: _copied ? DIcons.check : DIcons.copy,
                         iconOnly: true,
                         onPressed: () async {
                           await Clipboard.setData(ClipboardData(text: code));

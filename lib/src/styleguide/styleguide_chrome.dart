@@ -87,7 +87,7 @@ class StyleguideAction extends StatelessWidget {
 
   final String label;
   final VoidCallback? onPressed;
-  final IconData? icon;
+  final DIconData? icon;
   final bool iconOnly;
   final bool? selected;
   final bool outlined;
@@ -101,14 +101,14 @@ class StyleguideAction extends StatelessWidget {
       child: iconOnly
           ? DButton.iconOnly(
               tooltip: label,
-              icon: Icon(icon),
+              icon: DIcon(icon!),
               onPressed: onPressed,
               variant: variant,
               expanded: selected == true,
             )
           : DButton(
               label: Text(label),
-              icon: icon == null ? null : Icon(icon),
+              icon: icon == null ? null : DIcon(icon!),
               onPressed: onPressed,
               variant: variant,
               expanded: selected == true,

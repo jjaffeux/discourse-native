@@ -178,7 +178,7 @@ class _EventCardState extends State<EventCard> {
                                 onPressed: !pending && event.canChoose(status)
                                     ? state.toggle
                                     : null,
-                                icon: const Icon(Icons.arrow_drop_down),
+                                icon: const DIcon(DNativeIcons.caretDown),
                               ),
                             ),
                           ),
@@ -215,7 +215,7 @@ class _EventCardState extends State<EventCard> {
       ],
     );
     final participants = onParticipants == null
-        ? _Detail(icon: Icons.people_outline, child: participantLabel)
+        ? _Detail(icon: DIcons.users, child: participantLabel)
         : DButton(
             size: DButtonSize.post,
             onPressed: pending ? null : onParticipants,
@@ -229,7 +229,7 @@ class _EventCardState extends State<EventCard> {
                 context.l10n.interestedEventcardValue((count).toString()),
             ].join(', '),
             tooltip: context.l10n.viewParticipants,
-            icon: const Icon(Icons.people_outline),
+            icon: const DIcon(DIcons.users),
             label: participantLabel,
           );
     final chat = channelId == null
@@ -247,7 +247,7 @@ class _EventCardState extends State<EventCard> {
                 ),
               ),
               variant: DButtonVariant.inline,
-              icon: const Icon(Icons.chat_bubble_outline),
+              icon: const DIcon(DIcons.comment),
               label: Text(context.l10n.openEventChat),
             ),
           );
@@ -319,10 +319,8 @@ class _EventCardState extends State<EventCard> {
                                 runSpacing: 4,
                                 crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Icon(
-                                    event.private
-                                        ? Icons.lock_outline
-                                        : Icons.public,
+                                  DIcon(
+                                    event.private ? DIcons.lock : DIcons.globe,
                                     size: 12,
                                     color: tokens.mutedForeground,
                                   ),
@@ -431,7 +429,7 @@ class _EventCardState extends State<EventCard> {
                                         size: DButtonSize.post,
                                         tooltip: context.l10n.eventActions,
                                         variant: DButtonVariant.ghost,
-                                        icon: const Icon(Icons.more_vert),
+                                        icon: const DIcon(DIcons.ellipsis),
                                         focusNode: state.focusNode,
                                         hasPopup: true,
                                         expanded: state.open,
@@ -446,7 +444,7 @@ class _EventCardState extends State<EventCard> {
                   ),
                   const SizedBox(height: 14),
                   _Detail(
-                    icon: Icons.schedule,
+                    icon: DNativeIcons.clock,
                     child: Text(
                       eventDateLabel(
                         event,
@@ -458,10 +456,10 @@ class _EventCardState extends State<EventCard> {
                     ),
                   ),
                   if (recurrence != null)
-                    _Detail(icon: Icons.repeat, child: Text(recurrence)),
+                    _Detail(icon: DNativeIcons.repeat, child: Text(recurrence)),
                   if (location != null && location.trim().isNotEmpty)
                     _Detail(
-                      icon: Icons.place_outlined,
+                      icon: DIcons.locationDot,
                       child: CookedHtml(
                         html: location,
                         siteUrl: siteUrl,
@@ -471,7 +469,7 @@ class _EventCardState extends State<EventCard> {
                     ),
                   if (url != null && !event.flag('url_restates_location'))
                     _Detail(
-                      icon: Icons.link,
+                      icon: DIcons.link,
                       child: LinkTarget(
                         url: eventLinkUrl(url),
                         siteUrl: siteUrl,
@@ -548,7 +546,7 @@ class _EventCardState extends State<EventCard> {
                           openLink(context, link, siteUrl: siteUrl),
                         ),
                         variant: DButtonVariant.inline,
-                        icon: const Icon(Icons.videocam_outlined),
+                        icon: const DIcon(DIcons.video),
                         label: Text(context.l10n.openLivestream),
                       ),
                     ),
@@ -715,8 +713,10 @@ class _EventDescriptionState extends State<_EventDescription> {
                         onPressed: () => setState(() => _expanded = !_expanded),
                         variant: DButtonVariant.inline,
                         iconPosition: DButtonIconPosition.end,
-                        icon: Icon(
-                          _expanded ? Icons.expand_less : Icons.expand_more,
+                        icon: DIcon(
+                          _expanded
+                              ? DNativeIcons.chevronUp
+                              : DIcons.chevronDown,
                         ),
                         label: Text(
                           _expanded
@@ -754,10 +754,10 @@ class _ResponseButton extends StatelessWidget {
     enabled: enabled,
     variant: DToggleVariant.outline,
     onPressedChanged: (_) => onTap(),
-    icon: Icon(switch (status) {
-      'going' => Icons.check,
-      'interested' => Icons.star_outline,
-      _ => Icons.close,
+    icon: DIcon(switch (status) {
+      'going' => DIcons.check,
+      'interested' => DIcons.farStar,
+      _ => DIcons.xmark,
     }),
     child: Text(eventResponseLabel(status)),
   );
@@ -765,7 +765,7 @@ class _ResponseButton extends StatelessWidget {
 
 class _Detail extends StatelessWidget {
   const _Detail({required this.icon, required this.child});
-  final IconData icon;
+  final DIconData icon;
   final Widget child;
   @override
   Widget build(BuildContext context) => Padding(
@@ -773,7 +773,7 @@ class _Detail extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: DTokens.of(context).mutedForeground),
+        DIcon(icon, size: 16, color: DTokens.of(context).mutedForeground),
         const SizedBox(width: 9),
         Expanded(child: child),
       ],

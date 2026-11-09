@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../foundation/icons/d_native_icons.dart';
 
 /// Side-by-side acceptance surface for control styles and interactions.
@@ -45,7 +46,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
                 onPressed: () => setState(() => _result = 'Button activated'),
               ),
               DButton.iconOnly(
-                icon: const Icon(Icons.add),
+                icon: const DIcon(DIcons.plus),
                 tooltip: '${size.name} icon button',
                 variant: DButtonVariant.outline,
                 size: size,
@@ -104,7 +105,7 @@ class _ControlComparisonExampleState extends State<ControlComparisonExample> {
             children: [
               DButton(
                 label: const Text('Reply'),
-                icon: const Icon(Icons.reply),
+                icon: const DIcon(DIcons.reply),
                 size: DButtonSize.regular,
                 onPressed: () => setState(() => _result = 'Reply activated'),
               ),
