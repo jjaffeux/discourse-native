@@ -1131,7 +1131,7 @@ void _registerReactionAndLikeTests() {
           find
               .descendant(
                 of: find.byType(PostReactionButton),
-                matching: find.byType(Center),
+                matching: find.byType(DIcon),
               )
               .first,
         ),

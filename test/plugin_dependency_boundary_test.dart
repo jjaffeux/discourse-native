@@ -30,6 +30,7 @@ const _pluginIdsByDirectory = <String, String>{
   'voice': 'voice',
   'solved': 'discourse-solved',
   'topic_voting': 'discourse-topic-voting',
+  'zendesk': 'discourse-zendesk-plugin',
 };
 
 const _approvedCrossFeatureContracts = <String, String>{
@@ -109,6 +110,7 @@ const _featureModuleEntrypoints = <String>{
   'voice/voice_module.dart',
   'solved/solved_module.dart',
   'topic_voting/topic_voting_module.dart',
+  'zendesk/zendesk_module.dart',
 };
 
 final _directiveStatements = RegExp(
