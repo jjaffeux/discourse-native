@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart';
 
@@ -72,6 +73,7 @@ void main() {
             );
             final store = _FailingStore([site]);
             final api = FakeDiscourseApi(
+              models: bundledPluginCodec,
               user: _user,
               userPreferences: _preferences,
               feeds: const {'/latest.json': []},

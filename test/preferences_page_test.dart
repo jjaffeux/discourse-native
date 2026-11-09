@@ -95,6 +95,7 @@ Future<_Fixture> _fixture({
   final api =
       apiOverride ??
       FakeDiscourseApi(
+        models: bundledPluginCodec,
         user: selectedSite.user,
         userPreferences: preferences,
         userPreferencesGate: loadGate,

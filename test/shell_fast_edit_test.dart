@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'support/bundled_plugins.dart';
 import 'support/fakes.dart';
 
 const _siteUrl = 'https://meta.discourse.org';
@@ -57,7 +58,10 @@ void main() {
         bookmark: bookmark,
         plugins: plugins,
       );
-      final api = FakeDiscourseApi(postsById: {22: post});
+      final api = FakeDiscourseApi(
+        postsById: {22: post},
+        models: bundledPluginCodec,
+      );
       final shell = await _shell(api, post);
       addTearDown(shell.dispose);
       shell.openReply();
