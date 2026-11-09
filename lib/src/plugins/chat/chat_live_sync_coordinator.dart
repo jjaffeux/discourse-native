@@ -1208,17 +1208,16 @@ final class ChatLiveSyncCoordinator {
     if (data is! Map<String, dynamic>) return;
     final channelId = jsonIntOrNull(data['chat_channel_id']);
     final title = jsonText(data['name']);
-    final slug = jsonText(data['slug']);
     final held = channelId == null
         ? null
         : _host.channelFor(siteUrl, channelId);
-    if (held == null || title == null || slug == null) return;
+    if (held == null || title == null) return;
     _host.didReceiveChannelEdit(siteUrl, held.id);
     _host.putChannel(
       siteUrl,
       held.withRemoteMetadata(
         title: title,
-        slug: slug,
+        slug: jsonText(data['slug']),
         description: jsonText(data['description']),
       ),
     );
