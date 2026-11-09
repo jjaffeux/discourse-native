@@ -305,6 +305,7 @@ void main() {
       const ValueKey('display-icon-set-defaultSet'),
     );
     expect(tester.widget<DItem>(defaultIcons).selected, isTrue);
+    expect(tester.widget<DItem>(defaultIcons).pressDepth, DPressDepth.row);
     expect(
       tester.widget<DItem>(defaultIcons).selectionStyle,
       DItemSelectionStyle.tinted,
@@ -327,6 +328,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(shell.forumSettings.shared.iconSet, DIconSet.lucide);
     expect(tester.widget<DItem>(defaultIcons).selected, isFalse);
+    expect(tester.widget<DItem>(defaultIcons).pressDepth, DPressDepth.inset);
 
     await tester.ensureVisible(
       find.byKey(const ValueKey('text-size-increase')),

@@ -15,6 +15,7 @@ import '../foundation/control_style.dart';
 import '../foundation/highlight_mode_tracking.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/item_interaction.dart';
+import '../foundation/press_scale.dart';
 import '../foundation/sidebar_row_surface.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
@@ -90,6 +91,7 @@ class DItem extends StatefulWidget {
     this.closedRuleBelow = false,
     this.selectionStyle = DItemSelectionStyle.tinted,
     this.showSelectionIndicator = true,
+    this.pressDepth = DPressDepth.still,
     this.focusNode,
     this.mouseCursor,
     this.clipBehavior = Clip.none,
@@ -128,6 +130,7 @@ class DItem extends StatefulWidget {
        closedRuleAbove = false,
        closedRuleBelow = false,
        selectionStyle = DItemSelectionStyle.tinted,
+       pressDepth = DPressDepth.still,
        showSelectionIndicator = true,
        mouseCursor = null,
        clipBehavior = Clip.none,
@@ -196,6 +199,10 @@ class DItem extends StatefulWidget {
   /// selection uses the same treatment at menu-selected emphasis (13%). Both
   /// retain keyboard focus styling.
   final DItemSelectionStyle selectionStyle;
+
+  /// How far the item gives under a press. Most lists stay still; a settings
+  /// choice that reads as a row gives a little.
+  final DPressDepth pressDepth;
 
   /// Shows a checkmark when selected. Selection styling and semantics remain
   /// when false.
@@ -337,6 +344,7 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
   FocusNode get _focus => widget.focusNode ?? (_ownedFocus ??= FocusNode());
   bool _hover = false;
   bool _pressed = false;
+  WidgetStatesController? _press;
   bool _focused = false;
   bool get _canRequestFocus =>
       switch (MediaQuery.maybeNavigationModeOf(context)) {
@@ -375,7 +383,10 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
   @override
   void didUpdateWidget(DItem oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_active) _pressed = false;
+    if (!_active) {
+      _pressed = false;
+      _press?.update(WidgetState.pressed, false);
+    }
     if (widget.focusNode != null && _ownedFocus != null) {
       _ownedFocus!.dispose();
       _ownedFocus = null;
@@ -384,8 +395,14 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
 
   @override
   void dispose() {
+    _press?.dispose();
     _ownedFocus?.dispose();
     super.dispose();
+  }
+
+  void _setPressed(bool value) {
+    setState(() => _pressed = value);
+    _press?.update(WidgetState.pressed, value);
   }
 
   @override
@@ -700,14 +717,12 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
                         details.globalPosition,
                         linkActivation.onPressed!,
                       );
-                      if (!_pointerOnChildControl) {
-                        setState(() => _pressed = true);
-                      }
+                      if (!_pointerOnChildControl) _setPressed(true);
                     }
                   : null,
-              onTapUp: _active ? (_) => setState(() => _pressed = false) : null,
+              onTapUp: _active ? (_) => _setPressed(false) : null,
               // Always set, so the tap recognizer outlives a mid-press disable.
-              onTapCancel: () => setState(() => _pressed = false),
+              onTapCancel: () => _setPressed(false),
               onTap: _active
                   ? () {
                       if (_pointerOnChildControl) return;
@@ -715,7 +730,13 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
                       linkActivation.onPressed!();
                     }
                   : null,
-              child: result,
+              child: widget.pressDepth == DPressDepth.still
+                  ? result
+                  : DPressScale(
+                      states: _press ??= WidgetStatesController(),
+                      depth: widget.pressDepth,
+                      child: result,
+                    ),
             ),
           ),
         ),
