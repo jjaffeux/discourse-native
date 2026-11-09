@@ -4141,7 +4141,7 @@ class _StoredPost extends StatefulWidget {
 
   Object get contentKey => (
     siteUrl,
-    topic,
+    _PostFacingTopic(topic),
     postId,
     summary,
     summaryLoading,
@@ -4157,6 +4157,23 @@ class _StoredPost extends StatefulWidget {
     onBodyPressed,
     bodyActionLabel,
   );
+}
+
+/// A topic as its post tiles compare it. Upstream publishes `stats` after each
+/// like and reply, and only the topic map shows those figures, so they do not
+/// rebuild a tile and the map listens to the stored topic itself.
+final class _PostFacingTopic {
+  const _PostFacingTopic(this.topic);
+
+  final TopicDetail topic;
+
+  @override
+  bool operator ==(Object other) =>
+      other is _PostFacingTopic &&
+      topic.hasSameFieldsBesidesFigures(other.topic);
+
+  @override
+  int get hashCode => topic.id.hashCode;
 }
 
 class _StoredPostState extends State<_StoredPost> {
@@ -4251,12 +4268,17 @@ class _StoredPostState extends State<_StoredPost> {
                   ),
                   if (post.postNumber == 1 &&
                       widget.layout == TopicPostLayout.standard)
-                    _TopicMap(
-                      siteUrl: siteUrl,
-                      topic: topic,
-                      summary: summary,
-                      summaryLoading: summaryLoading,
-                      readTimeWordCount: readTimeWordCount,
+                    ValueListenableBuilder<TopicDetail?>(
+                      valueListenable: ShellScope.identityOf(
+                        context,
+                      ).store.ref<TopicDetail>(siteUrl, topic.id),
+                      builder: (context, held, _) => _TopicMap(
+                        siteUrl: siteUrl,
+                        topic: held ?? topic,
+                        summary: summary,
+                        summaryLoading: summaryLoading,
+                        readTimeWordCount: readTimeWordCount,
+                      ),
                     ),
                 ],
               );

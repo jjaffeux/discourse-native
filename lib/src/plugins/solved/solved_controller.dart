@@ -9,11 +9,13 @@ final class SolvedController {
     required this.requests,
     required this.posts,
     required this.topics,
+    required this.readers,
   });
   final PluginApiTransport transport;
   final PluginRequestHost requests;
   final PluginPostHost posts;
   final PluginTopicRefreshHost topics;
+  final PluginTopicReaderHost readers;
   bool _closed = false;
 
   void close() => _closed = true;
@@ -109,9 +111,14 @@ final class SolvedController {
       }
       if (!current()) return const SolvedChangeResult.acceptedRetired();
       try {
+        // The action was built with its post's tile, and a reply arriving
+        // since does not rebuild that tile.
+        final reader = readers.forVisibleTopic(siteUrl, topic.id);
+        final stream = reader?.topic?.stream ?? topic.stream;
+        reader?.close();
         final refreshIds = <int>{
           postId,
-          for (final id in topic.stream)
+          for (final id in stream)
             if (posts
                     .readPost(siteUrl, id)
                     ?.plugins

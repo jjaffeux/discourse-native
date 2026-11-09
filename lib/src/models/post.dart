@@ -1413,25 +1413,36 @@ class TopicDetail with Storable<TopicDetail> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is TopicDetail &&
-          other.id == id &&
-          other.title == title &&
-          other.localizedTitle == localizedTitle &&
+          hasSameFieldsBesidesFigures(other) &&
           other.messageBusLastId == messageBusLastId &&
-          other.createdAt == createdAt &&
           other.lastPostedAt == lastPostedAt &&
           listEquals(other.stream, stream) &&
-          other.isMegaTopic == isMegaTopic &&
           other.lastPostId == lastPostId &&
           other.highestPostNumber == highestPostNumber &&
           _postGapsEqual(other.gapsBefore, gapsBefore) &&
           _postGapsEqual(other.gapsAfter, gapsAfter) &&
           other.postsCount == postsCount &&
-          other.lastReadPostNumber == lastReadPostNumber &&
           other.replyCount == replyCount &&
           other.views == views &&
           other.likeCount == likeCount &&
           other.participantCount == participantCount &&
           other.wordCount == wordCount &&
+          listEquals(other.participants, participants) &&
+          listEquals(other.links, links);
+
+  /// Whether [other] differs from this topic at most in the figures a like or
+  /// a reply moves: its totals, its post stream and what follows from them.
+  ///
+  /// A post tile compares topics with this, so a field belongs here unless
+  /// every reader of it follows the stored topic on its own.
+  bool hasSameFieldsBesidesFigures(TopicDetail other) =>
+      identical(this, other) ||
+      other.id == id &&
+          other.title == title &&
+          other.localizedTitle == localizedTitle &&
+          other.createdAt == createdAt &&
+          other.isMegaTopic == isMegaTopic &&
+          other.lastReadPostNumber == lastReadPostNumber &&
           other.hasSummary == hasSummary &&
           other.privateMessage == privateMessage &&
           other.messageArchived == messageArchived &&
@@ -1442,8 +1453,6 @@ class TopicDetail with Storable<TopicDetail> {
           other.canEdit == canEdit &&
           other.canEditTags == canEditTags &&
           listEquals(other.tags, tags) &&
-          listEquals(other.participants, participants) &&
-          listEquals(other.links, links) &&
           other.notificationLevel == notificationLevel &&
           other.pinned == pinned &&
           other.unpinned == unpinned &&

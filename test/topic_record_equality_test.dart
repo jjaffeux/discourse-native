@@ -97,6 +97,40 @@ void main() {
     });
   }
 
+  group('a topic as its post tiles compare it', () {
+    const held = TopicDetail(id: 7, title: 'Hello', stream: [1, 2]);
+
+    test('ignores the figures a like or a reply moves', () {
+      final moved = held.copyWith(
+        stream: const [1, 2, 3],
+        lastPostId: 3,
+        postsCount: 3,
+        likeCount: 9,
+        gapsAfter: const {
+          2: [3],
+        },
+        messageBusLastId: 12,
+      );
+
+      expect(moved == held, isFalse);
+      expect(moved.hasSameFieldsBesidesFigures(held), isTrue);
+    });
+
+    test('notices every field a post can read', () {
+      for (final changed in [
+        held.copyWith(title: 'Renamed'),
+        held.copyWith(closed: true),
+        held.copyWith(archived: true),
+        held.copyWith(canEdit: true),
+        held.copyWith(privateMessage: true),
+        held.copyWith(visible: false),
+        held.copyWith(categoryId: 3),
+      ]) {
+        expect(changed.hasSameFieldsBesidesFigures(held), isFalse);
+      }
+    });
+  });
+
   test('every bundled topic record compares by value', () {
     final plugins = [
       for (final plugin in registry.plugins)
