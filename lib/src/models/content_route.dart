@@ -434,14 +434,17 @@ class ContentRoute {
   String _topicFilterScopedQuery(
     List<String> tags, {
     required bool forRequest,
+    String? query,
     String? category,
   }) => [
-    topicFilterQuery,
+    query ?? topicFilterQuery,
     if (forRequest && topicListSearch.isNotEmpty) topicListSearch,
     if (categoryId != null) 'category:${category ?? categoryId}',
     if (tags.isNotEmpty)
       'tag:${forRequest ? tags.map(topicFilterScopeValue).join('+') : topicFilterScopeValue(tags.join('+'))}',
   ].where((part) => part.isNotEmpty).join(' ');
+
+  static final _exactCategoryId = RegExp(r'(?<!\S)=category:(\d+)(?!\S)');
 
   /// Only q/page are understood by /filter.json. Compile taxonomy into q.
   String topicFilterRequestPath(TopicCategory? Function(int id) categoryById) =>
@@ -451,7 +454,14 @@ class ContentRoute {
           'q': _topicFilterScopedQuery(
             tagNames,
             forRequest: true,
-            category: _categorySlugPath(categoryById),
+            query: topicFilterQuery.replaceAllMapped(_exactCategoryId, (match) {
+              final path = _categorySlugPath(
+                int.tryParse(match[1]!),
+                categoryById,
+              );
+              return path == null ? match[0]! : '=category:$path';
+            }),
+            category: _categorySlugPath(categoryId, categoryById),
           ),
         },
       ).toString();
@@ -460,11 +470,11 @@ class ContentRoute {
   /// value, so an id there matches no category. A multi-segment path must
   /// start at a top-level category, while a lone slug matches under any
   /// parent, so an ancestor that cannot be named leaves the category's own.
-  String? _categorySlugPath(TopicCategory? Function(int id) categoryById) {
-    final category = switch (categoryId) {
-      final id? => categoryById(id),
-      null => null,
-    };
+  String? _categorySlugPath(
+    int? id,
+    TopicCategory? Function(int id) categoryById,
+  ) {
+    final category = id == null ? null : categoryById(id);
     if (category == null || category.slug.isEmpty) return null;
     final slugs = [category.slug];
     final visited = {category.id};
