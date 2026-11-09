@@ -352,6 +352,7 @@ final class _WorkspaceController {
       return TabOpenResult.limitReached;
     }
     final root = _newDefaultTab();
+    final targetPanel = panel ?? workspace.activeTab.panel;
     final tab =
         (source != null
                 ? ForumTab(
@@ -367,15 +368,13 @@ final class _WorkspaceController {
                           .take(ForumTab.maximumContentRoutes - 1),
                       route,
                     ],
+                    readsBesideSource: targetPanel != source.panel,
                   )
                 : root.copyWith(
                     rootDestinationId: rootDestinationId ?? route.id,
                     contentStack: [route],
                   ))
-            .copyWith(
-              panel: panel ?? workspace.activeTab.panel,
-              rootDestinationId: rootDestinationId,
-            );
+            .copyWith(panel: targetPanel, rootDestinationId: rootDestinationId);
     final activate = select ?? _shell.desktopTopicTabs;
     _pendingHomepageTabs.remove(tab.id);
     final tabs = [...workspace.tabs];
@@ -463,19 +462,21 @@ final class _WorkspaceController {
       );
     }
 
-    final target = selected.navigate(
-      rootDestinationId: source.rootDestinationId,
-      contentStack: [
-        ...source.contentStack
-            .where(
-              (item) =>
-                  !item.sameDestinationAs(route) &&
-                  (!route.isTopic || !item.isTopic),
-            )
-            .take(ForumTab.maximumContentRoutes - 1),
-        route,
-      ],
-    );
+    final target = selected
+        .navigate(
+          rootDestinationId: source.rootDestinationId,
+          contentStack: [
+            ...source.contentStack
+                .where(
+                  (item) =>
+                      !item.sameDestinationAs(route) &&
+                      (!route.isTopic || !item.isTopic),
+                )
+                .take(ForumTab.maximumContentRoutes - 1),
+            route,
+          ],
+        )
+        .copyWith(readsBesideSource: true);
     final updated = resetScrollPosition
         ? target.copyWith(
             anchors: Map<String, ForumTabAnchor>.of(target.anchors)
@@ -525,6 +526,7 @@ final class _WorkspaceController {
       backHistory: tab.backHistory,
       forwardHistory: tab.forwardHistory,
       anchors: tab.anchors,
+      readsBesideSource: tab.readsBesideSource,
     );
 
     for (final panes in [_mainPaneTabs, _pluginPaneTabs]) {

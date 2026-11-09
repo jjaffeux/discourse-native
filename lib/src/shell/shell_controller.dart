@@ -2739,14 +2739,16 @@ class ShellController extends FrameSafeNotifier
 
   // Ordinary clicks push a topic over its list in the same tab, so closing
   // the reader returns to that list. The tab itself closes only when it holds
-  // nothing but the conversation, or when it reads beside its source list
-  // shown in the other panel.
+  // nothing but the conversation, or when it was opened beside a source list
+  // still shown in the other panel. Matching destinations alone cannot say
+  // that: a new workspace starts both panels on Latest.
   bool _readerClosesTab(ForumTab tab) {
     if (!desktopTopicTabs || !tab.currentContent.isTopic) return false;
     final sourceIndex = tab.contentStack.lastIndexWhere(
       (route) => !route.isTopic,
     );
     if (sourceIndex < 0) return true;
+    if (!tab.readsBesideSource) return false;
     final source = tab.contentStack[sourceIndex];
     final other = currentWorkspace?.selectedTabIn(
       tab.panel == ForumPanel.main ? ForumPanel.secondary : ForumPanel.main,
