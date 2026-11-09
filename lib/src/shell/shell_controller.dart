@@ -4620,7 +4620,7 @@ class ShellController extends FrameSafeNotifier
     topic.id,
     topic.slug,
     topic.displayTitle,
-    postNumber: topic.lastUnreadPostNumber,
+    postNumber: topic.listOpeningPostNumber(categoryFor(topic.categoryId)),
   );
 
   /// Requests to reveal a topic after list navigation; never replayed.
