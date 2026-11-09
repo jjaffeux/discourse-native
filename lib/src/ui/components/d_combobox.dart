@@ -417,18 +417,37 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
   // state and keyboard navigation each read it within the same build.
   DCombobox<T>? _filteredFor;
   String? _filteredQuery;
+  bool? _filteredEdited;
   List<DComboboxOption<T>> _filtered = const [];
+
+  // The label a selection leaves in the editor is not a search: an opened list
+  // stays whole until the reader edits that text.
+  bool _queryEditedSinceOpen = false;
+
+  bool _queryIsSelection(String normalized) {
+    final selected = selectedValues.firstOrNull;
+    return !_queryEditedSinceOpen &&
+        !combobox.multiple &&
+        selected != null &&
+        normalized == labelFor(selected).trim();
+  }
 
   List<DComboboxOption<T>> get filteredOptions {
     final query = this.query;
-    if (identical(_filteredFor, combobox) && _filteredQuery == query) {
+    if (identical(_filteredFor, combobox) &&
+        _filteredQuery == query &&
+        _filteredEdited == _queryEditedSinceOpen) {
       return _filtered;
     }
     final normalized = query.trim();
     final lowercase = normalized.toLowerCase();
+    final filtering =
+        combobox.filterLocally &&
+        normalized.isNotEmpty &&
+        !_queryIsSelection(normalized);
     var result = _allOptions
         .where((option) {
-          if (!combobox.filterLocally || normalized.isEmpty) return true;
+          if (!filtering) return true;
           if (combobox.filter case final filter?) {
             return filter(
               option.value,
@@ -442,6 +461,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
 
     _filteredFor = combobox;
     _filteredQuery = query;
+    _filteredEdited = _queryEditedSinceOpen;
     return _filtered = result;
   }
 
@@ -595,6 +615,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
       return;
     }
     _measureAnchor();
+    if (open) _queryEditedSinceOpen = false;
     if (open && _pendingSelectionText != null) {
       _replaceText(_pendingSelectionText!);
       _pendingSelectionText = null;
@@ -630,6 +651,7 @@ class _DComboboxState<T> extends FormFieldState<List<T>> {
     bool openPopup = true,
   }) {
     if (!mutable) return;
+    if (reason == DComboboxChangeReason.input) _queryEditedSinceOpen = true;
     if (combobox.query == null && textController.text != next) {
       _replaceText(next);
     }

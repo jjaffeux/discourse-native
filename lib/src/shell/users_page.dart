@@ -707,13 +707,6 @@ class _UsersPageState extends State<UsersPage> {
                                         ],
                                       ),
                                       enabled: widget.onGroupChanged != null,
-                                      filter: (value, query, label) =>
-                                          query ==
-                                              (data.query.group ??
-                                                  context.l10n.allGroups) ||
-                                          label.toLowerCase().contains(
-                                            query.toLowerCase(),
-                                          ),
                                       onChanged: (value, reason) =>
                                           widget.onGroupChanged?.call(
                                             value == '__all_groups__'
