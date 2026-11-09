@@ -1,12 +1,12 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/shell/composer/components/code_source.dart';
-import 'package:discourse_native/src/shell/composer/components/details.dart';
+import 'package:discourse_native/src/shell/composer/components/details_editor.dart';
 import 'package:discourse_native/src/shell/composer/components/details_source.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
-import 'package:discourse_native/src/shell/composer/components/link.dart';
-import 'package:discourse_native/src/shell/composer/components/table.dart';
+import 'package:discourse_native/src/shell/composer/components/link_source.dart';
+import 'package:discourse_native/src/shell/composer/components/table_editor.dart';
 import 'package:discourse_native/src/shell/composer/components/table_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/html_comments.dart';

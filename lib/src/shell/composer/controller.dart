@@ -22,11 +22,12 @@ import '../../models/topic_tag.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/composer_target.dart';
 import '../../plugin_api/hashtag_kind.dart';
+import 'artwork.dart';
 import 'autocomplete.dart';
 import 'block_controller.dart';
+import 'component_artwork.dart';
 import 'components/core.dart';
 import 'components/document_body_controller.dart';
-import 'components/document_body_editor.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/list_source.dart';
@@ -303,13 +304,27 @@ class ComposerController extends ChangeNotifier
 
     final range = resolveRange(expectedText, sourceRange.start);
     if (range == null || range.end != sourceRange.end) return null;
-    return ComposerDocumentBodyEditor(
+    return artwork.embeddedDocument(
       key: ValueKey((kind.id, identity)),
       parent: this,
       range: range,
       resolveRange: resolveRange,
       semanticLabel: semanticLabel,
     );
+  }
+
+  ComposerComponentArtwork? _artwork;
+
+  /// How the editor rendering this composer draws its core components.
+  /// [ComposerEditor] installs it at mount; a composer rendered any other way
+  /// has none, and drawing a component then is a wiring error.
+  ComposerComponentArtwork get artwork => _artwork ?? composerArtworkMissing();
+
+  /// The document controller draws media, quotes and pills itself, so it
+  /// shares the same artwork.
+  set artwork(ComposerComponentArtwork value) {
+    _artwork = value;
+    text.artwork = value;
   }
 
   static const Duration draftDebounce = Duration(seconds: 2);

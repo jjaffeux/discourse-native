@@ -39,13 +39,14 @@ import 'blocks.dart';
 import 'clipboard.dart';
 import 'components/blockquote.dart';
 import 'components/code.dart';
+import 'components/core_artwork.dart';
 import 'components/details.dart';
-import 'components/emoji.dart';
 import 'components/gallery.dart';
 import 'components/gallery_source.dart';
 import 'components/image.dart';
 import 'components/image_source.dart';
 import 'components/link.dart';
+import 'components/link_dialog.dart';
 import 'components/list.dart';
 import 'components/list_formatting.dart';
 import 'components/quote.dart';
@@ -68,6 +69,7 @@ import 'selection_menu.dart';
 import 'slash_menu.dart';
 import 'suggestions.dart';
 import 'tag_removal_notice.dart';
+import 'topic_emoji_picker.dart';
 import 'upload_attachment.dart';
 import 'upload_picker.dart';
 
@@ -1689,6 +1691,9 @@ class _ComposerEditorState extends State<ComposerEditor> {
     );
     _pasteAction = _ComposerPasteAction(_pasteClipboard);
     widget.composer.text.imageScrollController = _scroll;
+    // Before the first frame: the editor is what draws the components the
+    // controllers only project.
+    widget.composer.artwork = const CoreComposerArtwork();
     _selectionOverlay.sync();
   }
 
@@ -1749,6 +1754,7 @@ class _ComposerEditorState extends State<ComposerEditor> {
       });
     }
     if (identical(oldWidget.composer, widget.composer)) return;
+    widget.composer.artwork = const CoreComposerArtwork();
     oldWidget.composer.text.removeListener(_observeBlockquoteValue);
     _blockquoteInputFormatter.reset();
     _blockquoteFieldGeneration = widget.composer.fieldGeneration;

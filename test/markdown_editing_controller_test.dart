@@ -10,8 +10,9 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
-import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
 import 'package:discourse_native/src/shell/composer/components/quote.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_highlight.dart';
@@ -47,6 +48,7 @@ void main() {
         highlightLinesBatchInBackground,
   }) async {
     controller = MarkdownEditingController(
+      artwork: const CoreComposerArtwork(),
       text: source,
       resolveEmoji: resolveEmoji,
       pills: pills,
@@ -241,6 +243,7 @@ void main() {
       ].join('\n');
       final source = '$componentSource \tafter';
       final componentController = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: source,
         syntaxPolicies: const [_MultilineSyntaxPolicy()],
       );
@@ -287,7 +290,10 @@ void main() {
       required int Function(MarkdownEditingController) componentEnd,
       bool sameLine = false,
     }) async {
-      final componentController = MarkdownEditingController(text: source);
+      final componentController = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: source,
+      );
       addTearDown(componentController.dispose);
 
       await tester.pumpWidget(
@@ -446,6 +452,7 @@ void main() {
 
   test('every keyboard-selected projection hides the cursor', () {
     final selectedController = MarkdownEditingController(
+      artwork: const CoreComposerArtwork(),
       text: '![alt](https://example.com/a.png) [[token]]',
       syntaxPolicies: const [_FakeSyntaxPolicy()],
     );
@@ -494,7 +501,10 @@ void main() {
 
   test('a disposed editor stops holding its latest scan for readers', () {
     const source = 'A draft only this editor scans, with `code` in it';
-    final editor = MarkdownEditingController(text: source);
+    final editor = MarkdownEditingController(
+      artwork: const CoreComposerArtwork(),
+      text: source,
+    );
     expect(editor.syntaxBlocks, isEmpty);
     for (var other = 0; other < 16; other += 1) {
       scanMarkdown('An unrelated draft $other');
@@ -997,7 +1007,10 @@ void main() {
     });
 
     testWidgets('disposal cancels the pending tokenization', (tester) async {
-      final local = MarkdownEditingController(text: largeSource);
+      final local = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: largeSource,
+      );
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.dark,
@@ -1021,6 +1034,7 @@ void main() {
       final result = Completer<SyntaxHighlightBatch>();
       late List<SyntaxHighlightRequest> requests;
       final local = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: largeSource,
         backgroundSyntaxHighlighterForTesting: (batch) {
           requests = List.of(batch);
@@ -1776,6 +1790,7 @@ void main() {
         final source = buffer.toString();
 
         final candidate = MarkdownEditingController(
+          artwork: const CoreComposerArtwork(),
           text: source,
           resolveEmoji: urlFor,
           pills: pills,

@@ -19,6 +19,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.da
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
 import 'package:discourse_native/src/shell/composer/components/list.dart';
 import 'package:discourse_native/src/shell/composer/components/table.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';

@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart'
     show ReplyComposerTarget;
 import 'package:discourse_native/src/shell/composer/panel.dart'
@@ -27,6 +28,7 @@ void main() {
         syntaxPolicies: [const BoxPolicy()],
       );
       parent.text.text = source;
+      parent.artwork = const CoreComposerArtwork();
       addTearDown(parent.dispose);
       Widget frame() => MaterialApp(
         theme: AppTheme.light,
@@ -108,6 +110,7 @@ void main() {
         syntaxPolicies: [const BoxPolicy()],
       );
       parent.text.text = source;
+      parent.artwork = const CoreComposerArtwork();
       addTearDown(parent.dispose);
       await tester.pumpWidget(
         MaterialApp(

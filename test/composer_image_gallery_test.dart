@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/composer/block_surface.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery.dart';
 import 'package:discourse_native/src/shell/composer/components/gallery_source.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
@@ -609,7 +610,10 @@ void main() {
     testWidgets('preserves raw source offsets and editable scroll height', (
       tester,
     ) async {
-      final controller = MarkdownEditingController(text: _source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: _source,
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
@@ -1021,7 +1025,10 @@ void main() {
     testWidgets('maps gallery, image, and control positions to source blocks', (
       tester,
     ) async {
-      final controller = MarkdownEditingController(text: _source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: _source,
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
@@ -1069,7 +1076,10 @@ void main() {
     testWidgets(
       'highlights a keyboard-selected child without revealing source',
       (tester) async {
-        final controller = MarkdownEditingController(text: _source);
+        final controller = MarkdownEditingController(
+          artwork: const CoreComposerArtwork(),
+          text: _source,
+        );
         addTearDown(controller.dispose);
         await tester.pumpWidget(
           MaterialApp(
@@ -1107,7 +1117,10 @@ void main() {
           final source = mode == ComposerGalleryMode.carousel
               ? _source.replaceFirst('[grid]', '[grid mode=carousel]')
               : _source;
-          final controller = MarkdownEditingController(text: source);
+          final controller = MarkdownEditingController(
+            artwork: const CoreComposerArtwork(),
+            text: source,
+          );
           addTearDown(controller.dispose);
           await tester.pumpWidget(
             MaterialApp(
@@ -1146,7 +1159,10 @@ void main() {
     testWidgets('never reveals source for selections crossing the gallery', (
       tester,
     ) async {
-      final controller = MarkdownEditingController(text: _source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: _source,
+      );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
@@ -1183,7 +1199,10 @@ void main() {
     testWidgets('a pointer edit holds the gallery selected without a caret', (
       tester,
     ) async {
-      final controller = MarkdownEditingController(text: _source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: _source,
+      );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(
@@ -1220,7 +1239,10 @@ void main() {
       tester,
     ) async {
       const source = '[grid]\n[/grid]';
-      final controller = MarkdownEditingController(text: source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: source,
+      );
       addTearDown(controller.dispose);
       await tester.pumpWidget(
         MaterialApp(

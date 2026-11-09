@@ -5,7 +5,9 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_dialog.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -211,9 +213,9 @@ void main() {
       );
       await _pumpPanel(tester, shell);
       final context = tester.element(find.byType(ComposerPanel));
-      final projection = const ComposerLinkSyntaxPolicy()
-          .parse(composer.raw)
-          .single;
+      final projection = ComposerLinkSyntaxPolicy(
+        artwork: () => const CoreComposerArtwork(),
+      ).parse(composer.raw).single;
       final editing = projection.edit(context, composer);
       await tester.pumpAndSettle();
       await tester.enterText(

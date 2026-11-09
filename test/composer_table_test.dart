@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/table.dart';
+import 'package:discourse_native/src/shell/composer/components/table_editor.dart';
 import 'package:discourse_native/src/shell/composer/components/table_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';

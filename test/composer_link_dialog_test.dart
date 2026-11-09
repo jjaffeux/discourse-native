@@ -2,7 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_dialog.dart';
+import 'package:discourse_native/src/shell/composer/components/link_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/services.dart';
 
-import 'components/link.dart';
+import 'components/link_source.dart';
 import 'markdown_highlight.dart';
 import 'marks.dart';
 

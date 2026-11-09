@@ -32,7 +32,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.da
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/composer/block_surface.dart';
 import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
-import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/upload_picker.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';

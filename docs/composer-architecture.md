@@ -7,22 +7,42 @@ composition, history, overlap resolution, and span caching.
 ## Core features
 
 `lib/src/shell/composer/components/` contains the built-in feature modules.
-`emoji.dart`, `image.dart`, `gallery.dart`, `todo.dart`, `quote.dart`,
-`blockquote.dart`, `mention.dart`, and `hashtag.dart` construct their own
-presentation. `link.dart`, `code.dart`, `details.dart`, `list.dart`, `table.dart`,
-`video.dart`, and `upload.dart` own their existing syntax policies and editor behavior.
-Image and gallery toolbars and menus also live with their features. The mobile
-image toolbar receives the shared history controls from the panel.
-Lossless parsers live beside their feature in `*_source.dart` files when they
-need a separate module.
+`link.dart`, `code.dart`, `details.dart`, `list.dart`, `table.dart`,
+`video.dart`, and `upload.dart` own their syntax policies, projections and
+editor behavior, and declare no widget. Their widgets live beside them in
+`code_editor.dart`, `details_editor.dart`, `table_editor.dart`,
+`list_item_editor.dart`, `link_pill.dart` and `link_dialog.dart`;
+`image.dart`, `gallery.dart`, `quote.dart`, `todo.dart`, `blockquote.dart` and
+`emoji.dart` construct their own presentation. Image and gallery toolbars and
+menus also live with their features. The mobile image toolbar receives the
+shared history controls from the panel. Lossless parsers live beside their
+feature in `*_source.dart` files when they need a separate module.
+
+The controllers never import a widget library of the shell. A projection owns
+its source geometry: the spans, hidden tail, keys and caret rules around a
+component. The widget placed inside its span comes from `ComposerArtwork`
+(`composer/artwork.dart`, what the document controller draws itself: media,
+quotes, pills and links) and `ComposerComponentArtwork`
+(`composer/component_artwork.dart`, the core components whose widgets embed an
+editor bound to their `ComposerController`). `components/core_artwork.dart`
+is the one implementation, and `ComposerEditor` installs it on the composer at
+mount, which shares it with the document controller. A controller rendered in
+a plain field names its own artwork; drawing a component with none installed
+throws, because that is a wiring error rather than a state to render around.
+A projection starts editing its component through `ComposerComponentEditor`,
+the interface the editor widgets' States implement, reached through the pill
+key the projection handed to the artwork.
 
 `core.dart` constructs built-in policies once per composer. Plugin targets retain
 their existing reduced set of core features. Link policy configuration stays
-in the Markdown editor because its linkify settings can change during editing.
+in the Markdown editor because its linkify settings can change during editing,
+and the link policy reads the artwork lazily for the same reason.
+`topic_emoji_picker.dart` binds the shell to the emoji picker for forum
+composers; plugin composers bring their own emoji host.
 
 `MarkdownEditingController` coordinates these features. It keeps retained keys
-and document-dependent state, then calls feature builders with explicit values
-and callbacks. Emoji owns its pending artwork loads per editor and suppresses
+and document-dependent state, then calls the artwork with explicit values and
+callbacks. Emoji owns its pending artwork loads per editor and suppresses
 completion callbacks after disposal. The shared media pipeline still owns the
 cached bytes and network request deduplication.
 
