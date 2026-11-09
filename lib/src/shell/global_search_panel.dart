@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -98,6 +99,8 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Object? _navigationSignature;
   int _categoryPage = 0;
   bool _hasMoreChoices = false;
+  List<Object?>? _scopeBarReads, _skeletonReads;
+  Widget? _builtScopeBar, _builtSkeleton;
 
   Object? _targetFor(String? id) => widget.controller.results
       .where((result) => result.id == id)
@@ -811,49 +814,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DToggleGroup<GlobalSearchScope>(
-                      values: [controller.scope],
-                      onChanged: (values) => controller.setScope(values.single),
-                      allowEmptySelection: false,
-                      density: DToggleDensity.menuFilter,
-                      variant: DToggleVariant.outline,
-                      spacing: 1.5,
-                      semanticLabel: context.l10n.globalSearch,
-                      items: [
-                        for (final scope in controller.scopes)
-                          DToggleGroupItem(
-                            value: scope,
-                            semanticLabel: scope.label,
-                            child: KeyedSubtree(
-                              key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
-                              child: Row(
-                                key: ValueKey(
-                                  'global-search-scope-${scope.keyName}',
-                                ),
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: 6,
-                                children: [
-                                  Text(scope.label),
-                                  if (scope != GlobalSearchScope.all &&
-                                      controller.sections.any(
-                                        (section) =>
-                                            section.scope == scope &&
-                                            section.topicId == null &&
-                                            section.results.isNotEmpty,
-                                      ))
-                                    Text(
-                                      '${controller.sections.where((section) => section.scope == scope && section.topicId == null).fold<int>(0, (count, section) => count + section.results.length)}',
-                                      style: const TextStyle(
-                                        fontSize: DiscourseTypography.micro,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    _scopeBar(context),
                     if (widget.showConditions)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
@@ -879,6 +840,62 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     },
   );
+
+  int _scopeCount(GlobalSearchScope scope) => widget.controller.sections
+      .where((section) => section.scope == scope && section.topicId == null)
+      .fold(0, (count, section) => count + section.results.length);
+
+  /// The scope bar is drawn again only when a scope, its count or the
+  /// selection changes; every keystroke and result delivery notifies.
+  Widget _scopeBar(BuildContext context) {
+    final controller = widget.controller;
+    final reads = <Object?>[
+      controller,
+      context.l10n,
+      controller.scope,
+      for (final scope in controller.scopes) ...[scope, _scopeCount(scope)],
+    ];
+    if (_builtScopeBar == null || !listEquals(reads, _scopeBarReads)) {
+      _scopeBarReads = reads;
+      _builtScopeBar = DToggleGroup<GlobalSearchScope>(
+        values: [controller.scope],
+        onChanged: (values) => controller.setScope(values.single),
+        allowEmptySelection: false,
+        density: DToggleDensity.menuFilter,
+        variant: DToggleVariant.outline,
+        spacing: 1.5,
+        semanticLabel: context.l10n.globalSearch,
+        items: [
+          for (final scope in controller.scopes)
+            DToggleGroupItem(
+              value: scope,
+              semanticLabel: scope.label,
+              child: KeyedSubtree(
+                key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
+                child: Row(
+                  key: ValueKey('global-search-scope-${scope.keyName}'),
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 6,
+                  children: [
+                    Text(scope.label),
+                    if (scope != GlobalSearchScope.all &&
+                        _scopeCount(scope) > 0)
+                      Text(
+                        '${_scopeCount(scope)}',
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.micro,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    return _builtScopeBar!;
+  }
 
   Widget _conditions(BuildContext context) {
     final controller = widget.controller;
@@ -1090,11 +1107,28 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     );
   }
 
-  Widget _loadingResults(BuildContext context) => SingleChildScrollView(
+  /// The skeleton is shaped by the scope and the theme alone, while every
+  /// keystroke of a pending search notifies.
+  Widget _loadingResults(BuildContext context) {
+    final showAvatar = widget.controller.scope.showAvatar;
+    final fill = skeletonFill(context, on: SkeletonSurface.floating);
+    final reads = <Object?>[context.l10n, showAvatar, fill];
+    if (_builtSkeleton == null || !listEquals(reads, _skeletonReads)) {
+      _skeletonReads = reads;
+      _builtSkeleton = _buildLoadingResults(context, showAvatar, fill);
+    }
+    return _builtSkeleton!;
+  }
+
+  Widget _buildLoadingResults(
+    BuildContext context,
+    bool showAvatar,
+    Color fill,
+  ) => SingleChildScrollView(
     padding: const EdgeInsets.all(6),
     child: DSkeletonRegion(
       semanticsLabel: context.l10n.loading,
-      color: skeletonFill(context, on: SkeletonSurface.floating),
+      color: fill,
       child: Column(
         children: [
           for (var index = 0; index < 8; index++)
@@ -1108,7 +1142,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       spacing: 10,
                       children: [
-                        if (widget.controller.scope.showAvatar)
+                        if (showAvatar)
                           const DSkeleton.circle(diameter: 30)
                         else
                           const SizedBox(width: 30),

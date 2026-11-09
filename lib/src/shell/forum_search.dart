@@ -38,6 +38,18 @@ typedef _FieldLayout = ({
 /// The shell state that [_ForumSearchState.build] draws.
 typedef _ShellReads = ({bool canSearch, bool open, String listExpression});
 
+/// What the field draws from the search controller outside its chips, which
+/// listen for themselves.
+typedef _GlobalReads = ({
+  bool hasConditions,
+  bool hasOrderFilter,
+  GlobalSearchScope scope,
+  int configurationRevision,
+  bool hasQuery,
+  bool hasWords,
+  String? selectedResultId,
+});
+
 class ForumSearch extends StatefulWidget {
   const ForumSearch({
     super.key,
@@ -83,6 +95,7 @@ class _ForumSearchState extends State<ForumSearch> {
   String? _tabId;
   bool _scoped = false;
   _ShellReads? _builtReads;
+  _GlobalReads? _builtGlobalReads;
 
   ShellTabContext? get _document {
     final shell = _shell;
@@ -151,6 +164,16 @@ class _ForumSearchState extends State<ForumSearch> {
     canSearch: _search.canSearch,
     open: _open,
     listExpression: _listExpression,
+  );
+
+  _GlobalReads get _globalReads => (
+    hasConditions: _global.conditions.isNotEmpty,
+    hasOrderFilter: _global.hasOrderFilter,
+    scope: _global.scope,
+    configurationRevision: _global.configurationRevision,
+    hasQuery: _query.isNotEmpty,
+    hasWords: _global.wordsQuery.isNotEmpty,
+    selectedResultId: _selectedResultId,
   );
 
   bool get _shellPage => widget.fullScreen && _shell!.mobileNavigationEnabled;
@@ -333,6 +356,10 @@ class _ForumSearchState extends State<ForumSearch> {
     if (!mounted) return;
     _syncText();
     _presentation.reconcileSelection();
+    // Every keystroke and result delivery notifies; the panel and the chips
+    // listen for themselves, so the field redraws only for its own reads.
+    if (_globalReads == _builtGlobalReads) return;
+    _pageRevision.value++;
     setState(() {});
   }
 
@@ -846,43 +873,48 @@ class _ForumSearchState extends State<ForumSearch> {
                 builder: (context, constraints) => DScrollArea(
                   axes: DScrollAxes.horizontal,
                   showScrollbar: false,
-                  child: expanded
-                      ? GlobalSearchChips(
-                          controller: _global,
-                          maxWidth: constraints.maxWidth,
-                          onRefocus: _focus.requestFocus,
-                        )
-                      : Row(
-                          mainAxisSize: MainAxisSize.min,
-                          spacing: 4,
-                          children: [
-                            for (final condition in _closedConditions)
-                              SearchFilterChip(
-                                controller: _global,
-                                condition: condition,
-                                maxWidth: constraints.maxWidth,
-                                onEdit: () {
-                                  _requestFocus();
-                                  _global.beginFilter(
-                                    globalSearchFilter(
-                                      condition.filterId,
-                                      _global.capabilities,
-                                    )!,
-                                  );
-                                  _focus.requestFocus();
-                                },
-                                onRemove: () {
-                                  _requestFocus();
-                                  final index = _global.conditions.indexWhere(
-                                    (item) =>
-                                        item.filterId == condition.filterId,
-                                  );
-                                  _global.removeCondition(index);
-                                  _focus.requestFocus();
-                                },
-                              ),
-                          ],
-                        ),
+                  // Chip labels arrive from lookups that change nothing else
+                  // the field reads, so the chips follow the controller.
+                  child: ListenableBuilder(
+                    listenable: _global,
+                    builder: (context, _) => expanded
+                        ? GlobalSearchChips(
+                            controller: _global,
+                            maxWidth: constraints.maxWidth,
+                            onRefocus: _focus.requestFocus,
+                          )
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            spacing: 4,
+                            children: [
+                              for (final condition in _closedConditions)
+                                SearchFilterChip(
+                                  controller: _global,
+                                  condition: condition,
+                                  maxWidth: constraints.maxWidth,
+                                  onEdit: () {
+                                    _requestFocus();
+                                    _global.beginFilter(
+                                      globalSearchFilter(
+                                        condition.filterId,
+                                        _global.capabilities,
+                                      )!,
+                                    );
+                                    _focus.requestFocus();
+                                  },
+                                  onRemove: () {
+                                    _requestFocus();
+                                    final index = _global.conditions.indexWhere(
+                                      (item) =>
+                                          item.filterId == condition.filterId,
+                                    );
+                                    _global.removeCondition(index);
+                                    _focus.requestFocus();
+                                  },
+                                ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
@@ -921,6 +953,7 @@ class _ForumSearchState extends State<ForumSearch> {
   @override
   Widget build(BuildContext context) {
     _builtReads = _shellReads;
+    _builtGlobalReads = _globalReads;
     if (!_search.canSearch) return const SizedBox.shrink();
     if (widget._pageContent) {
       return DPageSurface(
@@ -1197,58 +1230,61 @@ class _ForumSearchState extends State<ForumSearch> {
   );
 
   Widget _buildPageContent() => ListenableBuilder(
-    listenable: Listenable.merge([_global, _pageRevision]),
-    builder: (context, _) => DReferenceTextScale(
-      child: Column(
-        key: ForumSearch.panelKey,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-            child: Row(
-              spacing: 10,
-              children: [
-                Expanded(
-                  child: LayoutBuilder(
-                    builder: (context, constraints) =>
-                        _editor(constraints.maxWidth, expanded: true),
+    listenable: _pageRevision,
+    builder: (context, _) {
+      _builtGlobalReads = _globalReads;
+      return DReferenceTextScale(
+        child: Column(
+          key: ForumSearch.panelKey,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+              child: Row(
+                spacing: 10,
+                children: [
+                  Expanded(
+                    child: LayoutBuilder(
+                      builder: (context, constraints) =>
+                          _editor(constraints.maxWidth, expanded: true),
+                    ),
                   ),
-                ),
-                DButton(
-                  key: const ValueKey('mobile-search-back'),
-                  label: Text(
-                    appL10n.cancel,
-                    style: TextStyle(color: DTokens.of(context).primary),
+                  DButton(
+                    key: const ValueKey('mobile-search-back'),
+                    label: Text(
+                      appL10n.cancel,
+                      style: TextStyle(color: DTokens.of(context).primary),
+                    ),
+                    size: DButtonSize.filter,
+                    variant: DButtonVariant.inline,
+                    onPressed: _closeSearch,
                   ),
-                  size: DButtonSize.filter,
-                  variant: DButtonVariant.inline,
-                  onPressed: _closeSearch,
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Expanded(
-            child: GlobalSearchPanel(
-              key: _panelKey,
-              showConditions: false,
-              showClearFilters:
-                  _listExpression.isNotEmpty &&
-                  _global.wordsQuery.isEmpty &&
-                  _global.conditions.isEmpty,
-              controller: _global,
-              onApply: _apply,
-              onOpenSection: _openSection,
-              onRefocus: _focus.requestFocus,
-              selectedResultId: _selectedResultId,
-              onSelect: (id) {
-                _selectResult(id);
-                _pageRevision.value++;
-              },
-              onOpen: _openResult,
+            Expanded(
+              child: GlobalSearchPanel(
+                key: _panelKey,
+                showConditions: false,
+                showClearFilters:
+                    _listExpression.isNotEmpty &&
+                    _global.wordsQuery.isEmpty &&
+                    _global.conditions.isEmpty,
+                controller: _global,
+                onApply: _apply,
+                onOpenSection: _openSection,
+                onRefocus: _focus.requestFocus,
+                selectedResultId: _selectedResultId,
+                onSelect: (id) {
+                  _selectResult(id);
+                  _pageRevision.value++;
+                },
+                onOpen: _openResult,
+              ),
             ),
-          ),
-        ],
-      ),
-    ),
+          ],
+        ),
+      );
+    },
   );
   void _openPage() {
     final content = _buildPageContent();
