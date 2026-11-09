@@ -39,6 +39,18 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
     extentOffset: selection.baseOffset > selection.extentOffset ? from : to,
   );
 
+  if (marker != '`' &&
+      selected.contains('\n') &&
+      !(_endsWithMark(before, marker) && _startsWithMark(after, marker))) {
+    final lines = _toggleEachLine(selected, marker);
+    if (lines != null) {
+      return TextEditingValue(
+        text: '$before$lines$after',
+        selection: selecting(start, start + lines.length),
+      );
+    }
+  }
+
   if (_isWrapped(selected, marker)) {
     final inner = selected.substring(
       marker.length,
@@ -68,6 +80,29 @@ TextEditingValue toggleMarkdownMark(TextEditingValue value, String marker) {
         ? TextSelection.collapsed(offset: caret)
         : selecting(caret, caret + selected.length),
   );
+}
+
+/// Emphasis cannot open on one side of a blank line and close on the other,
+/// so each line takes its own pair, as core's `_getMultilineContents` writes
+/// them. Null for a single span that already wraps several lines, which only
+/// has one pair to remove.
+String? _toggleEachLine(String selected, String marker) {
+  final lines = selected.split('\n');
+  final filled = lines.map((line) => line.trim()).where((c) => c.isNotEmpty);
+  final remove = filled.every((content) => _isWrapped(content, marker));
+  if (!remove && _isWrapped(selected, marker)) return null;
+  return [
+    for (final line in lines)
+      if (line.trim() case final content when content.isNotEmpty)
+        line.replaceFirst(
+          content,
+          remove
+              ? content.substring(marker.length, content.length - marker.length)
+              : '$marker$content$marker',
+        )
+      else
+        line,
+  ].join('\n');
 }
 
 final _backtickRuns = RegExp(r'`+');
