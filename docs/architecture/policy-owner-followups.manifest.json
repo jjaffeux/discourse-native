@@ -31,5 +31,18 @@
     "path": "test/architecture_topic_link_contract_test.dart"
    }
   ]
+ },
+ {
+  "slug": "card-count-owner",
+  "subject": "FIX: abbreviate topic card counts with the short number owner",
+  "proofs": [
+   {
+    "path": "test/mobile_topic_card_test.dart",
+    "name": "large topic counts read as the short number owner writes them"
+   },
+   {
+    "path": "test/architecture_count_format_contract_test.dart"
+   }
+  ]
  }
 ]

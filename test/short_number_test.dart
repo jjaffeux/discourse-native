@@ -24,6 +24,28 @@ void main() {
       }
     });
 
+    test('whole thousands start at 10,000 and leave other ranges alone', () {
+      const expected = [
+        (999, '999'),
+        (1000, '1k'),
+        (1500, '1.5k'),
+        (9999, '10k'),
+        (10000, '10k'),
+        (18400, '18k'),
+        (18999, '18k'),
+        (99999, '99k'),
+        (999500, '999k'),
+        (1500000, '1.5M'),
+      ];
+      for (final (count, label) in expected) {
+        expect(
+          shortNumber(count, wholeThousands: true),
+          label,
+          reason: '$count',
+        );
+      }
+    });
+
     test('floors hundreds of thousands rather than rounding into 1000k', () {
       for (var count = 999000; count <= 999999; count += 37) {
         expect(shortNumber(count), '999k', reason: '$count');

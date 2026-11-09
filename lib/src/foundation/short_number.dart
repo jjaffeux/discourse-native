@@ -12,13 +12,16 @@ import 'package:intl/intl.dart';
 /// negative counts included — is left whole, and not-a-number reads "0".
 ///
 /// Unlike the web, a decimal that comes out as ".0" is dropped ("1k", "1M").
-String shortNumber(num count) {
+///
+/// With [wholeThousands] the floor to whole thousands starts at 10,000, for a
+/// layout with no room for "18.4k". Every other range is unchanged.
+String shortNumber(num count, {bool wholeThousands = false}) {
   if (count.isNaN) return '0';
   // Kept a double: an integer conversion would saturate a finite value beyond
   // the 64-bit range instead of carrying its magnitude through.
   final value = count is int ? count : count.roundToDouble();
   if (value > 999999) return appL10n.compactMillions(_tenths(value / 1000000));
-  if (value > 99999) {
+  if (value > (wholeThousands ? 9999 : 99999)) {
     return appL10n.compactThousands(_whole((value / 1000).floor()));
   }
   if (value > 999) return appL10n.compactThousands(_tenths(value / 1000));

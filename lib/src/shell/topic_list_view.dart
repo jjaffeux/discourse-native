@@ -14,6 +14,7 @@ import '../data/site_lifecycle.dart';
 import '../foundation/count_label.dart';
 import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
+import '../foundation/short_number.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
