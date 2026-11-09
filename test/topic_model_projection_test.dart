@@ -351,7 +351,7 @@ void main() {
           expect(request.url.path, '/t/7.json');
           expect(request.url.queryParameters, {
             'post_number': '2',
-            'summary': 'true',
+            'filter': 'summary',
           });
           return http.Response.bytes(
             latin1.encode(jsonEncode(_topicPayload(large: true))),
