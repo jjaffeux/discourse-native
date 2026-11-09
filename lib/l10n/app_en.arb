@@ -10578,6 +10578,10 @@
   "@more": {
     "description": "English UI message used by shell/composer_panel.dart. Keep placeholders intact."
   },
+  "less": "Less",
+  "@less": {
+    "description": "Sidebar row that folds the destinations opened from More back away."
+  },
   "showMoreComposerTools": "Show more composer tools",
   "@showMoreComposerTools": {
     "description": "English UI message used by shell/composer_panel.dart. Keep placeholders intact."

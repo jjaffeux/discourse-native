@@ -8089,6 +8089,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get more => 'More';
 
   @override
+  String get less => 'Less';
+
+  @override
   String get showMoreComposerTools => 'Show more composer tools';
 
   @override

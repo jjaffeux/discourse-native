@@ -70,10 +70,7 @@ final Finder _verticalScrollable = find.byWidgetPredicate(
 
 // More discloses the community's further destinations in place; it is a
 // toggle rather than a destination of its own.
-Finder get _sidebarMore => find.ancestor(
-  of: find.text('More'),
-  matching: find.byKey(const ValueKey('sidebar-more-toggle')),
-);
+Finder get _sidebarMore => sidebarMoreToggle;
 
 // The content header's refresh-tab control shares the glyph; the update
 // button is the one in the rail.
@@ -677,24 +674,14 @@ void _registerShellNavigationTests() {
         await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
 
-        expect(
-          tester
-              .widgetList<SidebarDestinationTile>(
-                find.descendant(
-                  of: find.byKey(const ValueKey('sidebar-more-content')),
-                  matching: find.byType(SidebarDestinationTile),
-                ),
-              )
-              .map((row) => row.destination.label),
-          [
-            'Categories',
-            'Teams',
-            'Badges',
-            if (connected) 'Bookmarks',
-            'Interface',
-            if (connected) 'Preferences',
-          ],
-        );
+        expect(sidebarMoreLabels(tester), [
+          'Categories',
+          'Teams',
+          'Badges',
+          if (connected) 'Bookmarks',
+          'Interface',
+          if (connected) 'Preferences',
+        ]);
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pumpAndSettle();
 
@@ -774,17 +761,12 @@ void _registerShellNavigationTests() {
         await tester.pumpAndSettle();
         await tester.tap(_sidebarMore);
         await tester.pumpAndSettle();
-        expect(
-          tester
-              .widgetList<SidebarDestinationTile>(
-                find.descendant(
-                  of: find.byKey(const ValueKey('sidebar-more-content')),
-                  matching: find.byType(SidebarDestinationTile),
-                ),
-              )
-              .map((row) => row.destination.label),
-          ['Categories', 'Groups', 'Badges', 'Interface'],
-        );
+        expect(sidebarMoreLabels(tester), [
+          'Categories',
+          'Groups',
+          'Badges',
+          'Interface',
+        ]);
       },
       variant: TargetPlatformVariant.only(TargetPlatform.linux),
     );

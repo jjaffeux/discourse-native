@@ -13894,6 +13894,12 @@ abstract class AppLocalizations {
   /// **'More'**
   String get more;
 
+  /// Sidebar row that folds the destinations opened from More back away.
+  ///
+  /// In en, this message translates to:
+  /// **'Less'**
+  String get less;
+
   /// English UI message used by shell/composer_panel.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
