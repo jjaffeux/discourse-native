@@ -2602,6 +2602,57 @@ void main() {
     },
   );
 
+  testWidgets('a discovery read with no answer keeps the ones that answered', (
+    tester,
+  ) async {
+    final transport = _Transport()
+      ..responses = {
+        '/site/settings.json': {
+          'chat_enabled': true,
+          'chat_search_enabled': true,
+        },
+        '/session/current.json': {
+          'current_user': {'can_chat': true, 'has_chat_enabled': true},
+        },
+        '/directory-columns.json': {
+          'directory_columns': [
+            {'name': 'likes_received'},
+          ],
+        },
+      }
+      ..failures['/directory-columns.json'] = const SiteLookupException(
+        SiteLookupFailure.unreachable,
+        _site,
+      );
+    final search =
+        GlobalSearchController(
+          api: GlobalSearchApi(transport: transport),
+          credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+          lifecycle: SiteLifecycle(),
+          debounceDuration: const Duration(milliseconds: 1),
+        )..configure(
+          siteUrl: _site,
+          capabilities: const GlobalSearchCapabilities(
+            authenticated: true,
+            userDirectory: true,
+            contributions: [ChatGlobalSearch()],
+            enabledContributions: {},
+          ),
+        );
+    addTearDown(search.dispose);
+
+    search.ensureCapabilities();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(search.capabilities.enabledContributions, {'chat'});
+    expect(search.capabilities.userOrders, isNot(contains('likes_received')));
+
+    transport.failures.clear();
+    search.ensureCapabilities();
+    await tester.pump(const Duration(milliseconds: 10));
+    expect(search.capabilities.enabledContributions, {'chat'});
+    expect(search.capabilities.userOrders, contains('likes_received'));
+  });
+
   testWidgets('a rejected submit drops the search already in flight', (
     tester,
   ) async {
