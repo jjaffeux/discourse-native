@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
+import 'package:discourse_native/src/foundation/active_use.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -629,6 +630,53 @@ void main() {
       expect(sent.headers, containsPair('Content-Type', 'application/json'));
       expect(sent.headers, containsPair('Dont-Chunk', 'true'));
     });
+
+    Future<List<http.Request>> keyedRequests(ActiveUse? activeUse) async {
+      final sent = <http.Request>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent.add(request);
+          return http.Response('{}', 200);
+        }),
+        activeUse: activeUse,
+      );
+      addTearDown(api.close);
+
+      await api.notificationTotals(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+      );
+      await api.updateTopicNotificationLevel(
+        siteUrl: 'https://example.com',
+        apiKey: 'secret',
+        topicId: 7,
+        notificationLevel: TopicNotificationLevel.tracking,
+      );
+      return sent;
+    }
+
+    test('requests made while a person uses the app say so', () async {
+      final sent = await keyedRequests(ActiveUse(foreground: true));
+
+      expect(sent.map((request) => request.headers['Discourse-Present']), [
+        'true',
+        'true',
+      ]);
+    });
+
+    for (final (label, activeUse) in [
+      ('in the background', ActiveUse(foreground: false)),
+      ('with nobody behind them', null),
+    ]) {
+      test('requests made $label do not claim a visitor', () async {
+        final sent = await keyedRequests(activeUse);
+
+        expect(sent, hasLength(2));
+        for (final request in sent) {
+          expect(request.headers, isNot(contains('Discourse-Present')));
+        }
+      });
+    }
 
     test('a read-only site explains a refused action', () async {
       const refusal =
