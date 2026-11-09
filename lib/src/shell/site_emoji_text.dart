@@ -6,8 +6,8 @@ import '../models/site_emoji.dart';
 import '../theme/discourse_typography.dart';
 import 'emoji.dart';
 import 'search_words.dart';
-import 'shell_scope.dart';
 import 'site_emoji_image.dart';
+import 'site_presentation_scope.dart';
 
 @immutable
 class SiteEmojiTextRun {
@@ -80,7 +80,7 @@ class SiteEmojiText extends StatelessWidget {
         .toList(growable: false);
     if (matches.isEmpty) return _resolved(context, text, const []);
 
-    final controller = ShellScope.maybeIdentityOf(context);
+    final controller = SitePresentationScope.maybeOf(context);
     if (controller == null) return _resolved(context, text, const []);
     return ListenableBuilder(
       listenable: controller.emojiChangesFor(siteUrl),

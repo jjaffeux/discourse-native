@@ -7,9 +7,9 @@ import 'package:flutter/services.dart';
 
 import '../theme/discourse_typography.dart';
 import 'emoji.dart';
-import 'shell_scope.dart';
 import 'site_emoji_image.dart';
 import 'site_emoji_text.dart';
+import 'site_presentation_scope.dart';
 
 class TopicTitle extends StatelessWidget {
   const TopicTitle(
@@ -192,15 +192,15 @@ class _InlineTopicTitleEditorState extends State<InlineTopicTitleEditor> {
   }
 
   void _ensureEmojiCatalog() {
-    final shell = ShellScope.identityOf(context);
-    final changes = shell.emojiChangesFor(widget.siteUrl);
+    final presentation = SitePresentationScope.of(context);
+    final changes = presentation.emojiChangesFor(widget.siteUrl);
     if (!identical(changes, _emojiChanges)) {
       _emojiChanges?.removeListener(_emojiArtworkChanged);
       _emojiChanges = changes..addListener(_emojiArtworkChanged);
     }
     if (SiteEmojiText.shortcodeMatches(_controller.text).isEmpty) return;
-    unawaited(shell.ensureEmojiCatalog(widget.siteUrl));
-    unawaited(shell.ensureEmojiSearchAliases(widget.siteUrl));
+    unawaited(presentation.ensureEmojiCatalog(widget.siteUrl));
+    unawaited(presentation.ensureEmojiSearchAliases(widget.siteUrl));
   }
 
   void _emojiArtworkChanged() {
@@ -466,7 +466,7 @@ class _TopicTitleEditingController extends TextEditingController {
       );
     }
 
-    final shell = ShellScope.read(context);
+    final presentation = SitePresentationScope.of(context);
     final composing = withComposing && value.isComposingRangeValid
         ? value.composing
         : TextRange.empty;
@@ -500,7 +500,7 @@ class _TopicTitleEditingController extends TextEditingController {
     }
 
     for (final match in SiteEmojiText.shortcodeMatches(source)) {
-      final name = shell.emojiNameFor(siteUrl, match.group(1)!);
+      final name = presentation.emojiNameFor(siteUrl, match.group(1)!);
       final selectionTouches =
           value.selection.isValid &&
           value.selection.start < match.end &&

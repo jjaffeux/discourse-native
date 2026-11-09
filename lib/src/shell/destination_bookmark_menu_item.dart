@@ -6,7 +6,27 @@ import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
-import 'shell_scope.dart';
+import 'account_destination_bookmarks.dart';
+
+/// Hands the account's local bookmarks to a menu item, so the item neither
+/// compiles the shell nor wakes on its notifications.
+class DestinationBookmarksScope extends InheritedWidget {
+  const DestinationBookmarksScope({
+    super.key,
+    required this.bookmarks,
+    required super.child,
+  });
+
+  final AccountDestinationBookmarks bookmarks;
+
+  static AccountDestinationBookmarks? maybeOf(BuildContext context) => context
+      .dependOnInheritedWidgetOfExactType<DestinationBookmarksScope>()
+      ?.bookmarks;
+
+  @override
+  bool updateShouldNotify(DestinationBookmarksScope oldWidget) =>
+      !identical(bookmarks, oldWidget.bookmarks);
+}
 
 class DestinationBookmarkMenuItem extends StatelessWidget {
   const DestinationBookmarkMenuItem({
@@ -21,7 +41,7 @@ class DestinationBookmarkMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bookmarks = ShellScope.maybeOf(context)?.accountDestinationBookmarks;
+    final bookmarks = DestinationBookmarksScope.maybeOf(context);
     if (bookmarks == null) return const SizedBox.shrink();
     return ListenableBuilder(
       listenable: bookmarks,

@@ -1109,6 +1109,8 @@ class ShellController extends FrameSafeNotifier
     isDisposed: () => isDisposed,
   );
 
+  SitePresentationController get sitePresentation => _presentation;
+
   SitePresentationController get _presentation =>
       _sitePresentation ??= _createSitePresentationController();
 
@@ -1822,6 +1824,7 @@ class ShellController extends FrameSafeNotifier
       ..clear()
       ..addAll(stored);
     for (final instance in stored) {
+      _sitePresentation?.persistedConfigChanged(instance.url);
       _taxonomy.bind(instance.url);
       var totals = instance.notificationTotals;
       final storedGroupedCounts = instance.user?.groupedUnreadNotifications;
@@ -1935,6 +1938,7 @@ class ShellController extends FrameSafeNotifier
     final previousRootMode = _rootMode;
 
     _instances.add(instance);
+    _sitePresentation?.persistedConfigChanged(instance.url);
     _taxonomy.bind(instance.url);
     _rootMode = ShellRootMode.forum;
     _instanceIndex = _instances.length - 1;
@@ -5651,7 +5655,7 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       resolveEmoji: (name) {
-        final canonical = emojiNameFor(target.siteUrl, name);
+        final canonical = _presentation.emojiNameFor(target.siteUrl, name);
         return canonical == null
             ? null
             : emojiUrlFor(target.siteUrl, canonical);
@@ -7290,12 +7294,6 @@ class ShellController extends FrameSafeNotifier
     await topicFeeds.loadMore(instance: instance, destinationId: destinationId);
   }
 
-  Listenable emojiChangesFor(String siteUrl) =>
-      _presentation.emojiChangesFor(siteUrl);
-
-  SiteEmojiCatalog? emojiCatalogFor(String siteUrl) =>
-      _presentation.emojiCatalogFor(siteUrl);
-
   Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
       _presentation.ensureEmojiCatalog(siteUrl);
 
@@ -7347,9 +7345,6 @@ class ShellController extends FrameSafeNotifier
 
   bool knowsEmoji(String siteUrl, String name) =>
       _presentation.knowsEmoji(siteUrl, name);
-
-  String? emojiNameFor(String siteUrl, String name) =>
-      _presentation.emojiNameFor(siteUrl, name);
 
   Object presentationTokenFor(String siteUrl) =>
       _presentation.presentationTokenFor(siteUrl);
@@ -7684,6 +7679,9 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexOf(old);
     if (index >= 0) {
       _instances[index] = updated;
+      if (old.config != updated.config) {
+        _sitePresentation?.persistedConfigChanged(updated.url);
+      }
       if (old.user?.id != updated.user?.id ||
           old.user?.username != updated.user?.username ||
           old.user?.timezone != updated.user?.timezone ||

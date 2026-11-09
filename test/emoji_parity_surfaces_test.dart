@@ -417,7 +417,10 @@ void main() {
         ),
       );
       expect(await pending, isNull);
-      expect(shell.emojiNameFor(_site, 'not_an_emoji'), isNull);
+      expect(
+        shell.sitePresentation.emojiNameFor(_site, 'not_an_emoji'),
+        isNull,
+      );
     },
   );
 }
@@ -432,10 +435,10 @@ ComposerController _composer(ShellController shell, String source) =>
           privateMessageTopic: false,
         ),
         resolveEmoji: (name) {
-          final canonical = shell.emojiNameFor(_site, name);
+          final canonical = shell.sitePresentation.emojiNameFor(_site, name);
           return canonical == null ? null : shell.emojiUrlFor(_site, canonical);
         },
-        emojiChanges: shell.emojiChangesFor(_site),
+        emojiChanges: shell.sitePresentation.emojiChangesFor(_site),
       )
       ..text.value = TextEditingValue(
         text: source,

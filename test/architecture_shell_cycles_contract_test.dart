@@ -55,6 +55,21 @@ void main() {
       );
     });
 
+    test('drawing an emoji or a bookmark item does not compile the shell', () {
+      for (final library in const [
+        'lib/src/shell/site_emoji_image.dart',
+        'lib/src/shell/site_emoji_text.dart',
+        'lib/src/shell/topic_title.dart',
+        'lib/src/shell/destination_bookmark_menu_item.dart',
+      ]) {
+        expect(
+          graph.closureOf(library),
+          isNot(contains('lib/src/shell/shell_controller.dart')),
+          reason: library,
+        );
+      }
+    });
+
     test('naming a user or following a link does not compile the card', () {
       for (final library in const [
         'lib/src/shell/open_link.dart',
