@@ -71,13 +71,11 @@ class _ChatUserCardButtonState extends State<ChatUserCardButton> {
       if (shell.openChannel(channel.id)) widget.close();
     } catch (error) {
       if (!mounted) return;
-      final message = switch (error) {
-        WriteException(errors: final errors) when errors.isNotEmpty =>
-          errors.join('\n'),
-        final WriteException error => error.message,
-        _ => appL10n.couldNotStartThisChat,
-      };
-      DToast.show(context, message, type: DToastType.error);
+      DToast.show(
+        context,
+        failureText(error, fallback: appL10n.couldNotStartThisChat),
+        type: DToastType.error,
+      );
     } finally {
       if (mounted) setState(() => _opening = false);
     }

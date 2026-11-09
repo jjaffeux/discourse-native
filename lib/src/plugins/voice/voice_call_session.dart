@@ -1095,10 +1095,10 @@ final class _VoiceCallSession {
         updated = updated.copyWith(
           status: status,
           error: status == VoiceCallStatus.failed
-              ? switch (view.connectionFailure) {
-                  WriteException error => error.message,
-                  _ => appL10n.theMediaConnectionCouldNotBeRestored,
-                }
+              ? failureText(
+                  view.connectionFailure,
+                  fallback: appL10n.theMediaConnectionCouldNotBeRestored,
+                )
               : null,
           clearError:
               status == VoiceCallStatus.connected ||

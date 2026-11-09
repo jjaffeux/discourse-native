@@ -208,21 +208,26 @@ class WriteException implements Exception {
 /// be false and [fallback], which names what failed, is shown instead. A 401 or
 /// 403 answer to a read of a feature on a forum that is already connected is
 /// the forum refusing this account, so the lookup message would call it
-/// something other than a forum. Anything else is not a message to show, so
-/// [fallback] stands in for it rather than a type name or a developer string.
-String failureText(Object error, {required String fallback}) => switch (error) {
-  WriteException(:final message) => message,
-  HttpBasicAuthenticationRequired(:final message) => message,
-  SiteLookupException(
-    failure: SiteLookupFailure.notDiscourse,
-    statusCode: 401 || 403,
-  ) =>
-    appL10n.thisAccountCanTAccessThat,
-  SiteLookupException(failure: SiteLookupFailure.unreachable, statusCode: _?) =>
-    fallback,
-  SiteLookupException(:final message) => message,
-  _ => fallback,
-};
+/// something other than a forum. Anything else, or no recorded failure at all,
+/// is not a message to show, so [fallback] stands in for it rather than a type
+/// name or a developer string.
+String failureText(Object? error, {required String fallback}) =>
+    switch (error) {
+      WriteException(:final message) => message,
+      HttpBasicAuthenticationRequired(:final message) => message,
+      SiteLookupException(
+        failure: SiteLookupFailure.notDiscourse,
+        statusCode: 401 || 403,
+      ) =>
+        appL10n.thisAccountCanTAccessThat,
+      SiteLookupException(
+        failure: SiteLookupFailure.unreachable,
+        statusCode: _?,
+      ) =>
+        fallback,
+      SiteLookupException(:final message) => message,
+      _ => fallback,
+    };
 
 /// A category-list response plus whether its page-one site metadata also
 /// arrived. A partial list is still useful for badges/navigation, but callers
