@@ -86,6 +86,37 @@ The topic uses the regular `DPageSurface.scrollable` compact-header contract.
 It does not report a `compactHeaderBand`, so the tile leaves the sheet's grabber
 and panel depth visible. The shared page-sheet outline still owns its corners.
 
+## The desktop compact head
+
+Reference: `discourse-native-mockups` at `13db54c`, `TopicView`'s head and
+`barTagsThatFit` in `App.tsx`.
+
+A desktop reader keeps its full head until the page has gone under where the
+compact head would sit. `TopicCompactHead` then takes its place, through
+`DPageSurface.compactHeader`. A head that has already left changes while out of
+sight. A phone keeps its one head and its bar.
+
+| Part | Value |
+| --- | --- |
+| Padding | 10 top and bottom, 16 at the sides, in the reading lane. |
+| Title | 14px, weight 700, one line with an ellipsis. Status marks are 11px and muted, 5px before the text. |
+| Line under it | 3px below the title. 11px and muted: the path with 9px marks and carets, then `#` tags, 6px apart. |
+| Tags past the line | `topicCompactTagsThatFit` is the reference's arithmetic. The rest wait behind `+N`, whose tooltip names them. |
+| Tools | The full head's tools, at the end of the line, 10px after the title. At large text they wrap rather than take the title's room. |
+
+`initialCompactHeader: false` holds the full head through restoration and
+programmatic jumps until the reader's own first scroll, after which the layout
+follows the scroll position. The reference follows the position from the start,
+so a topic resumed further down shows its full head until that first scroll.
+
+The title and the tools move between the layouts as `DHeaderMorph` parts. Two
+parts of this differ from the reference, because the kit's morph and
+`DHeaderTags` do not offer what it needs. `DHeaderMorph` resizes a part to its
+measured box, where the reference scales the title by the font-size ratio and
+only moves everything else, so a title that wraps in the full head stretches
+during the 260ms. The path and tags change in place rather than moving, because
+`DHeaderTags` lays them out together with the tools.
+
 ## Validation
 
 `test/topic_head_mockup_parity_test.dart` covers the arithmetic as pure cases.
@@ -93,6 +124,9 @@ At 390 and 1000 wide on iOS and Android it covers the line, the path
 collapsing, the opened run, the chip colours, corners, heights and split, the
 sheet's groups and order, Assign opening its drawer from the sheet, the card
 corners, and the compact tile below its visible grabber.
+`test/topic_compact_head_test.dart` covers the desktop compact head: both
+layouts, the sizes above, the tag arithmetic, the morph, and a phone keeping
+its one head.
 A full-shell pixel check on a distinct canvas verifies both top curves during
 a pull. `test/ui/d_sheet_page_motion_test.dart` checks rounded live and captured
 backgrounds during entrance and dismissal. `test/forum_mobile_surface_test.dart`

@@ -27,9 +27,14 @@ import 'site_url.dart';
 import 'skeleton_fill.dart';
 import 'topic_actions.dart';
 import 'topic_category_picker.dart';
+import 'topic_compact_head.dart';
 import 'topic_header_tags.dart';
 import 'topic_skeleton.dart';
 import 'topic_title.dart';
+
+typedef _HeadPart = Widget Function(String id, Widget child);
+
+Widget _unmoved(String id, Widget child) => child;
 
 /// The states Discourse marks before a topic's title, declared in the order
 /// they are drawn.
@@ -99,40 +104,45 @@ class TopicInboxHeader extends StatelessWidget {
     final hasTopic = topic != null && siteUrl != null;
     final placeholders = loading && !hasTopic;
     final preview = this.preview;
-    final Widget? taxonomy = hasTopic
-        ? _TopicHeaderTaxonomy(
-            siteUrl: siteUrl,
-            topic: topic,
-            keepTopicListOpen: keepTopicListOpen,
-            registry: registry,
-          )
-        : placeholders &&
-              !(preview != null &&
-                  preview.privateMessage &&
-                  preview.tags.isEmpty)
-        ? _TopicHeaderTaxonomyPlaceholder(
-            categories: preview?.privateMessage != true,
-          )
-        : null;
-    final rows = [
-      _TopicHeaderToolbar(header: this),
-      if (taxonomy != null)
-        _TopicHeaderReadingLane(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            child: DReferenceTextScale(child: taxonomy),
+    List<Widget> rows({_HeadPart part = _unmoved}) {
+      final Widget? taxonomy = hasTopic
+          ? _TopicHeaderTaxonomy(
+              siteUrl: siteUrl,
+              topic: topic,
+              keepTopicListOpen: keepTopicListOpen,
+              registry: registry,
+              part: part,
+            )
+          : placeholders &&
+                !(preview != null &&
+                    preview.privateMessage &&
+                    preview.tags.isEmpty)
+          ? _TopicHeaderTaxonomyPlaceholder(
+              categories: preview?.privateMessage != true,
+            )
+          : null;
+      return [
+        _TopicHeaderToolbar(header: this, part: part),
+        if (taxonomy != null)
+          _TopicHeaderReadingLane(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: DReferenceTextScale(child: taxonomy),
+            ),
           ),
-        ),
-    ];
+      ];
+    }
+
     final bodyBuilder = this.bodyBuilder;
     if (bodyBuilder == null) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: rows,
+        children: rows(),
       );
     }
     final shell = ShellScope.read(context);
+    final mobile = shell.mobileNavigationEnabled;
     final tab = ShellScope.tabOf(context);
     final route = this.route ?? tab.currentContent;
     final topicId = topic?.id ?? route?.topicId ?? preview?.id;
@@ -149,12 +159,35 @@ class TopicInboxHeader extends StatelessWidget {
       identity: (siteUrl, topicId),
       // The mockups draw every topic header control flat in either material.
       header: _morphHeader(context, rows: rows),
-      fadeHeaderOnScroll: shell.mobileNavigationEnabled,
+      compactHeader: mobile || siteUrl == null ? null : _compactHeader(siteUrl),
+      // Restoration and programmatic jumps leave the layout alone until the
+      // reader's own first scroll.
+      initialCompactHeader: false,
+      fadeHeaderOnScroll: mobile,
       titleLeading: _barStatus(),
       titleMetadata: _barMetadata(context),
-      headerControls: shell.mobileNavigationEnabled ? null : headerControls,
+      headerControls: mobile ? null : headerControls,
       bodyBuilder: (_, header) => bodyBuilder(header),
     );
+  }
+
+  /// The categories the topic sits under, ending with the one it is in.
+  List<TopicCategory> _categoryPath(BuildContext context, String site) {
+    final privateMessage =
+        topic?.privateMessage ?? preview?.privateMessage ?? false;
+    final shell = ShellScope.read(context);
+    final path = <TopicCategory>[];
+    var category = privateMessage
+        ? null
+        : shell.categoryFor(
+            topic != null ? topic!.categoryId : preview?.categoryId,
+            siteUrl: site,
+          );
+    while (category != null) {
+      path.insert(0, category);
+      category = shell.categoryFor(category.parentCategoryId, siteUrl: site);
+    }
+    return path;
   }
 
   Widget? _barMetadata(BuildContext context) {
@@ -166,15 +199,7 @@ class TopicInboxHeader extends StatelessWidget {
     final privateMessage =
         detail?.privateMessage ?? preview?.privateMessage ?? false;
     if ((privateMessage || categoryId == null) && tags.isEmpty) return null;
-    final shell = ShellScope.read(context);
-    final path = <TopicCategory>[];
-    var category = privateMessage
-        ? null
-        : shell.categoryFor(categoryId, siteUrl: site);
-    while (category != null) {
-      path.insert(0, category);
-      category = shell.categoryFor(category.parentCategoryId, siteUrl: site);
-    }
+    final path = _categoryPath(context, site);
     return Text.rich(
       key: const ValueKey('topic-bar-metadata'),
       TextSpan(
@@ -245,23 +270,61 @@ class TopicInboxHeader extends StatelessWidget {
           );
   }
 
-  Widget _morphHeader(BuildContext context, {required List<Widget> rows}) {
+  Widget _morphHeader(
+    BuildContext context, {
+    required List<Widget> Function({_HeadPart part}) rows,
+  }) {
     if (!ShellScope.read(context).mobileNavigationEnabled) {
-      return Column(children: rows);
+      return DHeaderMorph(
+        key: const ValueKey('topic-header-morph'),
+        compact: false,
+        builder: (context, _, part) => Column(children: rows(part: part)),
+      );
     }
+    final phoneRows = rows();
     return DHeaderMorph(
       key: const ValueKey('topic-header-morph'),
       compact: false,
       builder: (context, _, part) => Column(
         children: [
-          part('title', rows.first),
-          if (rows.length > 1) part('meta', rows[1]),
+          part('title', phoneRows.first),
+          if (phoneRows.length > 1) part('meta', phoneRows[1]),
           if (headerControls != null)
             part(
               'controls',
               SizedBox(width: double.infinity, child: headerControls!),
             ),
         ],
+      ),
+    );
+  }
+
+  /// Shares the full head's key, so the two are one morph's two layouts.
+  Widget _compactHeader(String siteUrl) {
+    final detail = topic;
+    return DHeaderMorph(
+      key: const ValueKey('topic-header-morph'),
+      compact: true,
+      builder: (context, _, part) => TopicCompactHead(
+        key: const ValueKey('topic-compact-head'),
+        title: title,
+        siteUrl: siteUrl,
+        part: part,
+        status: [
+          for (final status in _statuses)
+            (icon: status.icon, label: status.label(context)),
+        ],
+        path: _categoryPath(context, siteUrl),
+        tags: detail?.tags ?? preview?.tags ?? const <TopicTag>[],
+        tools: detail == null
+            ? null
+            : _TopicHeaderTaxonomy(
+                siteUrl: siteUrl,
+                topic: detail,
+                keepTopicListOpen: keepTopicListOpen,
+                registry: registry,
+                showTaxonomy: false,
+              ),
       ),
     );
   }
@@ -384,9 +447,10 @@ class _TopicHeaderReadingLane extends StatelessWidget {
 }
 
 class _TopicHeaderToolbar extends StatelessWidget {
-  const _TopicHeaderToolbar({required this.header});
+  const _TopicHeaderToolbar({required this.header, required this.part});
 
   final TopicInboxHeader header;
+  final _HeadPart part;
 
   @override
   Widget build(BuildContext context) {
@@ -402,7 +466,7 @@ class _TopicHeaderToolbar extends StatelessWidget {
               backToList: !header.keepTopicListOpen,
             ),
           ),
-        _TopicHeaderTitle(header: header),
+        _TopicHeaderTitle(header: header, part: part),
       ],
     );
     return LayoutBuilder(
@@ -427,8 +491,9 @@ class _TopicHeaderToolbar extends StatelessWidget {
 }
 
 class _TopicHeaderTitle extends StatelessWidget {
-  const _TopicHeaderTitle({required this.header});
+  const _TopicHeaderTitle({required this.header, required this.part});
   final TopicInboxHeader header;
+  final _HeadPart part;
 
   @override
   Widget build(BuildContext context) {
@@ -441,6 +506,7 @@ class _TopicHeaderTitle extends StatelessWidget {
         ).scale(style?.fontSize ?? DiscourseTypography.lg) *
         (style?.height ?? DiscourseTypography.lineHeightLarge);
     final known = header.title;
+    final editable = topic?.canEdit == true && siteUrl != null;
     final Widget title;
     if (known == null && header.loading) {
       title = SizedBox(
@@ -461,7 +527,7 @@ class _TopicHeaderTitle extends StatelessWidget {
           ),
         ),
       );
-    } else if (topic?.canEdit == true && siteUrl != null) {
+    } else if (editable) {
       title = InlineTopicTitleEditor(
         key: ValueKey(('topic-header-title', siteUrl, topic!.id)),
         title: topic.title,
@@ -516,7 +582,16 @@ class _TopicHeaderTitle extends StatelessWidget {
               ),
             ),
           ),
-        Expanded(child: title),
+        Expanded(
+          // A title left to its own width resizes in its proportions; the
+          // editor keeps the whole line.
+          child: editable
+              ? part('title', title)
+              : Align(
+                  alignment: AlignmentDirectional.centerStart,
+                  child: part('title', title),
+                ),
+        ),
       ],
     );
   }
@@ -755,6 +830,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
     required this.registry,
     this.showTaxonomy = true,
     this.floating = false,
+    this.part = _unmoved,
   });
   final String siteUrl;
   final TopicDetail topic;
@@ -762,6 +838,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
   final PluginRegistry registry;
   final bool showTaxonomy;
   final bool floating;
+  final _HeadPart part;
 
   @override
   Widget build(
@@ -888,7 +965,7 @@ class _TopicHeaderTaxonomy extends StatelessWidget {
             topic: topic,
             editOnTap: mobile,
             path: _path(context, shell),
-            tools: mobile ? null : tools,
+            tools: mobile ? null : part('tools', tools),
             onTagNavigate: (tag, {newTab = false, panel}) => shell.openTopicTag(
               tag,
               siteUrl: siteUrl,

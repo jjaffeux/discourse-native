@@ -1521,9 +1521,16 @@ void main() {
                     closeTo(before - delta, .01),
                   );
                 }
+                final compact = find.byKey(
+                  const ValueKey('topic-compact-head'),
+                );
                 expect(
                   header.visibleExtent,
-                  delta > 0 ? 0 : header.naturalExtent,
+                  delta > 0
+                      ? 0
+                      : compact.evaluate().isEmpty
+                      ? header.naturalExtent
+                      : tester.getSize(compact).height,
                 );
               }
             }
