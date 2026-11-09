@@ -834,7 +834,9 @@ class _RailSnapshot {
     }
     if (instances.length != other.instances.length) return false;
     for (var index = 0; index < instances.length; index++) {
-      if (!identical(instances[index], other.instances[index])) return false;
+      if (!_drawsSameRow(instances[index], other.instances[index])) {
+        return false;
+      }
       if (appearances[index] != other.appearances[index]) return false;
     }
     return true;
@@ -845,9 +847,18 @@ class _RailSnapshot {
     selectedIndex,
     rootMode,
     loadStatus,
-    Object.hashAll(instances.map(identityHashCode)),
+    Object.hashAll([
+      for (final instance in instances)
+        Object.hash(instance.url, instance.title, instance.iconUrl),
+    ]),
     Object.hashAll(appearances),
   );
+
+  // A record is replaced for much the rail never draws, notification totals
+  // among them and often unannounced, so its identity would redraw every row
+  // at the next unrelated shell notification.
+  static bool _drawsSameRow(DiscourseInstance a, DiscourseInstance b) =>
+      a.url == b.url && a.title == b.title && a.iconUrl == b.iconUrl;
 }
 
 class _RailLoadFailure extends StatelessWidget {
