@@ -277,11 +277,16 @@ void main() {
     );
     expect((surface.decoration! as BoxDecoration).color!.a, greaterThan(0));
     await mouse.down(tester.getCenter(tab('chat')));
+    await tester.pump();
     await tester.pump(const Duration(milliseconds: 80));
-    final press = tester.widget<AnimatedScale>(
-      find.descendant(of: tab('chat'), matching: find.byType(AnimatedScale)),
+    final painted = find.descendant(
+      of: tab('chat'),
+      matching: find.byType(AnimatedContainer),
     );
-    expect(press.scale, .92);
+    expect(
+      tester.getRect(painted).width / tester.getSize(painted).width,
+      moreOrLessEquals(.92, epsilon: 1e-9),
+    );
     await mouse.up();
     await mouse.removePointer();
     await tester.pumpAndSettle();

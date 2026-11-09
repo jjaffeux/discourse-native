@@ -10,6 +10,7 @@ import '../foundation/app_text_scaler.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
+import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
 import 'd_group_indicator.dart';
 
@@ -230,6 +231,7 @@ class _DToggleState extends State<DToggle> {
   bool _focusVisible = false;
   bool _hovered = false;
   bool _pointerPressed = false;
+  WidgetStatesController? _press;
   FocusNode? _ownedFocus;
 
   FocusNode get _focus =>
@@ -241,7 +243,10 @@ class _DToggleState extends State<DToggle> {
   @override
   void didUpdateWidget(DToggle oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!_canToggle) _pointerPressed = false;
+    if (!_canToggle) {
+      _pointerPressed = false;
+      _press?.update(WidgetState.pressed, false);
+    }
     if (oldWidget.pressed case final previous? when widget.pressed == null) {
       _pressed = previous;
     }
@@ -249,6 +254,7 @@ class _DToggleState extends State<DToggle> {
 
   @override
   void dispose() {
+    _press?.dispose();
     _ownedFocus?.dispose();
     super.dispose();
   }
@@ -263,6 +269,7 @@ class _DToggleState extends State<DToggle> {
   void _setPointerPressed(bool value) {
     if (_pointerPressed == value || !mounted) return;
     setState(() => _pointerPressed = value);
+    _press?.update(WidgetState.pressed, value);
   }
 
   @override
@@ -722,12 +729,9 @@ class _DToggleState extends State<DToggle> {
         widthFactor: 1,
         heightFactor: 1,
         child: splitView
-            ? AnimatedScale(
-                scale: _pointerPressed ? .92 : 1,
-                duration: reducedMotion
-                    ? Duration.zero
-                    : Duration(milliseconds: _pointerPressed ? 80 : 400),
-                curve: const Cubic(.34, 1.56, .64, 1),
+            ? DPressScale(
+                states: _press ??= WidgetStatesController(),
+                depth: DPressDepth.bare,
                 child: control,
               )
             : control,
