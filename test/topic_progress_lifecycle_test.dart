@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_progress.dart';
+import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -229,7 +230,7 @@ void main() {
   ]) {
     final mobile = platform != TargetPlatform.macOS;
     group(platform.name, () {
-      testWidgets('drag previews posts and fetches only the released target', (
+      testWidgets('a drag shorter than a load fetches only its release', (
         tester,
       ) async {
         final gate = Completer<void>();
@@ -272,6 +273,339 @@ void main() {
         expect(shell.currentContent?.postNumber, _target.postNumber);
         expect(_panelFinder(platform), mobile ? findsNothing : findsOneWidget);
         expect(tester.takeException(), isNull);
+      });
+
+      group('a drag moves the topic', () {
+        const last = Post(
+          id: 300,
+          postNumber: 12,
+          username: 'sam',
+          cooked: '<p>Last</p>',
+        );
+        const loadInterval = Duration(milliseconds: 121);
+
+        PointerDeviceKind pointer() =>
+            mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse;
+        Offset toEnd(Rect slider) => Offset(slider.right - 7, slider.center.dy);
+        Offset toStart(Rect slider) =>
+            Offset(slider.left + 7, slider.center.dy);
+
+        testWidgets('a position already laid out moves at once, with no load', (
+          tester,
+        ) async {
+          final viewport = _ScrubViewport(shows: {3});
+          final api = FakeDiscourseApi(user: _user);
+          final shell = await _loadShell(api);
+          await _openProgress(tester, shell, platform, viewport: viewport);
+          final revision = shell.topicNavigationRevision;
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump();
+
+          expect(viewport.shown, [3]);
+          expect(viewport.began, 1);
+          expect(_selection('3 / 3'), findsOneWidget);
+
+          await tester.pump(loadInterval * 2);
+          expect(api.postFetches, isEmpty);
+          expect(shell.topicNavigationRevision, revision);
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+        });
+
+        testWidgets(
+          'anywhere else loads the newest position, one load at a time',
+          (tester) async {
+            final gate = Completer<void>();
+            final api = FakeDiscourseApi(
+              user: _user,
+              postGate: gate,
+              postsById: const {200: _target, 300: last},
+            );
+            final shell = await _loadShell(api, cacheTarget: false);
+            await _openProgress(tester, shell, platform);
+            final route = shell.currentContent;
+            final slider = tester.getRect(find.byType(DMultiSlider));
+            final gesture = await tester.startGesture(
+              slider.center,
+              kind: pointer(),
+            );
+            await tester.pump();
+
+            await gesture.moveTo(toEnd(slider));
+            await tester.pump();
+            expect(api.postFetches, isEmpty);
+            await tester.pump(loadInterval);
+            expect(api.postFetches, [
+              [200, 300],
+            ]);
+
+            // Positions passed while it is out are never themselves fetched.
+            await gesture.moveTo(toStart(slider));
+            await tester.pump(loadInterval);
+            await gesture.moveTo(slider.center);
+            await tester.pump(loadInterval);
+            expect(api.postFetches, hasLength(1));
+            expect(shell.currentContent, same(route));
+            expect(_selection('2 / 3'), findsOneWidget);
+
+            // The load that lands was for a position the drag has left.
+            gate.complete();
+            await tester.pump();
+            await tester.pump();
+            expect(shell.currentContent, same(route));
+
+            // Its posts were kept, so reaching the newest needs no request.
+            await tester.pump(loadInterval);
+            await tester.pump();
+            expect(api.postFetches, hasLength(1));
+            expect(shell.currentContent?.postNumber, _target.postNumber);
+
+            await gesture.up();
+            await tester.pumpAndSettle();
+            expect(shell.currentContent?.postNumber, _target.postNumber);
+            expect(tester.takeException(), isNull);
+          },
+        );
+
+        testWidgets('a load between the reader and the drag still moves it', (
+          tester,
+        ) async {
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            user: _user,
+            postGate: gate,
+            postsById: const {200: _target, 300: last},
+          );
+          final shell = await _loadShell(api, cacheTarget: false);
+          await _openProgress(tester, shell, platform, position: 1);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            toStart(slider),
+            kind: pointer(),
+          );
+          await tester.pump();
+          await gesture.moveTo(slider.center);
+          await tester.pump(loadInterval);
+          expect(api.postFetches, hasLength(1));
+
+          // The drag runs ahead of the network, in the same direction.
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump();
+          gate.complete();
+          await tester.pump();
+          await tester.pump();
+          expect(shell.currentContent?.postNumber, _target.postNumber);
+
+          await tester.pump(loadInterval);
+          await tester.pump();
+          expect(shell.currentContent?.postNumber, last.postNumber);
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+        });
+
+        testWidgets('a release lands exactly on its post over a pending load', (
+          tester,
+        ) async {
+          final gate = Completer<void>();
+          final api = FakeDiscourseApi(
+            user: _user,
+            postGate: gate,
+            postsById: const {200: _target, 300: last},
+          );
+          final shell = await _loadShell(api, cacheTarget: false);
+          await _openProgress(tester, shell, platform);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump(loadInterval);
+          expect(api.postFetches, hasLength(1));
+          await gesture.moveTo(slider.center);
+          await tester.pump();
+
+          await gesture.up();
+          await tester.pump();
+          gate.complete();
+          await tester.pumpAndSettle();
+
+          expect(shell.currentContent?.postNumber, _target.postNumber);
+          expect(tester.takeException(), isNull);
+        });
+
+        testWidgets('reading stays off until the release has landed', (
+          tester,
+        ) async {
+          final gate = Completer<void>();
+          final viewport = _ScrubViewport();
+          final api = FakeDiscourseApi(
+            user: _user,
+            postGate: gate,
+            postsById: const {200: _target},
+          );
+          final shell = await _loadShell(api, cacheTarget: false);
+          await _openProgress(tester, shell, platform, viewport: viewport);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump();
+          await gesture.moveTo(slider.center);
+          await tester.pump();
+          expect(viewport.began, 1);
+
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(
+            _panelFinder(platform),
+            mobile ? findsNothing : findsOneWidget,
+          );
+          expect(viewport.ended, 0);
+
+          gate.complete();
+          await tester.pumpAndSettle();
+          expect(viewport.ended, 1);
+          expect(shell.currentContent?.postNumber, _target.postNumber);
+        });
+
+        testWidgets('a panel removed mid-drag returns to where it began', (
+          tester,
+        ) async {
+          final viewport = _ScrubViewport(origin: true);
+          final shell = await _loadShell(FakeDiscourseApi(user: _user));
+          await _openProgress(tester, shell, platform, viewport: viewport);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump();
+
+          await tester.pumpWidget(const SizedBox.shrink());
+
+          expect(viewport.restored, 1);
+          expect(viewport.ended, 1);
+          await gesture.cancel();
+        });
+
+        if (!mobile) {
+          testWidgets('a new drag cannot be pulled off by an earlier release', (
+            tester,
+          ) async {
+            final gate = Completer<void>();
+            final viewport = _ScrubViewport(shows: {1});
+            final api = FakeDiscourseApi(
+              user: _user,
+              postGate: gate,
+              postsById: const {200: _target},
+            );
+            final shell = await _loadShell(api, cacheTarget: false);
+            await _openProgress(tester, shell, platform, viewport: viewport);
+            final route = shell.currentContent;
+            final slider = tester.getRect(find.byType(DMultiSlider));
+            final first = await tester.startGesture(
+              slider.center,
+              kind: pointer(),
+            );
+            await tester.pump();
+            await first.moveTo(toEnd(slider));
+            await tester.pump();
+            await first.moveTo(slider.center);
+            await tester.pump();
+            await first.up();
+            await tester.pump();
+            expect(api.postFetches, hasLength(1));
+
+            final second = await tester.startGesture(
+              slider.center,
+              kind: pointer(),
+            );
+            await tester.pump();
+            await second.moveTo(toStart(slider));
+            await tester.pump();
+            expect(viewport.shown, [1]);
+
+            gate.complete();
+            await tester.pump();
+            await tester.pump();
+
+            expect(shell.currentContent, same(route));
+            expect(
+              find.text('Could not open that post. Try again.'),
+              findsNothing,
+            );
+            await second.cancel();
+            await tester.pumpAndSettle();
+          });
+        }
+
+        testWidgets('a cancelled drag goes back to where it began', (
+          tester,
+        ) async {
+          final viewport = _ScrubViewport(origin: true);
+          final shell = await _loadShell(FakeDiscourseApi(user: _user));
+          await _openProgress(tester, shell, platform, viewport: viewport);
+          final route = shell.currentContent;
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump();
+
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+
+          expect(viewport.restored, 1);
+          expect(viewport.ended, 1);
+          expect(shell.currentContent, same(route));
+          expect(_selection('2 / 3'), findsOneWidget);
+        });
+
+        testWidgets('a cancelled drag reloads an origin it moved away from', (
+          tester,
+        ) async {
+          final api = FakeDiscourseApi(
+            user: _user,
+            postsById: const {300: last},
+          );
+          final shell = await _loadShell(api);
+          await _openProgress(tester, shell, platform);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          final gesture = await tester.startGesture(
+            slider.center,
+            kind: pointer(),
+          );
+          await tester.pump();
+          await gesture.moveTo(toEnd(slider));
+          await tester.pump(loadInterval);
+          await tester.pump();
+          expect(shell.currentContent?.postNumber, last.postNumber);
+
+          await gesture.cancel();
+          await tester.pumpAndSettle();
+
+          expect(shell.currentContent?.postNumber, _target.postNumber);
+          expect(_selection('2 / 3'), findsOneWidget);
+          expect(tester.takeException(), isNull);
+        });
       });
 
       testWidgets('cancelled drag restores the preview without navigating', (
@@ -608,6 +942,40 @@ void main() {
 }
 
 const _siteUrl = 'https://meta.example';
+
+final class _ScrubViewport implements TopicScrubViewport {
+  _ScrubViewport({this.shows = const {}, this.origin = false});
+
+  final Set<int> shows;
+  final bool origin;
+  final shown = <int>[];
+  int began = 0;
+  int ended = 0;
+  int restored = 0;
+
+  @override
+  Object beginScrub() {
+    began++;
+    return this;
+  }
+
+  @override
+  void endScrub(Object scrub) => ended++;
+
+  @override
+  bool showScrubPosition(int position) {
+    if (!shows.contains(position)) return false;
+    shown.add(position);
+    return true;
+  }
+
+  @override
+  bool restoreScrubOrigin() {
+    if (origin) restored++;
+    return origin;
+  }
+}
+
 Future<void> _reopenProgress(WidgetTester tester) async {
   await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
   await tester.pumpAndSettle();
@@ -726,6 +1094,8 @@ Future<NavigatorState> _openProgress(
   double scale = 1,
   TextDirection direction = TextDirection.ltr,
   bool consumeSafeArea = false,
+  TopicScrubViewport? viewport,
+  int position = 2,
 }) async {
   final navigatorKey = GlobalKey<NavigatorState>();
   await tester.pumpWidget(
@@ -754,9 +1124,10 @@ Future<NavigatorState> _openProgress(
             alignment: Alignment.bottomRight,
             child: TopicProgressPopover(
               controller: shell,
-              position: 2,
+              position: position,
               total: 3,
               floating: platform == TargetPlatform.macOS,
+              viewport: viewport,
             ),
           ),
         ),
@@ -765,7 +1136,7 @@ Future<NavigatorState> _openProgress(
   );
   await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
   await tester.pumpAndSettle();
-  expect(_selection('2 / 3'), findsOneWidget);
+  expect(_selection('$position / 3'), findsOneWidget);
   expect(_panelFinder(platform), findsOneWidget);
   expect(find.byType(Dialog), findsNothing);
   expect(find.byType(BottomSheet), findsNothing);

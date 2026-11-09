@@ -232,6 +232,22 @@ abstract interface class TopicViewportListenable {
   int? get progressPosition;
 }
 
+/// What a drag along the topic timeline needs from the reader it moves.
+abstract interface class TopicScrubViewport {
+  /// Stops counting what is on screen as read until [endScrub] gets the token.
+  Object beginScrub();
+
+  /// Does nothing once another drag has taken over.
+  void endScrub(Object scrub);
+
+  /// Shows progress [position] if its post is laid out, without touching the
+  /// route. Answers false when getting there needs a load or a route change.
+  bool showScrubPosition(int position);
+
+  /// Returns to where the drag began, if that post is still laid out.
+  bool restoreScrubOrigin();
+}
+
 final class _TopicViewportAspectNotifier extends FrameSafeNotifier {
   void notifyChanged() => notifySafely();
 }
@@ -268,7 +284,7 @@ final class TopicViewportWindowChange {
 /// surrounding shell. The widget supplies measurements through
 /// [TopicViewportGeometry] and keeps responsibility for rendering them.
 final class TopicViewportCoordinator extends FrameSafeNotifier
-    implements TopicViewportListenable {
+    implements TopicViewportListenable, TopicScrubViewport {
   TopicViewportCoordinator({
     required TopicViewportPostFrameScheduler postFrame,
     required TopicViewportGeometry geometry,
@@ -326,6 +342,9 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   bool _restoring = false;
   bool _userDragging = false;
   bool _applyingAnchorRestore = false;
+
+  Object? _scrub;
+  TopicViewportAnchor? _scrubOrigin;
 
   bool _lookScheduled = false;
   bool _saveAnchorAfterLook = false;
@@ -452,6 +471,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     if (!retainViewport) {
       _laidOutPostIds = const [];
       _laidOutHasHeader = false;
+      _scrub = null;
+      _scrubOrigin = null;
     }
     _restored = false;
     _restoring = false;
@@ -943,7 +964,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         siteUrl == null ||
         topicId == null ||
         !snapshot.hasMore ||
-        snapshot.loadingMore) {
+        snapshot.loadingMore ||
+        _scrub != null) {
       return;
     }
 
@@ -994,6 +1016,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
         !snapshot.hasEarlier ||
         snapshot.loadingEarlier ||
         _restoring ||
+        _scrub != null ||
         scroll == null ||
         !scroll.hasClients) {
       return;
@@ -1062,6 +1085,15 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   }) {
     final binding = _binding;
     if (binding == null || !_restored || _restoring) return;
+    if (_scrub != null) {
+      _recordProgress(
+        snapshot: snapshot,
+        leading: leading,
+        visible: visible,
+        atTopicEnd: atTopicEnd,
+      );
+      return;
+    }
 
     if (leading != null &&
         (saveAnchor || _savedAnchorPostNumber != leading.postNumber)) {
@@ -1091,24 +1123,12 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
                 visible.postId == leading.postId,
             readPostNumbers: const [],
           );
-    // Navigation addresses the post at the top of the viewport. Using the
-    // farthest visible post makes a jump appear to overshoot by however many
-    // replies fit on screen. At the stream's end, still report completion
-    // when the final post cannot be aligned to the top.
-    final position = _geometry.scrollPosition;
-    final atEnd =
-        visible?.caughtUp == true &&
-        position.pixels >= position.maxScrollExtent - 0.5;
-    final progress = atEnd ? visible : leading ?? visible;
-    if (atTopicEnd) {
-      // Recommendations follow the topic but are not part of its timeline.
-      _setProgressPosition(snapshot.progressTotal);
-    } else if (progress != null) {
-      final progressPosition = snapshot.progressByPostNumber
-          ? progress.postNumber
-          : _streamIndex(snapshot.streamIds, progress.postId) + 1;
-      if (progressPosition > 0) _setProgressPosition(progressPosition);
-    }
+    _recordProgress(
+      snapshot: snapshot,
+      leading: leading,
+      visible: visible,
+      atTopicEnd: atTopicEnd,
+    );
 
     if (readable != null) {
       final seen = (
@@ -1135,6 +1155,32 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _readTimeRemaining = readInterval;
   }
 
+  void _recordProgress({
+    required TopicViewportSnapshot snapshot,
+    required TopicViewportSeenPost? leading,
+    required TopicViewportSeenPost? visible,
+    required bool atTopicEnd,
+  }) {
+    // Navigation addresses the post at the top of the viewport. Using the
+    // farthest visible post makes a jump appear to overshoot by however many
+    // replies fit on screen. At the stream's end, still report completion
+    // when the final post cannot be aligned to the top.
+    final position = _geometry.scrollPosition;
+    final atEnd =
+        visible?.caughtUp == true &&
+        position.pixels >= position.maxScrollExtent - 0.5;
+    final progress = atEnd ? visible : leading ?? visible;
+    if (atTopicEnd) {
+      // Recommendations follow the topic but are not part of its timeline.
+      _setProgressPosition(snapshot.progressTotal);
+    } else if (progress != null) {
+      final progressPosition = snapshot.progressByPostNumber
+          ? progress.postNumber
+          : _streamIndex(snapshot.streamIds, progress.postId) + 1;
+      if (progressPosition > 0) _setProgressPosition(progressPosition);
+    }
+  }
+
   static bool _isSameReading(
     _TopicViewportReading a,
     _TopicViewportReading? b,
@@ -1156,6 +1202,98 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       _streamIndexes = indexes;
     }
     return _streamIndexes?[postId] ?? -1;
+  }
+
+  @override
+  Object beginScrub() {
+    if (_scrub == null) {
+      // What was on screen before the timeline was grabbed was really read.
+      // Everything from here until the drag ends has only been passed through.
+      _creditReaderNow();
+      _seen = null;
+      _leadingSeen = null;
+    }
+    _scrubOrigin = _restored && !_restoring
+        ? _geometry.captureAnchor(_laidOutPostIds, hasHeader: _laidOutHasHeader)
+        : null;
+    return _scrub = Object();
+  }
+
+  @override
+  void endScrub(Object scrub) {
+    if (isDisposed || !identical(_scrub, scrub)) return;
+    _scrub = null;
+    _scrubOrigin = null;
+    scheduleLook(saveAnchor: true);
+  }
+
+  @override
+  bool showScrubPosition(int position) {
+    final binding = _binding;
+    final snapshot = _laidOutSnapshot;
+    if (_scrub == null ||
+        binding == null ||
+        snapshot == null ||
+        !_restored ||
+        _restoring ||
+        !isCurrent(binding)) {
+      return false;
+    }
+    final index = _laidOutIndexOf(snapshot, position, binding.postNumberFor);
+    if (index == null) return false;
+    _jumpTo(index + _leadingItems(snapshot), viewportOffset: 0);
+    return true;
+  }
+
+  @override
+  bool restoreScrubOrigin() {
+    final origin = _scrubOrigin;
+    final binding = _binding;
+    final snapshot = _laidOutSnapshot;
+    if (origin == null ||
+        binding == null ||
+        snapshot == null ||
+        !_restored ||
+        _restoring ||
+        !isCurrent(binding)) {
+      return false;
+    }
+    final index = snapshot.postIds.indexOf(origin.postId);
+    if (index < 0) return false;
+    _jumpTo(
+      index + _leadingItems(snapshot),
+      viewportOffset: origin.viewportOffset,
+    );
+    return true;
+  }
+
+  int _leadingItems(TopicViewportSnapshot snapshot) =>
+      snapshot.hasEarlier || snapshot.loadingEarlier ? 1 : 0;
+
+  /// Where progress [position] falls in the laid-out posts, if it does.
+  int? _laidOutIndexOf(
+    TopicViewportSnapshot snapshot,
+    int position,
+    int? Function(int postId) postNumberFor,
+  ) {
+    final posts = snapshot.postIds;
+    if (posts.isEmpty) return null;
+    if (snapshot.progressByPostNumber) {
+      final first = postNumberFor(posts.first);
+      final last = postNumberFor(posts.last);
+      if (first == null || last == null) return null;
+      if (position < first || position > last) return null;
+      final index = posts.indexWhere((id) {
+        final number = postNumberFor(id);
+        return number != null && number >= position;
+      });
+      return index < 0 ? null : index;
+    }
+    if (position < 1 || position > snapshot.streamIds.length) return null;
+    final start = _streamIndex(snapshot.streamIds, posts.first);
+    final index = position - 1 - start;
+    if (start < 0 || index < 0 || index >= posts.length) return null;
+    return posts[index] == snapshot.streamIds[position - 1] ? index : null;
   }
 
   void updateFloatingDay(DateTime? day, double offset) {

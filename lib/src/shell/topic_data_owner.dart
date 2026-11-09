@@ -1622,24 +1622,94 @@ final class TopicDataSession implements BookmarkTopicData {
     int postId, {
     required bool Function() isInterested,
   }) async {
-    if (!isCurrent || !isInterested()) return null;
+    final held = await ensurePosts(topicId, [
+      postId,
+    ], isInterested: isInterested);
+    return held ? _store.read<Post>(siteUrl, postId) : null;
+  }
+
+  /// Answers whether every post in [postIds] is held, fetching those that are
+  /// not. Nothing is published once [isInterested] answers false.
+  Future<bool> ensurePosts(
+    int topicId,
+    List<int> postIds, {
+    required bool Function() isInterested,
+  }) async {
+    if (!isCurrent || !isInterested()) return false;
+    final missing = [
+      for (final id in postIds)
+        if (!_store.containsRecord<Post>(siteUrl, id)) id,
+    ];
+    if (missing.isEmpty) return true;
     final stamp = _stamp(topicId);
     final credential = await _requests.keyCredentials(_owner.credentials);
-    if (!isCurrent || !isInterested()) return null;
+    if (!isCurrent || !isInterested()) return false;
     final fetched = await credential.run(
       () => _owner.content.posts(
         siteUrl: siteUrl,
         topicId: topicId,
-        ids: [postId],
+        ids: missing,
         apiKey: credential.apiKey,
       ),
     );
+    if (!isCurrent || !isInterested()) return false;
+    if (!_publishPosts(topicId, fetched, stamp)) return false;
+    return postIds.every((id) => _store.containsRecord<Post>(siteUrl, id));
+  }
+
+  /// Reads the run of a mega topic around [postNumber] so a route can settle
+  /// on it without waiting, answering the post number to settle on: a deleted
+  /// number has none of its own. Publishing replaces a run that does not
+  /// overlap, which is why it is dropped once [isInterested] answers false.
+  Future<int?> ensureMegaRun(
+    int topicId, {
+    required String slug,
+    required int postNumber,
+    required bool Function() isInterested,
+  }) async {
     if (!isCurrent || !isInterested()) return null;
-    final post = fetched.where((post) => post.id == postId).firstOrNull;
-    if (post == null) return null;
-    return _publishPosts(topicId, [post], stamp)
-        ? _store.read<Post>(siteUrl, postId)
-        : null;
+    final held = _heldMegaPostNumber(topicId, postNumber);
+    if (held != null) return held;
+    final stamp = _stamp(topicId);
+    final credential = await _requests.credentials(_owner.credentials);
+    if (!isCurrent || !isInterested()) return null;
+    final payload = await credential.run(
+      () => _owner.content.topic(
+        siteUrl: siteUrl,
+        slug: slug,
+        id: topicId,
+        postNumber: postNumber,
+        apiKey: credential.apiKey,
+        clientId: credential.clientId,
+      ),
+    );
+    if (!isCurrent || !isInterested()) return null;
+    if (_publishTopic(payload, stamp, positioned: true) == null) return null;
+    int? landed;
+    for (final post in payload.posts) {
+      if (post.postNumber >= postNumber &&
+          (landed == null || post.postNumber < landed)) {
+        landed = post.postNumber;
+      }
+    }
+    return landed;
+  }
+
+  /// The post the held run has at [postNumber], or the next one when that
+  /// number falls in a gap the run spans. Answers null outside the run.
+  int? _heldMegaPostNumber(int topicId, int postNumber) {
+    final stream = _store.read<TopicDetail>(siteUrl, topicId)?.stream;
+    if (stream == null) return null;
+    int? previous;
+    for (final id in stream) {
+      final number = _store.read<Post>(siteUrl, id)?.postNumber;
+      if (number == postNumber) return number;
+      if (number != null && number > postNumber) {
+        return previous == null ? null : number;
+      }
+      previous = number;
+    }
+    return null;
   }
 
   void Function()? beginPostWrite(int postId) {
