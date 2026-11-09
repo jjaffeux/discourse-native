@@ -113,6 +113,12 @@ Future<T> _withMicrophoneFailure<T>(Future<T> Function() action) async {
   }
 }
 
+/// The same user connected to this LiveKit room again, on another device or
+/// window, and the server dropped this connection in its favor.
+final class VoiceCallContinuedElsewhere implements Exception {
+  const VoiceCallContinuedElsewhere();
+}
+
 abstract interface class VoiceLiveKitRoomAdapter {
   lk.Room get room;
 
@@ -1889,7 +1895,8 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
       // Only the token endpoint's 410 means this room instance has ended.
       // Capacity/validation refusals and transient failures keep the ladder.
       shouldRetry: (error) =>
-          error is! WriteException || error.statusCode != HttpStatus.gone,
+          error is! VoiceCallContinuedElsewhere &&
+          (error is! WriteException || error.statusCode != HttpStatus.gone),
       onStateChanged: (state) {
         changed();
       },
@@ -1948,6 +1955,7 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   bool _closing = false;
 
   late final VoiceReconnectCoordinator _reconnect;
+  bool _continuedElsewhere = false;
   final Set<Future<void>> _roomConnections = {};
   Future<void>? _disposeFuture;
 
@@ -2136,6 +2144,9 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   void _startReconnect({lk.DisconnectReason? reason}) {
+    if (reason == lk.DisconnectReason.duplicateIdentity) {
+      _continuedElsewhere = true;
+    }
     final observed = _reconnect.reconnect().then<void>(
       (_) {},
       onError: (Object _, StackTrace _) {},
@@ -2144,6 +2155,9 @@ final class LiveKitVoiceMediaSession extends _VoiceMediaNotifier {
   }
 
   Future<void> _reconnectOnce() async {
+    // A new token would rotate the newer connection's participant session and
+    // connecting under the same identity would evict it in turn.
+    if (_continuedElsewhere) throw const VoiceCallContinuedElsewhere();
     final cameraRevision = _cameraRevision;
 
     final credentials = await refreshCredentials();

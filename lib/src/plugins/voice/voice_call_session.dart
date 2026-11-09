@@ -1118,13 +1118,19 @@ final class _VoiceCallSession {
         );
       }
       _call = updated;
-      if (view.connectionFailure case final WriteException error
-          when updated.status == VoiceCallStatus.failed &&
-              error.statusCode == HttpStatus.gone) {
-        // The instance ended, so teardown must not leave a failed call owning
-        // capture or send a leave against a replacement instance. The room's
-        // existing error surface explains why the user needs to rejoin.
-        controller._setSiteError(call.siteUrl, error.message);
+      final endedMessage = switch (view.connectionFailure) {
+        final WriteException error when error.statusCode == HttpStatus.gone =>
+          error.message,
+        VoiceCallContinuedElsewhere() =>
+          appL10n.thisCallContinuedOnAnotherDeviceOrWindow,
+        _ => null,
+      };
+      if (endedMessage != null && updated.status == VoiceCallStatus.failed) {
+        // The instance ended or moved to a newer connection, so teardown must
+        // not leave a failed call owning capture or send a leave that would
+        // land on its replacement. The room's existing error surface explains
+        // why the user needs to rejoin.
+        controller._setSiteError(call.siteUrl, endedMessage);
         controller._observe(() => close(notifyServer: false));
         return;
       }

@@ -5109,6 +5109,12 @@ abstract class AppLocalizations {
   /// **'{nameRaiserUsername} raised their hand to speak.'**
   String raisedTheirHandToSpeak(String nameRaiserUsername);
 
+  /// Shown when the same user joins a Live call elsewhere and this connection is replaced.
+  ///
+  /// In en, this message translates to:
+  /// **'This call continued on another device or window, so it was disconnected here.'**
+  String get thisCallContinuedOnAnotherDeviceOrWindow;
+
   /// English UI message used by plugins/voice/voice_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
