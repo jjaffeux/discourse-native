@@ -2545,6 +2545,26 @@ class ChatController extends FrameSafeNotifier {
       (_hiddenDeletedMessageChannelIds[siteUrl]?.containsKey(messageId) ??
           false);
 
+  /// Core honors a trashed cursor only for its author and staff. Anyone else
+  /// is paged from an end of the conversation instead, or refused in a thread.
+  /// Only a moderator who is not staff can hold such a row as a record; a
+  /// paging edge is otherwise answered without reading the store.
+  bool _acceptsAsPageCursor(String siteUrl, int channelId, int messageId) {
+    if (_hiddenDeletedMessageChannelIds[siteUrl]?.containsKey(messageId) ??
+        false) {
+      return false;
+    }
+    final user = _currentUserFor(siteUrl);
+    if (user?.staff == true ||
+        channel(siteUrl, channelId)?.canModerate != true) {
+      return true;
+    }
+    final message = _store.read<ChatMessage>(siteUrl, messageId);
+    return message == null ||
+        !message.isDeleted ||
+        message.author.id == user?.id;
+  }
+
   void _applyDeleteEvent(
     String siteUrl,
     ChatMessageDeleted event, {
@@ -3393,7 +3413,7 @@ class ChatController extends FrameSafeNotifier {
         !conversation.isViewing) {
       return;
     }
-    if (window.newestId == null) {
+    if (conversation.newestPageCursor == null) {
       // With no edge to page from, a fresh read replaces nothing on screen.
       unawaited(
         conversation.fetchWindow(fromLastRead: target.threadId == null),

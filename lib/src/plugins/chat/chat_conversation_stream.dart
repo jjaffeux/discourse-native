@@ -565,10 +565,23 @@ final class _ChatConversationStream {
     }
   }
 
+  int? get newestPageCursor => _pageCursor(snapshot.messageIds.reversed);
+
+  /// The first id from [edgeFirst] the site will page from. A window can end
+  /// in a row deleted by someone else, whose id the site will not honor.
+  int? _pageCursor(Iterable<int> edgeFirst) {
+    for (final id in edgeFirst) {
+      if (_controller._acceptsAsPageCursor(siteUrl, target.channelId, id)) {
+        return id;
+      }
+    }
+    return null;
+  }
+
   Future<void> loadOlder() async {
     if (!isCurrent || target.channelId <= 0) return;
     final held = snapshot;
-    final before = held.oldestId;
+    final before = _pageCursor(held.messageIds);
     if (!held.canLoadMorePast || before == null) return;
 
     if (_loading || _olderRequest != null) return;
@@ -681,7 +694,7 @@ final class _ChatConversationStream {
   Future<void> loadNewer() async {
     if (!isCurrent || target.channelId <= 0) return;
     final held = snapshot;
-    final after = held.newestId;
+    final after = newestPageCursor;
     if (!held.canLoadMoreFuture || after == null) return;
 
     if (_loading || _newerRequest != null) return;
