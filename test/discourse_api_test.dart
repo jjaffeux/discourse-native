@@ -3288,7 +3288,7 @@ void _feedGroups() {
       );
 
       expect(asked.path, '/t/12.json');
-      expect(asked.queryParameters, {'post_number': '37', 'summary': 'true'});
+      expect(asked.queryParameters, {'post_number': '37', 'filter': 'summary'});
     });
 
     test('rejects invalid topic coordinates before transport', () async {
