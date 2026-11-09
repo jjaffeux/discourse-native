@@ -183,6 +183,7 @@ class ComposerController extends ChangeNotifier
     int maxImageWidth = 690,
     int maxImageHeight = 500,
     int minimumRequiredTags = 0,
+    this.appliesTagMinimum,
     ComposerEditHistory? sharedHistory,
     DateTime Function()? now,
   }) : _editReason = _target.isEdit ? editReason : null,
@@ -821,7 +822,12 @@ class ComposerController extends ChangeNotifier
     _notify();
   }
 
-  String? get taxonomyValidationMessage => _tags.length < _minimumRequiredTags
+  /// Whether this author is held to a category's tag minimum. Core exempts
+  /// staff and anyone the site does not let tag, which the shell knows.
+  final bool Function()? appliesTagMinimum;
+
+  String? get taxonomyValidationMessage =>
+      _tags.length < _minimumRequiredTags && (appliesTagMinimum?.call() ?? true)
       ? appL10n.chooseAtLeastForThisCategory(
           (countLabel(_minimumRequiredTags, CountNoun.tag)).toString(),
         )
@@ -839,7 +845,9 @@ class ComposerController extends ChangeNotifier
   }
 
   void setMinimumRequiredTags(int value) {
-    if (_disposed || value == _minimumRequiredTags) return;
+    if (_disposed) return;
+    // Also the point the site's capabilities have arrived, and those can
+    // decide whether an unchanged minimum applies to this author.
     _minimumRequiredTags = value;
     _recomputeCanSubmit();
     _notify();
