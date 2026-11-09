@@ -17,6 +17,7 @@ final class ChatBrowseSession extends ChangeNotifier {
     _membership = saved.membership;
     _account = _BrowseAccount(chat.captureAccount(siteUrl));
     _observeAccount(_account);
+    chat.addListener(_chatChanged);
   }
 
   final ChatController chat;
@@ -32,6 +33,7 @@ final class ChatBrowseSession extends ChangeNotifier {
   int _nextOffset = 0;
   bool _hasMore = false;
   String? _error;
+  List<int> _listedIds = const [];
 
   String get query => _query.filter;
   ChatChannelBrowseStatus get status => _query.status;
@@ -56,6 +58,22 @@ final class ChatBrowseSession extends ChangeNotifier {
           channel,
     ],
   };
+
+  List<int> _visibleIds() => [
+    for (final channel in visibleChannels) channel.id,
+  ];
+
+  /// The controller notifies for every message in every channel. Each card
+  /// follows its own record, so only a membership filter can make one of
+  /// those notifications change this list.
+  void _chatChanged() {
+    if (_retired ||
+        _membership == ChatChannelJoinedFilter.all ||
+        listEquals(_visibleIds(), _listedIds)) {
+      return;
+    }
+    _notify();
+  }
 
   void changeQuery(String value) {
     if (_retired || value == query) return;
@@ -183,6 +201,7 @@ final class ChatBrowseSession extends ChangeNotifier {
   }
 
   void _notify() {
+    _listedIds = _visibleIds();
     _notificationDepth++;
     try {
       notifyListeners();
@@ -196,6 +215,7 @@ final class ChatBrowseSession extends ChangeNotifier {
   void dispose() {
     if (_retired) return;
     _retired = true;
+    chat.removeListener(_chatChanged);
     _request = null;
     _debounce?.cancel();
     _account.detach?.call();
