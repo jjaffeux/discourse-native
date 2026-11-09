@@ -294,6 +294,41 @@ void main() {
     },
   );
 
+  // status.gjs changeWatchingInviteeStatus: choosing the status already held
+  // leaves a public event, through invitees_controller.rb#destroy.
+  testWidgets('tapping the answer already given takes it back', (tester) async {
+    current = eventJson(
+      overrides: {
+        'status': 'public',
+        'is_public': true,
+        'is_private': false,
+        'watching_invitee': watching(status: 'interested'),
+      },
+    );
+    await pumpCard(tester, PostEvent.decode(current)!);
+    await tester.pumpAndSettle();
+    const path = '/discourse-post-event/events/42/invitees/83.json';
+    ports.transport.responders['DELETE $path'] = (_) {
+      current = {...current, 'watching_invitee': null};
+      return {'success': 'OK'};
+    };
+    ports.transport.responders['PUT $path'] = (_) => {
+      'invitee': watching(status: 'interested'),
+    };
+
+    await tester.tap(find.text('Interested'));
+    await tester.pumpAndSettle();
+
+    expect(ports.transport.writes.single.method, 'DELETE');
+    expect(
+      tester
+          .widget<DToggle>(find.widgetWithText(DToggle, 'Interested'))
+          .pressed,
+      isFalse,
+    );
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   group('rebuild isolation', () {
     Map<String, dynamic> eventFor(int id, {String? name}) => eventJson(
       overrides: {
