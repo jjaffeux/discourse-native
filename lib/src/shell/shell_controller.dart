@@ -2959,10 +2959,18 @@ class ShellController extends FrameSafeNotifier
     }
   }
 
-  Future<void> loadUserActivity(String siteUrl, {String? username}) async {
+  Future<void> loadUserActivity(
+    String siteUrl, {
+    String? username,
+    bool refresh = false,
+  }) async {
     final instance = _instanceAt(siteUrl);
     if (instance != null) {
-      await accountActivity.loadUserActivity(instance, username: username);
+      await accountActivity.loadUserActivity(
+        instance,
+        username: username,
+        refresh: refresh,
+      );
     }
   }
 
