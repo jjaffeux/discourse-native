@@ -296,8 +296,10 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                     child: Row(
                       children: [
                         Expanded(child: Text(context.l10n.displayOptions)),
-                        Icon(
-                          state.open ? Icons.expand_less : Icons.expand_more,
+                        DIcon(
+                          state.open
+                              ? DNativeIcons.chevronUp
+                              : DIcons.chevronDown,
                           size: 16,
                         ),
                       ],
@@ -444,7 +446,7 @@ class _LocalDateComposerSheetState extends State<LocalDateComposerSheet> {
                                     }),
                               variant: DButtonVariant.secondary,
                               tooltip: context.l10n.addTimezone,
-                              icon: const Icon(Icons.add),
+                              icon: const DIcon(DIcons.plus),
                             ),
                           ],
                         ),

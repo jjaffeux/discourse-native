@@ -6,6 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/surface_depth.dart';
@@ -733,7 +736,7 @@ class _DToastCardState extends State<_DToastCard> {
                   if (options.showClose) ...[
                     const SizedBox(width: 4),
                     DButton.iconOnly(
-                      icon: const Icon(Icons.close, size: 16),
+                      icon: const DIcon(DIcons.xmark, size: 16),
                       tooltip: context.l10n.closeToast,
                       semanticLabel: context.l10n.closeNotification,
                       variant: DButtonVariant.ghost,
@@ -811,16 +814,24 @@ class _DToastStatusIcon extends StatelessWidget {
       return const DSpinner(size: 16, semanticLabel: null);
     }
     final icon = switch (type) {
-      DToastType.success => Icons.check_circle_outline,
-      DToastType.info => Icons.info_outline,
-      DToastType.warning => Icons.warning_amber_outlined,
-      DToastType.error => Icons.cancel_outlined,
+      DToastType.success => DIcons.check,
+      DToastType.info => DIcons.circleInfo,
+      DToastType.warning => DIcons.triangleExclamation,
+      DToastType.error => DNativeIcons.circleXmark,
       _ => null,
     };
-    return Icon(
-      icon,
-      size: 16,
-      color: type == DToastType.error ? tokens.destructive : tokens.foreground,
+    if (icon == null) return const SizedBox.square(dimension: 16);
+    // The mockup draws this glyph 12 tall. The slot stays at the spinner's 16
+    // so a toast does not shift when loading settles into a status.
+    return DIconGlyphTheme(
+      scale: .75,
+      child: DIcon(
+        icon,
+        size: 16,
+        color: type == DToastType.error
+            ? tokens.destructive
+            : tokens.foreground,
+      ),
     );
   }
 }

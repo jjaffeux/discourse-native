@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
@@ -164,8 +165,8 @@ class _DImagePreviewState extends State<DImagePreview> {
                       ),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.image_outlined,
+                          DIcon(
+                            DNativeIcons.image,
                             size: 14,
                             color: foreground,
                           ),

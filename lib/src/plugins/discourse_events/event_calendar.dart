@@ -1047,8 +1047,8 @@ final class _EventCalendarState extends State<EventCalendar> {
           if (isCurrent()) widget.onOpen(event);
         },
         children: [
-          Icon(
-            event.event.recurring ? Icons.repeat : Icons.event,
+          DIcon(
+            event.event.recurring ? DNativeIcons.repeat : DIcons.calendarDays,
             color: event.color,
           ),
           DItemContent(
@@ -1192,7 +1192,11 @@ final class _EventCalendarState extends State<EventCalendar> {
                     alignment: PlaceholderAlignment.middle,
                     child: Padding(
                       padding: const EdgeInsetsDirectional.only(end: 2),
-                      child: Icon(Icons.repeat, size: 13, color: foreground),
+                      child: DIcon(
+                        DNativeIcons.repeat,
+                        size: 13,
+                        color: foreground,
+                      ),
                     ),
                   ),
                 TextSpan(text: event.title),
@@ -1224,8 +1228,8 @@ final class _EventCalendarState extends State<EventCalendar> {
                   if (!block) ...[
                     Padding(
                       padding: const EdgeInsetsDirectional.only(end: 5),
-                      child: Icon(
-                        Icons.circle,
+                      child: DIcon(
+                        DIcons.circle,
                         size: 6,
                         color: event.color ?? colors.outline,
                       ),

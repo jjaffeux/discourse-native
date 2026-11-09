@@ -1023,7 +1023,7 @@ class _AddGroupMembersSheetState extends State<_AddGroupMembersSheet> {
                     if (choice.email case final email?) {
                       return Row(
                         children: [
-                          const Icon(Icons.mail_outline, size: 20),
+                          const DIcon(DIcons.envelope, size: 20),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Column(

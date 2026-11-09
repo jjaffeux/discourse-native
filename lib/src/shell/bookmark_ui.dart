@@ -1366,7 +1366,7 @@ class _TopicBookmarksSheet extends StatelessWidget {
                                   DButton.iconOnly(
                                     tooltip: context.l10n.postBookmarkActions,
                                     variant: DButtonVariant.ghost,
-                                    icon: const Icon(Icons.more_vert),
+                                    icon: const DIcon(DIcons.ellipsis),
                                     focusNode: state.focusNode,
                                     hasPopup: true,
                                     expanded: state.open,

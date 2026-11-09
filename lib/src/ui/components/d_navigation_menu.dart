@@ -4,6 +4,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/interactive_row.dart';
@@ -788,7 +790,7 @@ class DNavigationMenuTrigger extends StatelessWidget {
               context,
               const Duration(milliseconds: 300),
             ),
-            child: const Icon(Icons.keyboard_arrow_down, size: 12),
+            child: const DIcon(DIcons.chevronDown, size: 12),
           ),
         ],
       ),

@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final contextMenuExamples = ComponentExamples(
@@ -81,7 +83,7 @@ final contextMenuExamples = ComponentExamples(
           'Caller-supplied artwork is constrained to the shared 16px leading slot.',
       states: const ['Leading icons', 'Destructive icon'],
       code: '''DContextMenuItem(
-  leading: const Icon(Icons.copy_outlined),
+  leading: const DIcon(DIcons.copy),
   onPressed: copy,
   child: const Text('Copy'),
 )''',
@@ -123,7 +125,7 @@ final contextMenuExamples = ComponentExamples(
       states: const ['Default', 'Destructive', 'Focus', 'Dark'],
       code: '''DContextMenuItem(
   variant: DContextMenuItemVariant.destructive,
-  leading: const Icon(Icons.delete_outline),
+  leading: const DIcon(DIcons.trashCan),
   onPressed: delete,
   child: const Text('Delete'),
 )''',
@@ -438,23 +440,23 @@ List<Widget> _groupItems() => [
 List<Widget> _iconItems() => [
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.copy_outlined),
+    leading: const DIcon(DIcons.copy),
     child: const Text('Copy'),
   ),
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.content_cut),
+    leading: const DIcon(DNativeIcons.scissors),
     child: const Text('Cut'),
   ),
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.content_paste_outlined),
+    leading: const DIcon(DNativeIcons.paste),
     child: const Text('Paste'),
   ),
   const DContextMenuSeparator(),
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.delete_outline),
+    leading: const DIcon(DIcons.trashCan),
     variant: DContextMenuItemVariant.destructive,
     child: const Text('Delete'),
   ),
@@ -463,18 +465,18 @@ List<Widget> _iconItems() => [
 List<Widget> _destructiveItems() => [
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.edit_outlined),
+    leading: const DIcon(DIcons.pencil),
     child: const Text('Edit'),
   ),
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.ios_share_outlined),
+    leading: const DIcon(DNativeIcons.shareFromSquare),
     child: const Text('Share'),
   ),
   const DContextMenuSeparator(),
   DContextMenuItem(
     onPressed: () {},
-    leading: const Icon(Icons.delete_outline),
+    leading: const DIcon(DIcons.trashCan),
     variant: DContextMenuItemVariant.destructive,
     child: const Text('Delete'),
   ),
@@ -601,14 +603,14 @@ class _RtlContextMenuState extends State<_RtlContextMenu> {
           children: [
             DContextMenuItem(
               onPressed: () {},
-              leading: const Icon(Icons.arrow_back),
+              leading: const DIcon(DNativeIcons.arrowRight),
               trailing: const DContextMenuShortcut('⌘['),
               child: const Text('رجوع'),
             ),
             const DContextMenuItem(child: Text('تقدم')),
             DContextMenuItem(
               onPressed: () {},
-              leading: const Icon(Icons.refresh),
+              leading: const DIcon(DIcons.arrowRotateRight),
               child: const Text('إعادة تحميل'),
             ),
           ],

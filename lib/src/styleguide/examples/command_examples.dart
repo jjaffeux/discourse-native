@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final commandExamples = ComponentExamples(
@@ -135,7 +136,7 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
                   items: [
                     DCommandItem(
                       value: 'Calendar',
-                      leading: Icon(Icons.calendar_today_outlined),
+                      leading: DIcon(DIcons.calendarDays),
                       child: Text('Calendar'),
                     ),
                     DCommandItem(
@@ -147,7 +148,7 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
                     DCommandItem(
                       value: 'Calculator',
                       enabled: false,
-                      leading: Icon(Icons.calculate_outlined),
+                      leading: DIcon(DNativeIcons.calculator),
                       child: Text('Calculator'),
                     ),
                   ],
@@ -164,7 +165,7 @@ class _EmbeddedCommandState extends State<_EmbeddedCommand> {
                     ),
                     DCommandItem(
                       value: 'Billing',
-                      leading: Icon(Icons.credit_card_outlined),
+                      leading: DIcon(DNativeIcons.creditCard),
                       trailing: DCommandShortcut(Text('⌘B')),
                       child: Text('Billing'),
                     ),
@@ -376,7 +377,7 @@ class _ArabicCommand extends StatelessWidget {
               items: [
                 DCommandItem(
                   value: 'التقويم',
-                  leading: Icon(Icons.calendar_today_outlined),
+                  leading: DIcon(DIcons.calendarDays),
                   child: Text('التقويم'),
                 ),
                 DCommandItem(

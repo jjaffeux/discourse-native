@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final dataTableExamples = ComponentExamples(
@@ -504,7 +505,7 @@ class _PaymentActions extends StatelessWidget {
       ),
       child: DDropdownMenuTrigger(
         builder: (context, trigger) => DButton.iconOnly(
-          icon: const Icon(Icons.more_horiz),
+          icon: const DIcon(DIcons.ellipsis),
           tooltip: t(
             'Open menu for ${payment.email}',
             'فتح قائمة ${payment.email}',

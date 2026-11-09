@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final inputOTPExamples = ComponentExamples(
@@ -348,7 +349,7 @@ class _OTPFormExampleState extends State<_OTPFormExample> {
                       label: Text(
                         _resends == 0 ? 'Resend Code' : 'Resent ($_resends)',
                       ),
-                      icon: const Icon(Icons.refresh, size: 16),
+                      icon: const DIcon(DIcons.arrowRotateRight, size: 16),
                       size: DButtonSize.small,
                       variant: DButtonVariant.outline,
                       onPressed: () => setState(() => _resends++),

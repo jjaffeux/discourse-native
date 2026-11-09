@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../theme/d_icon.dart';
 import '../../theme/tokens.dart';
 import '../foundation/focus_highlight.dart';
 import 'd_button.dart';
@@ -89,7 +91,7 @@ class DColorPickerPresets extends StatelessWidget {
             : color,
         borderColor: chosen ? tokens.foreground : color.withValues(alpha: .4),
         icon: fill
-            ? (chosen ? const Icon(Icons.check) : const SizedBox.shrink())
+            ? (chosen ? const DIcon(DIcons.check) : const SizedBox.shrink())
             : Builder(
                 builder: (context) => Text(
                   'A',

@@ -423,7 +423,7 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
               onPressed: () => _chooseDate(name),
               variant: DButtonVariant.ghost,
               tooltip: appL10n.chooseDateAndTime,
-              icon: const Icon(Icons.calendar_today),
+              icon: const DIcon(DIcons.calendarDays),
             )
           : null,
       keyboardType: name == 'max-attendees'
@@ -585,8 +585,10 @@ class _EventComposerSheetState extends State<EventComposerSheet> {
                   child: Row(
                     children: [
                       Expanded(child: Text(context.l10n.moreOptions)),
-                      Icon(
-                        state.open ? Icons.expand_less : Icons.expand_more,
+                      DIcon(
+                        state.open
+                            ? DNativeIcons.chevronUp
+                            : DIcons.chevronDown,
                         size: 16,
                       ),
                     ],

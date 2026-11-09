@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final messageExamples = ComponentExamples(
@@ -123,7 +125,7 @@ final messageExamples = ComponentExamples(
       code: '''DMessageFooter(children: [
   DMessageStatus(state: DMessageDeliveryState.failed),
   DButton.iconOnly(
-    icon: Icon(Icons.refresh), tooltip: 'Retry', onPressed: retry,
+    icon: DIcon(DIcons.arrowRotateRight), tooltip: 'Retry', onPressed: retry,
     variant: DButtonVariant.ghost, size: DButtonSize.small,
   ),
 ])''',
@@ -487,15 +489,15 @@ class _ActionsExampleState extends State<_ActionsExample> {
                 spacing: 2,
                 children: [
                   DButton.iconOnly(
-                    icon: Icon(copied ? Icons.check : Icons.copy_outlined),
+                    icon: DIcon(copied ? DIcons.check : DIcons.copy),
                     tooltip: 'Copy',
                     onPressed: () => setState(() => copied = !copied),
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                   ),
                   DButton.iconOnly(
-                    icon: Icon(
-                      liked ? Icons.thumb_up : Icons.thumb_up_alt_outlined,
+                    icon: DIcon(
+                      liked ? DNativeIcons.thumbsUp : DNativeIcons.thumbsUp,
                     ),
                     tooltip: 'Like',
                     onPressed: () => setState(() {
@@ -506,10 +508,10 @@ class _ActionsExampleState extends State<_ActionsExample> {
                     size: DButtonSize.small,
                   ),
                   DButton.iconOnly(
-                    icon: Icon(
+                    icon: DIcon(
                       disliked
-                          ? Icons.thumb_down
-                          : Icons.thumb_down_alt_outlined,
+                          ? DNativeIcons.thumbsDown
+                          : DNativeIcons.thumbsDown,
                     ),
                     tooltip: 'Dislike',
                     onPressed: () => setState(() {
@@ -541,7 +543,7 @@ class _ActionsExampleState extends State<_ActionsExample> {
                 children: [
                   DMessageStatus(state: delivery),
                   DButton.iconOnly(
-                    icon: const Icon(Icons.refresh),
+                    icon: const DIcon(DIcons.arrowRotateRight),
                     tooltip: 'Retry',
                     onPressed: delivery == DMessageDeliveryState.failed
                         ? () => setState(
@@ -607,7 +609,7 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                           end: Alignment.bottomRight,
                         ),
                       ),
-                      child: const Center(child: Icon(Icons.image_outlined)),
+                      child: const Center(child: DIcon(DNativeIcons.image)),
                     ),
                   ),
                 ],
@@ -641,9 +643,7 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
               ),
               DAttachment(
                 children: [
-                  const DAttachmentMedia(
-                    child: Icon(Icons.description_outlined),
-                  ),
+                  const DAttachmentMedia(child: DIcon(DIcons.fileLines)),
                   const DAttachmentContent(
                     children: [
                       DAttachmentTitle(child: Text('sales-dashboard.pdf')),
@@ -653,8 +653,8 @@ class _AttachmentExampleState extends State<_AttachmentExample> {
                   DAttachmentActions(
                     children: [
                       DAttachmentAction(
-                        icon: Icon(
-                          downloaded ? Icons.check : Icons.download_outlined,
+                        icon: DIcon(
+                          downloaded ? DIcons.check : DIcons.download,
                         ),
                         tooltip: 'Download',
                         onPressed: () => setState(() => downloaded = true),
@@ -827,7 +827,7 @@ class _QuotedConversationExampleState
                     spacing: DSpacing.controlGap,
                     children: [
                       DButton.iconOnly(
-                        icon: const Icon(Icons.add_reaction_outlined),
+                        icon: const DIcon(DIcons.farFaceSmile),
                         tooltip: 'React to message',
                         size: DButtonSize.small,
                         variant: DButtonVariant.ghost,
@@ -850,7 +850,7 @@ class _QuotedConversationExampleState
                             ),
                             child: DDropdownMenuTrigger(
                               builder: (context, state) => DButton.iconOnly(
-                                icon: const Icon(Icons.keyboard_arrow_down),
+                                icon: const DIcon(DIcons.chevronDown),
                                 tooltip: 'Message options',
                                 size: DButtonSize.small,
                                 variant: DButtonVariant.ghost,

@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final navigationMenuExamples = ComponentExamples(
@@ -182,16 +184,16 @@ class _ReferenceMenuState extends State<_ReferenceMenu> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (final (label, icon) in const [
-                      ('Backlog', Icons.error_outline),
-                      ('To Do', Icons.circle_outlined),
-                      ('Done', Icons.check_circle_outline),
+                      ('Backlog', DIcons.triangleExclamation),
+                      ('To Do', DNativeIcons.circleDot),
+                      ('Done', DIcons.farCircleCheck),
                     ])
                       DNavigationMenuLink(
                         closeOnActivate: true,
                         onPressed: () => _go(label),
                         child: Row(
                           children: [
-                            Icon(icon),
+                            DIcon(icon),
                             const SizedBox(width: 8),
                             Text(label),
                           ],

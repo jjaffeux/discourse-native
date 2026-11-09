@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final bubbleExamples = ComponentExamples(
@@ -173,7 +175,7 @@ DBubbleReactions(interactive: true, children: [
       code: '''DBubbleReactions(interactive: true, children: [
   DTooltip(message: 'Read on Jan 5, 2026 at 4:32 PM',
     child: DButton.iconOnly(
-      icon: const Icon(Icons.check), tooltip: 'Read receipt', onPressed: showReceipt)),
+      icon: const DIcon(DIcons.check), tooltip: 'Read receipt', onPressed: showReceipt)),
 ])''',
       builder: (_) => const _TooltipDemo(),
     ),
@@ -706,10 +708,8 @@ class _CollapsibleDemoState extends State<_CollapsibleDemo> {
                             ),
                           ),
                           const SizedBox(width: 4),
-                          Icon(
-                            open
-                                ? Icons.keyboard_arrow_up
-                                : Icons.keyboard_arrow_down,
+                          DIcon(
+                            open ? DNativeIcons.chevronUp : DIcons.chevronDown,
                             size: 16,
                           ),
                         ],
@@ -752,7 +752,7 @@ class _TooltipDemo extends StatelessWidget {
                 DTooltip(
                   message: 'Read on Jan 5, 2026 at 4:32 PM',
                   child: DButton.iconOnly(
-                    icon: const Icon(Icons.check, size: 14),
+                    icon: const DIcon(DIcons.check, size: 14),
                     tooltip: 'Read receipt',
                     size: DButtonSize.small,
                     variant: DButtonVariant.ghost,
@@ -806,7 +806,7 @@ class _PopoverDemo extends StatelessWidget {
                   ),
                   child: DPopoverTrigger(
                     builder: (context, trigger) => DButton.iconOnly(
-                      icon: const Icon(Icons.info_outline, size: 14),
+                      icon: const DIcon(DIcons.circleInfo, size: 14),
                       tooltip: 'Show error details',
                       size: DButtonSize.small,
                       variant: DButtonVariant.ghost,

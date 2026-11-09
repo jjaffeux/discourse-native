@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../models/forum_theme.dart';
 import '../../models/forum_theme_preferences.dart';
 import '../../models/forum_theme_share.dart';
@@ -221,13 +222,13 @@ class _ForumThemeOneboxState extends State<ForumThemeOnebox> {
                         items: [
                           DToggleGroupItem.iconOnly(
                             value: Brightness.light,
-                            icon: const Icon(Icons.light_mode_outlined),
+                            icon: const DIcon(DNativeIcons.sun),
                             semanticLabel: context.l10n.previewLightTheme,
                             tooltip: context.l10n.lightPreview,
                           ),
                           DToggleGroupItem.iconOnly(
                             value: Brightness.dark,
-                            icon: const Icon(Icons.dark_mode_outlined),
+                            icon: const DIcon(DNativeIcons.moon),
                             semanticLabel: context.l10n.previewDarkTheme,
                             tooltip: context.l10n.darkPreview,
                           ),

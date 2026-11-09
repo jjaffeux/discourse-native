@@ -1,6 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../shell/theme_icons.dart';
 import '../styleguide_example.dart';
 import 'toggle_reference_icons.dart';
@@ -120,22 +122,22 @@ final toggleGroupExamples = ComponentExamples(
         items: [
           DToggleGroupItem(
             value: 'None',
-            icon: Icon(Icons.crop_square_rounded),
+            icon: DIcon(DNativeIcons.square),
             child: Text('None'),
           ),
           DToggleGroupItem(
             value: 'Paper',
-            icon: Icon(Icons.grain),
+            icon: DIcon(DIcons.grip),
             child: Text('Paper'),
           ),
           DToggleGroupItem(
             value: 'Lava lamp',
-            icon: Icon(Icons.apps),
+            icon: DIcon(DNativeIcons.tableCellsLarge),
             child: Text('Lava lamp'),
           ),
           DToggleGroupItem(
             value: 'Gradient',
-            icon: Icon(Icons.gradient),
+            icon: DIcon(DNativeIcons.circleHalfStroke),
             child: Text('Gradient'),
           ),
         ],
@@ -157,13 +159,13 @@ final toggleGroupExamples = ComponentExamples(
             value: false,
             semanticLabel: 'Keep topic tabs with the list',
             tooltip: 'Keep topic tabs with the list',
-            icon: Icon(Icons.copy_outlined),
+            icon: DIcon(DIcons.copy),
           ),
           DToggleGroupItem.iconOnly(
             value: true,
             semanticLabel: 'Split with the list',
             tooltip: 'Split with the list',
-            icon: Icon(Icons.view_column_outlined),
+            icon: DIcon(DNativeIcons.columns),
           ),
         ],
       ),

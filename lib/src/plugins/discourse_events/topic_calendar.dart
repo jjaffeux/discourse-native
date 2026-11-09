@@ -6,7 +6,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/date_symbol_data_local.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
@@ -388,6 +388,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
     final hiddenDays = widget.options.hiddenDays;
+    final rtl = Directionality.of(context) == TextDirection.rtl;
     return Container(
       margin: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -434,7 +435,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                               : '')
                           .toString(),
                     ),
-                    icon: const Icon(Icons.chevron_left),
+                    icon: DIcon(rtl ? DIcons.chevronRight : DIcons.chevronLeft),
                   ),
                   DButton.iconOnly(
                     onPressed: () => unawaited(_calendar.animateToNextPage()),
@@ -447,7 +448,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                               : '')
                           .toString(),
                     ),
-                    icon: const Icon(Icons.chevron_right),
+                    icon: DIcon(rtl ? DIcons.chevronLeft : DIcons.chevronRight),
                   ),
                 ],
               ),
@@ -481,7 +482,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   DButton(
                     variant: DButtonVariant.outline,
                     onPressed: _pickTimezone,
-                    icon: const Icon(Icons.public),
+                    icon: const DIcon(DIcons.globe),
                     label: Text(_timezone.replaceAll('_', ' ')),
                   ),
                 ],

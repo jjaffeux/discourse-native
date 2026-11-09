@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 import 'toggle_reference_icons.dart';
@@ -28,8 +29,8 @@ final toggleExamples = ComponentExamples(
       code: '''DToggle.iconOnly(
   density: DToggleDensity.disclosure,
   semanticLabel: 'Expand replies',
-  icon: const Icon(Icons.remove),
-  selectedIcon: const Icon(Icons.add),
+  icon: const DIcon(DIcons.minus),
+  selectedIcon: const DIcon(DIcons.plus),
 )''',
       builder: (_) => const Row(
         mainAxisSize: MainAxisSize.min,
@@ -38,21 +39,21 @@ final toggleExamples = ComponentExamples(
           DToggle.iconOnly(
             density: DToggleDensity.disclosure,
             semanticLabel: 'Collapse replies',
-            icon: Icon(Icons.remove),
-            selectedIcon: Icon(Icons.add),
+            icon: DIcon(DIcons.minus),
+            selectedIcon: DIcon(DIcons.plus),
           ),
           DToggle.iconOnly(
             density: DToggleDensity.disclosure,
             pressed: true,
             semanticLabel: 'Expand replies',
-            icon: Icon(Icons.remove),
-            selectedIcon: Icon(Icons.add),
+            icon: DIcon(DIcons.minus),
+            selectedIcon: DIcon(DIcons.plus),
           ),
           DToggle.iconOnly(
             density: DToggleDensity.disclosure,
             enabled: false,
             semanticLabel: 'Replies unavailable',
-            icon: Icon(Icons.remove),
+            icon: DIcon(DIcons.minus),
           ),
         ],
       ),
@@ -62,20 +63,20 @@ final toggleExamples = ComponentExamples(
       description:
           'Flat 30px pills with accent selection and a circular add action.',
       code:
-          "DToggle(density: DToggleDensity.postReaction, icon: Icon(Icons.favorite), child: Text('3'))",
+          "DToggle(density: DToggleDensity.postReaction, icon: DIcon(DIcons.heart), child: Text('3'))",
       builder: (_) => Wrap(
         spacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           const DToggle(
             density: DToggleDensity.postReaction,
-            icon: Icon(Icons.favorite),
+            icon: DIcon(DIcons.heart),
             child: Text('3'),
           ),
           const DToggle(
             density: DToggleDensity.postReaction,
             pressed: true,
-            icon: Icon(Icons.thumb_up),
+            icon: DIcon(DNativeIcons.thumbsUp),
             child: Text('1'),
           ),
           DButton(
@@ -86,7 +87,7 @@ final toggleExamples = ComponentExamples(
           DButton.iconOnly(
             density: DButtonDensity.postReaction,
             tooltip: 'Add reaction',
-            icon: const Icon(Icons.add_reaction),
+            icon: const DIcon(DIcons.faceSmile),
             onPressed: () {},
           ),
         ],
@@ -97,12 +98,12 @@ final toggleExamples = ComponentExamples(
       description:
           'Compact emoji and count with a matching hit area on mobile.',
       code:
-          "DToggle(density: DToggleDensity.standard, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
+          "DToggle(density: DToggleDensity.standard, variant: DToggleVariant.outline, icon: DIcon(DIcons.heart), child: Text('1'))",
       builder: (_) => const DToggle(
         density: DToggleDensity.standard,
         variant: DToggleVariant.outline,
         semanticLabel: '1 heart reaction',
-        icon: Icon(Icons.favorite),
+        icon: DIcon(DIcons.heart),
         child: Text('1'),
       ),
     ),
@@ -111,12 +112,12 @@ final toggleExamples = ComponentExamples(
       description:
           'A flat 24px outlined pill with 12px emoji and regular-weight count, matching chat channels and threads.',
       code:
-          "DToggle(density: DToggleDensity.chatReaction, variant: DToggleVariant.outline, icon: Icon(Icons.favorite), child: Text('1'))",
+          "DToggle(density: DToggleDensity.chatReaction, variant: DToggleVariant.outline, icon: DIcon(DIcons.heart), child: Text('1'))",
       builder: (_) => const DToggle(
         density: DToggleDensity.chatReaction,
         variant: DToggleVariant.outline,
         semanticLabel: '1 heart reaction',
-        icon: Icon(Icons.favorite),
+        icon: DIcon(DIcons.heart),
         child: Text('1'),
       ),
     ),

@@ -203,7 +203,7 @@ final cardExamples = ComponentExamples(
           "DCard(variant: DCardVariant.capsule, size: DCardSize.small, "
           "border: false, child: Row(spacing: DSpacing.xxs, children: ["
           "DButton.iconOnly(density: DButtonDensity.chrome, "
-          "icon: Icon(Icons.arrow_back), tooltip: 'Back', onPressed: back)]))",
+          "icon: DIcon(DIcons.arrowLeft), tooltip: 'Back', onPressed: back)]))",
       builder: (_) {
         var lastAction = 'Choose an action';
         return StatefulBuilder(
@@ -220,14 +220,14 @@ final cardExamples = ComponentExamples(
                     spacing: DSpacing.xxs,
                     children: [
                       for (final (label, icon) in [
-                        ('Bold', Icons.format_bold),
-                        ('Italic', Icons.format_italic),
-                        ('Link', Icons.link),
-                        ('Insert', Icons.add),
+                        ('Bold', DIcons.bold),
+                        ('Italic', DIcons.italic),
+                        ('Link', DIcons.link),
+                        ('Insert', DIcons.plus),
                       ])
                         DButton.iconOnly(
                           tooltip: label,
-                          icon: Icon(icon),
+                          icon: DIcon(icon),
                           variant: DButtonVariant.ghost,
                           density: DButtonDensity.chrome,
                           onPressed: () =>

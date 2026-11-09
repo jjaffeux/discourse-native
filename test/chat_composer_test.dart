@@ -57,6 +57,7 @@ import 'package:image_picker_platform_interface/image_picker_platform_interface.
 import 'support/bundled_plugins.dart';
 import 'support/chat_shell.dart';
 import 'support/fakes.dart';
+import 'support/finders.dart';
 import 'support/media_pipeline.dart';
 import 'support/native_drop.dart';
 import 'support/native_ui_evidence.dart';
@@ -2247,7 +2248,7 @@ void main() {
           find.byKey(const ValueKey('composer-upload-thumbnail-73')),
           findsNothing,
         );
-        expect(find.byIcon(Icons.attach_file), findsOneWidget);
+        expect(find.dIcon(DIcons.paperclip), findsOneWidget);
         await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
         await tester.pumpAndSettle();
         expect(fixture.api.chatMessagesSent.single.message, isEmpty);

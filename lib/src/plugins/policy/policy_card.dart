@@ -103,7 +103,7 @@ class _PolicyCardState extends State<PolicyCard> {
               ? null
               : DCardAction(
                   child: DButton.iconOnly(
-                    icon: const Icon(Icons.settings_outlined, size: 18),
+                    icon: const DIcon(DIcons.gear, size: 18),
                     tooltip: l10n.policyEditSettings,
                     variant: DButtonVariant.ghost,
                     onPressed: pending ? null : widget.onEditSettings,
@@ -156,7 +156,7 @@ class _PolicyCardState extends State<PolicyCard> {
                               definition.acceptLabel ?? l10n.policyAccept,
                             ),
                             icon: data.accepted
-                                ? const Icon(Icons.check, size: 16)
+                                ? const DIcon(DIcons.check, size: 16)
                                 : null,
                             variant: data.accepted && !data.revoked
                                 ? DButtonVariant.outline
@@ -171,8 +171,13 @@ class _PolicyCardState extends State<PolicyCard> {
                             label: Text(
                               definition.revokeLabel ?? l10n.policyRevoke,
                             ),
-                            icon: Icon(
-                              data.revoked ? Icons.check : Icons.undo,
+                            icon: DIcon(
+                              data.revoked
+                                  ? DIcons.check
+                                  : Directionality.of(context) ==
+                                        TextDirection.rtl
+                                  ? DIcons.arrowRotateRight
+                                  : DIcons.arrowRotateLeft,
                               size: 16,
                             ),
                             variant: DButtonVariant.destructive,
@@ -244,8 +249,8 @@ class _AcceptedNotice extends StatelessWidget {
               spacing: 14,
               children: [
                 ExcludeSemantics(
-                  child: Icon(
-                    Icons.verified_outlined,
+                  child: DIcon(
+                    DIcons.circleCheck,
                     size: 30,
                     color: tokens.success,
                   ),
@@ -404,10 +409,7 @@ class _InlineParticipantsState extends State<_InlineParticipants> {
         semanticLabel: accepted
             ? context.l10n.policyAcceptedCount('$count')
             : context.l10n.policyOutstandingCount('$count'),
-        icon: Icon(
-          accepted ? Icons.how_to_reg_outlined : Icons.person_outline,
-          size: 16,
-        ),
+        icon: DIcon(accepted ? DNativeIcons.userCheck : DIcons.user, size: 16),
         onPressedChanged: (_) => setState(() => _selected = list),
         child: Text('$count'),
       ),
@@ -460,7 +462,7 @@ class _InlineParticipantsState extends State<_InlineParticipants> {
         DButton(
           key: const ValueKey('policy-participants-more'),
           label: Text('+$remaining'),
-          icon: const Icon(Icons.person_outline, size: 14),
+          icon: const DIcon(DIcons.user, size: 14),
           tooltip: context.l10n.policyLoadMoreUsers('$remaining'),
           semanticLabel: context.l10n.policyLoadMoreUsers('$remaining'),
           size: DButtonSize.small,

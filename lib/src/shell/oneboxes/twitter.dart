@@ -6,6 +6,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../foundation/count_label.dart';
 import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../cooked_dom.dart';
 import '../cooked_html.dart';
@@ -247,7 +248,7 @@ class _Author extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    const fallback = DAvatarFallback(child: Icon(Icons.person_outline));
+    const fallback = DAvatarFallback(child: DIcon(DIcons.user));
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -485,7 +486,7 @@ class _PostActionsState extends State<_PostActions> {
               DButton(
                 variant: DButtonVariant.ghost,
                 size: DButtonSize.post,
-                icon: const Icon(Icons.repeat),
+                icon: const DIcon(DNativeIcons.retweet),
                 label: Text(reposts),
                 semanticLabel: context.l10n.viewPostOnXTwitter(
                   (_metricLabel(reposts, CountNoun.repost)).toString(),

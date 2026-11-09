@@ -51,7 +51,7 @@ const DMarker(
 const DMarker(variant: DMarkerVariant.inline,
   child: DMarkerContent(child: Text('Opened implementation notes')))
 const DMarker(axis: Axis.vertical,
-  icon: DMarkerIcon(child: Icon(Icons.check)),
+  icon: DMarkerIcon(child: DIcon(DIcons.check)),
   child: DMarkerContent(child: Text('Syncing completed')))''',
       builder: (_) => const Column(
         spacing: 24,

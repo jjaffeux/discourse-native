@@ -3,9 +3,9 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart' show Icon, Icons;
 import 'package:flutter/widgets.dart';
 
+import '../foundation/icons/d_native_icons.dart';
 import '../models/composer_placement.dart';
 import '../models/forum_workspace.dart';
 import 'composer/presentation_scope.dart';
@@ -809,7 +809,7 @@ class _DesktopPanelsState extends State<DesktopPanels>
                       focusNode: _swapFocus,
                       density: DButtonDensity.chatMessageAction,
                       variant: DButtonVariant.outline,
-                      icon: const Icon(Icons.swap_horiz),
+                      icon: const DIcon(DNativeIcons.rightLeft),
                       tooltip: context.l10n.swapPanels,
                       onPressed: _swapPanels,
                     ),

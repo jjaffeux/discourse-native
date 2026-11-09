@@ -234,13 +234,13 @@ final tabsExamples = ComponentExamples(
   DTabTrigger(
     value: 'preview',
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.web_asset_outlined), SizedBox(width: 6), Text('Preview'),
+      DIcon(DNativeIcons.windowMaximize), SizedBox(width: 6), Text('Preview'),
     ]),
   ),
   DTabTrigger(
     value: 'code',
     child: Row(mainAxisSize: MainAxisSize.min, children: [
-      Icon(Icons.code), SizedBox(width: 6), Text('Code'),
+      DIcon(DIcons.code), SizedBox(width: 6), Text('Code'),
     ]),
   ),
 ])''',
@@ -411,7 +411,7 @@ class _IconTabs extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.web_asset_outlined),
+                DIcon(DNativeIcons.windowMaximize),
                 SizedBox(width: 6),
                 Text('Preview'),
               ],
@@ -421,7 +421,7 @@ class _IconTabs extends StatelessWidget {
             value: 'code',
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: [Icon(Icons.code), SizedBox(width: 6), Text('Code')],
+              children: [DIcon(DIcons.code), SizedBox(width: 6), Text('Code')],
             ),
           ),
         ],

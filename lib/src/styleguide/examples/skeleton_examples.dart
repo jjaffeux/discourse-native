@@ -3,6 +3,8 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 
 import '../../../discourse_ui.dart';
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../styleguide_example.dart';
 
 final skeletonExamples = ComponentExamples(
@@ -568,7 +570,7 @@ class _ProfileContent extends StatelessWidget {
           ),
           child: const SizedBox.square(
             dimension: 40,
-            child: Icon(Icons.person, size: 20),
+            child: DIcon(DIcons.user, size: 20),
           ),
         ),
       ),
@@ -640,8 +642,8 @@ class _CardContentState extends State<_CardContent> {
           ratio: 16 / 9,
           child: ColoredBox(
             color: DTokens.of(context).muted,
-            child: const Icon(
-              Icons.park,
+            child: const DIcon(
+              DNativeIcons.tree,
               size: 64,
               semanticLabel: 'Garden cover',
             ),

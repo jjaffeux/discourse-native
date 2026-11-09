@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../styleguide_example.dart';
 
@@ -539,7 +540,7 @@ class _CustomChart extends StatelessWidget {
       'chrome': DChartConfigEntry(
         label: 'Chrome',
         color: (context) => DTokens.of(context).primary,
-        icon: (_) => const Icon(Icons.public),
+        icon: (_) => const DIcon(DIcons.globe),
       ),
       'safari': DChartConfigEntry(
         label: 'Safari',
@@ -703,7 +704,7 @@ const _customCode = r'''final items = [
 DChartContainer(config: {
   'visitors': DChartConfigEntry(label: 'Total Visitors'),
   'chrome': DChartConfigEntry(label: 'Chrome', color: (c) => DTokens.of(c).primary,
-    icon: (_) => Icon(Icons.public)),
+    icon: (_) => DIcon(DIcons.globe)),
   'safari': DChartConfigEntry(label: 'Safari', color: (c) => DChartTone.mid.resolve(c)),
 }, child: Column(mainAxisSize: MainAxisSize.min, children: [
   DChartLegendContent(items: items, nameKey: 'browser', atTop: true),

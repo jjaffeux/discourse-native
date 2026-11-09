@@ -338,7 +338,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
                 onPressed: index == 0 ? null : () => _moveOption(index, -1),
                 variant: DButtonVariant.ghost,
                 tooltip: appL10n.moveOptionUp,
-                icon: const Icon(Icons.arrow_upward),
+                icon: const DIcon(DIcons.arrowUp),
               ),
               DButton.iconOnly(
                 onPressed: index == _options.length - 1
@@ -346,13 +346,13 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
                     : () => _moveOption(index, 1),
                 variant: DButtonVariant.ghost,
                 tooltip: appL10n.moveOptionDown,
-                icon: const Icon(Icons.arrow_downward),
+                icon: const DIcon(DNativeIcons.arrowDown),
               ),
               DButton.iconOnly(
                 onPressed: () => _removeOption(index),
                 variant: DButtonVariant.ghost,
                 tooltip: appL10n.removeOption,
-                icon: const Icon(Icons.remove_circle_outline),
+                icon: const DIcon(DIcons.circleMinus),
               ),
             ],
           ),
@@ -364,7 +364,7 @@ class _PollComposerSheetState extends State<PollComposerSheet> {
           onPressed: _options.length >= widget.maximumOptions
               ? null
               : _addOption,
-          icon: const Icon(Icons.add),
+          icon: const DIcon(DIcons.plus),
         ),
       ),
       if (_isMultiple) ...[

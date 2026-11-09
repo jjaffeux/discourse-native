@@ -7,6 +7,7 @@ import 'package:html/dom.dart' as dom;
 import '../data/site_lifecycle.dart';
 import '../data/site_pdf_thumbnail_repository.dart';
 import '../data/site_thumbnail_repository.dart';
+import '../foundation/icons/d_native_icons.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
@@ -178,7 +179,7 @@ class _PdfThumbnailState extends State<PdfThumbnail> {
     key: ObjectKey(_request),
     future: _request?.result,
     builder: (context, snapshot) {
-      const fallback = Center(child: Icon(Icons.picture_as_pdf_outlined));
+      const fallback = Center(child: DIcon(DNativeIcons.filePdf));
       final bytes = snapshot.data;
       if (bytes == null) return fallback;
       return Image.memory(

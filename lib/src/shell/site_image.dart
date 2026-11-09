@@ -14,6 +14,7 @@ import '../data/avif.dart';
 import '../data/http_basic_auth.dart';
 import '../data/site_image_repository.dart';
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_registry.dart';
 import 'html_paragraph_selection.dart';
@@ -618,7 +619,7 @@ class _GifPlaybackControlState extends State<_GifPlaybackControl> {
           bottom: widget.atTop ? null : 4,
           child: DButton.iconOnly(
             key: const ValueKey('gif-playback-toggle'),
-            icon: Icon(_playing ? Icons.pause : Icons.play_arrow),
+            icon: DIcon(_playing ? DNativeIcons.pause : DIcons.play),
             tooltip: action,
             semanticLabel: action,
             size: DButtonSize.small,

@@ -502,8 +502,8 @@ class _NetworkArtwork extends StatelessWidget {
       width: double.infinity,
       height: double.infinity,
       errorBuilder: (context, _, _) => Center(
-        child: Icon(
-          Icons.broken_image_outlined,
+        child: DIcon(
+          DNativeIcons.image,
           color: Theme.of(context).colorScheme.onSurfaceVariant,
         ),
       ),

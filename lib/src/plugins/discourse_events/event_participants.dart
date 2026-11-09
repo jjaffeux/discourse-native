@@ -103,7 +103,11 @@ class _ParticipantsState extends State<_Participants> {
             enabled: _session.available,
             autocorrect: false,
             textInputAction: TextInputAction.search,
-            prefix: Icon(Icons.search, size: 16, color: tokens.mutedForeground),
+            prefix: DIcon(
+              DIcons.magnifyingGlass,
+              size: 16,
+              color: tokens.mutedForeground,
+            ),
             suffix: _search.text.isEmpty
                 ? null
                 : DButton.iconOnly(
@@ -111,7 +115,7 @@ class _ParticipantsState extends State<_Participants> {
                     variant: DButtonVariant.ghost,
                     size: DButtonSize.small,
                     tooltip: context.l10n.clearSearch,
-                    icon: const Icon(Icons.close),
+                    icon: const DIcon(DIcons.xmark),
                   ),
             onChanged: _session.changeSearch,
             onSubmitted: (_) => unawaited(_session.refresh()),
@@ -373,12 +377,12 @@ class _ParticipantRow extends StatelessWidget {
             runSpacing: 4,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Icon(
+              DIcon(
                 switch (invitee.status) {
-                  'going' => Icons.check,
-                  'interested' => Icons.star_outline,
-                  'not_going' => Icons.close,
-                  _ => Icons.mail_outline,
+                  'going' => DIcons.check,
+                  'interested' => DIcons.farStar,
+                  'not_going' => DIcons.xmark,
+                  _ => DIcons.envelope,
                 },
                 size: 14,
                 color: tokens.mutedForeground,
@@ -387,8 +391,8 @@ class _ParticipantRow extends StatelessWidget {
               if (invitee.recurring)
                 DTooltip(
                   message: context.l10n.everyOccurrence,
-                  child: Icon(
-                    Icons.repeat,
+                  child: DIcon(
+                    DNativeIcons.repeat,
                     size: 14,
                     color: tokens.mutedForeground,
                     semanticLabel: context.l10n.everyOccurrence,

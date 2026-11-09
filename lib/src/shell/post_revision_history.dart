@@ -7,6 +7,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html_parser;
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/post.dart';
 import '../models/post_revision.dart';
 import '../theme/app_theme.dart';
@@ -930,29 +931,42 @@ class _PostRevisionHistoryFooter extends StatelessWidget {
                   ? () => controller.load(last)
                   : null;
               if (constraints.maxWidth < 420) {
+                final rtl = Directionality.of(context) == TextDirection.rtl;
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     DButton.iconOnly(
-                      icon: const Icon(Icons.first_page),
+                      icon: DIcon(
+                        rtl
+                            ? DNativeIcons.anglesRight
+                            : DNativeIcons.anglesLeft,
+                      ),
                       tooltip: context.l10n.first,
                       onPressed: firstAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const Icon(Icons.navigate_before),
+                      icon: DIcon(
+                        rtl ? DIcons.chevronRight : DIcons.chevronLeft,
+                      ),
                       tooltip: context.l10n.previous,
                       onPressed: previousAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const Icon(Icons.navigate_next),
+                      icon: DIcon(
+                        rtl ? DIcons.chevronLeft : DIcons.chevronRight,
+                      ),
                       tooltip: context.l10n.next,
                       onPressed: nextAction,
                       size: DButtonSize.small,
                     ),
                     DButton.iconOnly(
-                      icon: const Icon(Icons.last_page),
+                      icon: DIcon(
+                        rtl
+                            ? DNativeIcons.anglesLeft
+                            : DNativeIcons.anglesRight,
+                      ),
                       tooltip: context.l10n.latest,
                       onPressed: latestAction,
                       size: DButtonSize.small,
