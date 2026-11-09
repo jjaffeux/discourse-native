@@ -1,30 +1,5 @@
 part of 'shell_controller.dart';
 
-Future<_ShellWriteCredential> _topicActionCredential(
-  ApiCredentialReader credentials,
-  String siteUrl,
-  SiteLease lease,
-) async {
-  try {
-    final session = AccountRequestSession(siteUrl, lease);
-    final request = await session.credentials(credentials);
-    final apiKey = request.apiKey;
-    return apiKey == null
-        ? (
-            apiKey: null,
-            request: null,
-            failure: const WriteException(WriteFailure.forbidden),
-          )
-        : (apiKey: apiKey, request: request, failure: null);
-  } catch (error) {
-    return (
-      apiKey: null,
-      request: null,
-      failure: const WriteException(WriteFailure.unreachable),
-    );
-  }
-}
-
 final class _MessageArchiveTransactions {
   _MessageArchiveTransactions({
     required this.store,
@@ -62,10 +37,10 @@ final class _MessageArchiveTransactions {
     }
     final lease = lifecycle.capture(siteUrl);
     try {
-      final credential = await _topicActionCredential(
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
         credentials,
-        siteUrl,
-        lease,
+        withClientId: true,
       );
       if (!lease.isCurrent || _disposed) return appL10n.theAccountHasChanged;
       if (credential.failure case final failure?) return failure.message;

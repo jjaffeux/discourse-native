@@ -88,10 +88,10 @@ final class _TopicActionTransactions {
     data.projectPinPreference(topicId, pinned);
     if (lease.isCurrent) changed();
     try {
-      final credential = await _topicActionCredential(
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
         credentials,
-        siteUrl,
-        lease,
+        withClientId: true,
       );
       if (!lease.isCurrent || _disposed) return null;
       if (credential.failure case final failure?) {
@@ -152,10 +152,10 @@ final class _TopicActionTransactions {
     final lease = lifecycle.capture(siteUrl);
     changed();
     try {
-      final credential = await _topicActionCredential(
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
         credentials,
-        siteUrl,
-        lease,
+        withClientId: true,
       );
       if (!lease.isCurrent || _disposed) return null;
       if (credential.failure case final failure?) return failure.message;
@@ -224,10 +224,10 @@ final class _TopicActionTransactions {
     final lease = lifecycle.capture(siteUrl);
     changed();
     try {
-      final credential = await _topicActionCredential(
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
         credentials,
-        siteUrl,
-        lease,
+        withClientId: true,
       );
       if (!lease.isCurrent || _disposed) return null;
       if (credential.failure case final failure?) return failure.message;
@@ -359,10 +359,10 @@ final class _TopicActionTransactions {
       if (_permanentPostDeletionBlock(target) case final refusal?) {
         return refusal;
       }
-      final credential = await _topicActionCredential(
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
         credentials,
-        siteUrl,
-        lease,
+        withClientId: true,
       );
       if (_permanentPostDeletionBlock(target) case final refusal?) {
         return refusal;

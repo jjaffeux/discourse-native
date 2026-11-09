@@ -24,7 +24,6 @@ import '../data/api_credentials.dart';
 import '../data/app_settings_store.dart';
 import '../data/application_cooking.dart';
 import '../data/authenticator.dart';
-import '../data/composer_media_optimizer.dart';
 import '../data/cooking_plugin.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/current_user_refresh.dart';
@@ -57,6 +56,7 @@ import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
+import '../data/write_credential.dart';
 import '../foundation/elapsed_time.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/icons/d_icons.dart';
@@ -68,7 +68,6 @@ import '../models/bookmark_feed.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/composer_draft.dart';
-import '../models/composer_upload.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import '../models/discourse_instance.dart';
@@ -130,6 +129,7 @@ import 'bookmark_transactions.dart';
 import 'checklist_transactions.dart';
 import 'composer/components/quote_source.dart';
 import 'composer/composer_identity_directory.dart';
+import 'composer/composer_uploads.dart';
 import 'composer/controller.dart';
 import 'composer/draft_coordinator.dart';
 import 'composer/existing_topic_opening_owner.dart';
@@ -217,11 +217,6 @@ const _shellEntityStorePolicy = StorePolicy(
 typedef TopicMoveDestinationSearchResult = ({
   List<TopicMoveDestination> destinations,
   String? error,
-});
-typedef _ShellWriteCredential = ({
-  String? apiKey,
-  AccountRequestCredentials? request,
-  WriteException? failure,
 });
 typedef _PluginPaneKey = ({String siteUrl, String tabId, PluginId owner});
 typedef _PluginPaneStateKey = ({String siteUrl, String tabId});
@@ -901,35 +896,15 @@ class ShellController extends FrameSafeNotifier
     unawaited(task.onError((Object error, StackTrace stackTrace) {}));
   }
 
-  Future<_ShellWriteCredential> _credentialForWrite(
+  Future<WriteCredential> _credentialForWrite(
     String siteUrl, {
     SiteLease? lease,
     bool withClientId = false,
-  }) async {
-    try {
-      final session = AccountRequestSession(
-        siteUrl,
-        lease ?? lifecycle.capture(siteUrl),
-      );
-      final request = withClientId
-          ? await session.credentials(credentials)
-          : await session.keyCredentials(credentials);
-      final apiKey = request.apiKey;
-      return apiKey == null
-          ? (
-              apiKey: null,
-              request: null,
-              failure: const WriteException(WriteFailure.forbidden),
-            )
-          : (apiKey: apiKey, request: request, failure: null);
-    } catch (error) {
-      return (
-        apiKey: null,
-        request: null,
-        failure: const WriteException(WriteFailure.unreachable),
-      );
-    }
-  }
+  }) => readWriteCredential(
+    AccountRequestSession(siteUrl, lease ?? lifecycle.capture(siteUrl)),
+    credentials,
+    withClientId: withClientId,
+  );
 
   final SiteTrackerFactory trackers;
 
@@ -5628,6 +5603,16 @@ class ShellController extends FrameSafeNotifier
     }
 
     final initialPluginState = readPluginState();
+    final uploads = ComposerUploads(
+      target: target,
+      composerConfig: config,
+      api: api.composerPersistence,
+      credentials: credentials,
+      lifecycle: lifecycle,
+      currentConfig: () => siteConfigFor(target.siteUrl),
+      isStaff: () => currentUserFor(target.siteUrl)?.staff == true,
+      isDisposed: () => isDisposed,
+    );
     composer = ComposerController(
       target,
       editReason: editReason,
@@ -5671,35 +5656,11 @@ class ShellController extends FrameSafeNotifier
           !isDisposed && (target.isPlugin || _composerRegistry.owns(composer)),
       imageUploader: !(pluginPolicy?.uploadsEnabled ?? true)
           ? null
-          : (file, {required onProgress, required abortTrigger}) =>
-                _uploadComposerImage(
-                  target,
-                  file,
-                  onProgress: onProgress,
-                  abortTrigger: abortTrigger,
-                ),
-      prepareUpload: (file, {required abortTrigger}) =>
-          ComposerMediaOptimizer().prepare(
-            file,
-            imageSettings: config.composerImageOptimization,
-            canUpload: (filename) => config.canUploadFile(
-              filename,
-              staff: currentUserFor(target.siteUrl)?.staff == true,
-              privateMessage: _uploadsForPrivateMessage(target),
-            ),
-            abortTrigger: abortTrigger,
-          ),
-      resolveUploadUrls: (urls) => _resolveComposerUploadUrls(target, urls),
-      canUploadImage: (filename) => config.canUploadImage(
-        filename,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-        privateMessage: _uploadsForPrivateMessage(target),
-      ),
-      canUploadFile: (filename) => config.canUploadFile(
-        filename,
-        staff: currentUserFor(target.siteUrl)?.staff == true,
-        privateMessage: _uploadsForPrivateMessage(target),
-      ),
+          : uploads.upload,
+      prepareUpload: uploads.prepare,
+      resolveUploadUrls: uploads.resolveUrls,
+      canUploadImage: uploads.canUploadImage,
+      canUploadFile: uploads.canUploadFile,
       simultaneousUploads: config.simultaneousUploads,
       enableAutoGridImages: config.enableAutoGridImages,
       enableMarkdownLinkify: config.enableMarkdownLinkify,
@@ -7150,78 +7111,6 @@ class ShellController extends FrameSafeNotifier
 
   Future<String?> discardComposer(ComposerController composer) =>
       _composerDrafts.discard(composer);
-
-  Future<ComposerUploadResult> _uploadComposerImage(
-    ComposerTarget target,
-    ComposerUploadFile file, {
-    required void Function(double progress) onProgress,
-    required Future<void> abortTrigger,
-  }) async {
-    if (isDisposed) {
-      throw ComposerUploadException(appL10n.uploadCancelled);
-    }
-    final lease = lifecycle.capture(target.siteUrl);
-    final held = await _credentialForWrite(
-      target.siteUrl,
-      lease: lease,
-      withClientId: true,
-    );
-    if (isDisposed || !lease.isCurrent) {
-      throw ComposerUploadException(appL10n.uploadCancelled);
-    }
-    if (held.failure case final failure?) {
-      throw ComposerUploadException(failure.message);
-    }
-    final forPrivateMessage = _uploadsForPrivateMessage(target);
-    return held.request!.run(
-      () => api.composerPersistence.uploadComposerImage(
-        siteUrl: target.siteUrl,
-        apiKey: held.apiKey!,
-        clientId: held.request!.clientId,
-        file: file,
-        onProgress: onProgress,
-        abortTrigger: abortTrigger,
-        uploadType: target is PluginComposerTarget
-            ? target.policy.uploadType
-            : ComposerUploadType.composer,
-        forPrivateMessage: forPrivateMessage,
-        sizeLimit: siteConfigFor(target.siteUrl).uploadSizeLimit(
-          file.name,
-          staff: currentUserFor(target.siteUrl)?.staff == true,
-          privateMessage: forPrivateMessage,
-        ),
-      ),
-    );
-  }
-
-  /// The web composer's `privateMessage`: a reply to or edit of a post in a
-  /// message is as private as a new one.
-  static bool _uploadsForPrivateMessage(ComposerTarget target) =>
-      target.isPrivateMessage || target.privateMessageTopic;
-
-  Future<Map<String, String>> _resolveComposerUploadUrls(
-    ComposerTarget target,
-    Iterable<String> urls,
-  ) async {
-    final lease = lifecycle.capture(target.siteUrl);
-    final held = await _credentialForWrite(
-      target.siteUrl,
-      lease: lease,
-      withClientId: true,
-    );
-    if (isDisposed || !lease.isCurrent) return const {};
-    if (held.failure case final failure?) {
-      throw ComposerUploadException(failure.message);
-    }
-    return held.request!.run(
-      () => api.composerPersistence.lookupUploadUrls(
-        siteUrl: target.siteUrl,
-        apiKey: held.apiKey!,
-        clientId: held.request!.clientId,
-        shortUrls: urls,
-      ),
-    );
-  }
 
   Future<void> submitComposer({
     ComposerController? composer,

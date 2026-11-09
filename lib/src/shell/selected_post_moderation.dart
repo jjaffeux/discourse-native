@@ -501,7 +501,10 @@ final class _SelectedPostModeration {
           case final refusal?) {
         return settle(refusal);
       }
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
+      final credential = await readWriteCredential(
+        AccountRequestSession(siteUrl, lease),
+        credentials,
+      );
       if (!data.isCurrent || _disposed) return settle(outcome);
       if (_selectedPostsDispatchBlock(command, attempt.postIds)
           case final refusal?) {
@@ -562,30 +565,6 @@ final class _SelectedPostModeration {
         changed();
       });
       attempt.releaseHolds();
-    }
-  }
-
-  Future<_ShellWriteCredential> _credentialForWrite(
-    String siteUrl, {
-    required SiteLease lease,
-  }) async {
-    try {
-      final session = AccountRequestSession(siteUrl, lease);
-      final request = await session.keyCredentials(credentials);
-      final apiKey = request.apiKey;
-      return apiKey == null
-          ? (
-              apiKey: null,
-              request: null,
-              failure: const WriteException(WriteFailure.forbidden),
-            )
-          : (apiKey: apiKey, request: request, failure: null);
-    } catch (error) {
-      return (
-        apiKey: null,
-        request: null,
-        failure: const WriteException(WriteFailure.unreachable),
-      );
     }
   }
 }
