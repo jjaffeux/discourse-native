@@ -1989,6 +1989,37 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('an edit left unfinished on the web does not become a reply', (
+      tester,
+    ) async {
+      // The web composer's `_draft_serializer`, saved under the topic's own
+      // draft key because that is the key web edits use too.
+      final webEdit = ComposerDraft.decode(
+        '{"reply":"The whole first post, half revised","action":"edit",'
+        '"categoryId":4,"tags":[],"archetypeId":"regular","composerTime":9000,'
+        '"typingTime":3000,"postId":1,'
+        '"original_text":"The whole first post",'
+        '"reply_to_post_number":null,"reply_to_user":null}',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draft: webEdit, draftSequence: 4)},
+      );
+
+      await openComposer(tester, api);
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+
+      expect(shell.visibleComposer?.text.text, isEmpty);
+      expect(shell.visibleComposer?.hasUnappliedDraft, isTrue);
+
+      await _saveAndClose(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(api.draftsSaved, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('discard closes an empty reply without confirmation', (
       tester,
     ) async {
