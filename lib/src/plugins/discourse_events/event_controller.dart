@@ -600,9 +600,9 @@ final class EventHandle {
   }
 }
 
-String eventError(Object error, {bool reading = false}) =>
-    error is WriteException
-    ? error.message
-    : reading
-    ? appL10n.unableToLoadThisEventTryAgain
-    : appL10n.unableToConfirmTheChangeTheEventHasBeenRefreshedCheck;
+String eventError(Object error, {bool reading = false}) => failureText(
+  error,
+  fallback: reading
+      ? appL10n.unableToLoadThisEventTryAgain
+      : appL10n.unableToConfirmTheChangeTheEventHasBeenRefreshedCheck,
+);

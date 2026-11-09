@@ -19926,6 +19926,12 @@ abstract class AppLocalizations {
   /// **'Couldn\'\'t reach the site.'**
   String get couldnTReachTheSite;
 
+  /// Shown when a site answers a read with 401 or 403 and the request was for a feature of a forum already known to be a Discourse forum, so naming the site as not Discourse would be wrong.
+  ///
+  /// In en, this message translates to:
+  /// **'This account can\'\'t access that.'**
+  String get thisAccountCanTAccessThat;
+
   /// English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
@@ -23103,6 +23109,12 @@ abstract class AppLocalizations {
   /// **'This action is no longer available. Refresh the board.'**
   String get boardsRefused;
 
+  /// Native Boards plugin interface. Shown when a board or the board list fails with something other than a message from the site.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t load this board.'**
+  String get boardsLoadFailed;
+
   /// Native Boards plugin interface.
   ///
   /// In en, this message translates to:
@@ -24422,6 +24434,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Date'**
   String get gamificationDate;
+
+  /// Native Assign plugin interface. Shown when a suggestion, search or assignment request fails with something other than a message from the site.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'\'t complete that. Try again.'**
+  String get assignmentRequestFailed;
 
   /// Generic plugin request failure without developer diagnostics
   ///

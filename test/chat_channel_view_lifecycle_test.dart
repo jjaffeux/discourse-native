@@ -2979,6 +2979,48 @@ void main() {
       expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
     });
 
+    testWidgets('a visible-edge recheck while inactive credits after resume', (
+      tester,
+    ) async {
+      final api = _ChatApi(
+        openPages: {
+          firstSite: [_messagesPage(1, 1)],
+        },
+      );
+      final controller = await _controller(api, sites: const [firstSite]);
+      addTearDown(controller.dispose);
+      addTearDown(() => _resumeLifecycle(tester));
+      controller.chatRecords.put(firstSite, _channel(lastRead: 1));
+
+      await tester.pumpWidget(_TestView(controller: controller));
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(api.chatReadsMarked, isEmpty);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      controller.chatRecords.put(
+        firstSite,
+        _channel(lastRead: 0, tracking: const ChatTracking(unreadCount: 1)),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      expect(api.chatReadsMarked, isEmpty);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump(const Duration(milliseconds: 499));
+      expect(api.chatReadsMarked, isEmpty);
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+
+      // ignore: avoid_print
+      print(
+        'PERF_PROOF read-dwell-owner '
+        'chat_credited_after_resume=${api.chatReadsMarked.length}',
+      );
+      expect(api.chatReadsMarked, [(channelId: 9, messageId: 1)]);
+    });
+
     testWidgets(
       'a ticker-disabled dwell resumes without crediting hidden time',
       (tester) async {
@@ -4645,10 +4687,12 @@ ChatChannel _channel({
   bool canDeleteSelf = false,
   int pinnedMessagesCount = 0,
   bool hasUnseenPins = false,
+  ChatTracking tracking = ChatTracking.none,
 }) => ChatChannel(
   id: 9,
   title: 'Chat',
   kind: kind,
+  tracking: tracking,
   isGroup: isGroup,
   canDeleteSelf: canDeleteSelf,
   pinnedMessagesCount: pinnedMessagesCount,

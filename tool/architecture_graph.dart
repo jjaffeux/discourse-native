@@ -74,14 +74,16 @@ final class LibraryGraph {
 
   /// Generated localizations are excluded: every library reaches them through
   /// `l10n/strings.dart` and they import nothing from the application.
-  factory LibraryGraph.load([String root = 'lib']) {
+  factory LibraryGraph.load([List<String> roots = const ['lib']]) {
     final sources = <String, String>{};
-    for (final entity in Directory(root).listSync(recursive: true)) {
-      final path = entity.path.replaceAll('\\', '/');
-      if (entity is File &&
-          path.endsWith('.dart') &&
-          !path.contains('/l10n/generated/')) {
-        sources[path] = entity.readAsStringSync();
+    for (final root in roots) {
+      for (final entity in Directory(root).listSync(recursive: true)) {
+        final path = entity.path.replaceAll('\\', '/');
+        if (entity is File &&
+            path.endsWith('.dart') &&
+            !path.contains('/l10n/generated/')) {
+          sources[path] = entity.readAsStringSync();
+        }
       }
     }
     return LibraryGraph.fromSources(sources);
@@ -216,29 +218,18 @@ final class LibraryGraph {
   Set<String> widgetLibrariesReachedBy(String entry) =>
       closureOf(entry).intersection(widgetLibraries);
 
-  /// For each `*_test.dart` under [root], how many application libraries its
-  /// direct imports compile.
-  List<int> testFileReach([String root = 'test']) {
-    final reach = <int>[];
-    for (final entity in Directory(root).listSync(recursive: true)) {
-      if (entity is! File || !entity.path.endsWith('_test.dart')) continue;
-      final path = entity.path.replaceAll('\\', '/');
-      final unit = parseString(
-        content: entity.readAsStringSync(),
-        path: path,
-        throwIfDiagnostics: false,
-      ).unit;
-      final compiled = <String>{};
-      for (final directive in unit.directives.whereType<ImportDirective>()) {
-        final target = _resolve(path, directive.uri.stringValue!);
-        if (target != null && edges.containsKey(target)) {
-          compiled.addAll(closureOf(target));
-        }
-      }
-      reach.add(compiled.length);
-    }
-    return reach;
-  }
+  /// Libraries under `lib/` that compile whenever [entry] compiles.
+  Set<String> applicationLibrariesReachedBy(String entry) =>
+      closureOf(entry).where((library) => library.startsWith('lib/')).toSet();
+
+  /// For each `*_test.dart` under `test/`, how many application libraries it
+  /// compiles. Most of a test's reach comes through shared helpers, so the
+  /// graph must be loaded with `test` among its roots.
+  List<int> testFileReach() => [
+    for (final path in edges.keys)
+      if (path.startsWith('test/') && path.endsWith('_test.dart'))
+        applicationLibrariesReachedBy(path).length,
+  ];
 
   static const _layers = {
     'foundation',
@@ -276,7 +267,7 @@ void main(List<String> entries) {
     'widget libraries reached by ShellController '
     '${graph.widgetLibrariesReachedBy(_shellController).length}',
   );
-  final testReach = graph.testFileReach();
+  final testReach = LibraryGraph.load(const ['lib', 'test']).testFileReach();
   stdout.writeln(
     'mean application libraries per test file '
     '${(testReach.fold<int>(0, (sum, reach) => sum + reach) / testReach.length).round()} '

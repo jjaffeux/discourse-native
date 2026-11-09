@@ -2,10 +2,12 @@ import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
+import 'destination_bookmark_menu_item.dart';
 import 'forum_tab_scope.dart';
 import 'header_preferences.dart';
 import 'mobile_place_order.dart';
 import 'shell_controller.dart';
+import 'site_presentation_scope.dart';
 
 class ShellScope extends InheritedNotifier<ShellController> {
   ShellScope({
@@ -19,7 +21,13 @@ class ShellScope extends InheritedNotifier<ShellController> {
            registry: controller.plugins.registry,
            child: _ShellControllerIdentity(
              controller: controller,
-             child: _ShellAccountHosts(child: child),
+             child: SitePresentationScope(
+               presentation: controller.sitePresentation,
+               child: DestinationBookmarksScope(
+                 bookmarks: controller.accountDestinationBookmarks,
+                 child: _ShellAccountHosts(child: child),
+               ),
+             ),
            ),
          ),
        );

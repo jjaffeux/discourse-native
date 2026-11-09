@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/composer/components/list_source.dart'
 import 'package:discourse_native/src/shell/composer/components/quote_source.dart';
 import 'package:discourse_native/src/shell/composer/components/table_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -45,6 +46,7 @@ ComposerController _composer() {
 Future<void> _pump(WidgetTester tester, ComposerController composer) =>
     tester.pumpWidget(
       MaterialApp(
+        theme: AppTheme.light,
         home: Scaffold(
           body: SizedBox(
             width: 760,
@@ -88,6 +90,22 @@ void main() {
       expect(find.byType(_Drawn), findsNWidgets(artwork.drawn.length));
     },
   );
+
+  testWidgets('keycaps and task checkboxes are drawn by the artwork', (
+    tester,
+  ) async {
+    final composer = ComposerController(_target);
+    addTearDown(composer.dispose);
+    composer.text.value = const TextEditingValue(
+      text: 'press <kbd>K</kbd> now\n\n[ ] task\n\nend',
+      selection: TextSelection.collapsed(offset: 0),
+    );
+    final artwork = _RecordingArtwork();
+    composer.artwork = artwork;
+    await _pump(tester, composer);
+    expect(tester.takeException(), isNull);
+    expect(artwork.drawn, containsAll(['key K', 'todo task unchecked']));
+  });
 
   testWidgets('editing a projection reaches its component through the key', (
     tester,
@@ -267,6 +285,18 @@ final class _RecordingArtwork implements ComposerComponentArtwork {
   ) async {
     edited.add('link ${link.anchor}');
   }
+
+  @override
+  Widget keyboardKey({required String semanticLabel, required Widget child}) =>
+      _draw('key $semanticLabel');
+
+  @override
+  Widget todoMarker({
+    required bool checked,
+    required String label,
+    required TextStyle style,
+    required VoidCallback? onChanged,
+  }) => _draw('todo $label ${checked ? 'checked' : 'unchecked'}');
 }
 
 class _Drawn extends StatefulWidget {

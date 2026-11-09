@@ -193,6 +193,50 @@ void main() {
   );
 
   test(
+    'a replaced persisted config moves emoji answers it is not hiding',
+    () async {
+      const site = 'https://persisted.example';
+      final persisted = {site: const SiteConfig(emojiSet: 'google')};
+      final api = _PresentationApi()
+        ..config = const SiteConfig(emojiSet: 'apple');
+      final controller = _controller(api, persisted: persisted);
+      var emojiNotifications = 0;
+      controller.emojiChangesFor(site).addListener(() => emojiNotifications++);
+
+      persisted[site] = const SiteConfig(emojiSet: 'facebook');
+      controller.persistedConfigChanged(site);
+      expect(emojiNotifications, 1);
+      expect(controller.emojiUrlFor(site, 'wave'), contains('/facebook/'));
+
+      await controller.ensureConfig(site);
+      expect(emojiNotifications, 2);
+      expect(controller.emojiUrlFor(site, 'wave'), contains('/apple/'));
+
+      persisted[site] = const SiteConfig(emojiSet: 'twemoji');
+      controller.persistedConfigChanged(site);
+      expect(emojiNotifications, 2);
+      expect(controller.emojiUrlFor(site, 'wave'), contains('/apple/'));
+    },
+  );
+
+  test('forgetting a forum no session has read still moves its emoji', () {
+    const site = 'https://persisted.example';
+    final persisted = {site: const SiteConfig(emojiSet: 'google')};
+    final controller = _controller(_PresentationApi(), persisted: persisted);
+    var emojiNotifications = 0;
+    controller.emojiChangesFor(site).addListener(() => emojiNotifications++);
+
+    persisted.remove(site);
+    controller.forget(site);
+
+    expect(emojiNotifications, 1);
+    expect(
+      controller.emojiUrlFor(site, 'wave'),
+      contains('/${SiteConfig.defaultEmojiSet}/'),
+    );
+  });
+
+  test(
     'forgetting a session during credential IO prevents its dispatch',
     () async {
       const site = 'https://forgotten.example';

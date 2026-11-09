@@ -1,0 +1,58 @@
+[
+  {
+    "slug": "contracts-no-runtime",
+    "subject": "REFACTOR: keep the plugin runtime and scope out of the contracts barrel",
+    "proofs": [{ "path": "test/contracts_no_runtime_proof_test.dart" }]
+  },
+  {
+    "slug": "viewport-off-shell",
+    "subject": "REFACTOR: build the topic viewport's shell adapters outside its coordinator",
+    "proofs": [{ "path": "test/architecture_topic_viewport_closure_contract_test.dart" }]
+  },
+  {
+    "slug": "forum-access-owner",
+    "subject": "FIX: keep a retired account's forum retry off its successor",
+    "proofs": [{ "path": "test/shell_forum_access_races_test.dart" }]
+  },
+  {
+    "slug": "emoji-bookmark-scopes",
+    "subject": "REFACTOR: draw emoji and bookmark items without the shell",
+    "proofs": [{ "path": "test/emoji_bookmark_scopes_proof_test.dart" }]
+  },
+  {
+    "slug": "desktop-panel-selector",
+    "subject": "REFACTOR: leave the desktop panels out of unrelated shell notifications",
+    "proofs": [
+      {
+        "path": "test/shell_rebuild_isolation_test.dart",
+        "name": "a current-site tracking message leaves them unbuilt"
+      }
+    ]
+  },
+  {
+    "slug": "site-capabilities-owner",
+    "subject": "FIX: read a forum's composer capabilities once and forget them with it",
+    "proofs": [{ "path": "test/site_capabilities_test.dart" }]
+  },
+  {
+    "slug": "failure-text-owner",
+    "subject": "FIX: show a failed request's reason instead of its Dart type name",
+    "proofs": [{ "path": "test/plugins/boards/boards_failure_text_test.dart" }]
+  },
+  {
+    "slug": "read-dwell-owner",
+    "subject": "FIX: keep read credit across resume and clock changes with one dwell owner",
+    "proofs": [
+      {
+        "path": "test/chat_channel_view_lifecycle_test.dart",
+        "name": "a visible-edge recheck while inactive credits after resume"
+      },
+      { "path": "test/topic_viewport_read_dwell_test.dart" }
+    ]
+  },
+  {
+    "slug": "composer-off-kit",
+    "subject": "REFACTOR: compile the composer controllers without the widget kit",
+    "proofs": [{ "path": "test/architecture_composer_widgets_contract_test.dart" }]
+  }
+]

@@ -496,17 +496,24 @@ final class ForumTab {
     return entries;
   }
 
+  /// Whether these differ at most in [anchors]. Scrolling rewrites those
+  /// without notifying anyone, so a selector holding an older tab must not read
+  /// that difference as a change.
+  bool sameExceptAnchors(ForumTab other) =>
+      identical(other, this) ||
+      (other.id == id &&
+          other.panel == panel &&
+          other.rootDestinationId == rootDestinationId &&
+          listEquals(other.contentStack, contentStack) &&
+          listEquals(other.backHistory, backHistory) &&
+          listEquals(other.forwardHistory, forwardHistory) &&
+          other.readsBesideSource == readsBesideSource);
+
   @override
   bool operator ==(Object other) =>
       other is ForumTab &&
-      other.id == id &&
-      other.panel == panel &&
-      other.rootDestinationId == rootDestinationId &&
-      listEquals(other.contentStack, contentStack) &&
-      listEquals(other.backHistory, backHistory) &&
-      listEquals(other.forwardHistory, forwardHistory) &&
-      mapEquals(other.anchors, anchors) &&
-      other.readsBesideSource == readsBesideSource;
+      sameExceptAnchors(other) &&
+      mapEquals(other.anchors, anchors);
 
   @override
   int get hashCode => Object.hash(
@@ -764,9 +771,7 @@ final class ForumWorkspace {
     );
   }
 
-  @override
-  bool operator ==(Object other) =>
-      other is ForumWorkspace &&
+  bool _sameApartFromTabs(ForumWorkspace other) =>
       other.siteUrl == siteUrl &&
       other.accountIdentity == accountIdentity &&
       other.activeTabId == activeTabId &&
@@ -775,7 +780,24 @@ final class ForumWorkspace {
           selectedTabIn(ForumPanel.main)?.id &&
       other.selectedTabIn(ForumPanel.secondary)?.id ==
           selectedTabIn(ForumPanel.secondary)?.id &&
-      other.mobile == mobile &&
+      other.mobile == mobile;
+
+  /// [ForumTab.sameExceptAnchors] across the workspace.
+  bool sameExceptAnchors(ForumWorkspace other) {
+    if (identical(other, this)) return true;
+    if (!_sameApartFromTabs(other) || other.tabs.length != tabs.length) {
+      return false;
+    }
+    for (var index = 0; index < tabs.length; index++) {
+      if (!tabs[index].sameExceptAnchors(other.tabs[index])) return false;
+    }
+    return true;
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ForumWorkspace &&
+      _sameApartFromTabs(other) &&
       listEquals(other.tabs, tabs);
 
   @override

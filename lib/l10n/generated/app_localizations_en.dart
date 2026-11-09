@@ -11654,6 +11654,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get couldnTReachTheSite => 'Couldn\'t reach the site.';
 
   @override
+  String get thisAccountCanTAccessThat => 'This account can\'t access that.';
+
+  @override
   String writeExceptionStatusCodeRetryAfter(
     String notSent,
     String failure,
@@ -14646,6 +14649,9 @@ class AppLocalizationsEn extends AppLocalizations {
       'This action is no longer available. Refresh the board.';
 
   @override
+  String get boardsLoadFailed => 'Couldn\'t load this board.';
+
+  @override
   String get boardsRemoveCard =>
       'Remove this card? The underlying topic will remain.';
 
@@ -15410,6 +15416,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get gamificationDate => 'Date';
+
+  @override
+  String get assignmentRequestFailed => 'Couldn\'t complete that. Try again.';
 
   @override
   String get gamificationRequestFailed =>

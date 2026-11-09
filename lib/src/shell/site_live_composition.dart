@@ -33,8 +33,10 @@ final class _ShellSiteLiveComposition implements SiteLiveComposition {
 
   @override
   void bootstrapReceived(String siteUrl, SiteMessageBusBootstrap bootstrap) {
-    _shell._serverPluginNames[siteUrl] = bootstrap.serverPluginNames;
-    _shell._notify();
+    _shell._siteCapabilities.acceptServerPlugins(
+      siteUrl,
+      bootstrap.serverPluginNames,
+    );
   }
 
   @override

@@ -65,9 +65,8 @@ extension VoiceCallReactions on VoiceController {
           ),
         );
       },
-      onError: (error) => _notify(
-        error is WriteException ? error.message : appL10n.failedToSend,
-      ),
+      onError: (error) =>
+          _notify(failureText(error, fallback: appL10n.failedToSend)),
       timerFactory: _timerFactory,
     );
     _reactionMedia = call.media;

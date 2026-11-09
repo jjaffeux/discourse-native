@@ -565,6 +565,7 @@ void _registerReactionAndLikeTests() {
       Future<void> Function()? beforeSettle,
     }) async {
       final api = FakeDiscourseApi(
+        models: bundledPluginCodec,
         feeds: {'/latest.json': listed},
         topics: {
           7: topicPayload(

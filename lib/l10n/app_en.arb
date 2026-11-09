@@ -15553,6 +15553,10 @@
   "@couldnTReachTheSite": {
     "description": "English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact."
   },
+  "thisAccountCanTAccessThat": "This account can''t access that.",
+  "@thisAccountCanTAccessThat": {
+    "description": "Shown when a site answers a read with 401 or 403 and the request was for a feature of a forum already known to be a Discourse forum, so naming the site as not Discourse would be wrong."
+  },
   "writeExceptionStatusCodeRetryAfter": "{notSent, select, true{WriteException({failure}, statusCode: {statusCode}, retryAfter: {retryAfter}, notSent)} other{WriteException({failure}, statusCode: {statusCode}, retryAfter: {retryAfter})}}",
   "@writeExceptionStatusCodeRetryAfter": {
     "description": "English UI message used by data/discourse_api_contracts.dart. Keep placeholders intact.",
@@ -19166,6 +19170,10 @@
   "@boardsRefused": {
     "description": "Native Boards plugin interface."
   },
+  "boardsLoadFailed": "Couldn''t load this board.",
+  "@boardsLoadFailed": {
+    "description": "Native Boards plugin interface. Shown when a board or the board list fails with something other than a message from the site."
+  },
   "boardsRemoveCard": "Remove this card? The underlying topic will remain.",
   "@boardsRemoveCard": {
     "description": "Native Boards plugin interface."
@@ -20106,6 +20114,10 @@
   "gamificationDate": "Date",
   "@gamificationDate": {
     "description": "Exact score event date"
+  },
+  "assignmentRequestFailed": "Couldn''t complete that. Try again.",
+  "@assignmentRequestFailed": {
+    "description": "Native Assign plugin interface. Shown when a suggestion, search or assignment request fails with something other than a message from the site."
   },
   "gamificationRequestFailed": "Could not complete the request. Refresh to try again.",
   "@gamificationRequestFailed": {

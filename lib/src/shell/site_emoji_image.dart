@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'emoji.dart';
-import 'shell_scope.dart';
+import 'site_presentation_scope.dart';
 
 class SiteEmojiImage extends StatelessWidget {
   const SiteEmojiImage({
@@ -20,9 +20,16 @@ class SiteEmojiImage extends StatelessWidget {
   final TextStyle? style;
 
   @override
-  Widget build(BuildContext context) => ShellSelector<String>(
-    select: (controller) => controller.emojiUrlFor(siteUrl, name),
-    builder: (context, url, child) =>
-        EmojiImage(url: url, size: size, alt: alt, style: style),
-  );
+  Widget build(BuildContext context) {
+    final presentation = SitePresentationScope.of(context);
+    return ListenableBuilder(
+      listenable: presentation.emojiChangesFor(siteUrl),
+      builder: (context, _) => EmojiImage(
+        url: presentation.emojiUrlFor(siteUrl, name),
+        size: size,
+        alt: alt,
+        style: style,
+      ),
+    );
+  }
 }

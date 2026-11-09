@@ -96,6 +96,14 @@ void main() {
     test('no two layers depend on each other', () {
       expect(graph.mutualLayerPairs(), isEmpty);
     });
+
+    test('the shared test fakes stay within their closure budget', () {
+      final reached = LibraryGraph.load(const [
+        'lib',
+        'test',
+      ]).applicationLibrariesReachedBy('test/support/fakes.dart');
+      expect(reached.length, 225);
+    });
   });
 
   group('detection', () {
@@ -145,6 +153,18 @@ void main() {
         'lib/b.dart': 'class Plain extends Object {}',
       });
       expect(seeded.widgetLibraries, {'lib/a.dart'});
+    });
+
+    test('counts what a test compiles through its helpers', () {
+      final seeded = sources({
+        'lib/a.dart': "import 'b.dart';",
+        'lib/b.dart': '',
+        'lib/unreached.dart': '',
+        'lib/not_a_suite_test.dart': '',
+        'test/support/helper.dart': "import 'package:discourse_native/a.dart';",
+        'test/a_test.dart': "import 'support/helper.dart';",
+      });
+      expect(seeded.testFileReach(), [2]);
     });
 
     test('reports the libraries invalidated by a change', () {

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
@@ -16,7 +17,10 @@ void main() {
     double width = 600,
     ThemeData? theme,
   }) async {
-    controller = MarkdownEditingController(text: source);
+    controller = MarkdownEditingController(
+      text: source,
+      artwork: const CoreComposerArtwork(),
+    );
     addTearDown(controller.dispose);
     await tester.pumpWidget(
       MaterialApp(

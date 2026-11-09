@@ -21,8 +21,11 @@ export 'discourse_ui.dart'
         DSelectField,
         DMultiSelect;
 export 'discourse_ui.dart' show monospaceTextStyle;
+export 'src/foundation/read_dwell.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
+export 'src/plugin_api/plugin_runtime.dart';
+export 'src/plugin_api/plugin_scope.dart';
 export 'src/shell/adaptive_dialog_action.dart';
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
 export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;

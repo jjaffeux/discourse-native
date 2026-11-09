@@ -482,7 +482,18 @@ final class SitePresentationController extends FrameSafeNotifier {
     final session = _sessions[siteUrl];
     if (session != null) {
       _retireSession(session);
+    } else {
+      // Without a session every answer came from the persisted snapshot, and
+      // forgetting a forum is how that snapshot leaves.
+      _notifyEmojiChanged(siteUrl);
     }
+  }
+
+  /// Reports that the persisted snapshot [configFor] falls back to was
+  /// replaced. The rail owns that snapshot, so nothing here can see the change;
+  /// a fetched config hides it, and then no emoji answer moved.
+  void persistedConfigChanged(String siteUrl) {
+    if (!isDisposed && _configs[siteUrl] == null) _notifyEmojiChanged(siteUrl);
   }
 
   void _notifyPresentationChanged(String siteUrl) {

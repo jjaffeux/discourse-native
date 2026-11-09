@@ -64,7 +64,6 @@ import 'package:discourse_native/src/plugins/chat/chat_pin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
-import 'package:discourse_native/src/plugins/chat/chat_user_menu.dart';
 import 'package:discourse_native/src/plugins/gifs/gif.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_api.dart';
 import 'package:discourse_native/src/plugins/gifs/gifs_settings.dart';
@@ -73,8 +72,6 @@ import 'package:discourse_native/src/plugins/poll/polls_api.dart';
 import 'package:discourse_native/src/plugins/reactions/post_reactors.dart';
 import 'package:discourse_native/src/plugins/reactions/reaction.dart';
 import 'package:discourse_native/src/plugins/reactions/reactions_api.dart';
-
-import 'bundled_plugins.dart';
 
 class FakeInstanceStore implements InstanceStore {
   FakeInstanceStore([Iterable<DiscourseInstance> instances = const []])
@@ -734,13 +731,7 @@ class FakeDiscourseApi
     this.customSidebarSectionsBySite = const {},
     this.pluginResponses = const {},
     Map<String, WriteException>? pluginWriteFailures,
-  }) : models =
-           models ??
-           DiscourseModelCodec(
-             extensions: pluginRegistry,
-             recommendationSources: pluginRegistry,
-             icons: pluginRegistry,
-           ),
+  }) : models = models ?? const DiscourseModelCodec.core(),
        pluginWriteFailures = pluginWriteFailures ?? {};
 
   @override
@@ -1675,7 +1666,13 @@ class FakeDiscourseApi
           ? (models.extensions as PluginRegistry).likeNotificationTypes
           : userMenuLikeNotificationTypes,
     );
-    final chat = _sameKinds(filterByTypes, chatNotificationFeed.filterByTypes);
+    final chat = _sameKinds(filterByTypes, const [
+      NotificationTypeName('chat_invitation'),
+      NotificationTypeName('chat_mention'),
+      NotificationTypeName('chat_message'),
+      NotificationTypeName('chat_quoted'),
+      NotificationTypeName('chat_watched_thread'),
+    ]);
     if (replies) {
       replyNotificationCalls++;
     } else if (likes) {

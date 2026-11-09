@@ -35,6 +35,7 @@ import 'list_source.dart';
 import 'quote.dart';
 import 'table_editor.dart';
 import 'table_source.dart';
+import 'todo_marker.dart';
 
 /// The artwork a composer editor installs: each core component drawn with
 /// the widget tree it owned before the controllers stopped importing it.
@@ -174,6 +175,23 @@ final class CoreComposerArtwork implements ComposerComponentArtwork {
     ComposerEditorHost editor,
     ComposerLinkBlock link,
   ) => showComposerLinkDialog(context: context, composer: editor, link: link);
+
+  @override
+  Widget keyboardKey({required String semanticLabel, required Widget child}) =>
+      DKbd.child(semanticLabel: semanticLabel, child: child);
+
+  @override
+  Widget todoMarker({
+    required bool checked,
+    required String label,
+    required TextStyle style,
+    required VoidCallback? onChanged,
+  }) => ComposerTodoMarker(
+    checked: checked,
+    label: label,
+    style: style,
+    onChanged: onChanged,
+  );
 
   @override
   Widget codeBlock({

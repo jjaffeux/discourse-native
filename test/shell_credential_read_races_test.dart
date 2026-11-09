@@ -11,6 +11,7 @@ import 'package:discourse_native/src/models/user_draft.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
+import 'package:discourse_native/src/shell/topic_viewport_shell_binding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -381,10 +382,7 @@ TopicViewportBinding _topicBinding(ShellController shell) {
   shell.pushContent(
     ContentRoute.topic(topicId: 7, slug: 'topic', title: 'Topic'),
   );
-  return TopicViewportBinding.fromShell(
-    shell,
-    TopicViewportSnapshot.from(shell),
-  );
+  return topicViewportBindingFromShell(shell, topicViewportSnapshotFrom(shell));
 }
 
 Future<_Fixture> _fixture({

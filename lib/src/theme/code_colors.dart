@@ -92,3 +92,48 @@ class CodeColors extends ThemeExtension<CodeColors> {
     );
   }
 }
+
+Color? scopeColor(String? scope, CodeColors colors) => switch (scope) {
+  'keyword' ||
+  'built_in' ||
+  'builtin-name' ||
+  'type' ||
+  'literal' ||
+  'operator' ||
+  'selector-tag' ||
+  'tag' => colors.keyword,
+
+  'string' ||
+  'regexp' ||
+  'symbol' ||
+  'char' ||
+  'quote' ||
+  'addition' ||
+  'selector-attr' => colors.string,
+
+  'comment' || 'doctag' => colors.comment,
+
+  'number' || 'deletion' => colors.number,
+
+  'title' ||
+  'class' ||
+  'function' ||
+  'name' ||
+  'section' ||
+  'attr' ||
+  'attribute' ||
+  'variable' ||
+  'template-variable' ||
+  'selector-id' ||
+  'selector-class' ||
+  'bullet' => colors.name,
+
+  'meta' ||
+  'meta-keyword' ||
+  'meta-string' ||
+  'subst' ||
+  'link' ||
+  'formula' => colors.meta,
+
+  _ => null,
+};

@@ -880,8 +880,6 @@ class _ChatDayExtents {
 
 class _StreamState extends State<ChatMessageStream>
     with WidgetsBindingObserver {
-  /// Matches Discourse's `READ_INTERVAL_MS`.
-  static const Duration _readInterval = Duration(milliseconds: 500);
   static const EdgeInsets _streamPadding = EdgeInsets.symmetric(vertical: 8);
 
   final ListController _list = ListController();
@@ -894,10 +892,11 @@ class _StreamState extends State<ChatMessageStream>
 
   final Set<int> _expandedDeletedMessageIds = {};
 
-  Timer? _readTimer;
-  DateTime? _readTimerStartedAt;
-  Duration _readTimeRemaining = _readInterval;
-  bool _readDwellPending = false;
+  late final _readDwell = ReadDwell(
+    isActive: () => _readerActive && _appResumed,
+    onCredit: _creditReaderNow,
+    clock: () => widget.clock(),
+  );
   bool _recheckVisibleRead = false;
   bool _tickerEnabled = true;
 
@@ -917,6 +916,12 @@ class _StreamState extends State<ChatMessageStream>
   Timer? _highlightTimer;
 
   bool get _readerActive => _tickerEnabled && (_shell?.forumActive ?? false);
+
+  /// Null covers launch before the first lifecycle event and tests.
+  bool get _appResumed {
+    final lifecycle = WidgetsBinding.instance.lifecycleState;
+    return lifecycle == null || lifecycle == AppLifecycleState.resumed;
+  }
 
   bool _adjustingArrival = false;
 
@@ -943,7 +948,7 @@ class _StreamState extends State<ChatMessageStream>
     // A route/pane transition before the dwell completes is not a read. Clear
     // the old target rather than flushing it during teardown.
     if (changedStream) {
-      _cancelReadDwell();
+      _readDwell.cancel();
       _recheckVisibleRead = false;
       _seen = null;
       _dayExtents.clear();
@@ -1099,9 +1104,9 @@ class _StreamState extends State<ChatMessageStream>
     _viewport.retire();
     WidgetsBinding.instance.removeObserver(this);
     _headerGeometry?.removeListener(_scheduleLook);
-    _shell?.removeListener(_handleShellChanged);
+    _shell?.removeListener(_readDwell.sync);
     _channel?.removeListener(_channelChanged);
-    _cancelReadDwell();
+    _readDwell.cancel();
     _highlightTimer?.cancel();
     _list.dispose();
     _scroll.dispose();
@@ -1208,7 +1213,7 @@ class _StreamState extends State<ChatMessageStream>
 
     // Seed from the known landing point; layout still reports the old range.
     final canonicalId = landing.seenId;
-    _cancelReadDwell();
+    _readDwell.cancel();
     _seen = canonicalId == null
         ? null
         : (
@@ -1240,7 +1245,7 @@ class _StreamState extends State<ChatMessageStream>
       _viewport.settleLanding(token);
       _syncFloatingDay();
       _fillTowardsPresent();
-      if (_seen != null) _startReadDwell(_readInterval);
+      if (_seen != null) _readDwell.restart();
       _noteWhatIsOnScreen();
     });
     // Post-frame callbacks and no-op jumps do not themselves schedule a frame.
@@ -1298,86 +1303,21 @@ class _StreamState extends State<ChatMessageStream>
       messageId: messageId,
     );
     if (seen == _seen) {
-      if (recheckVisibleRead &&
-          !_readDwellPending &&
-          _readTimer == null &&
-          _readerActive) {
-        _creditReaderNow();
-      }
+      if (recheckVisibleRead && _readerActive) _readDwell.creditIfIdle();
       return;
     }
     _seen = seen;
-    _startReadDwell(_readInterval);
-  }
-
-  void _startReadDwell(Duration duration) {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = duration;
-    _readDwellPending = true;
-    if (!_readerActive) return;
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return;
-    _readTimerStartedAt = widget.clock();
-    _readTimer = Timer(duration, _creditReaderNow);
-  }
-
-  void _pauseReadDwell() {
-    final timer = _readTimer;
-    final startedAt = _readTimerStartedAt;
-    if (timer == null || startedAt == null) return;
-    final elapsed = widget.clock().difference(startedAt);
-    final remaining = _readTimeRemaining - elapsed;
-    _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
-    timer.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-  }
-
-  void _cancelReadDwell() {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = _readInterval;
-    _readDwellPending = false;
+    // Web debounces this, so a reader credits the edge they settle on rather
+    // than every edge they scroll past.
+    _readDwell.restart();
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      if (_readDwellPending && _seen != null && _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-      return;
-    }
-    _pauseReadDwell();
-  }
+  void didChangeAppLifecycleState(AppLifecycleState state) => _readDwell.sync();
 
   void _creditReaderNow() {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readDwellPending = false;
-
     final seen = _seen;
     if (seen == null) return;
-
-    if (!_readerActive) {
-      _readDwellPending = true;
-      _readTimeRemaining = _readInterval;
-      return;
-    }
-
-    // A dwell timer firing in the background must not mark messages read. Null
-    // covers launch before the first lifecycle event and tests.
-    final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
-      _readTimeRemaining = _readInterval;
-      return;
-    }
-
-    _readTimeRemaining = _readInterval;
     unawaited(
       widget.reader?.markRead(seen.messageId) ??
           _chat?.markReadFor(seen.siteUrl, widget.target, seen.messageId),
@@ -1640,18 +1580,6 @@ class _StreamState extends State<ChatMessageStream>
   ChatController? _chat;
   ChatShellService? _shell;
 
-  void _handleShellChanged() => _syncReadDwellVisibility();
-
-  void _syncReadDwellVisibility() {
-    if (_readerActive) {
-      if (_readDwellPending && _seen != null && _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-    } else {
-      _pauseReadDwell();
-    }
-  }
-
   /// Watched here rather than passed down, so that the pane need not rebuild
   /// this stream, and every row it holds, each time the channel is replaced.
   ValueListenable<ChatChannel?>? _channel;
@@ -1706,11 +1634,11 @@ class _StreamState extends State<ChatMessageStream>
     _watchChannel();
     final shell = PluginUiScope.require(context, chatShellService);
     if (!identical(_shell, shell)) {
-      _shell?.removeListener(_handleShellChanged);
-      _shell = shell..addListener(_handleShellChanged);
+      _shell?.removeListener(_readDwell.sync);
+      _shell = shell..addListener(_readDwell.sync);
     }
     _tickerEnabled = TickerMode.valuesOf(context).enabled;
-    _syncReadDwellVisibility();
+    _readDwell.sync();
   }
 
   @override

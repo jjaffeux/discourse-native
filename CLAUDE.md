@@ -132,7 +132,9 @@ Requirements line with it.
   `foundation/loopback_host.dart` (which hosts may use plaintext development
   transports),
   `foundation/elapsed_time.dart` (what a moment ahead of the clock means to a
-  time window), `foundation/retry_wait.dart` (the wait after a rate-limited
+  time window), `foundation/read_dwell.dart` (how long a reader must stay on
+  chat or topic content, and what time away costs),
+  `foundation/retry_wait.dart` (the wait after a rate-limited
   write and how to word it), `utils/pagination.dart` (when scroll-driven paging
   may ask for the next page),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are

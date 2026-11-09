@@ -564,6 +564,7 @@ void _registerConnectionSessionTests() {
         data: {'display_username': 'david'},
       );
       final api = FakeDiscourseApi(
+        models: bundledPluginCodec,
         likeNotificationList: const [likeNotification],
         topics: {
           8: topicPayload(
@@ -672,7 +673,7 @@ void _registerConnectionSessionTests() {
     });
 
     testWidgets('Likes can retry a failed filtered request', (tester) async {
-      final api = FakeDiscourseApi();
+      final api = FakeDiscourseApi(models: bundledPluginCodec);
 
       await pumpShell(
         tester,
@@ -695,7 +696,10 @@ void _registerConnectionSessionTests() {
     testWidgets('an empty Likes tab explains that no likes were received', (
       tester,
     ) async {
-      final api = FakeDiscourseApi(likeNotificationList: const []);
+      final api = FakeDiscourseApi(
+        models: bundledPluginCodec,
+        likeNotificationList: const [],
+      );
 
       await pumpShell(
         tester,
@@ -1311,6 +1315,7 @@ void _registerConnectionSessionTests() {
           desktop,
           instances: connected,
           api: FakeDiscourseApi(
+            models: bundledPluginCodec,
             notificationList: notifications,
             likeNotificationList: [notifications[1]],
           ),

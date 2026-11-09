@@ -1,7 +1,7 @@
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import 'artwork.dart';
 import 'inline_formatting.dart';
 import 'markdown_highlight.dart';
 import 'markdown_style.dart';
@@ -134,6 +134,7 @@ List<InlineSpan> composerKeyboardSpans(
   List<MarkdownRun> runs,
   TextStyle base,
   ThemeData theme,
+  ComposerArtwork artwork,
 ) {
   final content = <InlineSpan>[];
   final label = StringBuffer();
@@ -161,7 +162,7 @@ List<InlineSpan> composerKeyboardSpans(
     WidgetSpan(
       alignment: PlaceholderAlignment.middle,
       style: base,
-      child: DKbd.child(
+      child: artwork.keyboardKey(
         semanticLabel: label.toString(),
         child: Text.rich(TextSpan(children: content)),
       ),

@@ -237,7 +237,12 @@ final class BoardsPlugin
       }
       await addTopicToBoard(context, controller, site, topicId, boards);
     } catch (error) {
-      if (context.mounted) DToast.show(context, error.toString());
+      if (context.mounted) {
+        DToast.show(
+          context,
+          failureText(error, fallback: appL10n.boardsLoadFailed),
+        );
+      }
     }
   }
 }

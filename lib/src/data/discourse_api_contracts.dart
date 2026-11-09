@@ -199,6 +199,25 @@ class WriteException implements Exception {
   );
 }
 
+/// The sentence a user is shown for a failed request.
+///
+/// A [WriteException] carries the site's own words or a localized category
+/// message. A [SiteLookupException] carries a message naming the site, except a
+/// 401 or 403 answer to a read of a feature on a forum that is already
+/// connected: the site is a Discourse forum and said no, so the lookup message
+/// would call it something else. Anything else is not a message to show, so
+/// [fallback] stands in for it rather than a type name or a developer string.
+String failureText(Object error, {required String fallback}) => switch (error) {
+  WriteException(:final message) => message,
+  SiteLookupException(
+    failure: SiteLookupFailure.notDiscourse,
+    statusCode: 401 || 403,
+  ) =>
+    appL10n.thisAccountCanTAccessThat,
+  SiteLookupException(:final message) => message,
+  _ => fallback,
+};
+
 /// A category-list response plus whether its page-one site metadata also
 /// arrived. A partial list is still useful for badges/navigation, but callers
 /// should leave it retryable so lazy-loaded navigation choices can be filled

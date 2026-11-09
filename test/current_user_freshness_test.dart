@@ -21,7 +21,7 @@ const _site = 'https://meta.discourse.org';
 const _user = DiscourseUser(id: 7, username: 'reader', draftCount: 9);
 
 final class _GatedFreshnessApi extends FakeDiscourseApi {
-  _GatedFreshnessApi({super.doNotDisturbUntil})
+  _GatedFreshnessApi({super.doNotDisturbUntil, super.models})
     : super(
         user: _user,
         feeds: const {'/latest.json': []},
@@ -114,7 +114,7 @@ void main() {
   test(
     'preference mirrors preserve direct options when a current-user read is pending',
     () async {
-      final api = _GatedFreshnessApi();
+      final api = _GatedFreshnessApi(models: bundledPluginCodec);
       api.userPreferences = UserPreferences(
         username: 'reader',
         canEdit: true,

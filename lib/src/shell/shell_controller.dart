@@ -183,12 +183,14 @@ part 'composer_registry.dart';
 part 'composer_submission.dart';
 part 'core_link_navigation.dart';
 part 'current_user_directory.dart';
+part 'forum_access_state.dart';
 part 'instance_rail_transactions.dart';
 part 'message_archive_transactions.dart';
 part 'post_commands.dart';
 part 'post_mutation_policy.dart';
 part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
+part 'site_capabilities.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
 part 'topic_action_transactions.dart';
@@ -720,7 +722,7 @@ class ShellController extends FrameSafeNotifier
         }
         accountActivity.applyPluginCounter(siteUrl, counter, reduce);
       },
-      markSiteUnreachable: _markForumUnavailable,
+      markSiteUnreachable: _forumAccess.markUnavailable,
     );
     return PluginHostPort<Object>(
       corePluginAccountEventsPort,
@@ -1108,6 +1110,8 @@ class ShellController extends FrameSafeNotifier
     isDisposed: () => isDisposed,
   );
 
+  SitePresentationController get sitePresentation => _presentation;
+
   SitePresentationController get _presentation =>
       _sitePresentation ??= _createSitePresentationController();
 
@@ -1129,36 +1133,23 @@ class ShellController extends FrameSafeNotifier
     return controller;
   }
 
-  String? _connectingSiteUrl;
+  late final _forumAccess = _ForumAccessState(
+    instanceAt: _instanceAt,
+    captureLease: lifecycle.capture,
+    routeRetries: () => _pluginSession.capabilities<PluginRouteRetry>(),
+    connectAccount: (siteUrl) => _accountSessions.connect(siteUrl),
+    changed: _notify,
+  );
 
-  bool get connecting => _connectingSiteUrl == currentInstance?.url;
+  bool get connecting => _forumAccess.connectingSiteUrl == currentInstance?.url;
 
-  final Map<String, String> _connectErrors = {};
+  String? get connectError => _forumAccess.connectError(currentInstance?.url);
 
-  String? get connectError {
-    final siteUrl = currentInstance?.url;
-    return siteUrl == null ? null : _connectErrors[siteUrl];
-  }
+  bool get currentForumUnavailable =>
+      _forumAccess.isUnavailable(currentInstance?.url);
 
-  final Set<String> _unavailableForums = {};
-  final Set<String> _retryingUnavailableForums = {};
-
-  bool get currentForumUnavailable {
-    final siteUrl = currentInstance?.url;
-    return siteUrl != null && _unavailableForums.contains(siteUrl);
-  }
-
-  bool get retryingCurrentForum {
-    final siteUrl = currentInstance?.url;
-    return siteUrl != null && _retryingUnavailableForums.contains(siteUrl);
-  }
-
-  void _markForumUnavailable(String siteUrl) {
-    if (_instanceAt(siteUrl) == null || !_unavailableForums.add(siteUrl)) {
-      return;
-    }
-    _notify();
-  }
+  bool get retryingCurrentForum =>
+      _forumAccess.isRetrying(currentInstance?.url);
 
   Future<void> retryCurrentForum() async {
     final instance = currentInstance;
@@ -1166,28 +1157,10 @@ class ShellController extends FrameSafeNotifier
     if (instance == null ||
         route == null ||
         ContentPageContract.resolve(route).retry !=
-            PageRetry.unavailableExtension ||
-        !_unavailableForums.contains(instance.url) ||
-        !_retryingUnavailableForums.add(instance.url)) {
+            PageRetry.unavailableExtension) {
       return;
     }
-
-    _notify();
-    try {
-      for (final retry in _pluginSession.capabilities<PluginRouteRetry>()) {
-        final result = await retry.retryPluginRoute(instance.url, route.id);
-        if (result == PluginRouteRetryResult.notHandled) continue;
-        if (!isDisposed && result == PluginRouteRetryResult.succeeded) {
-          _unavailableForums.remove(instance.url);
-        }
-        break;
-      }
-    } finally {
-      if (!isDisposed) {
-        _retryingUnavailableForums.remove(instance.url);
-        _notify();
-      }
-    }
+    await _forumAccess.retry(instance.url, route.id);
   }
 
   Future<bool> openPluginUrl(
@@ -1852,6 +1825,7 @@ class ShellController extends FrameSafeNotifier
       ..clear()
       ..addAll(stored);
     for (final instance in stored) {
+      _sitePresentation?.persistedConfigChanged(instance.url);
       _taxonomy.bind(instance.url);
       var totals = instance.notificationTotals;
       final storedGroupedCounts = instance.user?.groupedUnreadNotifications;
@@ -1965,6 +1939,7 @@ class ShellController extends FrameSafeNotifier
     final previousRootMode = _rootMode;
 
     _instances.add(instance);
+    _sitePresentation?.persistedConfigChanged(instance.url);
     _taxonomy.bind(instance.url);
     _rootMode = ShellRootMode.forum;
     _instanceIndex = _instances.length - 1;
@@ -2656,11 +2631,15 @@ class ShellController extends FrameSafeNotifier
   );
   bool _liveChangeNotifyPending = false;
 
-  final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
-  final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
+  late final _siteCapabilities = _SiteCapabilities(
+    credentialForWrite: _credentialForWrite,
+    topicComposerQueries: api.topicComposerQueries,
+    lifecycle: lifecycle,
+    changed: _notify,
+  );
 
   List<PostFlagType> postFlagTypesFor(String siteUrl) =>
-      _postActionCatalogs[siteUrl]?.postFlags ?? const [];
+      _siteCapabilities.postActions(siteUrl).postFlags;
 
   List<PostFlagType> availablePostFlagTypes(String siteUrl, Post post) {
     if (post.hidden || post.isDeleted || post.actedFlagSummaries.isNotEmpty) {
@@ -2694,10 +2673,8 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     TopicDetail topic,
   ) {
-    final catalog =
-        _postActionCatalogs[siteUrl]?.topicFlags ?? const <PostFlagType>[];
     return List.unmodifiable([
-      for (final type in catalog)
+      for (final type in _siteCapabilities.postActions(siteUrl).topicFlags)
         if (type.enabled &&
             !(type.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled) &&
             type.appliesToTopic &&
@@ -2941,12 +2918,12 @@ class ShellController extends FrameSafeNotifier
       _taxonomy.tagDirectoryFeedFor(siteUrl);
 
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
-      _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
+      _siteCapabilities.composer(siteUrl);
 
   Future<TopicComposerCapabilities> prepareTopicTagEditor(
     String siteUrl,
   ) async {
-    await _ensureTopicComposerCapabilities(siteUrl);
+    await _siteCapabilities.ensureComposer(siteUrl);
     return topicComposerCapabilities(siteUrl);
   }
 
@@ -3446,10 +3423,8 @@ class ShellController extends FrameSafeNotifier
     SiteLease lease,
   ) => _notificationFeeds.acceptLiveState(siteUrl, data, lease);
 
-  final Map<String, Set<String>> _serverPluginNames = {};
-
   bool supportsComposerColors(String siteUrl) =>
-      _serverPluginNames[siteUrl]?.contains('discourse-bbcode-color') ?? false;
+      _siteCapabilities.hasServerPlugin(siteUrl, 'discourse-bbcode-color');
 
   /// One poll answer can carry a backlog of messages, delivered in one
   /// synchronous run: tracking rows, `/latest` and `/new` arrivals, `/topic`
@@ -3486,7 +3461,7 @@ class ShellController extends FrameSafeNotifier
 
   @override
   bool _canAcceptCurrentUser(String siteUrl) =>
-      !isDisposed && _connectingSiteUrl != siteUrl;
+      !isDisposed && _forumAccess.connectingSiteUrl != siteUrl;
 
   @override
   Future<DiscourseUser?> _readSessionUser(
@@ -3494,7 +3469,9 @@ class ShellController extends FrameSafeNotifier
     String apiKey,
     SiteLease lease,
   ) async {
-    if (!lease.isCurrent || _connectingSiteUrl == siteUrl) return null;
+    if (!lease.isCurrent || _forumAccess.connectingSiteUrl == siteUrl) {
+      return null;
+    }
 
     final DiscourseUser responseUser;
     try {
@@ -3567,10 +3544,7 @@ class ShellController extends FrameSafeNotifier
     if (isDisposed) return;
     switch (result) {
       case AccountDisconnected(:final lease):
-        lease.commit(() {
-          _connectErrors[siteUrl] = message;
-          _notify();
-        });
+        lease.commit(() => _forumAccess.offerSignIn(siteUrl, message));
       case AccountDisconnectionFailed() ||
           AccountDisconnectionStale() ||
           AccountDisconnectionMissing():
@@ -5682,7 +5656,7 @@ class ShellController extends FrameSafeNotifier
         ),
       ),
       resolveEmoji: (name) {
-        final canonical = emojiNameFor(target.siteUrl, name);
+        final canonical = _presentation.emojiNameFor(target.siteUrl, name);
         return canonical == null
             ? null
             : emojiUrlFor(target.siteUrl, canonical);
@@ -5967,7 +5941,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     await Future.wait<void>([
       loadCategories(siteUrl),
-      _ensureTopicComposerCapabilities(siteUrl),
+      _siteCapabilities.ensureComposer(siteUrl),
     ]);
     if (!forumActive ||
         !lease.isCurrent ||
@@ -6214,7 +6188,7 @@ class ShellController extends FrameSafeNotifier
       focusText: focusText,
     );
     if (plan == null) return;
-    unawaited(_ensureTopicComposerCapabilities(origin.siteUrl));
+    unawaited(_siteCapabilities.ensureComposer(origin.siteUrl));
     if (!_replaceComposer()) return;
     // Published edits must never overwrite an unfinished reply's draft key.
     final composer = _buildTextComposer(
@@ -6388,7 +6362,7 @@ class ShellController extends FrameSafeNotifier
         detail?.canEditTags != true) {
       return;
     }
-    unawaited(_ensureTopicComposerCapabilities(instance.url));
+    unawaited(_siteCapabilities.ensureComposer(instance.url));
     if (!_replaceComposer()) return;
     // A mega topic's run starts at the first post only when read from there.
     final firstId = detail!.stream.firstOrNull;
@@ -6437,25 +6411,6 @@ class ShellController extends FrameSafeNotifier
       topicId: topicId,
       command: _TopicTagsCommand(tags),
     );
-  }
-
-  Future<void> _ensureTopicComposerCapabilities(String siteUrl) async {
-    if (_topicComposerCapabilities.containsKey(siteUrl)) return;
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent || credential.failure != null) return;
-      final capabilities = await credential.request!.run(
-        () => api.topicComposerQueries.topicComposerCapabilities(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-        ),
-      );
-      lease.commit(() {
-        _topicComposerCapabilities[siteUrl] = capabilities;
-        _notify();
-      });
-    } catch (_) {}
   }
 
   late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
@@ -6884,7 +6839,7 @@ class ShellController extends FrameSafeNotifier
     topicData: _topicData,
     siteContextFor: (siteUrl) => FlagSiteContext(
       connected: _instanceAt(siteUrl)?.isConnected == true,
-      catalog: _postActionCatalogs[siteUrl] ?? const SitePostActionCatalog(),
+      catalog: _siteCapabilities.postActions(siteUrl),
       minimumMessageLength: siteConfigFor(siteUrl).minPersonalMessagePostLength,
     ),
     changed: _notify,
@@ -7321,12 +7276,6 @@ class ShellController extends FrameSafeNotifier
     await topicFeeds.loadMore(instance: instance, destinationId: destinationId);
   }
 
-  Listenable emojiChangesFor(String siteUrl) =>
-      _presentation.emojiChangesFor(siteUrl);
-
-  SiteEmojiCatalog? emojiCatalogFor(String siteUrl) =>
-      _presentation.emojiCatalogFor(siteUrl);
-
   Future<SiteEmojiCatalog?> ensureEmojiCatalog(String siteUrl) =>
       _presentation.ensureEmojiCatalog(siteUrl);
 
@@ -7378,9 +7327,6 @@ class ShellController extends FrameSafeNotifier
 
   bool knowsEmoji(String siteUrl, String name) =>
       _presentation.knowsEmoji(siteUrl, name);
-
-  String? emojiNameFor(String siteUrl, String name) =>
-      _presentation.emojiNameFor(siteUrl, name);
 
   Object presentationTokenFor(String siteUrl) =>
       _presentation.presentationTokenFor(siteUrl);
@@ -7498,48 +7444,36 @@ class ShellController extends FrameSafeNotifier
       _taxonomy.loadMoreCategories(siteUrl);
 
   Future<void> connectCurrentInstance() async {
-    final instance = currentInstance;
-    if (instance == null || _connectingSiteUrl != null) return;
+    final siteUrl = currentInstance?.url;
+    if (siteUrl == null) return;
 
-    _connectingSiteUrl = instance.url;
-    _connectErrors.remove(instance.url);
-    _notify();
-
-    try {
-      final result = await _accountSessions.connect(instance.url);
-      switch (result) {
-        case AccountConnected(instance: final connected):
-          _connectErrors.remove(instance.url);
-          unawaited(_refreshOne(connected));
-          unawaited(_customSidebar.ensure(instance.url));
-        case AccountConnectionCancelled():
-          _connectErrors.remove(instance.url);
-        case AccountConnectionFailed(
-          :final message,
-          :final refreshSignedOutPresentation,
-        ):
-          _connectErrors[instance.url] = message;
-          if (refreshSignedOutPresentation &&
-              currentInstance?.url == instance.url) {
+    await _forumAccess.connect(
+      siteUrl,
+      settled: (result) {
+        switch (result) {
+          case AccountConnected(instance: final connected):
+            unawaited(_refreshOne(connected));
+            unawaited(_customSidebar.ensure(siteUrl));
+          case AccountConnectionFailed(refreshSignedOutPresentation: true)
+              when currentInstance?.url == siteUrl:
             unawaited(
               RequestIntent.background().run(
-                () => _presentation.ensureAppearance(instance.url),
+                () => _presentation.ensureAppearance(siteUrl),
               ),
             );
-          }
-        case AccountConnectionStale() || AccountConnectionMissing():
-          break;
-      }
-    } finally {
-      if (_connectingSiteUrl == instance.url) _connectingSiteUrl = null;
-      final held = _instanceAt(instance.url);
-      if (held?.isConnected == true && !_currentUsers.isFresh(instance.url)) {
-        // A cancelled/failed handshake leaves the previous account in place.
-        // Retry a background refresh that deliberately stood aside above.
-        unawaited(_refreshSessionUserFor(held!));
-      }
-      _notify();
-    }
+          case _:
+            break;
+        }
+      },
+      released: () {
+        final held = _instanceAt(siteUrl);
+        if (held?.isConnected == true && !_currentUsers.isFresh(siteUrl)) {
+          // A cancelled/failed handshake leaves the previous account in place.
+          // Retry a background refresh that deliberately stood aside above.
+          unawaited(_refreshSessionUserFor(held!));
+        }
+      },
+    );
   }
 
   Future<void> disconnectCurrentInstance() async {
@@ -7700,16 +7634,13 @@ class ShellController extends FrameSafeNotifier
     _taxonomy.forget(siteUrl);
     _topicTracking.forget(siteUrl);
     _liveSessions.clearRetry(siteUrl);
-    _topicComposerCapabilities.remove(siteUrl);
-    _postActionCatalogs.remove(siteUrl);
+    _siteCapabilities.forget(siteUrl);
     _customSidebar.forget(siteUrl);
     _notificationFeeds.forget(siteUrl);
     _sitePresentation?.forget(siteUrl);
     _pluginSiteConfigListenables.remove(siteUrl)?.dispose();
     composerIdentities.forget(siteUrl);
-    _connectErrors.remove(siteUrl);
-    _unavailableForums.remove(siteUrl);
-    _retryingUnavailableForums.remove(siteUrl);
+    _forumAccess.forget(siteUrl);
     _basicInfoRefreshes.remove(siteUrl);
 
     _backgroundRetention.releaseSite(siteUrl);
@@ -7729,6 +7660,9 @@ class ShellController extends FrameSafeNotifier
     final index = _instances.indexOf(old);
     if (index >= 0) {
       _instances[index] = updated;
+      if (old.config != updated.config) {
+        _sitePresentation?.persistedConfigChanged(updated.url);
+      }
       if (old.user?.id != updated.user?.id ||
           old.user?.username != updated.user?.username ||
           old.user?.timezone != updated.user?.timezone ||
@@ -8992,7 +8926,7 @@ final class _ShellPluginAccountConnectionHost
   Future<String?> connect(String siteUrl) async {
     if (_shell.currentInstance?.url != siteUrl) return null;
     await _shell.connectCurrentInstance();
-    return _shell._connectErrors[siteUrl];
+    return _shell._forumAccess.connectError(siteUrl);
   }
 }
 
@@ -9527,8 +9461,7 @@ final class _ShellComposerOpeningHost
   @override
   Future<void> ensureForOpening(String siteUrl) async {
     await Future.wait<void>([
-      if (!_shell._topicComposerCapabilities.containsKey(siteUrl))
-        _shell._ensureTopicComposerCapabilities(siteUrl),
+      _shell._siteCapabilities.ensureComposer(siteUrl),
       if (_shell._taxonomy.needsCategoryLoad(siteUrl))
         _shell.loadCategories(siteUrl),
     ]);

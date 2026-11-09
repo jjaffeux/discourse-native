@@ -1075,9 +1075,5 @@ String? _nullableText(String? value) {
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
 }
 
-String _errorText(Object error) {
-  if (error is WriteException) return error.message;
-  if (error is SiteLookupException) return error.message;
-  final text = error.toString().trim();
-  return text.replaceFirst(RegExp(r'^(Exception|Error):\s*'), '');
-}
+String _errorText(Object error) =>
+    failureText(error, fallback: appL10n.assignmentRequestFailed);

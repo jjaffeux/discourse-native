@@ -1,17 +1,18 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart'
     show listEquals, setEquals, visibleForTesting;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/code_syntax.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/hashtag_kind.dart';
+import '../../theme/tokens.dart';
 import 'artwork.dart';
 import 'blocks.dart';
 import 'components/blockquote.dart';
@@ -1974,7 +1975,13 @@ class MarkdownEditingController extends TextEditingController {
         _SpanProjection(
           key.first.start,
           key.last.end,
-          () => composerKeyboardSpans(source, key, base, theme),
+          () => composerKeyboardSpans(
+            source,
+            key,
+            base,
+            theme,
+            _installedArtwork,
+          ),
         ),
       for (final separator in blockGaps)
         if (composing == null ||
@@ -2069,6 +2076,7 @@ class MarkdownEditingController extends TextEditingController {
               source: source,
               todo: todo,
               baseStyle: base,
+              artwork: _installedArtwork,
               onChanged: _todosReadOnly
                   ? null
                   : () {

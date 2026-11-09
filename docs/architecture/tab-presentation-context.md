@@ -6,7 +6,7 @@ reads through `ShellTabContext`, captured from `ForumTabScope.tabOf(context)`.
 
 ```dart
 ForumTabSelector<TopicViewportSnapshot>(
-  select: (shell, tab) => TopicViewportSnapshot.from(shell, tab: tab),
+  select: (shell, tab) => topicViewportSnapshotFrom(shell, tab: tab),
   builder: (context, snapshot, child) => buildReader(snapshot),
 );
 

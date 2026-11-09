@@ -74,6 +74,10 @@ InstalledPlugins get installedPlugins =>
 
 PluginRegistry get pluginRegistry => installedPlugins.registry;
 
+/// The codec for a fake whose test decodes plugin models, such as a post's
+/// reactions or a topic's plugin fields.
+DiscourseModelCodec get bundledPluginCodec => installedPlugins.models;
+
 List<SitePlugin> get sitePlugins => pluginRegistry.plugins;
 
 final PluginManifest bundledWidgetTestManifest = _testBundledPluginManifest;

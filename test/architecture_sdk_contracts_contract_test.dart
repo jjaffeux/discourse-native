@@ -26,9 +26,25 @@ void main() {
   test('the only widgets the contracts barrel compiles are plugin scopes', () {
     expect(closure.intersection(graph.widgetLibraries), {
       'lib/src/plugin_api/composer_footer_layout.dart',
-      'lib/src/plugin_api/plugin_scope.dart',
       'lib/src/plugin_api/plugin_ui_scope.dart',
     });
+  });
+
+  test('the contracts barrel leaves the plugin runtime to the full SDK', () {
+    final exported = {
+      for (final target in graph.edges[_contracts] ?? const <String>{})
+        if (target.endsWith('/plugin_runtime.dart') ||
+            target.endsWith('/plugin_scope.dart'))
+          target,
+    };
+    expect(exported, isEmpty);
+    expect(
+      graph.edges[_sdk],
+      containsAll([
+        'lib/src/plugin_api/plugin_runtime.dart',
+        'lib/src/plugin_api/plugin_scope.dart',
+      ]),
+    );
   });
 
   test('the full SDK re-exports the contracts barrel', () {
@@ -36,7 +52,7 @@ void main() {
   });
 
   test('the contracts barrel stays within its closure budget', () {
-    expect(closure.length, 166);
+    expect(closure.length, 163);
   });
 
   test('the plugin libraries on the full SDK stay within their budget', () {

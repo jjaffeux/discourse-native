@@ -832,13 +832,11 @@ final class _TaxonomyDirectoryController
           nextPage: nextPage,
           canCreateTopic: result.canCreateTopic,
         );
-        if (result.postActionCatalog case final catalog?) {
-          _shell._postActionCatalogs[instance.url] = catalog;
-        }
-        // A composer opened during this read holds a later answer.
-        if (result.composerCapabilities case final capabilities?) {
-          _shell._topicComposerCapabilities[instance.url] ??= capabilities;
-        }
+        _shell._siteCapabilities.acceptCategoryRead(
+          instance.url,
+          postActions: result.postActionCatalog,
+          composer: result.composerCapabilities,
+        );
         _shell._notificationFeeds.seedSiteTypes(
           instance.url,
           result.notificationTypes,
