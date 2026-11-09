@@ -5,6 +5,8 @@ import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
+import 'package:discourse_native/src/shell/avatar_image.dart';
+import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -55,6 +57,25 @@ ShellController _shell(
 
 const _welcome = [Topic(id: 7, title: 'Welcome inside', slug: 'welcome')];
 
+Future<void> _pumpDesktop(WidgetTester tester, ShellController shell) async {
+  tester.view.physicalSize = const Size(1200, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await shell.load();
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.light,
+        builder: (context, child) =>
+            AppTextScaleRegion(controller: shell.appSettings, child: child!),
+        home: const AdaptiveShell(),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -63,9 +84,6 @@ void main() {
   testWidgets('a stored public forum that became private puts up sign-in', (
     tester,
   ) async {
-    tester.view.physicalSize = const Size(1200, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
     final store = FakeInstanceStore([
       instance('meta.discourse.org', title: 'Meta'),
     ]);
@@ -78,19 +96,7 @@ void main() {
       feeds: const {'/latest.json': _welcome},
     );
     final shell = _shell(store, api);
-    await shell.load();
-    await tester.pumpWidget(
-      ShellScope(
-        controller: shell,
-        child: MaterialApp(
-          theme: AppTheme.light,
-          builder: (context, child) =>
-              AppTextScaleRegion(controller: shell.appSettings, child: child!),
-          home: const AdaptiveShell(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
+    await _pumpDesktop(tester, shell);
 
     expect(api.basicInfoRequested, [_siteUrl]);
     expect(find.byKey(const ValueKey('private-forum-gate')), findsNothing);
@@ -107,6 +113,45 @@ void main() {
     expect((await store.load()).single.loginRequired, isTrue);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
+  const newIcon = '$_siteUrl/uploads/new-icon.png';
+  final railRowDrawings = [
+    (
+      'title',
+      const SiteBasicInfo(title: 'New name'),
+      find.descendant(of: find.byType(InstanceRail), matching: find.text('NN')),
+    ),
+    (
+      'icon',
+      const SiteBasicInfo(title: 'Old name', iconUrl: newIcon),
+      find.descendant(
+        of: find.byType(InstanceRail),
+        matching: find.byWidgetPredicate(
+          (widget) => widget is AvatarImage && widget.url == newIcon,
+        ),
+      ),
+    ),
+  ];
+
+  for (final (change, info, drawn) in railRowDrawings) {
+    testWidgets('a forum\'s new $change reaches its rail row', (tester) async {
+      final gate = Completer<void>();
+      final api = FakeDiscourseApi(
+        basicInfos: {_siteUrl: info},
+        basicInfoGate: gate,
+        feeds: const {'/latest.json': _welcome},
+      );
+      final store = FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Old name'),
+      ]);
+      await _pumpDesktop(tester, _shell(store, api));
+      expect(drawn, findsNothing);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(drawn, findsOneWidget);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  }
   group('basic info refresh', () {
     test('a renamed forum is redrawn and stored as it reads now', () async {
       final store = FakeInstanceStore([

@@ -260,6 +260,7 @@ void main() {
       tracker.deliverTopicTracking(_unreadTracking(9001));
       await _settleLiveMessage(tester);
       final sidebar = rebuilds.sidebar;
+      final rail = rebuilds.rail;
       final total = rebuilds.total;
 
       // ignore: avoid_print
@@ -268,7 +269,8 @@ void main() {
       print('PERF_PROOF sidebar-totals ${platform}_tracking_total=$total');
       expect(_bellCount(2), findsWidgets);
       expect(sidebar, lessThanOrEqualTo(68));
-      expect(total, lessThanOrEqualTo(_isPhone ? 801 : 364));
+      expect(rail, 0);
+      expect(total, lessThanOrEqualTo(_isPhone ? 593 : 110));
     },
     variant: _bothPlatforms,
   );
