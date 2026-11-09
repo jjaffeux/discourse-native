@@ -2612,6 +2612,37 @@ void main() {
   });
 
   test(
+    'a thread pages back past a reply someone else deleted at its edge',
+    () async {
+      // Chat::Thread::Policy::MessageExistence answers 404 for a trashed cursor
+      // the reader may not see, so paging from that reply loads nothing.
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        pages: {
+          'thread-9-22': threadPage([20, 21], canLoadMorePast: true),
+          'thread-9-22~past~21': threadPage([10]),
+        },
+      );
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+      await subject.chat.openThread(site, target);
+
+      tracker.deliverPluginMessage('/chat/9/thread/22', {
+        'type': 'delete',
+        'deleted_id': 20,
+        'deleted_at': '2026-08-12T12:00:00.000Z',
+      });
+      await subject.chat.loadOlderFor(site, target);
+
+      expect(api.chatThreadMessagesRequested.last.before, 21);
+      expect(subject.store.read<ChatMessage>(site, 10), isNotNull);
+    },
+  );
+
+  test(
     'a viewed thread pages forward past replies its trimmed backlog dropped',
     () async {
       var now = DateTime.utc(2026, 8, 12, 12);
