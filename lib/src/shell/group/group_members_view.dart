@@ -157,7 +157,7 @@ class _MembersSectionState extends State<_MembersSection> {
         _MembersToolbar(
           controller: controller.searchController,
           canManage: widget.group.canManageMembers,
-          canInvite: widget.canInviteToForum,
+          canInvite: widget.canInviteToForum && widget.group.canManageMembers,
           mutating: widget.mutating,
           onSearch: controller.search,
           onAddMembers: widget.onAddMembers == null ? null : _addMembers,
