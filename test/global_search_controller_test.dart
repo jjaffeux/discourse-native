@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
@@ -2619,6 +2620,269 @@ void main() {
     expect(controller.phase, GlobalSearchPhase.failed);
     expect(controller.error, rejection);
     expect(controller.sections, isEmpty);
+  });
+
+  group('a search that repeats the current one', () {
+    Future<void> settle(WidgetTester tester) =>
+        tester.pump(const Duration(milliseconds: 10));
+
+    Future<(_EngineApi, GlobalSearchController)> answered(
+      WidgetTester tester, {
+      GlobalSearchScope? scope,
+    }) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      if (scope != null) controller.setScope(scope);
+      controller.setQuery('keyboard');
+      await settle(tester);
+      api.pending.single.complete(_page('first'));
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.results);
+      expect(api.requests, hasLength(1));
+      return (api, controller);
+    }
+
+    testWidgets('keeps its answer and still tells the editor', (tester) async {
+      final (api, controller) = await answered(tester);
+      final shown = controller.results.single;
+      var notified = 0;
+      controller.addListener(() => notified++);
+      for (final text in [
+        'keyboard ',
+        'keyboard ta',
+        'keyboard tags:',
+        'keyboard tags:de',
+        'keyboard',
+      ]) {
+        notified = 0;
+        controller.setQuery(text);
+        expect(notified, greaterThan(0), reason: text);
+        await settle(tester);
+      }
+      expect(api.requests, hasLength(1));
+      expect(controller.phase, GlobalSearchPhase.results);
+      expect(controller.ownsResult(shown), isTrue);
+    });
+
+    testWidgets('leaves a search still on its way to answer', (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller
+        ..setQuery('keyboard')
+        ..setQuery('keyboard ');
+      await settle(tester);
+      expect(api.requests, hasLength(1));
+      controller.setQuery('keyboard ta');
+      await settle(tester);
+      expect(api.requests, hasLength(1));
+      api.pending.single.complete(_page('late'));
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.results);
+      expect(controller.results.single.title, 'late');
+    });
+
+    testWidgets('is still sent by Enter and by Retry', (tester) async {
+      final (api, controller) = await answered(tester);
+      controller.submit();
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+      controller.retry();
+      await settle(tester);
+      expect(api.requests, hasLength(3));
+    });
+
+    testWidgets('is sent again after the search failed', (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.setQuery('keyboard');
+      await settle(tester);
+      api.pending.single.completeError(StateError('offline'));
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.failed);
+      controller.setQuery('keyboard ');
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+    });
+
+    testWidgets('is sent again after one section failed', (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.setQuery('keyboard');
+      await settle(tester);
+      api.pending.single.complete(
+        GlobalSearchPage(
+          sections: [
+            ..._page('first').sections,
+            const GlobalSearchSection(
+              scope: GlobalSearchScope.users,
+              results: [],
+              error: 'Users are unavailable.',
+            ),
+          ],
+        ),
+      );
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.results);
+      expect(controller.error, isNotNull);
+      controller.setQuery('keyboard ');
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+    });
+
+    testWidgets('is sent again once a failed discovery recovers', (
+      tester,
+    ) async {
+      final api = _EngineApi()
+        ..hold = true
+        ..capabilitiesGate = Completer();
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.ensureCapabilities();
+      await tester.pump();
+      api.capabilitiesGate!.completeError(StateError('offline'));
+      await settle(tester);
+      controller.setQuery('keyboard');
+      await settle(tester);
+      api.pending.single.complete(_page('first'));
+      await settle(tester);
+      api.capabilitiesGate = Completer()
+        ..complete(_caps.copyWith(unlisted: false));
+      controller.ensureCapabilities();
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+      expect(api.requests.last.capabilities.unlisted, isFalse);
+    });
+
+    const ux = GlobalSearchCondition(
+      filterId: 'tags',
+      operator: 'any',
+      value: ['ux'],
+    );
+    for (final (label, change)
+        in <(String, void Function(GlobalSearchController))>[
+          ('words', (search) => search.setQuery('keyboard focus')),
+          ('scope', (search) => search.setScope(GlobalSearchScope.users)),
+          ('order', (search) => search.setOrder('latest')),
+          ('filter', (search) => search.addCondition(ux)),
+          (
+            'filter value',
+            (search) => search.updateCondition(
+              0,
+              const GlobalSearchCondition(
+                filterId: 'tags',
+                operator: 'any',
+                value: ['design'],
+              ),
+            ),
+          ),
+          (
+            'filter operator',
+            (search) => search.updateCondition(
+              0,
+              const GlobalSearchCondition(
+                filterId: 'tags',
+                operator: 'none',
+                value: ['ux'],
+              ),
+            ),
+          ),
+          (
+            'topic',
+            (search) => search.setPageContext(topicId: 9, topicTitle: 'Nine'),
+          ),
+        ]) {
+      testWidgets('is not what a new $label asks', (tester) async {
+        final (api, controller) = await answered(
+          tester,
+          scope: GlobalSearchScope.forum,
+        );
+        if (label.startsWith('filter ')) {
+          controller.addCondition(ux);
+          await settle(tester);
+          api.pending.last.complete(_page('tagged'));
+          await settle(tester);
+        }
+        final sent = api.requests.length;
+        change(controller);
+        await settle(tester);
+        expect(api.requests, hasLength(sent + 1));
+      });
+    }
+
+    testWidgets('is not what a new direction asks', (tester) async {
+      final (api, controller) = await answered(
+        tester,
+        scope: GlobalSearchScope.users,
+      );
+      controller.setOrder('username', ascending: !controller.ascending);
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+    });
+
+    testWidgets('is sent after the field was emptied', (tester) async {
+      final (api, controller) = await answered(tester);
+      controller.setQuery('');
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.idle);
+      controller.setQuery('keyboard');
+      await settle(tester);
+      expect(api.requests, hasLength(2));
+    });
+
+    testWidgets('does not outrank the minimum length', (tester) async {
+      final api = _EngineApi()..hold = true;
+      final controller = _controller(api);
+      addTearDown(controller.dispose);
+      controller.setQuery('x ta');
+      await settle(tester);
+      api.pending.single.complete(_page('short'));
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.results);
+      controller.setQuery('x');
+      await settle(tester);
+      expect(controller.phase, GlobalSearchPhase.tooShort);
+      expect(controller.sections, isEmpty);
+      expect(api.requests, hasLength(1));
+    });
+
+    testWidgets('does not outrank the length limit', (tester) async {
+      final (api, controller) = await answered(tester);
+      controller.setQuery('keyboard tags:${'a' * 2100}');
+      await settle(tester);
+      expect(controller.stagedFilter?.id, 'tags');
+      expect(controller.phase, GlobalSearchPhase.failed);
+      expect(controller.error, isNotNull);
+      expect(api.requests, hasLength(1));
+    });
+
+    test('is judged on every field a request holds', () {
+      final source = File(
+        'lib/src/plugin_api/global_search_models.dart',
+      ).readAsStringSync();
+      final declaration = RegExp(
+        r'class GlobalSearchRequest \{.*?\n\}\n',
+        dotAll: true,
+      ).stringMatch(source)!;
+      final fields = [
+        for (final match in RegExp(
+          r'^  final \S+ ([^;]+);$',
+          multiLine: true,
+        ).allMatches(declaration))
+          ...match.group(1)!.split(', '),
+      ];
+      final comparison = RegExp(
+        r'bool sameRequestAs\(.*?;\n',
+        dotAll: true,
+      ).stringMatch(declaration)!;
+      expect(fields, hasLength(greaterThanOrEqualTo(10)));
+      for (final field in fields) {
+        expect(comparison, contains('other.$field'));
+      }
+    });
   });
 }
 

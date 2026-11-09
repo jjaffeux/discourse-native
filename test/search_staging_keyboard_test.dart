@@ -454,6 +454,94 @@ void main() {
     },
   );
 
+  testWidgets('paused keystrokes that keep the words send no search', (
+    tester,
+  ) async {
+    final api = GlobalSearchFixtureApi();
+    final shell = createGlobalSearchFixtureController(api: api);
+    addTearDown(shell.dispose);
+    await shell.load();
+    shell.pushContent(ContentRoute.topicList(TopicListMode.latest));
+    await tester.pumpWidget(
+      ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.light,
+          home: const Scaffold(
+            body: SizedBox(
+              width: 600,
+              child: ForumSearch(showNavigationControls: false),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ForumSearch.inputKey));
+    await tester.pumpAndSettle();
+    int searches() => api.requests
+        .where(
+          (request) => const {
+            '/search/query.json',
+            '/search.json',
+            '/chat/api/search.json',
+          }.contains(request.uri.path),
+        )
+        .length;
+    int tagLookups() => api.requests
+        .where((request) => request.uri.path == '/tags/filter/search.json')
+        .length;
+    Future<void> pause(String text) async {
+      await tester.enterText(find.byKey(ForumSearch.inputKey), text);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 450));
+      await tester.pumpAndSettle();
+    }
+
+    await pause('keyboard');
+    final first = searches();
+    var rebuilt = 0;
+    final previous = debugOnRebuildDirtyWidget;
+    debugOnRebuildDirtyWidget = (element, builtOnce) {
+      rebuilt++;
+      previous?.call(element, builtOnce);
+    };
+    try {
+      await pause('keyboard ');
+    } finally {
+      debugOnRebuildDirtyWidget = previous;
+    }
+    final trailingSpace = searches() - first;
+    for (final text in [
+      'keyboard ta',
+      'keyboard tag',
+      'keyboard tags:',
+      'keyboard tags:d',
+      'keyboard tags:de',
+      'keyboard',
+    ]) {
+      await pause(text);
+    }
+
+    // ignore: avoid_print
+    print('PERF_PROOF search-unchanged first_searches=$first');
+    // ignore: avoid_print
+    print('PERF_PROOF search-unchanged searches=${searches()}');
+    // ignore: avoid_print
+    print('PERF_PROOF search-unchanged trailing_space_searches=$trailingSpace');
+    // ignore: avoid_print
+    print('PERF_PROOF search-unchanged trailing_space_elements=$rebuilt');
+    // ignore: avoid_print
+    print('PERF_PROOF search-unchanged tag_lookups=${tagLookups()}');
+    expect(shell.globalSearch.phase, GlobalSearchPhase.results);
+    expect(find.byType(GlobalSearchPanel), findsOneWidget);
+    expect(searches(), 3);
+    expect(trailingSpace, 0);
+    expect(rebuilt, lessThanOrEqualTo(828));
+    expect(tagLookups(), 1);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('arrow keys select a result before Enter opens its topic', (
     tester,
   ) async {

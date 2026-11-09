@@ -35,7 +35,7 @@ final class _GlobalSearchExecution {
     }
   }
 
-  void reset() {
+  void _reset() {
     _run = null;
     _cancel();
     _page = 0;
@@ -46,6 +46,12 @@ final class _GlobalSearchExecution {
     sections = const [];
   }
 
+  void settle(GlobalSearchPhase settled, {String? error}) {
+    _reset();
+    phase = settled;
+    this.error = error;
+  }
+
   void failQuery(String message) {
     _cancel();
     loadingMore = false;
@@ -53,13 +59,27 @@ final class _GlobalSearchExecution {
     phase = GlobalSearchPhase.failed;
   }
 
+  /// Whether the current run already holds, or is fetching, [request]. A run
+  /// that failed, wholly or for one section, answers nothing, so an unchanged
+  /// search asks again.
+  bool answers(GlobalSearchRequest request) {
+    final run = _run;
+    return run != null &&
+        _current(run) &&
+        phase != GlobalSearchPhase.failed &&
+        error == null &&
+        run.request.sameRequestAs(request);
+  }
+
   void start(
     String site,
     SiteLease lease,
+    GlobalSearchRequest request,
     GlobalSearchRequest Function(int page, int offset) prepare, {
     required Duration? delay,
   }) {
-    final run = _run = _SearchRun(site, lease, prepare);
+    _reset();
+    final run = _run = _SearchRun(site, lease, request, prepare);
     phase = GlobalSearchPhase.loading;
     if (delay == null) {
       _dispatch(run);
@@ -203,10 +223,11 @@ final class _GlobalSearchExecution {
 }
 
 final class _SearchRun {
-  const _SearchRun(this.site, this.lease, this.prepare);
+  const _SearchRun(this.site, this.lease, this.request, this.prepare);
 
   final String site;
   final SiteLease lease;
+  final GlobalSearchRequest request;
   final GlobalSearchRequest Function(int page, int offset) prepare;
 }
 
