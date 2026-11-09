@@ -93,6 +93,12 @@ class UserMenuSection {
   final int badge;
   final PluginUserMenuSection? plugin;
 
+  /// Every field but [badge], so a count does not redraw a feed. Only the
+  /// profile header draws a badge inside a body. The profile's rows and a
+  /// plugin contribution are new objects on each read, so those sections never
+  /// compare equal and redraw from what they hold.
+  Object get bodyInputs => (id, label, rows, plugin);
+
   bool get isNotifications => id == notificationsId;
   bool get isReplies => id == repliesId;
   bool get isLikes => id == likesId;
@@ -246,6 +252,8 @@ class UserMenuPanel extends StatefulWidget {
 class _UserMenuPanelState extends State<UserMenuPanel> {
   String _sectionId = 'all';
   bool _markingRead = false;
+  _SectionBody? _body;
+  Object? _bodyInputs;
 
   @override
   Widget build(BuildContext context) => ShellSelector<_UserMenuPanelSnapshot>(
@@ -312,29 +320,36 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             orElse: () => sections.first,
           );
 
-          final body = _SectionBody(
-            section: section,
-            siteUrl: menu.siteUrl,
-            showHeader: widget.view == UserMenuView.profile,
-            onDismiss: widget.onDismiss,
-            onAbout: () => _openAboutAfterMenu(context, widget.onDismiss),
-            onPauseNotifications: () {
-              if (siteUrl == null) return;
-              final dialog = showDoNotDisturbDialog(
-                context,
-                siteUrl: siteUrl,
-                controller: controller,
-              );
-              widget.onDismiss();
-              unawaited(dialog);
-            },
-            onDisconnect: () {
-              widget.onDismiss();
-              if (siteUrl != null) {
-                controller.disconnectInstance(siteUrl).ignore();
-              }
-            },
-          );
+          final bodyInputs = (controller, siteUrl, section.bodyInputs);
+          // Each callback reads `widget` when called, so a kept body cannot
+          // run a stale one.
+          final body = bodyInputs == _bodyInputs
+              ? _body!
+              : _SectionBody(
+                  section: section,
+                  siteUrl: menu.siteUrl,
+                  showHeader: widget.view == UserMenuView.profile,
+                  onDismiss: () => widget.onDismiss(),
+                  onAbout: () => _openAboutAfterMenu(context, widget.onDismiss),
+                  onPauseNotifications: () {
+                    if (siteUrl == null) return;
+                    final dialog = showDoNotDisturbDialog(
+                      context,
+                      siteUrl: siteUrl,
+                      controller: controller,
+                    );
+                    widget.onDismiss();
+                    unawaited(dialog);
+                  },
+                  onDisconnect: () {
+                    widget.onDismiss();
+                    if (siteUrl != null) {
+                      controller.disconnectInstance(siteUrl).ignore();
+                    }
+                  },
+                );
+          _body = body;
+          _bodyInputs = bodyInputs;
           void selectSection(String id) {
             final selected = sections.firstWhere(
               (candidate) => candidate.id == id,
