@@ -2733,6 +2733,11 @@ final class PluginRegistry
   bool staleTopic(int topicId, String channel, Object? data) => plugins
       .whereType<TopicLiveReloadPlugin>()
       .any((plugin) => plugin.staleTopic(topicId, channel, data));
+
+  Set<String> ignoredUsernames(DiscourseUser user) => {
+    for (final plugin in plugins.whereType<IgnoredUsersPlugin>())
+      ...plugin.ignoredUsernames(user),
+  };
 }
 
 bool _isRelativeForumPath(String value) {

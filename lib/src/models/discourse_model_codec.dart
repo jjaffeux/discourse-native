@@ -263,9 +263,6 @@ final class DiscourseModelCodec {
         for (final group in jsonObjects(json['groups']))
           if (group['has_messages'] == true) ?jsonText(group['name']),
       ]),
-      ignoredUsernames: List.unmodifiable(
-        jsonArray(json['ignored_users']).map(jsonText).whereType<String>(),
-      ),
       sidebarCategoryIds: List.unmodifiable([
         for (final value in jsonArray(json['sidebar_category_ids']))
           ?jsonIntOrNull(value),

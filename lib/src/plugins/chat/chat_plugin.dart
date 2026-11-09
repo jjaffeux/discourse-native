@@ -55,6 +55,7 @@ const chatIconCatalog = PluginIconCatalog(
 class ChatPlugin
     implements
         SitePlugin,
+        IgnoredUsersPlugin,
         GlobalSearchPlugin,
         CookingPlugin,
         IconCatalogPlugin,
@@ -274,6 +275,10 @@ class ChatPlugin
   @override
   ChatCurrentUser readCurrentUser(Map<String, dynamic> json, String siteUrl) =>
       ChatCurrentUser.fromCurrentUser(json);
+
+  @override
+  Iterable<String> ignoredUsernames(DiscourseUser user) =>
+      user.ignoredUsernames;
 
   @override
   PluginUserPreferenceSection? userPreferenceSection(
