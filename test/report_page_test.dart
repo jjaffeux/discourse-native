@@ -94,6 +94,51 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+  testWidgets('the range preset names only the range on screen', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1100, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final owner = ReportController(
+      api: _Api(),
+      credentials: FakeCredentials(),
+      lease: SiteLifecycle().capture('https://forum.example'),
+      siteUrl: 'https://forum.example',
+      report: report,
+      range: range,
+    );
+    addTearDown(owner.dispose);
+    await owner.refresh();
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        localizationsDelegates: AppLocalizations.localizationsDelegates,
+        supportedLocales: AppLocalizations.supportedLocales,
+        home: Scaffold(
+          body: ReportPage(controller: owner, onBack: () {}),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Date range'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Last 7 days'));
+    await tester.pumpAndSettle();
+    expect(find.text('Last 7 days'), findsOneWidget);
+
+    final start = owner.range.start;
+    tester.widget<DDatePicker>(find.byType(DDatePicker).first).onChanged!(
+      DCalendarDate.fromDateTime(
+        DateTime(start.year, start.month, start.day + 1),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Last 7 days'), findsNothing);
+    expect(find.text('Date range'), findsOneWidget);
+  });
+
   testWidgets('failed report can retry and empty report is explicit', (
     tester,
   ) async {
