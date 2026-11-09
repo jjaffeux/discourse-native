@@ -86,6 +86,11 @@ class TypingClock {
 
   Duration get elapsed => _elapsed;
 
+  void resumeFrom(Duration elapsed) {
+    _elapsed = elapsed;
+    _last = null;
+  }
+
   void tick() {
     final now = _now();
     final last = _last;
@@ -2138,6 +2143,10 @@ class ComposerController extends ChangeNotifier
       );
     }
     _whisper = draft.whisper || _target.replyingToWhisper;
+    // Core silences a first post sent with too little typing time, so a
+    // resumed draft keeps the time already spent on it.
+    _typing.resumeFrom(draft.typingTime);
+    _openedAt = _now().subtract(draft.composerTime);
     _draftStatus = DraftStatus.clean;
     _localDraftFailed = false;
     captureDraftSavepoint();
