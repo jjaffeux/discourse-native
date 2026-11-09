@@ -106,6 +106,7 @@ class GlobalSearchController extends ChangeNotifier {
   bool _disposed = false;
   int _configuration = 0;
   int? _discoveredConfiguration;
+  bool _discoveryUnanswered = false;
 
   String? get siteUrl => _siteUrl;
   Object? get categoryLookupSession => _lease?.session;
@@ -426,12 +427,19 @@ class GlobalSearchController extends ChangeNotifier {
 
   /// Asks the forum which optional search features it offers, once for each
   /// configuration. Core search works without the answer, so only a surface
-  /// that can show the difference asks.
-  void ensureCapabilities() {
+  /// that can show the difference asks. An attempt the forum never answered is
+  /// repeated by the next surface to open; [retryUnanswered] is false for a
+  /// caller that runs on every shell notification, which an outage would turn
+  /// into a request loop.
+  void ensureCapabilities({bool retryUnanswered = true}) {
     final site = _siteUrl, lease = _lease;
     if (_disposed || site == null || lease == null || !lease.isCurrent) return;
-    if (_discoveredConfiguration == _configuration) return;
+    if (_discoveredConfiguration == _configuration &&
+        !(retryUnanswered && _discoveryUnanswered)) {
+      return;
+    }
     _discoveredConfiguration = _configuration;
+    _discoveryUnanswered = false;
     unawaited(_loadCapabilities(site, lease, _configuration, _capabilities));
   }
 
@@ -466,6 +474,7 @@ class GlobalSearchController extends ChangeNotifier {
       _schedule();
     } catch (_) {
       // Optional discovery does not prevent core search.
+      if (current()) _discoveryUnanswered = true;
     }
   }
 

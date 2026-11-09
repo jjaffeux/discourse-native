@@ -264,7 +264,9 @@ class _ForumSearchState extends State<ForumSearch> {
     );
     // A closed field parses its list's expression, which may name a filter
     // only discovery can enable.
-    if (_open || _listExpression.isNotEmpty) _global.ensureCapabilities();
+    if (_open || _listExpression.isNotEmpty) {
+      _global.ensureCapabilities(retryUnanswered: false);
+    }
   }
 
   void _siteChanged() {
