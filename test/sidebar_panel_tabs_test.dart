@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/group_route.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -12,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_module.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
+import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/voice/voice_module.dart';
 import 'package:discourse_native/src/plugins/voice/voice_services.dart';
 import 'package:discourse_native/src/plugins/voice/voice_settings.dart';
@@ -526,6 +528,55 @@ void main() {
     expect(find.bySemanticsLabel('Expand Voice rooms'), findsNothing);
     expect(find.text('Empty'), findsNothing);
     expect(sidebarDestination('Topics'), findsNothing);
+  });
+
+  _desktopTest('a picked tab outlives the navigation before it, not after', (
+    tester,
+  ) async {
+    final shell = await pumpTabs(tester, voice: false);
+    String selected() => tester.widget<DTabs<String>>(tabs).value!;
+
+    shell.pushContent(ContentRoute.group(const GroupRoute.directory()));
+    await tester.pumpAndSettle();
+    expect(selected(), 'forum');
+
+    await tester.tap(tab('chat'));
+    await tester.pumpAndSettle();
+    expect(selected(), 'chat');
+    expect(sidebarDestination('Chats'), findsOneWidget);
+
+    shell.pushContent(ContentRoute.group(GroupRoute.detail('staff')));
+    await tester.pumpAndSettle();
+    expect(selected(), 'forum');
+    expect(sidebarDestination('Topics'), findsOneWidget);
+  });
+
+  _desktopTest('Chat directories follow the route inside its panel', (
+    tester,
+  ) async {
+    final shell = await pumpTabs(
+      tester,
+      voice: false,
+      channelDetails: const {
+        9: ChatChannel(
+          id: 9,
+          title: 'General',
+          kind: ChatChannelKind.category,
+          membership: ChatMembership(following: true),
+        ),
+      },
+    );
+    final chat = shell.pluginSession.require(chatShellService);
+    chat.openChannel(9);
+    await tester.pumpAndSettle();
+    final tabId = shell.activeTabId;
+    expect(sidebarDestination('Chats'), findsOneWidget);
+
+    chat.openChats();
+    await tester.pumpAndSettle();
+    expect(shell.activeTabId, tabId);
+    expect(tester.widget<DTabs<String>>(tabs).value, 'chat');
+    expect(sidebarDestination('Chats'), findsNothing);
   });
 
   _desktopTest('keyboard moves between sidebar tabs', (tester) async {
