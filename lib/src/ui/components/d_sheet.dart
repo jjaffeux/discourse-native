@@ -16,6 +16,7 @@ import '../foundation/control_style.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/menu_content_scale.dart';
 import '../foundation/sheet_content_gesture_scope.dart';
+import '../foundation/sheet_page_band.dart';
 import '../foundation/surface_depth.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
@@ -157,9 +158,6 @@ class DSheet<T> extends StatelessWidget {
     content: content,
   );
 }
-
-/// The reader position used before its first scroll layout.
-enum DSheetReaderStart { top, scrolled }
 
 /// Sheet presentation for a retained surface whose host owns its visibility.
 ///
@@ -348,7 +346,7 @@ class _DSheetViewportState extends State<DSheetViewport>
         : 0.0;
     _edge.value = _readerOffset.clamp(0, overlap);
     _syncEdge();
-    return _DSheetRiseScope(
+    return DSheetRiseScope(
       edge: _edge,
       overlap: overlap,
       readerStart: widget.readerStart,
@@ -440,7 +438,7 @@ class _DSheetViewportState extends State<DSheetViewport>
         : 0.0;
     _edge.value = _readerOffset.clamp(0, overlap);
     _syncEdge();
-    final sheet = _DSheetRiseScope(
+    final sheet = DSheetRiseScope(
       edge: _edge,
       overlap: overlap,
       readerStart: widget.readerStart,
@@ -493,71 +491,6 @@ class _DSheetViewportState extends State<DSheetViewport>
   }
 }
 
-class _DSheetRiseScope extends InheritedWidget {
-  const _DSheetRiseScope({
-    required this.edge,
-    required this.overlap,
-    required this.readerStart,
-    required this.scrollTo,
-    required super.child,
-  });
-  final ValueNotifier<double> edge;
-  final double overlap;
-  final DSheetReaderStart? readerStart;
-  final ValueChanged<double> scrollTo;
-  @override
-  bool updateShouldNotify(_DSheetRiseScope oldWidget) =>
-      overlap != oldWidget.overlap || readerStart != oldWidget.readerStart;
-}
-
-/// Where the content of a page sheet says what its condensed head is doing
-/// over the sheet's top edge, inside the card's rounded outline.
-abstract interface class DSheetPageBand {
-  DSheetReaderStart? get readerStart;
-  void scrollTo(double offset);
-
-  static ValueListenable<double>? edgeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>()?.edge;
-
-  static Widget followEdge(BuildContext context, {required Widget child}) {
-    final edge = edgeOf(context);
-    return edge == null
-        ? child
-        : ValueListenableBuilder<double>(
-            valueListenable: edge,
-            builder: (_, value, child) =>
-                Transform.translate(offset: Offset(0, value), child: child),
-            child: child,
-          );
-  }
-
-  /// [owner] is the head reporting; a later report from it replaces this one.
-  /// [condensed]: the head is drawn in to its band. [coversGrabber]: enough is
-  /// still there to cover the grabber.
-  void report(
-    Object owner, {
-    required bool condensed,
-    required bool coversGrabber,
-  });
-
-  /// [owner] no longer has a band over the sheet.
-  void withdraw(Object owner);
-
-  /// The page sheet [context] is in, if any.
-  static DSheetPageBand? maybeOf(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<_DSheetPageBandScope>()?.band;
-}
-
-class _DSheetPageBandScope extends InheritedWidget {
-  const _DSheetPageBandScope({required this.band, required super.child});
-
-  final DSheetPageBand band;
-
-  @override
-  bool updateShouldNotify(_DSheetPageBandScope oldWidget) =>
-      band != oldWidget.band;
-}
-
 /// The page and its condensed head share one rounded outline. The grabber
 /// stays beneath the head while covered; a condensed head has no top rim.
 class _DSheetPageCard extends StatefulWidget {
@@ -583,11 +516,11 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
 
   @override
   DSheetReaderStart? get readerStart =>
-      context.getInheritedWidgetOfExactType<_DSheetRiseScope>()?.readerStart;
+      context.getInheritedWidgetOfExactType<DSheetRiseScope>()?.readerStart;
 
   @override
   void scrollTo(double offset) {
-    final rise = context.getInheritedWidgetOfExactType<_DSheetRiseScope>();
+    final rise = context.getInheritedWidgetOfExactType<DSheetRiseScope>();
     if (rise != null) rise.scrollTo(offset);
   }
 
@@ -647,9 +580,9 @@ class _DSheetPageCardState extends State<_DSheetPageCard>
 
   @override
   Widget build(BuildContext context) {
-    final rise = context.dependOnInheritedWidgetOfExactType<_DSheetRiseScope>();
+    final rise = context.dependOnInheritedWidgetOfExactType<DSheetRiseScope>();
     final depth = _condensed ? null : DSurfaceDepth.panel;
-    final card = _DSheetPageBandScope(
+    final card = DSheetPageBandScope(
       band: this,
       child: DPageSurface(
         border: false,

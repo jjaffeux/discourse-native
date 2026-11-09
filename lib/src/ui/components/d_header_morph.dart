@@ -3,7 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
-import 'd_sheet.dart';
+
+import '../foundation/sheet_page_band.dart';
 
 /// Moves shared header parts between full and compact layouts in place.
 /// The builder keeps control ownership and callbacks while the kit owns motion.

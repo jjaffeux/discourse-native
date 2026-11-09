@@ -10,6 +10,7 @@ import 'gamification_labels.dart';
 import 'gamification_models.dart';
 import 'gamification_navigation.dart';
 import 'gamification_recalculation.dart';
+import 'gamification_route.dart';
 import 'gamification_score_events.dart';
 import 'gamification_settings_editor.dart';
 

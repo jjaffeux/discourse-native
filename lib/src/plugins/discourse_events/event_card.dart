@@ -763,13 +763,6 @@ class _ResponseButton extends StatelessWidget {
   );
 }
 
-String eventResponseLabel(String? status) => switch (status) {
-  'going' => appL10n.going,
-  'interested' => appL10n.interested,
-  'not_going' => appL10n.notGoing,
-  _ => appL10n.invited,
-};
-
 class _Detail extends StatelessWidget {
   const _Detail({required this.icon, required this.child});
   final IconData icon;

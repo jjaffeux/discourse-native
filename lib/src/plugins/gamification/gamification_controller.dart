@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 
 import 'gamification_api.dart';
 import 'gamification_models.dart';
-import 'gamification_navigation.dart';
+import 'gamification_route.dart';
 
 const gamificationControllerKey = PluginServiceKey<GamificationController>(
   owner: gamificationPluginId,

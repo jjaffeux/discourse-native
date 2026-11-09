@@ -6,6 +6,7 @@ import 'gamification_controller.dart';
 import 'gamification_labels.dart';
 import 'gamification_models.dart';
 import 'gamification_navigation.dart';
+import 'gamification_route.dart';
 
 class GamificationUserScoreMetadata extends StatelessWidget {
   const GamificationUserScoreMetadata({

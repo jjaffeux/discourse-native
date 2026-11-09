@@ -6,6 +6,7 @@ import 'gamification_controller.dart';
 import 'gamification_models.dart';
 import 'gamification_navigation.dart';
 import 'gamification_page.dart';
+import 'gamification_route.dart';
 
 class GamificationCompact extends StatefulWidget {
   const GamificationCompact({
