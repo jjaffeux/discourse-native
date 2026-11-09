@@ -623,6 +623,41 @@ void main() {
     );
   });
 
+  testWidgets('a layout during a press measures the resting surface', (
+    tester,
+  ) async {
+    var label = 'Copy';
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return DButtonGroup(
+            children: [
+              DButton(label: Text(label), onPressed: _noop),
+              const DButtonGroupSeparator(),
+            ],
+          );
+        },
+      ),
+    );
+    final restingHeight = tester.getSize(find.byType(FilledButton)).height;
+
+    final press = await tester.startGesture(
+      tester.getCenter(find.byType(FilledButton)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    update(() => label = 'Copied to clipboard');
+    await tester.pump();
+
+    expect(tester.getSize(find.byType(DSeparator)).height, restingHeight);
+
+    await press.up();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('targets follow their artwork on touch and desktop', (
     tester,
   ) async {

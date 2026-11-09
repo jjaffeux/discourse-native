@@ -546,22 +546,24 @@ class _RenderButtonGroup extends RenderFlex {
     // Separators follow the adjacent painted controls.
     Rect? surfaceBounds;
     var foundSurface = false;
-    void collectSurfaces(RenderObject node) {
+    // Laid-out positions rather than paint transforms: a transform carries a
+    // press in flight into a measure that outlasts it, and may read the size
+    // of a box this layout has no claim on.
+    void collectSurfaces(RenderObject node, Offset origin) {
+      final data = node.parentData;
+      final position = data is BoxParentData ? origin + data.offset : origin;
       if (node is RenderDJoinedControlSurface) {
         foundSurface = true;
-        final bounds = MatrixUtils.transformRect(
-          node.getTransformTo(this),
-          node.layoutBounds,
-        );
+        final bounds = node.layoutBounds.shift(position);
         surfaceBounds = surfaceBounds?.expandToInclude(bounds) ?? bounds;
       } else if (node is! _RenderButtonGroup) {
-        node.visitChildren(collectSurfaces);
+        node.visitChildren((child) => collectSurfaces(child, position));
       }
     }
 
     for (var child = firstChild; child != null; child = childAfter(child)) {
       foundSurface = false;
-      collectSurfaces(child);
+      collectSurfaces(child, Offset.zero);
       if (!foundSurface && child is! _RenderGroupSeparatorExtent) {
         final data = child.parentData! as FlexParentData;
         final bounds = data.offset & child.size;
