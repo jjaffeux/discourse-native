@@ -38,6 +38,9 @@ void main() {
     client.requests.last.complete();
     await config;
     await pumpEventQueue();
+    expect(client.requests.last.request.url.path, '/site.json');
+    client.requests.last.complete();
+    await pumpEventQueue();
     expect(client.requests.last.request.url.path, '/emojis.json');
     client.requests.last.complete();
     await emojis;

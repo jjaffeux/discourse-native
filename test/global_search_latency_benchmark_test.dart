@@ -111,19 +111,16 @@ void main() {
           }),
         );
         final lifecycle = SiteLifecycle();
-        final controller =
-            GlobalSearchController(
-              api: GlobalSearchApi(transport: api),
-              credentials: FakeApiCredentialReader()..keys[_site] = 'key',
-              lifecycle: lifecycle,
-            )..configure(
-              siteUrl: _site,
-              capabilities: const GlobalSearchCapabilities(
-                authenticated: true,
-                contributions: [ChatGlobalSearch()],
-                enabledContributions: {'chat'},
-              ),
-            );
+        const capabilities = GlobalSearchCapabilities(
+          authenticated: true,
+          contributions: [ChatGlobalSearch()],
+          enabledContributions: {'chat'},
+        );
+        final controller = GlobalSearchController(
+          api: GlobalSearchApi(transport: api),
+          credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+          lifecycle: lifecycle,
+        )..configure(siteUrl: _site, capabilities: capabilities);
         await Future<void>.delayed(const Duration(milliseconds: 10));
         controller.setPageContext(topicId: 42, topicTitle: 'Context');
         int? firstUs;
@@ -155,10 +152,7 @@ void main() {
           Timer(const Duration(milliseconds: 450), () {
             if (scenario == 'account-retirement') {
               lifecycle.invalidate(_site);
-              controller.configure(
-                siteUrl: _site,
-                capabilities: controller.capabilities,
-              );
+              controller.configure(siteUrl: _site, capabilities: capabilities);
               controller.setPageContext(topicId: 42, topicTitle: 'Context');
             }
             controller.setQuery('benchmark');
