@@ -1708,6 +1708,39 @@ void main() {
       expect(updated.description, 'Ask for help');
     });
 
+    test(
+      'applies a remote rename of a group chat, which has no slug',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  14,
+                  title: 'Planning',
+                  kind: ChatChannelKind.directMessage,
+                ),
+              ],
+            ),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        // Chat::DirectMessageChannel#generate_auto_slug never assigns one, and
+        // publish_chat_channel_edit sends the column as it is.
+        tracker.deliverPluginMessage('/chat/channel-edits', {
+          'chat_channel_id': 14,
+          'name': 'Launch crew',
+          'description': null,
+          'slug': null,
+        });
+
+        expect(subject.chat.channel(site, 14)!.title, 'Launch crew');
+      },
+    );
+
     test('applies remote status and clears archived unread state', () async {
       final subject = build(
         currentUser: currentUser,
