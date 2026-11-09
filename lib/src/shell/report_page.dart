@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
@@ -23,6 +24,13 @@ class _ReportPageState extends State<ReportPage> {
   bool _table = false;
   final Set<String> _hidden = {};
   ReportController get owner => widget.controller;
+
+  DashboardPeriod? _presetFor(DashboardRange range) {
+    final now = DateTime.now();
+    return DashboardPeriod.values
+        .where((period) => mapEquals(period.rangeAt(now).query, range.query))
+        .firstOrNull;
+  }
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -48,8 +56,8 @@ class _ReportPageState extends State<ReportPage> {
               onPressed: widget.onBack,
             ),
             if (details?.datesFiltering != false) ...[
-              DSelect<DashboardPeriod>(
-                value: null,
+              DSelect<DashboardPeriod>.controlled(
+                value: _presetFor(owner.range),
                 placeholder: context.l10n.reportDateRange,
                 semanticLabel: context.l10n.reportDateRange,
                 entries: [
