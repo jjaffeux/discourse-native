@@ -610,10 +610,15 @@ void main() {
   }
 
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
-    testWidgets('over-media action is a 36px circle on $platform', (
+    testWidgets('over-media action is a circle of its size on $platform', (
       tester,
     ) async {
-      for (final (scale, side) in [(1.0, 36.0), (2.0, 50.0)]) {
+      for (final (size, scale, side, artwork) in [
+        (DButtonSize.regular, 1.0, 36.0, 14.0),
+        (DButtonSize.regular, 2.0, 50.0, 14.0),
+        (DButtonSize.large, 1.0, 44.0, 16.0),
+        (DButtonSize.large, 2.0, 58.0, 16.0),
+      ]) {
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.dark.copyWith(platform: platform),
@@ -623,6 +628,7 @@ void main() {
                 body: Center(
                   child: DButton.iconOnly(
                     density: DButtonDensity.overMedia,
+                    size: size,
                     variant: DButtonVariant.ghost,
                     backgroundColor: Colors.white12,
                     foregroundColor: Colors.white,
@@ -644,7 +650,7 @@ void main() {
           buttonSurface(tester).borderRadius.resolve(TextDirection.ltr).topLeft,
           Radius.circular(side / 2),
         );
-        expect(tester.getSize(find.byType(DIcon)).height, 14);
+        expect(tester.getSize(find.byType(DIcon)).height, artwork);
       }
     });
   }
