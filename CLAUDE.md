@@ -71,8 +71,7 @@ Requirements line with it.
   `shell`, with `theme` and `ui` as the kit beside them and `styleguide` and
   `plugins` joined at the entry points.
   `test/architecture_layer_contract_test.dart` names each exception and holds a
-  budget for the largest import cycle; lower the budget when a change shrinks
-  it. `dart run tool/architecture_graph.dart` prints the current numbers.
+  budget for every import cycle; lower the budget when a change shrinks one. `dart run tool/architecture_graph.dart` prints the current numbers.
 - Cooked-HTML parsers (oneboxes, hashtags, polls, local dates) depend on exact
   upstream markup. Optional feature catalogs and snapshots live under their
   owning plugin's `tool/` directory. When changing a parser, check its

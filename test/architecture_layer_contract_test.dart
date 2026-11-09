@@ -43,7 +43,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _largestImportCycle = 84;
+const _importCycles = [84, 13, 3];
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
@@ -89,9 +89,12 @@ void main() {
       );
     });
 
-    test('the import cycle stays within its budget', () {
-      final cycles = graph.cycles();
-      expect(cycles.isEmpty ? 0 : cycles.first.length, _largestImportCycle);
+    test('the import cycles stay within their budget', () {
+      expect(graph.cycles().map((cycle) => cycle.length), _importCycles);
+    });
+
+    test('no two layers depend on each other', () {
+      expect(graph.mutualLayerPairs(), isEmpty);
     });
   });
 
