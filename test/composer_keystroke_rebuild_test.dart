@@ -15,6 +15,19 @@ import 'support/fakes.dart';
 
 const _titleKeyBudget = 50;
 const _saveBudget = 20;
+const _undoBurstKeys = 10;
+const _undoBurstBudgetDesktop = 630;
+const _undoBurstBudgetPhone = 470;
+
+const _undoKey = ValueKey('composer-undo');
+final _undoButton = find.byKey(_undoKey);
+final _redoButton = find.byKey(const ValueKey('composer-redo'));
+
+const _twoParagraphs =
+    'Paragraph 0 with **bold** words and a [link 0](https://example.com/0) in '
+    'the middle of a sentence that goes on for a while. :smile:\n\n'
+    'Paragraph 1 is a plain sentence about nothing in particular, that goes '
+    'on for a line or two, like the prose in a typical long post on a forum.';
 
 void main() {
   for (final mobile in [false, true]) {
@@ -156,6 +169,120 @@ void main() {
     });
   }
 
+  for (final mobile in [false, true]) {
+    final surface = mobile ? 'phone' : 'desktop';
+    final totalBudget = mobile
+        ? _undoBurstBudgetPhone
+        : _undoBurstBudgetDesktop;
+
+    testWidgets('$surface body keys leave the undo and redo buttons alone', (
+      tester,
+    ) async {
+      final (:composer, api: _) = await _openNewTopic(tester, mobile: mobile);
+      composer.title.text = 'A title that is long enough';
+      _type(composer.text, _twoParagraphs);
+      await tester.pump();
+      await _saveDraftAndSettle(tester);
+      composer.focus.requestFocus();
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsOneWidget);
+      expect(_redoButton, findsNothing);
+
+      var undoBuilds = 0;
+      final costs = <int>[];
+      final typed = '$_twoParagraphs${'x' * _undoBurstKeys}';
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        if (element.widget.key == _undoKey) undoBuilds++;
+        previous?.call(element, builtOnce);
+      };
+      try {
+        for (var key = 1; key <= _undoBurstKeys; key++) {
+          costs.add(
+            await _elementsRebuilt(() async {
+              _type(
+                composer.text,
+                typed.substring(0, _twoParagraphs.length + key),
+              );
+              await tester.pump(const Duration(milliseconds: 16));
+            }),
+          );
+        }
+      } finally {
+        debugOnRebuildDirtyWidget = previous;
+      }
+      final total = costs.reduce((sum, cost) => sum + cost);
+      final drawn = tester
+          .state<EditableTextState>(_fieldOf(composer.text))
+          .renderEditable
+          .text
+          ?.toPlainText();
+      await _saveDraftAndSettle(tester);
+
+      const slug = 'composer-undo';
+      _proof('ten_keys_total_elements_$surface', total, slug: slug);
+      _proof('key_mean_elements_$surface', total / _undoBurstKeys, slug: slug);
+      _proof(
+        'key_costliest_elements_$surface',
+        costs.reduce(math.max),
+        slug: slug,
+      );
+      _proof('undo_button_builds_$surface', undoBuilds, slug: slug);
+
+      expect(composer.raw, typed);
+      expect(drawn, endsWith('x' * _undoBurstKeys));
+      expect(_undoButton, findsOneWidget);
+      expect(undoBuilds, 0);
+      expect(total, lessThanOrEqualTo(totalBudget));
+    });
+  }
+
+  for (final mobile in [false, true]) {
+    final surface = mobile ? 'phone' : 'desktop';
+
+    testWidgets('$surface undo and redo follow history between idle keys', (
+      tester,
+    ) async {
+      final (:composer, api: _) = await _openNewTopic(tester, mobile: mobile);
+      expect(_undoButton, findsNothing);
+      expect(_redoButton, findsNothing);
+
+      _type(composer.text, 'a');
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsOneWidget);
+      expect(_redoButton, findsNothing);
+
+      _type(composer.text, 'ab');
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsOneWidget);
+
+      composer.history.reset();
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsNothing);
+      expect(_redoButton, findsNothing);
+
+      void commit(String value) =>
+          composer.history.transact(() => _type(composer.text, value));
+      commit('first entry');
+      commit('second entry');
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsOneWidget);
+      expect(_redoButton, findsNothing);
+
+      await tester.tap(_undoButton);
+      await tester.pumpAndSettle();
+      expect(composer.raw, 'first entry');
+      expect(_undoButton, findsOneWidget);
+      expect(_redoButton, findsOneWidget);
+
+      _type(composer.text, 'first entry, typed on');
+      await tester.pumpAndSettle();
+      expect(_undoButton, findsOneWidget);
+      expect(_redoButton, findsNothing);
+      await _saveDraftAndSettle(tester);
+    });
+  }
+
   testWidgets('the phone close menu weighs the draft as it opens', (
     tester,
   ) async {
@@ -254,7 +381,7 @@ void main() {
   });
 }
 
-void _proof(String metric, int value, {String slug = 'composer-title'}) {
+void _proof(String metric, num value, {String slug = 'composer-title'}) {
   // ignore: avoid_print
   print('PERF_PROOF $slug $metric=$value');
 }
