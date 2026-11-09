@@ -4,6 +4,10 @@ import '../../models/composer_placement.dart';
 import '../desktop_panels_layout.dart';
 import '../platform.dart';
 
+/// Where the forum's selected draft stands on screen. Other open drafts wait
+/// behind it in the composer's tabs, each keeping its own state.
+enum ComposerActivity { none, writing, minimized }
+
 /// What the shell around a composer asks about how it is presented.
 ///
 /// The host that mounts the composer compiles every composer widget, while the
@@ -13,7 +17,8 @@ abstract interface class ComposerPresentationView {
   Key get contentKey;
   Key get dockKey;
   Listenable get layoutChanges;
-  bool get hasVisibleComposer;
+  void minimizeComposer();
+  void restoreComposer();
   void redockForNavigation();
 }
 
@@ -59,12 +64,15 @@ class ComposerPresentationScope extends InheritedWidget {
       .dependOnInheritedWidgetOfExactType<ComposerPresentationScope>()!
       .hasMobileSheet;
 
-  static bool hasVisibleComposerOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<ComposerPresentationScope>()
-          ?.view
-          .hasVisibleComposer ==
-      true;
+  static void minimizeComposer(BuildContext context) => context
+      .getInheritedWidgetOfExactType<ComposerPresentationScope>()
+      ?.view
+      .minimizeComposer();
+
+  static void restoreComposer(BuildContext context) => context
+      .getInheritedWidgetOfExactType<ComposerPresentationScope>()
+      ?.view
+      .restoreComposer();
 
   /// Reveals sidebar destinations while retaining the current draft and dock.
   static void redockForNavigation(BuildContext context) {
@@ -77,6 +85,29 @@ class ComposerPresentationScope extends InheritedWidget {
 
   @override
   bool updateShouldNotify(ComposerPresentationScope oldWidget) => true;
+}
+
+/// Publishes [ComposerActivity] apart from [ComposerPresentationScope], which
+/// notifies on every host rebuild, so a control following only this answer
+/// sits out dock resizes.
+class ComposerActivityScope extends InheritedWidget {
+  const ComposerActivityScope({
+    super.key,
+    required this.activity,
+    required super.child,
+  });
+
+  final ComposerActivity activity;
+
+  static ComposerActivity of(BuildContext context) =>
+      context
+          .dependOnInheritedWidgetOfExactType<ComposerActivityScope>()
+          ?.activity ??
+      ComposerActivity.none;
+
+  @override
+  bool updateShouldNotify(ComposerActivityScope oldWidget) =>
+      activity != oldWidget.activity;
 }
 
 /// The edge of the app workspace whose border is owned by the resize handle.

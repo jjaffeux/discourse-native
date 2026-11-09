@@ -298,7 +298,9 @@ class DButton extends StatelessWidget {
   final DButtonIconPosition iconPosition;
 
   /// Open popup triggers keep their expanded surface. With [hasPopup] the
-  /// state is also exposed to assistive technology.
+  /// state is also exposed to assistive technology. A primary
+  /// [DButtonDensity.chrome] button sits on a capsule of its own fill, so
+  /// there this draws the button held in.
   final bool expanded;
 
   /// Validation styling and semantics for a form or popup trigger.
@@ -962,7 +964,9 @@ class DButton extends StatelessWidget {
           foregroundColor: foreground,
           iconColor: foreground,
           backgroundColor: expandedChrome
-              ? tokens.buttonTheme.primary.background
+              ? density == DButtonDensity.chrome
+                    ? foreground.withValues(alpha: .18)
+                    : tokens.buttonTheme.primary.background
               : interactive
               ? (primaryChrome || dark ? Colors.white : Colors.black)
                     .withValues(alpha: primaryChrome ? .16 : (dark ? .09 : .06))

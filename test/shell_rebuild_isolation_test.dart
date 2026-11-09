@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/models/composer_placement.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -22,6 +23,8 @@ import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
+import 'package:discourse_native/src/shell/composer/presentation_controller.dart';
+import 'package:discourse_native/src/shell/composer/presentation_scope.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -1547,6 +1550,56 @@ void main() {
         expect(total, 0);
       });
     }
+
+    testWidgets('the composer toggle sits out notifications and dock drags', (
+      tester,
+    ) async {
+      final reader = await _pumpReader(
+        tester,
+        const Size(1440, 844),
+        TargetPlatform.macOS,
+      );
+      reader.controller.openReply();
+      await tester.pumpAndSettle();
+      final toggle = find.byKey(ShellTitleBar.composerToggleKey);
+      final controls = {'toggle': toggle.evaluate().toSet()};
+      expect(controls['toggle'], hasLength(1));
+      var rebuilt = 0;
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        if (_nearestControl(element, controls) != null) rebuilt++;
+        previous?.call(element, builtOnce);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+      reader.controller.notifyPluginStateChanged();
+      await tester.pump();
+      final layout =
+          tester
+                  .widget<ComposerPresentationScope>(
+                    find.byType(ComposerPresentationScope),
+                  )
+                  .view
+                  .layoutChanges
+              as ComposerPresentationController;
+      layout.resize(
+        placement: ComposerPlacement.bottom,
+        extent: 320,
+        topic: false,
+        persist: false,
+      );
+      await tester.pump();
+      layout.resize(
+        placement: ComposerPlacement.bottom,
+        extent: 340,
+        topic: false,
+        persist: false,
+      );
+      await tester.pump();
+      debugOnRebuildDirtyWidget = previous;
+
+      expect(rebuilt, 0);
+    });
 
     testWidgets('a category or tag change on the topic redraws its anchors', (
       tester,

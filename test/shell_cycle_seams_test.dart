@@ -11,6 +11,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 final class _RecordingPresentation implements ComposerPresentationView {
   var redocks = 0;
+  var minimized = 0;
+  var restored = 0;
 
   @override
   final panelsLayout = null;
@@ -20,8 +22,12 @@ final class _RecordingPresentation implements ComposerPresentationView {
   final dockKey = GlobalKey();
   @override
   final ChangeNotifier layoutChanges = ChangeNotifier();
+
   @override
-  var hasVisibleComposer = false;
+  void minimizeComposer() => minimized++;
+
+  @override
+  void restoreComposer() => restored++;
 
   @override
   void redockForNavigation() => redocks++;
@@ -60,7 +66,7 @@ void main() {
   testWidgets('composer presentation answers from the view it is given', (
     tester,
   ) async {
-    final view = _RecordingPresentation()..hasVisibleComposer = true;
+    final view = _RecordingPresentation();
     late BuildContext reader;
 
     await tester.pumpWidget(
@@ -79,11 +85,14 @@ void main() {
       ),
     );
 
-    expect(ComposerPresentationScope.hasVisibleComposerOf(reader), isTrue);
     expect(ComposerPresentationScope.hasMobileSheetOf(reader), isTrue);
     expect(ComposerPresentationScope.dockKeyOf(reader), view.dockKey);
     ComposerPresentationScope.redockForNavigation(reader);
     expect(view.redocks, 1);
+    ComposerPresentationScope.minimizeComposer(reader);
+    expect(view.minimized, 1);
+    ComposerPresentationScope.restoreComposer(reader);
+    expect(view.restored, 1);
     addTearDown(view.layoutChanges.dispose);
   });
 

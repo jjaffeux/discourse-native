@@ -14,6 +14,43 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/button_surface.dart';
 
 void main() {
+  testWidgets('expanded holds in a primary chrome button, hovered or not', (
+    tester,
+  ) async {
+    Future<void> pump(DButtonDensity density) => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: Center(
+            child: DButton(
+              label: const Text('Compose'),
+              variant: DButtonVariant.primary,
+              size: DButtonSize.chrome,
+              density: density,
+              expanded: true,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await pump(DButtonDensity.chrome);
+    final primary = DTokens.of(
+      tester.element(find.byType(DButton)),
+    ).buttonTheme.primary;
+    final heldIn = primary.foreground.withValues(alpha: .18);
+    expect(buttonSurface(tester).color, heldIn);
+
+    final mouse = await tester.createGesture(kind: ui.PointerDeviceKind.mouse);
+    addTearDown(mouse.removePointer);
+    await mouse.addPointer(location: tester.getCenter(find.byType(DButton)));
+    await tester.pump();
+    expect(buttonSurface(tester).color, heldIn);
+
+    await pump(DButtonDensity.chromeDropdown);
+    expect(buttonSurface(tester).color, primary.background);
+  });
+
   testWidgets(
     'equivalent pill corners preserve an unfinished fill transition',
     (tester) async {
