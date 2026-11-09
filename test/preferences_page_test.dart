@@ -766,6 +766,28 @@ void main() {
       semantics.dispose();
     },
   );
+  testWidgets('the linked posts switch names the link it notifies about', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.notifications);
+    expect(
+      [
+        for (final text in tester.widgetList<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('notify-on-linked-posts')),
+            matching: find.byType(Text),
+          ),
+        ))
+          text.data,
+      ],
+      [
+        'Notify when someone shares a link to one of my posts',
+        'Turn this off to stop getting a notification for each link.',
+      ],
+    );
+  });
   testWidgets('bookmark choices name what happens to the bookmark', (
     tester,
   ) async {
