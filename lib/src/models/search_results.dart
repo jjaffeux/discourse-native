@@ -102,7 +102,11 @@ class SearchResults {
         SearchResultSection(
           kind: SearchResultKind.topic,
           results: List.unmodifiable(hits),
-          hasMore: grouped['more_posts'] == true,
+          // A header search reports more_posts, a full-page search
+          // more_full_page_results; each leaves the other unset.
+          hasMore:
+              grouped['more_posts'] == true ||
+              grouped['more_full_page_results'] == true,
         ),
     ];
 
