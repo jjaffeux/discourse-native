@@ -195,6 +195,27 @@ void main() {
   });
 
   group('admitting a live message', () {
+    test('places a message against the held rows by date and then ID', () {
+      final held = snapshot(
+        const [2, 4],
+        [message(2, minute: 1), message(4, minute: 3)],
+      );
+      ChatTimelinePlacement placed(ChatMessage arrived) =>
+          ChatMessageTimeline.placement(held: held, message: arrived);
+
+      expect(placed(message(1)), ChatTimelinePlacement.beforeHeld);
+      expect(placed(message(3, minute: 2)), ChatTimelinePlacement.insideHeld);
+      expect(placed(message(5, minute: 4)), ChatTimelinePlacement.afterHeld);
+      expect(placed(message(5, minute: 3)), ChatTimelinePlacement.afterHeld);
+      expect(
+        ChatMessageTimeline.placement(
+          held: snapshot(const [], const []),
+          message: message(1),
+        ),
+        ChatTimelinePlacement.afterHeld,
+      );
+    });
+
     test('appends an ordinary arrival after reading only the newest row', () {
       final reads = <int>[];
       final ids = ChatMessageTimeline.admitLive(

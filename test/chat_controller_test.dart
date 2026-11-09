@@ -12241,6 +12241,46 @@ void main() {
       ]);
     });
 
+    for (final (name, messageId, minute, past, future) in [
+      ('older than a page that still pages back', 1, 0, true, false),
+      ('newer than a page that still pages forward', 4, 3, false, true),
+    ]) {
+      test('a restore $name waits for that page', () async {
+        final subject = build(
+          currentUser: currentUser,
+          messages: {
+            key(9): page(
+              [message(2, minute: 1), message(3, minute: 2)],
+              canLoadMorePast: past,
+              canLoadMoreFuture: future,
+            ),
+          },
+        );
+        subject.store.put(site, channel(9));
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.openChannel(site, 9);
+        final view = subject.chat.beginViewingChannel(site, 9);
+        addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+        tracker.deliverPluginMessage('/chat/9', {
+          'type': 'restore',
+          'chat_message': {
+            'id': messageId,
+            'chat_channel_id': 9,
+            'cooked': '<p>$messageId</p>',
+            'created_at': '2026-05-05T10:0$minute:00.000Z',
+            'user': {'id': 2, 'username': 'sam'},
+          },
+        });
+
+        expect(subject.chat.messages(site, 9).map((message) => message.id), [
+          2,
+          3,
+        ]);
+        expect(subject.chat.stream(site, 9).pendingNewMessages, 0);
+      });
+    }
+
     test('a moderator retains the remotely deleted row for restore', () async {
       const moderator = DiscourseUser(id: 7, username: 'reader', staff: true);
       final subject = build(
