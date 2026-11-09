@@ -50,6 +50,7 @@ final class ChatLiveSyncHost {
     required this.admitActivityMessage,
     required this.streamContainsMessage,
     required this.admitLiveMessage,
+    required this.admitRestoredMessage,
     required this.bumpStreamsHolding,
     required this.setLoadedThreadOriginalDeleted,
     required this.scheduleThreadDetailRefresh,
@@ -122,6 +123,12 @@ final class ChatLiveSyncHost {
     ChatMessage message,
   )
   admitLiveMessage;
+  final void Function(
+    String siteUrl,
+    ChatStreamTarget target,
+    ChatMessage message,
+  )
+  admitRestoredMessage;
   final void Function(String siteUrl, int messageId) bumpStreamsHolding;
   final void Function(
     String siteUrl,
@@ -614,10 +621,7 @@ final class ChatLiveSyncCoordinator {
       }
       _host.putLiveMessage(siteUrl, message, true);
       final target = ChatChannelTarget(channelId);
-      if (event.kind == _ChatLiveMessageKind.sent &&
-          !_host.streamContainsMessage(siteUrl, target, message.id)) {
-        _host.admitLiveMessage(siteUrl, target, message);
-      }
+      _admitArrival(siteUrl, target, event.kind, message);
       if (event.hasStagedId) {
         _host.reconcileSentEvent(siteUrl, target, data);
       }
@@ -782,10 +786,7 @@ final class ChatLiveSyncCoordinator {
       if (event.kind == _ChatLiveMessageKind.restored) {
         _host.bumpStreamsHolding(siteUrl, message.id);
       }
-      if (event.kind == _ChatLiveMessageKind.sent &&
-          !_host.streamContainsMessage(siteUrl, target, message.id)) {
-        _host.admitLiveMessage(siteUrl, target, message);
-      }
+      _admitArrival(siteUrl, target, event.kind, message);
       if (event.hasStagedId) {
         _host.reconcileSentEvent(siteUrl, target, data);
       }
@@ -826,6 +827,23 @@ final class ChatLiveSyncCoordinator {
         if (jsonIntOrNull(data['chat_message_id']) == originalId) return;
         _host.applyFlagMutation(siteUrl, data);
         break;
+    }
+  }
+
+  void _admitArrival(
+    String siteUrl,
+    ChatStreamTarget target,
+    _ChatLiveMessageKind kind,
+    ChatMessage message,
+  ) {
+    if (kind == _ChatLiveMessageKind.updated ||
+        _host.streamContainsMessage(siteUrl, target, message.id)) {
+      return;
+    }
+    if (kind == _ChatLiveMessageKind.restored) {
+      _host.admitRestoredMessage(siteUrl, target, message);
+    } else {
+      _host.admitLiveMessage(siteUrl, target, message);
     }
   }
 

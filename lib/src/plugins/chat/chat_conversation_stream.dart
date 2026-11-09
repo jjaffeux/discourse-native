@@ -247,6 +247,28 @@ final class _ChatConversationStream {
       );
       return;
     }
+    _admit(window, message);
+  }
+
+  /// A restored message can belong anywhere in the conversation. Outside a
+  /// window that still pages that way it waits for the page reaching it, since
+  /// shown now it would claim the history between them closed.
+  void admitRestored(ChatMessage message) {
+    if (!isCurrent) return;
+    final window = snapshot;
+    if (!window.fetchedOnce || window.messageIds.contains(message.id)) return;
+    final reachedByPaging = switch (ChatMessageTimeline.placement(
+      held: _controller._timelineSnapshot(siteUrl, window.messageIds),
+      message: message,
+    )) {
+      ChatTimelinePlacement.beforeHeld => window.canLoadMorePast,
+      ChatTimelinePlacement.insideHeld => false,
+      ChatTimelinePlacement.afterHeld => window.canLoadMoreFuture,
+    };
+    if (!reachedByPaging) _admit(window, message);
+  }
+
+  void _admit(ChatStreamState window, ChatMessage message) {
     _pendingLiveMessageIds.remove(message.id);
     publish(
       window.copyWith(
