@@ -45,6 +45,7 @@ import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
+import 'package:discourse_native/src/models/tag_notification.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_filter.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
@@ -955,6 +956,15 @@ class FakeDiscourseApi
   final List<SidebarTag> categorySiteTopTags;
   final List<SidebarTag> categoryAnonymousDefaultTags;
   final Completer<void>? categoryNotificationGate;
+  final Map<String, TagNotificationLevel> tagNotificationLevels = {};
+  final List<String> tagNotificationLevelReads = [];
+  final List<({String tag, TagNotificationLevel notificationLevel})>
+  tagNotificationLevelsUpdated = [];
+  final List<Completer<void>> tagNotificationReadGates = [];
+  Completer<void>? tagNotificationWriteGate;
+  Object? tagNotificationReadFailure;
+  Object? tagNotificationWriteFailure;
+  List<int>? mutedTagIdsAfterTagWrite;
   final List<SidebarTag> tagList;
   final TopicComposerCapabilities composerCapabilities;
   final List<String> categoryRequests = [];
@@ -2305,6 +2315,42 @@ class FakeDiscourseApi
     categorySearchTerms.add(term);
     categorySearchIncludeAncestors.add(includeAncestors);
     return categorySearches[term] ?? const [];
+  }
+
+  @override
+  Future<TagNotificationLevel> tagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    String? clientId,
+  }) async {
+    tagNotificationLevelReads.add(tag);
+    final answer = tagNotificationLevels[tag] ?? TagNotificationLevel.normal;
+    if (tagNotificationReadGates.isNotEmpty) {
+      await tagNotificationReadGates.removeAt(0).future;
+    }
+    final failure = tagNotificationReadFailure;
+    if (failure != null) throw failure;
+    return answer;
+  }
+
+  @override
+  Future<List<int>?> updateTagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    required TagNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    tagNotificationLevelsUpdated.add((
+      tag: tag,
+      notificationLevel: notificationLevel,
+    ));
+    await tagNotificationWriteGate?.future;
+    final failure = tagNotificationWriteFailure;
+    if (failure != null) throw failure;
+    tagNotificationLevels[tag] = notificationLevel;
+    return mutedTagIdsAfterTagWrite;
   }
 
   @override

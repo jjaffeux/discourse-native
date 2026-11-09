@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/tag_notification.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -50,7 +51,106 @@ Future<ShellController> _openCategory(
   return controller;
 }
 
+Future<void> _openList(
+  WidgetTester tester,
+  FakeDiscourseApi api,
+  String? path,
+) async {
+  final site = instance('meta.discourse.org').copyWith(user: _user);
+  final authenticator = FakeAuthenticator()..keys[_siteUrl] = 'api-key';
+  await pumpShell(
+    tester,
+    laptop,
+    instances: [site],
+    api: api,
+    authenticator: authenticator,
+  );
+  final controller = ShellScope.read(
+    tester.element(find.byType(AdaptiveShell)),
+  );
+  if (path != null) expect(controller.openListUrl(path), isTrue);
+  await tester.pumpAndSettle();
+}
+
+const _tagBell = ValueKey('tag-notification-level-button');
+
 void main() {
+  group('tag lists', () {
+    FakeDiscourseApi api() => FakeDiscourseApi(
+      user: _user,
+      feeds: const {'/latest.json': [], '/tag/ux/41.json': []},
+    );
+
+    Future<void> choose(WidgetTester tester, String level) async {
+      await tester.tap(find.byKey(_tagBell));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(level).last);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('saves a chosen level through the tag endpoint', (
+      tester,
+    ) async {
+      final fake = api()
+        ..tagNotificationLevels['41'] = TagNotificationLevel.tracking;
+      await _openList(tester, fake, '/tag/ux/41');
+
+      expect(fake.tagNotificationLevelReads, ['41']);
+      expect(find.byTooltip('Tag notifications: Tracking'), findsOneWidget);
+
+      await choose(tester, 'Watching');
+
+      expect(fake.tagNotificationLevelsUpdated.single, (
+        tag: '41',
+        notificationLevel: TagNotificationLevel.watching,
+      ));
+      expect(find.byTooltip('Tag notifications: Watching'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('shows the prior level again when the server refuses', (
+      tester,
+    ) async {
+      final gate = Completer<void>();
+      final fake = api()
+        ..tagNotificationLevels['41'] = TagNotificationLevel.tracking
+        ..tagNotificationWriteGate = gate
+        ..tagNotificationWriteFailure = StateError('refused');
+      await _openList(tester, fake, '/tag/ux/41');
+
+      await choose(tester, 'Muted');
+      expect(find.byTooltip('Tag notifications: Muted'), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byTooltip('Tag notifications: Tracking'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('hides the control until the level is known', (tester) async {
+      final held = Completer<void>();
+      final fake = api()..tagNotificationReadGates.add(held);
+      await _openList(tester, fake, '/tag/ux/41');
+
+      expect(find.byKey(_tagBell), findsNothing);
+
+      held.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(_tagBell), findsOneWidget);
+    });
+
+    testWidgets('a list with no tag or category draws no bell', (tester) async {
+      final fake = api();
+      await _openList(tester, fake, null);
+
+      expect(find.byKey(const ValueKey('topic-list-feed-row')), findsOneWidget);
+      expect(find.byKey(_tagBell), findsNothing);
+      expect(fake.tagNotificationLevelReads, isEmpty);
+    });
+  });
+
   testWidgets('shows all web category notification levels and saves a choice', (
     tester,
   ) async {

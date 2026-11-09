@@ -314,18 +314,29 @@ class _TopicListNavigationControls extends StatelessWidget {
                       ],
                     ],
                   );
+                  final siteUrl = state.siteUrl;
+                  final categoryId = state.route?.categoryId;
+                  final tag = state.route?.notificationTag;
+                  final showsNotificationLevel =
+                      state.connected &&
+                      siteUrl != null &&
+                      state.route?.isMessages != true &&
+                      (!context.isTouch || controller.mobileNavigationEnabled);
                   final actions = <Widget>[
                     if (controller.mobileNavigationEnabled || !context.isTouch)
                       const DismissNewTopicsButton(compact: true),
-                    if (state.connected &&
-                        state.siteUrl != null &&
-                        state.route?.categoryId != null &&
-                        state.route?.isMessages != true &&
-                        (!context.isTouch ||
-                            controller.mobileNavigationEnabled))
+                    if (showsNotificationLevel && categoryId != null)
                       CategoryNotificationLevelButton(
-                        siteUrl: state.siteUrl!,
-                        categoryId: state.route!.categoryId!,
+                        siteUrl: siteUrl,
+                        categoryId: categoryId,
+                        size: DButtonSize.filter,
+                        quiet: true,
+                        showChevron: true,
+                      )
+                    else if (showsNotificationLevel && tag != null)
+                      TagNotificationLevelButton(
+                        siteUrl: siteUrl,
+                        tag: tag,
                         size: DButtonSize.filter,
                         quiet: true,
                         showChevron: true,

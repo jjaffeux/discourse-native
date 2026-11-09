@@ -15,6 +15,7 @@ import '../models/site_appearance.dart';
 import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+import '../models/tag_notification.dart';
 import '../models/topic.dart';
 import '../models/topic_reading_policy.dart';
 import 'discourse_api_contracts.dart';
@@ -712,6 +713,50 @@ final class DiscourseSiteApi {
     return List.unmodifiable([
       for (final value in ids)
         if (jsonIntOrNull(value) case final id? when id > 0) id,
+    ]);
+  }
+
+  Uri _tagNotificationsUrl(String siteUrl, String tag) =>
+      Uri.parse('$siteUrl/tag/${Uri.encodeComponent(tag)}/notifications.json');
+
+  Future<TagNotificationLevel> tagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    String? clientId,
+  }) async {
+    final body = await _transport.getObject(
+      _tagNotificationsUrl(siteUrl, tag),
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+    return TagNotificationLevel.fromJson(
+      jsonObject(body['tag_notification'])['notification_level'],
+    );
+  }
+
+  Future<List<int>?> updateTagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    required TagNotificationLevel notificationLevel,
+    String? clientId,
+  }) async {
+    final response = await _transport.write(
+      _tagNotificationsUrl(siteUrl, tag),
+      siteUrl: siteUrl,
+      method: 'PUT',
+      apiKey: apiKey,
+      clientId: clientId,
+      body: {
+        'tag_notification': {'notification_level': notificationLevel.value},
+      },
+    );
+    final muted = response['muted_tags'];
+    if (muted is! List) return null;
+    return List.unmodifiable([
+      for (final tag in jsonObjects(muted)) ?jsonIntOrNull(tag['id']),
     ]);
   }
 

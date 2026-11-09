@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
 import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
+import 'package:discourse_native/src/models/tag_notification.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/notification_preference_transactions.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -522,6 +523,168 @@ void main() {
     expect(fixture.api.topicNotificationLevelsUpdated, isEmpty);
     expect(fixture.api.writes, isEmpty);
   });
+  group('tag levels', () {
+    TagNotificationLevel? level(_Fixture f, [String tag = 'ux']) =>
+        f.store.read<TagNotificationPreference>(_site, tag)?.level;
+
+    Future<_Fixture> loaded([
+      TagNotificationLevel initial = TagNotificationLevel.tracking,
+    ]) async {
+      final f = _Fixture();
+      f.api.tagNotificationLevels['ux'] = initial;
+      await f.owner.refreshTag(_site, 'ux');
+      return f;
+    }
+
+    test('reading publishes the level the server holds', () async {
+      final f = await loaded(TagNotificationLevel.watchingFirstPost);
+      expect(f.api.tagNotificationLevelReads, ['ux']);
+      expect(level(f), TagNotificationLevel.watchingFirstPost);
+    });
+
+    test('a failed read leaves no level to draw', () async {
+      final f = _Fixture();
+      f.api.tagNotificationReadFailure = StateError('unreachable');
+      await f.owner.refreshTag(_site, 'ux');
+      expect(level(f), isNull);
+      expect(
+        await f.owner.updateTag(_site, 'ux', TagNotificationLevel.muted),
+        isFalse,
+      );
+      expect(f.api.tagNotificationLevelsUpdated, isEmpty);
+    });
+
+    test(
+      'a write shows at once, then adopts the muted tags and refreshes tracking',
+      () async {
+        final f = await loaded();
+        final gate = Completer<void>();
+        f.api
+          ..tagNotificationWriteGate = gate
+          ..mutedTagIdsAfterTagWrite = [41, 44];
+
+        final writing = f.owner.updateTag(
+          _site,
+          'ux',
+          TagNotificationLevel.muted,
+        );
+        expect(level(f), TagNotificationLevel.muted);
+        expect(f.user.mutedTagIds, isNull);
+
+        gate.complete();
+        expect(await writing, isTrue);
+        expect(f.api.tagNotificationLevelsUpdated.single, (
+          tag: 'ux',
+          notificationLevel: TagNotificationLevel.muted,
+        ));
+        expect(level(f), TagNotificationLevel.muted);
+        expect(f.user.mutedTagIds, [41, 44]);
+        expect(f.refreshes, 1);
+      },
+    );
+
+    test('a refused write returns to the confirmed level', () async {
+      final f = await loaded();
+      final gate = Completer<void>();
+      f.api
+        ..tagNotificationWriteGate = gate
+        ..tagNotificationWriteFailure = StateError('refused')
+        ..mutedTagIdsAfterTagWrite = [41];
+
+      final writing = f.owner.updateTag(
+        _site,
+        'ux',
+        TagNotificationLevel.watching,
+      );
+      expect(level(f), TagNotificationLevel.watching);
+      gate.complete();
+
+      expect(await writing, isFalse);
+      expect(level(f), TagNotificationLevel.tracking);
+      expect(f.user.mutedTagIds, isNull);
+      expect(f.refreshes, 0);
+    });
+
+    test('choosing the held level writes nothing', () async {
+      final f = await loaded();
+      expect(
+        await f.owner.updateTag(_site, 'ux', TagNotificationLevel.tracking),
+        isTrue,
+      );
+      expect(f.api.tagNotificationLevelsUpdated, isEmpty);
+    });
+
+    test('a newer choice replaces one not yet sent', () async {
+      final f = await loaded();
+      final first = f.owner.updateTag(_site, 'ux', TagNotificationLevel.muted);
+      final second = f.owner.updateTag(
+        _site,
+        'ux',
+        TagNotificationLevel.watching,
+      );
+
+      expect(await first, isFalse);
+      expect(await second, isTrue);
+      expect(
+        f.api.tagNotificationLevelsUpdated.single.notificationLevel,
+        TagNotificationLevel.watching,
+      );
+      expect(level(f), TagNotificationLevel.watching);
+    });
+
+    test('a read that started before a write cannot overwrite it', () async {
+      final f = await loaded();
+      final held = Completer<void>();
+      f.api.tagNotificationReadGates.add(held);
+      final reading = f.owner.refreshTag(_site, 'ux');
+      await pumpEventQueue();
+
+      expect(
+        await f.owner.updateTag(_site, 'ux', TagNotificationLevel.watching),
+        isTrue,
+      );
+      held.complete();
+      await reading;
+
+      expect(level(f), TagNotificationLevel.watching);
+    });
+
+    test('an older read cannot overwrite a newer one', () async {
+      final f = await loaded();
+      final older = Completer<void>();
+      final newer = Completer<void>();
+      f.api.tagNotificationReadGates.addAll([older, newer]);
+      final first = f.owner.refreshTag(_site, 'ux');
+      await pumpEventQueue();
+      f.api.tagNotificationLevels['ux'] = TagNotificationLevel.watching;
+      final second = f.owner.refreshTag(_site, 'ux');
+      await pumpEventQueue();
+
+      newer.complete();
+      await second;
+      older.complete();
+      await first;
+
+      expect(level(f), TagNotificationLevel.watching);
+    });
+
+    test('a read from a replaced account publishes nothing', () async {
+      final f = _Fixture();
+      final held = Completer<void>();
+      f.api
+        ..tagNotificationReadGates.add(held)
+        ..tagNotificationLevels['ux'] = TagNotificationLevel.muted;
+      final reading = f.owner.refreshTag(_site, 'ux');
+      await pumpEventQueue();
+
+      f.lifecycle.invalidate(_site);
+      f.replaceAccount();
+      held.complete();
+      await reading;
+
+      expect(level(f), isNull);
+    });
+  });
 }
 
 final class _Fixture {
@@ -534,6 +697,7 @@ final class _Fixture {
       lifecycle: lifecycle,
       topics: api,
       categories: api,
+      tags: api,
       site: api,
       currentUsers: NotificationPreferenceCurrentUsers(
         read: (_) => user,

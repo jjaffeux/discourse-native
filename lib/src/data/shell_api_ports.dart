@@ -15,6 +15,7 @@ final class ShellApiPorts {
     required this.categories,
     required this.categoryMutations,
     required this.tags,
+    required this.tagNotifications,
     required this.topicComposerQueries,
     required this.topicContent,
     required this.topicMutations,
@@ -43,6 +44,7 @@ final class ShellApiPorts {
       categories: capabilities,
       categoryMutations: capabilities,
       tags: capabilities,
+      tagNotifications: capabilities,
       topicComposerQueries: capabilities,
       topicContent: capabilities,
       topicMutations: capabilities,
@@ -70,6 +72,7 @@ final class ShellApiPorts {
   final CategoryQueriesApi categories;
   final CategoryMutationsApi categoryMutations;
   final TagQueriesApi tags;
+  final TagNotificationsApi tagNotifications;
   final TopicComposerQueriesApi topicComposerQueries;
   final TopicContentApi topicContent;
   final TopicMutationsApi topicMutations;

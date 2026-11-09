@@ -29,6 +29,7 @@ import '../models/site_appearance.dart';
 import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+import '../models/tag_notification.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_tracking_state.dart';
@@ -1065,6 +1066,34 @@ class DiscourseApi
     siteUrl: siteUrl,
     apiKey: apiKey,
     categoryId: categoryId,
+    notificationLevel: notificationLevel,
+    clientId: clientId,
+  );
+
+  @override
+  Future<TagNotificationLevel> tagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    String? clientId,
+  }) => _site.tagNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    tag: tag,
+    clientId: clientId,
+  );
+
+  @override
+  Future<List<int>?> updateTagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    required TagNotificationLevel notificationLevel,
+    String? clientId,
+  }) => _site.updateTagNotificationLevel(
+    siteUrl: siteUrl,
+    apiKey: apiKey,
+    tag: tag,
     notificationLevel: notificationLevel,
     clientId: clientId,
   );

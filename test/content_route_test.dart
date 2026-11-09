@@ -891,6 +891,23 @@ void main() {
       );
     });
 
+    test('names the one tag a notification level belongs to', () {
+      String? tagFor(String path) =>
+          ContentRoute.list(ListLink.parse(path)!).notificationTag;
+      String? filtered(List<String> tags) => ContentRoute.filteredTopicList(
+        TopicListMode.latest,
+        tags: tags,
+      ).notificationTag;
+
+      expect(tagFor('/tag/ux/41'), '41');
+      expect(tagFor('/tag/12'), '12');
+      expect(tagFor('/tag/ux'), 'ux');
+      expect(tagFor('/tag/none'), isNull);
+      expect(filtered(['ux']), 'ux');
+      expect(filtered(['ux', 'bug']), isNull);
+      expect(filtered([]), isNull);
+    });
+
     test('reads the id an identified tag list names its tag by', () {
       final identified = ContentRoute.list(ListLink.parse('/tag/7-tag/7')!);
       expect(identified.tagId, 7);
