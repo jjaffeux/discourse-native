@@ -1807,6 +1807,44 @@ void main() {
       expect(shell.currentTopic?.postsCount, 3);
     });
 
+    // UserArchivedMessage and GroupArchivedMessage publish these on the topic
+    // channel for the reader's other sessions and for the group's members.
+    for (final (type, heldArchived) in [
+      ('archived', false),
+      ('move_to_inbox', true),
+    ]) {
+      test(
+        'a live $type message moves the open message between inboxes',
+        () async {
+          TopicPayload message({required bool archived}) {
+            final payload = topicPayload(
+              id: 7,
+              title: 'A topic',
+              privateMessage: true,
+              posts: [_post('initial')],
+            );
+            return (
+              detail: payload.detail.copyWith(messageArchived: archived),
+              posts: payload.posts,
+            );
+          }
+
+          final api = _PostOrderingApi();
+          api.topics[7] = message(archived: heldArchived);
+          final shell = await _loadShell(api);
+          addTearDown(shell.dispose);
+          final tracker = await _openTopic(shell);
+          expect(shell.currentTopic?.messageArchived, heldArchived);
+
+          api.topics[7] = message(archived: !heldArchived);
+          tracker.deliverTopicMessage('/topic/7', {'type': type});
+          await pumpEventQueue();
+
+          expect(shell.currentTopic?.messageArchived, !heldArchived);
+        },
+      );
+    }
+
     test('takes the totals core publishes without reading again', () async {
       final api = _PostOrderingApi();
       final shell = await _loadShell(api);
