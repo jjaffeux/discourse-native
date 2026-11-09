@@ -1,0 +1,102 @@
+[
+ {
+  "slug": "composer-undo",
+  "subject": "PERF: stop rebuilding the composer undo and redo buttons for every body key",
+  "proofs": [
+   {
+    "path": "test/composer_keystroke_rebuild_test.dart",
+    "name": "body keys leave the undo and redo buttons alone"
+   }
+  ]
+ },
+ {
+  "slug": "search-unchanged",
+  "subject": "PERF: stop resending a search whose words did not change",
+  "proofs": [
+   {
+    "path": "test/search_staging_keyboard_test.dart",
+    "name": "paused keystrokes that keep the words send no search"
+   }
+  ]
+ },
+ {
+  "slug": "bookmarks-page",
+  "subject": "PERF: stop rebuilding the bookmarks page and tab for every shell notification",
+  "proofs": [
+   {
+    "path": "test/bookmark_section_rebuild_test.dart",
+    "name": "a tracking message leaves the bookmarks"
+   }
+  ]
+ },
+ {
+  "slug": "ticker-mode",
+  "subject": "PERF: stop hiding and showing a list rebuilding its labels and popovers",
+  "proofs": [
+   {
+    "path": "test/retained_list_ticker_mode_test.dart",
+    "name": "opening and closing a topic leaves the retained list labels alone"
+   }
+  ]
+ },
+ {
+  "slug": "search-panel",
+  "subject": "PERF: stop redrawing the search field, scope bar and skeleton per keystroke",
+  "proofs": [
+   {
+    "path": "test/global_search_rebuilds_test.dart",
+    "name": "keystroke while loading redraws only the field"
+   }
+  ]
+ },
+ {
+  "slug": "search-panel-rows",
+  "subject": "PERF: keep settled search result rows when a later source answers",
+  "proofs": [
+   {
+    "path": "test/global_search_rebuilds_test.dart",
+    "name": "a later source answer leaves settled result rows alone"
+   }
+  ]
+ },
+ {
+  "slug": "notification-panel",
+  "subject": "PERF: stop rebuilding every notification row for each live count",
+  "proofs": [
+   {
+    "path": "test/notification_panel_rebuild_test.dart",
+    "name": "a live count does not rebuild the open panel rows"
+   }
+  ]
+ },
+ {
+  "slug": "link-context-menu",
+  "subject": "PERF: stop mounting a context menu under every paragraph with a link",
+  "proofs": [
+   {
+    "path": "test/inline_link_menu_mount_test.dart",
+    "name": "linked paragraphs mount within the topic budget"
+   }
+  ]
+ },
+ {
+  "slug": "sidebar-navigation",
+  "subject": "PERF: stop rebuilding the sidebar for navigation that moves no highlight",
+  "proofs": [
+   {
+    "path": "test/sidebar_navigation_rebuild_test.dart",
+    "name": "a navigation redraws only the sidebar rows its selection moves between"
+   }
+  ]
+ },
+ {
+  "slug": "sidebar-totals",
+  "subject": "PERF: stop rebuilding the sidebar on the message after every count change",
+  "proofs": [
+   {
+    "path": "test/notification_badge_rebuild_test.dart",
+    "name": "the tracking message after a count leaves the sidebar as built"
+   }
+  ]
+ }
+]
