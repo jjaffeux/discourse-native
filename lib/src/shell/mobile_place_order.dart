@@ -3,12 +3,18 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import 'mobile_place_order_controller.dart';
-import 'shell_scope.dart';
 
 /// Holds the current account's [MobilePlaceOrderController] for the shell
 /// under it, replacing it as the account changes.
 class MobilePlaceOrderHost extends StatefulWidget {
-  const MobilePlaceOrderHost({super.key, required this.child});
+  const MobilePlaceOrderHost({
+    super.key,
+    required this.account,
+    required this.child,
+  });
+
+  /// The site and account identity whose order this holds, while signed in.
+  final (String, String)? account;
   final Widget child;
   static MobilePlaceOrderController? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_MobilePlaceOrderScope>()
@@ -20,14 +26,21 @@ class MobilePlaceOrderHost extends StatefulWidget {
 class _MobilePlaceOrderHostState extends State<MobilePlaceOrderHost> {
   (String, String)? _account;
   MobilePlaceOrderController? _controller;
+
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final shell = ShellScope.of(context);
-    final instance = shell.currentInstance;
-    final account = instance == null
-        ? null
-        : (instance.url, shell.currentAccountIdentity!);
+  void initState() {
+    super.initState();
+    _syncAccount();
+  }
+
+  @override
+  void didUpdateWidget(MobilePlaceOrderHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAccount();
+  }
+
+  void _syncAccount() {
+    final account = widget.account;
     if (_account == account) return;
     _account = account;
     _controller?.dispose();

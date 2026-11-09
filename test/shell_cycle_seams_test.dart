@@ -1,10 +1,13 @@
 import 'package:discourse_native/src/shell/composer/editor_scope.dart';
 import 'package:discourse_native/src/shell/composer/presentation_scope.dart';
 import 'package:discourse_native/src/shell/desktop_panels_layout.dart';
+import 'package:discourse_native/src/shell/header_preferences.dart';
+import 'package:discourse_native/src/shell/mobile_place_order.dart';
 import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final class _RecordingPresentation implements ComposerPresentationView {
   var redocks = 0;
@@ -130,5 +133,38 @@ void main() {
     );
 
     expect(showUserCardForUrl(reader, 'https://meta.example/u/sam'), isFalse);
+  });
+
+  testWidgets('account hosts replace their controller as the account changes', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    late BuildContext reader;
+    Widget hosts((String, String)? order) => HeaderPreferencesHost(
+      instance: null,
+      child: MobilePlaceOrderHost(
+        account: order,
+        child: Builder(
+          builder: (context) {
+            reader = context;
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(hosts(('https://a.example', 'one')));
+    final first = MobilePlaceOrderHost.maybeOf(reader);
+    expect(first, isNotNull);
+    expect(HeaderPreferencesHost.maybeOf(reader), isNull);
+
+    await tester.pumpWidget(hosts(('https://a.example', 'one')));
+    expect(MobilePlaceOrderHost.maybeOf(reader), same(first));
+
+    await tester.pumpWidget(hosts(('https://a.example', 'two')));
+    expect(MobilePlaceOrderHost.maybeOf(reader), isNot(same(first)));
+
+    await tester.pumpWidget(hosts(null));
+    expect(MobilePlaceOrderHost.maybeOf(reader), isNull);
   });
 }

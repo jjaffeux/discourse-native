@@ -4,11 +4,16 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
+import '../models/discourse_instance.dart';
 import 'header_preferences_controller.dart';
-import 'shell_scope.dart';
 
 class HeaderPreferencesHost extends StatefulWidget {
-  const HeaderPreferencesHost({super.key, required this.child});
+  const HeaderPreferencesHost({
+    super.key,
+    required this.instance,
+    required this.child,
+  });
+  final DiscourseInstance? instance;
   final Widget child;
   static HeaderPreferencesController? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_HeaderPreferencesScope>()
@@ -20,10 +25,21 @@ class HeaderPreferencesHost extends StatefulWidget {
 class _HeaderPreferencesHostState extends State<HeaderPreferencesHost> {
   (String, String)? _account;
   HeaderPreferencesController? _controller;
+
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    final instance = ShellScope.of(context).currentInstance;
+  void initState() {
+    super.initState();
+    _syncAccount();
+  }
+
+  @override
+  void didUpdateWidget(HeaderPreferencesHost oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    _syncAccount();
+  }
+
+  void _syncAccount() {
+    final instance = widget.instance;
     final account = instance?.user == null
         ? null
         : (

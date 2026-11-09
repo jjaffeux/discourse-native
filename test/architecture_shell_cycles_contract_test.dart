@@ -6,6 +6,10 @@ const _composerController = 'lib/src/shell/composer/controller.dart';
 const _markdownController =
     'lib/src/shell/composer/markdown_editing_controller.dart';
 const _shellScope = 'lib/src/shell/shell_scope.dart';
+const _accountHosts = [
+  'lib/src/shell/header_preferences.dart',
+  'lib/src/shell/mobile_place_order.dart',
+];
 const _userCard = 'lib/src/shell/user_card.dart';
 const _cookedHtml = 'lib/src/shell/cooked_html.dart';
 const _titleBar = 'lib/src/shell/title_bar.dart';
@@ -46,11 +50,7 @@ void main() {
   group('shell widget cycles', () {
     test('cooked rendering is the only widget cycle in the shell', () {
       expect(
-        graph.cycles().where(
-          (cycle) =>
-              !cycle.contains(_composerController) &&
-              !cycle.contains(_shellScope),
-        ),
+        graph.cycles().where((cycle) => !cycle.contains(_composerController)),
         [_cookedRecursion],
       );
     });
@@ -108,6 +108,16 @@ void main() {
           graph.closureOf(library),
           isNot(contains(_composerPanel)),
           reason: library,
+        );
+      }
+    });
+
+    test('the shell scope mounts its account hosts one way', () {
+      for (final host in _accountHosts) {
+        expect(
+          graph.closureOf(host),
+          isNot(contains(_shellScope)),
+          reason: host,
         );
       }
     });
