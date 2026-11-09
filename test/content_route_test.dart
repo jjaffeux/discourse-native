@@ -536,6 +536,38 @@ void main() {
     },
   );
 
+  // `=category:` keeps its id in the editor, but core reads the value through
+  // Category.ids_from_slugs, whose Slug.for blanks an all-digit segment, and
+  // TopicsFilter#filter_categories then answers with no topics at all.
+  test('only-this-category filter is sent to the server by slug path', () {
+    const product = TopicCategory(
+      id: 1,
+      name: 'Product',
+      slug: 'product',
+      color: 'FF0000',
+    );
+    const mobile = TopicCategory(
+      id: 3,
+      name: 'Mobile',
+      slug: 'mobile',
+      color: '00FF00',
+      parentCategoryId: 1,
+    );
+    TopicCategory? byId(int id) => switch (id) {
+      1 => product,
+      3 => mobile,
+      _ => null,
+    };
+
+    final route = ContentRoute.topicFilter('=category:3 status:open');
+
+    expect(route.topicFilterQuery, '=category:3 status:open');
+    expect(
+      Uri.parse(route.topicFilterRequestPath(byId)).queryParameters['q'],
+      '=category:product:mobile status:open',
+    );
+  });
+
   group('visible list word filters persist', () {
     test('word replacement drops endpoint q copied by taxonomy navigation', () {
       final carried = ContentRoute.filteredTopicList(
