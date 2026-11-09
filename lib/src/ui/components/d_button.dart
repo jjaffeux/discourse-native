@@ -159,9 +159,10 @@ enum DButtonDensity {
   rail,
 
   /// A 36px circular icon action over a photo or video with 14px artwork on
-  /// every platform, growing with text. The media decides what reads against
-  /// it, so pair it with [DButton.backgroundColor] and
-  /// [DButton.foregroundColor] rather than the theme's own.
+  /// every platform, or 44px with 16px artwork at [DControlSize.large], growing
+  /// with text. The media decides what reads against it, so pair it with
+  /// [DButton.backgroundColor] and [DButton.foregroundColor] rather than the
+  /// theme's own.
   overMedia,
 }
 
@@ -624,7 +625,7 @@ class DButton extends StatelessWidget {
         : header || rail
         ? 16.0
         : overMedia
-        ? 14.0
+        ? (size == DButtonSize.large ? 16.0 : 14.0)
         : chrome
         ? 15.0
         : backLink
@@ -696,7 +697,8 @@ class DButton extends StatelessWidget {
         : rail
         ? 32.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : overMedia
-        ? 36.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
+        ? (size == DButtonSize.large ? 44.0 : 36.0) +
+              math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : searchClear
         ? MediaQuery.textScalerOf(context).scale(quietSearchClear ? 22 : 12)
         : avatar

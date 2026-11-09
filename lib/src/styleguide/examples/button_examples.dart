@@ -24,7 +24,7 @@ final buttonExamples = ComponentExamples(
       'with a separate keyboard focus ring. All colors follow the forum palette. '
       'The header density uses 36px circles from 713px desktop window width; compact windows and touch keep 28px controls with 32px icon-only bounds. It uses 12.5px labels, '
       '8px content gaps and 10px counted-button insets. Header shortcuts sit 6px apart on desktop. '
-      'The overMedia density draws a 36px circle with 14px artwork for icon actions over a photo or video on every platform. '
+      'The overMedia density draws a 36px circle with 14px artwork for icon actions over a photo or video on every platform, or a 44px circle with 16px artwork at the large size. '
       'The avatar density gives icon-only profile triggers a 36px circle with a '
       '2px border flush against a borderless DAvatar. Both grow with text scaling.',
   examples: [
@@ -302,6 +302,22 @@ final buttonExamples = ComponentExamples(
                 foregroundColor: Colors.white,
                 icon: const DIcon(DIcons.download),
                 tooltip: 'Download',
+                onPressed: () {},
+              ),
+            ),
+          ),
+          ColoredBox(
+            color: const Color(0xFF14141A),
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: DButton.iconOnly(
+                density: DButtonDensity.overMedia,
+                size: DButtonSize.large,
+                variant: DButtonVariant.ghost,
+                backgroundColor: Colors.white.withValues(alpha: .12),
+                foregroundColor: Colors.white,
+                icon: const DIcon(DIcons.chevronRight),
+                tooltip: 'Next image',
                 onPressed: () {},
               ),
             ),

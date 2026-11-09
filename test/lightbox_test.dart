@@ -1636,6 +1636,56 @@ void main() {
       expect(barText('3 of 3'), findsOneWidget);
     });
 
+    testWidgets('draws arrows as white 44px rounds inset from the sides', (
+      tester,
+    ) async {
+      await pumpCookedOn(tester, threeImages, TargetPlatform.macOS);
+      await tester.tap(thumbnail(1));
+      await tester.pumpAndSettle();
+
+      final previous = find.ancestor(
+        of: find.dIcon(DIcons.chevronLeft),
+        matching: find.byType(DButton),
+      );
+      final next = find.ancestor(
+        of: find.dIcon(DIcons.chevronRight),
+        matching: find.byType(DButton),
+      );
+      final width = tester.getSize(find.byType(LightboxGallery)).width;
+
+      for (final arrow in [previous, next]) {
+        expect(tester.getSize(arrow), const Size.square(44));
+        final button = tester.widget<DButton>(arrow);
+        expect(button.foregroundColor, Colors.white);
+        expect(button.backgroundColor, Colors.white.withValues(alpha: .12));
+      }
+      expect(tester.getSize(find.dIcon(DIcons.chevronLeft)).height, 16);
+      expect(tester.getTopLeft(previous).dx, 16);
+      expect(width - tester.getTopRight(next).dx, 16);
+    });
+
+    testWidgets('fades an arrow to a quarter at the end of the gallery', (
+      tester,
+    ) async {
+      await pumpCookedOn(tester, threeImages, TargetPlatform.macOS);
+      await tester.tap(thumbnail());
+      await tester.pumpAndSettle();
+
+      double drawnOpacity(DIconData icon) => tester
+          .widgetList<Opacity>(
+            find.ancestor(of: find.dIcon(icon), matching: find.byType(Opacity)),
+          )
+          .fold(1.0, (product, layer) => product * layer.opacity);
+
+      expect(barText('1 of 3'), findsOneWidget);
+      expect(drawnOpacity(DIcons.chevronLeft), moreOrLessEquals(.25));
+      expect(drawnOpacity(DIcons.chevronRight), 1);
+
+      await tester.tap(find.dIcon(DIcons.chevronLeft));
+      await tester.pumpAndSettle();
+      expect(barText('1 of 3'), findsOneWidget);
+    });
+
     testWidgets('offers no arrows to a finger, which swipes instead', (
       tester,
     ) async {

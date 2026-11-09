@@ -1367,11 +1367,13 @@ class _Button extends StatelessWidget {
     required this.icon,
     required this.tooltip,
     required this.onTap,
+    this.size = DButtonSize.regular,
   });
 
   final DIconData icon;
   final String tooltip;
   final VoidCallback? onTap;
+  final DButtonSize size;
 
   @override
   Widget build(BuildContext context) {
@@ -1379,6 +1381,7 @@ class _Button extends StatelessWidget {
       onPressed: onTap,
       variant: DButtonVariant.ghost,
       density: DButtonDensity.overMedia,
+      size: size,
       backgroundColor: Colors.white.withValues(alpha: .12),
       foregroundColor: Colors.white,
       tooltip: tooltip,
@@ -1400,18 +1403,27 @@ class _Arrow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      child: Opacity(
-        opacity: enabled ? 1 : 0.25,
-        child: DButton.iconOnly(
-          onPressed: enabled ? onTap : null,
-          variant: DButtonVariant.secondary,
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      // DButton's disabled fade multiplies with any drawn around it, so the
+      // arrow's 25% at the end of the gallery has to be that fade itself.
+      child: Theme(
+        data: theme.copyWith(
+          extensions: [
+            ...theme.extensions.values.where(
+              (value) => value is! DiscourseButtonTheme,
+            ),
+            theme.discourseButtons.copyWith(disabledOpacity: .25),
+          ],
+        ),
+        child: _Button(
+          icon: icon,
           size: DButtonSize.large,
           tooltip: icon == DIcons.chevronLeft
               ? context.l10n.previousImage
               : context.l10n.nextImage,
-          icon: DIcon(icon),
+          onTap: enabled ? onTap : null,
         ),
       ),
     );
