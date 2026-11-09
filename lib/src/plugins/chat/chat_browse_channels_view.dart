@@ -109,35 +109,32 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
   }
 
   @override
-  Widget build(BuildContext context) => ListenableBuilder(
-    listenable: _chat,
-    builder: (context, _) => DScrollChromePagination(
-      hasMore: _browse.hasMore,
-      loading: _browse.loading || _browse.loadingMore,
-      child: DPageSurface.headed(
-        title: Text(context.l10n.browseChannels),
-        // Scroll fades and mobile chrome must not repaint the fixed filters.
-        controls: RepaintBoundary(
-          child: FocusTraversalGroup(
-            policy: WidgetOrderTraversalPolicy(),
-            child: ContentReadingLaneBox(
-              padding: EdgeInsets.zero,
-              child: LayoutBuilder(
-                key: const ValueKey('chat-browse-controls'),
-                builder: _buildControls,
-              ),
+  Widget build(BuildContext context) => DScrollChromePagination(
+    hasMore: _browse.hasMore,
+    loading: _browse.loading || _browse.loadingMore,
+    child: DPageSurface.headed(
+      title: Text(context.l10n.browseChannels),
+      // Scroll fades and mobile chrome must not repaint the fixed filters.
+      controls: RepaintBoundary(
+        child: FocusTraversalGroup(
+          policy: WidgetOrderTraversalPolicy(),
+          child: ContentReadingLaneBox(
+            padding: EdgeInsets.zero,
+            child: LayoutBuilder(
+              key: const ValueKey('chat-browse-controls'),
+              builder: _buildControls,
             ),
           ),
         ),
-        adaptiveBodyBuilder: (context, lazy) => RepaintBoundary(
-          child: lazy
-              ? DPullToRefresh(
-                  key: ObjectKey(_browse),
-                  onRefresh: _browse.loading ? null : _browse.refresh,
-                  child: _buildResults(context, lazy),
-                )
-              : _buildResults(context, lazy),
-        ),
+      ),
+      adaptiveBodyBuilder: (context, lazy) => RepaintBoundary(
+        child: lazy
+            ? DPullToRefresh(
+                key: ObjectKey(_browse),
+                onRefresh: _browse.loading ? null : _browse.refresh,
+                child: _buildResults(context, lazy),
+              )
+            : _buildResults(context, lazy),
       ),
     ),
   );
@@ -294,12 +291,22 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
                             widget.siteUrl,
                             channels[index].id,
                           ),
-                          builder: (context, current, _) => _ChannelCard(
-                            siteUrl: widget.siteUrl,
-                            channel: current ?? channels[index],
-                            chat: _chat,
-                            onChanged: _browse.replaceChannel,
-                          ),
+                          builder: (context, current, _) =>
+                              PluginServiceSelector<ChatController, bool>(
+                                service: chatControllerService,
+                                select: (chat) =>
+                                    chat.channelFollowWriteInFlight(
+                                      widget.siteUrl,
+                                      channels[index].id,
+                                    ),
+                                builder: (context, busy, _) => _ChannelCard(
+                                  siteUrl: widget.siteUrl,
+                                  channel: current ?? channels[index],
+                                  chat: _chat,
+                                  busy: busy,
+                                  onChanged: _browse.replaceChannel,
+                                ),
+                              ),
                         ),
                   ),
                 if (hasFooter)
@@ -333,18 +340,19 @@ class _ChannelCard extends StatelessWidget {
     required this.siteUrl,
     required this.channel,
     required this.chat,
+    required this.busy,
     required this.onChanged,
   });
 
   final String siteUrl;
   final ChatChannel channel;
   final ChatController chat;
+  final bool busy;
   final ValueChanged<ChatChannel> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final following = channel.membership.following;
-    final busy = chat.channelFollowWriteInFlight(siteUrl, channel.id);
     final canJoin = channel.canJoin && channel.status == ChatChannelStatus.open;
     final status = switch (channel.status) {
       ChatChannelStatus.open => null,
