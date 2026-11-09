@@ -19,7 +19,6 @@ const _leafWidgetLibraries = {
   'lib/src/shell/composer/components/blockquote.dart',
   'lib/src/shell/composer/components/todo.dart',
   'lib/src/shell/emoji.dart',
-  'lib/src/shell/emoji_picker.dart',
   'lib/src/shell/quote_panel.dart',
   'lib/src/shell/search_words.dart',
 };

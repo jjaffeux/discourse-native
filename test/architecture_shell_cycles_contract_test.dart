@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../tool/architecture_graph.dart';
 
 const _composerController = 'lib/src/shell/composer/controller.dart';
+const _markdownController =
+    'lib/src/shell/composer/markdown_editing_controller.dart';
 const _shellScope = 'lib/src/shell/shell_scope.dart';
 const _userCard = 'lib/src/shell/user_card.dart';
 const _cookedHtml = 'lib/src/shell/cooked_html.dart';
@@ -21,6 +23,21 @@ const _cookedRecursion = [
   'lib/src/shell/oneboxes/onebox.dart',
   'lib/src/shell/oneboxes/twitter.dart',
   'lib/src/shell/quote.dart',
+];
+
+/// The controller constructs its core syntax policies, and each policy and
+/// the artwork that draws it are written against that controller.
+const _composerControllerCycle = [
+  'lib/src/shell/composer/component_artwork.dart',
+  'lib/src/shell/composer/components/code.dart',
+  'lib/src/shell/composer/components/core.dart',
+  'lib/src/shell/composer/components/details.dart',
+  'lib/src/shell/composer/components/document_body_controller.dart',
+  'lib/src/shell/composer/components/list.dart',
+  'lib/src/shell/composer/components/table.dart',
+  'lib/src/shell/composer/components/upload.dart',
+  'lib/src/shell/composer/components/video.dart',
+  _composerController,
 ];
 
 void main() {
@@ -105,6 +122,25 @@ void main() {
       }
       expect(graph.closureOf(_mainContent), isNot(contains(_desktopPanels)));
       expect(graph.closureOf(_titleBar), isNot(contains(_mainContent)));
+    });
+  });
+
+  group('composer controller cycle', () {
+    test(
+      'the markdown controller compiles without the composer controller',
+      () {
+        expect(
+          graph.closureOf(_markdownController),
+          isNot(contains(_composerController)),
+        );
+      },
+    );
+
+    test('the cycle holds only the controller and its core policies', () {
+      expect(
+        graph.cycles().where((cycle) => cycle.contains(_composerController)),
+        [_composerControllerCycle],
+      );
     });
   });
 }
