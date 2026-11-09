@@ -134,6 +134,7 @@ class DScrollChrome extends StatefulWidget {
     this.floatingFooter = false,
     this.fadeUnderFooter = false,
     this.footerHiddenFraction = 0,
+    this.startFolded = false,
   }) : assert(footerHiddenFraction >= 0 && footerHiddenFraction <= 1);
 
   final Object identity;
@@ -157,6 +158,10 @@ class DScrollChrome extends StatefulWidget {
   /// Thins the page's lists as they run on to the foot under what the
   /// floating footer's [DScrollFootCover] covers, the bar they read past.
   final bool fadeUnderFooter;
+
+  /// Begins each [identity] folded, with nothing seen to fold: the page knows
+  /// it will open away from its end, where scrolling would have left the chrome.
+  final bool startFolded;
 
   static double bottomInsetOf(BuildContext context) =>
       context
@@ -344,7 +349,11 @@ class _DScrollChromeState extends State<DScrollChrome>
   void initState() {
     super.initState();
     _footerFocus.addListener(_revealFocusedFooter);
+    if (_startsFolded) _animation.reset(hidden: true);
   }
+
+  bool get _startsFolded =>
+      widget.startFolded && widget.visible && widget.enabled;
 
   void _revealFocusedFooter() {
     if (_footerFocus.hasFocus) {
@@ -360,11 +369,12 @@ class _DScrollChromeState extends State<DScrollChrome>
         oldWidget.visible != widget.visible ||
         oldWidget.enabled != widget.enabled ||
         oldWidget.keepFooterVisible != widget.keepFooterVisible) {
-      _hidden = false;
+      final folded = _startsFolded;
+      _hidden = folded;
       _intents = Expando();
       _activeSource = null;
       _shownFooterHeight = 0;
-      _animation.reset();
+      _animation.reset(hidden: folded);
     }
   }
 

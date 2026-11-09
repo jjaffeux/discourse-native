@@ -88,6 +88,20 @@ void main() {
     );
   });
 
+  testWidgets('a hidden reset rests folded and reveals without a hold', (
+    tester,
+  ) async {
+    final motion = await _mount(tester);
+    motion.reset(hidden: true);
+    expect((motion.value, motion.target), (1, 1));
+    expect(tester.binding.hasScheduledFrame, isFalse);
+
+    motion.reveal(fresh: true);
+    expect(motion.target, 0);
+    motion.reset();
+    expect((motion.value, motion.target), (0, 0));
+  });
+
   for (final settle in DHeaderSettle.values) {
     testWidgets('$settle waits for the configured pause', (tester) async {
       final motion = await _mount(

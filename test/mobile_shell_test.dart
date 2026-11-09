@@ -1235,6 +1235,112 @@ void main() {
     },
   );
 
+  group('a channel starts its chrome where its landing will leave it', () {
+    final history = [
+      for (var id = 1; id <= 50; id++)
+        ChatMessage(
+          id: id,
+          channelId: 10,
+          cooked: '<p>Scrollable message $id</p>',
+          author: ChatMessageAuthor(
+            id: id % 2 + 1,
+            username: 'reader${id % 2}',
+          ),
+          createdAt: DateTime(2026, 10, 1).add(Duration(minutes: id)),
+        ),
+    ];
+
+    ChatChannels support({required int lastRead, required int unread}) =>
+        ChatChannels(
+          public: [
+            ChatChannel(
+              id: 10,
+              title: 'Support',
+              kind: ChatChannelKind.category,
+              membership: ChatMembership(
+                following: true,
+                lastReadMessageId: lastRead,
+              ),
+              tracking: ChatTracking(unreadCount: unread),
+              lastMessageId: 50,
+            ),
+          ],
+          direct: const [],
+        );
+
+    final dock = find.byType(DComposerDock);
+
+    // A fold after the first page lands would show here as a run of partial
+    // fractions, and as a composer that changes shape partway through.
+    Future<List<(double, bool)>> openRecordingFrames(
+      WidgetTester tester,
+    ) async {
+      await _tapDockTab(tester, 'panel/chat');
+      await tester.tap(find.text('Support').first);
+      final frames = <(double, bool)>[];
+      for (var frame = 0; frame < 45; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (dock.evaluate().isEmpty) continue;
+        frames.add((
+          DScrollChrome.maybeOf(tester.element(dock))!.hiddenFraction,
+          tester.widget<DInputGroup>(find.byType(DInputGroup).first).compact,
+        ));
+      }
+      expect(frames, isNotEmpty);
+      return frames;
+    }
+
+    for (final (name, lastRead, unread, expected) in [
+      ('folded, far from its newest message', 20, 30, (1.0, true)),
+      ('open, already at its newest message', 50, 0, (0.0, false)),
+      ('open, a single unread message from it', 49, 1, (0.0, false)),
+    ]) {
+      _mobileTest(name, (tester) async {
+        await pumpMobileShellFixture(
+          tester,
+          conversations: support(lastRead: lastRead, unread: unread),
+          chatMessages: history,
+        );
+
+        final frames = await openRecordingFrames(tester);
+
+        expect(frames.toSet(), {expected});
+        expect(tester.takeException(), isNull);
+      });
+    }
+
+    _mobileTest('a folded start rests where a fold would have left it', (
+      tester,
+    ) async {
+      await pumpMobileShellFixture(
+        tester,
+        conversations: support(lastRead: 20, unread: 30),
+        chatMessages: history,
+      );
+      await openRecordingFrames(tester);
+      await tester.pumpAndSettle();
+      final send = find.byKey(const ValueKey('chat-composer-send'));
+      final topics = find.byKey(const ValueKey('mobile-mode-topics'));
+      final messages = find.byType(DMessageScrollerViewport);
+      final startedFolded = (tester.getRect(send), tester.getRect(_bar));
+      expect(topics.hitTestable(), findsNothing);
+
+      final scroll = tester
+          .widget<DMessageScrollerViewport>(messages)
+          .scrollController!;
+      scroll.jumpTo(0);
+      await tester.pumpAndSettle();
+      expect(topics.hitTestable(), findsOneWidget);
+
+      scroll.jumpTo(700);
+      await tester.pumpAndSettle();
+      await _chatWheel(tester, messages, 160);
+      expect(topics.hitTestable(), findsNothing);
+      expect((tester.getRect(send), tester.getRect(_bar)), startedFolded);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
   for (final thread in [false, true]) {
     for (final readOnly in [false, true]) {
       _mobileTest(

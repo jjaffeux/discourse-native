@@ -760,6 +760,10 @@ class ChatController extends FrameSafeNotifier {
   /// Discourse caps chat pages at 50.
   static const int pageSize = 50;
 
+  /// Unread messages a phone can show below a centred landing and still rest
+  /// at the end of the list; one to four, by height and message grouping.
+  static const int _unreadMessagesAtAnEndLanding = 2;
+
   /// Leaves room for the page being admitted before its prior edge is trimmed.
   static int? _defaultCanonicalMessageBudget(Store store) {
     final partition = store.policy?.maxEntriesPerSiteAndType;
@@ -1438,6 +1442,27 @@ class ChatController extends FrameSafeNotifier {
 
   ChatChannel? channel(String siteUrl, int channelId) =>
       _store.read<ChatChannel>(siteUrl, channelId);
+
+  /// Whether opening a channel should leave its reader short of the newest
+  /// message, judged from what is held before the first page is asked for.
+  /// An open lands on the last read message, or [messageId], centred in the
+  /// list: only a few short unread messages below it still rest at the end.
+  /// A read position behind with no unread count, as muting leaves it, is a
+  /// backlog of unknown size.
+  bool opensAwayFromLatest(String siteUrl, int channelId, {int? messageId}) {
+    final held = channel(siteUrl, channelId);
+    final newest = held?.lastMessageId;
+    final landing = messageId ?? held?.membership.lastReadMessageId;
+    if (held == null ||
+        newest == null ||
+        landing == null ||
+        landing >= newest) {
+      return false;
+    }
+    if (messageId != null) return true;
+    final unread = held.tracking.unreadCount;
+    return unread == 0 || unread > _unreadMessagesAtAnEndLanding;
+  }
 
   // Live and local mutations participate in an in-flight list refresh. Ordinary
   // HTTP hydration (including partial channel metadata) is not a newer mutation.

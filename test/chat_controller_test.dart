@@ -819,6 +819,51 @@ void main() {
       },
     );
 
+    group('judges where an open will land from what it holds', () {
+      for (final (name, lastRead, unread, messageId, away) in [
+        ('caught up', 50, 0, null, false),
+        ('never read', null, 0, null, false),
+        ('a couple of unread messages', 48, 2, null, false),
+        ('more unread than fit below the landing', 47, 3, null, true),
+        ('muted, so behind with no unread count', 20, 0, null, true),
+        ('a linked message in history', 50, 0, 20, true),
+        ('a linked newest message', 20, 30, 50, false),
+      ]) {
+        test(name, () async {
+          final subject = build(
+            channels: {
+              site: ChatChannels(
+                public: [
+                  ChatChannel(
+                    id: 9,
+                    title: 'Support',
+                    kind: ChatChannelKind.category,
+                    membership: ChatMembership(
+                      following: true,
+                      lastReadMessageId: lastRead,
+                    ),
+                    tracking: ChatTracking(unreadCount: unread),
+                    lastMessageId: 50,
+                  ),
+                ],
+              ),
+            },
+          );
+          await subject.chat.loadChannels(site);
+
+          expect(
+            subject.chat.opensAwayFromLatest(site, 9, messageId: messageId),
+            away,
+          );
+          expect(subject.api.chatMessagesRequested, isEmpty);
+        });
+      }
+
+      test('a channel it does not hold has no landing to judge', () {
+        expect(build().chat.opensAwayFromLatest(site, 9), isFalse);
+      });
+    });
+
     test('stars a channel optimistically through its membership', () async {
       final gate = Completer<void>();
       final subject = build(

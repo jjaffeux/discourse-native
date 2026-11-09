@@ -580,6 +580,10 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   hiddenFraction: hidden,
                   hideOnScroll: !hideDock || preservePageChrome,
                   keepActionVisible: _footerAction.action != null,
+                  startFolded:
+                      !panelRoot &&
+                      route != null &&
+                      registry.startsMobileChromeFolded(context, route),
                   body: NotificationListener<ScrollNotification>(
                     onNotification: (_) => preservePageChrome,
                     child: content!,
