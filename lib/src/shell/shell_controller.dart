@@ -162,6 +162,7 @@ import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
+import 'topic_filter_lookups.dart';
 import 'topic_filter_scope.dart';
 import 'topic_list_transitions.dart';
 import 'topic_prefetch_controller.dart';
@@ -3174,19 +3175,15 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  late final TopicFilterLookups topicFilterLookups = TopicFilterLookups(
+    topicFeeds: api.topicFeeds,
+    lookups: api.lookups,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    isDisposed: () => isDisposed,
+  );
+
   String filterQueryFor(String siteUrl) => topicFeeds.filterQueryFor(siteUrl);
-
-  Future<List<TopicFilterOption>> loadTopicFilterOptions(String siteUrl) =>
-      _filterLookup(
-        siteUrl,
-
-        (apiKey, clientId) async => (await api.topicFeeds.topicList(
-          siteUrl: siteUrl,
-          path: '/filter.json',
-          apiKey: apiKey,
-          clientId: clientId,
-        )).filterOptions,
-      );
 
   String topicListFilterEditorQuery(ContentRoute route) =>
       route.topicFilterEditorQuery(
@@ -3219,74 +3216,6 @@ class ShellController extends FrameSafeNotifier
     term: term,
     categoryId: categoryId,
   );
-
-  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) => api.lookups.searchFilterTagGroups(
-      siteUrl: siteUrl,
-      term: term,
-      apiKey: apiKey,
-      clientId: clientId,
-    ),
-  );
-
-  Future<List<TopicFilterLookupValue>> searchFilterGroups({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) => apiKey == null
-        ? Future.value(const [])
-        : api.lookups.searchFilterGroups(
-            siteUrl: siteUrl,
-            term: term,
-            apiKey: apiKey,
-            clientId: clientId,
-          ),
-  );
-
-  Future<List<TopicFilterLookupValue>> searchFilterUsers({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) async => [
-      for (final user in await api.lookups.searchUsers(
-        siteUrl: siteUrl,
-        term: term,
-        apiKey: apiKey,
-        clientId: clientId,
-      ))
-        TopicFilterLookupValue(name: user.username, description: user.name),
-    ],
-  );
-
-  Future<List<T>> _filterLookup<T>(
-    String siteUrl,
-
-    Future<List<T>> Function(String? apiKey, String? clientId) lookup,
-  ) async {
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (!lease.isCurrent) return const [];
-      final found = await credential.run(
-        () => lookup(credential.apiKey, credential.clientId),
-      );
-      return !isDisposed && lease.isCurrent ? found : const [];
-    } catch (error) {
-      return const [];
-    }
-  }
 
   int feedScrollRow(String destinationId, {String? tabId}) {
     final instance = currentInstance;

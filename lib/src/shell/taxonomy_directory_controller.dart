@@ -354,7 +354,7 @@ final class _TaxonomyDirectoryController
     final lease = site.lease;
     final notificationRead = _CategoryRead(site);
     if (!lease.isCurrent) return const [];
-    final categories = await _shell._filterLookup(
+    final categories = await _shell.topicFilterLookups.run(
       siteUrl,
 
       (apiKey, clientId) => apiKey == null
@@ -390,7 +390,7 @@ final class _TaxonomyDirectoryController
   }) async {
     final lease = _site(siteUrl).lease;
     if (!lease.isCurrent) return const [];
-    final remote = await _shell._filterLookup(
+    final remote = await _shell.topicFilterLookups.run(
       siteUrl,
 
       (apiKey, clientId) => _shell.api.lookups.searchFilterTags(

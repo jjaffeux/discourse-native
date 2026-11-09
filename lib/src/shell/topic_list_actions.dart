@@ -174,7 +174,7 @@ class _TopicListFilterMenuState extends State<TopicListFilterMenu> {
     setState(() => _loading = true);
     final options = await ShellScope.read(
       context,
-    ).loadTopicFilterOptions(widget.siteUrl);
+    ).topicFilterLookups.loadOptions(widget.siteUrl);
     if (mounted && !_retired && epoch == _loadEpoch) {
       setState(() {
         _options = options;
