@@ -70,6 +70,7 @@ import 'topic_tag_picker.dart';
 import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
 import 'topic_viewport_coordinator.dart';
+import 'topic_viewport_shell_binding.dart';
 import 'user_card.dart';
 import 'user_card_target.dart';
 import 'user_menu_button.dart';
@@ -451,7 +452,7 @@ class _TopicViewState extends State<TopicView>
     final previousSession = _viewport.binding?.session;
     final previousScroll = _scroll;
     final changed = _viewport.bind(
-      TopicViewportBinding.fromShell(
+      topicViewportBindingFromShell(
         controller,
         snapshot,
         tabId: ForumTabScope.idOf(context),
@@ -1264,7 +1265,7 @@ class _TopicViewState extends State<TopicView>
     child: Focus(
       focusNode: _entryFocus,
       child: ForumTabSelector<TopicViewportSnapshot>(
-        select: (shell, tab) => TopicViewportSnapshot.from(shell, tab: tab),
+        select: (shell, tab) => topicViewportSnapshotFrom(shell, tab: tab),
         builder: (context, snapshot, child) => _build(context, snapshot, child),
       ),
     ),

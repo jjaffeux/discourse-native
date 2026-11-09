@@ -3,7 +3,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
+import 'package:discourse_native/src/shell/topic_viewport_shell_binding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -89,21 +89,18 @@ void main() {
       expect(first.currentPostIds, [for (var id = 20; id <= 39; id++) id]);
       expect(second.currentPostIds, [for (var id = 70; id <= 89; id++) id]);
 
-      final firstSnapshot = TopicViewportSnapshot.from(controller, tab: first);
-      final secondSnapshot = TopicViewportSnapshot.from(
-        controller,
-        tab: second,
-      );
+      final firstSnapshot = topicViewportSnapshotFrom(controller, tab: first);
+      final secondSnapshot = topicViewportSnapshotFrom(controller, tab: second);
       expect(firstSnapshot.initialPostIndex, 6);
       expect(secondSnapshot.initialPostIndex, 6);
       store.postReads = 0;
       for (var i = 0; i < 10; i++) {
         expect(
-          TopicViewportSnapshot.from(controller, tab: first).initialPostIndex,
+          topicViewportSnapshotFrom(controller, tab: first).initialPostIndex,
           6,
         );
         expect(
-          TopicViewportSnapshot.from(controller, tab: second).initialPostIndex,
+          topicViewportSnapshotFrom(controller, tab: second).initialPostIndex,
           6,
         );
       }

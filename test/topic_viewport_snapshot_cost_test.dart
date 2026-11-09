@@ -2,7 +2,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
+import 'package:discourse_native/src/shell/topic_viewport_shell_binding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -60,7 +60,7 @@ Duration _timeSnapshots(ShellController controller) {
   for (var round = 0; round < 5; round++) {
     final stopwatch = Stopwatch()..start();
     for (var i = 0; i < 200; i++) {
-      TopicViewportSnapshot.from(controller);
+      topicViewportSnapshotFrom(controller);
     }
     stopwatch.stop();
     if (stopwatch.elapsed < best) best = stopwatch.elapsed;
@@ -78,7 +78,7 @@ void main() {
       final short = await _openTopic(streamLength: 2000, loaded: 200);
       final long = await _openTopic(streamLength: 16000, loaded: 200);
       expect(
-        TopicViewportSnapshot.from(long).initialPostIndex,
+        topicViewportSnapshotFrom(long).initialPostIndex,
         isNotNull,
         reason: 'the saved position must be resolved for the cost to count',
       );

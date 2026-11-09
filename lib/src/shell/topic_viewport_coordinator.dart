@@ -10,10 +10,8 @@ import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../foundation/frame_safe_notifier.dart';
 import '../models/post.dart';
-import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../utils/pagination.dart';
-import 'shell_controller.dart';
 
 typedef TopicViewportIdentity = ({
   String siteUrl,
@@ -90,9 +88,9 @@ abstract interface class TopicViewportGeometry {
 
 /// Shell operations captured for one topic viewport generation.
 ///
-/// Tests can provide these callbacks directly. Production uses
-/// [TopicViewportBinding.fromShell], keeping the coordinator independent from
-/// widget ancestry and BuildContext.
+/// Tests can provide these callbacks directly. Production builds them with
+/// `topicViewportBindingFromShell`, keeping the coordinator independent from
+/// the shell, widget ancestry and BuildContext.
 final class TopicViewportBinding {
   const TopicViewportBinding({
     required this.owner,
@@ -111,74 +109,6 @@ final class TopicViewportBinding {
     required this.savedPostOffset,
     required this.postNumberFor,
   });
-
-  factory TopicViewportBinding.fromShell(
-    ShellController controller,
-    TopicViewportSnapshot snapshot, {
-    String? tabId,
-  }) {
-    final tab = tabId == null
-        ? controller.focusedTabContext
-        : controller.tabContext(tabId);
-    final ownerTabId = tab.tabId;
-    final identity = (
-      siteUrl: snapshot.siteUrl!,
-      topicId: snapshot.topicId!,
-      navigationRevision: snapshot.navigationRevision,
-    );
-    final lease = controller.lifecycle.capture(identity.siteUrl);
-    return TopicViewportBinding(
-      owner: controller,
-      identity: identity,
-      tabId: ownerTabId,
-      session: lease.session,
-      isCurrent: () {
-        return lease.isCurrent &&
-            tab.isCurrent &&
-            controller.isTabVisible(ownerTabId) &&
-            tab.siteUrl == identity.siteUrl &&
-            tab.currentTopic?.id == identity.topicId &&
-            tab.topicNavigationRevision == identity.navigationRevision;
-      },
-      currentSnapshot: () => TopicViewportSnapshot.from(controller, tab: tab),
-      forumActive: () => controller.forumActive,
-      loadMore: tab.loadMorePosts,
-      loadEarlier: tab.loadEarlierPosts,
-      markRead:
-          ({
-            required String siteUrl,
-            required int topicId,
-            required int postNumber,
-            required bool caughtUp,
-            required List<int> readPostNumbers,
-          }) {
-            // Departing topics still credit their reader, but a queued dwell
-            // callback must never acquire a replacement account's credentials.
-            if (!lease.isCurrent) return Future<void>.value();
-            return controller.markTopicRead(
-              siteUrl,
-              topicId,
-              postNumber,
-              caughtUp: caughtUp,
-              readPostNumbers: readPostNumbers,
-            );
-          },
-      saveAnchor: (topicId, postNumber, viewportOffset) =>
-          controller.saveTopicScrollPost(
-            topicId,
-            postNumber,
-            viewportOffset: viewportOffset,
-            tabId: ownerTabId,
-          ),
-      flushAnchorPersist: controller.flushAnchorPersist,
-      savedPostNumber: () =>
-          controller.topicScrollPostNumber(identity.topicId, tabId: ownerTabId),
-      savedPostOffset: () =>
-          controller.topicScrollPostOffset(identity.topicId, tabId: ownerTabId),
-      postNumberFor: (postId) =>
-          controller.store.read<Post>(identity.siteUrl, postId)?.postNumber,
-    );
-  }
 
   final Object owner;
   final TopicViewportIdentity identity;
@@ -1449,45 +1379,6 @@ final class TopicViewportSnapshot {
     required this.navigationRevision,
   });
 
-  factory TopicViewportSnapshot.from(
-    ShellController controller, {
-    ShellTabContext? tab,
-  }) {
-    tab ??= controller.focusedTabContext;
-    final postIds = tab.currentPostIds;
-    final siteUrl = tab.isCurrent ? tab.siteUrl : null;
-    final topicId = tab.currentContent?.topicId;
-    final target = topicId == null
-        ? null
-        : controller.topicScrollPostNumber(topicId, tabId: tab.tabId);
-    final hasEarlier = tab.currentTopicHasEarlier;
-    final initialPostIndex = siteUrl != null && target != null
-        ? tab.initialPostIndexFor(postIds, target, hasEarlier: hasEarlier)
-        : null;
-
-    return TopicViewportSnapshot(
-      topicId: tab.currentTopic?.id,
-      topic: tab.currentTopic,
-      siteUrl: siteUrl,
-      postIds: postIds,
-      streamIds: tab.currentTopicStreamIds,
-      loading: tab.currentTopicLoading,
-      loadingMore: tab.loadingMorePosts,
-      loadingEarlier: tab.loadingEarlierPosts,
-      hasMore: tab.currentTopicHasMore,
-      hasEarlier: hasEarlier,
-      initialPostIndex: initialPostIndex,
-      recommendations: tab.currentTopic?.recommendations,
-      summary: tab.currentTopicSummary,
-      summaryLoading: tab.currentTopicSummaryLoading,
-      readTimeWordCount: controller.currentSiteConfig.readTimeWordCount,
-      showTimeGapDays: siteUrl == null
-          ? SiteConfig.defaultShowTimeGapDays
-          : controller.siteConfigFor(siteUrl).showTimeGapDays,
-      navigationRevision: tab.topicNavigationRevision,
-    );
-  }
-
   final int? topicId;
   final TopicDetail? topic;
   final String? siteUrl;
@@ -1512,7 +1403,7 @@ final class TopicViewportSnapshot {
   bool get progressByPostNumber => topic?.isMegaTopic == true && !summary;
 
   /// How many progress positions the topic has, each of which
-  /// [ShellController.jumpToCurrentTopicIndex] opens.
+  /// `ShellController.jumpToCurrentTopicIndex` opens.
   int get progressTotal => progressByPostNumber
       ? math.max(topic!.highestPostNumber, streamIds.length)
       : streamIds.length;

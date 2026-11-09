@@ -6,7 +6,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
+import 'package:discourse_native/src/shell/topic_viewport_shell_binding.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -76,7 +76,7 @@ void main() {
       final expected = posts.map((p) => p.id).toList();
       expect(shell.currentPostIds, expected);
       final expectedIds = shell.currentPostIds;
-      final initialIndex = TopicViewportSnapshot.from(shell).initialPostIndex;
+      final initialIndex = topicViewportSnapshotFrom(shell).initialPostIndex;
       expect(initialIndex, streamLength == 20 ? 7 : 71);
       final unrelatedId = streamLength + 1;
       store.put(
@@ -138,7 +138,7 @@ void main() {
                 ),
               );
             }
-            final snapshot = TopicViewportSnapshot.from(shell);
+            final snapshot = topicViewportSnapshotFrom(shell);
             resolved += snapshot.postIds.length;
             expect(snapshot.postIds, same(expectedIds));
             if (snapshot.postIds.first != expected.first ||
@@ -184,7 +184,7 @@ void main() {
         }
         store.postReads = 0;
         final clock = Stopwatch()..start();
-        final snapshot = TopicViewportSnapshot.from(shell);
+        final snapshot = topicViewportSnapshotFrom(shell);
         clock.stop();
         expect(snapshot.postIds, expected);
         expect(snapshot.initialPostIndex, initialIndex);

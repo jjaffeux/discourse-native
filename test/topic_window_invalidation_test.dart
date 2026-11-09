@@ -3,7 +3,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
-import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
+import 'package:discourse_native/src/shell/topic_viewport_shell_binding.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
@@ -100,7 +100,7 @@ void main() {
       expect(controller.currentPostIds, same(ids));
       expect(store.postReads, 0);
       expect(ref.value?.cooked, '<p>Edited</p>');
-      final snapshot = TopicViewportSnapshot.from(controller);
+      final snapshot = topicViewportSnapshotFrom(controller);
       expect(snapshot.topic?.title, 'Renamed');
       expect(snapshot.topic?.closed, isTrue);
       expect(snapshot.postIds, same(ids));
@@ -147,10 +147,10 @@ void main() {
       loaded: [1, 2, 3],
       target: 3,
     );
-    final before = TopicViewportSnapshot.from(controller);
+    final before = topicViewportSnapshotFrom(controller);
     expect(before.initialPostIndex, 2);
     controller.store.put(_siteUrl, _post(2, number: 3));
-    final after = TopicViewportSnapshot.from(controller);
+    final after = topicViewportSnapshotFrom(controller);
     expect(after.postIds, [1, 2, 3]);
     expect(after.postIds, isNot(same(before.postIds)));
     expect(after.initialPostIndex, 1);
@@ -183,7 +183,7 @@ void main() {
       ),
     );
     expect(controller.currentPostIds, [1, 2, 5, 6]);
-    expect(TopicViewportSnapshot.from(controller).topic?.gapsAfter, {
+    expect(topicViewportSnapshotFrom(controller).topic?.gapsAfter, {
       2: [3, 4],
     });
   });
