@@ -3052,6 +3052,10 @@ class ShellController extends FrameSafeNotifier
         _topicTracking.capture(siteUrl, lease: lease),
     reloadSource: (command, lease) async {
       if (!lease.isCurrent || isDisposed) return;
+      // Without unified New the forum-wide counts are the server's totals.
+      if (command.instance.user?.unifiedNewEnabled != true) {
+        unawaited(accountActivity.refresh(command.instance, force: true));
+      }
       await topicFeeds.load(
         instance: command.instance,
         destinationId: command.route.id,
