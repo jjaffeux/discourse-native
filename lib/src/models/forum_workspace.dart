@@ -176,6 +176,24 @@ final class ForumTab {
   final bool readsBesideSource;
 
   ContentRoute get currentContent => contentStack.last;
+
+  /// The list this tab was showing when it last arrived at [page]. A page can
+  /// stay mounted under what it opened, so only visits up to that arrival say
+  /// where it was reached from.
+  ContentRoute? listBefore(CorePage page) {
+    final visits = [...backHistory, location];
+    final arrival = visits.lastIndexWhere(
+      (visit) => visit.contentStack.last.isPage(page),
+    );
+    return visits
+        .take(arrival + 1)
+        .toList()
+        .reversed
+        .expand((visit) => visit.contentStack.reversed)
+        .where((route) => route.isTopicList)
+        .firstOrNull;
+  }
+
   bool get canGoBack => backHistory.isNotEmpty;
   bool get canGoForward => forwardHistory.isNotEmpty;
 

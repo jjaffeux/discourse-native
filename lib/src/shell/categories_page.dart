@@ -358,16 +358,10 @@ class _CategoriesPageState extends State<CategoriesPage> {
                                     onRetry: _retry,
                                   ),
                                 ),
-                              DPlaceCardGrid(
-                                itemCount: entries.length,
-                                itemBuilder: (context, index) => _CategoryCard(
-                                  key: ValueKey(
-                                    'category-row-${entries[index].category.id}',
-                                  ),
-                                  siteUrl: widget.siteUrl,
-                                  entry: entries[index],
-                                  categoriesById: directory.categoriesById,
-                                ),
+                              _CategoryGrid(
+                                siteUrl: widget.siteUrl,
+                                entries: entries,
+                                categoriesById: directory.categoriesById,
                               ),
                               if (entries.isEmpty && feed.error == null)
                                 SliverToBoxAdapter(
@@ -429,16 +423,47 @@ bool _matchesCategorySearch(TopicCategory category, List<String> queryWords) {
   );
 }
 
+class _CategoryGrid extends StatelessWidget {
+  const _CategoryGrid({
+    required this.siteUrl,
+    required this.entries,
+    required this.categoriesById,
+  });
+  final String siteUrl;
+  final List<CategoryDirectoryEntry> entries;
+  final Map<int, TopicCategory> categoriesById;
+
+  @override
+  Widget build(BuildContext context) => ForumTabSelector<ContentRoute?>(
+    select: (_, tab) => tab.activeTab?.listBefore(CorePage.categories),
+    builder: (context, list, _) {
+      final currentId = list?.categoryId;
+      return DPlaceCardGrid(
+        itemCount: entries.length,
+        itemBuilder: (context, index) => _CategoryCard(
+          key: ValueKey('category-row-${entries[index].category.id}'),
+          siteUrl: siteUrl,
+          entry: entries[index],
+          categoriesById: categoriesById,
+          selected: entries[index].category.id == currentId,
+        ),
+      );
+    },
+  );
+}
+
 class _CategoryCard extends StatelessWidget {
   const _CategoryCard({
     super.key,
     required this.siteUrl,
     required this.entry,
     required this.categoriesById,
+    required this.selected,
   });
   final String siteUrl;
   final CategoryDirectoryEntry entry;
   final Map<int, TopicCategory> categoriesById;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) => ShellSelector<int>(
@@ -466,6 +491,7 @@ class _CategoryCard extends StatelessWidget {
         onPressed: () => controller.openCategory(category, siteUrl: siteUrl),
         strong: unread,
         muted: entry.muted,
+        selected: selected,
         unreadCount: unread ? unreadTopicCount.toString() : null,
         semanticLabel: unread
             ? context.l10n.categoryUnreadTopics(unreadTopicCount)
