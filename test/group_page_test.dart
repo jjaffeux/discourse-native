@@ -943,6 +943,44 @@ void main() {
     expect(find.byKey(const ValueKey('manage-member-sam')), findsNothing);
   });
 
+  // Inviting into a group passes that group to can_invite_to_forum?, which
+  // requires can_edit_group? on it (lib/guardian/invite_guardian.rb).
+  testWidgets('a member who cannot edit the group is not offered its invites', (
+    tester,
+  ) async {
+    const publicGroup = Group(
+      id: 12,
+      name: 'makers',
+      userCount: 1,
+      canSeeMembers: true,
+      isGroupUser: true,
+    );
+
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail('makers'),
+        registry: PluginRegistry.empty,
+        data: const GroupPageData(
+          detail: GroupDetail(group: publicGroup),
+          members: GroupMembersPage(
+            members: [GroupMember(id: 3, username: 'sam')],
+            total: 1,
+          ),
+          canInviteToForum: true,
+        ),
+        onCreateInvite: ({email, customMessage}) async =>
+            const GroupInvite(id: 8, link: '/invites/native'),
+        onOpenMember: _ignoreMember,
+      ),
+      size: const Size(1180, 900),
+    );
+
+    expect(find.text('sam'), findsWidgets);
+    expect(find.byKey(const ValueKey('invite-group-members')), findsNothing);
+  });
+
   testWidgets('member parity tools expose metadata and management actions', (
     tester,
   ) async {
