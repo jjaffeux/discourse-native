@@ -1737,6 +1737,7 @@ class ChatController extends FrameSafeNotifier {
   /// Mirrors core's pin feature and guardian permission boundary.
   bool canPinMessage(String siteUrl, ChatMessage message) =>
       !isDisposed &&
+      _siteConfigFor(siteUrl).chatSettings.messagePinsEnabled &&
       _currentUserFor(siteUrl) != null &&
       message.id > 0 &&
       !message.isOptimistic &&
