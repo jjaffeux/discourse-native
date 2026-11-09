@@ -154,4 +154,39 @@ void main() {
       expect(selection.markdown, 'Look\n\nAfter **bold**');
     });
   });
+
+  group('emoji in post text', () {
+    // Core's markup for `:heart:`, as in `pretty_text_spec`.
+    String emoji(String name, {String classes = 'emoji'}) =>
+        '<img src="/images/emoji/twitter/$name.png?v=12" title=":$name:" '
+        'class="$classes" alt=":$name:" loading="lazy" width="20" height="20">';
+    final post = '<p>Nice ${emoji('heart')} work <strong>bold</strong></p>';
+
+    test('copied text and full quotes keep an emoji as its shortcode', () {
+      final resolver = PostQuoteSelectionResolver(post);
+
+      expect(resolver.exportText, 'Nice :heart: work bold');
+      expect(resolver.entirePost, 'Nice :heart: work **bold**');
+    });
+
+    test('a selection drawn across an emoji keeps its source formatting', () {
+      // What a selection across a drawn emoji reports: the artwork has no
+      // text, and the spaces on each side of it are both there.
+      final selection = PostQuoteSelectionResolver(
+        post,
+      ).resolve('Nice  work bold');
+
+      expect(selection.markdown, 'Nice :heart: work **bold**');
+      expect(selection.supportsFastEdit, isFalse);
+    });
+
+    test('a quoted emoji shortcode is written without markdown escapes', () {
+      final resolver = PostQuoteSelectionResolver(
+        '<p>${emoji('+1', classes: 'emoji only-emoji')}</p>'
+        '<p>${emoji('thumbs_up')}</p>',
+      );
+
+      expect(resolver.entirePost, ':+1:\n\n:thumbs_up:');
+    });
+  });
 }
