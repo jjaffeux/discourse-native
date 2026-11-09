@@ -829,6 +829,11 @@ final class SiteImageWidgetFactory extends WidgetFactory {
     Widget child,
     GestureRecognizer recognizer,
   ) {
+    // A heading's `a.anchor` is empty, so all it wraps is the zero-width
+    // destination marker: there is nothing to press, focus, or hold.
+    if (tree.element.localName == 'a' && tree.element.nodes.isEmpty) {
+      return child;
+    }
     Widget? detector = super.buildGestureDetector(tree, child, recognizer);
     final href = tree.element.attributes['href'];
     if (detector != null &&
