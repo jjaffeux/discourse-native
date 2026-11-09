@@ -1,5 +1,6 @@
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_navigation.dart';
+import 'package:discourse_native/src/plugins/gamification/gamification_route.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'gamification_fixture.dart';
 

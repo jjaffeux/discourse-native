@@ -3,9 +3,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_card.dart';
 
 @immutable

@@ -1,10 +1,10 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/topic.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'site_emoji_image.dart';
 
 /// Renders a category's artwork followed by a lock when reading is restricted.

@@ -1,5 +1,4 @@
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/widgets.dart';
 
 /// Icon families available throughout the application.
 enum DIconSet {
@@ -21,18 +20,6 @@ enum DIconSet {
     (set) => set.name == name,
     orElse: () => DIconSet.defaultSet,
   );
-}
-
-/// A subtree may preview another family without changing the app preference.
-class DIconSetScope extends InheritedWidget {
-  const DIconSetScope({super.key, required this.iconSet, required super.child});
-  final DIconSet iconSet;
-  static DIconSet of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<DIconSetScope>()?.iconSet ??
-      DIconSet.defaultSet;
-  @override
-  bool updateShouldNotify(DIconSetScope oldWidget) =>
-      iconSet != oldWidget.iconSet;
 }
 
 /// Matches the semantic Font Awesome names used by the mockups.

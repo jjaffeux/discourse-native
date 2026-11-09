@@ -14,8 +14,8 @@ import 'package:html/dom.dart' as dom;
 import 'package:webview_all/webview_all.dart';
 import 'package:webview_all_wkwebview/webview_all_wkwebview.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'media_webview.dart';
 import 'reader_media_activity.dart';

@@ -2,10 +2,10 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../models/composer_placement.dart';
 import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
-import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../platform.dart';
 import '../shell_metrics.dart';

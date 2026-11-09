@@ -39,7 +39,7 @@ import '../data/forum_settings_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
 import '../data/http_basic_auth.dart';
-import '../data/http_transport.dart';
+import '../data/http_url_safety.dart';
 import '../data/instance_store.dart';
 import '../data/recent_destinations_store.dart';
 import '../data/request_intent.dart';
@@ -58,6 +58,7 @@ import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/icons/d_icons.dart';
 import '../foundation/startup_timeline.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/badge_route.dart';
@@ -73,7 +74,6 @@ import '../models/discourse_instance.dart';
 import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/emoji_preferences.dart';
-import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_user.dart';
 import '../models/group.dart';
@@ -81,9 +81,7 @@ import '../models/group_route.dart';
 import '../models/incoming_topics.dart';
 import '../models/json.dart';
 import '../models/live_refresh_id.dart';
-import '../models/notification.dart';
 import '../models/notification_totals.dart';
-import '../models/notification_type_counts.dart';
 import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
@@ -122,7 +120,6 @@ import '../plugin_api/plugin_runtime.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../plugin_api/topic_reader.dart';
 import '../site_preference_inventory.g.dart';
-import '../theme/d_icons.dart';
 import 'account_activity_controller.dart';
 import 'account_new_topic_dismissals.dart';
 import 'app_settings_controller.dart';
@@ -160,10 +157,12 @@ import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
+import 'site_read_policy.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
 import 'topic_feed_controller.dart';
+import 'topic_filter_lookups.dart';
 import 'topic_filter_scope.dart';
 import 'topic_list_transitions.dart';
 import 'topic_prefetch_controller.dart';
@@ -173,6 +172,7 @@ import 'topic_tracking_directory.dart';
 import 'unread_topic_feed.dart';
 import 'update_controller.dart';
 import 'user_directory_controller.dart';
+import 'user_menu_notifications.dart';
 import 'user_status_overrides.dart';
 import 'user_summary_controller.dart';
 
@@ -315,7 +315,6 @@ class ShellController extends FrameSafeNotifier
     implements
         PluginNavigationHost,
         BookmarkHost,
-        PluginNotificationFeedHost,
         AccountSessionHost,
         _CurrentUserRefreshHost {
   ShellController({
@@ -696,7 +695,11 @@ class ShellController extends FrameSafeNotifier
       _pluginBookmarkHostPort(),
       _pluginComposerHostPort(),
       _pluginEmojiHostPort(),
-      _pluginNotificationFeedHostPort(),
+      PluginHostPort<Object>(
+        corePluginNotificationFeedPort,
+        userMenuNotifications,
+        scopeToConsumer: userMenuNotifications.scopedTo,
+      ),
     ]),
   );
 
@@ -817,19 +820,6 @@ class ShellController extends FrameSafeNotifier
         loadSearchAliases: host.loadSearchAliases,
         resolveUrl: host.resolveUrl,
       ),
-    );
-  }
-
-  PluginHostPort<Object> _pluginNotificationFeedHostPort() {
-    final host = _ShellPluginNotificationFeedHost(this);
-    return PluginHostPort<Object>(
-      corePluginNotificationFeedPort,
-      host,
-      scopeToConsumer: (consumer) =>
-          _ShellScopedPluginNotificationFeedHost(host, consumer, {
-            for (final source in plugins.registry.notificationFeeds)
-              if (source.id.owner == consumer) source.id: source,
-          }),
     );
   }
 
@@ -955,6 +945,14 @@ class ShellController extends FrameSafeNotifier
         onTotalsLoaded: _onTotalsLoaded,
         onTotalsChanged: _onTotalsChanged,
         onGroupedUnreadAuthorityAdvanced: _onGroupedUnreadAuthorityAdvanced,
+      );
+
+  late final UserMenuNotifications userMenuNotifications =
+      UserMenuNotifications(
+        registry: plugins.registry,
+        activity: accountActivity,
+        instanceFor: _instanceAt,
+        openUrl: openNotificationUrl,
       );
 
   late final DoNotDisturbController doNotDisturb = DoNotDisturbController(
@@ -1127,16 +1125,24 @@ class ShellController extends FrameSafeNotifier
         ),
       );
 
+  late final SiteReadPolicy siteReads = SiteReadPolicy(
+    api: api.site,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    instanceFor: _instanceAt,
+    isDisposed: () => isDisposed,
+  );
+
   SitePresentationController get _presentation =>
       _sitePresentation ??= _createSitePresentationController();
 
   SitePresentationController _createSitePresentationController() {
     final controller = SitePresentationController(
-      loadAppearance: _loadSiteAppearance,
-      loadConfig: _loadSiteConfig,
-      loadCustomEmojis: _loadCustomEmojis,
-      loadEmojiCatalog: _loadEmojiCatalog,
-      loadEmojiSearchAliases: _loadEmojiSearchAliases,
+      loadAppearance: siteReads.loadAppearance,
+      loadConfig: siteReads.loadConfig,
+      loadCustomEmojis: siteReads.loadCustomEmojis,
+      loadEmojiCatalog: siteReads.loadEmojiCatalog,
+      loadEmojiSearchAliases: siteReads.loadEmojiSearchAliases,
       credentials: credentials,
       lifecycle: lifecycle,
       readPersistedAppearance: (siteUrl) => _instanceAt(siteUrl)?.appearance,
@@ -1146,109 +1152,6 @@ class ShellController extends FrameSafeNotifier
     );
     controller.addListener(_notify);
     return controller;
-  }
-
-  Future<SiteAppearance?> _loadSiteAppearance({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    // A failed credential deletion can leave an orphaned key behind. The stored
-    // instance identity is the account boundary: signed-out sites may refresh
-    // their public colors, but must never forward that leftover credential.
-    final instance = _instanceAt(siteUrl);
-    final authenticate = apiKey != null && instance?.isConnected == true;
-    return api.site.siteAppearance(
-      siteUrl: siteUrl,
-      username: authenticate ? instance!.user!.username : null,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<ForumAbout> loadForumAbout(String siteUrl) async {
-    final instance = instanceFor(siteUrl);
-    final lease = lifecycle.capture(siteUrl);
-    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    final session = AccountRequestSession(siteUrl, lease);
-    final credential = instance.isConnected
-        ? await session.credentials(credentials)
-        : session.anonymousCredentials();
-    if (instance.isConnected && credential.apiKey == null) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    final about = await credential.run(
-      () => api.site.forumAbout(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey,
-        clientId: credential.clientId,
-      ),
-    );
-    if (isDisposed || !lease.isCurrent) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    return about;
-  }
-
-  Future<SiteConfig> _loadSiteConfig({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    // As with appearance, key presence is not account identity: secure storage
-    // can retain a key after a failed deletion. A signed-out instance must ask
-    // only for the site's public client settings.
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.siteConfig(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<Map<String, String>> _loadCustomEmojis({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.customEmojis(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<SiteEmojiCatalog> _loadEmojiCatalog({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.emojiCatalog(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<Map<String, List<String>>> _loadEmojiSearchAliases({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.emojiSearchAliases(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
   }
 
   String? _connectingSiteUrl;
@@ -2751,85 +2654,11 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
-  int likeNotificationUnreadCount(String siteUrl) =>
-      _groupedUnreadCountOf(siteUrl, plugins.registry.likeNotificationTypes);
-
-  /// The menu counts unread rows even after opening the bell marks them seen.
-  int allNotificationUnreadCount(String siteUrl) =>
-      _groupedUnreadNotificationCountsFor(siteUrl)?.totalExcluding(const []) ??
-      accountActivity.totalsFor(siteUrl)?.coreBadge ??
-      0;
-
-  // The Replies, Messages and Bookmarks tabs count unread notifications of
-  // their own types, as Discourse's menu does. The seen-scoped
-  // `new_personal_messages_notifications_count` is not a Messages count: the
-  // Notifications tab's non-silent fetch bumps the seen marker, and core then
-  // publishes it as zero while those notifications are still unread.
-  int replyNotificationUnreadCount(String siteUrl) =>
-      _groupedUnreadCountOf(siteUrl, userMenuReplyNotificationTypes);
-
-  int messageNotificationUnreadCount(String siteUrl) {
-    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
-    return counts?.count(CoreNotificationTypes.privateMessage) ?? 0;
-  }
-
-  int bookmarkReminderUnreadCount(String siteUrl) {
-    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
-    return counts?.count(CoreNotificationTypes.bookmarkReminder) ?? 0;
-  }
-
-  int _groupedUnreadCountOf(
-    String siteUrl,
-    Iterable<NotificationTypeName> types,
-  ) {
-    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
-    if (counts == null) return 0;
-    final names = types.toSet();
-    return _registeredNotificationTypes
-        .where((type) => names.contains(NotificationTypeName(type.wireName)))
-        .fold(0, (total, type) => total + counts.count(type));
-  }
-
   NotificationFeed otherNotificationsFor(String siteUrl) =>
       accountActivity.otherNotificationsFor(siteUrl);
 
   Future<void> loadOtherNotifications(String siteUrl) =>
       _notificationFeeds.loadOtherNotifications(siteUrl);
-
-  int otherNotificationUnreadCount(
-    String siteUrl, {
-    List<PluginUserMenuSection>? pluginSections,
-  }) {
-    final instance = _instanceAt(siteUrl);
-    final counts = _groupedUnreadNotificationCountsFor(siteUrl);
-    if (counts == null) return 0;
-
-    final claimedNames = _claimedUserMenuNotificationTypes(
-      pluginSections ?? _pluginUserMenuSectionsFor(instance),
-    );
-    final claimedIds = <NotificationTypeId>{
-      for (final definition in _registeredNotificationTypes)
-        if (claimedNames.contains(NotificationTypeName(definition.wireName)))
-          NotificationTypeId(definition.wireId),
-    };
-    return counts.totalExcluding(claimedIds);
-  }
-
-  NotificationTypeCounts? _groupedUnreadNotificationCountsFor(String siteUrl) {
-    final instance = _instanceAt(siteUrl);
-    final live = accountActivity.totalsFor(siteUrl)?.groupedUnreadNotifications;
-    final counts = live?.isAvailable == true
-        ? live!
-        : instance?.user?.groupedUnreadNotifications;
-    return counts?.isAvailable == true ? counts : null;
-  }
-
-  Iterable<NotificationWireType> get _registeredNotificationTypes sync* {
-    yield* CoreNotificationTypes.values;
-    for (final type in plugins.registry.notificationTypes) {
-      yield type.wireType;
-    }
-  }
 
   late final _notificationFeeds = NotificationFeedRefreshOwner(
     api: api.site,
@@ -2837,97 +2666,10 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     activity: accountActivity,
     instanceFor: _instanceAt,
-    claimedTypes: (instance) =>
-        _claimedUserMenuNotificationTypes(_pluginUserMenuSectionsFor(instance)),
+    claimedTypes: userMenuNotifications.claimedTypesFor,
     groupedAuthorityAdvanced: _onGroupedUnreadAuthorityAdvanced,
     refreshDebounce: pluginNotificationFeedRefreshDebounce,
   );
-
-  Set<NotificationTypeName> _claimedUserMenuNotificationTypes(
-    Iterable<PluginUserMenuSection> pluginSections,
-  ) => {
-    ...userMenuDedicatedNotificationTypes,
-    ...plugins.registry.likeNotificationTypes,
-    for (final section in pluginSections) ...section.notificationTypes,
-  };
-
-  List<PluginUserMenuSection> _pluginUserMenuSectionsFor(
-    DiscourseInstance? instance,
-  ) {
-    final user = instance?.user;
-    if (instance == null || user == null) return const [];
-    return plugins.registry.userMenuSections(
-      PluginUserMenuContext(
-        siteUrl: instance.url,
-        user: user,
-        totals: accountActivity.totalsFor(instance.url),
-      ),
-    );
-  }
-
-  @override
-  Listenable notificationFeedListenable(PluginNotificationFeedId id) =>
-      accountActivity.pluginNotificationsListenable(id);
-
-  @override
-  NotificationFeed notificationFeedFor(
-    PluginNotificationFeedId id,
-    String siteUrl,
-  ) => accountActivity.pluginNotificationsFor(id, siteUrl);
-
-  @override
-  Future<void> loadPluginNotificationFeed(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) async {
-    final registered = plugins.registry.notificationFeed(source.id);
-    if (registered != source) {
-      throw StateError(
-        'Notification feed ${source.id.id} is not installed in this build.',
-      );
-    }
-    final instance = _instanceAt(siteUrl);
-    if (instance != null) {
-      await accountActivity.loadPluginNotifications(instance, registered!);
-    }
-  }
-
-  @override
-  Future<void> dismissPluginNotifications(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) async {
-    final registered = plugins.registry.notificationFeed(source.id);
-    if (registered != source) {
-      throw StateError(
-        'Notification feed ${source.id.id} is not installed in this build.',
-      );
-    }
-    if (registered!.dismissal == null) {
-      throw StateError(
-        'Notification feed ${source.id.id} does not support dismissal.',
-      );
-    }
-    final instance = _instanceAt(siteUrl);
-    if (instance == null) {
-      throw StateError('No forum is registered for $siteUrl.');
-    }
-    await accountActivity.dismissPluginNotifications(instance, registered);
-  }
-
-  @override
-  void readPluginNotification(
-    String siteUrl,
-    DiscourseNotification notification,
-  ) => readNotification(siteUrl, notification);
-
-  @override
-  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
-      siteLink(path, siteUrl: siteUrl);
-
-  @override
-  Future<bool> openPluginNotificationUrl(String url) =>
-      openNotificationUrl(url);
 
   void readNotification(String siteUrl, DiscourseNotification notification) {
     final instance = _instanceAt(siteUrl);
@@ -3433,19 +3175,15 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  late final TopicFilterLookups topicFilterLookups = TopicFilterLookups(
+    topicFeeds: api.topicFeeds,
+    lookups: api.lookups,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    isDisposed: () => isDisposed,
+  );
+
   String filterQueryFor(String siteUrl) => topicFeeds.filterQueryFor(siteUrl);
-
-  Future<List<TopicFilterOption>> loadTopicFilterOptions(String siteUrl) =>
-      _filterLookup(
-        siteUrl,
-
-        (apiKey, clientId) async => (await api.topicFeeds.topicList(
-          siteUrl: siteUrl,
-          path: '/filter.json',
-          apiKey: apiKey,
-          clientId: clientId,
-        )).filterOptions,
-      );
 
   String topicListFilterEditorQuery(ContentRoute route) =>
       route.topicFilterEditorQuery(
@@ -3478,74 +3216,6 @@ class ShellController extends FrameSafeNotifier
     term: term,
     categoryId: categoryId,
   );
-
-  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) => api.lookups.searchFilterTagGroups(
-      siteUrl: siteUrl,
-      term: term,
-      apiKey: apiKey,
-      clientId: clientId,
-    ),
-  );
-
-  Future<List<TopicFilterLookupValue>> searchFilterGroups({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) => apiKey == null
-        ? Future.value(const [])
-        : api.lookups.searchFilterGroups(
-            siteUrl: siteUrl,
-            term: term,
-            apiKey: apiKey,
-            clientId: clientId,
-          ),
-  );
-
-  Future<List<TopicFilterLookupValue>> searchFilterUsers({
-    required String siteUrl,
-    required String term,
-  }) => _filterLookup(
-    siteUrl,
-
-    (apiKey, clientId) async => [
-      for (final user in await api.lookups.searchUsers(
-        siteUrl: siteUrl,
-        term: term,
-        apiKey: apiKey,
-        clientId: clientId,
-      ))
-        TopicFilterLookupValue(name: user.username, description: user.name),
-    ],
-  );
-
-  Future<List<T>> _filterLookup<T>(
-    String siteUrl,
-
-    Future<List<T>> Function(String? apiKey, String? clientId) lookup,
-  ) async {
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await AccountRequestSession(
-        siteUrl,
-        lease,
-      ).credentials(credentials);
-      if (!lease.isCurrent) return const [];
-      final found = await credential.run(
-        () => lookup(credential.apiKey, credential.clientId),
-      );
-      return !isDisposed && lease.isCurrent ? found : const [];
-    } catch (error) {
-      return const [];
-    }
-  }
 
   int feedScrollRow(String destinationId, {String? tabId}) {
     final instance = currentInstance;
@@ -9971,148 +9641,6 @@ final class _ShellScopedPluginBookmarkHostFactory
     }
     return _shell._bookmarks.pluginTarget(targetType);
   }
-}
-
-final class _ShellPluginNotificationFeedHost
-    implements PluginNotificationFeedHost {
-  const _ShellPluginNotificationFeedHost(this._shell);
-
-  final ShellController _shell;
-
-  @override
-  Listenable notificationFeedListenable(PluginNotificationFeedId id) =>
-      _shell.notificationFeedListenable(id);
-
-  @override
-  NotificationFeed notificationFeedFor(
-    PluginNotificationFeedId id,
-    String siteUrl,
-  ) => _shell.notificationFeedFor(id, siteUrl);
-
-  @override
-  Future<void> loadPluginNotificationFeed(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) => _shell.loadPluginNotificationFeed(siteUrl, source);
-
-  @override
-  Future<void> dismissPluginNotifications(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) => _shell.dismissPluginNotifications(siteUrl, source);
-
-  @override
-  void readPluginNotification(
-    String siteUrl,
-    DiscourseNotification notification,
-  ) => _shell.readPluginNotification(siteUrl, notification);
-
-  @override
-  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
-      _shell.pluginAbsoluteUrl(path, siteUrl: siteUrl);
-
-  @override
-  Future<bool> openPluginNotificationUrl(String url) =>
-      _shell.openPluginNotificationUrl(url);
-}
-
-final class _ShellScopedPluginNotificationFeedHost
-    implements PluginNotificationFeedHost {
-  const _ShellScopedPluginNotificationFeedHost(
-    this._host,
-    this._consumer,
-    this._sources,
-  );
-
-  final PluginNotificationFeedHost _host;
-  final PluginId _consumer;
-  final Map<PluginNotificationFeedId, PluginNotificationFeedSource> _sources;
-
-  PluginNotificationFeedSource _requireDeclared(PluginNotificationFeedId id) {
-    final source = _sources[id];
-    if (source != null) return source;
-    final reason = id.owner == _consumer
-        ? appL10n.didNotRegisterNotificationFeed
-        : appL10n.cannotAccessNotificationFeed;
-    throw PluginInstallationException(
-      appL10n.plugin(
-        (_consumer).toString(),
-        (reason).toString(),
-        (id.id).toString(),
-      ),
-    );
-  }
-
-  @override
-  Listenable notificationFeedListenable(PluginNotificationFeedId id) {
-    _requireDeclared(id);
-    return _host.notificationFeedListenable(id);
-  }
-
-  @override
-  NotificationFeed notificationFeedFor(
-    PluginNotificationFeedId id,
-    String siteUrl,
-  ) {
-    _requireDeclared(id);
-    return _host.notificationFeedFor(id, siteUrl);
-  }
-
-  @override
-  Future<void> loadPluginNotificationFeed(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) {
-    final registered = _requireDeclared(source.id);
-    if (registered != source) {
-      throw PluginInstallationException(
-        appL10n.pluginMustUseItsRegisteredNotificationFeed(
-          (_consumer).toString(),
-          (source.id.id).toString(),
-        ),
-      );
-    }
-    return _host.loadPluginNotificationFeed(siteUrl, registered);
-  }
-
-  @override
-  Future<void> dismissPluginNotifications(
-    String siteUrl,
-    PluginNotificationFeedSource source,
-  ) {
-    final registered = _requireDeclared(source.id);
-    if (registered != source) {
-      throw PluginInstallationException(
-        appL10n.pluginMustUseItsRegisteredNotificationFeed(
-          (_consumer).toString(),
-          (source.id.id).toString(),
-        ),
-      );
-    }
-    if (registered.dismissal == null) {
-      throw PluginInstallationException(
-        appL10n.pluginDidNotRegisterDismissalForNotificationFeed(
-          (_consumer).toString(),
-          (source.id.id).toString(),
-        ),
-      );
-    }
-    return _host.dismissPluginNotifications(siteUrl, registered);
-  }
-
-  @override
-  void readPluginNotification(
-    String siteUrl,
-    DiscourseNotification notification,
-  ) => _host.readPluginNotification(siteUrl, notification);
-
-  @override
-  String pluginAbsoluteUrl(String path, {required String siteUrl}) =>
-      _host.pluginAbsoluteUrl(path, siteUrl: siteUrl);
-
-  @override
-  Future<bool> openPluginNotificationUrl(String url) =>
-      _host.openPluginNotificationUrl(url);
 }
 
 final class _ShellProfileCurrentUser implements ProfileCurrentUser {

@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/composer/autocomplete.dart';
 import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
-import 'package:discourse_native/src/shell/composer/components/code.dart';
+import 'package:discourse_native/src/shell/composer/components/code_editor.dart';
 import 'package:discourse_native/src/shell/composer/components/quote.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';

@@ -11,8 +11,8 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'image_download.dart';

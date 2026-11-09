@@ -6,8 +6,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/forum_workspace.dart';
-import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 

@@ -8,10 +8,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
+import '../../theme/tooltip_metrics.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/overlay_observers.dart';
-import '../foundation/tokens.dart';
 import 'd_kbd.dart';
 
 enum DTooltipSide { top, bottom, left, right, inlineStart, inlineEnd }
@@ -27,7 +28,7 @@ class DTooltipProvider extends StatefulWidget {
   const DTooltipProvider({
     super.key,
     required this.child,
-    this.delay = DTooltip.defaultHoverDelay,
+    this.delay = DTooltipMetrics.hoverDelay,
     this.closeDelay = Duration.zero,
     this.timeout = const Duration(milliseconds: 400),
   });
@@ -136,7 +137,7 @@ class DTooltip extends RawTooltip {
        super(
          semanticsTooltip: message,
          tooltipBuilder: _buildContent,
-         hoverDelay: hoverDelay ?? defaultHoverDelay,
+         hoverDelay: hoverDelay ?? DTooltipMetrics.hoverDelay,
          dismissDelay: dismissDelay ?? Duration.zero,
          ignorePointer: false,
          animationStyle: const AnimationStyle(
@@ -146,17 +147,6 @@ class DTooltip extends RawTooltip {
          ),
          touchDelay: const Duration(milliseconds: 1800),
        );
-
-  /// How long the pointer must remain over a trigger before showing its hint.
-  static const defaultHoverDelay = Duration(milliseconds: 250);
-
-  static const defaultConstraints = BoxConstraints(maxWidth: 320);
-  static const defaultPadding = EdgeInsets.symmetric(
-    horizontal: 12,
-    vertical: 6,
-  );
-  static const defaultMargin = EdgeInsets.all(5);
-  static const double defaultVerticalOffset = 4;
 
   final String message;
   final Widget? content;
@@ -237,7 +227,7 @@ class DTooltipState extends State<DTooltip>
       ? Duration.zero
       : widget._hoverDelay ??
             _group?.widget.delay ??
-            DTooltip.defaultHoverDelay;
+            DTooltipMetrics.hoverDelay;
   Duration get _closeDelay =>
       widget._dismissDelay ?? _group?.widget.closeDelay ?? Duration.zero;
 

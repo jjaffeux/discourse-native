@@ -3,11 +3,11 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/json.dart';
 import '../models/notification.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 
 @immutable
 final class PluginNotificationTypeId {

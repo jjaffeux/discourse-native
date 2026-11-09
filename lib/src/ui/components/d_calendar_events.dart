@@ -9,10 +9,10 @@ import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
 import '../../foundation/calendar_day.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_badge.dart';
 import 'd_button.dart';
 import 'd_calendar.dart';

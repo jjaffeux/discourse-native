@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/destination_bookmarks_store.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_model_codec.dart';
@@ -20,7 +21,6 @@ import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:discourse_native/src/shell/emoji_picker_controller.dart';
 import 'package:discourse_native/src/shell/topic_data_owner.dart';
 import 'package:discourse_native/src/shell/topic_feed_controller.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 
 Future<Map<String, int>> measureRoundThreeServicePerformance() async {
   final times = <String, int>{};

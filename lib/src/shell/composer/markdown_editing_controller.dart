@@ -12,17 +12,14 @@ import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/hashtag_kind.dart';
+import 'artwork.dart';
 import 'blocks.dart';
 import 'components/blockquote.dart';
 import 'components/emoji.dart';
-import 'components/gallery.dart';
 import 'components/gallery_source.dart';
-import 'components/hashtag.dart';
-import 'components/image.dart';
 import 'components/image_source.dart';
 import 'components/link.dart';
-import 'components/mention.dart';
-import 'components/quote.dart';
+import 'components/quote_source.dart';
 import 'components/todo.dart';
 import 'inline_spans.dart';
 import 'markdown_highlight.dart';
@@ -55,6 +52,7 @@ class MarkdownEditingController extends TextEditingController {
     this.enableBlockSeparators = false,
     this.protectComponentSource = false,
     this.shareScans = true,
+    this.artwork,
     @visibleForTesting
     SyntaxHighlightBatcher backgroundSyntaxHighlighterForTesting =
         highlightLinesBatchInBackground,
@@ -79,6 +77,12 @@ class MarkdownEditingController extends TextEditingController {
 
   final List<ComposerSyntaxPolicy> syntaxPolicies;
   ComposerEditorHost? syntaxEditor;
+
+  /// Draws the media, quotes, pills and links this controller projects. The
+  /// editor rendering the controller installs it; a controller rendered in a
+  /// plain field names its own.
+  ComposerArtwork? artwork;
+  ComposerArtwork get _installedArtwork => artwork ?? composerArtworkMissing();
   final ComposerUploadUrlResolver? resolveUploadUrls;
   bool enableMarkdownLinkify;
   List<String> _markdownLinkifyTlds;
@@ -1316,6 +1320,7 @@ class MarkdownEditingController extends TextEditingController {
     final linkPolicy = ComposerLinkSyntaxPolicy(
       enableLinkify: enableMarkdownLinkify,
       linkifyTlds: _markdownLinkifyTlds,
+      artwork: () => _installedArtwork,
     );
     final blocks = <ComposerSyntaxOccurrence>[
       for (final projection in linkPolicy.parseWithCodeRanges(
@@ -1476,7 +1481,7 @@ class MarkdownEditingController extends TextEditingController {
             block.contents,
       );
 
-  int _artwork = 0;
+  int _artworkRevision = 0;
 
   late final _emojiArtwork = ComposerEmojiArtwork(onChanged: artworkArrived);
 
@@ -1828,7 +1833,7 @@ class MarkdownEditingController extends TextEditingController {
           theme: theme,
           composing: composing,
           revealed: revealed,
-          artwork: _artwork,
+          artwork: _artworkRevision,
           quoteProjection: quoteProjection,
           syntaxProjection: syntaxProjection,
           imageProjection: imageProjection,
@@ -2240,7 +2245,7 @@ class MarkdownEditingController extends TextEditingController {
     );
 
     // After the span is built, not during: asking is a side effect, and the
-    // answer arrives through [_artwork] and a repaint rather than here.
+    // answer arrives through [_artworkRevision] and a repaint rather than here.
     if (unresolvedRefs.isNotEmpty || unresolvedNames.isNotEmpty) {
       pills?.resolve(unresolvedRefs, unresolvedNames);
     }
@@ -2252,7 +2257,7 @@ class MarkdownEditingController extends TextEditingController {
       theme: theme,
       composing: composing,
       revealed: revealed,
-      artwork: _artwork,
+      artwork: _artworkRevision,
       quoteProjection: quoteProjection,
       syntaxProjection: syntaxProjection,
       imageProjection: imageProjection,
@@ -2267,23 +2272,38 @@ class MarkdownEditingController extends TextEditingController {
     ComposerQuoteBlock block,
     String displayedContents,
     TextStyle base,
-  ) => buildComposerQuoteSpans(
-    source: text,
-    block: block,
-    contents: displayedContents,
-    siteUrl: imageSiteUrl,
-    baseStyle: base,
-    quoteKey: _quoteKeys.putIfAbsent(
-      block.start,
-      () => GlobalKey(debugLabel: 'composer-quote-${block.start}'),
+  ) => [
+    WidgetSpan(
+      alignment: PlaceholderAlignment.top,
+      style: base,
+      child: KeyedSubtree(
+        key: _quoteKeys.putIfAbsent(
+          block.start,
+          () => GlobalKey(debugLabel: 'composer-quote-${block.start}'),
+        ),
+        child: _installedArtwork.quote(
+          block: block,
+          contents: displayedContents,
+          siteUrl: imageSiteUrl,
+          baseStyle: base,
+          removeKey: _quoteRemoveKeys.putIfAbsent(
+            block.start,
+            () => GlobalKey(debugLabel: 'composer-quote-remove-${block.start}'),
+          ),
+          selected: isPillSelectedForKeyboard(ComposerQuoteInput(block)),
+          onRemove: onRemoveQuote == null
+              ? null
+              : () => onRemoveQuote?.call(block),
+        ),
+      ),
     ),
-    removeKey: _quoteRemoveKeys.putIfAbsent(
-      block.start,
-      () => GlobalKey(debugLabel: 'composer-quote-remove-${block.start}'),
+    ...composerCollapsedBlockSourceTail(
+      source: text,
+      start: block.start,
+      end: block.contentEnd,
+      baseStyle: base,
     ),
-    selected: isPillSelectedForKeyboard(ComposerQuoteInput(block)),
-    onRemove: onRemoveQuote == null ? null : () => onRemoveQuote?.call(block),
-  );
+  ];
 
   String? _imageUrlForArtwork(
     ComposerImageBlock image,
@@ -2307,68 +2327,94 @@ class MarkdownEditingController extends TextEditingController {
     TextStyle base,
     Set<String> unresolved, {
     required bool highlighted,
-  }) => buildComposerImageSpans(
-    source: text,
-    image: image,
-    baseStyle: base,
-    imageKey: _imageKeys.putIfAbsent(
-      image.start,
-      () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
+  }) => [
+    WidgetSpan(
+      alignment: PlaceholderAlignment.top,
+      style: base,
+      child: KeyedSubtree(
+        key: _imageKeys.putIfAbsent(
+          image.start,
+          () => GlobalKey(debugLabel: 'composer-image-${image.start}'),
+        ),
+        child: _installedArtwork.image(
+          image: image,
+          url: _imageUrlForArtwork(image, unresolved),
+          siteUrl: imageSiteUrl,
+          highlighted: highlighted,
+          onNaturalSize: (size) => _recordNaturalImageSize(image, size),
+          onDragStarted: onReorderImageGallery == null
+              ? null
+              : () => keepImageCollapsedForPointerEdit(image),
+          onDragEnded: () {
+            if (image.end <= text.length &&
+                text.substring(image.start, image.end) == image.source &&
+                selection.isCollapsed &&
+                selection.extentOffset > image.start &&
+                selection.extentOffset < image.end) {
+              selection = TextSelection.collapsed(offset: image.end);
+            }
+            releaseImagePointerEdit(image);
+          },
+        ),
+      ),
     ),
-    url: _imageUrlForArtwork(image, unresolved),
-    siteUrl: imageSiteUrl,
-    highlighted: highlighted,
-    trailingCaretLine: _lineEnd.matchAsPrefix(text, image.end) == null,
-    onDragStarted: onReorderImageGallery == null
-        ? null
-        : () => keepImageCollapsedForPointerEdit(image),
-    onDragEnded: () {
-      if (image.end <= text.length &&
-          text.substring(image.start, image.end) == image.source &&
-          selection.isCollapsed &&
-          selection.extentOffset > image.start &&
-          selection.extentOffset < image.end) {
-        selection = TextSelection.collapsed(offset: image.end);
-      }
-      releaseImagePointerEdit(image);
-    },
-    onNaturalSize: (size) => _recordNaturalImageSize(image, size),
-  );
+    ...composerCollapsedBlockSourceTail(
+      source: text,
+      start: image.start,
+      end: image.end,
+      baseStyle: base,
+      trailingCaretLine: _lineEnd.matchAsPrefix(text, image.end) == null,
+    ),
+  ];
 
   List<InlineSpan> _buildGallerySpans(
     ComposerImageGalleryBlock gallery,
     TextStyle base,
     Set<String> unresolved,
-  ) => buildComposerGallerySpans(
-    source: text,
-    gallery: gallery,
-    baseStyle: base,
-    galleryKey: _galleryKeys.putIfAbsent(
-      gallery.start,
-      () => GlobalKey(debugLabel: 'composer-image-gallery-${gallery.start}'),
+  ) => [
+    WidgetSpan(
+      alignment: PlaceholderAlignment.top,
+      style: base,
+      child: KeyedSubtree(
+        key: _galleryKeys.putIfAbsent(
+          gallery.start,
+          () =>
+              GlobalKey(debugLabel: 'composer-image-gallery-${gallery.start}'),
+        ),
+        child: _installedArtwork.gallery(
+          gallery: gallery,
+          siteUrl: imageSiteUrl,
+          highlighted:
+              isPillSelectedForKeyboard(ComposerGalleryInput(gallery)) ||
+              _sameGallery(_caretSuppressedGallery, gallery),
+          resolveUrl: (image) => _imageUrlForArtwork(image, unresolved),
+          imageKey: (image) => _imageKeys.putIfAbsent(
+            image.start,
+            () =>
+                GlobalKey(debugLabel: 'composer-gallery-image-${image.start}'),
+          ),
+          imageHighlighted: (image) =>
+              isPillSelectedForKeyboard(ComposerImageInput(image)),
+          onNaturalSize: _recordNaturalImageSize,
+          onEdit: onEditImageGallery == null
+              ? null
+              : () => onEditImageGallery!(gallery),
+          onReorder: onReorderImageGallery == null
+              ? null
+              : (image, index) => onReorderImageGallery!(gallery, image, index),
+          onReorderStarted: _startGalleryImageDrag,
+          onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
+        ),
+      ),
     ),
-    siteUrl: imageSiteUrl,
-    highlighted:
-        isPillSelectedForKeyboard(ComposerGalleryInput(gallery)) ||
-        _sameGallery(_caretSuppressedGallery, gallery),
-    trailingCaretLine: _lineEnd.matchAsPrefix(text, gallery.end) == null,
-    resolveUrl: (image) => _imageUrlForArtwork(image, unresolved),
-    imageKey: (image) => _imageKeys.putIfAbsent(
-      image.start,
-      () => GlobalKey(debugLabel: 'composer-gallery-image-${image.start}'),
+    ...composerCollapsedBlockSourceTail(
+      source: text,
+      start: gallery.start,
+      end: gallery.end,
+      baseStyle: base,
+      trailingCaretLine: _lineEnd.matchAsPrefix(text, gallery.end) == null,
     ),
-    imageHighlighted: (image) =>
-        isPillSelectedForKeyboard(ComposerImageInput(image)),
-    onNaturalSize: _recordNaturalImageSize,
-    onEdit: onEditImageGallery == null
-        ? null
-        : () => onEditImageGallery!(gallery),
-    onReorder: onReorderImageGallery == null
-        ? null
-        : (image, index) => onReorderImageGallery!(gallery, image, index),
-    onReorderStarted: _startGalleryImageDrag,
-    onReorderEnded: (image) => _endGalleryImageDrag(gallery, image),
-  );
+  ];
 
   void _startGalleryImageDrag(ComposerImageBlock image) {
     if (_sameImage(_draggedGalleryImage, image)) return;
@@ -2429,7 +2475,7 @@ class MarkdownEditingController extends TextEditingController {
           // Transport failures remain retryable. Notifying here would create a
           // rebuild/request loop while the site is unreachable.
           _resolvingImageUrls.removeAll(fresh);
-          if (!_disposed) _artwork++;
+          if (!_disposed) _artworkRevision++;
         },
       ),
     );
@@ -2453,7 +2499,7 @@ class MarkdownEditingController extends TextEditingController {
 
   void artworkArrived() {
     if (_disposed) return;
-    _artwork++;
+    _artworkRevision++;
     notifyListeners();
   }
 
@@ -2536,13 +2582,17 @@ class MarkdownEditingController extends TextEditingController {
       return null;
     }
 
-    return buildComposerHashtagSpans(
+    return composerInlinePlaceholderSpans(
       source: text,
       range: TextRange(start: run.start, end: run.end),
-      hashtag: found,
       baseStyle: base,
-      siteUrl: imageSiteUrl,
-      pluginPresentation: pluginHashtagPresentation,
+      child: _installedArtwork.hashtag(
+        label: text.substring(run.start, run.end),
+        hashtag: found,
+        baseStyle: base,
+        siteUrl: imageSiteUrl,
+        pluginPresentation: pluginHashtagPresentation,
+      ),
     );
   }
 
@@ -2559,13 +2609,19 @@ class MarkdownEditingController extends TextEditingController {
     }
     if (!real) return null;
 
-    return buildComposerMentionSpans(
+    return composerInlinePlaceholderSpans(
       source: text,
       range: TextRange(start: run.start, end: run.end),
       baseStyle: base,
-      pillKey: _mentionPillKeys.putIfAbsent(
-        run.start,
-        () => GlobalKey(debugLabel: 'mention-pill-${run.start}'),
+      child: KeyedSubtree(
+        key: _mentionPillKeys.putIfAbsent(
+          run.start,
+          () => GlobalKey(debugLabel: 'mention-pill-${run.start}'),
+        ),
+        child: _installedArtwork.mention(
+          label: text.substring(run.start, run.end),
+          baseStyle: base,
+        ),
       ),
     );
   }

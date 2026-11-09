@@ -7,11 +7,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/topic.dart';
 import '../models/user_activity.dart';
 import '../models/user_activity_feed.dart';
-import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';

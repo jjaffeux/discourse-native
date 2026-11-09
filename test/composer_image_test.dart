@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/image.dart';
 import 'package:discourse_native/src/shell/composer/components/image_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
@@ -208,6 +209,7 @@ void main() {
       final resolution = Completer<Map<String, String>>();
       final requests = <Set<String>>[];
       final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: _source,
         resolveUploadUrls: (urls) {
           requests.add(Set.unmodifiable(urls));
@@ -248,7 +250,10 @@ void main() {
     testWidgets('preserves raw offsets while the image is collapsed', (
       tester,
     ) async {
-      final controller = MarkdownEditingController(text: _source);
+      final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
+        text: _source,
+      );
       addTearDown(controller.dispose);
 
       await tester.pumpWidget(
@@ -286,6 +291,7 @@ void main() {
       const siteUrl = 'https://meta.discourse.org';
       const imageUrl = '$siteUrl/secure-uploads/image.png';
       final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: '![secure|640x480]($imageUrl)',
         imageSiteUrl: siteUrl,
       );
@@ -320,7 +326,10 @@ void main() {
     testWidgets(
       'range selection keeps the image while an interior caret reveals it',
       (tester) async {
-        final controller = MarkdownEditingController(text: _source);
+        final controller = MarkdownEditingController(
+          artwork: const CoreComposerArtwork(),
+          text: _source,
+        );
         addTearDown(controller.dispose);
         await tester.pumpWidget(
           MaterialApp(
@@ -366,6 +375,7 @@ void main() {
       final failure = Completer<Map<String, String>>();
       final requests = <Set<String>>[];
       final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: _source,
         resolveUploadUrls: (urls) {
           requests.add(Set.unmodifiable(urls));
@@ -413,6 +423,7 @@ void main() {
       final completions = <Completer<Map<String, String>>>[];
       final requests = <Set<String>>[];
       final controller = MarkdownEditingController(
+        artwork: const CoreComposerArtwork(),
         text: _source,
         resolveUploadUrls: (urls) {
           requests.add(Set.unmodifiable(urls));

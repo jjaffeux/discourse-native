@@ -9,9 +9,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/overlay_observers.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 import 'd_popover.dart';
 
 enum DHoverCardChangeReason {

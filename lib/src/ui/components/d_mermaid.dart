@@ -9,9 +9,9 @@ import 'package:flutter/services.dart';
 import 'package:webview_all/webview_all.dart';
 
 import '../../foundation/foreground_lifecycle.dart';
+import '../../theme/tokens.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/mermaid_document.dart';
-import '../foundation/tokens.dart';
 import 'd_alert.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';

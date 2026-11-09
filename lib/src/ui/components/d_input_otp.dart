@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/tokens.dart';
 
 /// Accepts one ASCII digit per Input OTP slot.
 final RegExp dInputOTPDigits = RegExp(r'^[0-9]$');

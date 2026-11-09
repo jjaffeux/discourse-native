@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 
 import 'ai_conversations_data.dart';
-import 'ai_conversations_plugin.dart';
+import 'discourse_ai_icons.dart';
 
 const aiConversationsService = PluginServiceKey<AiConversationsService>(
   owner: PluginId('discourse-ai'),
@@ -74,6 +74,12 @@ final class AiConversationsService implements PluginLinkHandler {
   final PluginSiteStateHost siteState;
   final PluginRouteNavigationHost navigation;
   final PluginTopicListNavigationHost topicLists;
+
+  static ContentRoute get route => ContentRoute(
+    destination: const ExtensionDestination('ai-conversations'),
+    title: appL10n.aiConversations,
+    icon: DiscourseAiIcons.sparkles,
+  );
 
   bool available(String siteUrl) =>
       navigation.currentSite?.isConnected == true &&
@@ -154,13 +160,11 @@ final class AiConversationsService implements PluginLinkHandler {
     if ((origin == PluginLinkOrigin.direct ||
             origin == PluginLinkOrigin.inApp) &&
         navigation.currentSite?.url == site.url &&
-        AiConversationsPlugin.route.sameDestinationAs(
-          navigation.currentContent,
-        )) {
+        route.sameDestinationAs(navigation.currentContent)) {
       onNavigated?.call();
     } else {
       navigation.pushContent(
-        AiConversationsPlugin.route,
+        route,
         siteUrl: site.url,
         origin: origin,
         onNavigated: onNavigated,

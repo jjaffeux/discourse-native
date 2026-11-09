@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// A centered empty-state composition. Actions, state and scrolling belong to
 /// the caller. Supply a bounded width (Expanded inside a Row). The default

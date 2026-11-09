@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
-import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/video_download.dart';

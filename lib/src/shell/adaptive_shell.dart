@@ -12,10 +12,10 @@ import '../app_shortcuts.dart';
 
 import '../data/sidebar_width_store.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/bookmark.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'account_menu_scope.dart';
 import 'bookmark_ui.dart';
 import 'composer/panel.dart';

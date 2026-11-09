@@ -3,7 +3,7 @@ import 'dart:ui' show FontFeature, SemanticsRole;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_label.dart';
 
 /// Read-only progress. Values use [min]..[max] (0..100 by default); null or

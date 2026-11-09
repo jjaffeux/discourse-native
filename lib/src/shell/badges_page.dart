@@ -3,12 +3,12 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/badge.dart';
 import '../models/badge_route.dart';
 import '../models/content_route.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'badges_controller.dart';
 import 'content_reading_lane.dart';

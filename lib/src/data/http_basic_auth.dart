@@ -1,10 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:discourse_native/l10n/strings.dart';
-
-import 'discourse_api_contracts.dart';
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'private_storage.dart';
 
 final class HttpBasicAuthentication {
@@ -34,17 +31,6 @@ final class HttpBasicAuthentication {
 
   @override
   String toString() => 'HttpBasicAuthentication(${origin.origin})';
-}
-
-final class HttpBasicAuthenticationRequired extends SiteLookupException {
-  HttpBasicAuthenticationRequired(Uri url)
-    : origin = Uri.parse(requireSafeHttpUrl(url).origin),
-      super(SiteLookupFailure.unreachable, url.origin, statusCode: 401);
-
-  final Uri origin;
-
-  @override
-  String get message => appL10n.httpBasicAuthenticationRequired(origin.origin);
 }
 
 bool hasHttpBasicChallenge(int statusCode, Map<String, String> headers) {

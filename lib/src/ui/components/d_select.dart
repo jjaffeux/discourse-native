@@ -7,15 +7,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
 import '../foundation/joined_control.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_popover.dart';
 import 'd_scroll_area.dart';

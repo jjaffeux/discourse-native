@@ -5,11 +5,11 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
+import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
 import '../foundation/post_reaction_style.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_group_indicator.dart';
 

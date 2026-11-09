@@ -2,11 +2,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_dropdown_menu.dart';
 import 'd_popover.dart';

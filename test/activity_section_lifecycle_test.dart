@@ -257,7 +257,7 @@ enum _Activity {
     chat => PluginNotificationsSection(
       siteUrl: siteUrl,
       onOpened: _ignore,
-      host: controller,
+      host: controller.userMenuNotifications,
       source: chatNotificationFeed,
     ),
     bookmarks => BookmarkSection(siteUrl: siteUrl, onOpened: _ignore),

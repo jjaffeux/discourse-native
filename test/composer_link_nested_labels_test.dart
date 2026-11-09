@@ -1,6 +1,9 @@
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
+import 'package:discourse_native/src/shell/composer/components/link_source.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +78,10 @@ void main() {
   ) async {
     const markdown = '[outer [inner]](https://example.test)';
     const source = 'Read $markdown now';
-    final controller = MarkdownEditingController(text: source);
+    final controller = MarkdownEditingController(
+      artwork: const CoreComposerArtwork(),
+      text: source,
+    );
     addTearDown(controller.dispose);
     controller.selection = const TextSelection.collapsed(offset: source.length);
     await tester.pumpWidget(

@@ -10,7 +10,7 @@ import 'package:flutter/material.dart';
 // ignore_for_file: invalid_use_of_visible_for_testing_member
 
 import 'src/macos_launch_screen.dart';
-import 'src/plugin_api/plugin_scope.dart';
+import 'src/plugin_api/plugin_ui_scope.dart';
 import 'src/plugins/bundled_plugin_manifest.dart';
 import 'src/plugins/chat/chat_channel.dart';
 import 'src/plugins/chat/chat_channel_view.dart';

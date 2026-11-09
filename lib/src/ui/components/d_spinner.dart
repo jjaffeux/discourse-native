@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// An indeterminate busy indicator. The caller owns loading and completion.
 ///

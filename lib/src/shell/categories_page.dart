@@ -5,13 +5,13 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/category_directory.dart';
 import '../models/category_feed.dart';
 import '../models/category_sidebar.dart';
 import '../models/content_route.dart';
 import '../models/json.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'category_icon.dart';

@@ -3,11 +3,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/forum_theme.dart';
 import '../models/forum_theme_preferences.dart';
 import '../models/forum_theme_presets.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'forum_theme_thumbnail.dart';
 
 /// One list of every theme the forum can show in the active mode: the user's

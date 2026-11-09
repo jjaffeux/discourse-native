@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_typography.dart';
 
 /// Wrapping, non-selectable text for a native control's label slot.

@@ -1,19 +1,16 @@
-import 'dart:math' as math;
-
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../../inline_video.dart';
-import '../../skeleton_fill.dart';
-import '../block_selection.dart';
+import '../controller.dart';
 import 'image_source.dart';
 
 final class ComposerVideoPolicy implements ComposerSyntaxPolicy {
-  const ComposerVideoPolicy();
+  const ComposerVideoPolicy(this.composer);
+
+  final ComposerController composer;
 
   @override
   ComposerSyntaxKind get kind => ComposerSyntaxKind(
@@ -30,13 +27,15 @@ final class ComposerVideoPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final video in parseComposerVideos(source)) _VideoProjection(video),
+    for (final video in parseComposerVideos(source))
+      _VideoProjection(composer, video),
   ];
 }
 
 final class _VideoProjection implements ComposerAtomicSelectionProjection {
-  const _VideoProjection(this.video);
+  const _VideoProjection(this.composer, this.video);
 
+  final ComposerController composer;
   final ComposerVideoBlock video;
 
   @override
@@ -83,56 +82,22 @@ final class _VideoProjection implements ComposerAtomicSelectionProjection {
     final url =
         context.resolveUploadUrl?.call(video.url) ??
         (video.url.startsWith('upload://') ? null : video.url);
-    final data = url == null
-        ? null
-        : InlineVideoData.fromUpload(
-            url: url,
-            title: video.title,
-            siteUrl: context.siteUrl ?? '',
-          );
     final hiddenEnd = source.length - (context.followedByLineBreak ? 0 : 1);
     return [
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: LayoutBuilder(
-          builder: (widgetContext, constraints) {
-            final caretMargin =
-                (widgetContext
-                        .findAncestorWidgetOfExactType<EditableText>()
-                        ?.cursorWidth ??
-                    2) +
-                1;
-            return SizedBox(
-              width: math.min(
-                (constraints.maxWidth - caretMargin).clamp(0, double.infinity),
-                190 * (data?.aspectRatio ?? 16 / 9),
-              ),
-              child: MediaQuery.withNoTextScaling(
-                child: ComposerBlockSelection(
-                  key: context.pillKey,
-                  selected: context.highlighted,
-                  child: data == null
-                      ? DSkeletonRegion(
-                          semanticsLabel: widgetContext.l10n.loading,
-                          color: skeletonFill(widgetContext),
-                          child: const DSkeleton(height: 190),
-                        )
-                      : InlineVideo(
-                          data: data,
-                          siteUrl: context.siteUrl,
-                          maximumHeight: 190,
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                        ),
-                ),
-              ),
-            );
-          },
+        child: composer.artwork.video(
+          key: context.pillKey,
+          url: url,
+          title: video.title,
+          siteUrl: context.siteUrl,
+          highlighted: context.highlighted,
         ),
       ),
       TextSpan(
         text: source.substring(1, hiddenEnd),
-        semanticsLabel: '\u200B' * (hiddenEnd - 1),
+        semanticsLabel: '​' * (hiddenEnd - 1),
         style: const TextStyle(
           fontSize: 0,
           height: 0,

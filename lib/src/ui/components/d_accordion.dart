@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart' show setEquals;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_collapsible.dart';
 
 /// Explicit state owner for a [DAccordion]. Dispose borrowed instances in the

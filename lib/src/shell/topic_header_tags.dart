@@ -2,9 +2,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'open_link.dart';
 import 'topic_tag_picker.dart';
 

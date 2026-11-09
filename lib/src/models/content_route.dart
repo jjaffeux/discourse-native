@@ -1,9 +1,9 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import 'badge_route.dart';
 import 'discourse_instance.dart';
 import 'feed_path_policy.dart';

@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'api_credentials.dart';
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'site_lifecycle.dart';
 import 'site_video_source.dart';
 

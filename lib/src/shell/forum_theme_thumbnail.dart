@@ -2,6 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
+import '../theme/discourse_colors.dart';
 
 /// Decorative miniature, not an interactive replacement for a Native control.
 class ThemeThumbnail extends StatelessWidget {

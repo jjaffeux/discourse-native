@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 
 import '../data/app_release.dart';
 import '../data/updater.dart';
+import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'relative_time.dart';
 import 'shell_scope.dart';

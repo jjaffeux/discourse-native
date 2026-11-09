@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// A decorative way-forward mark inside a row that owns navigation.
 /// It has no independent focus, semantics, or activation target.

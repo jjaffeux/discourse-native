@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../block_selection.dart';
 import '../controller.dart';
-import '../upload_attachment.dart';
 
 /// Where one registered upload token occurs in a document.
 typedef ComposerUploadSlot = ({int id, int start, String token});
@@ -147,26 +145,11 @@ final class _UploadProjection implements ComposerBlockSyntaxProjection {
     WidgetSpan(
       alignment: PlaceholderAlignment.top,
       style: context.baseStyle,
-      child: ComposerBlockSelection(
-        selected: context.highlighted,
-        child: ListenableBuilder(
-          key: context.pillKey,
-          listenable: composer.uploadChanges,
-          builder: (context, _) {
-            final upload = composer.uploads
-                .where((upload) => upload.id == id)
-                .firstOrNull;
-            if (upload == null) return const SizedBox.shrink();
-            return Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: ComposerUploadAttachment(
-                key: ValueKey('composer-inline-upload-$id'),
-                composer: composer,
-                upload: upload,
-              ),
-            );
-          },
-        ),
+      child: composer.artwork.upload(
+        key: context.pillKey,
+        composer: composer,
+        id: id,
+        highlighted: context.highlighted,
       ),
     ),
     // Match the editor's image/quote block accounting: end the widget's

@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../../foundation/count_label.dart';
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../cooked_dom.dart';
 import '../cooked_html.dart';

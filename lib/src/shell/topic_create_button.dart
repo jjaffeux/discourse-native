@@ -6,9 +6,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_draft.dart';
-import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';

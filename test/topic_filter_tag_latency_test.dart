@@ -378,26 +378,35 @@ class _TagApi extends FakeDiscourseApi {
   }) => pending[term]?.future ?? Future.value(const []);
 }
 
+final class _PendingGroupsApi extends FakeDiscourseApi {
+  _PendingGroupsApi(this.pendingGroups);
+
+  final Future<List<TopicFilterLookupValue>> pendingGroups;
+
+  @override
+  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
+    required String siteUrl,
+    required String term,
+    int limit = 10,
+    String? apiKey,
+    String? clientId,
+  }) => pendingGroups;
+}
+
 class _PartialTagShell extends ShellController {
-  _PartialTagShell(this.pendingGroups)
+  _PartialTagShell(Future<List<TopicFilterLookupValue>> pendingGroups)
     : super(
         instanceStore: FakeInstanceStore(),
-        api: FakeDiscourseApi(),
+        api: _PendingGroupsApi(pendingGroups),
         authenticator: FakeAuthenticator(),
         drafts: FakeDraftStore(),
         forumTabs: FakeForumTabStore(),
         trackers: FakeSiteTracker.reset(),
       );
-  final Future<List<TopicFilterLookupValue>> pendingGroups;
   @override
   Future<List<TopicFilterLookupValue>> searchFilterTags({
     required String siteUrl,
     required String term,
     int? categoryId,
   }) async => const [TopicFilterLookupValue(name: 'ready-tag')];
-  @override
-  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
-    required String siteUrl,
-    required String term,
-  }) => pendingGroups;
 }

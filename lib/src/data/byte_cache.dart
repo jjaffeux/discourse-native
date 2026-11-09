@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'byte_cache_store.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'media_request_coordinator.dart';
 import 'serial_operation_queue.dart';
 

@@ -8,13 +8,12 @@ import 'package:flutter/services.dart';
 
 import '../foundation/calendar_day.dart';
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
-import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';
 import 'global_search_api.dart';

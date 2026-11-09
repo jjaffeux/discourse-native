@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math' as math;
-import 'dart:ui' show SemanticsValidationResult, lerpDouble;
 
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform;
@@ -8,8 +7,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import '../../theme/button_theme.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
@@ -18,7 +19,6 @@ import '../foundation/implicit_transition.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_fit_row.dart';
 import 'd_kbd.dart';
@@ -191,43 +191,6 @@ class DButtonVariantStyle {
 
   /// Surface of an open popup trigger. Defaults to [enabled].
   final DButtonStateStyle expanded;
-}
-
-/// Shared button geometry and disabled opacity.
-@immutable
-class DiscourseButtonTheme extends ThemeExtension<DiscourseButtonTheme> {
-  const DiscourseButtonTheme({
-    required this.borderRadius,
-    this.disabledOpacity = 0.6,
-  });
-  final double borderRadius;
-  final double disabledOpacity;
-  @override
-  DiscourseButtonTheme copyWith({
-    double? borderRadius,
-    double? disabledOpacity,
-  }) => DiscourseButtonTheme(
-    borderRadius: borderRadius ?? this.borderRadius,
-    disabledOpacity: disabledOpacity ?? this.disabledOpacity,
-  );
-  @override
-  DiscourseButtonTheme lerp(covariant DiscourseButtonTheme? other, double t) =>
-      other == null
-      ? this
-      : DiscourseButtonTheme(
-          borderRadius: lerpDouble(borderRadius, other.borderRadius, t)!,
-          disabledOpacity: lerpDouble(
-            disabledOpacity,
-            other.disabledOpacity,
-            t,
-          )!,
-        );
-}
-
-extension DiscourseButtonThemeAccess on ThemeData {
-  DiscourseButtonTheme get discourseButtons =>
-      extension<DiscourseButtonTheme>() ??
-      const DiscourseButtonTheme(borderRadius: DRadius.control);
 }
 
 /// A compact Native button with application-owned activation and busy state.

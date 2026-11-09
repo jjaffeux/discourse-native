@@ -13,10 +13,10 @@ import 'chat_controller.dart';
 import 'chat_inbox_filters.dart';
 import 'chat_inbox_rooms.dart';
 import 'chat_inbox_section.dart';
+import 'chat_reader_time.dart';
 import 'chat_search_entry.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
-import 'chat_time.dart';
 import 'chat_user_avatar.dart';
 
 export 'chat_controller.dart' show chatInboxActivityAt;

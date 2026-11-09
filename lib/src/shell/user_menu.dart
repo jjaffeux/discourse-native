@@ -5,6 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/clock_time.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
@@ -12,8 +14,6 @@ import '../models/user_status.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'about_dialog.dart';
 import 'account_menu_scope.dart';
 import 'avatar_image.dart';
@@ -260,6 +260,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
     },
     builder: (context, menu, _) {
       final controller = ShellScope.read(context);
+      final menuNotifications = controller.userMenuNotifications;
 
       return ListenableBuilder(
         listenable: controller.accountActivity.totalsListenable,
@@ -283,22 +284,22 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             userStatusEnabled: menu.userStatusEnabled,
             notificationsBadge: siteUrl == null
                 ? 0
-                : controller.allNotificationUnreadCount(siteUrl),
+                : menuNotifications.allUnreadCount(siteUrl),
             repliesBadge: siteUrl == null
                 ? 0
-                : controller.replyNotificationUnreadCount(siteUrl),
+                : menuNotifications.replyUnreadCount(siteUrl),
             likesBadge: siteUrl == null
                 ? 0
-                : controller.likeNotificationUnreadCount(siteUrl),
+                : menuNotifications.likeUnreadCount(siteUrl),
             messagesBadge: siteUrl == null
                 ? 0
-                : controller.messageNotificationUnreadCount(siteUrl),
+                : menuNotifications.messageUnreadCount(siteUrl),
             bookmarksBadge: siteUrl == null
                 ? 0
-                : controller.bookmarkReminderUnreadCount(siteUrl),
+                : menuNotifications.bookmarkReminderUnreadCount(siteUrl),
             otherBadge: siteUrl == null
                 ? 0
-                : controller.otherNotificationUnreadCount(
+                : menuNotifications.otherUnreadCount(
                     siteUrl,
                     pluginSections: pluginSections,
                   ),

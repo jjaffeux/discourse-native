@@ -1,4 +1,4 @@
-import 'package:discourse_native/src/data/dsa_notices_api.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/shell/dsa_notice_controller.dart';
 import 'package:discourse_native/src/shell/dsa_notice_form.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

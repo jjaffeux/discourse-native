@@ -6,24 +6,18 @@ import '../models/forum_background.dart';
 import '../models/forum_font.dart';
 import '../models/forum_theme.dart';
 import '../models/site_appearance.dart';
-import '../ui/components/d_button.dart';
-import '../ui/components/d_scroll_area.dart';
-import '../ui/components/d_tooltip.dart';
-import '../ui/foundation/control_theme.dart';
-import '../ui/foundation/frost.dart';
-import '../ui/foundation/tokens.dart';
+import 'button_theme.dart';
+import 'code_colors.dart';
 import 'color_contrast.dart';
+import 'control_theme.dart';
+import 'discourse_colors.dart';
 import 'discourse_typography.dart';
+import 'frost.dart';
+import 'scroll_thumb.dart';
+import 'tokens.dart';
+import 'tooltip_metrics.dart';
 
 export 'discourse_typography.dart';
-
-const Color discourseBlue = Color(0xFF0088CC);
-
-const Color discourseDarkBlue = Color(0xFF099DD7);
-
-const Color discourseLove = Color(0xFFFA6C8D);
-
-const Color discourseSuccess = Color(0xFF009900);
 
 const Color discourseModalBarrier = Color(0x99000000);
 
@@ -193,214 +187,6 @@ class ShellColors extends ThemeExtension<ShellColors> {
         other.currentUserMention,
         t,
       )!,
-    );
-  }
-}
-
-@immutable
-class CodeColors extends ThemeExtension<CodeColors> {
-  const CodeColors({
-    required this.blockBackground,
-    required this.inlineBackground,
-    required this.keyword,
-    required this.string,
-    required this.comment,
-    required this.number,
-    required this.name,
-    required this.meta,
-  });
-
-  final Color blockBackground;
-  final Color inlineBackground;
-
-  final Color keyword;
-
-  final Color string;
-
-  final Color comment;
-
-  final Color number;
-
-  final Color name;
-
-  final Color meta;
-
-  static const CodeColors dark = CodeColors(
-    blockBackground: Color(0xFF131417),
-    inlineBackground: Color(0xFF131417),
-    keyword: Color(0xFFC792EA),
-    string: Color(0xFF9CCC7C),
-    comment: Color(0xFF7E8794),
-    number: Color(0xFFF78C6C),
-    name: Color(0xFF82AAFF),
-    meta: Color(0xFF89DDFF),
-  );
-
-  static const CodeColors light = CodeColors(
-    blockBackground: Color(0xFFE3E6EA),
-    inlineBackground: Color(0xFFE3E6EA),
-    keyword: Color(0xFF8B2FA0),
-    string: Color(0xFF2E7D32),
-    comment: Color(0xFF6B7280),
-    number: Color(0xFFB35309),
-    name: Color(0xFF1A56B0),
-    meta: Color(0xFF00707A),
-  );
-
-  @override
-  CodeColors copyWith({
-    Color? blockBackground,
-    Color? inlineBackground,
-    Color? keyword,
-    Color? string,
-    Color? comment,
-    Color? number,
-    Color? name,
-    Color? meta,
-  }) {
-    return CodeColors(
-      blockBackground: blockBackground ?? this.blockBackground,
-      inlineBackground: inlineBackground ?? this.inlineBackground,
-      keyword: keyword ?? this.keyword,
-      string: string ?? this.string,
-      comment: comment ?? this.comment,
-      number: number ?? this.number,
-      name: name ?? this.name,
-      meta: meta ?? this.meta,
-    );
-  }
-
-  @override
-  CodeColors lerp(ThemeExtension<CodeColors>? other, double t) {
-    if (other is! CodeColors) return this;
-    return CodeColors(
-      blockBackground: Color.lerp(blockBackground, other.blockBackground, t)!,
-      inlineBackground: Color.lerp(
-        inlineBackground,
-        other.inlineBackground,
-        t,
-      )!,
-      keyword: Color.lerp(keyword, other.keyword, t)!,
-      string: Color.lerp(string, other.string, t)!,
-      comment: Color.lerp(comment, other.comment, t)!,
-      number: Color.lerp(number, other.number, t)!,
-      name: Color.lerp(name, other.name, t)!,
-      meta: Color.lerp(meta, other.meta, t)!,
-    );
-  }
-}
-
-@immutable
-class DiscourseColors extends ThemeExtension<DiscourseColors> {
-  const DiscourseColors({
-    required this.success,
-    required this.unreadIndicator,
-    required this.notificationIndicator,
-    required this.notificationForeground,
-    required this.love,
-    required this.primaryLowMid,
-    required this.primaryHigh,
-    required this.whisper,
-    required this.primaryVeryHigh,
-  });
-
-  final Color success;
-
-  /// An ordinary unread dot, matching core's
-  /// `--token-color-background-accent-subtle` role.
-  final Color unreadIndicator;
-
-  /// Header, topic and chat activity: core's `--tertiary-med-or-tertiary`.
-  final Color notificationIndicator;
-
-  /// Text on solid notification badges: core's `--secondary`.
-  final Color notificationForeground;
-
-  final Color love;
-
-  /// Faint foregrounds such as Chat's direct-reply icon, matching core's
-  /// `--primary-low-mid` role.
-  final Color primaryLowMid;
-
-  /// Muted foregrounds such as legacy GitHub onebox SVGs, matching core's
-  /// `--primary-high` role.
-  final Color primaryHigh;
-
-  /// Whisper body text, mirroring Discourse's `--primary-medium` role.
-  final Color whisper;
-
-  /// Strong secondary copy, mirroring `--primary-very-high`.
-  final Color primaryVeryHigh;
-
-  static const DiscourseColors light = DiscourseColors(
-    success: discourseSuccess,
-    unreadIndicator: Color(0xFF66CCFF),
-    notificationIndicator: Color(0xFF66CCFF),
-    notificationForeground: Colors.white,
-    love: discourseLove,
-    primaryLowMid: Color(0xFFBDBDBD),
-    primaryHigh: Color(0xFF646464),
-    whisper: Color(0xFF919191),
-    primaryVeryHigh: Color(0xFF414141),
-  );
-
-  static const DiscourseColors dark = DiscourseColors(
-    success: Color(0xFF1CA551),
-    unreadIndicator: discourseDarkBlue,
-    notificationIndicator: discourseDarkBlue,
-    notificationForeground: Color(0xFF222222),
-    love: discourseLove,
-    primaryLowMid: Color(0xFF7A7A7A),
-    primaryHigh: Color(0xFFA6A6A6),
-    whisper: Color(0xFF909090),
-    primaryVeryHigh: Color(0xFFC7C7C7),
-  );
-
-  @override
-  DiscourseColors copyWith({
-    Color? success,
-    Color? unreadIndicator,
-    Color? notificationIndicator,
-    Color? notificationForeground,
-    Color? love,
-    Color? primaryLowMid,
-    Color? primaryHigh,
-    Color? whisper,
-    Color? primaryVeryHigh,
-  }) => DiscourseColors(
-    success: success ?? this.success,
-    unreadIndicator: unreadIndicator ?? this.unreadIndicator,
-    notificationIndicator: notificationIndicator ?? this.notificationIndicator,
-    notificationForeground:
-        notificationForeground ?? this.notificationForeground,
-    love: love ?? this.love,
-    primaryLowMid: primaryLowMid ?? this.primaryLowMid,
-    primaryHigh: primaryHigh ?? this.primaryHigh,
-    whisper: whisper ?? this.whisper,
-    primaryVeryHigh: primaryVeryHigh ?? this.primaryVeryHigh,
-  );
-
-  @override
-  DiscourseColors lerp(ThemeExtension<DiscourseColors>? other, double t) {
-    if (other is! DiscourseColors) return this;
-    return DiscourseColors(
-      success: Color.lerp(success, other.success, t)!,
-      unreadIndicator: Color.lerp(unreadIndicator, other.unreadIndicator, t)!,
-      notificationIndicator: Color.lerp(
-        notificationIndicator,
-        other.notificationIndicator,
-        t,
-      )!,
-      notificationForeground: Color.lerp(
-        notificationForeground,
-        other.notificationForeground,
-        t,
-      )!,
-      love: Color.lerp(love, other.love, t)!,
-      primaryLowMid: Color.lerp(primaryLowMid, other.primaryLowMid, t)!,
-      primaryHigh: Color.lerp(primaryHigh, other.primaryHigh, t)!,
-      whisper: Color.lerp(whisper, other.whisper, t)!,
-      primaryVeryHigh: Color.lerp(primaryVeryHigh, other.primaryVeryHigh, t)!,
     );
   }
 }
@@ -927,10 +713,10 @@ abstract final class AppTheme {
       ),
       chipTheme: ChipThemeData(labelStyle: textTheme.labelMedium),
       tooltipTheme: TooltipThemeData(
-        constraints: DTooltip.defaultConstraints,
-        padding: DTooltip.defaultPadding,
-        margin: DTooltip.defaultMargin,
-        verticalOffset: DTooltip.defaultVerticalOffset,
+        constraints: DTooltipMetrics.constraints,
+        padding: DTooltipMetrics.padding,
+        margin: DTooltipMetrics.margin,
+        verticalOffset: DTooltipMetrics.verticalOffset,
         decoration: BoxDecoration(
           color: resolvedColorScheme.onSurface,
           borderRadius: BorderRadius.circular(DRadius.control),
@@ -943,7 +729,7 @@ abstract final class AppTheme {
           fontWeight: FontWeight.w400,
         ),
         textAlign: TextAlign.start,
-        waitDuration: DTooltip.defaultHoverDelay,
+        waitDuration: DTooltipMetrics.hoverDelay,
         showDuration: const Duration(milliseconds: 1800),
         exitDuration: const Duration(milliseconds: 100),
       ),

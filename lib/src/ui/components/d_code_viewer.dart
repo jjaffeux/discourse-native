@@ -6,7 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/app_theme.dart';
+import '../../theme/discourse_colors.dart';
+import '../../theme/discourse_typography.dart';
 import '../foundation/code_editor_theme.dart';
 import '../foundation/code_source.dart';
 import '../foundation/code_typography.dart';
@@ -76,7 +77,7 @@ class _DCodeViewerState extends State<DCodeViewer> {
     final style = monospaceTextStyle.copyWith(
       fontSize: DiscourseTypography.sm,
       height: DiscourseTypography.codeLineHeight,
-      color: theme.discourse.primaryVeryHigh,
+      color: theme.extension<DiscourseColors>()!.primaryVeryHigh,
     );
     return Directionality(
       textDirection: TextDirection.ltr,

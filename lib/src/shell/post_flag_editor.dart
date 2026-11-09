@@ -4,9 +4,9 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import '../theme/d_icons.dart';
 import 'cooked_html.dart';
 import 'dsa_notice_form.dart';
 import 'platform.dart';

@@ -1,4 +1,6 @@
 import 'package:discourse_native/src/data/site_preference_keys.dart';
+import 'package:discourse_native/src/foundation/icons/d_icon_data.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
@@ -6,8 +8,6 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
-import 'package:discourse_native/src/theme/d_icon.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

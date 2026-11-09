@@ -7,12 +7,14 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/header_motion.dart';
 import '../foundation/layout_selector.dart';
+import '../foundation/sheet_page_band.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
 import 'd_header_morph.dart';
@@ -20,7 +22,6 @@ import 'd_page_header.dart';
 import 'd_page_reading_lane.dart';
 import 'd_scroll_behavior.dart';
 import 'd_scroll_chrome.dart';
-import 'd_sheet.dart';
 
 /// A bounded page with a shared border, fixed tabs and footer, and a retracting
 /// header. The width policy aligns the header, body content, and footer while

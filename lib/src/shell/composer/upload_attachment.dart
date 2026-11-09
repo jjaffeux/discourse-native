@@ -5,9 +5,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../data/site_pdf_thumbnail_repository.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';
-import '../../theme/d_icons.dart';
 import '../inline_video.dart';
 import '../lightbox.dart';
 import '../pdf_attachment.dart';

@@ -12,6 +12,7 @@ import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../data/api_credentials.dart';
 import '../data/http_transport.dart';
+import '../data/http_url_safety.dart';
 import '../data/site_asset_account.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/private_file_permissions.dart';

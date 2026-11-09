@@ -9,7 +9,7 @@ import 'chat_browse_navigation.dart';
 import 'chat_browse_skeleton.dart';
 import 'chat_controller.dart';
 import 'chat_message.dart';
-import 'chat_plugin.dart';
+import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 import 'chat_thread.dart';
@@ -75,7 +75,7 @@ class _ChatMyThreadsViewState extends State<ChatMyThreadsView> {
     );
     _unregisterRefresher = shell.registerRouteRefresher(
       widget.siteUrl,
-      ChatPlugin.myThreadsRouteId,
+      ChatRoute.myThreadsRouteId,
       () => _directory.load(reset: true),
     );
     unawaited(_directory.load());

@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 
 /// The application reference's control families at their natural artwork size.
 class MockupControlSizesExample extends StatefulWidget {

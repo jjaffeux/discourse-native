@@ -4,6 +4,7 @@ import 'dart:ui'
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/styleguide_theme.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/tooltip_metrics.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -403,7 +404,7 @@ void main() {
         await mouse.moveTo(Offset.zero);
         await tester.pump();
         await mouse.moveTo(tester.getCenter(find.text('Target')));
-        await tester.pump(DTooltip.defaultHoverDelay);
+        await tester.pump(DTooltipMetrics.hoverDelay);
         await tester.pumpAndSettle();
         expect(_hint, findsOneWidget);
         await mouse.moveTo(Offset.zero);
@@ -741,7 +742,7 @@ void main() {
     );
     await mouse.down(tester.getCenter(find.text('Target')));
     await mouse.up();
-    await tester.pump(DTooltip.defaultHoverDelay * 2);
+    await tester.pump(DTooltipMetrics.hoverDelay * 2);
     expect(_hint, findsNothing);
     expect(find.text('Outer'), findsNothing);
   });

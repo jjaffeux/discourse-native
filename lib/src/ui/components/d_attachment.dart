@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_marker.dart';
 import 'd_scroll_area.dart';

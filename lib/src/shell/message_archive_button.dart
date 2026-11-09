@@ -4,8 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
-import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 

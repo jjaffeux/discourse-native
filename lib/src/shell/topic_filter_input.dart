@@ -5,10 +5,10 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'category_icon.dart';
 import 'shell_controller.dart';
@@ -277,12 +277,18 @@ class _TopicFilterInputState extends State<TopicFilterInput> {
           categoryId: _tagCategoryId,
         );
       },
-      tagGroups: (term) =>
-          shell.searchFilterTagGroups(siteUrl: widget.siteUrl, term: term),
-      users: (term) =>
-          shell.searchFilterUsers(siteUrl: widget.siteUrl, term: term),
-      groups: (term) =>
-          shell.searchFilterGroups(siteUrl: widget.siteUrl, term: term),
+      tagGroups: (term) => shell.topicFilterLookups.searchTagGroups(
+        siteUrl: widget.siteUrl,
+        term: term,
+      ),
+      users: (term) => shell.topicFilterLookups.searchUsers(
+        siteUrl: widget.siteUrl,
+        term: term,
+      ),
+      groups: (term) => shell.topicFilterLookups.searchGroups(
+        siteUrl: widget.siteUrl,
+        term: term,
+      ),
     );
   }
 

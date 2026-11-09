@@ -8,12 +8,12 @@ import 'package:intl/intl.dart' hide TextDirection;
 
 import '../data/site_lifecycle.dart';
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_card.dart';
 import '../models/user_summary.dart';
 import '../plugin_api/global_search_models.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'avatar_image.dart';
 import 'category_icon.dart';

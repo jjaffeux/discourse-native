@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_badge.dart';
 
 @immutable

@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
-import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_composer_dock.dart';
 import 'd_input.dart';

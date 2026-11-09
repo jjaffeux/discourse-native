@@ -6,10 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_config.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';

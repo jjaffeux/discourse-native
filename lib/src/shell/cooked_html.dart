@@ -12,6 +12,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
+import '../theme/discourse_colors.dart';
 import 'code_block.dart';
 import 'cooked_details.dart';
 import 'cooked_document.dart';

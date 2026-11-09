@@ -5,9 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/d_overlay_route.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 import 'd_button.dart';
 
 /// Why an open-state change was requested.

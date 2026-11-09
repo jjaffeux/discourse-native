@@ -5,6 +5,7 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -13,13 +14,13 @@ import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -31,7 +32,7 @@ import 'package:discourse_native/src/plugins/local_dates/local_dates_settings.da
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/composer/block_surface.dart';
 import 'package:discourse_native/src/shell/composer/components/blockquote.dart';
-import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_pill.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/composer/upload_picker.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
@@ -41,7 +42,6 @@ import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:discourse_native/src/ui/foundation/control_artwork.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -2240,7 +2240,7 @@ void main() {
         }
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(find.text('screen.mp4'), findsOneWidget);
         expect(
@@ -2317,7 +2317,7 @@ void main() {
         expect(fixture.api.composerUploads, hasLength(1));
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(find.text('photo.png'), findsOneWidget);
         final thumbnailFinder = find.byKey(
@@ -3105,7 +3105,7 @@ void main() {
         expect(fixture.api.composerUploads.single.filename, name);
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(
           fixture.api.composerUploads.single.sizeLimit,
@@ -3226,7 +3226,7 @@ void main() {
       expect(fixture.api.composerUploads.single.filename, 'clip.mov');
       expect(
         fixture.api.composerUploads.single.uploadType,
-        ChatPlugin.messageUploadType,
+        chatMessageUploadType,
       );
       await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
       await tester.pumpAndSettle();

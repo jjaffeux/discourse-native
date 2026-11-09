@@ -10,8 +10,8 @@ import 'package:flutter/semantics.dart' show CustomSemanticsAction;
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_mobile_dock_geometry.dart';

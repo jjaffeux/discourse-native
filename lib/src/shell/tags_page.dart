@@ -6,9 +6,9 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/foundation/count_label.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
-import '../theme/d_icons.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';

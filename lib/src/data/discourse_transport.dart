@@ -13,6 +13,7 @@ import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'json_decode.dart';
 import 'request_intent.dart';
 import 'site_appearance_loader.dart';

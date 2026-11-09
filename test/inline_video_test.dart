@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart'
     show DButton, DSlider, DSpinner, DToast, DToaster;
 import 'package:discourse_native/src/data/api_credentials.dart';
-import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';

@@ -9,7 +9,7 @@ import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:flutter/gestures.dart';
@@ -51,9 +51,9 @@ void main() {
     final forumTab = shell.activeTabId!;
     final directoryTabs = <String>{};
     for (final (label, route) in [
-      ('Chats', ChatPlugin.inboxRouteId),
-      ('Channels', ChatPlugin.browseRouteId),
-      ('Threads', ChatPlugin.myThreadsRouteId),
+      ('Chats', ChatRoute.inboxRouteId),
+      ('Channels', ChatRoute.browseRouteId),
+      ('Threads', ChatRoute.myThreadsRouteId),
     ]) {
       if (directoryTabs.isNotEmpty) {
         shell.openContentInNewTab(ContentRoute.topicList(TopicListMode.latest));
@@ -80,7 +80,7 @@ void main() {
     shell.pluginSession.require(chatShellService).openChats(newTab: true);
     await tester.pumpAndSettle();
     expect(shell.currentWorkspace!.tabs.length, tabCount);
-    expect(shell.currentContent?.id, ChatPlugin.inboxRouteId);
+    expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
     shell.selectTab(forumTab);
     await tester.pumpAndSettle();
     expect(tester.widget<DTabs<String>>(panels.tabs).value, 'forum');
@@ -175,9 +175,9 @@ void main() {
     await tester.tap(panels.tab('chat'));
     await tester.pumpAndSettle();
     for (final (label, route) in [
-      ('Threads', ChatPlugin.myThreadsRouteId),
-      ('Channels', ChatPlugin.browseRouteId),
-      ('Chats', ChatPlugin.inboxRouteId),
+      ('Threads', ChatRoute.myThreadsRouteId),
+      ('Channels', ChatRoute.browseRouteId),
+      ('Chats', ChatRoute.inboxRouteId),
     ]) {
       if (label == 'Threads') {
         await tester.tap(sidebarDestination(label));
@@ -211,10 +211,10 @@ void main() {
     }
     expect(shell.handleBack(canReturnToSidebar: false), isTrue);
     await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, ChatPlugin.browseRouteId);
+    expect(shell.currentContent?.id, ChatRoute.browseRouteId);
     expect(shell.handleForward(), isTrue);
     await tester.pumpAndSettle();
-    expect(shell.currentContent?.id, ChatPlugin.inboxRouteId);
+    expect(shell.currentContent?.id, ChatRoute.inboxRouteId);
     await capture(tester, 'chat-sidebar-directory-at-tab-limit');
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));

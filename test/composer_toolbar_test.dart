@@ -1,7 +1,9 @@
 import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/components/link.dart';
+import 'package:discourse_native/src/shell/composer/components/link_source.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/marks.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -335,7 +337,9 @@ void main() {
         home: const Scaffold(body: SizedBox()),
       ),
     );
-    final projection = const ComposerLinkSyntaxPolicy().parse(source).single;
+    final projection = ComposerLinkSyntaxPolicy(
+      artwork: () => const CoreComposerArtwork(),
+    ).parse(source).single;
     final editing = projection.edit(
       tester.element(find.byType(Scaffold)),
       composer,

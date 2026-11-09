@@ -12,10 +12,10 @@ import 'package:flutter/services.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_channel.dart';
 import 'chat_composer_draft_session.dart';
+import 'chat_composer_target.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_message.dart';
-import 'chat_plugin.dart';
 import 'chat_plugin_data.dart';
 import 'chat_services.dart';
 import 'chat_stream_target.dart';
@@ -259,12 +259,12 @@ class _ChatComposerState extends State<ChatComposer> {
     _sourceKey = sourceKey;
     final composer = host.buildComposer(
       ComposerTargetRequest(
-        kind: ChatPlugin.messageComposerTarget,
+        kind: chatMessageComposerTarget,
         siteUrl: widget.siteUrl,
         title: channel?.title ?? appL10n.chat,
         data: {
-          ChatPlugin.composerChannelId: widget.channelId,
-          ChatPlugin.composerThreadId: ?widget.threadId,
+          chatComposerChannelId: widget.channelId,
+          chatComposerThreadId: ?widget.threadId,
         },
       ),
     );

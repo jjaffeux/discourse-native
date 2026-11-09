@@ -6,7 +6,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import 'chat_time.dart';
+import 'chat_reader_time.dart';
 
 // Discourse's vendor/assets/svg-icons/discourse-additional.svg.
 const _threadIcon = DIconData(

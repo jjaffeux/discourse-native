@@ -1,5 +1,5 @@
 import '../models/json.dart';
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'stored_forum_base.dart';
 
 final class DiscoverSite {

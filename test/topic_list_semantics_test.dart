@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 
 import 'package:discourse_native/src/models/app_settings.dart';
+import 'package:discourse_native/src/theme/tooltip_metrics.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -39,7 +40,7 @@ void main() {
         find.byType(DTooltip),
       )) {
         await mouse.moveTo(tester.getCenter(find.byWidget(tooltip.widget)));
-        await tester.pump(DTooltip.defaultHoverDelay);
+        await tester.pump(DTooltipMetrics.hoverDelay);
         await tester.pumpAndSettle();
         expect(binding.errors, isEmpty);
         await mouse.moveTo(Offset.zero);

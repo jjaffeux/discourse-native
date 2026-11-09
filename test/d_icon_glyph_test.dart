@@ -1,8 +1,8 @@
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icon_sets.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
-import 'package:discourse_native/src/theme/d_icon_sets.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:vector_graphics_compiler/vector_graphics_compiler.dart' as vg;

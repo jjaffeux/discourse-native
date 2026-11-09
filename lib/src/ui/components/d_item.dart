@@ -6,15 +6,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_hit_test.dart';
 import '../foundation/control_style.dart';
 import '../foundation/highlight_mode_tracking.dart';
 import '../foundation/interactive_row.dart';
+import '../foundation/item_interaction.dart';
 import '../foundation/sidebar_row_surface.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_card.dart';
 import 'd_link_interaction.dart';
@@ -329,37 +330,6 @@ class _DItemRailState extends State<DItemRail> {
       ],
     );
   }
-}
-
-/// Interaction inherited by passive Native artwork inside an Item.
-/// Item retains the focus node, gesture recognizer, and state lifecycle.
-class DItemInteraction extends InheritedWidget {
-  const DItemInteraction._({
-    required this.hovered,
-    required this.focused,
-    required this.pressed,
-    required super.child,
-  });
-
-  final bool hovered;
-  final bool focused;
-  final bool pressed;
-  bool get emphasized => hovered || focused || pressed;
-
-  static DItemInteraction of(BuildContext context) =>
-      context.dependOnInheritedWidgetOfExactType<DItemInteraction>() ??
-      const DItemInteraction._(
-        hovered: false,
-        focused: false,
-        pressed: false,
-        child: SizedBox.shrink(),
-      );
-
-  @override
-  bool updateShouldNotify(DItemInteraction oldWidget) =>
-      hovered != oldWidget.hovered ||
-      focused != oldWidget.focused ||
-      pressed != oldWidget.pressed;
 }
 
 class _DItemState extends State<DItem> with DHighlightModeTracking {
@@ -773,7 +743,7 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
         child: result,
       );
     }
-    final item = DItemInteraction._(
+    final item = DItemInteraction(
       hovered: _active && _hover,
       focused: _active && _focused,
       pressed: _active && _pressed,

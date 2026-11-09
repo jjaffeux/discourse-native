@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Keeps the departing content during its fade, without retaining its actions.
 class DReveal extends StatefulWidget {

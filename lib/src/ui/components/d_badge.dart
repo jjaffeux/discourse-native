@@ -5,10 +5,10 @@ import 'package:flutter/services.dart';
 
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_artwork.dart';
 import '../foundation/control_style.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_link_interaction.dart';
 

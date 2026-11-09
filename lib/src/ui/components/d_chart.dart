@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../foundation/palette_contrast.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Presentation metadata independent of a chart's data model. Resolve colors
 /// during build to support live site palettes and light/dark themes.

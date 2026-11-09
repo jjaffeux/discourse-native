@@ -7,8 +7,8 @@ import 'data/site_preference_keys.dart';
 import 'data/topic_recommendations_tab_store.dart' as p5;
 import 'data/topic_sidebar_store.dart' as p6;
 import 'data/user_directory_column_width_store.dart' as p7;
-import 'shell/header_preferences.dart' as p8;
-import 'shell/mobile_place_order.dart' as p9;
+import 'shell/header_preferences_controller.dart' as p8;
+import 'shell/mobile_place_order_controller.dart' as p9;
 
 const declaredSitePreferenceKeys = <SitePreferenceKey>[
   p0.BookmarkReminderStore.keys,

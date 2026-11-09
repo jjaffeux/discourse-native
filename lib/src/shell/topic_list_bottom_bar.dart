@@ -5,11 +5,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/topic.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'forum_theme_surfaces.dart';
 import 'keyboard_navigation.dart';
 import 'platform.dart';

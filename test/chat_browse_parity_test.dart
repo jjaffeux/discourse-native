@@ -7,7 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_skeleton.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -22,6 +22,7 @@ import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -726,7 +727,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('chat-channel-menu-leave-1')));
     await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatPlugin.browseRouteId);
+    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
     expect(find.byKey(const ValueKey('chat-join-1')), findsOneWidget);
   });
 
@@ -736,7 +737,7 @@ void main() {
       final fixture = await _pump(tester);
       await _tab(tester, ChatBrowsePage.channels);
       expect(find.text('Browse channels'), findsOneWidget);
-      expect(fixture.shell.currentContent?.id, ChatPlugin.browseRouteId);
+      expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
       await tester.enterText(find.byType(EditableText), 'general');
       await tester.pump(const Duration(milliseconds: 400));
       await tester.pumpAndSettle();
@@ -1011,7 +1012,7 @@ void main() {
     await _capture(tester, 'inbox-by-type');
     await tester.tap(find.byKey(const ValueKey('chat-inbox-channels-card')));
     await tester.pumpAndSettle();
-    expect(fixture.shell.currentContent?.id, ChatPlugin.browseRouteId);
+    expect(fixture.shell.currentContent?.id, ChatRoute.browseRouteId);
     expect(tester.takeException(), isNull);
   });
 
@@ -1058,7 +1059,7 @@ void main() {
     await tester.tap(card);
     await tester.pumpAndSettle();
 
-    expect(fixture.shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+    expect(fixture.shell.currentContent?.id, ChatRoute.myThreadsRouteId);
     expect(fixture.api.chatBrowseRequested, isNotEmpty);
     expect(
       fixture.api.chatChannelThreadPagesRequested.map((r) => r.channelId),
@@ -1123,8 +1124,8 @@ void main() {
         size: const Size(390, 844),
       );
       for (final (key, route) in [
-        ('chat-inbox-channels-card', ChatPlugin.browseRouteId),
-        ('chat-inbox-threads-card', ChatPlugin.myThreadsRouteId),
+        ('chat-inbox-channels-card', ChatRoute.browseRouteId),
+        ('chat-inbox-threads-card', ChatRoute.myThreadsRouteId),
       ]) {
         await fixture.show(_sidebarInbox());
         await tester.pumpAndSettle();

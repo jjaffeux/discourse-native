@@ -5,7 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../../theme/d_icons.dart';
+import '../../../foundation/icons/d_icons.dart';
 import '../../../theme/discourse_typography.dart';
 import '../../site_emoji_text.dart';
 import '../block_selection.dart';

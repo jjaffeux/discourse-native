@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
-import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:pointycastle/export.dart';

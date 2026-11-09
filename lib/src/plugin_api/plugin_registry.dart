@@ -5,6 +5,8 @@ import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_preference_keys.dart';
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
 import '../models/forum_workspace.dart';
@@ -15,12 +17,10 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'composer_target.dart';
 import 'global_search.dart';
 import 'plugin_manifest.dart';
-import 'plugin_scope.dart';
+import 'plugin_ui_scope.dart';
 import 'post_action.dart';
 import 'site_plugin_api.dart';
 import 'topic_reader.dart';

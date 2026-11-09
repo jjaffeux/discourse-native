@@ -6,9 +6,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_button.dart';
 import 'd_tooltip.dart';
 

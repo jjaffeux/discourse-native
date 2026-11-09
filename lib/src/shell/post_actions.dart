@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/bookmark.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
@@ -13,7 +14,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/post_action.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'anchored_layout.dart';
 import 'anonymous_flag_dialog.dart';
 import 'bookmark_ui.dart';

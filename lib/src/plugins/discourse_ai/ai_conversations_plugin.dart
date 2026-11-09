@@ -1,11 +1,9 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
 import 'ai_conversations_data.dart';
 import 'ai_conversations_page.dart';
 import 'ai_conversations_service.dart';
-import 'discourse_ai_icons.dart';
 
 final class AiConversationsPlugin
     implements
@@ -22,15 +20,11 @@ final class AiConversationsPlugin
   @override
   String get homepageId => 'ai-conversations';
 
-  static ContentRoute get route => ContentRoute(
-    destination: const ExtensionDestination('ai-conversations'),
-    title: appL10n.aiConversations,
-    icon: DiscourseAiIcons.sparkles,
-  );
-
   @override
   ContentRoute? homepage(SiteConfig config, DiscourseUser? user) =>
-      aiConversationsAvailable(config, user) ? route : null;
+      aiConversationsAvailable(config, user)
+      ? AiConversationsService.route
+      : null;
 
   @override
   PluginDataPersistenceCodec<AiBotSettings> get siteSettingsCodec =>

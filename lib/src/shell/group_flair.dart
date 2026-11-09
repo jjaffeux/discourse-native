@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/group.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'site_url.dart';
 

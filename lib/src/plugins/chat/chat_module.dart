@@ -4,6 +4,7 @@ import '../gifs/gifs_contract.dart';
 import 'chat_api.dart';
 import 'chat_api_client.dart';
 import 'chat_bookmark.dart';
+import 'chat_bookmark_link_resolver.dart';
 import 'chat_controller.dart';
 import 'chat_conversation.dart';
 import 'chat_inbox_rooms.dart';

@@ -64,6 +64,35 @@ final class ChatRoute {
     );
   }
 
+  static const String searchRouteId = 'chat-search';
+  static const String myThreadsRouteId = 'chat-my-threads';
+  static const String browseRouteId = 'chat-browse';
+  static const String inboxRouteId = 'chat-inbox';
+  static const String channelsRouteId = 'chat-channels';
+  static const String starredRouteId = 'chat-starred';
+  static const String directMessagesRouteId = 'chat-direct-messages';
+
+  static String channelThreadsRouteId(int channelId) =>
+      'chat-c-$channelId-threads';
+
+  static int? channelIdFromThreadsRoute(String routeId) {
+    if (routeId.length > maximumRouteIdLength) return null;
+    final match = RegExp(r'^chat-c-([1-9]\d*)-threads$').firstMatch(routeId);
+    return match == null ? null : int.tryParse(match.group(1)!);
+  }
+
+  static bool ownsRouteId(String? routeId) =>
+      routeId != null &&
+      (parse(routeId) != null ||
+          routeId == browseRouteId ||
+          routeId == inboxRouteId ||
+          routeId == channelsRouteId ||
+          routeId == starredRouteId ||
+          routeId == directMessagesRouteId ||
+          routeId == myThreadsRouteId ||
+          routeId == searchRouteId ||
+          channelIdFromThreadsRoute(routeId) != null);
+
   static const int maximumRouteIdLength = 128;
   static const String _channelPrefix = 'chat-c-';
   static const String _threadMarker = '-t-';

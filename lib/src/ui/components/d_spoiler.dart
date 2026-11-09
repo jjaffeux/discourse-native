@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// A redaction whose hidden text, media and links cannot be selected or focused.
 /// Only plain text is measured while closed; rich content is constructed on demand.

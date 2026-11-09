@@ -6,7 +6,6 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import 'event_card.dart' show eventResponseLabel;
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_participant_session.dart';

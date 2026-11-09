@@ -1,10 +1,10 @@
 import 'package:http/http.dart' as http;
 import 'package:xml/xml.dart';
 
+import '../foundation/icons/d_icon_data.dart';
 import '../models/json.dart';
 import '../models/plugin_icon_catalog.dart';
 import '../models/sidebar.dart';
-import '../theme/d_icon.dart';
 import 'account_request_session.dart';
 import 'discourse_transport.dart';
 

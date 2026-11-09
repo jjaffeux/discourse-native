@@ -5,14 +5,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/interactive_row.dart';
-import '../foundation/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_input_group.dart';

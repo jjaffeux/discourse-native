@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../data/invites_api.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/invite.dart';
-import '../theme/d_icons.dart';
 import 'external_link.dart';
 import 'invite_editor.dart';
 import 'invites_controller.dart';

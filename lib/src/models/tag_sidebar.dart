@@ -1,5 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icons.dart';
 import 'sidebar.dart';
 import 'sidebar_tag.dart';
 import 'topic_tag.dart';

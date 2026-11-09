@@ -4,9 +4,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'platform.dart';
 import 'topic_taxonomy_button.dart';

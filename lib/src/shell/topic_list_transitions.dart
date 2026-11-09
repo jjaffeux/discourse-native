@@ -1,9 +1,9 @@
+import '../foundation/icons/d_icons.dart';
 import '../models/category_sidebar.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'topic_filter_scope.dart';
 
 sealed class TopicListCommand {

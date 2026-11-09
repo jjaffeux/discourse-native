@@ -1,8 +1,8 @@
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
 
 /// A fallback is mandatory because servers retain names from uninstalled plugins.
 abstract interface class IconNameDecoder {

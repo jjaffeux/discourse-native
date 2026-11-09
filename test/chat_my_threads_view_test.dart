@@ -2,11 +2,11 @@ import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -114,7 +114,7 @@ void main() {
       );
       await controller.pluginSession
           .require(chatShellService)
-          .hydratePluginRoute(_site, ChatPlugin.myThreadsRouteId, force: true);
+          .hydratePluginRoute(_site, ChatRoute.myThreadsRouteId, force: true);
       await tester.pumpAndSettle();
       expect(_threadPages(api), [(9, 0), (10, 0), (10, 0), (10, 0)]);
       expect(api.chatBrowseRequested, hasLength(reads));
@@ -349,7 +349,7 @@ void main() {
     pages.remove(firstPage);
     await controller.pluginSession
         .require(chatShellService)
-        .hydratePluginRoute(_site, ChatPlugin.myThreadsRouteId, force: true);
+        .hydratePluginRoute(_site, ChatRoute.myThreadsRouteId, force: true);
     await tester.pumpAndSettle();
     expect(offsets(), [0, 0]);
     expect(find.text('Thread 1'), findsOneWidget);

@@ -4,9 +4,9 @@ import 'package:flutter/material.dart' show Theme;
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/dashboard.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'dashboard_controller.dart';
 import 'skeleton_fill.dart';

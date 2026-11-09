@@ -6,8 +6,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -73,7 +73,7 @@ void main() {
           );
           shell.selectDestination(
             const SidebarDestination(
-              id: ChatPlugin.myThreadsRouteId,
+              id: ChatRoute.myThreadsRouteId,
               label: 'Threads',
               icon: DIcons.comments,
             ),
@@ -119,7 +119,7 @@ void main() {
           }
           expect(session.isCurrent, !rollback);
           expect(shell.currentInstance?.user?.id, _user.id);
-          expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+          expect(shell.currentContent?.id, ChatRoute.myThreadsRouteId);
           if (rollback) {
             await shell.chat.loadChannels(_site);
             shell.accountActivity.applyCounts(

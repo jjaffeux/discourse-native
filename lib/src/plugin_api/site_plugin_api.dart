@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:html/dom.dart' as dom;
 
 import '../data/site_preference_keys.dart';
+import '../foundation/icons/d_icon_data.dart';
 import '../models/composer_metadata.dart';
 import '../models/content_route.dart';
 import '../models/discourse_user.dart';
@@ -19,7 +20,6 @@ import '../models/topic.dart';
 import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
-import '../theme/d_icon.dart';
 import 'composer_syntax.dart';
 import 'composer_target.dart';
 import 'global_search_models.dart';

@@ -5,6 +5,7 @@ import 'dart:ui' show ImageByteFormat, PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/app_settings.dart'
     show AppTextScale;
 import 'package:discourse_native/src/models/content_route.dart';
@@ -33,7 +34,6 @@ import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_mobile_sidebar.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_reactors.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
@@ -54,7 +54,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart'
     show kSecondaryMouseButton, PointerScrollEvent;
@@ -1639,7 +1638,7 @@ void _registerChatShellTests() {
               ).pluginSession.require(chatShellService).openSearch();
               await tester.pumpAndSettle();
               expect(shell.activeTabId, tabId);
-              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+              expect(shell.currentContent?.id, ChatRoute.searchRouteId);
               expect(sidebarDestination('Topics'), findsNothing);
 
               await switchPane(tester, 'main');
@@ -1652,13 +1651,13 @@ void _registerChatShellTests() {
 
               expect(shell.handleBack(canReturnToSidebar: false), isTrue);
               await tester.pumpAndSettle();
-              expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+              expect(shell.currentContent?.id, ChatRoute.searchRouteId);
 
               await switchPane(tester, 'chat');
               await tester.pumpAndSettle();
               expect(shell.tabsForCurrentForum, hasLength(initialTabCount));
               expect(shell.activeTabId, tabId);
-              expect(ChatPlugin.ownsRouteId(shell.currentContent!.id), isTrue);
+              expect(ChatRoute.ownsRouteId(shell.currentContent!.id), isTrue);
               expect(sidebarDestination('Topics'), findsNothing);
               expect(sidebarDestination('Search'), findsNothing);
             },
@@ -1681,7 +1680,7 @@ void _registerChatShellTests() {
             await tester.pumpAndSettle();
             expect(shell.activeTabId, forum.id);
             expect(shell.activeTab?.panel, forum.panel);
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.currentContent?.id, ChatRoute.searchRouteId);
             shell.selectDestination(
               const SidebarDestination(
                 id: 'latest',
@@ -1869,11 +1868,11 @@ void _registerChatShellTests() {
                 tabs: [
                   ForumTab(
                     id: 'restored-chat',
-                    rootDestinationId: ChatPlugin.searchRouteId,
+                    rootDestinationId: ChatRoute.searchRouteId,
                     contentStack: const [
                       ContentRoute(
                         destination: ExtensionDestination(
-                          ChatPlugin.searchRouteId,
+                          ChatRoute.searchRouteId,
                         ),
                         title: 'Search',
                         icon: DIcons.magnifyingGlass,
@@ -1895,7 +1894,7 @@ void _registerChatShellTests() {
             );
             final shell = ShellScope.read(tester.element(primaryMainContent));
 
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.currentContent?.id, ChatRoute.searchRouteId);
             expect(sidebarDestination('Topics'), findsNothing);
 
             shell.pushContent(
@@ -1909,12 +1908,12 @@ void _registerChatShellTests() {
 
             expect(shell.currentContent?.id, 'forum-restored-target');
             expect(shell.contentStack.map((route) => route.id), [
-              ChatPlugin.searchRouteId,
+              ChatRoute.searchRouteId,
               'forum-restored-target',
             ]);
             expect(
               shell.contentStack.any(
-                (route) => ChatPlugin.ownsRouteId(route.id),
+                (route) => ChatRoute.ownsRouteId(route.id),
               ),
               isTrue,
             );
@@ -1925,9 +1924,9 @@ void _registerChatShellTests() {
             expect(shell.handleBack(canReturnToSidebar: false), isTrue);
             await tester.pumpAndSettle();
 
-            expect(shell.currentContent?.id, ChatPlugin.searchRouteId);
+            expect(shell.currentContent?.id, ChatRoute.searchRouteId);
             expect(shell.contentStack.map((route) => route.id), [
-              ChatPlugin.searchRouteId,
+              ChatRoute.searchRouteId,
             ]);
           },
           variant: TargetPlatformVariant.only(TargetPlatform.linux),
@@ -2946,7 +2945,7 @@ void _registerChatShellTests() {
           find.byKey(const ValueKey('chat-browse-channel-10')),
           findsOneWidget,
         );
-        expect(shell.currentContent?.id, ChatPlugin.browseRouteId);
+        expect(shell.currentContent?.id, ChatRoute.browseRouteId);
       }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
       testWidgets('browses, filters, and joins public channels', (

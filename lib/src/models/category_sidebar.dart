@@ -1,7 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icons.dart';
 import 'sidebar.dart';
 import 'topic.dart';
 

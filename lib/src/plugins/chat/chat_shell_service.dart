@@ -9,10 +9,10 @@ import 'package:flutter/widgets.dart' show BuildContext;
 
 import 'chat_bookmark.dart';
 import 'chat_channel.dart';
+import 'chat_channel_destination.dart';
 import 'chat_controller.dart';
 import 'chat_global_search.dart';
 import 'chat_notification_counter.dart';
-import 'chat_plugin.dart';
 import 'chat_plugin_data.dart';
 import 'chat_route.dart';
 import 'chat_services.dart';
@@ -127,13 +127,13 @@ final class ChatShellService
         ExtensionDestination(:final key) => key,
         _ => null,
       };
-  bool get fullPageChatActive => ChatPlugin.ownsRouteId(_currentExtensionKey);
+  bool get fullPageChatActive => ChatRoute.ownsRouteId(_currentExtensionKey);
   int? get visibleChannelId {
     if (!fullPageChatActive) return null;
     final id = currentContent?.id;
     if (id == null) return null;
     return ChatRoute.parse(id)?.channelId ??
-        ChatPlugin.channelIdFromThreadsRoute(id);
+        ChatRoute.channelIdFromThreadsRoute(id);
   }
 
   bool get chatActive => fullPageChatActive;
@@ -397,7 +397,7 @@ final class ChatShellService
   }
 
   @override
-  bool handlesPluginRoute(String routeId) => ChatPlugin.ownsRouteId(routeId);
+  bool handlesPluginRoute(String routeId) => ChatRoute.ownsRouteId(routeId);
 
   final _routeRefreshers = <(String, String), Future<void> Function()>{};
 
@@ -419,11 +419,11 @@ final class ChatShellService
   PluginId get pluginPaneOwner => chatPluginId;
 
   @override
-  bool ownsPluginPaneRoute(String routeId) => ChatPlugin.ownsRouteId(routeId);
+  bool ownsPluginPaneRoute(String routeId) => ChatRoute.ownsRouteId(routeId);
 
   @override
   bool separatesPluginPane(String routeId) =>
-      ChatPlugin.ownsRouteId(routeId) &&
+      ChatRoute.ownsRouteId(routeId) &&
       separateSidebarMode != ChatSeparateSidebarMode.never;
 
   @override
@@ -438,9 +438,9 @@ final class ChatShellService
       await refresh();
     } else if (ChatRoute.parse(routeId) != null) {
       await retryPluginRoute(siteUrl, routeId);
-    } else if (routeId == ChatPlugin.myThreadsRouteId) {
+    } else if (routeId == ChatRoute.myThreadsRouteId) {
       await chat.loadMyThreads(siteUrl, force: true);
-    } else if (ChatPlugin.channelIdFromThreadsRoute(routeId)
+    } else if (ChatRoute.channelIdFromThreadsRoute(routeId)
         case final channelId?) {
       await chat.loadChannelThreads(siteUrl, channelId, force: true);
     } else {
@@ -567,7 +567,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          destination: const ExtensionDestination(ChatPlugin.inboxRouteId),
+          destination: const ExtensionDestination(ChatRoute.inboxRouteId),
           title: appL10n.chats,
           icon: DIcons.comment,
         ),
@@ -575,7 +575,7 @@ final class ChatShellService
     } else {
       _host.selectDestination(
         SidebarDestination(
-          id: ChatPlugin.inboxRouteId,
+          id: ChatRoute.inboxRouteId,
           label: appL10n.chats,
           icon: DIcons.comment,
         ),
@@ -587,7 +587,7 @@ final class ChatShellService
     _activateSeparatedPane();
     _host.selectDestination(
       SidebarDestination(
-        id: ChatPlugin.channelsRouteId,
+        id: ChatRoute.channelsRouteId,
         label: appL10n.chat,
         icon: DIcons.comments,
       ),
@@ -599,7 +599,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          destination: const ExtensionDestination(ChatPlugin.browseRouteId),
+          destination: const ExtensionDestination(ChatRoute.browseRouteId),
           title: appL10n.channels,
           icon: DIcons.hashtag,
         ),
@@ -607,7 +607,7 @@ final class ChatShellService
     } else {
       _host.selectDestination(
         SidebarDestination(
-          id: ChatPlugin.browseRouteId,
+          id: ChatRoute.browseRouteId,
           label: appL10n.channels,
           icon: DIcons.hashtag,
         ),
@@ -620,7 +620,7 @@ final class ChatShellService
     if (newTab) {
       _host.openPageTab(
         ContentRoute(
-          destination: const ExtensionDestination(ChatPlugin.myThreadsRouteId),
+          destination: const ExtensionDestination(ChatRoute.myThreadsRouteId),
           title: appL10n.threads,
           icon: DIcons.comments,
         ),
@@ -628,7 +628,7 @@ final class ChatShellService
     } else {
       _host.selectDestination(
         SidebarDestination(
-          id: ChatPlugin.myThreadsRouteId,
+          id: ChatRoute.myThreadsRouteId,
           label: appL10n.threads,
           icon: DIcons.comments,
         ),
@@ -640,7 +640,7 @@ final class ChatShellService
     _activateSeparatedPane();
     _host.selectDestination(
       SidebarDestination(
-        id: ChatPlugin.searchRouteId,
+        id: ChatRoute.searchRouteId,
         label: appL10n.search,
         icon: DIcons.magnifyingGlass,
       ),
@@ -733,7 +733,7 @@ final class ChatShellService
     if (channel?.threadingEnabled != true) return false;
     if (_host.currentInstance?.url != siteUrl) _host.selectInstance(index);
 
-    final routeId = ChatPlugin.channelThreadsRouteId(channelId);
+    final routeId = ChatRoute.channelThreadsRouteId(channelId);
     if (desktopPanelsEnabled) {
       _host.pushContent(
         ContentRoute(
@@ -754,7 +754,7 @@ final class ChatShellService
       };
       if (currentChatRoute?.channelId != channelId ||
           currentChatRoute?.isThread == true) {
-        _host.selectDestination(ChatPlugin.destination(channel!));
+        _host.selectDestination(chatChannelDestination(channel!));
       }
       _host.pushContent(
         ContentRoute(
@@ -857,7 +857,7 @@ final class ChatShellService
     if (mobile && channels.any((channel) => channel.membership.starred)) {
       _host.selectDestination(
         SidebarDestination(
-          id: ChatPlugin.starredRouteId,
+          id: ChatRoute.starredRouteId,
           label: appL10n.starredChannels,
           icon: DIcons.star,
         ),
@@ -894,7 +894,7 @@ final class ChatShellService
         (!settings.publicChannelsEnabled && canAccessDirectMessages)) {
       _host.selectDestination(
         SidebarDestination(
-          id: ChatPlugin.directMessagesRouteId,
+          id: ChatRoute.directMessagesRouteId,
           label: appL10n.directMessages,
           icon: DIcons.comment,
         ),
@@ -1023,11 +1023,11 @@ final class ChatShellService
     if (route.isThread) {
       if (currentRoute != route) {
         final currentThreadsChannelId = switch (_currentExtensionKey) {
-          final id? => ChatPlugin.channelIdFromThreadsRoute(id),
+          final id? => ChatRoute.channelIdFromThreadsRoute(id),
           null => null,
         };
         final preservesThreadList =
-            _currentExtensionKey == ChatPlugin.myThreadsRouteId ||
+            _currentExtensionKey == ChatRoute.myThreadsRouteId ||
             currentThreadsChannelId == route.channelId;
         final needsParentChannel =
             _presentationHost?.mobileNavigationEnabled == true
@@ -1036,7 +1036,7 @@ final class ChatShellService
                   !preservesThreadList &&
                       currentRoute?.channelId != route.channelId;
         if (needsParentChannel) {
-          _host.selectDestination(ChatPlugin.destination(channel));
+          _host.selectDestination(chatChannelDestination(channel));
         }
         _host.pushContent(
           ContentRoute(
@@ -1048,7 +1048,7 @@ final class ChatShellService
         );
       }
     } else if (currentRoute != route || _host.contentStack.length != 1) {
-      _host.selectDestination(ChatPlugin.destination(channel));
+      _host.selectDestination(chatChannelDestination(channel));
     }
 
     navigation.offer(
@@ -1084,7 +1084,7 @@ final class ChatShellService
     } else {
       if (currentRoute?.channelId != channel.id ||
           currentRoute?.isThread == true) {
-        _host.selectDestination(ChatPlugin.destination(channel));
+        _host.selectDestination(chatChannelDestination(channel));
       }
       _host.pushContent(content);
     }

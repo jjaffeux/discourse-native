@@ -4,14 +4,14 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_skeleton.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
@@ -249,7 +249,7 @@ void main() {
         .require(chatShellService)
         .hydratePluginRoute(
           _site,
-          ChatPlugin.channelThreadsRouteId(_channelId),
+          ChatRoute.channelThreadsRouteId(_channelId),
           force: true,
         );
     await tester.pumpAndSettle();
@@ -480,10 +480,7 @@ Future<ShellController> _pumpMobileThreads(
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
   }
-  expect(
-    shell.currentContent?.id,
-    ChatPlugin.channelThreadsRouteId(_channelId),
-  );
+  expect(shell.currentContent?.id, ChatRoute.channelThreadsRouteId(_channelId));
   return shell;
 }
 

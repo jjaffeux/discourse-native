@@ -109,7 +109,7 @@ Reference: `test-mobile-layout` at `9b59748`, `cd5cd18`'s `.menu-sheet` and
 `.side-nav--cards .side-section > .side-section__head` rules. The mockup sets
 `data-sheer` when `round((1 - paletteOpacity) * 30) > 0`.
 
-`DFrost` (`lib/src/ui/foundation/frost.dart`) is the one owner of that
+`DFrost` (`lib/src/theme/frost.dart`) is the one owner of that
 predicate. `ForumBackground.sheer` is `transparency / maxTransparency * 30`
 rounded, the theme carries it as a `DFrost` extension beside
 `ForumThemeEffects`, and the kit reads it from `Theme`, so sheets in the

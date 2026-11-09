@@ -4,6 +4,7 @@ import 'dart:ui' show PointerDeviceKind;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/forum_tab_store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -11,11 +12,12 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_api.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_direct_message_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -40,7 +42,6 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart' show kSecondaryMouseButton;
 import 'package:flutter/material.dart';
@@ -404,7 +405,7 @@ void main() {
         expect(shell.tabsForCurrentForum, hasLength(2));
         expect(shell.activeTab?.panel, ForumPanel.main);
         expect(shell.activeTabId, channel!.id);
-        expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+        expect(shell.currentContent?.id, ChatRoute.channelThreadsRouteId(9));
       });
 
       testWidgets('a channel and its thread render in independent panels', (
@@ -512,10 +513,10 @@ void main() {
 
         final composer = composerHost.buildComposer(
           const ComposerTargetRequest(
-            kind: ChatPlugin.messageComposerTarget,
+            kind: chatMessageComposerTarget,
             siteUrl: _site,
             title: 'Support',
-            data: {ChatPlugin.composerChannelId: 9},
+            data: {chatComposerChannelId: 9},
           ),
         );
         expect(composer, isNotNull);
@@ -523,7 +524,7 @@ void main() {
         addTearDown(activeComposer.dispose);
         expect(
           (activeComposer.target as PluginComposerTarget).policy.kind,
-          ChatPlugin.messageComposerTarget,
+          chatMessageComposerTarget,
         );
         expect(activeComposer.target.draftKey, 'chat_9');
       });
@@ -535,10 +536,10 @@ void main() {
             chatComposerHostService,
           );
           const request = ComposerTargetRequest(
-            kind: ChatPlugin.messageComposerTarget,
+            kind: chatMessageComposerTarget,
             siteUrl: _site,
             title: 'Support',
-            data: {ChatPlugin.composerChannelId: 9},
+            data: {chatComposerChannelId: 9},
           );
           final firstComposer = composerHost.buildComposer(request)!;
           final fullPageComposer = composerHost.buildComposer(request)!;
@@ -895,7 +896,7 @@ void main() {
               } else {
                 expect(
                   gated.currentContent?.id,
-                  stage == 'snapshot' ? ChatPlugin.browseRouteId : 'chat-c-21',
+                  stage == 'snapshot' ? ChatRoute.browseRouteId : 'chat-c-21',
                 );
                 expect(
                   gated.currentWorkspace!.tabById(otherTab),
@@ -940,8 +941,8 @@ void main() {
                 );
               }
               final routeId = directory
-                  ? ChatPlugin.myThreadsRouteId
-                  : ChatPlugin.channelThreadsRouteId(21);
+                  ? ChatRoute.myThreadsRouteId
+                  : ChatRoute.channelThreadsRouteId(21);
               void openList() => gated.selectDestination(
                 SidebarDestination(
                   id: routeId,
@@ -1794,9 +1795,9 @@ void main() {
         expect(
           sections.first.destinations.map((destination) => destination.id),
           [
-            ChatPlugin.inboxRouteId,
-            ChatPlugin.browseRouteId,
-            ChatPlugin.myThreadsRouteId,
+            ChatRoute.inboxRouteId,
+            ChatRoute.browseRouteId,
+            ChatRoute.myThreadsRouteId,
           ],
         );
         final inbox = sections.last;
@@ -1817,9 +1818,9 @@ void main() {
         // The inbox controls are held above every scrolling section, so the
         // directories sit between them and the inbox's conversations.
         for (final routeId in [
-          ChatPlugin.inboxRouteId,
-          ChatPlugin.browseRouteId,
-          ChatPlugin.myThreadsRouteId,
+          ChatRoute.inboxRouteId,
+          ChatRoute.browseRouteId,
+          ChatRoute.myThreadsRouteId,
         ]) {
           final destination = find.byKey(ValueKey(routeId));
           expect(destination, findsOneWidget);
@@ -1919,11 +1920,11 @@ void main() {
           ),
         );
         await tester.pumpAndSettle();
-        final threads = find.byKey(const ValueKey(ChatPlugin.myThreadsRouteId));
+        final threads = find.byKey(const ValueKey(ChatRoute.myThreadsRouteId));
         expect(threads, findsOneWidget);
         await tester.tap(threads);
         await tester.pump();
-        expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+        expect(shell.currentContent?.id, ChatRoute.myThreadsRouteId);
         await tester.pumpWidget(
           ShellScope(
             controller: shell,
@@ -1960,11 +1961,11 @@ void main() {
         expect(shell.currentContent?.id, 'chat-c-9-t-3');
         expect(shell.contentStack.map((route) => route.id), [
           'chat-c-9',
-          ChatPlugin.myThreadsRouteId,
+          ChatRoute.myThreadsRouteId,
           'chat-c-9-t-3',
         ]);
         expect(shell.handleBack(), isTrue);
-        expect(shell.currentContent?.id, ChatPlugin.myThreadsRouteId);
+        expect(shell.currentContent?.id, ChatRoute.myThreadsRouteId);
         expect(shell.handleBack(), isTrue);
         expect(shell.currentContent?.id, 'chat-c-9');
       });
@@ -2376,7 +2377,7 @@ void main() {
             isTrue,
           );
           await tester.pump();
-          expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+          expect(shell.currentContent?.id, ChatRoute.channelThreadsRouteId(9));
 
           for (
             var attempt = 0;
@@ -2399,13 +2400,13 @@ void main() {
           await tester.pump();
           expect(shell.contentStack.map((route) => route.id), [
             'chat-c-9',
-            ChatPlugin.channelThreadsRouteId(9),
+            ChatRoute.channelThreadsRouteId(9),
             'chat-c-9-t-3',
           ]);
 
           expect(shell.handleBack(), isTrue);
           await tester.pump();
-          expect(shell.currentContent?.id, ChatPlugin.channelThreadsRouteId(9));
+          expect(shell.currentContent?.id, ChatRoute.channelThreadsRouteId(9));
           expect(
             find.byKey(const ValueKey('chat-channel-thread-3')),
             findsOneWidget,

@@ -12,7 +12,7 @@ List<ComposerSyntaxPolicy> coreComposerSyntaxPolicies(
 ) => [
   if (!composer.target.isPlugin) ...[
     ComposerUploadPlaceholderPolicy(composer),
-    const ComposerVideoPolicy(),
+    ComposerVideoPolicy(composer),
     ComposerTablePolicy(composer),
     ComposerCodePolicy(composer),
     ComposerDetailsPolicy(composer),

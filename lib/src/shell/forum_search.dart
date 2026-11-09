@@ -9,13 +9,13 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
 import '../models/forum_workspace.dart';
 import '../models/group_route.dart';
 import '../models/search_results.dart';
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
-import '../theme/d_icons.dart';
 import '../theme/discourse_typography.dart';
 import 'content_navigation_controls.dart';
 import 'forum_tab_scope.dart';

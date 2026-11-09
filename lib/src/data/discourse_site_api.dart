@@ -20,7 +20,7 @@ import '../models/topic_reading_policy.dart';
 import 'discourse_api_contracts.dart';
 import 'discourse_transport.dart';
 import 'http_basic_auth.dart';
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'json_decode.dart';
 import 'site_message_bus_bootstrap.dart';
 

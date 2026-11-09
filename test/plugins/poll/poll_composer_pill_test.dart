@@ -4,6 +4,7 @@ import 'package:discourse_native/src/plugins/poll/poll_composer_editor.dart';
 import 'package:discourse_native/src/plugins/poll/poll_composer_pill.dart';
 import 'package:discourse_native/src/plugins/poll/poll_data.dart';
 import 'package:discourse_native/src/plugins/poll/poll_icons.dart';
+import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/composer/markdown_editing_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -331,6 +332,7 @@ void main() {
       final controller = MarkdownEditingController(
         text: document,
         syntaxPolicies: const [PollComposerSyntaxPolicy()],
+        artwork: const CoreComposerArtwork(),
       );
       addTearDown(controller.dispose);
 

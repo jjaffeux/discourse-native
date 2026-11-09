@@ -5,7 +5,7 @@
 // License - https://fontawesome.com/license/free
 // (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License)
 
-import 'd_icon.dart';
+import 'd_icon_data.dart';
 
 /// Every icon in `tool/icons.txt`, as [DIconData].
 abstract final class DIcons {

@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/tokens.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 
 /// Filled uses a capsule track and a bar thumb with the same interactions.
 enum DSliderVariant {

@@ -9,7 +9,7 @@ import 'package:video_player/video_player.dart';
 import 'package:webview_all/webview_all.dart';
 
 import '../data/api_credentials.dart';
-import '../data/http_transport.dart';
+import '../data/http_url_safety.dart';
 import '../data/site_lifecycle.dart';
 import '../data/site_video_source.dart';
 

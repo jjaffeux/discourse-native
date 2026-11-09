@@ -10,13 +10,13 @@ import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/app_settings.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_appearance.dart';
 import '../theme/app_theme.dart';
 import '../theme/color_contrast.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'add_instance_sheet.dart';
 import 'app_settings_page.dart';
 import 'avatar_image.dart';

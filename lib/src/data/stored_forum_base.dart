@@ -1,5 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 
 /// Validates persisted forum identities without accepting user-input shorthand.
 /// Subfolder paths are retained; trailing slashes match connected-site storage.

@@ -1,11 +1,11 @@
 import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/foundation/icons/d_icon_sets.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/icons/d_native_icons.dart';
 import 'package:discourse_native/src/plugins/discourse_ai/discourse_ai_icons.dart';
 import 'package:discourse_native/src/theme/d_icon_glyph.dart';
-import 'package:discourse_native/src/theme/d_icon_sets.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
-import 'package:discourse_native/src/theme/d_native_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';

@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../foundation/icons/d_icon_data.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../../models/user_status.dart';
-import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
 import 'triggers.dart';
 
 @immutable

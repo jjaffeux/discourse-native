@@ -467,3 +467,10 @@ final class EventUserCodec
     'can_create_discourse_post_event': value.canCreate,
   };
 }
+
+String eventResponseLabel(String? status) => switch (status) {
+  'going' => appL10n.going,
+  'interested' => appL10n.interested,
+  'not_going' => appL10n.notGoing,
+  _ => appL10n.invited,
+};

@@ -4,7 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
-import 'chat_time.dart';
+import 'chat_reader_time.dart';
 
 /// The shared reading header for channels, direct messages and threads.
 /// Both layouts use the page's reading lane and leave the panel visible.

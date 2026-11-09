@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../theme/d_icon.dart';
+import '../foundation/icons/d_icon_data.dart';
 
 /// Slots left after core's category and tag in Discourse's 20-kind request.
 const int maximumPluginHashtagKinds = 18;

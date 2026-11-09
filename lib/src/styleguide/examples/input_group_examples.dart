@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 
 import '../styleguide_example.dart';
 

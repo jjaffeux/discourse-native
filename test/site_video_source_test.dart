@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
-import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_video_source.dart';
 import 'package:flutter_test/flutter_test.dart';

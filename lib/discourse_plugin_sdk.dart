@@ -34,6 +34,10 @@ export 'src/data/discourse_api_contracts.dart'
         DiscourseApiConfiguration,
         DiscourseApiLifecycle,
         DiscourseApiModels,
+        DsaNoticeConnection,
+        DsaNoticesApi,
+        DsaVerificationRequired,
+        HttpBasicAuthenticationRequired,
         PostMutationsApi,
         ShellApiCapabilities,
         ShellLookupApi,
@@ -68,6 +72,9 @@ export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
+export 'src/foundation/icons/d_icon_data.dart';
+export 'src/foundation/icons/d_icons.dart';
+export 'src/foundation/icons/d_native_icons.dart' show DNativeIcons;
 export 'src/foundation/loopback_host.dart';
 export 'src/foundation/private_file_document.dart'
     show PrivateFileDocument, PrivateFileResult;
@@ -132,6 +139,8 @@ export 'src/plugin_api/notification_types.dart';
 export 'src/plugin_api/plugin_manifest.dart';
 export 'src/plugin_api/plugin_runtime.dart';
 export 'src/plugin_api/plugin_scope.dart';
+export 'src/plugin_api/plugin_ui_scope.dart'
+    show PluginOwnedServices, PluginServiceSelector, PluginUiScope;
 export 'src/plugin_api/post_action.dart'
     show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/plugin_api/reaction_presentation.dart';
@@ -153,7 +162,8 @@ export 'src/shell/composer/components/emoji.dart'
     show openEmojiPickerForComposer;
 export 'src/shell/composer/components/image_source.dart'
     show escapeImageAlt, flattenImageAlt;
-export 'src/shell/composer/components/link.dart' show showComposerLinkDialog;
+export 'src/shell/composer/components/link_dialog.dart'
+    show showComposerLinkDialog;
 export 'src/shell/composer/components/list_source.dart'
     show ComposerListItem, ComposerListBody, composerListItems;
 export 'src/shell/composer/controller.dart'
@@ -274,8 +284,8 @@ export 'src/shell/user_status.dart' show UserStatusMessage;
 export 'src/shell/youtube_video.dart'
     show YoutubeVideo, YoutubeVideoData, parseYoutubeTime, sanitizeYoutubeId;
 export 'src/theme/app_theme.dart';
-export 'src/theme/d_icon.dart';
-export 'src/theme/d_icons.dart';
-export 'src/theme/d_native_icons.dart' show DNativeIcons;
+export 'src/theme/code_colors.dart';
+export 'src/theme/d_icon.dart' hide DIconSetScope;
+export 'src/theme/discourse_colors.dart';
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
 export 'src/utils/pagination.dart' show paginationPrefetchDistance;

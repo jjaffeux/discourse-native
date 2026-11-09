@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import '../foundation/touch_target.dart';
 
 /// A branch from the leading edge to a reply's header.
