@@ -40,7 +40,7 @@ class ForumAboutHost extends StatelessWidget {
       // previous account's permission-gated About data, even during a reload.
       key: pageKey,
       requestIdentity: (siteUrl, owner.session, owner.username, owner.private),
-      load: () => ShellScope.read(context).loadForumAbout(siteUrl),
+      load: () => ShellScope.read(context).siteReads.loadForumAbout(siteUrl),
       loginRequired: owner.private,
       voiceEnabled: owner.voiceEnabled,
       onOpenFullPage: () => unawaited(openExternalLink('$siteUrl/about')),

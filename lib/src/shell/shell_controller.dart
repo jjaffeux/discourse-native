@@ -74,7 +74,6 @@ import '../models/discourse_instance.dart';
 import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/emoji_preferences.dart';
-import '../models/forum_about.dart';
 import '../models/forum_workspace.dart';
 import '../models/found_user.dart';
 import '../models/group.dart';
@@ -158,6 +157,7 @@ import 'recent_search_history.dart';
 import 'shell_search_controller.dart';
 import 'site_live_sessions.dart';
 import 'site_presentation_controller.dart';
+import 'site_read_policy.dart';
 import 'site_url.dart';
 import 'topic_category_path.dart' as category_path;
 import 'topic_data_owner.dart';
@@ -1124,16 +1124,24 @@ class ShellController extends FrameSafeNotifier
         ),
       );
 
+  late final SiteReadPolicy siteReads = SiteReadPolicy(
+    api: api.site,
+    credentials: credentials,
+    lifecycle: lifecycle,
+    instanceFor: _instanceAt,
+    isDisposed: () => isDisposed,
+  );
+
   SitePresentationController get _presentation =>
       _sitePresentation ??= _createSitePresentationController();
 
   SitePresentationController _createSitePresentationController() {
     final controller = SitePresentationController(
-      loadAppearance: _loadSiteAppearance,
-      loadConfig: _loadSiteConfig,
-      loadCustomEmojis: _loadCustomEmojis,
-      loadEmojiCatalog: _loadEmojiCatalog,
-      loadEmojiSearchAliases: _loadEmojiSearchAliases,
+      loadAppearance: siteReads.loadAppearance,
+      loadConfig: siteReads.loadConfig,
+      loadCustomEmojis: siteReads.loadCustomEmojis,
+      loadEmojiCatalog: siteReads.loadEmojiCatalog,
+      loadEmojiSearchAliases: siteReads.loadEmojiSearchAliases,
       credentials: credentials,
       lifecycle: lifecycle,
       readPersistedAppearance: (siteUrl) => _instanceAt(siteUrl)?.appearance,
@@ -1143,109 +1151,6 @@ class ShellController extends FrameSafeNotifier
     );
     controller.addListener(_notify);
     return controller;
-  }
-
-  Future<SiteAppearance?> _loadSiteAppearance({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    // A failed credential deletion can leave an orphaned key behind. The stored
-    // instance identity is the account boundary: signed-out sites may refresh
-    // their public colors, but must never forward that leftover credential.
-    final instance = _instanceAt(siteUrl);
-    final authenticate = apiKey != null && instance?.isConnected == true;
-    return api.site.siteAppearance(
-      siteUrl: siteUrl,
-      username: authenticate ? instance!.user!.username : null,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<ForumAbout> loadForumAbout(String siteUrl) async {
-    final instance = instanceFor(siteUrl);
-    final lease = lifecycle.capture(siteUrl);
-    if (instance == null || (instance.loginRequired && !instance.isConnected)) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    final session = AccountRequestSession(siteUrl, lease);
-    final credential = instance.isConnected
-        ? await session.credentials(credentials)
-        : session.anonymousCredentials();
-    if (instance.isConnected && credential.apiKey == null) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    final about = await credential.run(
-      () => api.site.forumAbout(
-        siteUrl: siteUrl,
-        apiKey: credential.apiKey,
-        clientId: credential.clientId,
-      ),
-    );
-    if (isDisposed || !lease.isCurrent) {
-      throw SiteLookupException(SiteLookupFailure.unreachable, siteUrl);
-    }
-    return about;
-  }
-
-  Future<SiteConfig> _loadSiteConfig({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    // As with appearance, key presence is not account identity: secure storage
-    // can retain a key after a failed deletion. A signed-out instance must ask
-    // only for the site's public client settings.
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.siteConfig(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<Map<String, String>> _loadCustomEmojis({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.customEmojis(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<SiteEmojiCatalog> _loadEmojiCatalog({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.emojiCatalog(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
-  }
-
-  Future<Map<String, List<String>>> _loadEmojiSearchAliases({
-    required String siteUrl,
-    String? apiKey,
-    String? clientId,
-  }) {
-    final authenticate =
-        apiKey != null && _instanceAt(siteUrl)?.isConnected == true;
-    return api.site.emojiSearchAliases(
-      siteUrl: siteUrl,
-      apiKey: authenticate ? apiKey : null,
-      clientId: authenticate ? clientId : null,
-    );
   }
 
   String? _connectingSiteUrl;
