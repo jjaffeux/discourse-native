@@ -190,6 +190,7 @@ part 'post_commands.dart';
 part 'post_mutation_policy.dart';
 part 'selected_post_moderation.dart';
 part 'shell_tab_context.dart';
+part 'site_capabilities.dart';
 part 'site_live_composition.dart';
 part 'taxonomy_directory_controller.dart';
 part 'topic_action_transactions.dart';
@@ -2630,11 +2631,15 @@ class ShellController extends FrameSafeNotifier
   );
   bool _liveChangeNotifyPending = false;
 
-  final Map<String, TopicComposerCapabilities> _topicComposerCapabilities = {};
-  final Map<String, SitePostActionCatalog> _postActionCatalogs = {};
+  late final _siteCapabilities = _SiteCapabilities(
+    credentialForWrite: _credentialForWrite,
+    topicComposerQueries: api.topicComposerQueries,
+    lifecycle: lifecycle,
+    changed: _notify,
+  );
 
   List<PostFlagType> postFlagTypesFor(String siteUrl) =>
-      _postActionCatalogs[siteUrl]?.postFlags ?? const [];
+      _siteCapabilities.postActions(siteUrl).postFlags;
 
   List<PostFlagType> availablePostFlagTypes(String siteUrl, Post post) {
     if (post.hidden || post.isDeleted || post.actedFlagSummaries.isNotEmpty) {
@@ -2668,10 +2673,8 @@ class ShellController extends FrameSafeNotifier
     String siteUrl,
     TopicDetail topic,
   ) {
-    final catalog =
-        _postActionCatalogs[siteUrl]?.topicFlags ?? const <PostFlagType>[];
     return List.unmodifiable([
-      for (final type in catalog)
+      for (final type in _siteCapabilities.postActions(siteUrl).topicFlags)
         if (type.enabled &&
             !(type.isIllegal && siteConfigFor(siteUrl).dsaReportingEnabled) &&
             type.appliesToTopic &&
@@ -2915,12 +2918,12 @@ class ShellController extends FrameSafeNotifier
       _taxonomy.tagDirectoryFeedFor(siteUrl);
 
   TopicComposerCapabilities topicComposerCapabilities(String siteUrl) =>
-      _topicComposerCapabilities[siteUrl] ?? const TopicComposerCapabilities();
+      _siteCapabilities.composer(siteUrl);
 
   Future<TopicComposerCapabilities> prepareTopicTagEditor(
     String siteUrl,
   ) async {
-    await _ensureTopicComposerCapabilities(siteUrl);
+    await _siteCapabilities.ensureComposer(siteUrl);
     return topicComposerCapabilities(siteUrl);
   }
 
@@ -3420,10 +3423,8 @@ class ShellController extends FrameSafeNotifier
     SiteLease lease,
   ) => _notificationFeeds.acceptLiveState(siteUrl, data, lease);
 
-  final Map<String, Set<String>> _serverPluginNames = {};
-
   bool supportsComposerColors(String siteUrl) =>
-      _serverPluginNames[siteUrl]?.contains('discourse-bbcode-color') ?? false;
+      _siteCapabilities.hasServerPlugin(siteUrl, 'discourse-bbcode-color');
 
   /// One poll answer can carry a backlog of messages, delivered in one
   /// synchronous run: tracking rows, `/latest` and `/new` arrivals, `/topic`
@@ -5940,7 +5941,7 @@ class ShellController extends FrameSafeNotifier
     final lease = lifecycle.capture(siteUrl);
     await Future.wait<void>([
       loadCategories(siteUrl),
-      _ensureTopicComposerCapabilities(siteUrl),
+      _siteCapabilities.ensureComposer(siteUrl),
     ]);
     if (!forumActive ||
         !lease.isCurrent ||
@@ -6187,7 +6188,7 @@ class ShellController extends FrameSafeNotifier
       focusText: focusText,
     );
     if (plan == null) return;
-    unawaited(_ensureTopicComposerCapabilities(origin.siteUrl));
+    unawaited(_siteCapabilities.ensureComposer(origin.siteUrl));
     if (!_replaceComposer()) return;
     // Published edits must never overwrite an unfinished reply's draft key.
     final composer = _buildTextComposer(
@@ -6361,7 +6362,7 @@ class ShellController extends FrameSafeNotifier
         detail?.canEditTags != true) {
       return;
     }
-    unawaited(_ensureTopicComposerCapabilities(instance.url));
+    unawaited(_siteCapabilities.ensureComposer(instance.url));
     if (!_replaceComposer()) return;
     // A mega topic's run starts at the first post only when read from there.
     final firstId = detail!.stream.firstOrNull;
@@ -6410,25 +6411,6 @@ class ShellController extends FrameSafeNotifier
       topicId: topicId,
       command: _TopicTagsCommand(tags),
     );
-  }
-
-  Future<void> _ensureTopicComposerCapabilities(String siteUrl) async {
-    if (_topicComposerCapabilities.containsKey(siteUrl)) return;
-    final lease = lifecycle.capture(siteUrl);
-    try {
-      final credential = await _credentialForWrite(siteUrl, lease: lease);
-      if (!lease.isCurrent || credential.failure != null) return;
-      final capabilities = await credential.request!.run(
-        () => api.topicComposerQueries.topicComposerCapabilities(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey!,
-        ),
-      );
-      lease.commit(() {
-        _topicComposerCapabilities[siteUrl] = capabilities;
-        _notify();
-      });
-    } catch (_) {}
   }
 
   late final _PostMutationPolicy _postMutationPolicy = _PostMutationPolicy(
@@ -6857,7 +6839,7 @@ class ShellController extends FrameSafeNotifier
     topicData: _topicData,
     siteContextFor: (siteUrl) => FlagSiteContext(
       connected: _instanceAt(siteUrl)?.isConnected == true,
-      catalog: _postActionCatalogs[siteUrl] ?? const SitePostActionCatalog(),
+      catalog: _siteCapabilities.postActions(siteUrl),
       minimumMessageLength: siteConfigFor(siteUrl).minPersonalMessagePostLength,
     ),
     changed: _notify,
@@ -7652,8 +7634,7 @@ class ShellController extends FrameSafeNotifier
     _taxonomy.forget(siteUrl);
     _topicTracking.forget(siteUrl);
     _liveSessions.clearRetry(siteUrl);
-    _topicComposerCapabilities.remove(siteUrl);
-    _postActionCatalogs.remove(siteUrl);
+    _siteCapabilities.forget(siteUrl);
     _customSidebar.forget(siteUrl);
     _notificationFeeds.forget(siteUrl);
     _sitePresentation?.forget(siteUrl);
@@ -9480,8 +9461,7 @@ final class _ShellComposerOpeningHost
   @override
   Future<void> ensureForOpening(String siteUrl) async {
     await Future.wait<void>([
-      if (!_shell._topicComposerCapabilities.containsKey(siteUrl))
-        _shell._ensureTopicComposerCapabilities(siteUrl),
+      _shell._siteCapabilities.ensureComposer(siteUrl),
       if (_shell._taxonomy.needsCategoryLoad(siteUrl))
         _shell.loadCategories(siteUrl),
     ]);
