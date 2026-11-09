@@ -3919,7 +3919,11 @@ class ShellController extends FrameSafeNotifier
     if (data is! Map) return _noCoreTopicInvalidation;
     final type = data['type'];
     // As on the web client, a reload replaces the message's per-post handling.
-    if (type == 'created' || data['reload_topic'] == true) {
+    // An inbox move names no post, and only a topic read carries its state.
+    if (type == 'created' ||
+        type == 'archived' ||
+        type == 'move_to_inbox' ||
+        data['reload_topic'] == true) {
       return (stream: true, post: null, deletion: false);
     }
     final postId = _corePostMessageTypes.contains(type)
