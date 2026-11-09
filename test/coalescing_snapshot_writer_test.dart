@@ -90,6 +90,25 @@ void main() {
     },
   );
 
+  test(
+    'saves from one synchronous turn are written once, as the newest',
+    () async {
+      final written = <int>[];
+      final writer = CoalescingSnapshotWriter<int>(
+        owner: Object(),
+        key: 'snapshot',
+        writeSnapshot: (value) async => written.add(value),
+      );
+
+      final first = writer.save(1);
+      final last = writer.save(2);
+      expect(last, same(first));
+      await last;
+
+      expect(written, [2]);
+    },
+  );
+
   test('an already queued save writes before a newer pending save', () async {
     final owner = Object();
     final readStarted = Completer<void>();
@@ -121,6 +140,7 @@ void main() {
     final firstSave = writer.save('first');
     var firstSaveCompleted = false;
     unawaited(firstSave.whenComplete(() => firstSaveCompleted = true));
+    await Future<void>.delayed(Duration.zero);
     final secondSave = writer.save('second');
     expect(secondSave, isNot(same(firstSave)));
 
