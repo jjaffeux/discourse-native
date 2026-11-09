@@ -139,6 +139,7 @@ export 'src/ui/foundation/item_interaction.dart';
 export 'src/ui/foundation/layout_selector.dart';
 export 'src/ui/foundation/native_webview_scroll.dart'
     show NativeWebViewScrollBridge;
+export 'src/ui/foundation/press_scale.dart' show DPressDepth;
 export 'src/ui/foundation/sheet_page_band.dart'
     show DSheetPageBand, DSheetReaderStart;
 export 'src/ui/foundation/surface_depth.dart';

@@ -11,6 +11,9 @@ enum DPressDepth {
   /// A control that stays put.
   still(1),
 
+  /// A wide settings row, which a smaller scale would move too far.
+  row(.985),
+
   /// A control with a fill of its own.
   filled(.95),
 

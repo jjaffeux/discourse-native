@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
+import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
 import 'd_label.dart';
 
@@ -67,6 +68,7 @@ class _DSwitchState extends State<DSwitch> {
   bool _focusVisible = false;
   bool _hovered = false;
   bool _pressed = false;
+  WidgetStatesController? _press;
   final FocusNode _ownedFocus = FocusNode();
   FocusNode get _focus => widget.focusNode ?? _ownedFocus;
 
@@ -77,10 +79,14 @@ class _DSwitchState extends State<DSwitch> {
   void didUpdateWidget(DSwitch oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (!_enabled) _pressed = false;
+    if (!_enabled || widget.readOnly) {
+      _press?.update(WidgetState.pressed, false);
+    }
   }
 
   @override
   void dispose() {
+    _press?.dispose();
     _ownedFocus.dispose();
     super.dispose();
   }
@@ -89,6 +95,11 @@ class _DSwitchState extends State<DSwitch> {
   bool get _enabled =>
       widget.enabled &&
       (widget.readOnly || widget.value == null || widget.onChanged != null);
+
+  void _setPressed(bool value) {
+    setState(() => _pressed = value);
+    if (!widget.readOnly) _press?.update(WidgetState.pressed, value);
+  }
 
   void _toggle() {
     if (!_enabled || widget.readOnly) return;
@@ -147,13 +158,9 @@ class _DSwitchState extends State<DSwitch> {
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 excludeFromSemantics: true,
-                onTapDown: _enabled
-                    ? (_) => setState(() => _pressed = true)
-                    : null,
-                onTapUp: _enabled
-                    ? (_) => setState(() => _pressed = false)
-                    : null,
-                onTapCancel: () => setState(() => _pressed = false),
+                onTapDown: _enabled ? (_) => _setPressed(true) : null,
+                onTapUp: _enabled ? (_) => _setPressed(false) : null,
+                onTapCancel: () => _setPressed(false),
                 onTap: _enabled
                     ? () {
                         _focus.requestFocus();
@@ -162,14 +169,14 @@ class _DSwitchState extends State<DSwitch> {
                     : null,
                 child: Opacity(
                   opacity: _enabled ? 1 : 0.5,
-                  child:
-                      widget._content?.call(
-                        context,
-                        artwork,
-                        _focusVisible,
-                        _hovered,
-                      ) ??
-                      artwork,
+                  child: switch (widget._content) {
+                    final content? => DPressScale(
+                      states: _press ??= WidgetStatesController(),
+                      depth: DPressDepth.row,
+                      child: content(context, artwork, _focusVisible, _hovered),
+                    ),
+                    null => artwork,
+                  },
                 ),
               ),
             ),

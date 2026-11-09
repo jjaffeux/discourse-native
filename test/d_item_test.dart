@@ -64,6 +64,38 @@ Widget sample(DItemSize size) => DItem(
 );
 
 void main() {
+  for (final (depth, scale) in const [
+    (DPressDepth.row, .985),
+    (DPressDepth.inset, .94),
+    (DPressDepth.still, 1.0),
+  ]) {
+    testWidgets('$depth gives to $scale under a press', (tester) async {
+      await tester.pumpWidget(
+        host(
+          DItem(
+            pressDepth: depth,
+            onPressed: () {},
+            children: const [Text('Icons')],
+          ),
+        ),
+      );
+      final label = find.text('Icons');
+
+      final press = await tester.startGesture(tester.getCenter(label));
+      await tester.pump();
+
+      expect(
+        tester.getRect(label).width / tester.getSize(label).width,
+        moreOrLessEquals(scale, epsilon: 1e-9),
+      );
+
+      await press.up();
+      await tester.pump();
+
+      expect(tester.getRect(label).width, tester.getSize(label).width);
+    });
+  }
+
   for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
     for (final kind in ['button', 'checkbox', 'toggle', 'item']) {
       testWidgets('disabled $kind owns its tap inside an Item on $platform', (

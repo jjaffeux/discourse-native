@@ -150,6 +150,9 @@ class ForumDisplaySettings extends StatelessWidget {
                               selectionStyle: DItemSelectionStyle.tinted,
                               showSelectionIndicator: false,
                               variant: DItemVariant.outline,
+                              pressDepth: forumSettings.shared.iconSet == set
+                                  ? DPressDepth.row
+                                  : DPressDepth.inset,
                               onPressed: () =>
                                   unawaited(_setIconSet(context, set)),
                               children: [

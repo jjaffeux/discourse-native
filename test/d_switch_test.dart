@@ -1046,4 +1046,91 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  double paintedScale(WidgetTester tester, Finder target) =>
+      tester.getRect(target).width / tester.getSize(target).width;
+
+  Future<TestGesture> holdDown(WidgetTester tester) async {
+    final press = await tester.startGesture(
+      tester.getCenter(find.byType(DSwitch)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    return press;
+  }
+
+  testWidgets('a switch row gives under a press and springs back', (
+    tester,
+  ) async {
+    var changes = 0;
+    await mount(
+      tester,
+      DSwitchTile(
+        value: false,
+        onChanged: (_) => changes++,
+        title: const Text('Show banners'),
+      ),
+    );
+
+    final press = await holdDown(tester);
+
+    expect(
+      paintedScale(tester, find.text('Show banners')),
+      moreOrLessEquals(.985, epsilon: 1e-9),
+    );
+    expect(tester.getSize(find.byType(DSwitch)).width, 240);
+
+    await press.up();
+    await tester.pumpAndSettle();
+
+    expect(paintedScale(tester, find.text('Show banners')), 1);
+    expect(changes, 1);
+  });
+
+  for (final (name, row) in [
+    (
+      'read-only',
+      DSwitchTile(
+        value: false,
+        readOnly: true,
+        onChanged: (_) {},
+        title: const Text('Show banners'),
+      ),
+    ),
+    (
+      'disabled',
+      DSwitchTile(
+        value: false,
+        enabled: false,
+        onChanged: (_) {},
+        title: const Text('Show banners'),
+      ),
+    ),
+  ]) {
+    testWidgets('a $name switch row stays still under a press', (tester) async {
+      await mount(tester, row);
+
+      final press = await holdDown(tester);
+
+      expect(paintedScale(tester, find.text('Show banners')), 1);
+      await press.up();
+      await tester.pumpAndSettle();
+    });
+  }
+
+  testWidgets('a bare switch stays still under a press', (tester) async {
+    await mount(tester, DSwitch(value: false, onChanged: (_) {}));
+    final track = find
+        .descendant(
+          of: find.byType(DSwitch),
+          matching: find.byType(AnimatedContainer),
+        )
+        .first;
+
+    final press = await holdDown(tester);
+
+    expect(paintedScale(tester, track), 1);
+    await press.up();
+    await tester.pumpAndSettle();
+  });
 }
