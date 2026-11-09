@@ -77,6 +77,7 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   bool longHistory = false,
   UserCard profile = card,
   double devicePixelRatio = 1,
+  List<UserActivityItem>? activity,
 }) async {
   tester.view.devicePixelRatio = devicePixelRatio;
   tester.view.physicalSize =
@@ -88,20 +89,22 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   final api = FakeDiscourseApi(
     user: me,
     cards: {'sam': profile},
-    userActivityItems: longHistory
-        ? [
-            for (var i = 0; i < 30; i++)
-              UserActivityItem(
-                actionType: 5,
-                topicId: 100 + i,
-                postNumber: 2,
-                title: 'History $i',
-                slug: 'history',
-                username: 'sam',
-                excerpt: 'Reply words',
-              ),
-          ]
-        : rows,
+    userActivityItems:
+        activity ??
+        (longHistory
+            ? [
+                for (var i = 0; i < 30; i++)
+                  UserActivityItem(
+                    actionType: 5,
+                    topicId: 100 + i,
+                    postNumber: 2,
+                    title: 'History $i',
+                    slug: 'history',
+                    username: 'sam',
+                    excerpt: 'Reply words',
+                  ),
+              ]
+            : rows),
   );
   final controller = ShellController(
     instanceStore: FakeInstanceStore([
@@ -634,6 +637,43 @@ void main() {
       expect(tester.takeException(), isNull);
     },
     variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets(
+    'reopening a phone user card shows what the person has done since',
+    (tester) async {
+      final activity = [...rows];
+      await pumpCard(tester, activity: activity);
+      await tester.pumpAndSettle();
+      expect(find.text('A topic Sam started'), findsOneWidget);
+
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, 180),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('user-card-surface')), findsNothing);
+
+      activity.insert(
+        0,
+        UserActivityItem(
+          actionType: 5,
+          topicId: 99,
+          postNumber: 3,
+          title: 'A reply Sam posted since',
+          slug: 'since',
+          username: 'sam',
+          excerpt: 'Newer words',
+          createdAt: DateTime.now().subtract(const Duration(minutes: 1)),
+        ),
+      );
+
+      await tester.tap(find.text('Open Sam'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('A reply Sam posted since'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
   );
 
   test('like and authored action on the same post remain separate', () {

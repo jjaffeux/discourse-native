@@ -12329,6 +12329,126 @@ void main() {
         expect(subject.chat.stream(site, 9).messageIds, [1, 3]);
       });
 
+      // Chat::Channel::Policy::MessageExistence clears a trashed cursor the
+      // reader may not see, and a directional page with no cursor starts from
+      // the matching end of the whole channel. These pages stand for that
+      // answer: requesting them means the cursor was a deleted row.
+      test(
+        'catching up after the newest row was deleted keeps the conversation in order',
+        () async {
+          var now = DateTime.utc(2026, 5, 5, 11);
+          final subject = build(
+            currentUser: currentUser,
+            clock: () => now,
+            messages: {
+              key(9): page([
+                message(10, minute: 10),
+                message(11, minute: 11),
+                message(12, minute: 12),
+              ]),
+              key(9, after: 12): page([
+                message(1),
+                message(2, minute: 1),
+              ], canLoadMoreFuture: true),
+              key(9, after: 11): page(const []),
+            },
+          );
+          final tracker = await openViewed(subject);
+
+          tracker.deliverPluginMessage('/chat/9', deleteEvent(12));
+          subject.chat.setForeground(false);
+          now = now.add(ChatController.resumeResyncThreshold);
+          subject.chat.setForeground(true);
+          await pumpEventQueue();
+
+          expect(visible(subject.chat), [10, 11]);
+          expect(subject.chat.stream(site, 9).atPresent, isTrue);
+        },
+      );
+
+      test(
+        'scrolling back after the oldest row was deleted reaches the history before it',
+        () async {
+          final subject = build(
+            currentUser: currentUser,
+            messages: {
+              key(9): page([
+                message(10, minute: 10),
+                message(11, minute: 11),
+              ], canLoadMorePast: true),
+              key(9, before: 10): page([
+                message(30, minute: 30),
+                message(31, minute: 31),
+              ], canLoadMorePast: true),
+              key(9, before: 11): page([message(5, minute: 5)]),
+            },
+          );
+          final tracker = await openViewed(subject);
+
+          tracker.deliverPluginMessage('/chat/9', deleteEvent(10));
+          await subject.chat.loadOlder(site, 9);
+
+          expect(visible(subject.chat), [5, 11]);
+        },
+      );
+
+      test(
+        'a moderator who is not staff pages past a deleted row of someone else',
+        () async {
+          final subject = build(
+            currentUser: currentUser,
+            messages: {
+              key(9): page([
+                message(10, minute: 10),
+                message(11, minute: 11),
+              ], canLoadMorePast: true),
+              key(9, before: 10): page([
+                message(30, minute: 30),
+              ], canLoadMorePast: true),
+              key(9, before: 11): page([message(5, minute: 5)]),
+            },
+          );
+          subject.store.put(site, channel(9, canModerate: true));
+          final tracker = attachTracker(subject.chat);
+          await subject.chat.openChannel(site, 9);
+          final view = subject.chat.beginViewingChannel(site, 9);
+          addTearDown(() => subject.chat.endViewingChannel(site, 9, view));
+
+          tracker.deliverPluginMessage('/chat/9', deleteEvent(10));
+          await subject.chat.loadOlder(site, 9);
+
+          expect(subject.store.read<ChatMessage>(site, 10)?.isDeleted, isTrue);
+          expect(subject.api.chatMessagesRequested.last.before, 11);
+          expect(visible(subject.chat), [5, 10, 11]);
+        },
+      );
+
+      test(
+        'staff keep paging from a deleted row the site still accepts',
+        () async {
+          final subject = build(
+            currentUser: const DiscourseUser(
+              id: 7,
+              username: 'reader',
+              staff: true,
+            ),
+            messages: {
+              key(9): page([
+                message(10, minute: 10),
+                message(11, minute: 11),
+              ], canLoadMorePast: true),
+              key(9, before: 10): page([message(5, minute: 5)]),
+            },
+          );
+          final tracker = await openViewed(subject);
+
+          tracker.deliverPluginMessage('/chat/9', deleteEvent(10));
+          await subject.chat.loadOlder(site, 9);
+
+          expect(subject.api.chatMessagesRequested.last.before, 10);
+        },
+      );
+
       test('stops standing in once a restore stores the row again', () async {
         final subject = build(currentUser: currentUser, messages: window);
         final tracker = await openViewed(subject);

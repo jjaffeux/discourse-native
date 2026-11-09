@@ -86,6 +86,36 @@ void main() {
     );
   }
 
+  // plugin.rb serializes these answers from guardian.can_unaccept_answer?, which
+  // has no hidden-post rule; the web menu offers the action from the same field.
+  test(
+    'a flag-hidden accepted answer can still have its solution removed',
+    () async {
+      final f = Fixture();
+      f.posts.records[2] = Post(
+        id: 2,
+        postNumber: 2,
+        username: 'sam',
+        cooked: '<p>Answer</p>',
+        hidden: true,
+        plugins: PluginData.none.withValue(
+          solvedPostKey,
+          SolvedPost.fromJson({
+            'accepted_answer': true,
+            'can_accept_answer': true,
+            'can_unaccept_answer': true,
+            'topic_accepted_answer': true,
+          })!,
+        ),
+      );
+
+      final result = await f.change(false);
+
+      expect(result.kind, SolvedChangeKind.applied);
+      expect(f.api.calls.single.$1, '/solution/unaccept.json');
+    },
+  );
+
   test(
     'retirement during credentials cannot send or release a replacement write',
     () async {

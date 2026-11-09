@@ -48,6 +48,7 @@ class UserActivityView extends StatelessWidget {
   Widget build(BuildContext context) => AccountActivityLoader.userActivity(
     siteUrl: siteUrl,
     username: username,
+    fresh: embedded,
     builder: (context, controller) => ListenableBuilder(
       listenable: controller.accountActivity.userActivityListenable,
       builder: (context, _) => _UserActivityBody(

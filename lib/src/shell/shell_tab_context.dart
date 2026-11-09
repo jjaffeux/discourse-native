@@ -641,7 +641,9 @@ final class ShellTabContext {
       topic.slug,
       topic.displayTitle,
       context: this,
-      postNumber: topic.lastUnreadPostNumber,
+      postNumber: topic.listOpeningPostNumber(
+        shell.categoryFor(topic.categoryId, siteUrl: siteUrl),
+      ),
       replace: currentContent?.isTopic == true && topicListContent != null,
     );
     if (revealInList && result == TabOpenResult.opened) {

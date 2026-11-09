@@ -412,6 +412,15 @@ class Topic with Storable<Topic> {
     return next > highestPostNumber ? highestPostNumber : next;
   }
 
+  /// The post a list opens this topic at, in a topic of [category].
+  int? listOpeningPostNumber(TopicCategory? category) =>
+      (category?.navigateToFirstPostAfterRead ?? false) &&
+          highestPostNumber > 0 &&
+          (lastReadPostNumber ?? 0) >= highestPostNumber &&
+          readingPolicy.allowsChronologicalResume
+      ? 1
+      : lastUnreadPostNumber;
+
   String get path => '/t/$slug/$id';
 
   @override
@@ -903,7 +912,8 @@ enum _CategoryDetail {
   isUncategorized('is_uncategorized'),
   notificationLevel('notification_level'),
   featuredTopics('topics'),
-  topicTemplate('topic_template');
+  topicTemplate('topic_template'),
+  navigateToFirstPostAfterRead('navigate_to_first_post_after_read');
 
   const _CategoryDetail(this.key, [this.alternateKey]);
 
@@ -936,6 +946,7 @@ class TopicCategory with Storable<TopicCategory> {
     this.notificationLevel = CategoryNotificationLevel.normal,
     this.featuredTopics = const [],
     this.topicTemplate,
+    this.navigateToFirstPostAfterRead = false,
     this.plugins = PluginData.none,
   }) : _unreported = const {};
 
@@ -958,6 +969,7 @@ class TopicCategory with Storable<TopicCategory> {
     required this.notificationLevel,
     required this.featuredTopics,
     required this.topicTemplate,
+    required this.navigateToFirstPostAfterRead,
     required this.plugins,
     required this._unreported,
   });
@@ -1002,6 +1014,8 @@ class TopicCategory with Storable<TopicCategory> {
       final String template when template.trim().isNotEmpty => template,
       _ => null,
     },
+    navigateToFirstPostAfterRead:
+        json['navigate_to_first_post_after_read'] == true,
     unreported: {
       for (final detail in _CategoryDetail.values)
         if (!detail.isReportedBy(json)) detail,
@@ -1037,6 +1051,9 @@ class TopicCategory with Storable<TopicCategory> {
   /// The body a new topic in this category starts from, or null when it has
   /// none.
   final String? topicTemplate;
+
+  /// Whether a topic the reader has finished reopens at its first post.
+  final bool navigateToFirstPostAfterRead;
   final PluginData plugins;
 
   /// The details this category's payload left out, which read as their
@@ -1068,6 +1085,7 @@ class TopicCategory with Storable<TopicCategory> {
         notificationLevel: level,
         featuredTopics: featuredTopics,
         topicTemplate: topicTemplate,
+        navigateToFirstPostAfterRead: navigateToFirstPostAfterRead,
         plugins: plugins,
         unreported: _unreported.difference(const {
           _CategoryDetail.notificationLevel,
@@ -1143,6 +1161,11 @@ class TopicCategory with Storable<TopicCategory> {
         topicTemplate,
         held.topicTemplate,
       ),
+      navigateToFirstPostAfterRead: reported(
+        _CategoryDetail.navigateToFirstPostAfterRead,
+        navigateToFirstPostAfterRead,
+        held.navigateToFirstPostAfterRead,
+      ),
       plugins: plugins.mergeCategoryRecordsFrom(held.plugins),
       unreported: _unreported.intersection(held._unreported),
     );
@@ -1170,6 +1193,7 @@ class TopicCategory with Storable<TopicCategory> {
           other.notificationLevel == notificationLevel &&
           listEquals(other.featuredTopics, featuredTopics) &&
           other.topicTemplate == topicTemplate &&
+          other.navigateToFirstPostAfterRead == navigateToFirstPostAfterRead &&
           other.plugins == plugins;
 
   @override
@@ -1192,6 +1216,7 @@ class TopicCategory with Storable<TopicCategory> {
     notificationLevel,
     Object.hashAll(featuredTopics),
     topicTemplate,
+    navigateToFirstPostAfterRead,
     plugins,
   );
 }

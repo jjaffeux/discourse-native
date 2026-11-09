@@ -82,12 +82,18 @@ class GlobalSearchApi {
     required GlobalSearchCapabilities base,
   }) async {
     // Dispatch independent reads together while the caller's session lease is
-    // current. No later metadata read reuses credentials after an await.
+    // current. No later metadata read reuses credentials after an await. A read
+    // the forum refused is settled; one it never answered throws, so the caller
+    // can ask again instead of mistaking silence for a forum with no features.
     Future<Map<String, dynamic>?> optionalRead(String path) async {
       try {
         return await _get(siteUrl, path, apiKey, clientId);
-      } catch (_) {
-        return null;
+      } on SiteLookupException catch (error) {
+        final status = error.statusCode;
+        if (status != null && status >= 400 && status < 500 && status != 429) {
+          return null;
+        }
+        rethrow;
       }
     }
 

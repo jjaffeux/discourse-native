@@ -1526,11 +1526,7 @@ final class ChatLiveSyncCoordinator {
       incrementWatchedThreadUnread: watchedThreadUnread,
     );
     if (markThreadUnread && isViewingChannel(siteUrl, channelId)) {
-      final viewedAt = _host.clock().toUtc();
-      final previous = updated.membership.lastViewedAt;
-      if (previous == null || viewedAt.isAfter(previous)) {
-        updated = updated.withLastViewedAt(viewedAt);
-      }
+      updated = _viewedNow(updated);
     }
 
     _host.putChannel(siteUrl, updated);
@@ -1543,6 +1539,90 @@ final class ChatLiveSyncCoordinator {
       );
     }
     _host.notifyCanonicalChange();
+
+    final site = _sites[siteUrl];
+    if (site != null &&
+        threadId != null &&
+        heldThread == null &&
+        !canProjectWithoutHeldDetail &&
+        (held.threadingEnabled || data['force_thread'] == true) &&
+        currentUser?.id != null &&
+        !fromSelf &&
+        !fromIgnored) {
+      final target = ChatThreadTarget(channelId: channelId, threadId: threadId);
+      final waiting = site.unheldThreadReplies.putIfAbsent(target, () => []);
+      waiting.add((messageId: messageId, createdAt: createdAt));
+      if (waiting.length == 1) {
+        _host.scheduleThreadDetailRefresh(siteUrl, target);
+      }
+    }
+  }
+
+  /// A new-messages event names no membership and a public channel's threads
+  /// do not include every reader, so replies to a thread not held yet wait for
+  /// the record that says whether they are unread for this reader.
+  void settleUnheldThreadReplies(String siteUrl, ChatThread thread) {
+    final replies = _sites[siteUrl]?.unheldThreadReplies.remove(
+      ChatThreadTarget(channelId: thread.channelId, threadId: thread.id),
+    );
+    final membership = thread.membership;
+    final held = _host.channelFor(siteUrl, thread.channelId);
+    if (replies == null ||
+        membership == null ||
+        held == null ||
+        !_threadReceivesTracking(thread)) {
+      return;
+    }
+    final unread = [
+      for (final reply in replies)
+        if (reply.messageId > (membership.lastReadMessageId ?? 0)) reply,
+    ];
+    if (unread.isEmpty) return;
+
+    final watched =
+        membership.notificationLevel == ChatThreadNotificationLevel.watching
+        ? unread.length
+        : 0;
+    _host.putThread(
+      siteUrl,
+      thread.copyWith(
+        tracking: ChatTracking(
+          unreadCount: thread.tracking.unreadCount + (unread.length - watched),
+          mentionCount: thread.tracking.mentionCount,
+          watchedThreadsUnreadCount:
+              thread.tracking.watchedThreadsUnreadCount + watched,
+        ),
+      ),
+    );
+    var updated = held.withTrackingState(
+      tracking: ChatTracking(
+        unreadCount: held.tracking.unreadCount,
+        mentionCount: held.tracking.mentionCount,
+        watchedThreadsUnreadCount:
+            held.tracking.watchedThreadsUnreadCount + watched,
+      ),
+      unreadThreadOverview: {
+        ...held.unreadThreadOverview,
+        thread.id: unread.last.createdAt,
+      },
+    );
+    if (isViewingChannel(siteUrl, thread.channelId)) {
+      updated = _viewedNow(updated);
+    }
+    _host.putChannel(siteUrl, updated);
+    _host.publishNotificationChange(siteUrl, held, updated);
+    _host.notifyCanonicalChange();
+  }
+
+  void forgetUnheldThreadReplies(String siteUrl, ChatThreadTarget target) =>
+      _sites[siteUrl]?.unheldThreadReplies.remove(target);
+
+  ChatChannel _viewedNow(ChatChannel channel) {
+    final viewedAt = _host.clock().toUtc();
+    final previous = channel.membership.lastViewedAt;
+    return previous == null || viewedAt.isAfter(previous)
+        ? channel.withLastViewedAt(viewedAt)
+        : channel;
   }
 
   bool _subscribe(
@@ -1676,6 +1756,8 @@ final class _ChatLiveSite {
   final Map<ChatThreadTarget, Set<Object>> threadViewTokens = {};
   final Map<ChatThreadTarget, int?> threadMessageCursors = {};
   final Map<ChatThreadTarget, _OwnedLiveSubscription> threadSubscriptions = {};
+  final Map<ChatThreadTarget, List<({int messageId, DateTime createdAt})>>
+  unheldThreadReplies = {};
 
   _ChatLiveSite copyForReplacement({
     required PluginSiteLease lease,

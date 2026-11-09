@@ -71,7 +71,7 @@ void main() {
       expect(incoming.count('unseen'), 0);
     });
 
-    test('counts nothing for the lists core does not track', () {
+    test('counts nothing for a list these arrivals do not belong to', () {
       final incoming = IncomingTopics()
         ..notify(newTopic(42))
         ..notify(bumped(43));

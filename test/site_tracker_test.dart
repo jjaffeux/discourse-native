@@ -3,6 +3,8 @@ import 'dart:convert';
 
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/site_tracker.dart';
+import 'package:discourse_native/src/data/topic_tracking_reconciler.dart';
+import 'package:discourse_native/src/models/topic_tracking_state.dart';
 
 import 'package:discourse_native/src/plugin_api/plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -45,6 +47,80 @@ void main() {
           expect(messages, ['current']);
         },
       );
+
+      group('an unread message on the reader lists', () {
+        Map<String, Object?> unread(int topicId) => {
+          'topic_id': topicId,
+          'message_type': 'unread',
+          'payload': {'highest_post_number': 9, 'category_id': 5},
+        };
+
+        const alreadyUnread = TrackedTopicState(
+          topicId: 7,
+          highestPostNumber: 8,
+          lastReadPostNumber: 3,
+          notificationLevel: 2,
+        );
+        const readThrough = TrackedTopicState(
+          topicId: 8,
+          highestPostNumber: 8,
+          lastReadPostNumber: 8,
+          notificationLevel: 2,
+        );
+
+        ({SiteTracker tracker, _FakeMessageBusSession bus}) tracked() {
+          final reconciler = TopicTrackingReconciler();
+          reconciler.completeSnapshot(
+            reconciler.beginSnapshot()!,
+            TopicTrackingState(const [alreadyUnread, readThrough]),
+          );
+          final bus = _FakeMessageBusSession();
+          final tracker = _tracker(
+            bus,
+            userId: 42,
+            apiKey: 'secret',
+            admitIncoming: reconciler.admitsIncoming,
+          );
+          addTearDown(tracker.dispose);
+          tracker.watchTopicTrackingState(42, reconciler.accept);
+          return (tracker: tracker, bus: bus);
+        }
+
+        test('announces a topic the reader had read through', () {
+          final (:tracker, :bus) = tracked();
+
+          bus.deliver('/unread', unread(8));
+
+          expect(tracker.incoming.topicIds('unread'), [8]);
+        });
+
+        test('announces a topic the reader held no row for', () {
+          final (:tracker, :bus) = tracked();
+
+          bus.deliver('/unread', unread(21));
+
+          expect(tracker.incoming.topicIds('unread'), [21]);
+        });
+
+        test('does not announce a topic already in the Unread list', () {
+          final (:tracker, :bus) = tracked();
+
+          bus.deliver('/unread', unread(7));
+          bus.deliver('/unread', unread(8));
+
+          expect(tracker.incoming.topicIds('unread'), [8]);
+        });
+
+        test('leaves the New list to topics created', () {
+          final (:tracker, :bus) = tracked();
+
+          bus.deliver('/unread', unread(8));
+
+          expect(tracker.incoming.count('new'), 0);
+          expect(tracker.incoming.count('new-topics'), 0);
+          expect(tracker.incoming.count('latest'), 0);
+        });
+      });
 
       test('rejects remote HTTP before polling', () {
         var requestCount = 0;

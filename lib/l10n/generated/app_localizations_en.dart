@@ -5988,10 +5988,28 @@ class AppLocalizationsEn extends AppLocalizations {
   String get loggedInUsers => 'Logged-in users';
 
   @override
-  String get groupMembers => 'Group members';
+  String get groupOwners => 'Group owners';
 
   @override
-  String get groupOwners => 'Group owners';
+  String get groupOwnersMembersAndModerators =>
+      'Group owners, members and moderators';
+
+  @override
+  String get groupOwnersAndModerators => 'Group owners and moderators';
+
+  @override
+  String get onlyAdmins => 'Only admins';
+
+  @override
+  String get onlyModeratorsAndAdmins => 'Only moderators and admins';
+
+  @override
+  String get onlyGroupMembersModeratorsAndAdmins =>
+      'Only group members, moderators and admins';
+
+  @override
+  String get onlyGroupOwnersModeratorsAndAdmins =>
+      'Only group owners, moderators and admins';
 
   @override
   String get staff => 'Staff';

@@ -2590,6 +2590,139 @@ void main() {
     },
   );
 
+  group('a reply in a public channel thread not held yet', () {
+    // Publisher.publish_new! names no membership on the shared new-messages
+    // channel; core reads the thread to learn the reader's own standing.
+    Map<String, dynamic> replyEvent(int id, {int authorId = 2}) => {
+      'type': 'thread',
+      'channel_id': 9,
+      'thread_id': 22,
+      'force_thread': false,
+      'message': {
+        'id': id,
+        'chat_channel_id': 9,
+        'created_at': '2026-08-12T12:00:00.000Z',
+        'user': {'id': authorId, 'username': 'sam'},
+      },
+    };
+
+    ChatThread detailWith(ChatThreadMembership? membership) =>
+        threadDetail(withMembership: false).copyWith(membership: membership);
+
+    Future<
+      ({
+        _AdversarialThreadApi api,
+        ChatController chat,
+        FakeSiteTracker tracker,
+      })
+    >
+    openedWith(ChatThread detail) async {
+      final api = _AdversarialThreadApi(
+        detail: detail,
+        channels: {
+          site: ChatChannels(
+            public: [followedChannel()],
+            newMessageBusLastIds: const {9: 80},
+          ),
+        },
+      );
+      final subject = _controllerFor(api);
+      final tracker = attachTracker(subject.chat);
+      await subject.chat.loadChannels(site);
+      return (api: api, chat: subject.chat, tracker: tracker);
+    }
+
+    test('marks the thread unread for a reader tracking it', () async {
+      final subject = await openedWith(
+        detailWith(
+          const ChatThreadMembership(
+            threadId: 22,
+            notificationLevel: ChatThreadNotificationLevel.tracking,
+            lastReadMessageId: 17,
+          ),
+        ),
+      );
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        replyEvent(41),
+      );
+      await pumpEventQueue();
+
+      expect(subject.chat.channel(site, 9)?.unreadThreadOverview, {
+        22: DateTime.utc(2026, 8, 12, 12),
+      });
+      expect(subject.chat.thread(site, 22)?.tracking.unreadCount, 1);
+      expect(subject.chat.channel(site, 9)?.tracking.unreadCount, 0);
+    });
+
+    test('counts a reply as urgent for a reader watching it', () async {
+      final subject = await openedWith(
+        detailWith(
+          const ChatThreadMembership(
+            threadId: 22,
+            notificationLevel: ChatThreadNotificationLevel.watching,
+            lastReadMessageId: 17,
+          ),
+        ),
+      );
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        replyEvent(41),
+      );
+      await pumpEventQueue();
+
+      expect(
+        subject.chat.channel(site, 9)?.tracking.watchedThreadsUnreadCount,
+        1,
+      );
+      expect(
+        subject.chat.thread(site, 22)?.tracking.watchedThreadsUnreadCount,
+        1,
+      );
+    });
+
+    test('stays read for a reader who is not in the thread', () async {
+      final subject = await openedWith(detailWith(null));
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        replyEvent(41),
+      );
+      await pumpEventQueue();
+      subject.tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        replyEvent(42),
+      );
+      await pumpEventQueue();
+
+      expect(subject.chat.channel(site, 9)?.unreadThreadOverview, isEmpty);
+      expect(subject.api.chatThreadsRequested, hasLength(1));
+    });
+
+    test('stays read when the reader replied from another device', () async {
+      final subject = await openedWith(
+        detailWith(
+          const ChatThreadMembership(
+            threadId: 22,
+            notificationLevel: ChatThreadNotificationLevel.tracking,
+            lastReadMessageId: 17,
+          ),
+        ),
+      );
+
+      subject.tracker.deliverPluginMessage(
+        '/chat/9/new-messages',
+        replyEvent(41, authorId: currentUser.id!),
+      );
+      await pumpEventQueue();
+
+      expect(subject.chat.channel(site, 9)?.unreadThreadOverview, isEmpty);
+      expect(subject.api.chatThreadsRequested, isEmpty);
+    });
+  });
+
   test('a sent thread event inserts only into the thread stream', () async {
     final api = _AdversarialThreadApi(
       detail: threadDetail(),
@@ -2610,6 +2743,37 @@ void main() {
     expect(subject.chat.stream(site, target.channelId).messageIds, isEmpty);
     expect(subject.store.read<ChatMessage>(site, 30)?.threadId, 22);
   });
+
+  test(
+    'a thread pages back past a reply someone else deleted at its edge',
+    () async {
+      // Chat::Thread::Policy::MessageExistence answers 404 for a trashed cursor
+      // the reader may not see, so paging from that reply loads nothing.
+      final api = _AdversarialThreadApi(
+        detail: threadDetail(),
+        pages: {
+          'thread-9-22': threadPage([20, 21], canLoadMorePast: true),
+          'thread-9-22~past~21': threadPage([10]),
+        },
+      );
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+      final tracker = attachTracker(subject.chat);
+      final view = subject.chat.beginViewingThread(site, target);
+      addTearDown(() => subject.chat.endViewingThread(site, target, view));
+      await subject.chat.openThread(site, target);
+
+      tracker.deliverPluginMessage('/chat/9/thread/22', {
+        'type': 'delete',
+        'deleted_id': 20,
+        'deleted_at': '2026-08-12T12:00:00.000Z',
+      });
+      await subject.chat.loadOlderFor(site, target);
+
+      expect(api.chatThreadMessagesRequested.last.before, 21);
+      expect(subject.store.read<ChatMessage>(site, 10), isNotNull);
+    },
+  );
 
   test(
     'a viewed thread pages forward past replies its trimmed backlog dropped',

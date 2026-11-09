@@ -665,6 +665,47 @@ void main() {
       expect(search.scopes, isNot(contains(chatSearchScope)));
     });
 
+    test(
+      'a search opened offline asks the forum again when next opened',
+      () async {
+        var online = false;
+        final transport = DiscourseApi(
+          client: MockClient((request) async {
+            if (!online) throw http.ClientException('offline', request.url);
+            return switch (request.url.path) {
+              '/site/settings.json' => http.Response(
+                '{"chat_enabled":true,"chat_search_enabled":true}',
+                200,
+              ),
+              '/session/current.json' => http.Response(
+                '{"current_user":{"has_chat_enabled":true,"can_chat":true}}',
+                200,
+              ),
+              _ => http.Response('{}', 200),
+            };
+          }),
+        );
+        addTearDown(transport.close);
+        final search =
+            GlobalSearchController(
+                api: GlobalSearchApi(transport: transport),
+                credentials: FakeApiCredentialReader()..keys[_site] = 'key',
+                lifecycle: SiteLifecycle(),
+                debounceDuration: const Duration(milliseconds: 1),
+              )
+              ..configure(siteUrl: _site, capabilities: undiscovered)
+              ..ensureCapabilities();
+        addTearDown(search.dispose);
+        await pumpEventQueue(times: 200);
+
+        online = true;
+        search.ensureCapabilities();
+        await pumpEventQueue(times: 200);
+
+        expect(search.scopes, contains(chatSearchScope));
+      },
+    );
+
     testWidgets('drops an answer for an account that has left', (tester) async {
       final gate = Completer<GlobalSearchCapabilities>();
       final api = _EngineApi()..capabilitiesGate = gate;

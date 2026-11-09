@@ -288,6 +288,106 @@ void main() {
     );
   }
 
+  // Group::ALIAS_LEVELS, Group.visibility_levels and NotificationLevels are
+  // three different numberings of the same small integers.
+  Future<void> pumpManageSection(
+    WidgetTester tester,
+    String subsection,
+    Group group,
+  ) => _pump(
+    tester,
+    GroupPage(
+      siteUrl: 'https://meta.discourse.org',
+      route: GroupRoute.detail(
+        'support',
+        section: GroupRoute.manage,
+        subsection: subsection,
+      ),
+      registry: PluginRegistry.empty,
+      data: GroupPageData(detail: GroupDetail(group: group)),
+      onOpenMember: _ignoreMember,
+    ),
+  );
+
+  Group manageGroup({
+    int visibility = 0,
+    int membersVisibility = 0,
+    int mentionable = 0,
+    int messageable = 0,
+    int defaultNotification = 0,
+  }) => Group(
+    id: 9,
+    name: 'support',
+    canSeeMembers: true,
+    canAdminGroup: true,
+    visibilityLevel: visibility,
+    membersVisibilityLevel: membersVisibility,
+    mentionableLevel: mentionable,
+    messageableLevel: messageable,
+    defaultNotificationLevel: defaultNotification,
+  );
+
+  for (final (level, label) in [
+    (0, 'Nobody'),
+    (1, 'Only admins'),
+    (2, 'Only moderators and admins'),
+    (3, 'Only group members, moderators and admins'),
+    (4, 'Only group owners, moderators and admins'),
+    (99, 'Everyone'),
+  ]) {
+    testWidgets('group mention and message level $level reads as $label', (
+      tester,
+    ) async {
+      await pumpManageSection(
+        tester,
+        GroupRoute.interaction,
+        manageGroup(mentionable: level, messageable: level),
+      );
+
+      expect(find.text(label), findsNWidgets(2));
+    });
+  }
+
+  for (final (level, label) in [
+    (0, 'Everyone'),
+    (1, 'Logged-in users'),
+    (2, 'Group owners, members and moderators'),
+    (3, 'Group owners and moderators'),
+    (4, 'Group owners'),
+  ]) {
+    testWidgets('group visibility level $level reads as $label', (
+      tester,
+    ) async {
+      await pumpManageSection(
+        tester,
+        GroupRoute.membership,
+        manageGroup(visibility: level, membersVisibility: level),
+      );
+
+      expect(find.text(label), findsNWidgets(2));
+    });
+  }
+
+  for (final (level, label) in [
+    (0, 'Muted'),
+    (1, 'Normal'),
+    (2, 'Tracking'),
+    (3, 'Watching'),
+    (4, 'Watching First Post'),
+  ]) {
+    testWidgets('group default notification level $level reads as $label', (
+      tester,
+    ) async {
+      await pumpManageSection(
+        tester,
+        GroupRoute.interaction,
+        manageGroup(defaultNotification: level),
+      );
+
+      expect(find.text(label), findsOneWidget);
+    });
+  }
+
   testWidgets('header actions and capability-gated primary tabs are native', (
     tester,
   ) async {

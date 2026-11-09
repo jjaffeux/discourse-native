@@ -7,13 +7,39 @@ import 'live_refresh_id.dart';
 final class IncomingTopicsFilter {
   /// Latest counts a topic created and one bumped by a reply.
   const IncomingTopicsFilter.latest({this.categoryId, this.tagIds = const {}})
-    : countsBumps = true;
+    : countsBumps = true,
+      _countsCreated = true,
+      _replies = _ReplyRule.never;
 
-  /// New, New – topics and Unseen count only a topic created.
+  /// New – topics, and New for a reader without unified New.
   const IncomingTopicsFilter.created({this.categoryId, this.tagIds = const {}})
-    : countsBumps = false;
+    : countsBumps = false,
+      _countsCreated = true,
+      _replies = _ReplyRule.never;
+
+  /// New, which unified New also fills with topics that have new replies.
+  const IncomingTopicsFilter.newActivity({
+    this.categoryId,
+    this.tagIds = const {},
+  }) : countsBumps = false,
+       _countsCreated = true,
+       _replies = _ReplyRule.whenUnifiedNew;
+
+  /// Unseen counts a topic created and a reply to one the reader had read.
+  const IncomingTopicsFilter.unseen({this.categoryId, this.tagIds = const {}})
+    : countsBumps = false,
+      _countsCreated = true,
+      _replies = _ReplyRule.always;
+
+  /// Unread counts only a reply to a topic the reader had read.
+  const IncomingTopicsFilter.unread({this.categoryId, this.tagIds = const {}})
+    : countsBumps = false,
+      _countsCreated = false,
+      _replies = _ReplyRule.always;
 
   final bool countsBumps;
+  final bool _countsCreated;
+  final _ReplyRule _replies;
 
   /// The list's category. A topic counts in it or in a category directly
   /// beneath it, never deeper, as core compares the payload's category and
@@ -26,9 +52,19 @@ final class IncomingTopicsFilter {
 
   bool _admits(
     _Arrival arrival,
-    int? Function(int categoryId)? parentCategoryOf,
-  ) {
-    if (arrival.bump && !countsBumps) return false;
+    int? Function(int categoryId)? parentCategoryOf, {
+    required bool unifiedNew,
+  }) {
+    final counted = switch (arrival.kind) {
+      _ArrivalKind.created => _countsCreated,
+      _ArrivalKind.bumped => countsBumps,
+      _ArrivalKind.replied => switch (_replies) {
+        _ReplyRule.never => false,
+        _ReplyRule.whenUnifiedNew => unifiedNew,
+        _ReplyRule.always => true,
+      },
+    };
+    if (!counted) return false;
     if (categoryId case final scope?) {
       final category = arrival.categoryId;
       if (category == null) return false;
@@ -43,13 +79,20 @@ final class IncomingTopicsFilter {
   bool operator ==(Object other) =>
       other is IncomingTopicsFilter &&
       other.countsBumps == countsBumps &&
+      other._countsCreated == _countsCreated &&
+      other._replies == _replies &&
       other.categoryId == categoryId &&
       other.tagIds.length == tagIds.length &&
       other.tagIds.containsAll(tagIds);
 
   @override
-  int get hashCode =>
-      Object.hash(countsBumps, categoryId, Object.hashAllUnordered(tagIds));
+  int get hashCode => Object.hash(
+    countsBumps,
+    _countsCreated,
+    _replies,
+    categoryId,
+    Object.hashAllUnordered(tagIds),
+  );
 
   @override
   String toString() => appL10n.incomingTopicsFilterCategoryIdTagIds(
@@ -59,8 +102,12 @@ final class IncomingTopicsFilter {
   );
 }
 
+enum _ReplyRule { never, whenUnifiedNew, always }
+
+enum _ArrivalKind { created, bumped, replied }
+
 final class _Arrival {
-  _Arrival(this.bump, Object? payload)
+  _Arrival(this.kind, Object? payload)
     : categoryId = payload is Map
           ? liveRefreshId(payload['category_id'])
           : null,
@@ -70,7 +117,7 @@ final class _Arrival {
             if (tag is Map) ?liveRefreshId(tag['id']),
       };
 
-  final bool bump;
+  final _ArrivalKind kind;
   final int? categoryId;
   final Set<int> tagIds;
 }
@@ -80,9 +127,10 @@ class IncomingTopics {
   /// They count from the start; a scoped list counts once it is [track]ed.
   static const Map<String, IncomingTopicsFilter> _siteLists = {
     'latest': IncomingTopicsFilter.latest(),
-    'new': IncomingTopicsFilter.created(),
+    'new': IncomingTopicsFilter.newActivity(),
     'new-topics': IncomingTopicsFilter.created(),
-    'unseen': IncomingTopicsFilter.created(),
+    'unseen': IncomingTopicsFilter.unseen(),
+    'unread': IncomingTopicsFilter.unread(),
   };
 
   /// How many scoped lists count at once: the most recently loaded ones.
@@ -94,6 +142,7 @@ class IncomingTopics {
 
   final Map<String, IncomingTopicsFilter> _trackedLists = {};
   int? Function(int categoryId)? _parentCategoryOf;
+  bool _unifiedNew = false;
   final Map<String, Set<int>> _incoming = {};
 
   /// Makes [lists] the scoped lists that count arrivals, in the order they
@@ -103,6 +152,7 @@ class IncomingTopics {
   void track(
     Map<String, IncomingTopicsFilter> lists, {
     int? Function(int categoryId)? parentCategoryOf,
+    bool unifiedNew = false,
   }) {
     final scoped = [
       for (final entry in lists.entries)
@@ -118,6 +168,7 @@ class IncomingTopics {
         ),
       );
     _parentCategoryOf = parentCategoryOf;
+    _unifiedNew = unifiedNew;
     _incoming.removeWhere(
       (list, _) =>
           !_siteLists.containsKey(list) && !_trackedLists.containsKey(list),
@@ -141,20 +192,21 @@ class IncomingTopics {
 
     // `muted` and `unmuted` also arrive on /latest, and carry no payload; they
     // say a topic left or joined the reader's list, not that one arrived.
-    final bump = switch (message['message_type']) {
-      'new_topic' => false,
-      'latest' => true,
+    final kind = switch (message['message_type']) {
+      'new_topic' => _ArrivalKind.created,
+      'latest' => _ArrivalKind.bumped,
+      'unread' => _ArrivalKind.replied,
       _ => null,
     };
-    if (bump == null) return false;
-    final arrival = _Arrival(bump, message['payload']);
+    if (kind == null) return false;
+    final arrival = _Arrival(kind, message['payload']);
 
     var changed = false;
     for (final MapEntry(key: list, value: filter) in {
       ..._siteLists,
       ..._trackedLists,
     }.entries) {
-      if (filter._admits(arrival, _parentCategoryOf)) {
+      if (filter._admits(arrival, _parentCategoryOf, unifiedNew: _unifiedNew)) {
         changed |= _hold(list, [topicId]);
       }
     }
@@ -196,6 +248,7 @@ class IncomingTopics {
     _incoming.clear();
     _trackedLists.clear();
     _parentCategoryOf = null;
+    _unifiedNew = false;
   }
 
   bool _hold(String list, Iterable<int> ids) {

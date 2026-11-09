@@ -7734,12 +7734,32 @@
   "@loggedInUsers": {
     "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
   },
-  "groupMembers": "Group members",
-  "@groupMembers": {
-    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
-  },
   "groupOwners": "Group owners",
   "@groupOwners": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "groupOwnersMembersAndModerators": "Group owners, members and moderators",
+  "@groupOwnersMembersAndModerators": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "groupOwnersAndModerators": "Group owners and moderators",
+  "@groupOwnersAndModerators": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "onlyAdmins": "Only admins",
+  "@onlyAdmins": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "onlyModeratorsAndAdmins": "Only moderators and admins",
+  "@onlyModeratorsAndAdmins": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "onlyGroupMembersModeratorsAndAdmins": "Only group members, moderators and admins",
+  "@onlyGroupMembersModeratorsAndAdmins": {
+    "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
+  },
+  "onlyGroupOwnersModeratorsAndAdmins": "Only group owners, moderators and admins",
+  "@onlyGroupOwnersModeratorsAndAdmins": {
     "description": "English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact."
   },
   "staff": "Staff",

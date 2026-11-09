@@ -17,7 +17,8 @@ enum _AccountActivityRequest {
   otherNotifications,
   bookmarks,
   bookmarkList,
-  userActivity;
+  userActivity,
+  freshUserActivity;
 
   Future<void> load(
     ShellController controller,
@@ -32,6 +33,11 @@ enum _AccountActivityRequest {
     bookmarks => controller.loadBookmarks(siteUrl),
     bookmarkList => controller.loadBookmarkList(siteUrl),
     userActivity => controller.loadUserActivity(siteUrl, username: username),
+    freshUserActivity => controller.loadUserActivity(
+      siteUrl,
+      username: username,
+      refresh: true,
+    ),
   };
 }
 
@@ -85,12 +91,17 @@ class AccountActivityLoader extends StatelessWidget {
   }) : username = null,
        _request = _AccountActivityRequest.otherNotifications;
 
+  /// A [fresh] view fetches again when it is mounted, even when the feed is
+  /// already held. Opening a person's card asks what they have done lately.
   const AccountActivityLoader.userActivity({
     super.key,
     this.username,
     required this.siteUrl,
     required this.builder,
-  }) : _request = _AccountActivityRequest.userActivity;
+    bool fresh = false,
+  }) : _request = fresh
+           ? _AccountActivityRequest.freshUserActivity
+           : _AccountActivityRequest.userActivity;
 
   final String siteUrl;
   final String? username;
