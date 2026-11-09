@@ -7,8 +7,10 @@ import 'package:discourse_native/src/foundation/count_label.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../models/content_route.dart';
 import '../models/sidebar_tag.dart';
 import '../models/tag_directory_feed.dart';
+import '../models/tag_sidebar.dart';
 import 'content_reading_lane.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';
@@ -118,39 +120,55 @@ class _TagsPageState extends State<TagsPage> {
                   .floor(),
             );
             final rows = (tags.length / columns).ceil();
-            return ListView.separated(
-              physics: const AlwaysScrollableScrollPhysics(),
-              padding: lane.padding.add(
-                EdgeInsets.only(bottom: DScrollChrome.bottomInsetOf(context)),
-              ),
-              itemCount: rows + (feed.error == null ? 0 : 1),
-              separatorBuilder: (_, _) => const SizedBox(height: DSpacing.md),
-              itemBuilder: (context, index) {
-                if (feed.error != null) {
-                  if (index == 0) {
-                    return _TagErrorBanner(
-                      message: feed.error!,
-                      onRetry: () => _request(force: true),
+            return ForumTabSelector<ContentRoute?>(
+              select: (_, tab) => tab.activeTab?.listBefore(CorePage.tags),
+              builder: (context, list, _) {
+                final username = ShellScope.read(
+                  context,
+                ).currentUserFor(widget.siteUrl)?.username;
+                return ListView.separated(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  padding: lane.padding.add(
+                    EdgeInsets.only(
+                      bottom: DScrollChrome.bottomInsetOf(context),
+                    ),
+                  ),
+                  itemCount: rows + (feed.error == null ? 0 : 1),
+                  separatorBuilder: (_, _) =>
+                      const SizedBox(height: DSpacing.md),
+                  itemBuilder: (context, index) {
+                    if (feed.error != null) {
+                      if (index == 0) {
+                        return _TagErrorBanner(
+                          message: feed.error!,
+                          onRetry: () => _request(force: true),
+                        );
+                      }
+                      index--;
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      spacing: DSpacing.md,
+                      children: [
+                        for (var column = 0; column < columns; column++)
+                          Expanded(
+                            child: index * columns + column < tags.length
+                                ? TagDirectoryRow(
+                                    tag: tags[index * columns + column],
+                                    selected: _listIsNarrowedTo(
+                                      list,
+                                      tags[index * columns + column],
+                                      username: username,
+                                    ),
+                                    onTap: () => ShellScope.read(
+                                      context,
+                                    ).openTag(tags[index * columns + column]),
+                                  )
+                                : const SizedBox.shrink(),
+                          ),
+                      ],
                     );
-                  }
-                  index--;
-                }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  spacing: DSpacing.md,
-                  children: [
-                    for (var column = 0; column < columns; column++)
-                      Expanded(
-                        child: index * columns + column < tags.length
-                            ? TagDirectoryRow(
-                                tag: tags[index * columns + column],
-                                onTap: () => ShellScope.read(
-                                  context,
-                                ).openTag(tags[index * columns + column]),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                  ],
+                  },
                 );
               },
             );
@@ -161,11 +179,36 @@ class _TagsPageState extends State<TagsPage> {
   );
 }
 
+/// A route cannot read a tag back out of a personal message feed, so a private
+/// tag is matched by the list its card opens.
+bool _listIsNarrowedTo(
+  ContentRoute? list,
+  SidebarTag tag, {
+  required String? username,
+}) {
+  if (list == null) return false;
+  if (tag.pmOnly) {
+    final destination = buildTagDestination(tag, username: username);
+    return destination != null &&
+        list.sameDestinationAs(ContentRoute.fromDestination(destination));
+  }
+  final id = list.tagId;
+  if (id != null) return id == tag.id;
+  final names = list.tagNames;
+  return names.contains(tag.name) || names.contains(tag.slug);
+}
+
 class TagDirectoryRow extends StatelessWidget {
-  const TagDirectoryRow({super.key, required this.tag, required this.onTap});
+  const TagDirectoryRow({
+    super.key,
+    required this.tag,
+    required this.onTap,
+    this.selected = false,
+  });
 
   final SidebarTag tag;
   final VoidCallback onTap;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
@@ -177,12 +220,17 @@ class TagDirectoryRow extends StatelessWidget {
     return DCard(
       key: ValueKey('tag-directory-tag-${tag.id}'),
       variant: DCardVariant.well,
-      border: false,
+      border: selected,
+      borderColor: selected ? theme.colorScheme.primary : null,
+      // The tint stands on the panel, as the mockup's does, not on the well.
+      backgroundColor: selected ? Colors.transparent : null,
       spacing: 0,
       child: DItem(
         shape: DItemShape.card,
         link: true,
         onPressed: onTap,
+        selected: selected,
+        showSelectionIndicator: false,
         children: [
           DItemMedia(
             variant: DItemMediaVariant.icon,

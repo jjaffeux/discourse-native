@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/category_directory.dart';
 import 'package:discourse_native/src/models/category_sidebar.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
@@ -207,6 +208,80 @@ Future<void> _selectScope(WidgetTester tester, String label) async {
 }
 
 void main() {
+  for (final (name, mobile, layout, size, backToBeta) in [
+    ('desktop', false, ShellLayout.expanded, _viewport, true),
+    // A phone's Back rewinds the page, not which list was last on screen.
+    ('phone', true, ShellLayout.compact, const Size(390, 844), false),
+  ]) {
+    testWidgets('only the list the tab came from is marked on $name', (
+      tester,
+    ) async {
+      const beta = TopicCategory(id: 2, name: 'Beta', color: '222222');
+      const gamma = TopicCategory(id: 3, name: 'Gamma', color: '333333');
+      final controller = await _loadCategories(
+        FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'Alpha', color: '111111'),
+            beta,
+            gamma,
+          ],
+        ),
+        mobileNavigation: mobile,
+      );
+      await _pumpPage(
+        tester,
+        controller,
+        width: size.width,
+        size: size,
+        layout: layout,
+      );
+      Iterable<int> marked() => [1, 2, 3].where(
+        (id) => tester
+            .widget<DPlaceCard>(
+              find.descendant(of: _row(id), matching: find.byType(DPlaceCard)),
+            )
+            .selected,
+      );
+      Future<void> showDirectory() async {
+        controller.selectDestination(
+          controller
+              .categorySidebarSectionFor(controller.currentInstance!.url)!
+              .destinations
+              .singleWhere((item) => item.id == 'all-categories'),
+        );
+        await tester.pumpAndSettle();
+      }
+
+      Future<void> goBack() async {
+        expect(controller.focusedTabContext.handleBack(), isTrue);
+        await tester.pumpAndSettle();
+      }
+
+      expect(marked(), isEmpty);
+
+      controller.openCategory(beta);
+      await tester.pumpAndSettle();
+      await showDirectory();
+      expect(marked(), [2]);
+
+      await tester.tap(_row(3));
+      await tester.pumpAndSettle();
+      expect(controller.currentContent?.categoryId, 3);
+      await showDirectory();
+      expect(marked(), [3]);
+
+      await goBack();
+      await goBack();
+      expect(marked(), backToBeta ? [2] : [3]);
+
+      controller.pushContent(ContentRoute.topicList(TopicListMode.latest));
+      await tester.pumpAndSettle();
+      await showDirectory();
+      expect(marked(), isEmpty);
+    });
+  }
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     testWidgets('directory controls use reference scaling on $platform', (
       tester,

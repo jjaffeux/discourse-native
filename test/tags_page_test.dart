@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
+import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
@@ -26,6 +27,7 @@ const String _siteUrl = 'https://meta.discourse.org';
 Future<ShellController> _loadController({
   required FakeDiscourseApi api,
   DiscourseUser? user,
+  bool mobileNavigation = false,
 }) async {
   final stored = instance('meta.discourse.org', title: 'Discourse Meta');
   final site = user == null ? stored : stored.copyWith(user: user);
@@ -38,6 +40,7 @@ Future<ShellController> _loadController({
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),
     ownsApi: false,
+    mobileNavigationEnabled: mobileNavigation,
   );
   addTearDown(controller.dispose);
 
@@ -89,6 +92,97 @@ SidebarDestination _allTagsDestination(ShellController controller) => controller
     .singleWhere((destination) => destination.id == 'all-tags');
 
 void main() {
+  for (final (name, mobile, size) in [
+    ('desktop', false, _viewport),
+    ('phone', true, const Size(390, 844)),
+  ]) {
+    testWidgets(
+      'only the tag of the list the tab came from is marked on $name',
+      (tester) async {
+        const first = SidebarTag(
+          id: 17,
+          name: 'first',
+          slug: 'first',
+          count: 3,
+        );
+        const second = SidebarTag(id: 18, name: 'second', slug: 'second');
+        const third = SidebarTag(id: 19, name: 'third', slug: 'third');
+        final controller = await _loadController(
+          api: FakeDiscourseApi(
+            feeds: const {
+              '/latest.json': [],
+              '/tag/first/17.json': [],
+              '/tag/second/18.json': [],
+            },
+            tagList: const [first, second, third],
+          ),
+          user: const DiscourseUser(
+            id: 1,
+            username: 'reader',
+            displaySidebarTags: true,
+            sidebarTags: [first, second],
+          ),
+          mobileNavigation: mobile,
+        );
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await tester.pumpWidget(
+          ContentSettingsScope(
+            controller: controller.appSettings,
+            child: ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.light,
+                home: Scaffold(
+                  body: MainContent(
+                    layout: mobile ? ShellLayout.compact : ShellLayout.expanded,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        Finder row(int id) => find.byKey(ValueKey('tag-directory-tag-$id'));
+        DItem item(int id) => tester.widget<DItem>(
+          find.descendant(of: row(id), matching: find.byType(DItem)),
+        );
+        Iterable<int> marked() => [17, 18, 19].where((id) => item(id).selected);
+        Future<void> showDirectory() async {
+          controller.selectDestination(_allTagsDestination(controller));
+          await tester.pumpAndSettle();
+        }
+
+        await showDirectory();
+        expect(marked(), isEmpty);
+        final restingSize = tester.getSize(row(17));
+
+        controller.openTag(first);
+        await tester.pumpAndSettle();
+        await showDirectory();
+        expect(marked(), [17]);
+
+        // The mockup's treatment, without the item's checkmark or a resize.
+        final tokens = DTokens.of(tester.element(row(17)));
+        final card = tester.widget<DCard>(row(17));
+        expect(card.border, isTrue);
+        expect(card.borderColor, tokens.primary);
+        expect(card.backgroundColor, Colors.transparent);
+        expect(item(17).showSelectionIndicator, isFalse);
+        expect(tester.getSize(row(17)), restingSize);
+        expect(tester.widget<DCard>(row(18)).border, isFalse);
+
+        await tester.tap(row(18));
+        await tester.pumpAndSettle();
+        expect(controller.currentContent?.tagId, 18);
+        await showDirectory();
+        expect(marked(), [18]);
+      },
+    );
+  }
+
   for (final mobile in [false, true]) {
     testWidgets(
       'All tags shows a viewport-filling Native skeleton on ${mobile ? 'mobile' : 'desktop'} and retains rows during refresh',

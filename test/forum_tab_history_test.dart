@@ -45,6 +45,61 @@ void main() {
     contentStack: [ContentRoute.topicList(TopicListMode.latest)],
   );
 
+  group('the list before a directory page', () {
+    final latest = ContentRoute.topicList(TopicListMode.latest);
+    ContentRoute page(CorePage core) => ContentRoute(
+      destination: PageDestination(core),
+      title: core.name,
+      icon: latest.icon,
+    );
+    final categories = page(CorePage.categories);
+    ContentRoute list(String slug, int id) => ContentRoute(
+      destination: FeedDestination.fromPath(
+        key: 'category-$id',
+        path: '/c/$slug/$id.json',
+      ),
+      title: slug,
+      icon: latest.icon,
+    );
+    final baking = list('baking', 1);
+    final cooking = list('cooking', 2);
+    ForumTab startingAt(ContentRoute route) => ForumTab(
+      id: 'directory',
+      rootDestinationId: route.id,
+      contentStack: [route],
+    );
+    ForumTab visit(ForumTab tab, ContentRoute route) =>
+        tab.navigate(rootDestinationId: route.id, contentStack: [route]);
+
+    test('is the list the tab was just showing', () {
+      final tab = visit(startingAt(baking), categories);
+      expect(tab.listBefore(CorePage.categories), baking);
+    });
+
+    test('is found under the topic read from it and past other pages', () {
+      final reading = startingAt(baking).push(_topic(1));
+      final tab = visit(visit(reading, page(CorePage.users)), categories);
+      expect(tab.listBefore(CorePage.categories), baking);
+    });
+
+    test('stops at an unfiltered list rather than an older filtered one', () {
+      final tab = visit(visit(startingAt(baking), latest), categories);
+      expect(tab.listBefore(CorePage.categories), latest);
+      expect(tab.listBefore(CorePage.categories)?.categoryId, isNull);
+    });
+
+    test('ignores what the page itself opened while it stays mounted', () {
+      final arrived = visit(startingAt(baking), categories);
+      final covered = arrived.push(cooking);
+      expect(covered.listBefore(CorePage.categories), baking);
+    });
+
+    test('is null for a tab that never came from a list', () {
+      expect(startingAt(categories).listBefore(CorePage.categories), isNull);
+      expect(startingAt(baking).listBefore(CorePage.categories), isNull);
+    });
+  });
+
   test('a reader beside its list keeps that only while it stays a reader', () {
     final list = ContentRoute.topicList(TopicListMode.latest);
     final beside = ForumTab(
