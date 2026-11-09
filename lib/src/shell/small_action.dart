@@ -2,12 +2,13 @@ import 'package:discourse_native/discourse_ui.dart' show DAvatar;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'cooked_html.dart';
 import 'relative_time.dart';

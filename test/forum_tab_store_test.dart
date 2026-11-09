@@ -4,9 +4,9 @@ import 'dart:math';
 import 'dart:ui' show Color;
 
 import 'package:discourse_native/src/data/forum_tab_store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/scaling_benchmark.dart';

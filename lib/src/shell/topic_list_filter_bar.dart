@@ -2,11 +2,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/sidebar_tag.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
-import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'content_reading_lane.dart';
 import 'topic_category_path.dart';

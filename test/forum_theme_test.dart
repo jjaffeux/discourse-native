@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
+import 'package:discourse_native/src/foundation/icons/d_icon_sets.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/forum_font.dart';
 import 'package:discourse_native/src/models/forum_theme.dart';
@@ -13,7 +14,6 @@ import 'package:discourse_native/src/models/shared_appearance.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_settings_controller.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icon_sets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

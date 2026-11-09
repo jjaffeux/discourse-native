@@ -3,8 +3,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../shell_scope.dart';
 import 'controller.dart';
 import 'inline_formatting.dart';

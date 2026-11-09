@@ -6,8 +6,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 import 'package:intl/intl.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/forum_about.dart';
-import '../theme/d_icons.dart';
 import 'skeleton_fill.dart';
 
 class ForumAboutPage extends StatefulWidget {

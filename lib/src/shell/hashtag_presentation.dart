@@ -1,5 +1,5 @@
+import '../foundation/icons/d_icons.dart';
 import '../plugin_api/hashtag_kind.dart';
-import '../theme/d_icons.dart';
 import 'composer/autocomplete.dart';
 
 HashtagPresentation resolveHashtagPresentation(

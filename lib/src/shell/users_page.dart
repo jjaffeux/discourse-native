@@ -8,10 +8,10 @@ import 'package:flutter/material.dart';
 
 import '../data/user_directory_column_width_store.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/short_number.dart';
 import '../models/user_directory.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'directory_skeleton.dart';

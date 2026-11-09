@@ -5,11 +5,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/json.dart';
 import '../plugin_api/notification_feed_host.dart';
 import '../plugin_api/notification_types.dart';
 import '../plugin_api/plugin_scope.dart';
-import '../theme/d_icons.dart';
 import 'account_activity_loader.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';

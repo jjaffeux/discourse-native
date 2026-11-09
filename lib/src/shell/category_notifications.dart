@@ -4,9 +4,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'shell_scope.dart';
 
 class CategoryNotificationLevelButton extends StatelessWidget {

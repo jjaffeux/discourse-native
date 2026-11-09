@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../platform.dart';
 import 'blocks.dart';
 import 'controller.dart';

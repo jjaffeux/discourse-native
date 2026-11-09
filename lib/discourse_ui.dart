@@ -1,8 +1,9 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
+export 'src/foundation/icons/d_icon_data.dart';
+export 'src/foundation/icons/d_icon_sets.dart' show DIconSet;
 export 'src/theme/d_icon.dart';
-export 'src/theme/d_icon_sets.dart' show DIconSet, DIconSetScope;
 export 'src/ui/components/d_accordion.dart';
 export 'src/ui/components/d_action_transition.dart';
 export 'src/ui/components/d_alert.dart';

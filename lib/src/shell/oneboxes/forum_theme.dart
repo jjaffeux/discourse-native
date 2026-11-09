@@ -3,11 +3,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../../foundation/icons/d_icons.dart';
 import '../../models/forum_theme.dart';
 import '../../models/forum_theme_preferences.dart';
 import '../../models/forum_theme_share.dart';
 import '../../theme/app_theme.dart';
-import '../../theme/d_icons.dart';
 import '../forum_settings_controller.dart';
 import '../forum_theme_thumbnail.dart';
 import '../shell_scope.dart';

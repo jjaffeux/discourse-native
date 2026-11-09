@@ -5,13 +5,13 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/content_route.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';
 import '../plugin_api/site_plugin_api.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'anchored_layout.dart';
 import 'bookmark_ui.dart';

@@ -4,13 +4,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../foundation/timezone_environment.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
 import '../models/user_preferences.dart';
 import '../plugin_api/site_plugin_api.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'content_reading_lane.dart';
 import 'header_preferences.dart';
 import 'preference_fields.dart';

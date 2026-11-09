@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show OverflowBoxFit;
 
 import '../foundation/count_label.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
-import '../theme/d_icons.dart';
 import 'platform.dart';
 
 enum _View { latest, unread, newActivity, unseen, top, trending }

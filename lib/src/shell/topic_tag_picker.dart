@@ -5,10 +5,10 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/latest_wins_queued_lookup_controller.dart';
 import '../models/forum_workspace.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'open_link.dart';
 import 'platform.dart';
 import 'shell_scope.dart';

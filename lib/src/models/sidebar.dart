@@ -1,8 +1,8 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../theme/d_icon.dart';
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icons.dart';
 import 'json.dart';
 import 'plugin_icon_catalog.dart';
 

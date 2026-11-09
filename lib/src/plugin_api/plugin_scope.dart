@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
+import '../foundation/icons/d_icon_data.dart';
 import '../models/notification.dart';
-import '../theme/d_icon.dart';
 import 'notification_types.dart';
 import 'plugin_registry.dart';
 import 'plugin_runtime.dart';

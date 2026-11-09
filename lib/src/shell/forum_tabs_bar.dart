@@ -8,12 +8,12 @@ import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
 
 import '../app_shortcuts.dart';
+import '../foundation/icons/d_icons.dart';
 import '../models/forum_workspace.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'avatar_image.dart';
 import 'destination_bookmark_ui.dart';
 import 'emoji.dart';

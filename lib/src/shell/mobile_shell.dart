@@ -7,14 +7,14 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/discourse_instance.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'account_menu_scope.dart';
 import 'composer/presentation.dart';
 import 'forum_search.dart';

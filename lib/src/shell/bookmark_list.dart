@@ -6,12 +6,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show ScrollDirection;
 import 'package:super_sliver_list/super_sliver_list.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/bookmark.dart';
 import '../models/bookmark_feed.dart';
 import '../models/destination_bookmark.dart';
 import '../models/notification.dart';
 import '../plugin_api/shell_extensions.dart';
-import '../theme/d_icons.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';

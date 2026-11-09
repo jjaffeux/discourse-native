@@ -4,9 +4,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
-import '../theme/d_icons.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 

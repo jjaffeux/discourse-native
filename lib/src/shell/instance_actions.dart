@@ -3,8 +3,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/discourse_instance.dart';
-import '../theme/d_icons.dart';
 import 'adaptive_dialog_action.dart';
 import 'platform.dart';
 import 'shell_scope.dart';

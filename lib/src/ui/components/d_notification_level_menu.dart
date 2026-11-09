@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';

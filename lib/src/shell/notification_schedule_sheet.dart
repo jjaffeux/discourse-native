@@ -6,9 +6,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/notification_schedule.dart';
 import '../models/user_preferences.dart';
-import '../theme/d_icons.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 

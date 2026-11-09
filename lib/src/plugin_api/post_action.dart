@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/d_icon.dart';
+import '../foundation/icons/d_icon_data.dart';
 
 enum PostActionGroup { share, change, report, staff }
 

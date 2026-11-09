@@ -5,9 +5,9 @@ import 'package:discourse_native/src/theme/discourse_typography.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/d_icon.dart';
-import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
 import '../foundation/control_style.dart';
 import '../foundation/tokens.dart';
 import 'd_button.dart';

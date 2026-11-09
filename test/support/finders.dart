@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/foundation/icons/d_icon_data.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';
 import 'package:flutter_test/flutter_test.dart';
 

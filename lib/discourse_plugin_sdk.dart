@@ -72,6 +72,9 @@ export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
+export 'src/foundation/icons/d_icon_data.dart';
+export 'src/foundation/icons/d_icons.dart';
+export 'src/foundation/icons/d_native_icons.dart' show DNativeIcons;
 export 'src/foundation/loopback_host.dart';
 export 'src/foundation/private_file_document.dart'
     show PrivateFileDocument, PrivateFileResult;
@@ -280,8 +283,6 @@ export 'src/shell/user_status.dart' show UserStatusMessage;
 export 'src/shell/youtube_video.dart'
     show YoutubeVideo, YoutubeVideoData, parseYoutubeTime, sanitizeYoutubeId;
 export 'src/theme/app_theme.dart';
-export 'src/theme/d_icon.dart';
-export 'src/theme/d_icons.dart';
-export 'src/theme/d_native_icons.dart' show DNativeIcons;
+export 'src/theme/d_icon.dart' hide DIconSetScope;
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
 export 'src/utils/pagination.dart' show paginationPrefetchDistance;

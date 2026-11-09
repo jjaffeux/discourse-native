@@ -2,11 +2,11 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/palette_contrast.dart';
 import '../models/forum_background.dart';
 import '../models/forum_theme.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'forum_appearance_effects.dart';
 import 'forum_theme_thumbnail.dart';
 

@@ -13,6 +13,8 @@ import 'package:flutter/rendering.dart' show RenderBox, RenderEditable;
 import 'package:flutter/services.dart';
 
 import '../../foundation/frame_safe_notifier.dart';
+import '../../foundation/icons/d_icons.dart';
+import '../../foundation/icons/d_native_icons.dart';
 import '../../models/composer_placement.dart';
 import '../../models/site_config.dart';
 import '../../models/topic.dart';
@@ -21,8 +23,6 @@ import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../plugin_api/plugin_ui_scope.dart';
-import '../../theme/d_icons.dart';
-import '../../theme/d_native_icons.dart';
 import '../app_settings_controller.dart';
 import '../emoji_picker.dart';
 import '../forum_theme_surfaces.dart';

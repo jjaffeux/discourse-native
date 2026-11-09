@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../theme/d_icon.dart';
+import '../foundation/icons/d_icon_data.dart';
 
 /// An action supplied by the visible page for the persistent mobile bar.
 @immutable

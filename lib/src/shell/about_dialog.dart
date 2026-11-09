@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vector_graphics_compiler/vector_graphics_compiler.dart' as vg;
 
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icons.dart';
 import 'external_link.dart';
 
 Future<void> showNativeAboutDialog(BuildContext context) => showDDialog<void>(

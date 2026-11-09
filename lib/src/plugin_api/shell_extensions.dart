@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart' show BuildContext;
 
 import '../data/discourse_api_contracts.dart';
 import '../data/live_channels.dart';
+import '../foundation/icons/d_icon_data.dart';
 import '../models/bookmark.dart';
 import '../models/content_route.dart';
 import '../models/discourse_instance.dart';
@@ -14,7 +15,6 @@ import '../models/forum_workspace.dart' show ForumPanel;
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
-import '../theme/d_icon.dart';
 import 'bookmark_host.dart';
 import 'composer_syntax.dart';
 import 'global_search.dart';

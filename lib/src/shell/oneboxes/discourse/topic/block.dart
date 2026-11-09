@@ -3,7 +3,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../../../../discourse_ui.dart';
 
-import '../../../../theme/d_icons.dart';
+import '../../../../foundation/icons/d_icons.dart';
 import '../../../cooked_dom.dart';
 import '../../../image_decode.dart';
 import '../../../site_image.dart';

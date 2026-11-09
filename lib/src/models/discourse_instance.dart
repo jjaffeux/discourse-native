@@ -1,8 +1,8 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../foundation/uri_path.dart';
-import '../theme/d_icons.dart';
 import 'discourse_user.dart';
 import 'notification_counters.dart';
 import 'notification_totals.dart';

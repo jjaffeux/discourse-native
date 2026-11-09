@@ -2,9 +2,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
-import '../theme/d_icons.dart';
 import 'category_icon.dart';
 import 'topic_category_path.dart';
 import 'topic_category_selector.dart';

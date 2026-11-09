@@ -5,6 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/clock_time.dart';
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/notification_totals.dart';
@@ -12,8 +14,6 @@ import '../models/user_status.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 import 'about_dialog.dart';
 import 'account_menu_scope.dart';
 import 'avatar_image.dart';

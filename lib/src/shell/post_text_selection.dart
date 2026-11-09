@@ -6,9 +6,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter/services.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/post.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'post_fast_edit.dart';
 import 'post_quote.dart';
 import 'route_aware_selection_area.dart';

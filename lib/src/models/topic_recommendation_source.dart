@@ -1,7 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
-import '../theme/d_icon.dart';
+import '../foundation/icons/d_icon_data.dart';
 
 /// Separate from the wire key so serializer changes do not invalidate saved tabs.
 @immutable

@@ -4,8 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/app_settings.dart';
-import '../theme/d_icons.dart';
 import 'app_settings_controller.dart';
 import 'forum_font_chooser.dart';
 import 'forum_settings_controller.dart';

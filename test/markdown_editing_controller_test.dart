@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:discourse_native/discourse_ui.dart' show monospaceTextStyle;
 import 'package:discourse_native/src/data/media_pipeline.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/found_hashtag.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
@@ -21,7 +22,6 @@ import 'package:discourse_native/src/shell/hashtag_presentation.dart';
 import 'package:discourse_native/src/shell/mention.dart';
 import 'package:discourse_native/src/shell/syntax.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

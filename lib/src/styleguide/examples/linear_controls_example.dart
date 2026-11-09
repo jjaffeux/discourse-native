@@ -1,7 +1,7 @@
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 
 /// Local settings compositions for inspecting the shared Linear control styles.
 class LinearControlsExample extends StatefulWidget {

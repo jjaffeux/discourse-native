@@ -2,9 +2,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/content_route.dart';
 import '../models/topic_feed.dart';
-import '../theme/d_icons.dart';
 import 'message_inbox_title.dart';
 import 'platform.dart';
 import 'shell_scope.dart';

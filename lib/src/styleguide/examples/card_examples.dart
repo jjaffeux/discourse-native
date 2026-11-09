@@ -2,7 +2,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../styleguide_example.dart';
 
 final cardExamples = ComponentExamples(

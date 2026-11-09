@@ -7,8 +7,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:html/dom.dart' as dom;
 
+import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'image_decode.dart';

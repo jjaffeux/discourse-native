@@ -1,4 +1,4 @@
-import 'd_icon.dart';
+import 'd_icon_data.dart';
 
 // Font Awesome Free artwork from the native mockup. Icons: CC BY 4.0.
 // https://fontawesome.com/license/free

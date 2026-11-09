@@ -5,7 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart';
 
-import '../../theme/d_icons.dart';
+import '../../foundation/icons/d_icons.dart';
 import '../shell_controller.dart';
 import '../shell_scope.dart';
 import '../skeleton_fill.dart';

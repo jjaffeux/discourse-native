@@ -3,6 +3,7 @@ import 'dart:ui' show AppExitResponse;
 
 import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
@@ -14,7 +15,6 @@ import 'package:discourse_native/src/plugin_api/global_search_filters.dart';
 import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
-import 'package:discourse_native/src/theme/d_icons.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 

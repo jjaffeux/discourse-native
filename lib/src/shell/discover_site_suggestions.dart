@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../data/discover_site.dart';
 import '../data/discover_sites.dart';
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icons.dart';
 import 'external_link.dart';
 import 'image_decode.dart';
 import 'shell_scope.dart';

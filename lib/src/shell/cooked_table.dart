@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/html_escape.dart';
 
-import '../theme/d_icons.dart';
+import '../foundation/icons/d_icons.dart';
 import 'cooked_document.dart';
 import 'cooked_dom.dart';
 

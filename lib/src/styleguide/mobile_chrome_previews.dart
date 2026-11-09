@@ -2,9 +2,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widget_previews.dart';
 
+import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../theme/app_theme.dart';
-import '../theme/d_icons.dart';
-import '../theme/d_native_icons.dart';
 
 @Preview(
   name: 'Mobile dock — light',

@@ -1,9 +1,10 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../foundation/icons/d_icon_data.dart';
+import '../foundation/icons/d_icon_sets.dart';
 import '../ui/foundation/tokens.dart';
 import 'd_icon_glyph.dart';
-import 'd_icon_sets.dart';
 
 // Mapping paints while compiling avoids a saveLayer for every icon paint.
 @immutable
@@ -37,39 +38,16 @@ final class _DIconColorMapper extends ColorMapper {
   int get hashCode => Object.hash(tint, preserveColors, opacity);
 }
 
-@immutable
-class DIconData {
-  const DIconData(this.name, this.svg, {this.preserveColors = false});
-
-  final String name;
-  final String svg;
-
-  /// Retains explicit SVG colors while `currentColor` follows the icon theme.
-  /// Discourse's palette variables are resolved from the Native theme at build
-  /// time, so composite badges retain their background and foreground parts.
-  final bool preserveColors;
-
-  static final _svgTag = RegExp(r'<svg\b[^>]*>');
-  static final _fillAttribute = RegExp(r'\sfill\s*=');
-
-  String get tintableSvg {
-    final match = _svgTag.firstMatch(svg);
-    if (match == null || _fillAttribute.hasMatch(match[0]!)) return svg;
-    return svg.replaceRange(
-      match.start,
-      match.start + 4,
-      '<svg fill="currentColor"',
-    );
-  }
-
+/// A subtree may preview another family without changing the app preference.
+class DIconSetScope extends InheritedWidget {
+  const DIconSetScope({super.key, required this.iconSet, required super.child});
+  final DIconSet iconSet;
+  static DIconSet of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<DIconSetScope>()?.iconSet ??
+      DIconSet.defaultSet;
   @override
-  bool operator ==(Object other) => other is DIconData && other.name == name;
-
-  @override
-  int get hashCode => name.hashCode;
-
-  @override
-  String toString() => 'DIconData($name)';
+  bool updateShouldNotify(DIconSetScope oldWidget) =>
+      iconSet != oldWidget.iconSet;
 }
 
 /// Controls optical glyph insets and optional natural SVG layout widths.

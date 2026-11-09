@@ -4,8 +4,8 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
+import '../foundation/icons/d_icons.dart';
 import '../models/do_not_disturb.dart';
-import '../theme/d_icons.dart';
 import 'notification_schedule_sheet.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';

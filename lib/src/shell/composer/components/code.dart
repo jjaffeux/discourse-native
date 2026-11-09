@@ -6,8 +6,8 @@ import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../../foundation/icons/d_icons.dart';
 import '../../../plugin_api/composer_syntax.dart';
-import '../../../theme/d_icons.dart';
 import '../../code_block.dart';
 import '../block_selection.dart';
 import '../controller.dart';
