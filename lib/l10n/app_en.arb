@@ -6518,6 +6518,10 @@
   "@gallery": {
     "description": "English UI message used by shell/composer_block_controller.dart. Keep placeholders intact."
   },
+  "brokenImage": "Broken image",
+  "@brokenImage": {
+    "description": "English UI message used by shell/broken_image.dart. Keep placeholders intact."
+  },
   "image": "Image",
   "@image": {
     "description": "English UI message used by shell/composer_block_controller.dart. Keep placeholders intact."

@@ -12,7 +12,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart' hide testWidgets;
 import 'package:flutter_widget_from_html_core/flutter_widget_from_html_core.dart';
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
@@ -23,6 +23,7 @@ import 'cooked_html_test.dart' show onePixelGif, pumpCooked, pumpCookedInShell;
 import 'support/blank_png.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
+import 'support/pending_thumbnails.dart';
 
 String item(String name, {int width = 600, int height = 400}) =>
     '<div class="lightbox-wrapper"><a class="lightbox" href="https://example.com/$name.png" title="$name.png">'

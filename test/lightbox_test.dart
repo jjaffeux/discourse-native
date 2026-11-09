@@ -22,7 +22,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart' hide testWidgets;
 import 'package:html/dom.dart' as dom;
 import 'package:html/parser.dart' as html;
 import 'package:http/http.dart' as http;
@@ -33,6 +33,7 @@ import 'cooked_html_test.dart' show pumpCooked, renderedText;
 import 'support/blank_png.dart';
 import 'support/fakes.dart';
 import 'support/finders.dart';
+import 'support/pending_thumbnails.dart';
 
 const String singleImage = '''
 <p>Before.</p>
@@ -144,8 +145,6 @@ void main() {
   testWidgets('loading skeleton fills the image slot and follows its scale', (
     tester,
   ) async {
-    debugNetworkImageHttpClientProvider = () => _PendingImageHttpClient();
-    addTearDown(() => debugNetworkImageHttpClientProvider = null);
     await pumpGallery(
       tester,
       images: [parse(singleImage.replaceAll('full.png', 'pending.png'))],
@@ -1263,7 +1262,13 @@ void main() {
       );
       final counter = barText('1 of 3');
       final imageViewport = tester.getRect(find.byType(PageView));
-      expect(find.byType(DCard), findsNothing);
+      expect(
+        find.ancestor(
+          of: find.dIcon(DIcons.xmark),
+          matching: find.byType(DCard),
+        ),
+        findsNothing,
+      );
       expect(tester.getRect(counter).left, greaterThanOrEqualTo(88));
       expect(
         tester.getRect(galleryButton('Zoom in')).bottom,
@@ -2075,16 +2080,4 @@ final class _FakeImageDownloader implements LightboxImageDownloader {
     this.siteUrl = siteUrl;
     return const MediaDownloadSaved('screenshot.png');
   }
-}
-
-class _PendingImageHttpClient implements HttpClient {
-  @override
-  bool autoUncompress = true;
-
-  @override
-  Future<HttpClientRequest> getUrl(Uri url) =>
-      Completer<HttpClientRequest>().future;
-
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
