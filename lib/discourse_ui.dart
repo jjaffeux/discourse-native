@@ -1,6 +1,7 @@
 /// Reusable native UI. Components accept values and callbacks, never services.
 library;
 
+export 'src/foundation/code_syntax.dart';
 export 'src/foundation/icons/d_icon_data.dart';
 export 'src/foundation/icons/d_icon_sets.dart' show DIconSet;
 export 'src/foundation/oklab.dart';
@@ -128,7 +129,6 @@ export 'src/ui/components/d_tooltip.dart';
 export 'src/ui/components/d_typography.dart';
 export 'src/ui/foundation/app_text_scaler.dart';
 export 'src/ui/foundation/code_source.dart' show CodeSource;
-export 'src/ui/foundation/code_syntax.dart';
 export 'src/ui/foundation/code_typography.dart' show monospaceTextStyle;
 export 'src/ui/foundation/control_style.dart' show DControlSize, DControlStyle;
 export 'src/ui/foundation/focus_highlight.dart';

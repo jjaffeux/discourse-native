@@ -1,4 +1,4 @@
-export 'package:discourse_native/discourse_ui.dart'
+export '../foundation/code_syntax.dart'
     show
         CodeToken,
         SyntaxHighlightRequest,
