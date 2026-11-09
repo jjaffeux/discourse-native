@@ -23,7 +23,6 @@ final class SolvedController {
     return !_closed &&
         post.postNumber != 1 &&
         !post.isWhisper &&
-        !post.hidden &&
         !post.isDeleted &&
         state != null &&
         state.accepted != accepted &&
