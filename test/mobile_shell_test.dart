@@ -2489,6 +2489,10 @@ void main() {
     expect(find.byKey(const ValueKey('styleguide-rail-button')), findsNothing);
     expect(sidebarDestination('New Topic'), findsNothing);
     final toggle = find.byKey(const ValueKey('theme-mode-rail-button'));
+    expect(
+      tester.getSize(find.descendant(of: toggle, matching: find.byType(DIcon))),
+      const Size.square(18),
+    );
     expect(tester.widget<DButton>(toggle).tooltip, 'Switch to dark');
     await tester.tap(toggle);
     await tester.pumpAndSettle();

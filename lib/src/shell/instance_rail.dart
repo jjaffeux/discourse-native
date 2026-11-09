@@ -106,6 +106,7 @@ class InstanceRail extends StatelessWidget {
                 _RailFooter(
                   updatesAvailable:
                       state.loadStatus == InstanceLoadStatus.ready,
+                  site: state.currentSite,
                 ),
               ],
             ),
@@ -812,12 +813,14 @@ class _RailSnapshot {
           controller.siteAppearanceFor(instance.url),
       ],
       selectedIndex = controller.instanceIndex,
+      currentSite = controller.currentInstance?.url,
       rootMode = controller.rootMode,
       loadStatus = controller.loadStatus;
 
   final List<DiscourseInstance> instances;
   final List<SiteAppearance?> appearances;
   final int selectedIndex;
+  final String? currentSite;
   final ShellRootMode rootMode;
   final InstanceLoadStatus loadStatus;
 
@@ -876,9 +879,10 @@ class _RailLoadFailure extends StatelessWidget {
 }
 
 class _RailFooter extends StatelessWidget {
-  const _RailFooter({required this.updatesAvailable});
+  const _RailFooter({required this.updatesAvailable, required this.site});
 
   final bool updatesAvailable;
+  final String? site;
 
   @override
   Widget build(BuildContext context) {
@@ -893,12 +897,8 @@ class _RailFooter extends StatelessWidget {
             padding: EdgeInsets.symmetric(vertical: 2),
             child: Center(child: _UpdateButton()),
           ),
-        if (mobile)
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 2),
-            child: Center(child: _ThemeModeButton()),
-          )
-        else if (ComponentStyleguideScope.maybeOf(context) case final open?)
+        if (ComponentStyleguideScope.maybeOf(context) case final open?
+            when !mobile)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 2),
             child: Center(
@@ -912,6 +912,13 @@ class _RailFooter extends StatelessWidget {
                 ),
               ),
             ),
+          ),
+        // With no forum the app follows the system theme, so a switch on the
+        // desktop welcome screen would have nothing to flip.
+        if (mobile || site != null)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Center(child: _ThemeModeButton(site: site)),
           ),
         Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -934,7 +941,9 @@ class _RailFooter extends StatelessWidget {
 }
 
 class _ThemeModeButton extends StatelessWidget {
-  const _ThemeModeButton();
+  const _ThemeModeButton({required this.site});
+
+  final String? site;
 
   @override
   Widget build(BuildContext context) {
@@ -942,7 +951,7 @@ class _ThemeModeButton extends StatelessWidget {
     return ListenableBuilder(
       listenable: shell.forumSettings,
       builder: (context, _) {
-        final site = shell.currentInstance?.url;
+        final site = this.site;
         final mode = site == null
             ? shell.appSettings.themeMode
             : shell.forumSettings.themeModeFor(site);
@@ -965,7 +974,10 @@ class _ThemeModeButton extends StatelessWidget {
                   : shell.forumSettings.setThemeMode(site, next),
             );
           },
-          icon: ThemeIcon(dark ? ThemeIcons.sun : ThemeIcons.moon, size: 18),
+          icon: ThemeIcon(
+            dark ? ThemeIcons.sun : ThemeIcons.moon,
+            size: usesMobileNavigation(Theme.of(context).platform) ? 18 : 16,
+          ),
         );
       },
     );
