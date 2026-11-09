@@ -642,7 +642,12 @@ void boardsDirectoryWidgetTests({
     fixture.transport.responders['GET /boards/api/boards.json'] = (_) =>
         pending.future;
     await pull(tester);
-    pending.completeError(StateError('Directory unavailable'));
+    pending.completeError(
+      const WriteException(
+        WriteFailure.unreachable,
+        errors: ['Directory unavailable'],
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('Directory unavailable'), findsOneWidget);
     expect(find.text('Team roadmap'), findsOneWidget);
@@ -698,7 +703,12 @@ void boardsDirectoryWidgetTests({
       expect(find.byType(DPlaceCardSkeleton), findsWidgets);
       expect(find.byType(DSpinner), findsNothing);
       expect(fixture.transport.reads, hasLength(1));
-      pending.completeError(StateError('Directory unavailable'));
+      pending.completeError(
+        const WriteException(
+          WriteFailure.unreachable,
+          errors: ['Directory unavailable'],
+        ),
+      );
       await tester.pumpAndSettle();
       expect(find.textContaining('Directory unavailable'), findsOneWidget);
       respond(fixture, []);

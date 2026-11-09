@@ -1548,9 +1548,7 @@ class _VoiceInviteDialogState extends State<_VoiceInviteDialog> {
       case VoiceUserInvitationRefused(:final error):
         DToast.show(
           context,
-          error is WriteException
-              ? error.message
-              : appL10n.couldnTSendTheInvite,
+          failureText(error, fallback: appL10n.couldnTSendTheInvite),
           type: DToastType.error,
         );
         return false;

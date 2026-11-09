@@ -158,7 +158,5 @@ String gameError(Object error) => switch (error) {
   GamificationUnsupportedResponse() ||
   FormatException() ||
   TypeError() => appL10n.gamificationUnsupported,
-  WriteException(:final message) ||
-  SiteLookupException(:final message) => message,
-  _ => appL10n.gamificationRequestFailed,
+  _ => failureText(error, fallback: appL10n.gamificationRequestFailed),
 };

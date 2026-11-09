@@ -316,7 +316,12 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     await tester.pump();
     expect(find.byType(DSkeletonRegion), findsOneWidget);
     expect(find.byType(DSpinner), findsNothing);
-    pending.completeError(StateError('Board unavailable'));
+    pending.completeError(
+      const WriteException(
+        WriteFailure.unreachable,
+        errors: ['Board unavailable'],
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining('Board unavailable'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
@@ -360,7 +365,12 @@ void boardsWidgetTests({bool nativeView = false, BoardCapture? onCapture}) {
     expect(fixture.transport.reads, hasLength(2));
     expect(find.text('Improve search'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
-    pending.completeError(StateError('Board refresh unavailable'));
+    pending.completeError(
+      const WriteException(
+        WriteFailure.unreachable,
+        errors: ['Board refresh unavailable'],
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Improve search'), findsOneWidget);
     expect(find.textContaining('Board refresh unavailable'), findsOneWidget);

@@ -1330,7 +1330,7 @@ void main() {
       reply = next;
       await handle.refresh();
       expect(handle.snapshot, isNull);
-      expect(handle.error, contains('Invalid board response'));
+      expect(handle.error, "Couldn't load this board.");
     }
   });
   test(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import 'boards_api.dart';
@@ -497,7 +498,7 @@ final class BoardHandle extends ChangeNotifier {
           continue;
         }
         lease.commit(() {
-          error = failure.toString();
+          error = failureText(failure, fallback: appL10n.boardsLoadFailed);
           if (failure is SiteLookupException &&
                   (failure.statusCode == 403 || failure.statusCode == 404) ||
               failure is WriteException &&
@@ -574,7 +575,7 @@ final class BoardHandle extends ChangeNotifier {
                 !failure.notSent
             ? BoardWriteState.unknown
             : BoardWriteState.refused,
-        failure.toString(),
+        failureText(failure, fallback: appL10n.boardsRefused),
       );
     } finally {
       if (!_disposed && identical(_writeToken, token)) {
@@ -887,7 +888,10 @@ final class BoardHandle extends ChangeNotifier {
         }
       }
     } catch (failure) {
-      return BoardWriteResult(BoardWriteState.refused, failure.toString());
+      return BoardWriteResult(
+        BoardWriteState.refused,
+        failureText(failure, fallback: appL10n.boardsRefused),
+      );
     }
     return _write(
       (credentials) => owner.api.write(
@@ -980,7 +984,10 @@ final class BoardHandle extends ChangeNotifier {
         }
       }
     } catch (failure) {
-      return BoardWriteResult(BoardWriteState.refused, failure.toString());
+      return BoardWriteResult(
+        BoardWriteState.refused,
+        failureText(failure, fallback: appL10n.boardsRefused),
+      );
     }
     return _write(
       (credentials) => owner.api.write(

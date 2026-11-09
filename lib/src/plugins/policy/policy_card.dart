@@ -507,8 +507,5 @@ class _InlineParticipantsState extends State<_InlineParticipants> {
   }
 }
 
-String _errorMessage(Object error) => switch (error) {
-  WriteException() => error.message,
-  SiteLookupException() => error.message,
-  _ => appL10n.couldnTReachTheSite,
-};
+String _errorMessage(Object error) =>
+    failureText(error, fallback: appL10n.couldnTReachTheSite);

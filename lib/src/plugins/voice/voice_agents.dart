@@ -103,9 +103,10 @@ final class VoiceAgentInvitation extends FrameSafeNotifier {
       if (!accepted) error = appL10n.thisInvitationIsNoLongerAvailable;
     } catch (failure) {
       if (!isCurrent) return;
-      error = failure is WriteException
-          ? failure.message
-          : appL10n.couldnTInviteTheAgentTryAgain;
+      error = failureText(
+        failure,
+        fallback: appL10n.couldnTInviteTheAgentTryAgain,
+      );
     } finally {
       if (isCurrent) {
         sending = false;

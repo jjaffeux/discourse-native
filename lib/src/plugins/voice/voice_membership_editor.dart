@@ -140,7 +140,7 @@ final class VoiceMembershipEditor extends ChangeNotifier {
       } catch (error) {
         if (!isCurrent) return VoiceMembershipEditStatus.retired;
         return VoiceMembershipEditRefused(
-          error is WriteException ? error.message : failure,
+          failureText(error, fallback: failure),
         );
       }
       if (!isCurrent) return VoiceMembershipEditStatus.retired;

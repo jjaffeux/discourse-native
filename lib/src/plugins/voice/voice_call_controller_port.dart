@@ -206,12 +206,14 @@ final class VoiceCallControllerPort extends ChangeNotifier
   }
 
   static String _failureMessage(VoiceCallAction action, Object error) {
-    if (error is WriteException) return error.message;
-    return switch (action) {
-      VoiceCallAction.openRoom => appL10n.couldnTOpenTheVoiceRoom,
-      VoiceCallAction.toggleMuted => appL10n.couldnTUpdateTheMicrophone,
-      VoiceCallAction.leave => appL10n.couldnTLeaveTheVoiceRoom,
-    };
+    return failureText(
+      error,
+      fallback: switch (action) {
+        VoiceCallAction.openRoom => appL10n.couldnTOpenTheVoiceRoom,
+        VoiceCallAction.toggleMuted => appL10n.couldnTUpdateTheMicrophone,
+        VoiceCallAction.leave => appL10n.couldnTLeaveTheVoiceRoom,
+      },
+    );
   }
 
   @override

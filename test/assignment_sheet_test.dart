@@ -581,7 +581,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Suggestions are unavailable.'), findsOneWidget);
+      expect(find.text("Couldn't complete that. Try again."), findsOneWidget);
       expect(
         find.byKey(const Key('assignment-retry-suggestions')),
         findsOneWidget,

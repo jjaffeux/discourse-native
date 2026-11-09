@@ -89,9 +89,7 @@ final class _VoiceRoomDirectory {
       return isCurrent ? room : null;
     } catch (failure) {
       if (!isCurrent) return null;
-      _error = failure is WriteException
-          ? failure.message
-          : appL10n.couldnTSaveTheVoiceRoom;
+      _error = failureText(failure, fallback: appL10n.couldnTSaveTheVoiceRoom);
 
       _notifyChanged();
       return null;
@@ -122,9 +120,7 @@ final class _VoiceRoomDirectory {
       return true;
     } catch (failure) {
       if (!isCurrent) return false;
-      _error = failure is WriteException
-          ? failure.message
-          : appL10n.voiceRoomDeleteFailed;
+      _error = failureText(failure, fallback: appL10n.voiceRoomDeleteFailed);
       _notifyChanged();
       return false;
     }

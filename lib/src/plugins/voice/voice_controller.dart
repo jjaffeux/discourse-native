@@ -60,7 +60,6 @@ final class _VoiceCameraRestore {
 }
 
 String _joinFailureMessage(Object error, VoiceRoom room) {
-  if (error is WriteException) return error.message;
   if (error is VoiceMicrophoneException) {
     return switch (error.kind) {
       VoiceMicrophoneFailureKind.permissionDenied =>
@@ -70,7 +69,10 @@ String _joinFailureMessage(Object error, VoiceRoom room) {
         appL10n.weCouldnTAccessYourMicrophoneCheckThatItIsConnected,
     };
   }
-  return appL10n.couldnTJoin((room.name).toString());
+  return failureText(
+    error,
+    fallback: appL10n.couldnTJoin((room.name).toString()),
+  );
 }
 
 /// Message bus positions only move forward: a cursor served or delivered

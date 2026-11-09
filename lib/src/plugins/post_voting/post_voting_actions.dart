@@ -507,4 +507,4 @@ final class PostVotingActions extends FrameSafeNotifier {
 }
 
 String postVotingError(Object error) =>
-    error is WriteException ? error.message : appL10n.couldnTReachTheSite;
+    failureText(error, fallback: appL10n.couldnTReachTheSite);
