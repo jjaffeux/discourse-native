@@ -625,15 +625,16 @@ final class DiscourseTransport {
     }
   }
 
-  static Map<String, String> _authHeaders(
-    String apiKey, {
-    String? clientId,
-  }) => {
+  Map<String, String> _authHeaders(String apiKey, {String? clientId}) => {
     'User-Api-Key': apiKey,
     if (clientId case final id? when id.isNotEmpty) 'User-Api-Client-Id': id,
     'User-Agent': discourseUserAgent,
     'Content-Type': 'application/json',
     'Dont-Chunk': 'true',
+    // Core records a visit from an API key only when told a person is there.
+    // Without it `last_seen_at` stands still, and a month later core stops
+    // publishing this account's `/notification` channel.
+    if (_activeUse?.isActive ?? false) 'Discourse-Present': 'true',
   };
 
   void close() {
