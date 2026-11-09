@@ -832,6 +832,10 @@ class ChatChannel with Storable<ChatChannel> {
   final ChatChannelMessageBusState messageBus;
 
   bool get isDirectMessage => kind == ChatChannelKind.directMessage;
+
+  /// The other member of a one-to-one direct message, otherwise null.
+  ChatUser? get directUser =>
+      isDirectMessage && users.length == 1 ? users.first : null;
   bool get isCategoryChannel => kind == ChatChannelKind.category;
 
   String? get avatarUrl =>

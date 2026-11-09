@@ -1,4 +1,3 @@
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -63,14 +62,14 @@ void main() {
     }
   });
 
-  group('ChatPlugin routes', () {
+  group('ChatRoute named routes', () {
     test('round-trips canonical positive thread-list channel IDs', () {
       for (final channelId in [1, 9, 9223372036854775807]) {
-        final routeId = ChatPlugin.channelThreadsRouteId(channelId);
+        final routeId = ChatRoute.channelThreadsRouteId(channelId);
 
         expect(routeId, 'chat-c-$channelId-threads');
-        expect(ChatPlugin.channelIdFromThreadsRoute(routeId), channelId);
-        expect(ChatPlugin.ownsRouteId(routeId), isTrue);
+        expect(ChatRoute.channelIdFromThreadsRoute(routeId), channelId);
+        expect(ChatRoute.ownsRouteId(routeId), isTrue);
       }
     });
 
@@ -94,13 +93,13 @@ void main() {
         'chat-c-9-threads\n',
       ]) {
         expect(
-          ChatPlugin.channelIdFromThreadsRoute(routeId),
+          ChatRoute.channelIdFromThreadsRoute(routeId),
           isNull,
           reason: routeId,
         );
-        expect(ChatPlugin.ownsRouteId(routeId), isFalse, reason: routeId);
+        expect(ChatRoute.ownsRouteId(routeId), isFalse, reason: routeId);
       }
-      expect(ChatPlugin.ownsRouteId(null), isFalse);
+      expect(ChatRoute.ownsRouteId(null), isFalse);
     });
 
     const maximumDigits =
@@ -114,8 +113,8 @@ void main() {
       test('declines ${entry.key} thread-list IDs without throwing', () {
         final routeId = 'chat-c-${entry.value}-threads';
 
-        expect(ChatPlugin.channelIdFromThreadsRoute(routeId), isNull);
-        expect(ChatPlugin.ownsRouteId(routeId), isFalse);
+        expect(ChatRoute.channelIdFromThreadsRoute(routeId), isNull);
+        expect(ChatRoute.ownsRouteId(routeId), isFalse);
       });
     }
 
@@ -132,9 +131,9 @@ void main() {
         'chat-starred',
         'chat-direct-messages',
       ]) {
-        expect(ChatPlugin.ownsRouteId(routeId), isTrue, reason: routeId);
+        expect(ChatRoute.ownsRouteId(routeId), isTrue, reason: routeId);
         expect(
-          ChatPlugin.channelIdFromThreadsRoute(routeId),
+          ChatRoute.channelIdFromThreadsRoute(routeId),
           isNull,
           reason: routeId,
         );

@@ -18,9 +18,9 @@ import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview_body.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
@@ -2240,7 +2240,7 @@ void main() {
         }
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(find.text('screen.mp4'), findsOneWidget);
         expect(
@@ -2317,7 +2317,7 @@ void main() {
         expect(fixture.api.composerUploads, hasLength(1));
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(find.text('photo.png'), findsOneWidget);
         final thumbnailFinder = find.byKey(
@@ -3105,7 +3105,7 @@ void main() {
         expect(fixture.api.composerUploads.single.filename, name);
         expect(
           fixture.api.composerUploads.single.uploadType,
-          ChatPlugin.messageUploadType,
+          chatMessageUploadType,
         );
         expect(
           fixture.api.composerUploads.single.sizeLimit,
@@ -3226,7 +3226,7 @@ void main() {
       expect(fixture.api.composerUploads.single.filename, 'clip.mov');
       expect(
         fixture.api.composerUploads.single.uploadType,
-        ChatPlugin.messageUploadType,
+        chatMessageUploadType,
       );
       await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
       await tester.pumpAndSettle();

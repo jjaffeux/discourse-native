@@ -13,10 +13,10 @@ import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_composer.dart';
+import 'package:discourse_native/src/plugins/chat/chat_composer_target.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message_tile.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread.dart';
 import 'package:discourse_native/src/plugins/chat/chat_thread_panel_width_store.dart';
@@ -1782,16 +1782,15 @@ void _expectThreadBodyTargets(WidgetTester tester) {
   expect(editor.composer.target.siteUrl, _siteUrl);
   expect(
     (editor.composer.target as PluginComposerTarget).policy.kind,
-    ChatPlugin.messageComposerTarget,
+    chatMessageComposerTarget,
   );
   expect(
-    (editor.composer.target as PluginComposerTarget).data[ChatPlugin
-        .composerChannelId],
+    (editor.composer.target as PluginComposerTarget)
+        .data[chatComposerChannelId],
     _channelId,
   );
   expect(
-    (editor.composer.target as PluginComposerTarget).data[ChatPlugin
-        .composerThreadId],
+    (editor.composer.target as PluginComposerTarget).data[chatComposerThreadId],
     _threadId,
   );
   expect(editor.composer.target.draftKey, 'chat_9_thread_3');

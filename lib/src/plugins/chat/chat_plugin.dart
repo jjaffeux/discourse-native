@@ -9,11 +9,13 @@ import 'package:html/dom.dart' as dom;
 import 'chat_browse_channels_view.dart';
 import 'chat_channel.dart';
 import 'chat_channel_actions.dart';
+import 'chat_channel_destination.dart';
 import 'chat_channel_info_view.dart';
 import 'chat_channel_star_button.dart';
 import 'chat_channel_threads_view.dart';
 import 'chat_channel_view.dart';
 import 'chat_channels_view.dart';
+import 'chat_composer_target.dart';
 import 'chat_controller.dart';
 import 'chat_emoji_usage.dart';
 import 'chat_global_search.dart';
@@ -136,46 +138,8 @@ class ChatPlugin
     ChatUserPreferenceCodec(),
   ];
 
-  static const ComposerTargetKind messageComposerTarget = ComposerTargetKind(
-    owner: PluginId('chat'),
-    name: 'message',
-  );
-  static const ComposerUploadType messageUploadType = ComposerUploadType(
-    'chat-composer',
-  );
-  static const String composerChannelId = 'channelId';
-  static const String composerThreadId = 'threadId';
   static const PluginUserMenuSectionId notificationsSection =
       PluginUserMenuSectionId(owner: PluginId('chat'), name: 'notifications');
-
-  static const String searchRouteId = 'chat-search';
-  static const String myThreadsRouteId = 'chat-my-threads';
-  static const String browseRouteId = 'chat-browse';
-  static const String inboxRouteId = 'chat-inbox';
-  static const String channelsRouteId = 'chat-channels';
-  static const String starredRouteId = 'chat-starred';
-  static const String directMessagesRouteId = 'chat-direct-messages';
-
-  static String channelThreadsRouteId(int channelId) =>
-      'chat-c-$channelId-threads';
-
-  static int? channelIdFromThreadsRoute(String routeId) {
-    if (routeId.length > ChatRoute.maximumRouteIdLength) return null;
-    final match = RegExp(r'^chat-c-([1-9]\d*)-threads$').firstMatch(routeId);
-    return match == null ? null : int.tryParse(match.group(1)!);
-  }
-
-  static bool ownsRouteId(String? routeId) =>
-      routeId != null &&
-      (ChatRoute.parse(routeId) != null ||
-          routeId == browseRouteId ||
-          routeId == inboxRouteId ||
-          routeId == channelsRouteId ||
-          routeId == starredRouteId ||
-          routeId == directMessagesRouteId ||
-          routeId == myThreadsRouteId ||
-          routeId == searchRouteId ||
-          channelIdFromThreadsRoute(routeId) != null);
 
   @override
   List<CookingProfile> get cookingProfiles => const [CookingProfile.chat];
@@ -237,15 +201,15 @@ class ChatPlugin
   ];
 
   @override
-  ComposerTargetKind get composerTargetKind => messageComposerTarget;
+  ComposerTargetKind get composerTargetKind => chatMessageComposerTarget;
 
   @override
   ComposerTargetPolicy createComposerTarget(
     ComposerTargetRequest request,
     ComposerTargetContext context,
   ) {
-    final channelId = request.data[composerChannelId];
-    final threadId = request.data[composerThreadId];
+    final channelId = request.data[chatComposerChannelId];
+    final threadId = request.data[chatComposerThreadId];
     if (channelId is! int ||
         channelId <= 0 ||
         (threadId != null && (threadId is! int || threadId <= 0))) {
@@ -256,11 +220,11 @@ class ChatPlugin
       );
     }
     return ComposerTargetPolicy(
-      kind: messageComposerTarget,
+      kind: chatMessageComposerTarget,
       draftKey: threadId == null
           ? 'chat_$channelId'
           : 'chat_${channelId}_thread_$threadId',
-      uploadType: messageUploadType,
+      uploadType: chatMessageUploadType,
       uploadDisposition: ComposerUploadDisposition.retainAttachment,
       uploadsEnabled: context.siteSettings.chatSettings.uploadsEnabled,
       supportsEditing: true,
@@ -361,9 +325,9 @@ class ChatPlugin
     final actions = _panelActions(shell, siteUrl);
 
     final directoryOpen = {
-      inboxRouteId,
-      browseRouteId,
-      myThreadsRouteId,
+      ChatRoute.inboxRouteId,
+      ChatRoute.browseRouteId,
+      ChatRoute.myThreadsRouteId,
     }.contains(shell.currentContent?.id);
     return [
       if (!context.isTouch && !directoryOpen)
@@ -375,21 +339,21 @@ class ChatPlugin
           destinations: [
             if (authenticatedChatAvailable)
               SidebarDestination(
-                id: inboxRouteId,
+                id: ChatRoute.inboxRouteId,
                 label: appL10n.chats,
                 icon: DIcons.comment,
                 onTap: () => shell.openChats(newTab: true),
               ),
             if (authenticatedChatAvailable && publicChannelsEnabled)
               SidebarDestination(
-                id: browseRouteId,
+                id: ChatRoute.browseRouteId,
                 label: appL10n.channels,
                 icon: DIcons.hashtag,
                 onTap: () => shell.openBrowseChannels(newTab: true),
               ),
             if (actions.myThreads)
               SidebarDestination(
-                id: myThreadsRouteId,
+                id: ChatRoute.myThreadsRouteId,
                 label: appL10n.threads,
                 icon: DIcons.comments,
                 onTap: () => shell.openMyThreads(newTab: true),
@@ -422,7 +386,7 @@ class ChatPlugin
               siteUrl,
               const ChatInboxFilter(),
             ))
-              destination(
+              _destination(
                 channel,
                 siteUrl: siteUrl,
                 onTap: () => shell.openChannel(channel.id),
@@ -478,7 +442,7 @@ class ChatPlugin
       badge: badge(mobile: false),
       mobileBadge: badge(mobile: true),
       icon: DIcons.comment,
-      active: ownsRouteId(shell.currentContent?.id),
+      active: ChatRoute.ownsRouteId(shell.currentContent?.id),
       separateWhenActive: true,
       includeSectionsWhenInactive: false,
       showSwitch: true,
@@ -577,14 +541,14 @@ class ChatPlugin
     return [
       if (shell.isConnected(site) && settings.publicChannelsEnabled)
         SidebarDestination(
-          id: browseRouteId,
+          id: ChatRoute.browseRouteId,
           label: context.l10n.channels,
           icon: DIcons.hashtag,
           onTap: shell.openBrowseChannels,
         ),
       if (shell.isConnected(site) && settings.threadsEnabled)
         SidebarDestination(
-          id: myThreadsRouteId,
+          id: ChatRoute.myThreadsRouteId,
           label: context.l10n.threads,
           icon: DIcons.comments,
           onTap: shell.openMyThreads,
@@ -604,7 +568,7 @@ class ChatPlugin
       context,
       chatControllerService,
     ).channel(siteUrl, route.channelId);
-    return channel == null ? null : destination(channel, siteUrl: siteUrl);
+    return channel == null ? null : _destination(channel, siteUrl: siteUrl);
   }
 
   @override
@@ -615,9 +579,9 @@ class ChatPlugin
   Widget? content(BuildContext context, ContentRoute route) {
     final shell = PluginUiScope.require(context, chatShellService);
     final listKind = switch (route.id) {
-      channelsRouteId => ChatChannelListKind.channels,
-      starredRouteId => ChatChannelListKind.starred,
-      directMessagesRouteId => ChatChannelListKind.directMessages,
+      ChatRoute.channelsRouteId => ChatChannelListKind.channels,
+      ChatRoute.starredRouteId => ChatChannelListKind.starred,
+      ChatRoute.directMessagesRouteId => ChatChannelListKind.directMessages,
       _ => null,
     };
     if (listKind != null) {
@@ -637,7 +601,7 @@ class ChatPlugin
               kind: listKind,
             );
     }
-    if (route.id == inboxRouteId) {
+    if (route.id == ChatRoute.inboxRouteId) {
       final siteUrl = shell.currentSiteUrl;
       return siteUrl == null
           ? const SizedBox.shrink()
@@ -645,7 +609,7 @@ class ChatPlugin
           ? Center(child: Text(context.l10n.chatIsNotAvailable))
           : ChatMobileSidebar(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
-    if (route.id == browseRouteId) {
+    if (route.id == ChatRoute.browseRouteId) {
       final siteUrl = shell.currentSiteUrl;
       final available =
           siteUrl != null &&
@@ -662,7 +626,7 @@ class ChatPlugin
           ? Center(child: Text(context.l10n.chatChannelsAreNotAvailable))
           : ChatBrowseChannelsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
-    if (channelIdFromThreadsRoute(route.id) case final channelId?) {
+    if (ChatRoute.channelIdFromThreadsRoute(route.id) case final channelId?) {
       final siteUrl = shell.currentSiteUrl;
       final chat = PluginUiScope.require(context, chatControllerService);
       final available =
@@ -680,7 +644,7 @@ class ChatPlugin
               channelId: channelId,
             );
     }
-    if (route.id == myThreadsRouteId) {
+    if (route.id == ChatRoute.myThreadsRouteId) {
       final siteUrl = shell.currentSiteUrl;
       final available =
           siteUrl != null &&
@@ -694,7 +658,7 @@ class ChatPlugin
           ? Center(child: Text(context.l10n.chatThreadsAreNotAvailable))
           : ChatMyThreadsView(key: ValueKey(siteUrl), siteUrl: siteUrl);
     }
-    if (route.id == searchRouteId) {
+    if (route.id == ChatRoute.searchRouteId) {
       final siteUrl = shell.currentSiteUrl;
       final available =
           siteUrl != null &&
@@ -739,9 +703,9 @@ class ChatPlugin
 
   @override
   bool ownsContentChrome(BuildContext context, ContentRoute route) =>
-      route.id == inboxRouteId ||
-      route.id == browseRouteId ||
-      route.id == myThreadsRouteId ||
+      route.id == ChatRoute.inboxRouteId ||
+      route.id == ChatRoute.browseRouteId ||
+      route.id == ChatRoute.myThreadsRouteId ||
       ChatRoute.parse(route.id)?.isInfo == false;
 
   @override
@@ -852,27 +816,17 @@ class ChatPlugin
       ),
   ];
 
-  static SidebarDestination destination(
+  static SidebarDestination _destination(
     ChatChannel channel, {
     String? siteUrl,
     VoidCallback? onTap,
   }) {
-    final directUser = channel.isDirectMessage && channel.users.length == 1
-        ? channel.users.first
-        : null;
+    final directUser = channel.directUser;
     final avatarUrl = channel.avatarUrl;
     final status = directUser?.status;
-    return SidebarDestination(
-      id: ChatRoute.channel(channel.id).routeId,
-      label: channel.title,
-      icon: switch (channel.kind) {
-        ChatChannelKind.directMessage when channel.users.length > 1 =>
-          DIcons.users,
-        ChatChannelKind.directMessage => DIcons.user,
-        _ => DIcons.comment,
-      },
-      emoji: channel.emoji,
-      avatarUrl: avatarUrl,
+    return chatChannelDestination(
+      channel,
+      onTap: onTap,
       prefixBuilder: siteUrl == null || directUser == null || avatarUrl == null
           ? null
           : (context, size) => ChatUserAvatar(
@@ -893,16 +847,6 @@ class ChatPlugin
               size: size,
               leadingGap: size <= 13 ? 4 : 5,
             ),
-      semanticDescription: status?.description,
-      iconColor: channel.categoryColor,
-      prefixBadgeIcon: channel.isCategoryChannel && channel.readRestricted
-          ? DIcons.lock
-          : null,
-      badge: channel.badge,
-      unreadCount: channel.tracking.unreadCount,
-      preview: channel.lastMessagePreview,
-      lastActivityAt: channel.lastMessageAt,
-      onTap: onTap,
       contextMenuBuilder: siteUrl == null
           ? null
           : (context, child) => ChatChannelMenu(

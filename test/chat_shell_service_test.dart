@@ -17,7 +17,6 @@ import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_controller.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
@@ -69,18 +68,18 @@ void main() {
     );
     addTearDown(fixture.dispose);
     fixture.shell.openSearch();
-    fixture.shell.setPageSearchWords(_site, ChatPlugin.searchRouteId, 'needle');
+    fixture.shell.setPageSearchWords(_site, ChatRoute.searchRouteId, 'needle');
     fixture.shell.setPageSearchWords(
       'https://other.example',
-      ChatPlugin.searchRouteId,
+      ChatRoute.searchRouteId,
       'foreign',
     );
     fixture.shell.setPageSearchWords(_site, 'other-route', 'foreign');
     expect(fixture.host.pageSearchWords, [
-      (_site, ChatPlugin.searchRouteId, 'needle'),
+      (_site, ChatRoute.searchRouteId, 'needle'),
     ]);
     fixture.shell.openChannel(9);
-    fixture.shell.setPageSearchWords(_site, ChatPlugin.searchRouteId, 'stale');
+    fixture.shell.setPageSearchWords(_site, ChatRoute.searchRouteId, 'stale');
     expect(fixture.host.pageSearchWords, hasLength(1));
   });
 
@@ -176,7 +175,7 @@ void main() {
     final fixture = await _fixture(channels: const ChatChannels());
     addTearDown(fixture.dispose);
     await fixture.shell.openShortcut();
-    expect(fixture.host.currentContent?.id, ChatPlugin.inboxRouteId);
+    expect(fixture.host.currentContent?.id, ChatRoute.inboxRouteId);
   });
 
   for (final mode in [
@@ -222,42 +221,42 @@ void main() {
       index: ChatPreferredIndex.channels,
       starred: false,
       threads: false,
-      expected: ChatPlugin.browseRouteId,
+      expected: ChatRoute.browseRouteId,
     ),
     (
       mobile: true,
       index: ChatPreferredIndex.channels,
       starred: false,
       threads: false,
-      expected: ChatPlugin.channelsRouteId,
+      expected: ChatRoute.channelsRouteId,
     ),
     (
       mobile: true,
       index: ChatPreferredIndex.channels,
       starred: true,
       threads: false,
-      expected: ChatPlugin.starredRouteId,
+      expected: ChatRoute.starredRouteId,
     ),
     (
       mobile: true,
       index: ChatPreferredIndex.directMessages,
       starred: false,
       threads: false,
-      expected: ChatPlugin.directMessagesRouteId,
+      expected: ChatRoute.directMessagesRouteId,
     ),
     (
       mobile: false,
       index: ChatPreferredIndex.directMessages,
       starred: false,
       threads: false,
-      expected: ChatPlugin.directMessagesRouteId,
+      expected: ChatRoute.directMessagesRouteId,
     ),
     (
       mobile: false,
       index: ChatPreferredIndex.myThreads,
       starred: false,
       threads: true,
-      expected: ChatPlugin.myThreadsRouteId,
+      expected: ChatRoute.myThreadsRouteId,
     ),
   ]) {
     test('header uses the web landing page for $scenario', () async {

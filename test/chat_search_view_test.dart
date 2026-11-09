@@ -7,7 +7,6 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_threads_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_my_threads_view.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search.dart';
 import 'package:discourse_native/src/plugins/chat/chat_search_view.dart';
@@ -583,14 +582,14 @@ void main() {
         final requests = replacementApi.chatSearchesRequested.length;
         await replacement.pluginSession
             .require(chatShellService)
-            .hydratePluginRoute(_site, ChatPlugin.searchRouteId, force: true);
+            .hydratePluginRoute(_site, ChatRoute.searchRouteId, force: true);
         await tester.pumpAndSettle();
         expect(replacementApi.chatSearchesRequested, hasLength(requests + 1));
         expect(replacementApi.chatSearchesRequested.last.query, 'next');
         if (!closeOriginal) {
           await original.pluginSession
               .require(chatShellService)
-              .hydratePluginRoute(_site, ChatPlugin.searchRouteId, force: true);
+              .hydratePluginRoute(_site, ChatRoute.searchRouteId, force: true);
           expect(originalApi.chatSearchesRequested, hasLength(1));
         }
         expect(tester.takeException(), isNull);

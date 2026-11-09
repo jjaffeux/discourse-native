@@ -8,7 +8,7 @@ import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
 
 import 'chat_controller.dart';
-import 'chat_plugin.dart';
+import 'chat_route.dart';
 import 'chat_search.dart';
 import 'chat_search_controller.dart';
 import 'chat_services.dart';
@@ -98,7 +98,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
     _query.text = search.globalState(siteUrl).query;
     _unregisterRefresher = shell.registerRouteRefresher(
       siteUrl,
-      ChatPlugin.searchRouteId,
+      ChatRoute.searchRouteId,
       () => search.retryGlobal(siteUrl),
     );
     _ready = true;
@@ -145,7 +145,7 @@ class _ChatSearchViewState extends State<ChatSearchView> {
   void _setQuery(String value) {
     _pageQuery = value;
     _search.setGlobalQuery(widget.siteUrl, value);
-    _shell?.setPageSearchWords(widget.siteUrl, ChatPlugin.searchRouteId, value);
+    _shell?.setPageSearchWords(widget.siteUrl, ChatRoute.searchRouteId, value);
   }
 
   @override

@@ -9,8 +9,8 @@ import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_list_preferences.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channels_view.dart';
 import 'package:discourse_native/src/plugins/chat/chat_notification_counter.dart';
-import 'package:discourse_native/src/plugins/chat/chat_plugin.dart';
 import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
+import 'package:discourse_native/src/plugins/chat/chat_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_services.dart';
 import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
@@ -124,7 +124,7 @@ void main() {
     final shell = ShellScope.read(tester.element(primaryMainContent));
     shell.pushContent(
       const ContentRoute(
-        destination: ExtensionDestination(ChatPlugin.channelsRouteId),
+        destination: ExtensionDestination(ChatRoute.channelsRouteId),
         title: 'Chat',
         icon: DIcons.comments,
       ),
@@ -297,12 +297,12 @@ void main() {
       final shell = ShellScope.read(tester.element(primaryMainContent));
       final navigation = shell.pluginSession.require(chatShellService);
       final browse = _sidebar(
-        find.byKey(const ValueKey(ChatPlugin.browseRouteId)),
+        find.byKey(const ValueKey(ChatRoute.browseRouteId)),
       );
       expect(browse, findsOneWidget);
       await tester.tap(browse);
       await tester.pumpAndSettle();
-      expect(navigation.currentContent?.id, ChatPlugin.browseRouteId);
+      expect(navigation.currentContent?.id, ChatRoute.browseRouteId);
 
       navigation.openChannels();
       await tester.pumpAndSettle();

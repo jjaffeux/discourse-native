@@ -59,4 +59,25 @@ void main() {
     expect(graph.edges.keys.toSet().intersection(chatDataLayer), chatDataLayer);
     expect(librariesInCycles().intersection(chatDataLayer), isEmpty);
   });
+
+  test('no chat library participates in an import cycle', () {
+    expect(
+      librariesInCycles().where(
+        (library) => library.startsWith('lib/src/plugins/chat/'),
+      ),
+      isEmpty,
+    );
+  });
+
+  test('only the module composition reaches the chat plugin entry', () {
+    const plugin = 'lib/src/plugins/chat/chat_plugin.dart';
+    expect(graph.edges.keys, contains(plugin));
+    expect(
+      graph
+          .dependentsOf(plugin)
+          .where((library) => library.startsWith('lib/src/plugins/chat/'))
+          .toSet(),
+      {plugin, 'lib/src/plugins/chat/chat_module.dart'},
+    );
+  });
 }

@@ -13,7 +13,7 @@ import 'chat_channel_actions.dart';
 import 'chat_controller.dart';
 import 'chat_find_field.dart';
 import 'chat_inbox_filters.dart';
-import 'chat_plugin.dart';
+import 'chat_route.dart';
 import 'chat_services.dart';
 import 'chat_shell_service.dart';
 
@@ -82,7 +82,7 @@ class _ChatBrowseChannelsViewState extends State<ChatBrowseChannelsView> {
     session.addListener(_sessionChanged);
     _unregisterRefresher = shell.registerRouteRefresher(
       widget.siteUrl,
-      ChatPlugin.browseRouteId,
+      ChatRoute.browseRouteId,
       session.refresh,
     );
     unawaited(session.refresh());
