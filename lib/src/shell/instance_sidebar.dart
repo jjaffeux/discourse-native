@@ -465,12 +465,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           final instance = controller.currentInstance;
           return instance == null
               ? null
-              : (
-                  instance.isConnected,
-                  instance.user,
-                  instance.config,
-                  controller.currentTotals,
-                );
+              : (instance.isConnected, instance.user, instance.config);
         },
         builder: (context, state, _) => _buildPanel(context),
       ),
