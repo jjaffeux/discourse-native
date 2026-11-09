@@ -784,6 +784,15 @@ class ContentRoute {
   factory ContentRoute.fromJson(Map<String, dynamic> json) =>
       ContentRouteCodec.decode(json);
 
+  /// `==` and every field [withDisplay] sets. Navigation asks `==`, under
+  /// which a recolored route is still the same place. Whatever draws a route
+  /// must ask this, or it keeps drawing the old metadata.
+  bool sameDisplayAs(ContentRoute other) =>
+      this == other &&
+      other.icon == icon &&
+      other.subtitle == subtitle &&
+      other.color == color;
+
   @override
   bool operator ==(Object other) =>
       other is ContentRoute && sameDestinationAs(other) && other.title == title;

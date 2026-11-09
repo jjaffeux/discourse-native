@@ -84,6 +84,7 @@ final class _Rig {
     isCurrent: () => current,
     currentSnapshot: () => snapshot,
     forumActive: () => true,
+    forumActiveChanges: Listenable.merge(const <Listenable>[]),
     loadMore: () async {},
     loadEarlier: () async => loadEarlierCount++,
     markRead:

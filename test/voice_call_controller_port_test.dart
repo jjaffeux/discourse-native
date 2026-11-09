@@ -321,6 +321,23 @@ void main() {
     });
   }
 
+  test('a room the site answered for is not called unreachable', () async {
+    final runtime = _Runtime(
+      onAction: (_) => throw const SiteLookupException(
+        SiteLookupFailure.unreachable,
+        'https://forum.example',
+        statusCode: 404,
+      ),
+    );
+    final port = _port(runtime);
+    addTearDown(port.close);
+
+    port.dispatch(VoiceCallAction.openRoom);
+    await pumpEventQueue();
+
+    expect(port.state.failureMessage, "Couldn't open the voice room.");
+  });
+
   test('close awaits actions and ignores their late completion', () async {
     final actionCompletion = Completer<void>();
     final runtime = _Runtime(onAction: (_) => actionCompletion.future);

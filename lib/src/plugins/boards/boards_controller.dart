@@ -569,14 +569,20 @@ final class BoardHandle extends ChangeNotifier {
       if (!current()) {
         return const BoardWriteResult(BoardWriteState.cancelled);
       }
-      result = BoardWriteResult(
-        failure is WriteException &&
-                failure.failure == WriteFailure.unreachable &&
-                !failure.notSent
-            ? BoardWriteState.unknown
-            : BoardWriteState.refused,
-        failureText(failure, fallback: appL10n.boardsRefused),
-      );
+      // A write that may have applied is not described by the failure that
+      // hid its answer; only a refresh can say what happened.
+      result =
+          failure is WriteException &&
+              failure.failure == WriteFailure.unreachable &&
+              !failure.notSent
+          ? BoardWriteResult(
+              BoardWriteState.unknown,
+              appL10n.boardsUnknownWrite,
+            )
+          : BoardWriteResult(
+              BoardWriteState.refused,
+              failureText(failure, fallback: appL10n.boardsRefused),
+            );
     } finally {
       if (!_disposed && identical(_writeToken, token)) {
         _writeToken = null;

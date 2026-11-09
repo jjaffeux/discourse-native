@@ -3,6 +3,7 @@
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -63,6 +64,7 @@ TopicViewportBinding _binding(
   isCurrent: () => true,
   currentSnapshot: () => snapshot,
   forumActive: () => true,
+  forumActiveChanges: Listenable.merge(const <Listenable>[]),
   loadMore: () async {},
   loadEarlier: () async {},
   markRead:

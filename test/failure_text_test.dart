@@ -36,18 +36,39 @@ void main() {
       expect(text, isNot(contains('statusCode')));
     });
 
-    test('an unreachable lookup names the site', () {
+    test('a site that never answered is named as unreachable', () {
       expect(
         failureText(
           const SiteLookupException(
             SiteLookupFailure.unreachable,
             'https://forum.example',
-            statusCode: 500,
           ),
           fallback: _fallback,
         ),
         "Couldn't reach https://forum.example.",
       );
+    });
+
+    test('a site that answered with a status is not called unreachable', () {
+      final shown = {
+        for (final status in [404, 410, 429, 500, 502, 503])
+          status: failureText(
+            SiteLookupException(
+              SiteLookupFailure.unreachable,
+              'https://forum.example',
+              statusCode: status,
+            ),
+            fallback: _fallback,
+          ),
+      };
+      expect(shown, {
+        404: _fallback,
+        410: _fallback,
+        429: _fallback,
+        500: _fallback,
+        502: _fallback,
+        503: _fallback,
+      });
     });
 
     test('a lookup without a status keeps its message', () {

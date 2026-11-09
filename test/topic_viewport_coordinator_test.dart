@@ -1312,6 +1312,7 @@ final class _Owner {
     isCurrent: () => current,
     currentSnapshot: () => snapshot,
     forumActive: () => forumActive,
+    forumActiveChanges: Listenable.merge(const <Listenable>[]),
     loadMore: () async => loadMoreCount++,
     loadEarlier: () async {},
     markRead:

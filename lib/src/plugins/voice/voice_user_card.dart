@@ -65,10 +65,7 @@ class _VoiceUserCardCallButtonState extends State<VoiceUserCardCallButton> {
       );
     } catch (error) {
       if (toast?.isDisposed != false) return;
-      final message = switch (error) {
-        final WriteException error => error.message,
-        _ => appL10n.couldnTStartTheCall,
-      };
+      final message = failureText(error, fallback: appL10n.couldnTStartTheCall);
       toast!.add(DToastOptions(description: message, type: DToastType.error));
     } finally {
       if (mounted) setState(() => _calling = false);

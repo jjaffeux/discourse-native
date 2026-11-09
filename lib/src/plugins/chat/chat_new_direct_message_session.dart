@@ -161,7 +161,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     } catch (error) {
       if (!_isCurrent(attempt)) return;
       _activity = const _Idle();
-      _error = _messageFor(error, fallback: appL10n.couldNotSearchChat);
+      _error = failureText(error, fallback: appL10n.couldNotSearchChat);
     }
     notifyListeners();
   }
@@ -344,7 +344,7 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     } catch (error) {
       if (!_isCurrent(attempt)) return null;
       _activity = const _Idle();
-      _error = _messageFor(
+      _error = failureText(
         error,
         fallback: attempt.upsert
             ? appL10n.couldNotStartThisChat
@@ -366,14 +366,6 @@ final class ChatNewDirectMessageSession extends ChangeNotifier {
     _error = appL10n.thisConversationIsNoLongerAvailable;
     notifyListeners();
   }
-
-  static String _messageFor(Object error, {required String fallback}) =>
-      switch (error) {
-        WriteException(errors: final errors) when errors.isNotEmpty =>
-          errors.join('\n'),
-        final WriteException error => error.message,
-        _ => fallback,
-      };
 
   @override
   void dispose() {

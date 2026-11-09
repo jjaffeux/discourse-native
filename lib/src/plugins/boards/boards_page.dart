@@ -894,7 +894,6 @@ class _BoardsPageState extends State<BoardsPage> {
       result.error ??
           switch (result.state) {
             BoardWriteState.refreshNeeded => context.l10n.boardsSavedRefresh,
-            BoardWriteState.unknown => context.l10n.boardsUnknownWrite,
             _ => context.l10n.boardsRefused,
           },
     );
