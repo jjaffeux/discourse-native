@@ -899,6 +899,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  // Every member write on an automatic group is refused: `can_edit_group?`
+  // answers false for it (lib/guardian/group_guardian.rb), and the web hides
+  // these controls (controllers/group/index.js canManageGroup).
+  testWidgets('an admin gets no member writes on an automatic group', (
+    tester,
+  ) async {
+    const trustLevel = Group(
+      id: 11,
+      name: 'trust_level_1',
+      automatic: true,
+      userCount: 1,
+      canSeeMembers: true,
+      canAdminGroup: true,
+    );
+
+    await _pump(
+      tester,
+      GroupPage(
+        siteUrl: 'https://meta.discourse.org',
+        route: GroupRoute.detail('trust_level_1'),
+        registry: PluginRegistry.empty,
+        data: const GroupPageData(
+          detail: GroupDetail(group: trustLevel),
+          members: GroupMembersPage(
+            members: [GroupMember(id: 3, username: 'sam')],
+            total: 1,
+          ),
+          currentUserStaff: true,
+          isAdmin: true,
+        ),
+        onSearchUsers: (_) async => const [],
+        onAddMembers: (usernames, emails) async =>
+            GroupMembershipMutationResult(usernames: usernames),
+        onMemberAction: (_, _) async => true,
+        onOpenMember: _ignoreMember,
+      ),
+      size: const Size(1180, 900),
+    );
+
+    expect(find.text('sam'), findsWidgets);
+    expect(find.byKey(const ValueKey('add-group-members')), findsNothing);
+    expect(find.byKey(const ValueKey('manage-member-sam')), findsNothing);
+  });
+
   testWidgets('member parity tools expose metadata and management actions', (
     tester,
   ) async {
