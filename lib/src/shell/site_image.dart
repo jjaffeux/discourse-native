@@ -1060,15 +1060,22 @@ class _InlineLinkContextMenu extends StatefulWidget {
   State<_InlineLinkContextMenu> createState() => _InlineLinkContextMenuState();
 }
 
+/// The menu answers secondary presses only, so until the first one lands on a
+/// link the paragraph carries a listener and the menu's enabled semantics
+/// node; the menu then mounts around the same text and opens where that press
+/// was. The node has to exist before the menu does: a portal anchor added to
+/// a paragraph that was compiled without one merges into the post's node, and
+/// the popup then has no parent in the accessibility tree.
 class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
   final GlobalKey _textKey = GlobalKey();
-  final _menu = LinkContextMenuSession();
+  final _trigger = DContextMenuTriggerController();
+  LinkContextMenuSession? _menu;
   String? _url;
   bool _open = false;
 
   @override
   void dispose() {
-    _menu.dispose();
+    _menu?.dispose();
     super.dispose();
   }
 
@@ -1099,6 +1106,15 @@ class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
       ),
     );
     _url = boxes.any((box) => box.toRect().contains(offset)) ? url : null;
+    if (_url == null || _menu != null) return;
+    // The trigger clamps the anchor to its own size, so it opens once it has
+    // laid out, in the frame after it mounts.
+    final pressed = event.localPosition;
+    setState(() => _menu = LinkContextMenuSession());
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _trigger.openAt(pressed, interaction: DPopoverInteraction.mouse);
+    });
   }
 
   void _openLink(
@@ -1120,47 +1136,68 @@ class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
   }
 
   @override
-  Widget build(BuildContext context) => DContextMenu(
-    controller: _menu.controller,
-    open: _open,
-    onOpenChange: (open, reason) {
-      if (open && _url == null) return;
-      _menu.onOpenChange(open, reason);
-      setState(() => _open = open);
-    },
-    content: DContextMenuContent(
-      semanticLabel: context.l10n.openLinkOpenlink,
-      children: [
-        DContextMenuItem(
-          onPressed: () =>
-              _openLink(context, newTab: false, panel: ForumPanel.main),
-          child: Text(context.l10n.openInMainPanel),
-        ),
-        DContextMenuItem(
-          onPressed: () =>
-              _openLink(context, newTab: false, panel: ForumPanel.secondary),
-          child: Text(context.l10n.openInSecondaryPanel),
-        ),
-        DContextMenuItem(
-          onPressed: () =>
-              _openLink(context, newTab: true, panel: ForumPanel.main),
-          child: Text(context.l10n.openInNewMainTab),
-        ),
-        DContextMenuItem(
-          onPressed: () =>
-              _openLink(context, newTab: true, panel: ForumPanel.secondary),
-          child: Text(context.l10n.openInNewSecondaryTab),
-        ),
-      ],
-    ),
-    child: DContextMenuTrigger(
-      focusable: false,
-      longPressEnabled: false,
-      captureSecondaryTap: true,
-      child: Listener(
-        onPointerDown: _onPointerDown,
-        child: KeyedSubtree(key: _textKey, child: widget.child),
+  Widget build(BuildContext context) {
+    final text = Listener(
+      onPointerDown: _onPointerDown,
+      child: KeyedSubtree(key: _textKey, child: widget.child),
+    );
+    final menu = _menu;
+    if (menu == null) {
+      return RawGestureDetector(
+        excludeFromSemantics: true,
+        gestures: {
+          EagerGestureRecognizer:
+              GestureRecognizerFactoryWithHandlers<EagerGestureRecognizer>(
+                () => EagerGestureRecognizer(
+                  allowedButtonsFilter: (buttons) =>
+                      buttons == kSecondaryMouseButton,
+                ),
+                (_) {},
+              ),
+        },
+        child: Semantics(enabled: true, child: text),
+      );
+    }
+    return DContextMenu(
+      controller: menu.controller,
+      open: _open,
+      onOpenChange: (open, reason) {
+        if (open && _url == null) return;
+        menu.onOpenChange(open, reason);
+        setState(() => _open = open);
+      },
+      content: DContextMenuContent(
+        semanticLabel: context.l10n.openLinkOpenlink,
+        children: [
+          DContextMenuItem(
+            onPressed: () =>
+                _openLink(context, newTab: false, panel: ForumPanel.main),
+            child: Text(context.l10n.openInMainPanel),
+          ),
+          DContextMenuItem(
+            onPressed: () =>
+                _openLink(context, newTab: false, panel: ForumPanel.secondary),
+            child: Text(context.l10n.openInSecondaryPanel),
+          ),
+          DContextMenuItem(
+            onPressed: () =>
+                _openLink(context, newTab: true, panel: ForumPanel.main),
+            child: Text(context.l10n.openInNewMainTab),
+          ),
+          DContextMenuItem(
+            onPressed: () =>
+                _openLink(context, newTab: true, panel: ForumPanel.secondary),
+            child: Text(context.l10n.openInNewSecondaryTab),
+          ),
+        ],
       ),
-    ),
-  );
+      child: DContextMenuTrigger(
+        controller: _trigger,
+        focusable: false,
+        longPressEnabled: false,
+        captureSecondaryTap: true,
+        child: text,
+      ),
+    );
+  }
 }
