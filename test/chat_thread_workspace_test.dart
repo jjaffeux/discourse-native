@@ -225,6 +225,74 @@ void main() {
     }
   }
 
+  testWidgets(
+    'the thread send control settles only once every staged reply is delivered',
+    (tester) async {
+      final fixture = await _fixture();
+      addTearDown(fixture.shell.dispose);
+      final firstGate = Completer<void>();
+      fixture.api.chatSendGate = firstGate;
+      await _pumpWorkspace(tester, fixture.shell, width: 1000);
+      final threadView = find.byType(ChatThreadView);
+      final field = find.descendant(
+        of: threadView,
+        matching: find.byType(TextField),
+      );
+      final send = find.descendant(
+        of: threadView,
+        matching: find.byKey(const ValueKey('chat-composer-send')),
+      );
+      DButton sendButton() => tester.widget<DButton>(send);
+      expect(
+        field,
+        findsOneWidget,
+        reason: 'the composer opens once the thread detail has loaded',
+      );
+
+      await tester.enterText(field, 'first reply');
+      await tester.pump();
+      await tester.tap(send);
+      await tester.pump();
+      expect(sendButton().loading, isTrue);
+
+      await tester.enterText(field, 'second reply');
+      await tester.pump();
+      sendButton().onPressed!();
+      await tester.pump();
+      expect(sendButton().loading, isTrue);
+
+      final secondGate = Completer<void>();
+      fixture.api.chatSendGate = secondGate;
+      firstGate.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(fixture.api.chatMessagesSent.map((sent) => sent.message), [
+        'first reply',
+        'second reply',
+      ]);
+      expect(
+        fixture.api.chatMessagesSent.map((sent) => sent.threadId),
+        everyElement(_threadId),
+      );
+      expect(
+        sendButton().loading,
+        isTrue,
+        reason: 'the second reply is still on its way',
+      );
+
+      secondGate.complete();
+      await tester.pump();
+      await tester.pump();
+      expect(
+        sendButton().loading,
+        isFalse,
+        reason: 'both replies have been delivered',
+      );
+      await tester.pumpAndSettle();
+    },
+    variant: const TargetPlatformVariant({TargetPlatform.macOS}),
+  );
+
   for (final width in const [390.0, 1000.0]) {
     testWidgets(
       'thread route replaces the channel at ${width.toInt()} logical pixels',

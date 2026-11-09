@@ -366,11 +366,32 @@ class _ChatThreadViewState extends State<ChatThreadView> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatStreamState>(
       valueListenable: _viewing.reader.changes,
-      builder: (context, stream, _) => _buildThread(stream),
+      // The composer follows its own send state. Built outside the stream
+      // builder, the same widget comes back on every arriving reply, so an
+      // idle composer is not rebuilt once per reply.
+      child: ChatComposer(
+        reader: _viewing.reader,
+        key: ValueKey((
+          widget.siteUrl,
+          widget.target.channelId,
+          widget.target.threadId,
+          'composer',
+        )),
+        siteUrl: widget.siteUrl,
+        channelId: widget.target.channelId,
+        threadId: widget.target.threadId,
+        focusRequest: context.isTouch ? 0 : _focusComposerRequest,
+        uploadDropController: _uploadDropController,
+        editingMessage: _editingMessage,
+        onEditMessage: _editMessage,
+        onEditFinished: _finishEditing,
+      ),
+      builder: (context, stream, composer) =>
+          _buildThread(stream, composer: composer!),
     );
   }
 
-  Widget _buildThread(ChatStreamState stream) {
+  Widget _buildThread(ChatStreamState stream, {required Widget composer}) {
     _handleUnavailable(stream);
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
@@ -464,23 +485,7 @@ class _ChatThreadViewState extends State<ChatThreadView> {
                 onCancel: _cancelSelecting,
               )
             : !stream.threadUnavailable && (stream.error == null || hasMessages)
-            ? ChatComposer(
-                reader: _viewing.reader,
-                key: ValueKey((
-                  widget.siteUrl,
-                  widget.target.channelId,
-                  widget.target.threadId,
-                  'composer',
-                )),
-                siteUrl: widget.siteUrl,
-                channelId: widget.target.channelId,
-                threadId: widget.target.threadId,
-                focusRequest: context.isTouch ? 0 : _focusComposerRequest,
-                uploadDropController: _uploadDropController,
-                editingMessage: _editingMessage,
-                onEditMessage: _editMessage,
-                onEditFinished: _finishEditing,
-              )
+            ? composer
             : null,
         bodyBuilder: (_, header) =>
             hasMessages ? content : header.inset(content, fullExtent: true),
