@@ -42,6 +42,39 @@ void main() {
       expect(composer.text.text, 'say **hello**');
     });
 
+    for (final (mark, marker) in [
+      (ComposerMark.bold, '**'),
+      (ComposerMark.italic, '*'),
+    ]) {
+      for (final (label, source, marked) in [
+        (
+          'paragraphs',
+          'one\n\ntwo',
+          '${marker}one$marker\n\n${marker}two$marker',
+        ),
+        ('lines', 'one\ntwo', '${marker}one$marker\n${marker}two$marker'),
+        (
+          'indented lines',
+          'one \n  two',
+          '${marker}one$marker \n  ${marker}two$marker',
+        ),
+      ]) {
+        test('${mark.name} marks each of several $label on its own', () {
+          open(source);
+          composer.text.selection = TextSelection(
+            baseOffset: 0,
+            extentOffset: source.length,
+          );
+
+          composer.toggleMark(mark);
+          expect(composer.text.text, marked);
+
+          composer.toggleMark(mark);
+          expect(composer.text.text, source);
+        });
+      }
+    }
+
     for (final mark in [ComposerMark.bold, ComposerMark.italic]) {
       for (final (leading, trailing) in [
         (' ', ''),
