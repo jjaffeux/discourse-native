@@ -279,10 +279,14 @@ class _LocalDateInlineState extends State<LocalDateInline> {
         }
         next = afterDeadline;
       } else {
-        final second = DateTime.fromMillisecondsSinceEpoch(
-          (now.millisecondsSinceEpoch ~/ 1000 + 1) * 1000,
+        final change = LocalDateFormatter.countdownChangesAt(
+          resolved.source,
+          now,
         );
-        next = resolved.source.isBefore(second) ? resolved.source : second;
+        // A wall clock can jump and a suspended process wakes late, so a
+        // label hours from its next step is still read again every minute.
+        final latest = now.add(const Duration(minutes: 1));
+        next = change.isBefore(latest) ? change : latest;
       }
     } else if (widget.spec.recurring != null) {
       next = now.add(const Duration(minutes: 1));
@@ -297,7 +301,11 @@ class _LocalDateInlineState extends State<LocalDateInline> {
     if (_scheduledFor == next && _timer?.isActive == true) return;
     _cancelRefresh();
     _scheduledFor = next;
-    final delay = next.difference(now);
+    // Timers run in whole milliseconds. Rounding down could wake just before
+    // the step and redraw the same label.
+    final delay = Duration(
+      milliseconds: (next.difference(now).inMicroseconds + 999) ~/ 1000,
+    );
     _timer = Timer(delay.isNegative ? Duration.zero : delay, () {
       if (!mounted) return;
       _scheduledFor = null;
