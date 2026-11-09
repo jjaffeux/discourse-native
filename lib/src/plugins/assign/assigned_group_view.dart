@@ -376,6 +376,8 @@ class _AssignedPeoplePanel extends StatefulWidget {
 class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
   bool _showSearch = false;
   bool _loadMorePending = false;
+  bool _askedThisGesture = false;
+  final _scrollGestures = UserScrollGestures();
   late final ScrollController _peopleScrollController;
 
   @override
@@ -476,15 +478,18 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
             key: const ValueKey('assigned-people-scrollbar'),
             controller: _peopleScrollController,
             thumbVisibility: true,
-            child: ListView.separated(
-              controller: _peopleScrollController,
-              padding: const EdgeInsets.fromLTRB(6, 4, 10, 8),
-              itemCount: options.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 4),
-              itemBuilder: (context, index) => _AssignedPersonButton(
-                option: options[index],
-                selected: options[index].filter == widget.filter,
-                onTap: () => widget.onSelect(options[index].filter),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _endFailedPageOnNewGesture,
+              child: ListView.separated(
+                controller: _peopleScrollController,
+                padding: const EdgeInsets.fromLTRB(6, 4, 10, 8),
+                itemCount: options.length,
+                separatorBuilder: (_, _) => const SizedBox(height: 4),
+                itemBuilder: (context, index) => _AssignedPersonButton(
+                  option: options[index],
+                  selected: options[index].filter == widget.filter,
+                  onTap: () => widget.onSelect(options[index].filter),
+                ),
               ),
             ),
           ),
@@ -498,6 +503,14 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
     );
   }
 
+  bool _endFailedPageOnNewGesture(ScrollNotification notification) {
+    if (notification.depth == 0 && _scrollGestures.starts(notification)) {
+      _loadMorePending = false;
+      _askedThisGesture = false;
+    }
+    return false;
+  }
+
   void _loadMoreAtEnd() {
     if (!_peopleScrollController.hasClients) return;
     if (_peopleScrollController.position.extentAfter <=
@@ -507,13 +520,15 @@ class _AssignedPeoplePanelState extends State<_AssignedPeoplePanel> {
   }
 
   void _requestMoreMembers() {
-    if (_loadMorePending ||
-        !widget.members.hasMore ||
-        widget.members.loading ||
-        widget.members.loadingMore) {
-      return;
-    }
+    final members = widget.members;
+    final paging = ScrollPagingGate(
+      hasMore: members.hasMore,
+      busy: _loadMorePending || members.loading || members.loadingMore,
+      lastPageFailed: members.pageError && _askedThisGesture,
+    );
+    if (!paging.admits) return;
     _loadMorePending = true;
+    _askedThisGesture = true;
     widget.onLoadMoreMembers();
   }
 }

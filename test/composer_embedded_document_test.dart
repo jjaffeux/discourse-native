@@ -3,6 +3,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/shell/composer/components/core_artwork.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart'
     show ReplyComposerTarget;
+import 'package:discourse_native/src/shell/composer/editor_scope.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart'
     show ComposerRichBodyEditor;
 import 'package:flutter/material.dart';
@@ -19,6 +20,34 @@ const target = ReplyComposerTarget(
 );
 const source = 'Before\n[box]\nhello\n[/box]\nAfter';
 
+final class _RichBodies implements ComposerEditorEmbedding {
+  const _RichBodies();
+
+  @override
+  TextStyle? get textStyle => null;
+
+  @override
+  Widget richBody({
+    Key? key,
+    required ComposerController composer,
+    required String label,
+    required String hintText,
+    required VoidCallback onExit,
+    KeyEventResult Function(KeyEvent)? onKeyEvent,
+    VoidCallback? onEmptyBackspace,
+    bool? enableBlockReordering,
+  }) => ComposerRichBodyEditor(
+    key: key,
+    composer: composer,
+    label: label,
+    hintText: hintText,
+    onExit: onExit,
+    onKeyEvent: onKeyEvent,
+    onEmptyBackspace: onEmptyBackspace,
+    enableBlockReordering: enableBlockReordering,
+  );
+}
+
 void main() {
   testWidgets(
     'host rich body preserves its wrapper and owns toolbar targeting',
@@ -33,18 +62,21 @@ void main() {
       Widget frame() => MaterialApp(
         theme: AppTheme.light,
         home: DCard(
-          child: Builder(
-            builder: (context) => parent.buildEmbeddedDocument(
-              context,
-              kind: boxKind,
-              identity: 1,
-              sourceRange: TextRange(
-                start: 7,
-                end: parent.value.text.indexOf('[/box]') + 6,
-              ),
-              expectedText: parent.value.text,
-              semanticLabel: 'Box body',
-            )!,
+          child: ComposerEditorScope(
+            embedding: const _RichBodies(),
+            child: Builder(
+              builder: (context) => parent.buildEmbeddedDocument(
+                context,
+                kind: boxKind,
+                identity: 1,
+                sourceRange: TextRange(
+                  start: 7,
+                  end: parent.value.text.indexOf('[/box]') + 6,
+                ),
+                expectedText: parent.value.text,
+                semanticLabel: 'Box body',
+              )!,
+            ),
           ),
         ),
       );
@@ -116,41 +148,47 @@ void main() {
         MaterialApp(
           theme: AppTheme.light,
           home: DCard(
-            child: Builder(
-              builder: (context) {
-                Widget? view({
-                  ComposerSyntaxKind owner = boxKind,
-                  TextRange range = const TextRange(start: 7, end: 25),
-                  String snapshot = source,
-                }) => parent.buildEmbeddedDocument(
-                  context,
-                  kind: owner,
-                  identity: 1,
-                  sourceRange: range,
-                  expectedText: snapshot,
-                  semanticLabel: 'Body',
-                );
-                expect(view(snapshot: 'old source'), isNull);
-                expect(
-                  view(
-                    owner: const ComposerSyntaxKind(
-                      owner: PluginId('foreign'),
-                      name: 'box',
+            child: ComposerEditorScope(
+              embedding: const _RichBodies(),
+              child: Builder(
+                builder: (context) {
+                  Widget? view({
+                    ComposerSyntaxKind owner = boxKind,
+                    TextRange range = const TextRange(start: 7, end: 25),
+                    String snapshot = source,
+                  }) => parent.buildEmbeddedDocument(
+                    context,
+                    kind: owner,
+                    identity: 1,
+                    sourceRange: range,
+                    expectedText: snapshot,
+                    semanticLabel: 'Body',
+                  );
+                  expect(view(snapshot: 'old source'), isNull);
+                  expect(
+                    view(
+                      owner: const ComposerSyntaxKind(
+                        owner: PluginId('foreign'),
+                        name: 'box',
+                      ),
                     ),
-                  ),
-                  isNull,
-                );
-                expect(view(range: const TextRange(start: 0, end: 5)), isNull);
-                expect(
-                  view(range: const TextRange(start: 13, end: 18)),
-                  isNull,
-                );
-                expect(
-                  view(range: const TextRange(start: 18, end: 13)),
-                  isNull,
-                );
-                return view()!;
-              },
+                    isNull,
+                  );
+                  expect(
+                    view(range: const TextRange(start: 0, end: 5)),
+                    isNull,
+                  );
+                  expect(
+                    view(range: const TextRange(start: 13, end: 18)),
+                    isNull,
+                  );
+                  expect(
+                    view(range: const TextRange(start: 18, end: 13)),
+                    isNull,
+                  );
+                  return view()!;
+                },
+              ),
             ),
           ),
         ),

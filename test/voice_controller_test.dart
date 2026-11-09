@@ -4717,6 +4717,59 @@ void main() {
     );
 
     test(
+      'a join retired during its wait settles without waiting it out',
+      () async {
+        transport.failures['POST /voice/rooms/7/join.json'] =
+            const WriteException(
+              WriteFailure.rateLimited,
+              statusCode: 429,
+              retryAfter: Duration(seconds: 59),
+            );
+
+        await controller.ensureLoaded(firstSite);
+        final joining = controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await pumpEventQueue();
+        controller.forget(firstSite);
+        await joining.timeout(const Duration(seconds: 1));
+
+        expect(
+          transport.writes.where((write) => write.path.endsWith('/join.json')),
+          hasLength(1),
+        );
+        expect(controller.call, isNull);
+      },
+    );
+
+    test('a join the site holds too long reports the wait at once', () async {
+      transport.failures['POST /voice/rooms/7/join.json'] =
+          const WriteException(
+            WriteFailure.rateLimited,
+            statusCode: 429,
+            retryAfter: Duration(hours: 1),
+          );
+
+      await controller.ensureLoaded(firstSite);
+      await controller
+          .join(
+            siteUrl: firstSite,
+            siteName: 'One',
+            room: controller.room(firstSite, 7)!,
+          )
+          .timeout(const Duration(seconds: 1));
+
+      expect(
+        transport.writes.where((write) => write.path.endsWith('/join.json')),
+        hasLength(1),
+      );
+      expect(controller.call, isNull);
+      expect(controller.errorFor(firstSite), 'Too fast — try again in 3600s.');
+    });
+
+    test(
       'explains a denied microphone and leaves the partial server join',
       () async {
         final connectGate = Completer<void>();

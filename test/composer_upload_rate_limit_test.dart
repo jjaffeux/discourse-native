@@ -48,6 +48,12 @@ void main() {
       seconds: 15,
     ),
     (
+      name: 'an action refusal naming no delay',
+      headers: <String, String>{},
+      body: '{"failed":"FAILED"}',
+      seconds: 15,
+    ),
+    (
       name: 'maximum automatic wait',
       headers: {'retry-after': '60'},
       body: '{}',
@@ -188,6 +194,41 @@ void main() {
       expect(sends, 1);
     });
   }
+
+  testWidgets('an unhinted 429 holds the composer until the origin admits', (
+    tester,
+  ) async {
+    final transport = _transport(
+      tester,
+      MockClient((_) async => http.Response('{}', 429)),
+    );
+    addTearDown(transport.close);
+    final composer = _composer(DiscourseApi(transport: transport));
+    addTearDown(composer.dispose);
+    late WriteException refusal;
+    final refused = transport
+        .write(
+          Uri.parse('https://example.com/posts.json'),
+          siteUrl: 'https://example.com',
+          method: 'POST',
+          apiKey: 'key',
+          body: const {'raw': 'hello'},
+        )
+        .then<void>(
+          (_) {},
+          onError: (Object e) => refusal = e as WriteException,
+        );
+    await tester.pump();
+    await refused;
+
+    composer.failed(refusal);
+
+    expect(composer.rateLimited, isTrue);
+    await tester.pump(const Duration(seconds: 14));
+    expect(composer.rateLimited, isTrue);
+    await tester.pump(const Duration(seconds: 1));
+    expect(composer.rateLimited, isFalse);
+  });
 
   testWidgets('cancellation resolves immediately during the retry wait', (
     tester,

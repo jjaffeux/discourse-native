@@ -80,31 +80,26 @@ class _CategoriesPageState extends State<CategoriesPage> {
     }
   }
 
+  static bool _admitsNextPage(CategoryFeed feed) => ScrollPagingGate(
+    hasMore: feed.hasMore,
+    busy: feed.loading || feed.loadingMore,
+    lastPageFailed: feed.error != null,
+  ).admits;
+
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0 ||
         notification.metrics.extentAfter >=
             paginationPrefetchDistance(notification.metrics)) {
       return false;
     }
-    final feed = widget.feed;
-    if (feed.hasMore &&
-        !feed.loading &&
-        !feed.loadingMore &&
-        feed.error == null) {
+    if (_admitsNextPage(widget.feed)) {
       unawaited(ShellScope.read(context).loadMoreCategories(widget.siteUrl));
     }
     return false;
   }
 
   void _scheduleVisibleEndCheck() {
-    final feed = widget.feed;
-    if (_endCheckScheduled ||
-        !feed.hasMore ||
-        feed.loading ||
-        feed.loadingMore ||
-        feed.error != null) {
-      return;
-    }
+    if (_endCheckScheduled || !_admitsNextPage(widget.feed)) return;
     _endCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _endCheckScheduled = false;
@@ -114,11 +109,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
 
   void _loadMoreIfEndVisible() {
     if (!mounted || !_scrollController.hasClients) return;
-    final current = widget.feed;
-    if (current.hasMore &&
-        !current.loading &&
-        !current.loadingMore &&
-        current.error == null &&
+    if (_admitsNextPage(widget.feed) &&
         _scrollController.position.extentAfter <= 0.5) {
       unawaited(ShellScope.read(context).loadMoreCategories(widget.siteUrl));
     }

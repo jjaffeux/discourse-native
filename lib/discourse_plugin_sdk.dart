@@ -1,8 +1,7 @@
 /// Plugin compatibility boundary; plugins must not import the package's `src`.
 library;
 
-export 'package:discourse_cooking/discourse_cooking.dart';
-
+export 'discourse_plugin_contracts.dart';
 export 'discourse_ui.dart'
     show
         DSelectSize,
@@ -22,150 +21,20 @@ export 'discourse_ui.dart'
         DSelectField,
         DMultiSelect;
 export 'discourse_ui.dart' show monospaceTextStyle;
-export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
-export 'src/data/app_release.dart';
-export 'src/data/cooking_plugin.dart';
-export 'src/data/dashboard_report_source.dart';
-export 'src/data/discourse_api_contracts.dart'
-    hide
-        CategoryLoadResult,
-        CategoryQueriesApi,
-        ComposerPersistenceApi,
-        DiscourseApiConfiguration,
-        DiscourseApiLifecycle,
-        DiscourseApiModels,
-        DsaNoticeConnection,
-        DsaNoticesApi,
-        DsaVerificationRequired,
-        HttpBasicAuthenticationRequired,
-        PostMutationsApi,
-        ShellApiCapabilities,
-        ShellLookupApi,
-        ShellSearchApi,
-        ShellSiteApi,
-        SiteLookupApi,
-        TagQueriesApi,
-        TopicComposerQueriesApi,
-        TopicContentApi,
-        TopicMutationsApi,
-        defaultDiscourseHashtagOrder,
-        maximumDiscourseHashtagsPerRequest,
-        maximumDiscourseSearchTermLength;
-export 'src/data/live_channels.dart';
-export 'src/data/origin_cooldown.dart' show OriginCooldown;
-export 'src/data/plugin_transport.dart';
-export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
-export 'src/data/serial_operation_queue.dart';
-export 'src/data/site_preference_keys.dart'
-    show
-        ForgottenSites,
-        SitePreferenceKey,
-        SitePreferenceTail,
-        SitePreferenceRetirement,
-        OwnedSitePreferences,
-        SitePreferenceIdentity,
-        SitePreferenceScope,
-        SitePreferenceValue;
-export 'src/data/store.dart' show Ref, Store, StorePolicy;
-export 'src/foundation/calendar_day.dart';
-export 'src/foundation/clock_time.dart';
-export 'src/foundation/count_label.dart';
-export 'src/foundation/frame_safe_notifier.dart'
-    show FrameSafeNotifier, FrameSafeValueNotifier;
-export 'src/foundation/icons/d_icon_data.dart';
-export 'src/foundation/icons/d_icons.dart';
-export 'src/foundation/icons/d_native_icons.dart' show DNativeIcons;
-export 'src/foundation/loopback_host.dart';
-export 'src/foundation/private_file_document.dart'
-    show PrivateFileDocument, PrivateFileResult;
-export 'src/foundation/private_file_permissions.dart';
-export 'src/foundation/private_file_staging.dart';
-export 'src/foundation/timezone_environment.dart' show TimezoneEnvironment;
-export 'src/foundation/uri_path.dart' show tryUriPathSegments;
-export 'src/models/bookmark.dart' show Bookmark, BookmarkTargetType;
-export 'src/models/composer_metadata.dart';
-export 'src/models/composer_upload.dart'
-    show ComposerUploadResult, ComposerUploadType;
-export 'src/models/content_route.dart';
-export 'src/models/discourse_instance.dart'
-    show DiscourseInstance, mostSpecificServingForum;
-export 'src/models/discourse_model_codec.dart';
-export 'src/models/discourse_user.dart' show DiscourseUser;
-export 'src/models/emoji_usage.dart';
-export 'src/models/forum_workspace.dart' show ForumPanel, ForumTab;
-export 'src/models/group_route.dart' show GroupRoute;
-export 'src/models/homepage_option.dart';
-export 'src/models/json.dart';
-export 'src/models/live_refresh_id.dart' show liveRefreshId;
-export 'src/models/notification.dart'
-    show DiscourseNotification, NotificationWireType;
-export 'src/models/notification_counters.dart';
-export 'src/models/notification_totals.dart' show NotificationTotals;
-export 'src/models/plugin_data.dart';
-export 'src/models/plugin_icon_catalog.dart';
-export 'src/models/post.dart' show Post, TopicDetail;
-export 'src/models/post_flag.dart' show PostFlagType;
-export 'src/models/preserved_json.dart';
-export 'src/models/search_results.dart' show SearchExcerpt;
-export 'src/models/sidebar.dart';
-export 'src/models/site_config.dart';
-export 'src/models/site_emoji.dart' show SiteEmojiCatalog;
-export 'src/models/storable.dart' show Storable;
-export 'src/models/topic.dart'
-    show Topic, TopicList, TopicRecommendations, TopicRecommendationSource;
-export 'src/models/topic_feed.dart' show TopicFeed;
-export 'src/models/topic_link.dart' show TopicLink;
-export 'src/models/user_card.dart' show UserCard;
-export 'src/models/user_draft.dart' show UserDraft;
-export 'src/models/user_flair.dart' show UserFlair;
-export 'src/models/user_preferences.dart';
-export 'src/models/user_status.dart'
-    show UserStatus, UserStatusReference, userStatusesByUsername;
-export 'src/plugin_api/background_retention.dart';
-export 'src/plugin_api/bookmark_host.dart';
-export 'src/plugin_api/category_settings.dart';
-export 'src/plugin_api/composer_component.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
-export 'src/plugin_api/composer_syntax.dart';
-export 'src/plugin_api/core_link_projection.dart';
-export 'src/plugin_api/core_plugin_host.dart';
-export 'src/plugin_api/global_search.dart';
-export 'src/plugin_api/global_search_models.dart'
-    show GlobalSearchCondition, GlobalSearchContext;
-export 'src/plugin_api/hashtag_kind.dart';
-export 'src/plugin_api/notification_feed_host.dart';
-export 'src/plugin_api/notification_types.dart';
-export 'src/plugin_api/plugin_manifest.dart';
-export 'src/plugin_api/plugin_runtime.dart';
-export 'src/plugin_api/plugin_scope.dart';
-export 'src/plugin_api/plugin_ui_scope.dart'
-    show PluginOwnedServices, PluginServiceSelector, PluginUiScope;
-export 'src/plugin_api/post_action.dart'
-    show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
-export 'src/plugin_api/reaction_presentation.dart';
-export 'src/plugin_api/shell_extensions.dart';
-export 'src/plugin_api/site_plugin_api.dart';
-export 'src/plugin_api/timezone_host.dart';
-export 'src/plugin_api/topic_reader.dart';
 export 'src/shell/adaptive_dialog_action.dart';
-export 'src/shell/adaptive_shell.dart' show ShellLayout;
 export 'src/shell/anchored_layout.dart' show AnchoredLayout;
 export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
 export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
-export 'src/shell/composer/autocomplete.dart' show ComposerSuggestionAction;
 export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
 export 'src/shell/composer/components/emoji.dart'
     show openEmojiPickerForComposer;
-export 'src/shell/composer/components/image_source.dart'
-    show escapeImageAlt, flattenImageAlt;
 export 'src/shell/composer/components/link_dialog.dart'
     show showComposerLinkDialog;
-export 'src/shell/composer/components/list_source.dart'
-    show ComposerListItem, ComposerListBody, composerListItems;
 export 'src/shell/composer/controller.dart'
     show
         ComposerController,
@@ -178,43 +47,22 @@ export 'src/shell/composer/drop.dart'
 export 'src/shell/composer/embedded_editor.dart' show ComposerEmbeddedEditor;
 export 'src/shell/composer/markdown_editing_controller.dart'
     show MarkdownEditingController;
-export 'src/shell/composer/markdown_highlight.dart'
-    show
-        CodeRanges,
-        MarkdownRun,
-        Md,
-        markdownBlocks,
-        markdownCodeRanges,
-        markdownPairs,
-        scanMarkdown,
-        sharedMarkdownScan;
-export 'src/shell/composer/marks.dart' show ComposerMark;
 export 'src/shell/composer/panel.dart' show ComposerEditor, ComposerUploadQueue;
 export 'src/shell/composer/plugin_composer_host.dart';
 export 'src/shell/composer/slash_menu.dart' show ComposerSlashAction;
-export 'src/shell/composer/upload_picker.dart'
-    show
-        ComposerFilePicker,
-        ComposerImagePicker,
-        pickComposerFiles,
-        pickComposerImages,
-        pickComposerMedia;
 export 'src/shell/content_reading_lane.dart'
     show
         ContentReadingLane,
         ContentReadingLaneBox,
         ContentReadingLaneBuilder,
         ContentReadingLaneGeometry;
-export 'src/shell/cooked_dom.dart'
-    show childWhere, childrenWhere, descendantWhere, descendantsWhere;
 export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
-export 'src/shell/destination_bookmark_ui.dart'
+export 'src/shell/destination_bookmark_menu_item.dart'
     show DestinationBookmarkMenuItem;
 export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
 export 'src/shell/emoji_picker.dart' show EmojiPickerAnchor, showEmojiPicker;
-export 'src/shell/external_link.dart' show openExternalLink;
 export 'src/shell/forum_search.dart' show ForumSearch;
 export 'src/shell/forum_theme_surfaces.dart' show ForumWindowBackground;
 export 'src/shell/group_flair.dart' show GroupFlairBadge;
@@ -222,7 +70,6 @@ export 'src/shell/header_notification_button.dart'
     show headerNotificationButton;
 export 'src/shell/hover_action_toolbar.dart' show HoverActionButton;
 export 'src/shell/hover_panel.dart' show HoverPanel, HoverPanelState;
-export 'src/shell/image_decode.dart' show imageForCover, imagePhysicalPixels;
 export 'src/shell/inline_code.dart' show InlineCode;
 export 'src/shell/inline_video.dart' show InlineVideo, InlineVideoData;
 export 'src/shell/lightbox.dart'
@@ -241,10 +88,8 @@ export 'src/shell/mobile_footer_action.dart'
 export 'src/shell/notification_list.dart' show PluginNotificationsSection;
 export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
 export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
-export 'src/shell/oneboxes/onebox.dart' show OneboxCard, OneboxData;
+export 'src/shell/oneboxes/onebox_card.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
-export 'src/shell/platform.dart'
-    show TouchPlatform, forumTabsEnabledForCurrentPlatform;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action_leading.dart' show PostActionLeading;
@@ -260,32 +105,25 @@ export 'src/shell/relative_time.dart'
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/search_words.dart'
     show SearchWords, SearchText, searchSnippet;
-export 'src/shell/shell_metrics.dart' show shellHeaderHeight;
+export 'src/shell/shell_metrics.dart' show ShellLayout, shellHeaderHeight;
 export 'src/shell/shell_sheet.dart'
     show ShellSheetActions, ShellSheetForm, showShellSheet;
 export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;
 export 'src/shell/site_emoji_text.dart' show SiteEmojiText;
 export 'src/shell/site_image.dart' show SiteImage;
-export 'src/shell/site_url.dart';
 export 'src/shell/skeleton_fill.dart' show SkeletonSurface, skeletonFill;
 export 'src/shell/stream_day_separator.dart'
     show StreamChip, StreamDaySeparator;
-export 'src/shell/syntax.dart' show highlightLines;
 export 'src/shell/time_gap.dart' show TimeGapNotice, timeGapDaysBetween;
 export 'src/shell/title_bar.dart' show ShellTitleBar;
 export 'src/shell/topic_corner_controls.dart' show TopicCornerControls;
 export 'src/shell/topic_list_footer.dart' show TopicSourceFooter;
 export 'src/shell/topic_list_view.dart'
     show TopicListLoadingSkeleton, TopicListRow, TopicListSeparator;
-export 'src/shell/user_card.dart' show UserCardTarget;
+export 'src/shell/user_card_target.dart' show UserCardTarget;
 export 'src/shell/user_menu.dart' show UserPresenceMenu;
 export 'src/shell/user_menu_button.dart' show UserMenuButton;
 export 'src/shell/user_status.dart' show UserStatusMessage;
 export 'src/shell/youtube_video.dart'
     show YoutubeVideo, YoutubeVideoData, parseYoutubeTime, sanitizeYoutubeId;
-export 'src/theme/app_theme.dart';
-export 'src/theme/code_colors.dart';
 export 'src/theme/d_icon.dart' hide DIconSetScope;
-export 'src/theme/discourse_colors.dart';
-export 'src/theme/discourse_typography.dart' show DiscourseTypography;
-export 'src/utils/pagination.dart' show paginationPrefetchDistance;

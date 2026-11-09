@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 /// A deletion delivery parsed once before canonical and thread projections.
 sealed class ChatDeletionEvent {

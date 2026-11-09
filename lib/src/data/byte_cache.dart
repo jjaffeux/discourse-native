@@ -5,6 +5,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import '../foundation/elapsed_time.dart';
 import 'byte_cache_store.dart';
 import 'http_basic_auth.dart';
 import 'http_transport.dart';
@@ -41,6 +42,7 @@ abstract class ByteCache<T extends Object> {
     this.requestPriority = MediaRequestPriority.normal,
     this.requestPool,
     this.store,
+    DateTime Function()? clock,
   }) : assert(maxConcurrent == null || maxConcurrent > 0),
        assert(maxEntries > 0),
        assert(maxResponseBytes > 0),
@@ -56,6 +58,7 @@ abstract class ByteCache<T extends Object> {
                    defaultRateLimitCooldown: retryAfter,
                  )),
        _ownsCoordinator = coordinator == null && maxConcurrent != null,
+       _clock = clock ?? DateTime.now,
        _basicAuth =
            basicAuth ??
            (client is SafeHttpClient
@@ -75,6 +78,7 @@ abstract class ByteCache<T extends Object> {
   final http.Client _client;
   final MediaRequestCoordinator? _coordinator;
   final bool _ownsCoordinator;
+  final DateTime Function() _clock;
   final MediaRequestPriority requestPriority;
   final ByteCacheRequestPool? requestPool;
   final ByteCacheStore? store;
@@ -217,7 +221,7 @@ abstract class ByteCache<T extends Object> {
   bool _cooledDown(String url) {
     final failedAt = _transientFailures[url];
     if (failedAt == null) return false;
-    return DateTime.now().difference(failedAt) > retryAfter;
+    return elapsedSince(failedAt, now: _clock()) > retryAfter;
   }
 
   Future<T?> load(String url) => _request(url, requestPriority).result;
@@ -333,7 +337,7 @@ abstract class ByteCache<T extends Object> {
 
   void _rememberTransientFailure(String url) {
     _transientFailures.remove(url);
-    _transientFailures[url] = DateTime.now();
+    _transientFailures[url] = _clock();
     while (_transientFailures.length > maxEntries) {
       _transientFailures.remove(_transientFailures.keys.first);
     }
@@ -416,10 +420,7 @@ abstract class ByteCache<T extends Object> {
         );
       }
       if (decoded != null && persistent != null && downloaded.persistable) {
-        final expiresAt = persistentByteCacheExpiry(
-          response.headers,
-          DateTime.now(),
-        );
+        final expiresAt = persistentByteCacheExpiry(response.headers, _clock());
         if (expiresAt != null && current()) {
           unawaited(
             _persist(

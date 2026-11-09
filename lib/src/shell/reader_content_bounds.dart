@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'shell_scope.dart';
 
 /// Reports the painted reader, excluding navigation and the app-level composer.
@@ -31,7 +31,7 @@ class _ReaderContentBoundsState extends State<ReaderContentBounds> {
     // Physical docking and route animations can move the reader without
     // changing its size or requesting a new layout.
     listenable: Listenable.merge([
-      ComposerPresentationHost.layoutChangesOf(context),
+      ComposerPresentationScope.layoutChangesOf(context),
       ModalRoute.of(context)?.animation,
     ]),
     builder: (context, _) => LayoutBuilder(

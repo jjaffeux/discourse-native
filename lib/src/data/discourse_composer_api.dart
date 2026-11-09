@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
+import '../foundation/retry_wait.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_metadata.dart';
 import '../models/composer_upload.dart';
@@ -14,7 +15,6 @@ import '../models/post_creation.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
 import 'discourse_api_contracts.dart';
-import 'discourse_request_coordinator.dart';
 import 'discourse_transport.dart';
 import 'json_decode.dart';
 
@@ -295,12 +295,12 @@ final class DiscourseComposerApi {
         );
       }
       final retryAfter = response.statusCode == 429
-          ? DiscourseRequestCoordinator.explicitRetryAfter(response) ??
+          ? _transport.coordinator.retryAfterFor(response) ??
                 _transport.coordinator.defaultRateLimitCooldown
           : null;
       if (attempt == 0 &&
           retryAfter != null &&
-          retryAfter <= const Duration(seconds: 60)) {
+          retryAfter <= maximumInlineRetryWait) {
         // Any origin cooldown this 429 started is already ticking. Waiting here
         // releases the consumed request and makes cancellation immediate; the
         // next transport admission only waits for any *remaining* cooldown.

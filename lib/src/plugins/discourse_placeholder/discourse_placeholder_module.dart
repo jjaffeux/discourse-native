@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'discourse_placeholder_plugin.dart';
 import 'placeholder_session.dart';
 import 'placeholder_store.dart';

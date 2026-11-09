@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
+import '../models/discourse_instance.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'forum_tab_scope.dart';
 import 'header_preferences.dart';
@@ -19,9 +20,7 @@ class ShellScope extends InheritedNotifier<ShellController> {
            registry: controller.plugins.registry,
            child: _ShellControllerIdentity(
              controller: controller,
-             child: HeaderPreferencesHost(
-               child: MobilePlaceOrderHost(child: child),
-             ),
+             child: _ShellAccountHosts(child: child),
            ),
          ),
        );
@@ -114,6 +113,33 @@ class _ShellSelectorState<T> extends State<ShellSelector<T>> {
     _controller?.removeListener(_select);
     super.dispose();
   }
+}
+
+/// Hands each host the current account, so the hosts compile below this scope.
+class _ShellAccountHosts extends StatelessWidget {
+  const _ShellAccountHosts({required this.child});
+
+  final Widget child;
+
+  // Only the account decides which preference document the hosts load, so a
+  // tracking message must not rebuild them.
+  @override
+  Widget build(BuildContext context) =>
+      ShellSelector<(DiscourseInstance?, String?)>(
+        select: (controller) =>
+            (controller.currentInstance, controller.currentAccountIdentity),
+        builder: (context, account, child) {
+          final (instance, identity) = account;
+          return HeaderPreferencesHost(
+            instance: instance,
+            child: MobilePlaceOrderHost(
+              account: instance == null ? null : (instance.url, identity!),
+              child: child!,
+            ),
+          );
+        },
+        child: child,
+      );
 }
 
 class _ShellControllerIdentity extends InheritedWidget {

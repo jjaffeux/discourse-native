@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'policy_data.dart';
 
 class PolicyCookingPlugin implements CookingPlugin {

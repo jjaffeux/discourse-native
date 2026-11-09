@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 import 'solved_change_result.dart';
 import 'solved_post.dart';

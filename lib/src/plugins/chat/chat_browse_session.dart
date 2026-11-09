@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_channel.dart';
@@ -98,12 +98,12 @@ final class ChatBrowseSession extends ChangeNotifier {
 
   /// Automatic prefetch waits for an explicit retry after a failed page.
   Future<void> loadMore({bool retry = false}) {
-    if (_retired ||
-        !_account.lease.isCurrent ||
-        _debounce != null ||
-        _request != null ||
-        !_hasMore ||
-        (_error != null && !retry)) {
+    final paging = ScrollPagingGate(
+      hasMore: _hasMore,
+      busy: _debounce != null || _request != null,
+      lastPageFailed: _error != null && !retry,
+    );
+    if (_retired || !_account.lease.isCurrent || !paging.admits) {
       return Future.value();
     }
     return _load(reset: false);

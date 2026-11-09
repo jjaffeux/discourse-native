@@ -13,6 +13,7 @@ import '../open_link.dart';
 import '../site_image.dart';
 import 'markup.dart';
 import 'onebox.dart';
+import 'onebox_card.dart';
 
 /// The fields actually supplied by Discourse's twitterstatus template.
 class TwitterOneboxData {
@@ -130,7 +131,7 @@ final twitterBlock = OneboxEngine(
   build: (aside, envelope, siteUrl) {
     final data = TwitterOneboxData.from(aside, envelope);
     return data == null
-        ? OneboxCard(data: envelope, siteUrl: siteUrl)
+        ? genericOneboxCard(envelope, siteUrl: siteUrl)
         : TwitterOnebox(data: data, siteUrl: siteUrl);
   },
 );

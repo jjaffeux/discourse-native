@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 /// How long the site may take to answer a request that runs its language model
 /// before replying. Proofreading and a summary generated without streaming are

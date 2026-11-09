@@ -4,6 +4,7 @@ import '../data/app_release.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 
+import '../foundation/elapsed_time.dart';
 import '../foundation/frame_safe_notifier.dart';
 
 enum UpdateStatus {
@@ -82,11 +83,9 @@ class UpdateController extends FrameSafeNotifier {
     if (!_isCurrent(revision)) return;
 
     final last = _lastChecked;
-    final now = DateTime.now();
     if (mustCheckHydratedChannel ||
         last == null ||
-        last.isAfter(now) ||
-        now.difference(last) >= _recheckAfter) {
+        elapsedSince(last, now: DateTime.now()) >= _recheckAfter) {
       await check(silent: true);
     }
   }

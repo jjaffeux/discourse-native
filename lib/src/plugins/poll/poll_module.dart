@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'poll_api.dart';
 import 'poll_controller.dart';
 import 'poll_cooking.dart';

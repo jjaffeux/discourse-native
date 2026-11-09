@@ -95,7 +95,7 @@ String _renderInventory(String group, List<(String, String)> declarations) {
       [
         group.isEmpty
             ? "import 'data/site_preference_keys.dart';"
-            : "import 'package:discourse_native/discourse_plugin_sdk.dart';",
+            : "import 'package:discourse_native/discourse_plugin_contracts.dart';",
         for (final entry in imports.entries)
           "import '${entry.key.substring(group.length)}' as ${entry.value};",
       ]..sort((a, b) {

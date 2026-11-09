@@ -15,7 +15,7 @@ import '../../plugin_api/hashtag_kind.dart';
 import 'artwork.dart';
 import 'blocks.dart';
 import 'components/blockquote.dart';
-import 'components/emoji.dart';
+import 'components/emoji_artwork.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/link.dart';

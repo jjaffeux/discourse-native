@@ -5,7 +5,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
-import '../models/content_route.dart';
 import '../models/destination_bookmark.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
@@ -23,49 +22,6 @@ DIconData destinationBookmarkIcon(DestinationBookmarkKind kind) =>
       DestinationBookmarkKind.category => DIcons.tag,
       DestinationBookmarkKind.chat => DIcons.comment,
     };
-
-class DestinationBookmarkMenuItem extends StatelessWidget {
-  const DestinationBookmarkMenuItem({
-    super.key,
-    required this.route,
-    this.siteUrl,
-    this.dropdown = false,
-  });
-  final ContentRoute route;
-  final String? siteUrl;
-  final bool dropdown;
-
-  @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.maybeOf(context);
-    final action = shell?.destinationBookmarkAction(route, siteUrl: siteUrl);
-    if (action == null) return const SizedBox.shrink();
-    final label = action.bookmarked
-        ? context.l10n.removeBookmark
-        : context.l10n.bookmark;
-    final toasts = DToast.maybeOf(context);
-    void invoke() => unawaited(
-      action.invoke().then((result) {
-        if (result.message case final message?) {
-          toasts?.add(DToastOptions(description: message));
-        }
-      }),
-    );
-    return dropdown
-        ? DDropdownMenuItem(
-            key: ValueKey('destination-bookmark-${route.id}'),
-            leading: const DIcon(DIcons.bookmark),
-            onPressed: invoke,
-            child: Text(label),
-          )
-        : DContextMenuItem(
-            key: ValueKey('destination-bookmark-${route.id}'),
-            leading: const DIcon(DIcons.bookmark),
-            onPressed: invoke,
-            child: Text(label),
-          );
-  }
-}
 
 class DestinationBookmarkRow extends StatelessWidget {
   const DestinationBookmarkRow({

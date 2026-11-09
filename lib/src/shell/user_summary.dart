@@ -23,7 +23,7 @@ import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'skeleton_fill.dart';
 import 'topic_title.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 class UserSummaryView extends StatefulWidget {
   const UserSummaryView({super.key, required this.siteUrl});

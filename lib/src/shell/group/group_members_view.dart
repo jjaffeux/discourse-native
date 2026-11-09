@@ -54,21 +54,29 @@ class _MembersSection extends StatefulWidget {
 class _MembersSectionState extends State<_MembersSection> {
   late final GroupMemberFilterController controller;
   bool _loadMorePending = false;
+  bool _askedThisGesture = false;
+  final _scrollGestures = UserScrollGestures();
 
   bool _onScroll(ScrollNotification notification) {
     if (notification.depth != 0) return false;
+    if (_scrollGestures.starts(notification)) {
+      _loadMorePending = false;
+      _askedThisGesture = false;
+    }
     if (notification.metrics.extentAfter >=
         paginationPrefetchDistance(notification.metrics)) {
       if (!widget.loadingMore) _loadMorePending = false;
       return false;
     }
     final onLoadMore = widget.onLoadMore;
-    if (!_loadMorePending &&
-        widget.hasMore &&
-        !widget.loading &&
-        !widget.loadingMore &&
-        onLoadMore != null) {
+    final paging = ScrollPagingGate(
+      hasMore: widget.hasMore,
+      busy: _loadMorePending || widget.loading || widget.loadingMore,
+      lastPageFailed: widget.error != null && _askedThisGesture,
+    );
+    if (paging.admits && onLoadMore != null) {
       _loadMorePending = true;
+      _askedThisGesture = true;
       onLoadMore();
     }
     return false;

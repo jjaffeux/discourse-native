@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
@@ -84,8 +84,7 @@ final class PrometheusAlert {
   bool wasRecentlySilenced(DateTime now) {
     final suppressed = lastSuppressedAt;
     if (status != AlertStatus.firing || suppressed == null) return false;
-    final age = now.difference(suppressed);
-    return !age.isNegative && age <= const Duration(days: 90);
+    return elapsedSince(suppressed, now: now) <= const Duration(days: 90);
   }
 
   String get quoteContents {

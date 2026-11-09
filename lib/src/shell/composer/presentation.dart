@@ -12,7 +12,7 @@ import '../../models/content_route.dart';
 import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
 import '../../theme/app_theme.dart';
-import '../desktop_panels.dart';
+import '../desktop_panels_layout.dart';
 import '../platform.dart';
 import '../shell_controller.dart';
 import '../shell_metrics.dart';
@@ -23,6 +23,7 @@ import 'discard.dart';
 import 'header.dart';
 import 'panel.dart';
 import 'presentation_controller.dart';
+import 'presentation_scope.dart';
 
 /// Retains each forum's editor while its dock placement or visibility changes.
 class ComposerPresentationHost extends StatefulWidget {
@@ -35,47 +36,6 @@ class ComposerPresentationHost extends StatefulWidget {
   final Widget child;
   final ComposerPresentationController? controller;
   final DesktopPanelsLayout? panelsLayout;
-
-  /// Borrows the window layout for passive composer control artwork.
-  static DesktopPanelsLayout? panelsLayoutOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()
-      ?.owner
-      .widget
-      .panelsLayout;
-
-  // The key is stable for the host's lifetime; reading it must not subscribe
-  // the shell layout to composer presentation updates.
-  static Key contentKeyOf(BuildContext context) => context
-      .getInheritedWidgetOfExactType<_ComposerPresentationScope>()!
-      .owner
-      ._contentKey;
-
-  static Key dockKeyOf(BuildContext context) =>
-      _ComposerPresentationScope.of(context)._dockKey;
-
-  static Listenable layoutChangesOf(BuildContext context) =>
-      _ComposerPresentationScope.of(context)._presentation;
-
-  /// Reports whether the presented sheet owns mobile back navigation.
-  static bool hasMobileSheetOf(BuildContext context) => context
-      .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()!
-      .hasMobileSheet;
-
-  static bool hasVisibleComposerOf(BuildContext context) {
-    final owner = context
-        .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()
-        ?.owner;
-    return owner?._entries[owner._presentableComposer]?.minimized == false;
-  }
-
-  /// Reveals sidebar destinations while retaining the current draft and dock.
-  static void redockForNavigation(BuildContext context) {
-    if (context.isTouch) return;
-    context
-        .getInheritedWidgetOfExactType<_ComposerPresentationScope>()
-        ?.owner
-        ._redockForNavigation();
-  }
 
   @override
   State<ComposerPresentationHost> createState() =>
@@ -93,11 +53,14 @@ class _ComposerEntry {
   Size size = const Size(420, 380);
 }
 
-class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
+class _ComposerPresentationHostState extends State<ComposerPresentationHost>
+    implements ComposerPresentationView {
   final _entries = <ComposerController, _ComposerEntry>{};
   ComposerPlacement _previousDockPlacement = ComposerPlacement.right;
-  final _contentKey = GlobalKey();
-  final _dockKey = GlobalKey();
+  @override
+  final contentKey = GlobalKey();
+  @override
+  final dockKey = GlobalKey();
   final _docks = <_ComposerDockState>{};
   _ComposerDockState? _activeDock;
   bool _dockSyncScheduled = false;
@@ -113,6 +76,16 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
   final _sheetCovers = ValueNotifier(false);
 
   ComposerController? get _presentableComposer => _shell!.visibleComposer;
+
+  @override
+  DesktopPanelsLayout? get panelsLayout => widget.panelsLayout;
+
+  @override
+  Listenable get layoutChanges => _presentation;
+
+  @override
+  bool get hasVisibleComposer =>
+      _entries[_presentableComposer]?.minimized == false;
 
   _ComposerEntry? get _mobileSheetEntry {
     if (!context.isTouch || _activeDock == null) return null;
@@ -202,7 +175,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     if (mounted) setState(() {});
   }
 
-  void _redockForNavigation() {
+  @override
+  void redockForNavigation() {
     final entry = _entries[_presentableComposer];
     if (entry == null ||
         entry.minimized ||
@@ -398,81 +372,84 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost> {
     final current = _presentableComposer;
     _activeDock = _docks.where((dock) => dock.mounted).lastOrNull;
     final mobileSheet = _mobileSheetEntry;
-    return _ComposerPresentationScope(
-      owner: this,
+    return ComposerPresentationScope(
+      view: this,
       hasMobileSheet: mobileSheet != null,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          Positioned.fill(
-            child: ExcludeFocus(
-              excluding: mobileSheet != null,
-              child: ExcludeSemantics(
-                excluding: mobileSheet != null,
-                child: _CoveredContent(
-                  covering: _sheetCovers,
-                  child: widget.child,
-                ),
-              ),
-            ),
-          ),
-          if (_entries.isNotEmpty && (current == null || _activeDock == null))
-            Offstage(
-              child: _surface(
-                _entries[current] ?? _entries.values.first,
-                placement: _presentation.preference.placement,
-                mobile: context.isTouch,
-                size: (_entries[current] ?? _entries.values.first).size,
-                parked: true,
-              ),
-            ),
-          if (mobileSheet != null)
+      child: _ComposerPresentationScope(
+        owner: this,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
             Positioned.fill(
-              // The sheet covers the shell without a route or overlay, so it
-              // must hide the system glass drawn above the Flutter view.
-              child: PopScope(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, result) {
-                  if (!didPop) {
-                    unawaited(
-                      closeComposerFromPanel(
-                        context: context,
-                        composer: mobileSheet.composer,
-                      ),
-                    );
-                  }
-                },
-                child: DSheetViewport(
-                  key: ObjectKey(mobileSheet.composer),
-                  covering: _sheetCovers,
-                  onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
-                  content: DSheetContent(
-                    key: const ValueKey('composer-mobile-sheet'),
-                    side: DSheetSide.bottom,
-                    variant: DSheetVariant.menu,
-                    fillAvailableHeight: true,
-                    extendBehindKeyboard: true,
-                    scrollWholeSheet: false,
-                    showCloseButton: false,
-                    semanticLabel: context.l10n.composer,
-                    backgroundColor: Theme.of(context).shell.content,
-                    children: [
-                      Expanded(
-                        child: LayoutBuilder(
-                          builder: (context, bounds) => _surface(
-                            mobileSheet,
-                            placement: ComposerPlacement.fullScreen,
-                            mobile: true,
-                            size: bounds.biggest,
-                          ),
-                        ),
-                      ),
-                    ],
+              child: ExcludeFocus(
+                excluding: mobileSheet != null,
+                child: ExcludeSemantics(
+                  excluding: mobileSheet != null,
+                  child: _CoveredContent(
+                    covering: _sheetCovers,
+                    child: widget.child,
                   ),
                 ),
               ),
             ),
-        ],
+            if (_entries.isNotEmpty && (current == null || _activeDock == null))
+              Offstage(
+                child: _surface(
+                  _entries[current] ?? _entries.values.first,
+                  placement: _presentation.preference.placement,
+                  mobile: context.isTouch,
+                  size: (_entries[current] ?? _entries.values.first).size,
+                  parked: true,
+                ),
+              ),
+            if (mobileSheet != null)
+              Positioned.fill(
+                // The sheet covers the shell without a route or overlay, so it
+                // must hide the system glass drawn above the Flutter view.
+                child: PopScope(
+                  canPop: false,
+                  onPopInvokedWithResult: (didPop, result) {
+                    if (!didPop) {
+                      unawaited(
+                        closeComposerFromPanel(
+                          context: context,
+                          composer: mobileSheet.composer,
+                        ),
+                      );
+                    }
+                  },
+                  child: DSheetViewport(
+                    key: ObjectKey(mobileSheet.composer),
+                    covering: _sheetCovers,
+                    onDismiss: () => unawaited(_dismissMobile(mobileSheet)),
+                    content: DSheetContent(
+                      key: const ValueKey('composer-mobile-sheet'),
+                      side: DSheetSide.bottom,
+                      variant: DSheetVariant.menu,
+                      fillAvailableHeight: true,
+                      extendBehindKeyboard: true,
+                      scrollWholeSheet: false,
+                      showCloseButton: false,
+                      semanticLabel: context.l10n.composer,
+                      backgroundColor: Theme.of(context).shell.content,
+                      children: [
+                        Expanded(
+                          child: LayoutBuilder(
+                            builder: (context, bounds) => _surface(
+                              mobileSheet,
+                              placement: ComposerPlacement.fullScreen,
+                              mobile: true,
+                              size: bounds.biggest,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -539,15 +516,8 @@ class _RenderCoveredContent extends RenderProxyBox {
 }
 
 class _ComposerPresentationScope extends InheritedWidget {
-  const _ComposerPresentationScope({
-    required this.owner,
-    required this.hasMobileSheet,
-    required super.child,
-  });
+  const _ComposerPresentationScope({required this.owner, required super.child});
   final _ComposerPresentationHostState owner;
-  // Keep this presentation snapshot stable throughout a back event, even if
-  // another PopScope callback synchronously starts saving and hides the draft.
-  final bool hasMobileSheet;
   static _ComposerPresentationHostState of(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_ComposerPresentationScope>()!
       .owner;
@@ -565,44 +535,8 @@ class ComposerDock extends StatefulWidget {
   final Widget child;
   final bool appWorkspace;
 
-  /// The room a parked draft takes over a phone's bar, its gap included, so
-  /// the bar's footer keeps pages clear of it; 0 while none is shown.
-  static double parkedDraftRoomOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<_ComposerParkedDraft>()
-          ?.room ??
-      0;
-
-  /// The edge of the app workspace whose border is owned by the resize handle.
-  /// Null when there is no expanded app-level composer.
-  static ComposerPlacement? workspacePlacementOf(BuildContext context) =>
-      context
-          .dependOnInheritedWidgetOfExactType<_ComposerWorkspaceScope>()
-          ?.placement;
-
   @override
   State<ComposerDock> createState() => _ComposerDockState();
-}
-
-class _ComposerWorkspaceScope extends InheritedWidget {
-  const _ComposerWorkspaceScope({
-    required this.placement,
-    required super.child,
-  });
-
-  final ComposerPlacement? placement;
-
-  @override
-  bool updateShouldNotify(_ComposerWorkspaceScope oldWidget) =>
-      placement != oldWidget.placement;
-}
-
-class _ComposerParkedDraft extends InheritedWidget {
-  const _ComposerParkedDraft({required this.room, required super.child});
-  final double room;
-  @override
-  bool updateShouldNotify(_ComposerParkedDraft oldWidget) =>
-      room != oldWidget.room;
 }
 
 class _ComposerDockState extends State<ComposerDock> {
@@ -684,7 +618,7 @@ class _ComposerDockState extends State<ComposerDock> {
             : WorkspacePanelCorner.of(context),
         child: RepaintBoundary(
           child: widget.appWorkspace
-              ? _ComposerWorkspaceScope(
+              ? ComposerWorkspacePlacementScope(
                   placement: workspacePlacement,
                   child: Semantics(
                     container: true,
@@ -790,7 +724,7 @@ class _ComposerDockState extends State<ComposerDock> {
                 final bar = DMobileDockGeometry.of(context);
                 final noBar =
                     route != null && registry.hidesMobileDock(context, route);
-                return _ComposerParkedDraft(
+                return ComposerParkedDraftScope(
                   room: shown ? height + 8 : 0,
                   child: Stack(
                     fit: StackFit.expand,

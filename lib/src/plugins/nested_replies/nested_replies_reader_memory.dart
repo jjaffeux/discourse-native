@@ -2,6 +2,10 @@ part of 'nested_replies_reader.dart';
 
 /// The session owner clears reference-only reader snapshots on account retirement.
 final class NestedRepliesReaderMemory extends ChangeNotifier {
+  NestedRepliesReaderMemory({DateTime Function()? clock})
+    : _clock = clock ?? DateTime.now;
+
+  final DateTime Function() _clock;
   final Map<Object, _RememberedReader> _entries = {};
   final Map<(String, int), int> _revisions = {};
 
@@ -33,7 +37,8 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
     final entry = _entries.remove(key);
     if (entry == null ||
         entry.revision != revision(entry.siteUrl, entry.topicId) ||
-        DateTime.now().difference(entry.saved) > const Duration(minutes: 10)) {
+        elapsedSince(entry.saved, now: _clock()) >
+            const Duration(minutes: 10)) {
       return null;
     }
     _entries[key] = entry;
@@ -41,6 +46,7 @@ final class NestedRepliesReaderMemory extends ChangeNotifier {
   }
 
   void _put(Object key, _RememberedReader entry) {
+    entry.saved = _clock();
     _entries.remove(key);
     _entries[key] = entry;
     while (_entries.length > 15 ||
@@ -73,5 +79,5 @@ final class _RememberedReader {
   final Set<int> collapsed;
   final int? anchor;
   final double? anchorOffset;
-  final DateTime saved = DateTime.now();
+  late DateTime saved;
 }

@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import '../chat/chat_preview_contract.dart';
 import 'local_date.dart';
 import 'local_date_environment.dart';

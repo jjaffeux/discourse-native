@@ -83,6 +83,10 @@ final class ChatConversationReader {
 
   Future<void> loadOlder() => isCurrent ? _owner.loadOlder() : Future.value();
   Future<void> loadNewer() => isCurrent ? _owner.loadNewer() : Future.value();
+  void allowFailedPageRetry() {
+    if (isCurrent) _owner.allowFailedPageRetry();
+  }
+
   Future<void> showLatest() async {
     if (!isCurrent || stream.atPresent) return;
     await _owner.fetchWindow(fromLastRead: false, anchorAtEnd: true);

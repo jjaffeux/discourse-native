@@ -3,6 +3,7 @@ import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dar
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -283,8 +284,7 @@ void main() {
     });
 
     test('hands core engines the asides they claim', () {
-      Widget body(Widget widget) =>
-          (widget as OneboxCard).child ?? const SizedBox();
+      Widget body(Widget widget) => (widget as OneboxCard).child;
 
       expect(
         body(oneboxWidgetBuilder(aside(discourseTopicOnebox))!),
@@ -299,13 +299,14 @@ void main() {
         isA<DiscourseCategoryOnebox>(),
       );
       expect(
-        (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard).child,
-        isNull,
+        (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard)
+            .readsAsOneLink,
+        isTrue,
       );
       for (final source in [prOnebox, issueOnebox, commitOnebox]) {
         expect(
-          (oneboxWidgetBuilder(aside(source))! as OneboxCard).child,
-          isNull,
+          (oneboxWidgetBuilder(aside(source))! as OneboxCard).readsAsOneLink,
+          isTrue,
         );
       }
     });
@@ -323,7 +324,7 @@ void main() {
                 alignment: Alignment.topLeft,
                 child: SizedBox(
                   width: 280,
-                  child: OneboxCard(data: parse(twitterOnebox)),
+                  child: genericOneboxCard(parse(twitterOnebox)),
                 ),
               ),
             ),
@@ -343,7 +344,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(body: OneboxCard(data: parse(genericOnebox))),
+          home: Scaffold(body: genericOneboxCard(parse(genericOnebox))),
         ),
       );
       await tester.pump();
@@ -374,7 +375,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(body: OneboxCard(data: parse(genericOnebox))),
+          home: Scaffold(body: genericOneboxCard(parse(genericOnebox))),
         ),
       );
 
@@ -422,7 +423,7 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-            home: const Scaffold(body: OneboxCard(data: data)),
+            home: Scaffold(body: genericOneboxCard(data)),
           ),
         );
         await tester.pump();

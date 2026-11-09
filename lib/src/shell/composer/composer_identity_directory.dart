@@ -8,6 +8,7 @@ import '../../data/api_credentials.dart';
 import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../foundation/bounded_lru_cache.dart';
+import '../../foundation/elapsed_time.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../models/found_group.dart';
 import '../../models/found_hashtag.dart';
@@ -294,7 +295,7 @@ final class _RecentAnswers<K, V extends Object> {
   V? read(K key) {
     final held = _answers.read(key);
     if (held == null) return null;
-    final age = _clock().difference(held.askedAt);
+    final age = elapsedSince(held.askedAt, now: _clock());
     return age > _recentAnswerLifetime ? null : held.answer;
   }
 

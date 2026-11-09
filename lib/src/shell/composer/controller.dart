@@ -11,6 +11,7 @@ import '../../data/discourse_api.dart';
 import '../../data/draft_store.dart';
 import '../../data/site_pdf_thumbnail_repository.dart';
 import '../../foundation/count_label.dart';
+import '../../foundation/elapsed_time.dart';
 import '../../models/composer_draft.dart';
 import '../../models/composer_metadata.dart';
 import '../../models/composer_upload.dart';
@@ -2211,7 +2212,7 @@ class ComposerController extends ChangeNotifier
     }
 
     final last = _lastDraftSaveAt;
-    if (last != null && _now().difference(last) >= draftMaxWait) {
+    if (last != null && elapsedSince(last, now: _now()) >= draftMaxWait) {
       unawaited(_enqueueDraft());
       return;
     }
@@ -2418,7 +2419,7 @@ class ComposerController extends ChangeNotifier
     if (_disposed) return;
     _retireSubmission();
     _error = error;
-    if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryAfter);
+    if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryWait);
     _notify();
   }
 
@@ -2450,9 +2451,9 @@ class ComposerController extends ChangeNotifier
     _notify();
   }
 
-  void _holdFor(Duration? wait) {
+  void _holdFor(Duration wait) {
     _wait?.cancel();
-    if (wait == null || wait <= Duration.zero) return;
+    if (wait <= Duration.zero) return;
 
     _rateLimited = true;
     // One timer for the whole wait, not a per-second tick: a repeating timer

@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 /// Deliberately does not retain the rejected value: URLs containing userinfo
 /// can themselves contain credentials and may be included in error reports.

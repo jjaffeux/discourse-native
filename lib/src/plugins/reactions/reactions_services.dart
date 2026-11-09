@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'reactions_controller.dart';
 
 const reactionsPluginId = PluginId('discourse-reactions');

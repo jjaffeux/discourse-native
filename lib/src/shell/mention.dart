@@ -8,7 +8,7 @@ import '../theme/app_theme.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 import 'user_status.dart';
 
 class MentionPill extends StatelessWidget {

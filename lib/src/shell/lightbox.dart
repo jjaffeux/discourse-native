@@ -19,10 +19,10 @@ import 'image_download.dart';
 import 'inline_video.dart';
 import 'media_download_result.dart';
 import 'platform.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'skeleton_fill.dart';
-import 'title_bar.dart';
 
 const double _maximumPhotoViewDimension = 10000;
 const double _maximumPhotoViewAspectRatio = 10000;
@@ -1204,7 +1204,7 @@ class _Chrome extends StatelessWidget {
           // macOS traffic lights overlay Flutter and are not in SafeArea.
           padding: EdgeInsets.fromLTRB(
             hasWindowChrome && !stackBelowWindowControls ? 88 : 8,
-            12 + (stackBelowWindowControls ? ShellTitleBar.height : 0),
+            12 + (stackBelowWindowControls ? shellTitleBarHeight : 0),
             8,
             12,
           ),

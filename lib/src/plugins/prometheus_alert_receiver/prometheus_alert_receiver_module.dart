@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'alert_data.dart';
 import 'prometheus_alert_receiver_plugin.dart';
 

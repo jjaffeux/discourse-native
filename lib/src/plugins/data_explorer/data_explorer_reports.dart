@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 final class DataExplorerReports implements DashboardReportSource {
   const DataExplorerReports();

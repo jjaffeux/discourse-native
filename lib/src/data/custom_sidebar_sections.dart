@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../foundation/elapsed_time.dart';
 import '../models/discourse_instance.dart';
 import '../models/sidebar.dart';
 import 'account_request_session.dart';
@@ -143,7 +144,7 @@ final class CustomSidebarSections {
     if (active != null) return active;
     final attemptedAt = state.attemptedAt;
     if (attemptedAt != null &&
-        _clock().difference(attemptedAt) < _retryInterval) {
+        elapsedSince(attemptedAt, now: _clock()) < _retryInterval) {
       return Future.value();
     }
     if (state.writing.isNotEmpty) {

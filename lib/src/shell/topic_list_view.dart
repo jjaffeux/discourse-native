@@ -42,7 +42,7 @@ import 'topic_pointer_predictor.dart';
 import 'topic_prefetch_controller.dart';
 import 'topic_text_measurements.dart';
 import 'topic_title.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 part 'conversation_topic_card.dart';
 part 'topic_card_metadata.dart';
@@ -582,13 +582,12 @@ class _TopicListViewState extends State<TopicListView> {
     _TopicListIdentity feedIdentity,
     TopicFeed feed,
   ) {
-    if (!feed.hasMore ||
-        feed.loading ||
-        feed.loadingMore ||
-        feed.error != null ||
-        _loadMoreToken != null) {
-      return;
-    }
+    final paging = ScrollPagingGate(
+      hasMore: feed.hasMore,
+      busy: feed.loading || feed.loadingMore || _loadMoreToken != null,
+      lastPageFailed: feed.error != null,
+    );
+    if (!paging.admits) return;
 
     final token = Object();
     _loadMoreToken = token;

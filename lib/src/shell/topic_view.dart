@@ -71,6 +71,7 @@ import 'topic_taxonomy_fields.dart';
 import 'topic_title.dart';
 import 'topic_viewport_coordinator.dart';
 import 'user_card.dart';
+import 'user_card_target.dart';
 import 'user_menu_button.dart';
 import 'user_status.dart';
 

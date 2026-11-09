@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;
 import 'package:highlight/highlight.dart' show Mode;
 
+import '../../foundation/code_syntax.dart';
 import '../../theme/tokens.dart';
 import '../foundation/code_editor_theme.dart';
-import '../foundation/code_syntax.dart';
 import '../foundation/code_typography.dart';
 import '../foundation/control_style.dart';
 import 'd_scroll_area.dart';

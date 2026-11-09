@@ -18,6 +18,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
 import 'support/page_scrollbar.dart';
+import 'support/scroll_gestures.dart';
 
 const _siteUrl = 'https://forum.example.com';
 const _topic = Topic(
@@ -715,6 +716,59 @@ void main() {
       expect(presentation.loadMoreMemberCalls, 1);
     });
 
+    testWidgets('a failed member page is asked for once per drag', (
+      tester,
+    ) async {
+      final loaded = AssignedGroupMembersState(
+        members: [
+          for (var id = 1; id <= 10; id++)
+            AssignedGroupMember(
+              id: id,
+              username: 'Member$id',
+              usernameLower: 'member$id',
+            ),
+        ],
+        hasMore: true,
+        loaded: true,
+      );
+      AssignedGroupPresentationState showing(
+        AssignedGroupMembersState members,
+      ) => _state(members: members, feed: const TopicFeed(loaded: true));
+      final presentation = _FakeAssignedGroupPresentation(showing(loaded));
+      presentation.onLoadMoreMembers = () =>
+          presentation.show(showing(loaded.loadingNextPage()));
+      await _pumpView(tester, presentation);
+      await tester.binding.setSurfaceSize(const Size(1200, 400));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('assigned-person-menu')));
+      await tester.pumpAndSettle();
+
+      final rail = find
+          .descendant(
+            of: find.byKey(const ValueKey('assigned-people-rail')),
+            matching: find.byType(Scrollable),
+          )
+          .first;
+      Future<int> requestsDuringDrag() async {
+        final before = presentation.loadMoreMemberCalls;
+        await dragOnceThroughUpdates(
+          tester,
+          rail,
+          travel: -8,
+          afterUpdate: () {
+            if (presentation.state.members.loadingMore) {
+              presentation.show(
+                showing(loaded.withError('No more members', page: true)),
+              );
+            }
+          },
+        );
+        return presentation.loadMoreMemberCalls - before;
+      }
+
+      expect([await requestsDuringDrag(), await requestsDuringDrag()], [1, 1]);
+    });
+
     testWidgets('person menu remains usable in a narrow pane', (tester) async {
       final presentation = _FakeAssignedGroupPresentation(
         _state(feed: const TopicFeed(loaded: true)),
@@ -980,6 +1034,7 @@ final class _FakeAssignedGroupPresentation extends ChangeNotifier
   final List<Topic> openedTopics = [];
   int loadMoreMemberCalls = 0;
   int loadMoreTopicCalls = 0;
+  VoidCallback? onLoadMoreMembers;
   int disposeCalls = 0;
 
   @override
@@ -1014,6 +1069,7 @@ final class _FakeAssignedGroupPresentation extends ChangeNotifier
   @override
   void loadMoreMembers() {
     loadMoreMemberCalls += 1;
+    onLoadMoreMembers?.call();
   }
 
   @override

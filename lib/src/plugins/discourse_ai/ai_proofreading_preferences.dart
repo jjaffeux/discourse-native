@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// The choice is an account's, not a forum's: a proofread sends the post to

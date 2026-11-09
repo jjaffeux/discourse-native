@@ -11,7 +11,7 @@ import 'open_link.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
 import 'topic_title.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 class QuoteData {
   const QuoteData({

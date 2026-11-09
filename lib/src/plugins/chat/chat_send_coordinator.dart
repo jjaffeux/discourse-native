@@ -3,7 +3,7 @@
 import 'dart:async';
 import 'dart:collection';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart';
 
 import 'chat_api.dart';
@@ -326,12 +326,8 @@ final class DefaultChatSendCoordinator implements ChatSendCoordinator {
     );
     _retries.remove(stagedId)?.cooldown.cancel();
     _retries[stagedId] = retry;
-    // Nothing asked the site to wait for a request that never reached it.
-    final advertised = failure.notSent
-        ? Duration.zero
-        : failure.retryAfter ?? const Duration(seconds: 1);
     final remaining = retry.cooldown.extend(
-      advertised.isNegative ? Duration.zero : advertised,
+      failure.retryWait,
       onExpired: () {
         if (_disposed ||
             _host.isDisposed() ||

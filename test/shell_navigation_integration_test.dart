@@ -28,6 +28,7 @@ import 'package:discourse_native/src/shell/groups_page.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
 import 'package:discourse_native/src/shell/topic_filter_input.dart';
@@ -122,7 +123,7 @@ void _registerShellNavigationTests() {
         expect(titleBar.contains(macField.center), isTrue);
         expect(
           tester.getSize(find.byType(ForumSearch)).height,
-          lessThan(ShellTitleBar.height),
+          lessThan(shellTitleBarHeight),
         );
       } finally {
         debugDefaultTargetPlatformOverride = previous;

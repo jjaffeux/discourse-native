@@ -1,16 +1,22 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/data/discourse_api.dart';
+import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
+import 'package:discourse_native/src/data/discourse_transport.dart';
+import 'package:discourse_native/src/data/http_transport.dart';
 import 'package:discourse_native/src/data/live_channels.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
+import 'package:discourse_native/src/plugins/chat/chat_api_client.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
 import 'package:discourse_native/src/plugins/chat/chat_preview.dart';
 import 'package:discourse_native/src/plugins/chat/chat_send_coordinator.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 import 'support/fakes.dart';
 import 'support/manual_scheduler.dart';
@@ -218,6 +224,62 @@ void main() {
         first.stagedId,
       ]);
     });
+
+    test(
+      'an unhinted rate limit that pauses the origin stays locked until it admits again',
+      () async {
+        final scheduler = ManualScheduler();
+        final sends = <http.Request>[];
+        final transport = DiscourseTransport(
+          SafeHttpClient.owned(
+            MockClient((request) async {
+              sends.add(request);
+              return sends.length == 1
+                  ? http.Response('{}', 429)
+                  : http.Response('{"message_id":5}', 200);
+            }),
+          ),
+          const Duration(seconds: 1),
+          1024,
+          coordinator: DiscourseRequestCoordinator(
+            defaultRateLimitCooldown: const Duration(seconds: 40),
+            cooldownFactory: () => OriginCooldown(
+              clock: scheduler.now,
+              timerFactory: scheduler.createTimer,
+            ),
+          ),
+        );
+        addTearDown(transport.close);
+        final projection = _Projection();
+        final coordinator = DefaultChatSendCoordinator(
+          api: ChatApiClient(DiscourseApi(transport: transport)),
+          requests: _Requests(),
+          host: projection.host,
+          cooldownFactory: () => OriginCooldown(
+            clock: scheduler.now,
+            timerFactory: scheduler.createTimer,
+          ),
+        );
+        addTearDown(coordinator.dispose);
+        const target = ChatChannelTarget(9);
+        final first = coordinator.sendMessage(
+          _site,
+          target,
+          OutgoingChatMessage.text('hello'),
+        )!;
+        expect(await first.settled, ChatSendResult.failed);
+
+        scheduler.advance(const Duration(seconds: 39));
+        expect(projection.staged.single.retryWaiting, isTrue);
+        expect(coordinator.retryMessage(_site, target, first.stagedId), isNull);
+
+        scheduler.advance(const Duration(seconds: 1));
+        expect(projection.staged.single.retryWaiting, isFalse);
+        final retry = coordinator.retryMessage(_site, target, first.stagedId)!;
+        expect(await retry.settled, ChatSendResult.sent);
+        expect(sends, hasLength(2));
+      },
+    );
 
     test(
       'a refusal without retryAfter waits a second on its own stream',

@@ -1,6 +1,6 @@
 import 'dart:collection';
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:flutter/foundation.dart'
     show immutable, listEquals, mapEquals, setEquals;
 import 'package:flutter/material.dart';

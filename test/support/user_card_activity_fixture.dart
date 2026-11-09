@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -160,17 +161,20 @@ Future<UserCardActivityFixture> pumpUserCardActivityFixture(
     shell.store.put(userCardActivitySite, _cachedTopic(row));
   }
   await tester.pumpWidget(
-    ShellScope(
-      controller: shell,
-      child: MaterialApp(
-        theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
-        home: Scaffold(
-          body: Padding(
-            padding: const EdgeInsets.all(24),
-            child: UserCardTarget(
-              username: people.first,
-              siteUrl: userCardActivitySite,
-              child: const Text('Open card'),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: shell,
+        child: MaterialApp(
+          theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+          home: Scaffold(
+            body: Padding(
+              padding: const EdgeInsets.all(24),
+              child: UserCardTarget(
+                username: people.first,
+                siteUrl: userCardActivitySite,
+                child: const Text('Open card'),
+              ),
             ),
           ),
         ),

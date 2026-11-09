@@ -7,6 +7,7 @@ import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
+import 'package:discourse_native/src/shell/desktop_panels_layout.dart';
 import 'package:discourse_native/src/shell/emoji_picker.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

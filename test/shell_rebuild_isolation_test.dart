@@ -38,6 +38,7 @@ import 'package:discourse_native/src/shell/topic_list_navigation.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_tag_picker.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_menu_button.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -750,41 +751,44 @@ void main() {
 
     var broadBuilds = 0;
     await tester.pumpWidget(
-      ShellScope(
-        controller: controller,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-          home: Scaffold(
-            body: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const UserCardTarget(
-                    username: 'sam',
-                    siteUrl: siteUrl,
-                    child: Text('Open Sam'),
-                  ),
-                  const PostLikes(
-                    siteUrl: siteUrl,
-                    post: Post(
-                      id: 1,
-                      postNumber: 1,
-                      username: 'author',
-                      cooked: '<p>Post body</p>',
-                      likeCount: 1,
-                      canLike: false,
-                      canUnlike: false,
+      UserCardOpenerScope(
+        open: showUserCard,
+        child: ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: Scaffold(
+              body: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const UserCardTarget(
+                      username: 'sam',
+                      siteUrl: siteUrl,
+                      child: Text('Open Sam'),
                     ),
-                  ),
-                  Builder(
-                    builder: (context) {
-                      ShellScope.of(context);
-                      broadBuilds++;
-                      return const SizedBox.shrink();
-                    },
-                  ),
-                ],
+                    const PostLikes(
+                      siteUrl: siteUrl,
+                      post: Post(
+                        id: 1,
+                        postNumber: 1,
+                        username: 'author',
+                        cooked: '<p>Post body</p>',
+                        likeCount: 1,
+                        canLike: false,
+                        canUnlike: false,
+                      ),
+                    ),
+                    Builder(
+                      builder: (context) {
+                        ShellScope.of(context);
+                        broadBuilds++;
+                        return const SizedBox.shrink();
+                      },
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

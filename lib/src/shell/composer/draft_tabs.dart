@@ -11,7 +11,7 @@ import '../shell_scope.dart';
 import '../skeleton_fill.dart';
 import 'controller.dart';
 import 'discard.dart';
-import 'presentation.dart';
+import 'presentation_scope.dart';
 
 String composerDraftLabel(ComposerController composer) =>
     composer.target.createsTopic
@@ -270,7 +270,7 @@ class _ComposerDraftTabsState extends State<ComposerDraftTabs> {
                     const DDropdownMenuSeparator(),
                     DDropdownMenuItem(
                       onPressed: () {
-                        ComposerPresentationHost.redockForNavigation(context);
+                        ComposerPresentationScope.redockForNavigation(context);
                         shell.openDrafts(site);
                       },
                       child: Text(context.l10n.allDrafts),

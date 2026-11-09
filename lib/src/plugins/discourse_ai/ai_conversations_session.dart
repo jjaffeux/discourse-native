@@ -1,6 +1,6 @@
 // ignore_for_file: prefer_initializing_formals
 
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 
 import 'ai_conversations_service.dart';
 

@@ -11,7 +11,7 @@ import 'avatar_image.dart';
 import 'platform.dart';
 import 'site_emoji_image.dart';
 import 'skeleton_fill.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 class ReactionPills extends Padding {
   ReactionPills({

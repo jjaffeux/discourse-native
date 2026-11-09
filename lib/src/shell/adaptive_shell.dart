@@ -20,10 +20,12 @@ import 'account_menu_scope.dart';
 import 'bookmark_ui.dart';
 import 'composer/panel.dart';
 import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'content_navigation_controls.dart';
 import 'desktop_navigation.dart';
 import 'desktop_panels.dart';
 
+import 'desktop_panels_layout.dart';
 import 'empty_state.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_actions.dart';
@@ -46,25 +48,6 @@ import 'title_bar.dart';
 import 'topic_presentation.dart';
 import 'user_menu_button.dart';
 import 'user_menu_message.dart';
-
-enum ShellLayout {
-  compact,
-
-  medium,
-
-  expanded;
-
-  static const double mediumMinWidth = 768;
-  static const double expandedMinWidth = 1200;
-
-  static ShellLayout forWidth(double width) {
-    if (width >= expandedMinWidth) return ShellLayout.expanded;
-    if (width >= mediumMinWidth) return ShellLayout.medium;
-    return ShellLayout.compact;
-  }
-
-  bool get isCompact => this == ShellLayout.compact;
-}
 
 typedef _ForumBoundarySnapshot = ({
   String? privateForumTitle,
@@ -589,7 +572,7 @@ class _ShellScaffoldState extends State<_ShellScaffold> {
       final keyboard = media.viewInsets.bottom;
       final retracting = keyboard > 0 && keyboard <= (_sheetKeyboard ?? 0);
       _sheetKeyboard =
-          ComposerPresentationHost.hasMobileSheetOf(context) || retracting
+          ComposerPresentationScope.hasMobileSheetOf(context) || retracting
           ? keyboard
           : null;
     } else {
@@ -890,7 +873,7 @@ class _MobileShellState extends State<_MobileShell> {
     onPopInvokedWithResult: (didPop, result) {
       if (didPop) return;
       // A composer's sheet and the bar's panel each take the back themselves.
-      if (ComposerPresentationHost.hasMobileSheetOf(context) ||
+      if (ComposerPresentationScope.hasMobileSheetOf(context) ||
           _dockPanelOut.value) {
         return;
       } else if (!ShellScope.read(context).handleBack()) {
@@ -934,7 +917,7 @@ class _MobileShellState extends State<_MobileShell> {
                   return _PageComposerDock(
                     child: MobileForumRoot(
                       content: MainContent(
-                        key: ComposerPresentationHost.contentKeyOf(context),
+                        key: ComposerPresentationScope.contentKeyOf(context),
                         layout: ShellLayout.compact,
                       ),
                     ),
@@ -1155,7 +1138,7 @@ class _WideShellState extends State<_WideShell> {
                                             ? _desktopPanels
                                             : MainContent(
                                                 key:
-                                                    ComposerPresentationHost.contentKeyOf(
+                                                    ComposerPresentationScope.contentKeyOf(
                                                       context,
                                                     ),
                                                 layout: context.isTouch
@@ -1231,7 +1214,7 @@ class _PageComposerDock extends StatelessWidget {
   @override
   Widget build(BuildContext context) => context.isTouch
       ? ComposerDock(
-          key: ComposerPresentationHost.dockKeyOf(context),
+          key: ComposerPresentationScope.dockKeyOf(context),
           child: child,
         )
       : TopicWorkspace(child: child);

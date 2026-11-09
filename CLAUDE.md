@@ -108,6 +108,9 @@ Requirements line with it.
 - `lib/src/plugins/` — bundled features such as Chat, Poll, reactions,
   Local Dates, GIFs, Assign, and Voice; each is optional per site, but every
   app binary contains the complete module graph.
+- `lib/discourse_plugin_contracts.dart` — what a plugin imports when it needs
+  only wire types and contracts; `discourse_plugin_sdk.dart` re-exports it and
+  also carries the shell's widgets.
 - `packages/discourse_voice/` — Voice's native iOS CallKit bridge and the
   vendored WebRTC fork; the Dart feature implementation lives in
   `lib/src/plugins/voice/`.
@@ -128,6 +131,10 @@ Requirements line with it.
   (ownership, replacement, and shared admission for avatar and emoji caches),
   `foundation/loopback_host.dart` (which hosts may use plaintext development
   transports),
+  `foundation/elapsed_time.dart` (what a moment ahead of the clock means to a
+  time window), `foundation/retry_wait.dart` (the wait after a rate-limited
+  write and how to word it), `utils/pagination.dart` (when scroll-driven paging
+  may ask for the next page),
   `plugins/chat/chat_message_timeline.dart` (how canonical chat-message ids are
   merged across pages, live arrivals, and the seam back to the present),
   `plugins/voice/voice_diagnostics_report.dart` (how

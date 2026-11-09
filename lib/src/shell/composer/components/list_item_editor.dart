@@ -5,8 +5,8 @@ import 'package:flutter/scheduler.dart';
 
 import '../component_artwork.dart';
 import '../controller.dart';
+import '../editor_scope.dart';
 import '../embedded_editor.dart';
-import '../panel.dart';
 import 'list.dart';
 import 'list_source.dart';
 
@@ -117,9 +117,7 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor>
                   ? DCheckboxSize.large
                   : DCheckboxSize.standard,
               inlineTextStyle:
-                  context
-                      .findAncestorWidgetOfExactType<ComposerEditor>()
-                      ?.textStyle ??
+                  ComposerEditorScope.maybeOf(context)?.textStyle ??
                   Theme.of(context).textTheme.bodyLarge,
               value: widget.item.checked,
               readOnly: !body.isEditing,
@@ -133,13 +131,11 @@ class _ComposerListItemEditorState extends State<ComposerListItemEditor>
               padding: const EdgeInsetsDirectional.only(end: DSpacing.md),
               child: Text(
                 widget.item.number != null ? '${widget.item.number}.' : '•',
-                style: context
-                    .findAncestorWidgetOfExactType<ComposerEditor>()
-                    ?.textStyle,
+                style: ComposerEditorScope.maybeOf(context)?.textStyle,
               ),
             ),
           Expanded(
-            child: ComposerRichBodyEditor(
+            child: ComposerEditorScope.of(context).richBody(
               composer: body,
               label: context.l10n.listItemContent,
               hintText: widget.item.isTask

@@ -17,7 +17,7 @@ import 'avatar_image.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';
 import 'shell_scope.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 const String _identityColumnWidthKey = 'identity';
 
@@ -479,14 +479,13 @@ class _UsersPageState extends State<UsersPage> {
   }
 
   void _maybeLoadMore() {
-    if (_loadMoreRequested ||
-        widget.onLoadMore == null ||
-        !widget.data.hasMore ||
-        widget.data.loading ||
-        widget.data.loadingMore ||
-        widget.data.pageError) {
-      return;
-    }
+    final paging = ScrollPagingGate(
+      hasMore: widget.data.hasMore,
+      busy:
+          _loadMoreRequested || widget.data.loading || widget.data.loadingMore,
+      lastPageFailed: widget.data.pageError,
+    );
+    if (widget.onLoadMore == null || !paging.admits) return;
     final position = _vertical.hasClients ? _vertical.position : null;
     if (position == null ||
         position.extentAfter > paginationPrefetchDistance(position)) {

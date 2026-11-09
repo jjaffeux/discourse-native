@@ -16,7 +16,7 @@ import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'account_menu_scope.dart';
-import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'instance_rail.dart';
@@ -532,7 +532,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
               }
               // A parked draft waits over the bar, which keeps pages
               // clear of both.
-              final parked = ComposerDock.parkedDraftRoomOf(context);
+              final parked = ComposerParkedDraftScope.roomOf(context);
               if (hideDock) {
                 return Padding(
                   padding: EdgeInsets.only(
@@ -802,7 +802,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
           destinationsHidden: hideDestinations && pageAction != null,
           // A composer's sheet covers the shell from inside it; the panel, which
           // paints over the shell, must not stand over the sheet.
-          covered: ComposerPresentationHost.hasMobileSheetOf(context),
+          covered: ComposerPresentationScope.hasMobileSheetOf(context),
           peek: panelScope?.peek,
           collapsedDestination: DMobileDockItem(
             key: const ValueKey('mobile-dock-reveal'),

@@ -18,7 +18,7 @@ import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import 'adaptive_dialog_action.dart';
 import 'avatar_image.dart';
-import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'emoji.dart';
 import 'external_link.dart';
 import 'forum_theme_surfaces.dart';
@@ -1412,7 +1412,7 @@ class _SectionState extends State<_Section> {
       );
       return;
     }
-    ComposerPresentationHost.redockForNavigation(context);
+    ComposerPresentationScope.redockForNavigation(context);
     final onTap = destination.onTap;
     if (onTap != null) {
       onTap();

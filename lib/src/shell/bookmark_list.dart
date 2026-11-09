@@ -206,8 +206,15 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
 
   // A failed page is retried only from its Retry row: every scroll
   // notification near the end would otherwise resend it as soon as it fails.
+  static bool _admits(BookmarkListFeed feed, {required bool hasMore}) =>
+      ScrollPagingGate(
+        hasMore: hasMore,
+        busy: feed.loading,
+        lastPageFailed: feed.error != null,
+      ).admits;
+
   static bool _canLoadMore(BookmarkListFeed feed) =>
-      feed.loaded && feed.hasMore && !feed.loading && feed.error == null;
+      feed.loaded && _admits(feed, hasMore: feed.hasMore);
 
   void _loadMore({bool automatic = false}) {
     if (automatic) {
@@ -271,9 +278,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
             (_list.retainedPageCount == 1
                 ? 0.5
                 : paginationPrefetchDistance(notification.metrics)) &&
-        _list.hasPrevious &&
-        !_list.loading &&
-        _list.error == null) {
+        _admits(_list, hasMore: _list.hasPrevious)) {
       _loadPrevious();
     } else if (notification is ScrollUpdateNotification &&
         (notification.scrollDelta ?? 0) > 0 &&
@@ -322,9 +327,12 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   Widget build(BuildContext context) {
     final activity = widget.controller.accountActivity;
     return ListenableBuilder(
-      listenable: widget.page
-          ? activity.bookmarkListListenable
-          : activity.bookmarksListenable,
+      listenable: Listenable.merge([
+        widget.page
+            ? activity.bookmarkListListenable
+            : activity.bookmarksListenable,
+        widget.controller.accountDestinationBookmarks,
+      ]),
       builder: (context, _) => ShellSelector<_ShellDrawn>(
         select: (_) => _shellDrawn(),
         builder: (context, _, _) =>
@@ -345,7 +353,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final now = DateTime.now();
     return _ShellDrawn([
       controller.lifecycle.capture(siteUrl).session,
-      ...controller.destinationBookmarksFor(siteUrl),
+      ...controller.accountDestinationBookmarks.entriesFor(siteUrl),
       for (final bookmark in bookmarks) bookmark.reminderExpiredAt(now),
       if (menu == null) ...[
         for (final bookmark in bookmarks) _present(bookmark),
@@ -363,7 +371,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
   }
 
   Widget _menu(BuildContext context) {
-    final entries = widget.controller.destinationBookmarksFor(widget.siteUrl);
+    final entries = widget.controller.accountDestinationBookmarks.entriesFor(
+      widget.siteUrl,
+    );
     if (entries.isEmpty || DesktopHeaderMenu.isActiveOf(context)) {
       return _serverMenu(context);
     }
@@ -453,7 +463,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       for (final bookmark in feed.bookmarks)
         (bookmark: bookmark, presentation: _present(bookmark)),
     ];
-    final localEntries = controller.destinationBookmarksFor(widget.siteUrl);
+    final localEntries = controller.accountDestinationBookmarks.entriesFor(
+      widget.siteUrl,
+    );
     final filters = <String>{
       for (final entry in localEntries)
         destinationBookmarkTypeLabel(entry.kind),

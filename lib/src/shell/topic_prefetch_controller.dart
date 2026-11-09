@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../data/request_intent.dart';
 import '../data/topic_tracking_reconciler.dart';
+import '../foundation/elapsed_time.dart';
 
 import '../models/post.dart';
 
@@ -126,7 +127,7 @@ final class TopicPrefetchController {
       return !entry.cancellation.isCancelled &&
           entry.isCurrent() &&
           (entry.completedAt == null ||
-              _clock().difference(entry.completedAt!) < lifetime);
+              elapsedSince(entry.completedAt!, now: _clock()) < lifetime);
     } catch (_) {
       return false;
     }

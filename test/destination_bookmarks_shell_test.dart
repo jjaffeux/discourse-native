@@ -43,6 +43,25 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(
+    'a toggle redraws its own listeners and leaves the shell quiet',
+    () async {
+      final shell = await _shell();
+      addTearDown(shell.dispose);
+      var shellNotifications = 0;
+      var bookmarkNotifications = 0;
+      shell.addListener(() => shellNotifications++);
+      shell.accountDestinationBookmarks.addListener(
+        () => bookmarkNotifications++,
+      );
+
+      await shell.accountDestinationBookmarks.actionFor(_page)!.invoke();
+
+      expect(bookmarkNotifications, 1);
+      expect(shellNotifications, 0);
+    },
+  );
+
+  test(
     'page and category reopen the exact typed root and hydrate in every panel',
     () async {
       final shell = await _shell();
@@ -50,10 +69,11 @@ void main() {
       shell.desktopTopicTabs = true;
       for (final route in [_page, _category, ContentRoute.allCategories()]) {
         expect(
-          (await shell.destinationBookmarkAction(route)!.invoke()).saved,
+          (await shell.accountDestinationBookmarks.actionFor(route)!.invoke())
+              .saved,
           isTrue,
         );
-        final saved = shell.destinationBookmarksFor(_site).first;
+        final saved = shell.accountDestinationBookmarks.entriesFor(_site).first;
         for (final panel in [null, ForumPanel.main, ForumPanel.secondary]) {
           expect(
             await shell.openDestinationBookmark(_site, saved, panel: panel),
@@ -87,10 +107,11 @@ void main() {
       );
       addTearDown(shell.dispose);
       expect(
-        (await shell.destinationBookmarkAction(_chat)!.invoke()).saved,
+        (await shell.accountDestinationBookmarks.actionFor(_chat)!.invoke())
+            .saved,
         isTrue,
       );
-      final saved = shell.destinationBookmarksFor(_site).single;
+      final saved = shell.accountDestinationBookmarks.entriesFor(_site).single;
       expect(await shell.openDestinationBookmark(_site, saved), isTrue);
       expect(shell.currentContent?.id, 'chat-c-9');
       expect(shell.currentContent?.postNumber, isNull);
@@ -103,17 +124,17 @@ void main() {
     () async {
       final shell = await _shell(withPlugins: false);
       addTearDown(shell.dispose);
-      await shell.destinationBookmarkAction(_chat)!.invoke();
+      await shell.accountDestinationBookmarks.actionFor(_chat)!.invoke();
       final before = shell.currentContent;
       expect(
         await shell.openDestinationBookmark(
           _site,
-          shell.destinationBookmarksFor(_site).single,
+          shell.accountDestinationBookmarks.entriesFor(_site).single,
         ),
         isFalse,
       );
       expect(shell.currentContent, before);
-      expect(shell.destinationBookmarksFor(_site), hasLength(1));
+      expect(shell.accountDestinationBookmarks.entriesFor(_site), hasLength(1));
     },
   );
 
@@ -127,10 +148,12 @@ void main() {
       title: 'Other support',
     )!;
     expect(site, 'https://other.example');
-    await shell.destinationBookmarkAction(route, siteUrl: site)!.invoke();
-    expect(shell.destinationBookmarksFor(_site), isEmpty);
+    await shell.accountDestinationBookmarks
+        .actionFor(route, siteUrl: site)!
+        .invoke();
+    expect(shell.accountDestinationBookmarks.entriesFor(_site), isEmpty);
     expect(
-      shell.destinationBookmarksFor(site!).single.route.title,
+      shell.accountDestinationBookmarks.entriesFor(site!).single.route.title,
       'Other support',
     );
     final sourceSite = shell.currentInstance!.url;
@@ -167,16 +190,16 @@ void main() {
       final store = DestinationBookmarksStore.memory();
       final shell = await _shell(store: store);
       addTearDown(shell.dispose);
-      await shell.destinationBookmarkAction(_page)!.invoke();
-      final saved = shell.destinationBookmarksFor(_site).single;
-      final stale = shell.destinationBookmarkAction(_category)!;
+      await shell.accountDestinationBookmarks.actionFor(_page)!.invoke();
+      final saved = shell.accountDestinationBookmarks.entriesFor(_site).single;
+      final stale = shell.accountDestinationBookmarks.actionFor(_category)!;
       final account = shell.currentAccountIdentity!;
       expect(await shell.disconnectInstance(_site), isTrue);
-      expect(shell.destinationBookmarksFor(_site), isEmpty);
+      expect(shell.accountDestinationBookmarks.entriesFor(_site), isEmpty);
       expect((await stale.invoke()).saved, isFalse);
       expect(await shell.openDestinationBookmark(_site, saved), isFalse);
       expect(store.entriesFor(_site, account).single.route, _page);
-      expect(shell.destinationBookmarkAction(_category), isNull);
+      expect(shell.accountDestinationBookmarks.actionFor(_category), isNull);
     },
   );
 
@@ -186,7 +209,7 @@ void main() {
       final store = DestinationBookmarksStore.memory();
       final shell = await _shell(store: store);
       addTearDown(shell.dispose);
-      await shell.destinationBookmarkAction(_page)!.invoke();
+      await shell.accountDestinationBookmarks.actionFor(_page)!.invoke();
       final account = shell.currentAccountIdentity!;
       await shell.disconnectInstance(_site);
       await store.set(
@@ -195,15 +218,15 @@ void main() {
         DestinationBookmark.fromRoute(_category)!,
         bookmarked: true,
       );
-      await shell
-          .destinationBookmarkAction(_chat, siteUrl: 'https://other.example')!
+      await shell.accountDestinationBookmarks
+          .actionFor(_chat, siteUrl: 'https://other.example')!
           .invoke();
       expect(await shell.removeInstance(shell.currentInstance!), isTrue);
       await store.flush();
       expect(store.entriesFor(_site, account), isEmpty);
       expect(store.entriesFor(_site, 'user:another-reader'), isEmpty);
       expect(
-        shell.destinationBookmarksFor('https://other.example'),
+        shell.accountDestinationBookmarks.entriesFor('https://other.example'),
         hasLength(1),
       );
     },
@@ -225,10 +248,10 @@ void main() {
       addTearDown(() {
         if (!gate.isCompleted) gate.complete();
       });
-      await shell.destinationBookmarkAction(_chat)!.invoke();
+      await shell.accountDestinationBookmarks.actionFor(_chat)!.invoke();
       final opening = shell.openDestinationBookmark(
         _site,
-        shell.destinationBookmarksFor(_site).single,
+        shell.accountDestinationBookmarks.entriesFor(_site).single,
       );
       await pumpEventQueue();
       await shell.disconnectInstance(_site);

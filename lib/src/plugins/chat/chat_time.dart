@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 /// The reader's calendar and wall clock for one Chat presentation.

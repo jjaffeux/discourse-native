@@ -1,4 +1,4 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import '../gifs/gifs_contract.dart';
 import 'chat_controller.dart';
 import 'chat_conversation_contract.dart';
@@ -24,11 +24,6 @@ const chatSearchControllerService = PluginServiceKey<ChatSearchController>(
 const chatBookmarkHostService = PluginServiceKey<PluginBookmarkHost>(
   owner: chatPluginId,
   name: 'bookmark-host',
-);
-
-const chatComposerHostService = PluginServiceKey<PluginComposerHost>(
-  owner: chatPluginId,
-  name: 'composer-host',
 );
 
 const chatEmojiHostService = PluginServiceKey<PluginEmojiHost>(

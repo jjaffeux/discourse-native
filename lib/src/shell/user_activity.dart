@@ -355,17 +355,12 @@ class _ActivityListState extends State<_ActivityList> {
       setState(() => _embeddedRowCount = _embeddedFirstRows);
     }
     final position = _outerScroll;
-    if (position == null ||
-        !position.hasContentDimensions ||
-        feed.loading ||
-        feed.error != null) {
-      return;
-    }
-    if (feed.hasPrevious &&
+    if (position == null || !position.hasContentDimensions) return;
+    if (_admits(hasMore: feed.hasPrevious) &&
         position.extentBefore < paginationPrefetchDistance(position)) {
       unawaited(widget.onLoadPrevious());
     } else if (position.pixels > 0 &&
-        feed.hasMore &&
+        _admits(hasMore: feed.hasMore) &&
         position.extentAfter < paginationPrefetchDistance(position)) {
       unawaited(onLoadMore());
     }
@@ -547,15 +542,17 @@ class _ActivityListState extends State<_ActivityList> {
       )
       .toList();
 
-  // A failed page is retried only from its Retry row: every scroll
-  // notification near the end would otherwise resend it as soon as it fails.
+  bool _admits({required bool hasMore}) => ScrollPagingGate(
+    hasMore: hasMore,
+    busy: feed.loading,
+    lastPageFailed: feed.error != null,
+  ).admits;
+
   bool _nearEnd(ScrollNotification notification) {
     if (notification.depth != 0 ||
         notification is! ScrollUpdateNotification ||
         (notification.scrollDelta ?? 0) <= 0 ||
-        !feed.hasMore ||
-        feed.loading ||
-        feed.error != null) {
+        !_admits(hasMore: feed.hasMore)) {
       return false;
     }
     return notification.metrics.extentAfter <
@@ -633,9 +630,7 @@ class _ActivityListState extends State<_ActivityList> {
                               : paginationPrefetchDistance(
                                   notification.metrics,
                                 )) &&
-                      feed.hasPrevious &&
-                      !feed.loading &&
-                      feed.error == null) {
+                      _admits(hasMore: feed.hasPrevious)) {
                     unawaited(widget.onLoadPrevious());
                   } else if (_nearEnd(notification)) {
                     unawaited(onLoadMore());

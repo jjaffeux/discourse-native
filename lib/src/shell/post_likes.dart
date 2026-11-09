@@ -14,7 +14,7 @@ import 'platform.dart';
 import 'post_action_owner.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 class PostLikes extends StatefulWidget {
   const PostLikes({super.key, required this.siteUrl, required this.post});
