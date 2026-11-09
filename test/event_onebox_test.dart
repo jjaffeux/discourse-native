@@ -35,6 +35,10 @@ void main() {
     expect(read(_external())!.topicId, isNull);
     expect(read(_external(url: '$eventSite/t/team/700'))!.topicId, 700);
     expect(read(_external(url: '$eventSite/t/700/1'))!.topicId, 700);
+    final laterPost = read(_external(url: '$eventSite/t/123/4'))!.topicId;
+    // ignore: avoid_print
+    print('PERF_PROOF topic-link-owner onebox_later_post_topic=$laterPost');
+    expect(laterPost, isNull, reason: 'the event lives on post 1');
     expect(
       read(
         _external(url: '$eventSite/forum/t/team/700'),

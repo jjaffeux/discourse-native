@@ -10,5 +10,26 @@
     "path": "test/architecture_opening_post_contract_test.dart"
    }
   ]
+ },
+ {
+  "slug": "topic-link-owner",
+  "subject": "FIX: read every topic link with TopicLink",
+  "proofs": [
+   {
+    "path": "test/plugins/boards/boards_reader_test.dart",
+    "name": "add-topic reads a slugless link as its topic, not its post"
+   },
+   {
+    "path": "test/plugins/post_voting/post_voting_fragment_navigation_test.dart",
+    "name": "a slugless comment link opens its topic at its post"
+   },
+   {
+    "path": "test/event_onebox_test.dart",
+    "name": "onebox parsing scopes local lookups and external image origins"
+   },
+   {
+    "path": "test/architecture_topic_link_contract_test.dart"
+   }
+  ]
  }
 ]

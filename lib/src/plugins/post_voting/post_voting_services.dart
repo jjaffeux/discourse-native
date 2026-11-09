@@ -311,17 +311,15 @@ final class PostVotingServices extends FrameSafeNotifier
         topicId = location.topicId;
         number = location.postNumber;
         slug = location.slug;
-      } else if ((parts.length == 3 || parts.length == 4) &&
-          parts.first == 't') {
-        topicId = int.tryParse(parts[2]);
-        slug = parts[1];
-        number = parts.length == 4 ? int.tryParse(parts[3]) : 1;
-        if (parts.length == 4 && (number == null || number <= 0)) return false;
+      } else if (TopicLink.parse(url, siteUrl: site) case final link?) {
+        topicId = link.topicId;
+        if (link.slug.isNotEmpty) slug = link.slug;
+        number = link.postNumber ?? 1;
       } else {
         return false;
       }
       if (!current()) return true;
-      if (topicId == null || topicId <= 0) return false;
+      if (topicId <= 0) return false;
       committed = routeNavigation.pushContent(
         ContentRoute.topic(
           topicId: topicId,
