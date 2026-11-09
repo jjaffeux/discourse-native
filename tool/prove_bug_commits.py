@@ -14,11 +14,13 @@ proves nothing and is reported.
   tool/prove_bug_commits.py <manifest.json> --base <rev> --out <results.json>
 
 Manifest: [{"slug", "repro", "fix", "test", "name"}], where repro and fix are
-commit subjects and name is the test's --plain-name.
+commit subjects and name is the test's --plain-name. An optional tz runs the
+test in that time zone, for a bug the machine's own zone cannot show.
 """
 
 import argparse
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -32,8 +34,10 @@ ASSERTION = re.compile(r"^\s*(Expected|Actual|Which): .*$", re.MULTILINE)
 LOAD_FAILURE = re.compile(r"Failed to load|Compilation failed|Error: Couldn't")
 
 
-def run(cwd, *command):
-    return subprocess.run(command, cwd=cwd, text=True, capture_output=True, check=False)
+def run(cwd, *command, env=None):
+    return subprocess.run(
+        command, cwd=cwd, env=env, text=True, capture_output=True, check=False
+    )
 
 
 def checked(cwd, *command):
@@ -68,6 +72,7 @@ def run_side(tree, commit, entry):
         tree,
         "flutter", "test", "--no-pub", entry["test"],
         "--plain-name", entry["name"],
+        env=os.environ | ({"TZ": entry["tz"]} if "tz" in entry else {}),
     )
     output = result.stdout + result.stderr
     return {
