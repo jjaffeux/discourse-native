@@ -286,6 +286,96 @@ void main() {
       isNotNull,
     );
   });
+
+  // Inside the account button its parent also redraws on these changes. A
+  // feature header mounts the menu alone, with only its own subscriptions.
+  group('a menu mounted on its own', () {
+    final trigger = find.byKey(const ValueKey('user-presence-menu'));
+    String? label(WidgetTester tester) =>
+        tester.widget<DButton>(trigger).semanticLabel;
+    const online = 'Status and notifications, Online';
+    const offline = 'Status and notifications, Offline';
+    const paused = 'Status and notifications, Notifications paused';
+
+    Future<void> pumpMenu(WidgetTester tester, ShellController shell) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          builder: (context, child) =>
+              ShellScope(controller: shell, child: child!),
+          home: const Scaffold(body: UserPresenceMenu(siteUrl: _siteUrl)),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    FakeDiscourseApi api() =>
+        FakeDiscourseApi(user: _user, feeds: const {'/latest.json': <Topic>[]});
+
+    testWidgets('follows the presence setting', (tester) async {
+      final shell = await _controller(api: api(), user: _user);
+      addTearDown(shell.dispose);
+      await pumpMenu(tester, shell);
+      expect(label(tester), online);
+
+      await shell.toggleHidePresence(_siteUrl);
+      await tester.pumpAndSettle();
+      expect(label(tester), offline);
+
+      await shell.toggleHidePresence(_siteUrl);
+      await tester.pumpAndSettle();
+      expect(label(tester), online);
+    });
+
+    testWidgets('follows a replacement account on its site', (tester) async {
+      const replacement = DiscourseUser(
+        id: 19,
+        username: 'replacement',
+        hidePresence: true,
+      );
+      final auth = FakeAuthenticator()..keys[_siteUrl] = 'key';
+      final shell = await _controller(
+        api: api()..accounts['replacement-key'] = replacement,
+        user: _user,
+        auth: auth,
+      );
+      addTearDown(shell.dispose);
+      await pumpMenu(tester, shell);
+      expect(label(tester), online);
+
+      expect(await shell.removeInstance(shell.currentInstance!), isTrue);
+      await tester.pumpAndSettle();
+      auth.keys[_siteUrl] = 'replacement-key';
+      expect(
+        await shell.addInstance(
+          instance('meta.discourse.org').copyWith(user: replacement),
+        ),
+        isTrue,
+      );
+      await tester.pumpAndSettle();
+
+      expect(shell.currentInstance?.user, replacement);
+      expect(label(tester), offline);
+    });
+
+    testWidgets('follows a pause until it expires', (tester) async {
+      final shell = await _controller(api: api(), user: _user);
+      addTearDown(shell.dispose);
+      await pumpMenu(tester, shell);
+      expect(label(tester), online);
+
+      shell.doNotDisturb.acceptSnapshot(
+        _siteUrl,
+        DateTime.now().add(const Duration(seconds: 30)),
+        isCurrent: true,
+      );
+      await tester.pump();
+      expect(label(tester), paused);
+
+      await tester.pump(const Duration(seconds: 31));
+      expect(label(tester), online);
+    });
+  });
 }
 
 final class _GatedCurrentUserApi extends FakeDiscourseApi {
@@ -308,15 +398,15 @@ final class _GatedCurrentUserApi extends FakeDiscourseApi {
 Future<ShellController> _controller({
   required FakeDiscourseApi api,
   required DiscourseUser user,
+  FakeAuthenticator? auth,
 }) async {
-  final auth = FakeAuthenticator()..keys[_siteUrl] = 'key';
   final shell = ShellController(
     plugins: installedPlugins,
     instanceStore: FakeInstanceStore([
       instance('meta.discourse.org').copyWith(user: user),
     ]),
     api: api,
-    authenticator: auth,
+    authenticator: auth ?? (FakeAuthenticator()..keys[_siteUrl] = 'key'),
     drafts: FakeDraftStore(),
     trackers: FakeSiteTracker.reset(),
   );

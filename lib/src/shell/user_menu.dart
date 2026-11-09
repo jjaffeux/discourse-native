@@ -819,12 +819,16 @@ class _UserPresenceMenuState extends State<UserPresenceMenu> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    final shell = ShellScope.of(context);
+  Widget build(BuildContext context) => ShellSelector<bool?>(
+    select: (shell) => shell.hidePresenceFor(widget.siteUrl),
+    builder: _buildMenu,
+  );
+
+  Widget _buildMenu(BuildContext context, bool? hidden, Widget? _) {
+    final shell = ShellScope.read(context);
     return ListenableBuilder(
       listenable: shell.doNotDisturb,
       builder: (context, _) {
-        final hidden = shell.hidePresenceFor(widget.siteUrl);
         final paused = shell.doNotDisturb
             .stateFor(widget.siteUrl)
             .isActiveAt(DateTime.now());
