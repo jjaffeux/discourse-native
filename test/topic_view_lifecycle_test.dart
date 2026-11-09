@@ -16,6 +16,7 @@ import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_image.dart';
+import 'package:discourse_native/src/shell/site_url.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -109,22 +110,17 @@ void main() {
         expect(_lastVisiblePost(list), greaterThan(1));
         expect(api.topicReadsRecorded, isEmpty);
 
-        final siteImage = tester.widget<SiteImage>(find.byType(SiteImage));
-        final ImageProvider<Object> imageProvider = siteImage.cacheWidth == null
-            ? MemoryImage(_tallPng)
-            : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
-        await tester.runAsync(
-          () => precacheImage(
-            imageProvider,
-            tester.element(find.byType(TopicView)),
-          ),
-        );
         imageResponse.complete(
           http.Response.bytes(
             _tallPng,
             200,
             headers: const {'content-type': 'image/png'},
           ),
+        );
+        await _precachePublishedImage(
+          tester,
+          siteImages,
+          tester.widget<SiteImage>(find.byType(SiteImage)),
         );
         await tester.pumpAndSettle();
         await tester.pump(const Duration(milliseconds: 100));
@@ -215,17 +211,6 @@ void main() {
               findsOneWidget,
             );
             expect(imageRequests, 1);
-            final siteImage = tester.widget<SiteImage>(pendingImage);
-            final ImageProvider<Object> imageProvider =
-                siteImage.cacheWidth == null
-                ? MemoryImage(_tallPng)
-                : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
-            await tester.runAsync(
-              () => precacheImage(
-                imageProvider,
-                tester.element(find.byType(TopicView)),
-              ),
-            );
             imageResponse.complete(
               imageFails
                   ? http.Response('', 404)
@@ -234,6 +219,11 @@ void main() {
                       200,
                       headers: const {'content-type': 'image/png'},
                     ),
+            );
+            await _precachePublishedImage(
+              tester,
+              siteImages,
+              tester.widget<SiteImage>(pendingImage),
             );
             final post = find.byKey(const ValueKey(1));
             var sawLoadedImage = false;
@@ -338,23 +328,17 @@ void main() {
           );
           expect(imageRequests, 1);
 
-          final siteImage = tester.widget<SiteImage>(pendingImage);
-          final ImageProvider<Object> imageProvider =
-              siteImage.cacheWidth == null
-              ? MemoryImage(_tallPng)
-              : FittedMemoryImage(_tallPng, width: siteImage.cacheWidth);
-          await tester.runAsync(
-            () => precacheImage(
-              imageProvider,
-              tester.element(find.byType(TopicView)),
-            ),
-          );
           imageResponse.complete(
             http.Response.bytes(
               _tallPng,
               200,
               headers: const {'content-type': 'image/png'},
             ),
+          );
+          await _precachePublishedImage(
+            tester,
+            siteImages,
+            tester.widget<SiteImage>(pendingImage),
           );
           await tester.pumpAndSettle();
           expect(find.byKey(const ValueKey(1)), findsOneWidget);
@@ -3327,6 +3311,30 @@ Future<void> _pumpUntilRendered(
   }
   if (rendered.evaluate().isNotEmpty) return;
   fail('Cooked HTML did not finish rendering "$text" within $timeout.');
+}
+
+/// Decodes what [images] published for [image] before any frame asks for it.
+/// The image cache keys on the repository's own copy of the bytes, and a decode
+/// started under the fake clock would never finish.
+Future<void> _precachePublishedImage(
+  WidgetTester tester,
+  SiteImageRepository images,
+  SiteImage image,
+) async {
+  await tester.binding.delayed(Duration.zero);
+  final bytes = images
+      .cached(
+        siteUrl: image.siteUrl!,
+        url: resolveSiteUrl(image.url, image.siteUrl),
+      )
+      ?.bytes;
+  if (bytes == null) return;
+  final ImageProvider<Object> provider = image.cacheWidth == null
+      ? MemoryImage(bytes)
+      : FittedMemoryImage(bytes, width: image.cacheWidth);
+  await tester.runAsync(
+    () => precacheImage(provider, tester.element(find.byType(TopicView))),
+  );
 }
 
 int _lastVisiblePost(TopicPostListHandle list) {
