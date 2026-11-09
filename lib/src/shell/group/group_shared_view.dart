@@ -356,13 +356,34 @@ String _fieldLabel(String key) {
   return '${words[0].toUpperCase()}${words.substring(1)}';
 }
 
-String _levelLabel(int value) => switch (value) {
+/// `Group.visibility_levels`.
+String _visibilityLevelLabel(int value) => switch (value) {
   0 => appL10n.everyone,
   1 => appL10n.loggedInUsers,
-  2 => appL10n.groupMembers,
-  3 => appL10n.groupOwners,
-  4 => appL10n.staff,
-  99 => appL10n.nobody,
+  2 => appL10n.groupOwnersMembersAndModerators,
+  3 => appL10n.groupOwnersAndModerators,
+  4 => appL10n.groupOwners,
+  _ => appL10n.level((value).toString()),
+};
+
+/// `Group::ALIAS_LEVELS`.
+String _interactionLevelLabel(int value) => switch (value) {
+  0 => appL10n.nobody,
+  1 => appL10n.onlyAdmins,
+  2 => appL10n.onlyModeratorsAndAdmins,
+  3 => appL10n.onlyGroupMembersModeratorsAndAdmins,
+  4 => appL10n.onlyGroupOwnersModeratorsAndAdmins,
+  99 => appL10n.everyone,
+  _ => appL10n.level((value).toString()),
+};
+
+/// `NotificationLevels.all`.
+String _notificationLevelLabel(int value) => switch (value) {
+  0 => appL10n.muted,
+  1 => appL10n.normal,
+  2 => appL10n.tracking,
+  3 => appL10n.watching,
+  4 => appL10n.watchingFirstPost,
   _ => appL10n.level((value).toString()),
 };
 

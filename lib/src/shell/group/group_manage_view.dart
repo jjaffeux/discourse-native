@@ -276,6 +276,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         _LevelField(
           label: appL10n.groupVisibility,
+          optionLabel: _visibilityLevelLabel,
           value: controller.visibility,
           onChanged: controller.canEditField('visibility_level')
               ? controller.setVisibility
@@ -283,6 +284,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         _LevelField(
           label: appL10n.memberListVisibility,
+          optionLabel: _visibilityLevelLabel,
           value: controller.membersVisibility,
           onChanged: controller.canEditField('members_visibility_level')
               ? controller.setMembersVisibility
@@ -325,6 +327,7 @@ class _GroupManageFormState extends State<_GroupManageForm> {
         ),
         _LevelField(
           label: appL10n.defaultNotificationLevel,
+          optionLabel: _notificationLevelLabel,
           value: controller.defaultNotification,
           onChanged: controller.setDefaultNotification,
         ),
@@ -565,11 +568,13 @@ class _FormHeading extends StatelessWidget {
 class _LevelField extends StatelessWidget {
   const _LevelField({
     required this.label,
+    required this.optionLabel,
     required this.value,
     required this.onChanged,
   });
 
   final String label;
+  final String Function(int value) optionLabel;
   final int value;
   final ValueChanged<int>? onChanged;
 
@@ -587,8 +592,8 @@ class _LevelField extends StatelessWidget {
           for (final option in values)
             DSelectOption(
               value: option,
-              label: _levelLabel(option),
-              child: Text(_levelLabel(option)),
+              label: optionLabel(option),
+              child: Text(optionLabel(option)),
             ),
         ],
         onChanged: (next) {
@@ -624,8 +629,8 @@ class _InteractionLevelField extends StatelessWidget {
           for (final option in values)
             DSelectOption(
               value: option,
-              label: _levelLabel(option),
-              child: Text(_levelLabel(option)),
+              label: _interactionLevelLabel(option),
+              child: Text(_interactionLevelLabel(option)),
             ),
         ],
         onChanged: (next) {

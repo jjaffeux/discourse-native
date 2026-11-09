@@ -10182,14 +10182,44 @@ abstract class AppLocalizations {
   /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Group members'**
-  String get groupMembers;
+  /// **'Group owners'**
+  String get groupOwners;
 
   /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Group owners'**
-  String get groupOwners;
+  /// **'Group owners, members and moderators'**
+  String get groupOwnersMembersAndModerators;
+
+  /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Group owners and moderators'**
+  String get groupOwnersAndModerators;
+
+  /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Only admins'**
+  String get onlyAdmins;
+
+  /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Only moderators and admins'**
+  String get onlyModeratorsAndAdmins;
+
+  /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Only group members, moderators and admins'**
+  String get onlyGroupMembersModeratorsAndAdmins;
+
+  /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Only group owners, moderators and admins'**
+  String get onlyGroupOwnersModeratorsAndAdmins;
 
   /// English UI message used by shell/group/group_shared_view.dart. Keep placeholders intact.
   ///
