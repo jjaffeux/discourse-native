@@ -1168,7 +1168,7 @@ void main() {
     expect(find.text('Copy link'), findsOneWidget);
     expect(find.text('React'), findsOneWidget);
     expect(find.byKey(const ValueKey('chat-message-react-7')), findsNothing);
-    expect(find.byTooltip('Reply'), findsNothing);
+    expect(find.byTooltip('Reply'), findsOneWidget);
     expect(find.byType(DSheetContent), findsOneWidget);
   });
 }

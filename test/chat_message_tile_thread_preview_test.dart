@@ -1620,6 +1620,216 @@ void main() {
       );
     }
 
+    group('touch Reply', () {
+      Finder reply() =>
+          find.byKey(const ValueKey('chat-message-reply-action-7'));
+      double bubbleWidth(WidgetTester tester) => tester
+          .getSize(find.byKey(const ValueKey('chat-message-bubble-7')))
+          .width;
+
+      for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
+        testWidgets(
+          'is always drawn beside the message on ${platform.name} and starts '
+          'the reply',
+          (tester) async {
+            final message = _message(null);
+            final controller = await _controller(message);
+            final replies = <ChatMessage>[];
+            addTearDown(controller.dispose);
+
+            await tester.pumpWidget(
+              _TestTile(
+                controller: controller,
+                onOpenThread: (_) {},
+                onReply: replies.add,
+                platform: platform,
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            expect(reply().hitTestable(), findsOneWidget);
+            final bounds = tester.getRect(reply());
+            expect(bounds.size, const Size.square(26));
+            final row = tester.getRect(
+              find.byKey(const ValueKey('chat-message-7')),
+            );
+            expect(row.right - bounds.right, 8);
+            expect(
+              tester.getRect(find.byType(CookedHtml)).right,
+              lessThanOrEqualTo(bounds.left),
+            );
+
+            await tester.tap(reply().hitTestable());
+            await tester.pump();
+
+            expect(replies, [same(message)]);
+          },
+        );
+      }
+
+      testWidgets('leaves with the permission and gives its column back', (
+        tester,
+      ) async {
+        final controller = await _controller(_message(null));
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            onReply: (_) {},
+            platform: TargetPlatform.iOS,
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(reply().hitTestable(), findsOneWidget);
+        final narrowed = bubbleWidth(tester);
+
+        controller.chatRecords.put(
+          _siteUrl,
+          const ChatChannel(
+            id: 9,
+            title: 'Support',
+            kind: ChatChannelKind.category,
+            status: ChatChannelStatus.readOnly,
+            membership: ChatMembership(following: true),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(reply(), findsNothing);
+        expect(bubbleWidth(tester), greaterThan(narrowed));
+      });
+
+      for (final chained in [true, false]) {
+        for (final scale in [1.0, 2.0]) {
+          testWidgets(
+            'adds no height at ${scale}x text and is pressable across what it '
+            'draws (chained: $chained)',
+            (tester) async {
+              final controller = await _controller(_message(null));
+              final replies = <ChatMessage>[];
+              addTearDown(controller.dispose);
+              Widget tile({ValueChanged<ChatMessage>? onReply}) => _TestTile(
+                controller: controller,
+                onOpenThread: (_) {},
+                onReply: onReply,
+                platform: TargetPlatform.iOS,
+                chained: chained,
+                textScaler: TextScaler.linear(scale),
+              );
+              Rect row() =>
+                  tester.getRect(find.byKey(const ValueKey('chat-message-7')));
+
+              await tester.pumpWidget(tile());
+              await tester.pumpAndSettle();
+              expect(reply(), findsNothing);
+              final withoutReply = row().height;
+
+              await tester.pumpWidget(tile(onReply: replies.add));
+              await tester.pumpAndSettle();
+              expect(row().height, withoutReply);
+
+              final bounds = tester.getRect(reply());
+              expect(bounds.top, greaterThanOrEqualTo(row().top));
+              expect(bounds.bottom, lessThanOrEqualTo(row().bottom));
+
+              await tester.tapAt(bounds.topCenter + const Offset(0, 0.5));
+              await tester.pump(const Duration(milliseconds: 500));
+              await tester.tapAt(bounds.bottomCenter - const Offset(0, 0.5));
+              await tester.pump(const Duration(milliseconds: 500));
+              expect(replies, hasLength(2));
+            },
+          );
+        }
+      }
+
+      testWidgets('reaches 44 points through the kit', (tester) async {
+        final controller = await _controller(_message(null));
+        final replies = <ChatMessage>[];
+        addTearDown(controller.dispose);
+        await tester.pumpWidget(
+          _TestTile(
+            controller: controller,
+            onOpenThread: (_) {},
+            onReply: replies.add,
+            platform: TargetPlatform.iOS,
+            withTouchTargets: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tapAt(
+          tester.getRect(reply()).centerLeft - const Offset(8, 0),
+        );
+        await tester.pump();
+
+        expect(replies, hasLength(1));
+      });
+
+      testWidgets('keeps the width a sent message will need once confirmed', (
+        tester,
+      ) async {
+        final sent = ChatMessage.optimistic(
+          id: -1,
+          channelId: 9,
+          raw: 'Root message',
+          stagedId: 'native-1',
+          preview: const SourceFallback(
+            'Root message',
+            ChatPreviewFallbackReason.unsupportedSyntax,
+          ),
+          author: const ChatMessageAuthor(id: 99, username: 'root'),
+          createdAt: DateTime.utc(2026, 8, 12),
+        );
+        final controller = await _controller(_message(null));
+        addTearDown(controller.dispose);
+        controller.chatRecords.put(_siteUrl, sent);
+        Widget tile(int messageId) => _TestTile(
+          controller: controller,
+          messageId: messageId,
+          onOpenThread: (_) {},
+          onReply: (_) {},
+          platform: TargetPlatform.iOS,
+        );
+
+        await tester.pumpWidget(tile(sent.id));
+        await tester.pumpAndSettle();
+        expect(find.byTooltip('Reply'), findsNothing);
+        final sending = tester
+            .getSize(find.byKey(ValueKey('chat-message-bubble-${sent.id}')))
+            .width;
+
+        await tester.pumpWidget(tile(7));
+        await tester.pumpAndSettle();
+
+        expect(reply().hitTestable(), findsOneWidget);
+        expect(bubbleWidth(tester), sending);
+      });
+
+      testWidgets('claims no width in a pane that does not offer it', (
+        tester,
+      ) async {
+        final controller = await _controller(_message(_thread()));
+        addTearDown(controller.dispose);
+        Widget tile({int? contextThreadId}) => _TestTile(
+          controller: controller,
+          onOpenThread: (_) {},
+          onReply: (_) {},
+          contextThreadId: contextThreadId,
+          platform: TargetPlatform.iOS,
+        );
+        await tester.pumpWidget(tile());
+        await tester.pumpAndSettle();
+        final inChannel = bubbleWidth(tester);
+
+        await tester.pumpWidget(tile(contextThreadId: 3));
+        await tester.pumpAndSettle();
+
+        expect(reply(), findsNothing);
+        expect(bubbleWidth(tester), greaterThan(inChannel));
+      });
+    });
+
     testWidgets(
       'layout-triggered scrolling hides actions until the pointer moves again',
       (tester) async {
@@ -2481,31 +2691,35 @@ void main() {
             contextThreadId: 3,
           ),
         ]) {
-      testWidgets('hides the reply action when ${variant.name}', (
-        tester,
-      ) async {
-        final message = variant.message();
-        final controller = await _controller(message);
-        final replies = <ChatMessage>[];
-        addTearDown(controller.dispose);
+      for (final platform in [TargetPlatform.macOS, TargetPlatform.iOS]) {
+        testWidgets(
+          'hides the reply action on ${platform.name} when ${variant.name}',
+          (tester) async {
+            final message = variant.message();
+            final controller = await _controller(message);
+            final replies = <ChatMessage>[];
+            addTearDown(controller.dispose);
 
-        await tester.pumpWidget(
-          _TestTile(
-            controller: controller,
-            messageId: message.id,
-            onOpenThread: (_) {},
-            onReply: variant.provideCallback ? replies.add : null,
-            contextThreadId: variant.contextThreadId,
-          ),
+            await tester.pumpWidget(
+              _TestTile(
+                controller: controller,
+                messageId: message.id,
+                onOpenThread: (_) {},
+                onReply: variant.provideCallback ? replies.add : null,
+                contextThreadId: variant.contextThreadId,
+                platform: platform,
+              ),
+            );
+            await tester.pumpAndSettle();
+
+            await _hoverMessage(tester);
+
+            expect(find.byTooltip('Reply').hitTestable(), findsNothing);
+            expect(_replySemanticsOwner(), findsNothing);
+            expect(replies, isEmpty);
+          },
         );
-        await tester.pumpAndSettle();
-
-        await _hoverMessage(tester);
-
-        expect(find.byTooltip('Reply').hitTestable(), findsNothing);
-        expect(_replySemanticsOwner(), findsNothing);
-        expect(replies, isEmpty);
-      });
+      }
     }
 
     for (final activation in [
@@ -2911,6 +3125,7 @@ class _TestTile extends StatelessWidget {
     this.previousMessageId,
     this.platform = TargetPlatform.macOS,
     this.withToaster = false,
+    this.withTouchTargets = false,
     this.brightness = Brightness.light,
     this.textScaler,
     this.captureKey,
@@ -2928,6 +3143,7 @@ class _TestTile extends StatelessWidget {
   final int? previousMessageId;
   final TargetPlatform platform;
   final bool withToaster;
+  final bool withTouchTargets;
   final Brightness brightness;
   final TextScaler? textScaler;
   final GlobalKey? captureKey;
@@ -2953,6 +3169,9 @@ class _TestTile extends StatelessWidget {
         builder: (context, child) {
           if (withToaster) {
             child = DToaster(child: child!);
+          }
+          if (withTouchTargets) {
+            child = DTouchTargets(child: child!);
           }
           return MediaQuery(
             data: MediaQuery.of(context).copyWith(textScaler: textScaler),
