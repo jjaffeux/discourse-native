@@ -695,11 +695,7 @@ void main() {
       if (subsection == GroupRoute.membership) {
         await tester.tap(find.widgetWithText(DSwitchTile, 'Members can leave'));
       } else {
-        await _chooseLevel(
-          tester,
-          'Default notification level',
-          'Group owners',
-        );
+        await _chooseLevel(tester, 'Default notification level', 'Watching');
       }
       await tester.pumpAndSettle();
       await server.save(tester);
