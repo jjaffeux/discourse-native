@@ -43,7 +43,24 @@ void main() {
       await tester.pumpAndSettle();
       shell.openTopicFromList(setup.api.feeds['/latest.json']!.first);
       await tester.pumpAndSettle();
-      await _fillLongFeed(shell, setup.api);
+      await _fillLongFeed(shell, setup.api, endPage: 4);
+      // The list stays mounted behind the reader and its viewport protects
+      // the rows it covers, so the rows beside the reader can only be evicted
+      // by a page that arrives after the list has scrolled away from them.
+      final list = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byType(TopicListView, skipOffstage: false),
+              matching: find.byType(Scrollable, skipOffstage: false),
+            )
+            .first,
+      );
+      // The extent is only known for laid-out rows until the first jump.
+      for (var jump = 0; jump < 2; jump++) {
+        list.position.jumpTo(list.position.maxScrollExtent);
+        await tester.pumpAndSettle();
+      }
+      await _fillLongFeed(shell, setup.api, firstPage: 4);
       expect(shell.currentFeed!.rowCount, 1050);
       expect(shell.currentFeed!.topicIds.length, lessThanOrEqualTo(300));
       expect(shell.currentFeed!.indexOfTopic(1), 0);
@@ -1303,8 +1320,13 @@ ScrollView _scrollable(WidgetTester tester, Finder root) =>
       ),
     );
 
-Future<void> _fillLongFeed(ShellController shell, FakeDiscourseApi api) async {
-  for (var page = 1; page < 35; page++) {
+Future<void> _fillLongFeed(
+  ShellController shell,
+  FakeDiscourseApi api, {
+  int firstPage = 1,
+  int endPage = 35,
+}) async {
+  for (var page = firstPage; page < endPage; page++) {
     final path = '/latest.json?page=$page';
     api.feeds[path] = [
       for (var id = page * 30 + 1; id <= (page + 1) * 30; id++)

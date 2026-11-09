@@ -86,9 +86,11 @@ void main() {
         'lib/src/shell/notification_schedule_sheet.dart': {'shape': 1},
         // The avatar trigger uses the mockup's 22% outline around the avatar,
         // with no fill of its own at rest or on hover. In the drawer, the
-        // profile action is a pill inside the footer card's rounded end.
+        // profile action is a pill inside the footer card's rounded end, and
+        // on desktop its hover follows the card's panel radius.
         'lib/src/shell/user_menu_button.dart': {
           'shape': 3,
+          'borderRadius': 1,
           'backgroundColor': 1,
           'interactiveBackgroundColor': 1,
           'borderColor': 1,
@@ -156,7 +158,7 @@ void main() {
         'lib/src/shell/message_archive_button.dart': {'backgroundColor': 1},
         // Mobile user-card actions match the documented borderless pill row.
         // Chat uses the mockup's muted fill beside the primary Message action.
-        'lib/src/shell/user_card.dart': {'shape': 2, 'borderColor': 2},
+        'lib/src/shell/user_card.dart': {'shape': 3, 'borderColor': 3},
         'lib/src/plugins/chat/chat_user_card.dart': {
           'shape': 1,
           'backgroundColor': 1,
@@ -181,9 +183,23 @@ void main() {
           'interactiveBackgroundColor': 3,
         },
         // Window/sidebar destinations and their search/close actions are pills.
-        'lib/src/shell/title_bar.dart': {'shape': 2},
-        'lib/src/shell/global_search_panel.dart': {'shape': 1},
+        'lib/src/shell/title_bar.dart': {'shape': 1},
+        // A search filter is a pill; a phone result pill takes its category's
+        // tint, or the quiet control surface when it has no category.
+        'lib/src/shell/global_search_panel.dart': {
+          'shape': 1,
+          'backgroundColor': 1,
+          'foregroundColor': 1,
+          'borderColor': 1,
+          'interactiveBackgroundColor': 1,
+        },
         'lib/src/shell/main_content.dart': {'shape': 1},
+        // Lightbox controls sit on the black media backdrop, where theme
+        // surfaces would vanish, so they keep the mockup's translucent white.
+        'lib/src/shell/lightbox.dart': {
+          'backgroundColor': 1,
+          'foregroundColor': 1,
+        },
         // The icon-only presence circle is bare at rest, 8% of the text under
         // the pointer and raised only while its menu is open.
         'lib/src/shell/user_menu.dart': {
