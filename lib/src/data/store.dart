@@ -314,11 +314,12 @@ class Store {
     if (next.storeId != id) {
       throw StateError('An update cannot change a stored record identity.');
     }
-    if (!identical(held, next)) {
-      _bump(siteUrl, T);
-      if (!held.hasSameStoreStructure(next)) {
-        _bumpStructure(siteUrl, T, id);
-      }
+    // Every `merge` keeps the held record for an equal value, and a copy that
+    // changes nothing must not redraw each reader of this ref either.
+    if (next == held) return;
+    _bump(siteUrl, T);
+    if (!held.hasSameStoreStructure(next)) {
+      _bumpStructure(siteUrl, T, id);
     }
     cell._set(next);
   }

@@ -4169,8 +4169,7 @@ final class _PostFacingTopic {
 
   @override
   bool operator ==(Object other) =>
-      other is _PostFacingTopic &&
-      topic.hasSameFieldsBesidesFigures(other.topic);
+      other is _PostFacingTopic && topic.hasSamePostFacingFields(other.topic);
 
   @override
   int get hashCode => topic.id.hashCode;

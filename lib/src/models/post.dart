@@ -1413,7 +1413,7 @@ class TopicDetail with Storable<TopicDetail> {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is TopicDetail &&
-          hasSameFieldsBesidesFigures(other) &&
+          hasSamePostFacingFields(other) &&
           other.messageBusLastId == messageBusLastId &&
           other.lastPostedAt == lastPostedAt &&
           listEquals(other.stream, stream) &&
@@ -1428,14 +1428,16 @@ class TopicDetail with Storable<TopicDetail> {
           other.participantCount == participantCount &&
           other.wordCount == wordCount &&
           listEquals(other.participants, participants) &&
-          listEquals(other.links, links);
+          listEquals(other.links, links) &&
+          listEquals(other.bookmarks, bookmarks);
 
-  /// Whether [other] differs from this topic at most in the figures a like or
-  /// a reply moves: its totals, its post stream and what follows from them.
+  /// Whether [other] differs from this topic at most in what a post tile does
+  /// not read from it: the figures a like or a reply moves, and the bookmarks
+  /// of individual posts, which each post carries for itself.
   ///
   /// A post tile compares topics with this, so a field belongs here unless
   /// every reader of it follows the stored topic on its own.
-  bool hasSameFieldsBesidesFigures(TopicDetail other) =>
+  bool hasSamePostFacingFields(TopicDetail other) =>
       identical(this, other) ||
       other.id == id &&
           other.title == title &&
@@ -1476,7 +1478,7 @@ class TopicDetail with Storable<TopicDetail> {
           listEquals(other.topicActions, topicActions) &&
           other.draft == draft &&
           other.draftSequence == draftSequence &&
-          listEquals(other.bookmarks, bookmarks) &&
+          other.topicBookmark == topicBookmark &&
           other.recommendations == recommendations &&
           other.plugins == plugins;
 

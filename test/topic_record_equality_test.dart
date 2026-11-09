@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,7 +114,24 @@ void main() {
       );
 
       expect(moved == held, isFalse);
-      expect(moved.hasSameFieldsBesidesFigures(held), isTrue);
+      expect(moved.hasSamePostFacingFields(held), isTrue);
+    });
+
+    test('ignores a bookmark on one post and notices one on the topic', () {
+      Bookmark bookmark(String type) => Bookmark(
+        id: 1,
+        bookmarkableId: 7,
+        bookmarkableType: type,
+        postNumber: 1,
+        autoDeletePreference: BookmarkAutoDeletePreference.never,
+      );
+
+      final onPost = held.copyWith(bookmarks: [bookmark('Post')]);
+      final onTopic = held.copyWith(bookmarks: [bookmark('Topic')]);
+
+      expect(onPost == held, isFalse);
+      expect(onPost.hasSamePostFacingFields(held), isTrue);
+      expect(onTopic.hasSamePostFacingFields(held), isFalse);
     });
 
     test('notices every field a post can read', () {
@@ -126,7 +144,7 @@ void main() {
         held.copyWith(visible: false),
         held.copyWith(categoryId: 3),
       ]) {
-        expect(changed.hasSameFieldsBesidesFigures(held), isFalse);
+        expect(changed.hasSamePostFacingFields(held), isFalse);
       }
     });
   });
