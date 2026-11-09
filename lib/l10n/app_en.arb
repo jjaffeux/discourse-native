@@ -19444,6 +19444,13 @@
     "description": "Live room onebox participant count from the viewer's current room directory.",
     "placeholders": { "count": { "type": "int" } }
   },
+  "voiceRoomPeopleHere": "{count, plural, one{1 person here} other{{count} people here}}",
+  "@voiceRoomPeopleHere": {
+    "description": "Status line under a Live room's name in the room lists, while people are in it.",
+    "placeholders": { "count": { "type": "int" } }
+  },
+  "voiceRoomEmpty": "Empty",
+  "@voiceRoomEmpty": {"description": "Status line under a Live room's name in the room lists, when nobody is in it."},
   "voiceRoomDelete": "Delete room",
   "@voiceRoomDelete": {"description": "Action to delete a persistent Live room."},
   "voiceRoomDeleteConfirm": "Delete this room? Everyone in the call will be disconnected. This cannot be undone.",

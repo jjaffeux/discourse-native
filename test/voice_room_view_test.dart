@@ -3461,6 +3461,66 @@ void main() {
 }
 
 void _joinLoadingTests() {
+  testWidgets('inbox room status follows live presence', (tester) async {
+    final room = _room(participants: const []);
+    final tracker = RecordingPluginLiveChannels();
+    final harness = _Harness(
+      joinRoom: room,
+      tracker: tracker,
+      clock: () => tester.binding.clock.now(),
+    );
+    addTearDown(harness.dispose);
+    harness.transport.responses['GET /voice/rooms.json'] = {
+      'rooms': [_joinPayload(room)['room']],
+    };
+    await harness.controller.ensureLoaded(_siteUrl);
+    final inbox = VoiceChatInbox(
+      harness.controller,
+      _voiceShell(
+        harness.controller,
+        site: const PluginRouteSite(
+          url: _siteUrl,
+          title: 'Voice',
+          isConnected: true,
+        ),
+      ),
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: ListenableBuilder(
+            listenable: inbox,
+            builder: (context, _) => ChatInboxRoomRow(
+              room: inbox.rooms(_siteUrl).single,
+              compact: true,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Empty'), findsOneWidget);
+
+    var messageId = 100;
+    Future<void> present(List<Map<String, Object>> participants) async {
+      tracker.deliver('/voice/rooms/7', {
+        'type': 'participants',
+        'participants': participants,
+      }, messageId: messageId++);
+      await tester.pump();
+    }
+
+    const lee = {'id': 2, 'username': 'lee', 'role': 'participant'};
+    const kim = {'id': 3, 'username': 'kim', 'role': 'participant'};
+    await present(const [lee]);
+    expect(find.text('1 person here'), findsOneWidget);
+    expect(find.text('Empty'), findsNothing);
+    await present(const [lee, kim]);
+    expect(find.text('2 people here'), findsOneWidget);
+    await present(const []);
+    expect(find.text('Empty'), findsOneWidget);
+  });
+
   testWidgets('inbox notifies only for rooms and join loading', (tester) async {
     final room = _room(
       videoAllowed: true,

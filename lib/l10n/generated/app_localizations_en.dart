@@ -14868,6 +14868,20 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String voiceRoomPeopleHere(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count people here',
+      one: '1 person here',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get voiceRoomEmpty => 'Empty';
+
+  @override
   String get voiceRoomDelete => 'Delete room';
 
   @override

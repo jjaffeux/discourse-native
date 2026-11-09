@@ -173,6 +173,7 @@ Finder _row(int channelId) => find.descendant(
 final class _Rooms extends ChangeNotifier implements ChatInboxRoomProvider {
   int version = 0;
   final opened = <int>[];
+  int people = 0;
 
   void republish() {
     version++;
@@ -189,7 +190,7 @@ final class _Rooms extends ChangeNotifier implements ChatInboxRoomProvider {
       ChatInboxRoom(
         id: 1,
         name: 'Watercooler',
-        people: 0,
+        people: people,
         open: (_) async => opened.add(published),
       ),
     ];
@@ -426,6 +427,39 @@ void main() {
       await tester.tap(find.byKey(const ValueKey('chat-inbox-room-1')));
       await tester.pump();
       expect(rooms.opened, [1], reason: 'The row must hold the latest room');
+      expect(tester.takeException(), isNull);
+    });
+
+    _mobileTest('a room status change without its channel rows', (
+      tester,
+    ) async {
+      await _pumpChatInbox(tester, phone);
+      final rooms = _Rooms();
+      addTearDown(rooms.dispose);
+      final shell = ShellScope.read(tester.element(_inbox));
+      addTearDown(
+        shell.pluginSession.require(chatInboxRoomsService).attach(rooms),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Empty'), findsOneWidget);
+      final channelRows = find.byType(ChatInboxRow).evaluate().toSet();
+      expect(channelRows, isNotEmpty);
+      final redrawn = <Element>{};
+      final previous = debugOnRebuildDirtyWidget;
+      debugOnRebuildDirtyWidget = (element, builtOnce) {
+        if (channelRows.contains(element)) redrawn.add(element);
+        previous?.call(element, builtOnce);
+      };
+      addTearDown(() => debugOnRebuildDirtyWidget = previous);
+
+      rooms
+        ..people = 2
+        ..republish();
+      await tester.pumpAndSettle();
+
+      expect(find.text('2 people here'), findsOneWidget);
+      expect(find.text('Empty'), findsNothing);
+      expect(redrawn, isEmpty);
       expect(tester.takeException(), isNull);
     });
   });

@@ -23463,6 +23463,18 @@ abstract class AppLocalizations {
   /// **'{count, plural, one{1 person here now} other{{count} people here now}}'**
   String voiceRoomHereNow(int count);
 
+  /// Status line under a Live room's name in the room lists, while people are in it.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{1 person here} other{{count} people here}}'**
+  String voiceRoomPeopleHere(int count);
+
+  /// Status line under a Live room's name in the room lists, when nobody is in it.
+  ///
+  /// In en, this message translates to:
+  /// **'Empty'**
+  String get voiceRoomEmpty;
+
   /// Action to delete a persistent Live room.
   ///
   /// In en, this message translates to:
