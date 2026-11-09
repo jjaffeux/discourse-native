@@ -6,6 +6,8 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import 'touch_target.dart';
+
 /// How far a control gives under a press, by what it is drawn as.
 enum DPressDepth {
   /// A control that stays put.
@@ -64,6 +66,25 @@ class DPressScale extends SingleChildRenderObjectWidget {
       ..pressDepth = depth
       ..reduceMotion = MediaQuery.disableAnimationsOf(context);
   }
+}
+
+/// A [DPressScale] that is also its control's [DTouchTarget], for a control
+/// that needs both on the same box and so pays for one render object at rest
+/// rather than two.
+class DPressTarget extends DPressScale {
+  const DPressTarget({
+    super.key,
+    required super.states,
+    required super.depth,
+    required super.child,
+  });
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderDPressTarget(
+    states,
+    depth,
+    reduceMotion: MediaQuery.disableAnimationsOf(context),
+  );
 }
 
 const _pressIn = Duration(milliseconds: 80);
@@ -188,4 +209,12 @@ class RenderDPressScale extends RenderProxyBox {
   void applyPaintTransform(RenderBox child, Matrix4 transform) {
     if (_scale != 1) transform.multiply(_transform);
   }
+}
+
+class _RenderDPressTarget extends RenderDPressScale with DTouchTargetBox {
+  _RenderDPressTarget(
+    super.states,
+    super.pressDepth, {
+    required super.reduceMotion,
+  });
 }

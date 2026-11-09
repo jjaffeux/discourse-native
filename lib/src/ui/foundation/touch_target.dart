@@ -75,13 +75,13 @@ class _RenderTouchTargetScope extends RenderProxyBox {
     return super.hitTest(result, position: position) || target != null;
   }
 
-  _RenderTouchTarget? _targetAt(Offset position) {
-    final candidates = <_RenderTouchTarget>[];
+  DTouchTargetBox? _targetAt(Offset position) {
+    final candidates = <DTouchTargetBox>[];
     visitChildren((child) => _collect(this, child, position, candidates));
     if (candidates.isEmpty) return null;
     final probe = BoxHitTestResult();
     super.hitTest(probe, position: position);
-    _RenderTouchTarget? best;
+    DTouchTargetBox? best;
     for (final target in candidates) {
       if (!_uncovered(target, probe) || !_pressable(target)) continue;
       if (best == null || _paintsAbove(target, best)) best = target;
@@ -97,7 +97,7 @@ class _RenderTouchTargetScope extends RenderProxyBox {
     RenderObject parent,
     RenderObject child,
     Offset point,
-    List<_RenderTouchTarget> found,
+    List<DTouchTargetBox> found,
   ) {
     final clip = parent.describeApproximatePaintClip(child);
     if (clip != null && !clip.contains(point)) return;
@@ -110,7 +110,7 @@ class _RenderTouchTargetScope extends RenderProxyBox {
       if (!child.hasSize) return;
       final reach = (Offset.zero & child.size).inflate(kDTouchTargetExtent / 2);
       if (!reach.contains(local)) return;
-      if (child is _RenderTouchTarget && child._reaches(local)) {
+      if (child is DTouchTargetBox && child._reaches(local)) {
         found.add(child);
       }
     }
@@ -119,7 +119,7 @@ class _RenderTouchTargetScope extends RenderProxyBox {
 
   /// Whether nothing drawn over [target]'s area holds the press: no other
   /// control is under it, and what is under it paints below the target.
-  bool _uncovered(_RenderTouchTarget target, BoxHitTestResult probe) {
+  bool _uncovered(DTouchTargetBox target, BoxHitTestResult probe) {
     final ancestors = _ancestors(target);
     RenderObject? deepest;
     for (final entry in probe.path) {
@@ -135,7 +135,7 @@ class _RenderTouchTargetScope extends RenderProxyBox {
 
   /// Whether a press at [target]'s own centre reaches it, so nothing such as
   /// a barrier, an offstage subtree or an ignored subtree stands in its way.
-  bool _pressable(_RenderTouchTarget target) {
+  bool _pressable(DTouchTargetBox target) {
     final centre = MatrixUtils.transformPoint(
       target.getTransformTo(this),
       target.size.center(Offset.zero),
@@ -146,7 +146,7 @@ class _RenderTouchTargetScope extends RenderProxyBox {
   }
 
   static bool _isControl(RenderObject hit) =>
-      hit is _RenderTouchTarget || isControlRenderObject(hit);
+      hit is DTouchTargetBox || isControlRenderObject(hit);
 
   static List<RenderObject> _ancestors(RenderObject node) => [
     for (var a = node.parent; a != null; a = a.parent) a,
@@ -178,9 +178,13 @@ class _RenderTouchTargetScope extends RenderProxyBox {
   }
 }
 
-class _RenderTouchTarget extends RenderProxyBox {
+class _RenderTouchTarget extends RenderProxyBox with DTouchTargetBox {}
+
+/// What makes a box a control's [DTouchTarget], so a control that needs a box
+/// of its own at that place anyway can be its touch target as well.
+mixin DTouchTargetBox on RenderProxyBox {
   _RenderTouchTargetScope? _scope;
-  final List<_RenderTouchTarget> _holders = [];
+  final List<DTouchTargetBox> _holders = [];
   int _held = 0;
 
   // The scope sits near the root and a row mounts a dozen targets inside its
@@ -190,7 +194,7 @@ class _RenderTouchTarget extends RenderProxyBox {
   @override
   void attach(PipelineOwner owner) {
     for (var node = parent; node != null; node = node.parent) {
-      if (node is _RenderTouchTarget) {
+      if (node is DTouchTargetBox) {
         _holders
           ..add(node)
           ..addAll(node._holders);
