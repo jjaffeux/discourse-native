@@ -47,6 +47,7 @@ void main() {
       'chat',
       'voice',
       'discourse-user-notes',
+      'discourse-zendesk-plugin',
     ]);
 
     final localDates = installed.descriptors.singleWhere(

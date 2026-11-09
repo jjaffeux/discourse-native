@@ -20858,5 +20858,21 @@
   "voiceLayoutTiled": "Tiled",
   "@voiceLayoutTiled": {
     "description": "Live room layout showing equally sized participant tiles."
+  },
+  "zendeskCreateTicket": "Create Zendesk ticket",
+  "@zendeskCreateTicket": {
+    "description": "Create Zendesk ticket"
+  },
+  "zendeskViewTicket": "View Zendesk ticket",
+  "@zendeskViewTicket": {
+    "description": "View Zendesk ticket"
+  },
+  "zendeskTicketCreated": "Zendesk ticket created",
+  "@zendeskTicketCreated": {
+    "description": "Zendesk ticket created"
+  },
+  "zendeskTicketFailed": "Could not create the Zendesk ticket",
+  "@zendeskTicketFailed": {
+    "description": "Could not create the Zendesk ticket"
   }
 }
