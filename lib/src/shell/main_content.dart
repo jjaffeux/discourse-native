@@ -172,7 +172,10 @@ class _MainContentState extends State<MainContent> {
         );
         final content = ListenableBuilder(
           listenable: shell.search,
-          builder: (context, _) {
+          // A search notification can change only the words, and the page
+          // reads those through SearchWords.
+          child: _buildBody(context, state, port),
+          builder: (context, body) {
             final words = state.siteUrl == null || route == null
                 ? ''
                 : shell.search.wordsFor(
@@ -236,7 +239,7 @@ class _MainContentState extends State<MainContent> {
                         ),
                       ),
                     ),
-                  Expanded(child: _buildBody(context, state, port)),
+                  Expanded(child: body!),
                 ],
               ),
             );
