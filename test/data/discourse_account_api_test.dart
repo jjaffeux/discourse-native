@@ -294,6 +294,42 @@ void main() {
   });
 
   group('notifications', () {
+    test(
+      'opening the whole list tells core the review queue was seen',
+      () async {
+        final urls = <Uri>[];
+        final api = _accountApi(
+          client: MockClient((request) async {
+            urls.add(request.url);
+            return http.Response(
+              jsonEncode({
+                'notifications': const <Object>[],
+                'seen_notification_id': 12,
+                'pending_reviewables': const <Object>[],
+              }),
+              200,
+            );
+          }),
+        );
+
+        await api.notifications(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+        );
+        await api.notifications(
+          siteUrl: 'https://meta.discourse.org',
+          apiKey: 'the-key',
+          filterByTypes: userMenuReplyNotificationTypes,
+        );
+
+        expect(urls.first.queryParameters['bump_last_seen_reviewable'], 'true');
+        expect(
+          urls.last.queryParameters,
+          isNot(contains('bump_last_seen_reviewable')),
+        );
+      },
+    );
+
     test('reads the list the user menu shows', () async {
       Uri? url;
       final api = _accountApi(
