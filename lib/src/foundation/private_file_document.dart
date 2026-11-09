@@ -243,7 +243,13 @@ Future<File> _moveAside(File target) async {
   return damaged;
 }
 
+/// A stage outlives its transaction only when a process dies mid-commit or its
+/// cleanup fails, so the first transaction on a path reclaims what earlier runs
+/// abandoned. A later orphan stays owner-only until the next launch sweeps it.
+final Set<String> _sweptPaths = {};
+
 Future<void> _removeAbandonedStages(File target) async {
+  if (_sweptPaths.contains(target.path)) return;
   final ownedStage = RegExp(
     '^${RegExp.escape(target.path)}\\.\\d+\\.[0-9a-f]{32}'
     r'\.private-document\.tmp$',
@@ -257,6 +263,7 @@ Future<void> _removeAbandonedStages(File target) async {
       // otherwise readable document unavailable.
     }
   }
+  _sweptPaths.add(target.path);
 }
 
 String _randomSuffix() => List<int>.generate(
