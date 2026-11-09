@@ -109,28 +109,30 @@ void main() {
   testWidgets('the capsule tells assistive technology when it is held in', (
     tester,
   ) async {
-    await _pump(tester);
-    await _tapAndSettle(tester, _newTopic);
-    expect(
+    final shell = await _pump(tester);
+    void expectHeldIn({required bool held}) => expect(
       tester.getSemantics(_toggle),
       isSemantics(
-        label: 'Minimize composer',
+        label: held ? 'Minimize composer' : 'Resume editing',
         isButton: true,
         hasToggledState: true,
-        isToggled: true,
+        isToggled: held,
       ),
     );
 
-    await _tapAndSettle(tester, _toggle);
-    expect(
-      tester.getSemantics(_toggle),
-      isSemantics(
-        label: 'Resume editing',
-        isButton: true,
-        hasToggledState: true,
-        isToggled: false,
-      ),
-    );
+    await _tapAndSettle(tester, _newTopic);
+    expectHeldIn(held: true);
+
+    // Each trip swaps the dock's layout under a live semantics tree, and it is
+    // the change after a restore that used to corrupt it.
+    for (final held in [false, true, false, true]) {
+      await _tapAndSettle(tester, _toggle);
+      expectHeldIn(held: held);
+    }
+
+    shell.closeComposer();
+    await tester.pumpAndSettle();
+    expect(_toggle, findsNothing);
   }, variant: _macOS);
 
   _capsuleTest(
