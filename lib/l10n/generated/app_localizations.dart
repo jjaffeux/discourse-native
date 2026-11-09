@@ -12104,6 +12104,12 @@ abstract class AppLocalizations {
   /// **'Remove forum'**
   String get removeForum;
 
+  /// Sidebar forum-name menu row that opens the current forum in the external browser.
+  ///
+  /// In en, this message translates to:
+  /// **'Open forum in browser'**
+  String get openForumInBrowser;
+
   /// English UI message used by shell/instance_actions.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
