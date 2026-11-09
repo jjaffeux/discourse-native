@@ -275,7 +275,7 @@ void main() {
       isFalse,
     );
     expect(find.byType(DNotificationDot), findsNothing);
-    expect(shell.allNotificationUnreadCount(_site), 0);
+    expect(shell.userMenuNotifications.allUnreadCount(_site), 0);
     expect(tester.takeException(), isNull);
   });
 

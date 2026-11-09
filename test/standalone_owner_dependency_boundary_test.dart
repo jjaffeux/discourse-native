@@ -30,6 +30,7 @@ const _owners = {
   'lib/src/shell/preview_loading.dart',
   'lib/src/shell/profile_write_transactions.dart',
   'lib/src/plugins/chat/chat_read_receipt_owner.dart',
+  'lib/src/shell/user_menu_notifications.dart',
 };
 
 void main() {

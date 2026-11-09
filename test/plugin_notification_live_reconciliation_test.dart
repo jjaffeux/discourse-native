@@ -245,7 +245,7 @@ void main() {
 
       await shell.load();
       await api.started.future;
-      await shell.dismissPluginNotifications(
+      await shell.userMenuNotifications.dismissPluginNotifications(
         _siteUrl,
         plugins.registry.notificationFeed(_testAlertFeed.id)!,
       );
@@ -319,7 +319,7 @@ void main() {
       expect(seeded.groupedUnreadNotifications.isAvailable, isTrue);
       expect(seeded.groupedUnreadNotifications.count(_testAlert), 3);
 
-      await shell.dismissPluginNotifications(
+      await shell.userMenuNotifications.dismissPluginNotifications(
         _siteUrl,
         plugins.registry.notificationFeed(_testAlertFeed.id)!,
       );

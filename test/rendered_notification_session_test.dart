@@ -128,7 +128,10 @@ final class _Api extends FakeDiscourseApi {
 }
 
 Future<void> _load(ShellController shell, String section) => switch (section) {
-  'Chat' => shell.loadPluginNotificationFeed(_site, chatNotificationFeed),
+  'Chat' => shell.userMenuNotifications.loadPluginNotificationFeed(
+    _site,
+    chatNotificationFeed,
+  ),
   'Bookmarks' => shell.loadBookmarks(_site),
   _ => shell.loadNotifications(_site),
 };

@@ -462,7 +462,7 @@ void main() {
         await shell.load();
 
         expect(
-          shell.pluginAbsoluteUrl(
+          shell.userMenuNotifications.pluginAbsoluteUrl(
             '/my/preferences/notifications',
             siteUrl: site,
           ),

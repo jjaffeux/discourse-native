@@ -260,6 +260,7 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
     },
     builder: (context, menu, _) {
       final controller = ShellScope.read(context);
+      final menuNotifications = controller.userMenuNotifications;
 
       return ListenableBuilder(
         listenable: controller.accountActivity.totalsListenable,
@@ -283,22 +284,22 @@ class _UserMenuPanelState extends State<UserMenuPanel> {
             userStatusEnabled: menu.userStatusEnabled,
             notificationsBadge: siteUrl == null
                 ? 0
-                : controller.allNotificationUnreadCount(siteUrl),
+                : menuNotifications.allUnreadCount(siteUrl),
             repliesBadge: siteUrl == null
                 ? 0
-                : controller.replyNotificationUnreadCount(siteUrl),
+                : menuNotifications.replyUnreadCount(siteUrl),
             likesBadge: siteUrl == null
                 ? 0
-                : controller.likeNotificationUnreadCount(siteUrl),
+                : menuNotifications.likeUnreadCount(siteUrl),
             messagesBadge: siteUrl == null
                 ? 0
-                : controller.messageNotificationUnreadCount(siteUrl),
+                : menuNotifications.messageUnreadCount(siteUrl),
             bookmarksBadge: siteUrl == null
                 ? 0
-                : controller.bookmarkReminderUnreadCount(siteUrl),
+                : menuNotifications.bookmarkReminderUnreadCount(siteUrl),
             otherBadge: siteUrl == null
                 ? 0
-                : controller.otherNotificationUnreadCount(
+                : menuNotifications.otherUnreadCount(
                     siteUrl,
                     pluginSections: pluginSections,
                   ),
