@@ -1,5 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io' show HttpClient, HttpClientRequest;
+import 'dart:ui' as ui;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discover_sites.dart';
@@ -15,7 +17,9 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
+import 'support/blank_png.dart';
 import 'support/discover_sites.dart';
+import 'support/fake_image_http_client.dart';
 import 'support/fakes.dart';
 import 'support/shell_test_harness.dart' show watchBrowser;
 
@@ -29,10 +33,11 @@ void main() {
     bool dark = false,
     bool rtl = false,
     double keyboard = 0,
+    double pixelRatio = 1,
     FakeDiscourseApi? api,
   }) async {
     tester.view.physicalSize = size;
-    tester.view.devicePixelRatio = 1;
+    tester.view.devicePixelRatio = pixelRatio;
     addTearDown(tester.view.reset);
     final controller = ShellController(
       instanceStore: FakeInstanceStore([instance('community0.example')]),
@@ -297,6 +302,131 @@ void main() {
       },
     );
   }
+
+  group('a Discover logo', () {
+    Future<ui.Image> decodedLogo(WidgetTester tester, Size source) async {
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+      final client = FakeImageHttpClient(
+        blankPng(width: source.width.toInt(), height: source.height.toInt()),
+      );
+      debugNetworkImageHttpClientProvider = () => client;
+      final sites = DiscoverSites(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'topics': [
+                {
+                  ...discoverEntry(1),
+                  'discover_entry_logo_url': 'https://logos.example/logo.png',
+                },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+      await open(tester, sites, pixelRatio: 2);
+      for (var i = 0; i < 20 && find.byType(RawImage).evaluate().isEmpty; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+      debugNetworkImageHttpClientProvider = null;
+      return tester.widget<RawImage>(find.byType(RawImage).first).image!;
+    }
+
+    testWidgets('decodes at its drawn height and keeps its aspect ratio', (
+      tester,
+    ) async {
+      final image = await decodedLogo(tester, const Size(1400, 700));
+
+      expect((image.width, image.height), (128, 64));
+    });
+
+    testWidgets('is not enlarged past its own size', (tester) async {
+      final image = await decodedLogo(tester, const Size(20, 10));
+
+      expect((image.width, image.height), (20, 10));
+    });
+
+    testWidgets('a full sheet of real logo sizes stays within its budget', (
+      tester,
+    ) async {
+      PaintingBinding.instance.imageCache.clear();
+      addTearDown(PaintingBinding.instance.imageCache.clear);
+      final client = _LogoSizesClient();
+      debugNetworkImageHttpClientProvider = () => client;
+      final sites = DiscoverSites(
+        client: MockClient(
+          (_) async => http.Response(
+            jsonEncode({
+              'topics': [
+                for (var i = 0; i < _discoverLogoSizes.length; i++)
+                  {
+                    ...discoverEntry(i + 1),
+                    'discover_entry_logo_url':
+                        'https://logos.example/logo$i.png',
+                  },
+              ],
+            }),
+            200,
+          ),
+        ),
+      );
+
+      await open(tester, sites, size: const Size(2880, 1800), pixelRatio: 2);
+      Iterable<RawImage> decoded() => tester
+          .widgetList<RawImage>(find.byType(RawImage))
+          .where((image) => image.image != null);
+      for (var i = 0; i < 100 && decoded().length < 10; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 20)),
+        );
+        await tester.pump();
+      }
+
+      debugNetworkImageHttpClientProvider = null;
+
+      final bytes = PaintingBinding.instance.imageCache.currentSizeBytes;
+      // ignore: avoid_print
+      print('PERF_PROOF discover-logos decoded_logos=${decoded().length}');
+      // ignore: avoid_print
+      print('PERF_PROOF discover-logos decoded_bytes=$bytes');
+      expect(decoded(), hasLength(10));
+      expect(bytes, lessThanOrEqualTo(155272));
+    });
+  });
+}
+
+/// The dimensions of the first ten logos on discover.discourse.com, read on
+/// 2026-11-09.
+const _discoverLogoSizes = [
+  (401, 400),
+  (121, 90),
+  (32, 32),
+  (310, 287),
+  (512, 512),
+  (1401, 1597),
+  (237, 42),
+  (256, 256),
+  (32, 32),
+  (32, 32),
+];
+
+final class _LogoSizesClient implements HttpClient {
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) {
+    final index = int.parse(RegExp(r'\d+').firstMatch(url.path)![0]!);
+    final (width, height) = _discoverLogoSizes[index];
+    return FakeImageHttpClient(
+      blankPng(width: width, height: height),
+    ).getUrl(url);
+  }
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _GatedLookupApi extends FakeDiscourseApi {

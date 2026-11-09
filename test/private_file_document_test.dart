@@ -562,6 +562,24 @@ void main() {
       expect(await nonNumericPid.exists(), isTrue);
     });
 
+    test('reclaims a stage on each path a process first opens', () async {
+      final sibling = File('${directory.path}/sibling.json');
+      await _mapDocument(
+        target.path,
+      ).read((values) => PrivateFileResult(Map.of(values)));
+      final abandoned = File(
+        '${sibling.path}.1234.aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
+        '.private-document.tmp',
+      );
+      await abandoned.writeAsString('old secret');
+
+      await _mapDocument(
+        sibling.path,
+      ).read((values) => PrivateFileResult(Map.of(values)));
+
+      expect(await abandoned.exists(), isFalse);
+    });
+
     test(
       'cleans the stage and queue after a filesystem commit failure',
       () async {

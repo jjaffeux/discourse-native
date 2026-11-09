@@ -6,6 +6,7 @@ import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/category_directory.dart';
 import 'package:discourse_native/src/models/category_sidebar.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
@@ -15,6 +16,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_category_path_selector.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -24,6 +26,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/fakes.dart';
+import 'support/shell_test_harness.dart';
 import 'support/skeleton_expectations.dart';
 
 const Size _viewport = Size(1200, 900);
@@ -145,6 +148,56 @@ class _PendingCategoriesApi extends FakeDiscourseApi {
 }
 
 Finder _row(int categoryId) => find.byKey(ValueKey('category-row-$categoryId'));
+
+Map<String, dynamic> _unreadMessage(int topicId, int categoryId) => {
+  'topic_id': topicId,
+  'message_type': 'unread',
+  'payload': {
+    'highest_post_number': 50,
+    'last_read_post_number': 1,
+    'notification_level': 2,
+    'category_id': categoryId,
+  },
+};
+
+Map<String, dynamic> _readMessage(int topicId) => {
+  'topic_id': topicId,
+  'message_type': 'read',
+  'payload': {'last_read_post_number': 50},
+};
+
+/// Distinct elements rebuilt by [action], in the page and in the whole app.
+Future<({int page, int total})> _rebuiltElements(
+  Future<void> Function() action,
+) async {
+  final page = <Element>{};
+  final total = <Element>{};
+  final previous = debugOnRebuildDirtyWidget;
+  debugOnRebuildDirtyWidget = (element, builtOnce) {
+    previous?.call(element, builtOnce);
+    total.add(element);
+    var inPage = element.widget is CategoriesPage;
+    if (!inPage) {
+      element.visitAncestorElements((ancestor) {
+        inPage = ancestor.widget is CategoriesPage;
+        return !inPage;
+      });
+    }
+    if (inPage) page.add(element);
+  };
+  try {
+    await action();
+  } finally {
+    debugOnRebuildDirtyWidget = previous;
+  }
+  return (page: page.length, total: total.length);
+}
+
+String? _unreadBadge(WidgetTester tester, int categoryId) => tester
+    .widget<DPlaceCard>(
+      find.descendant(of: _row(categoryId), matching: find.byType(DPlaceCard)),
+    )
+    .unreadCount;
 
 Future<void> _selectScope(WidgetTester tester, String label) async {
   await tester.tap(find.byType(DSelect<CategoryDirectoryScope>));
@@ -1170,5 +1223,302 @@ void main() {
         );
       },
     );
+
+    testWidgets('paging resumes when live tracking empties the Unread scope', (
+      tester,
+    ) async {
+      final firstPage = [
+        for (var id = 1; id <= 60; id++)
+          TopicCategory(id: id, name: 'Category $id', color: '0088CC'),
+      ];
+      final api = FakeDiscourseApi(
+        feeds: const {'/latest.json': []},
+        categoryPages: {
+          1: firstPage,
+          2: const [TopicCategory(id: 61, name: 'Later', color: '0088CC')],
+          3: const [],
+        },
+        trackingState: TopicTrackingState([
+          for (var id = 1; id <= 60; id++)
+            TrackedTopicState(
+              topicId: 1000 + id,
+              categoryId: id,
+              highestPostNumber: 4,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
+            ),
+        ]),
+      );
+      final controller = await _loadCategories(api, connected: true);
+      await controller.appSettings.setLimitContentSize(true);
+      await _pumpPage(tester, controller);
+      await _selectScope(tester, 'Unread');
+      expect(api.categoryPagesRequested, [1]);
+
+      for (var id = 1; id <= 60; id++) {
+        FakeSiteTracker.built.single.deliverTopicTracking(
+          _readMessage(1000 + id),
+        );
+      }
+      await tester.pumpAndSettle();
+
+      expect(api.categoryPagesRequested, [1, 2, 3]);
+      expect(find.text('No categories with unread topics'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  group('shell notifications', () {
+    for (final (name, size, platform) in [
+      ('phone', phone, TargetPlatform.iOS),
+      ('mac', desktop, TargetPlatform.macOS),
+    ]) {
+      testWidgets('$name page rebuilds only for what a notification changed', (
+        tester,
+      ) async {
+        const site = 'https://meta.discourse.org';
+        const user = DiscourseUser(id: 7, username: 'joffreyj');
+        final categories = [
+          for (var id = 1; id <= 12; id++)
+            TopicCategory(
+              id: id,
+              name: 'Category $id',
+              slug: 'c$id',
+              color: '0088cc',
+            ),
+        ];
+        await pumpShell(
+          tester,
+          size,
+          instances: [
+            instance('meta.discourse.org', title: 'Meta').copyWith(user: user),
+          ],
+          authenticator: FakeAuthenticator()..keys[site] = 'key',
+          api: FakeDiscourseApi(
+            user: user,
+            feeds: const {'/latest.json': []},
+            categoryList: categories,
+            trackingState: TopicTrackingState(const [
+              TrackedTopicState(
+                topicId: 50,
+                categoryId: 1,
+                highestPostNumber: 4,
+                lastReadPostNumber: 1,
+                notificationLevel: 2,
+              ),
+            ]),
+          ),
+        );
+        await tester.pumpAndSettle();
+        final shell = ShellScope.read(tester.element(primaryMainContent));
+        await shell.loadCategories(site);
+        await tester.pumpAndSettle();
+        shell.selectDestination(
+          shell
+              .categorySidebarSectionFor(site)!
+              .destinations
+              .singleWhere((d) => d.id == 'all-categories'),
+        );
+        await tester.pumpAndSettle();
+        expect(find.byType(CategoriesPage), findsOneWidget);
+        expect(_unreadBadge(tester, 1), '1');
+
+        final notified = await _rebuiltElements(() async {
+          shell.notifyPluginStateChanged();
+          await tester.pump();
+        });
+        final tracked = await _rebuiltElements(() async {
+          FakeSiteTracker.built.single.deliverTopicTracking(
+            _unreadMessage(900, 1),
+          );
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 1));
+        });
+        expect(_unreadBadge(tester, 1), '2');
+
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF categories-page ${name}_notify_page_elements='
+          '${notified.page}',
+        );
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF categories-page ${name}_notify_total_elements='
+          '${notified.total}',
+        );
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF categories-page ${name}_tracking_page_elements='
+          '${tracked.page}',
+        );
+        expect(notified.page, 0);
+        expect(tracked.page, lessThanOrEqualTo(67));
+        expect(tester.takeException(), isNull);
+      }, variant: TargetPlatformVariant.only(platform));
+    }
+
+    testWidgets('a taller window pages on without a notification', (
+      tester,
+    ) async {
+      const site = 'https://meta.discourse.org';
+      const user = DiscourseUser(id: 7, username: 'joffreyj');
+      final api = FakeDiscourseApi(
+        user: user,
+        feeds: const {'/latest.json': []},
+        categoryPages: {
+          1: [
+            for (var id = 1; id <= 60; id++)
+              TopicCategory(
+                id: id,
+                name: 'Category $id',
+                slug: 'c$id',
+                color: '0088cc',
+              ),
+          ],
+          2: const [
+            TopicCategory(
+              id: 61,
+              name: 'Later',
+              slug: 'later',
+              color: '0088cc',
+            ),
+          ],
+          3: const [],
+        },
+      );
+      await pumpShell(
+        tester,
+        const Size(1440, 500),
+        instances: [
+          instance('meta.discourse.org', title: 'Meta').copyWith(user: user),
+        ],
+        authenticator: FakeAuthenticator()..keys[site] = 'key',
+        api: api,
+      );
+      await tester.pumpAndSettle();
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      await shell.loadCategories(site);
+      await tester.pumpAndSettle();
+      shell.selectDestination(
+        shell
+            .categorySidebarSectionFor(site)!
+            .destinations
+            .singleWhere((d) => d.id == 'all-categories'),
+      );
+      await tester.pumpAndSettle();
+      expect(api.categoryPagesRequested, [1]);
+
+      tester.view.physicalSize = const Size(1440, 9000);
+      await tester.pumpAndSettle();
+
+      expect(api.categoryPagesRequested, [1, 2, 3]);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('a card follows live tracking in the All scope', (
+      tester,
+    ) async {
+      final controller = await _loadCategories(
+        FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'Parent', color: '111111'),
+            TopicCategory(
+              id: 2,
+              name: 'Child',
+              color: '222222',
+              parentCategoryId: 1,
+            ),
+            TopicCategory(id: 3, name: 'Quiet', color: '333333'),
+          ],
+          trackingState: TopicTrackingState(const [
+            TrackedTopicState(
+              topicId: 10,
+              categoryId: 2,
+              highestPostNumber: 4,
+              lastReadPostNumber: 1,
+              notificationLevel: 2,
+            ),
+          ]),
+        ),
+        connected: true,
+      );
+      await _pumpPage(tester, controller);
+      final tracker = FakeSiteTracker.built.single;
+      expect(_unreadBadge(tester, 1), '1');
+      expect(_unreadBadge(tester, 3), isNull);
+
+      tracker.deliverTopicTracking(_unreadMessage(11, 2));
+      await tester.pumpAndSettle();
+      expect(_unreadBadge(tester, 1), '2');
+      expect(_unreadBadge(tester, 3), isNull);
+
+      tracker.deliverTopicTracking(_unreadMessage(12, 3));
+      await tester.pumpAndSettle();
+      expect(_unreadBadge(tester, 3), '1');
+
+      for (final topicId in [10, 11]) {
+        tracker.deliverTopicTracking(_readMessage(topicId));
+      }
+      await tester.pumpAndSettle();
+      expect(_unreadBadge(tester, 1), isNull);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('a merged category list redraws the cards', (tester) async {
+      const site = 'https://meta.discourse.org';
+      final controller = await _loadCategories(
+        FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'Original', color: '111111'),
+          ],
+          categorySearches: const {
+            'renamed': [TopicCategory(id: 1, name: 'Renamed', color: '111111')],
+          },
+        ),
+        connected: true,
+      );
+      await _pumpPage(tester, controller);
+      expect(find.text('Original'), findsOneWidget);
+
+      await controller.searchFilterCategories(siteUrl: site, term: 'renamed');
+      await tester.pumpAndSettle();
+
+      expect(find.text('Renamed'), findsOneWidget);
+      expect(find.text('Original'), findsNothing);
+    });
+
+    testWidgets('a site config loaded on resume updates the nesting limit', (
+      tester,
+    ) async {
+      const site = 'https://meta.discourse.org';
+      final siteConfigs = <String, SiteConfig>{};
+      final controller = await _loadCategories(
+        FakeDiscourseApi(
+          feeds: const {'/latest.json': []},
+          categoryList: const [
+            TopicCategory(id: 1, name: 'General', color: '111111'),
+          ],
+          siteConfigs: siteConfigs,
+        ),
+      );
+      await _pumpPage(tester, controller);
+      int nesting() => tester
+          .widget<TopicCategoryPathSelector>(
+            find.byType(TopicCategoryPathSelector),
+          )
+          .maxCategoryNesting;
+      expect(nesting(), 2);
+
+      siteConfigs[site] = SiteConfig.fromSettings(const {
+        'max_category_nesting': 3,
+      });
+      controller.setForeground(false);
+      controller.setForeground(true);
+      await tester.pumpAndSettle();
+
+      expect(nesting(), 3);
+    });
   });
 }

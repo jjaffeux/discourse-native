@@ -194,6 +194,7 @@ final class _Fixture {
       requests: requests,
       posts: posts,
       topics: PluginTopicRefreshHost(reloadTopic: (_, _) async => reloads++),
+      readers: const _NoVisibleTopic(),
     );
   }
 
@@ -231,6 +232,13 @@ final class _Fixture {
     solved.close();
     network.close();
   }
+}
+
+final class _NoVisibleTopic implements PluginTopicReaderHost {
+  const _NoVisibleTopic();
+
+  @override
+  PluginTopicReader? forVisibleTopic(String siteUrl, int topicId) => null;
 }
 
 final class _Reader implements ApiCredentialReader {

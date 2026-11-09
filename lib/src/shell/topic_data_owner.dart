@@ -80,6 +80,7 @@ final class TopicDataOwner {
     required this.bookmarkReads,
     this.notificationReads,
     this.usesReader,
+    this.postSelected,
     this.acceptedPost,
   });
 
@@ -102,6 +103,7 @@ final class TopicDataOwner {
   final TopicNotificationRead? Function(String, SiteLease, int)?
   notificationReads;
   final bool Function(String siteUrl, TopicDetail topic)? usesReader;
+  final bool Function(String siteUrl, int topicId, int postId)? postSelected;
   final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
@@ -1799,12 +1801,20 @@ final class TopicDataSession implements BookmarkTopicData {
       );
       if (!isCurrent) return;
       final answered = {for (final post in posts) post.id};
+      // A tile follows its own post's ref. The shell hears of a re-read only
+      // for what reads posts on its notification instead: a plugin reader and
+      // the selected-posts toolbar.
+      final readByPlugin = usesReader(batch.topicId);
       var changed = false;
       for (final post in posts) {
         if (!isCurrent) return;
         if (wanted.contains(post.id) && current(post.id)) {
           _put(post);
-          changed = true;
+          if (readByPlugin ||
+              _owner.postSelected?.call(siteUrl, batch.topicId, post.id) ==
+                  true) {
+            changed = true;
+          }
         }
       }
       for (final id in wanted) {

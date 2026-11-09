@@ -64,7 +64,7 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   void _requestFirstPage({bool retry = false}) {
-    final controller = ShellScope.read(context);
+    final controller = ShellScope.identityOf(context);
     final identity = (controller, widget.siteUrl);
     if (!retry && _requestedIdentity == identity) return;
     _requestedIdentity = identity;
@@ -108,16 +108,26 @@ class _CategoriesPageState extends State<CategoriesPage> {
     _endCheckScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _endCheckScheduled = false;
-      if (!mounted || !_scrollController.hasClients) return;
-      final current = widget.feed;
-      if (current.hasMore &&
-          !current.loading &&
-          !current.loadingMore &&
-          current.error == null &&
-          _scrollController.position.extentAfter <= 0.5) {
-        unawaited(ShellScope.read(context).loadMoreCategories(widget.siteUrl));
-      }
+      _loadMoreIfEndVisible();
     });
+  }
+
+  void _loadMoreIfEndVisible() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final current = widget.feed;
+    if (current.hasMore &&
+        !current.loading &&
+        !current.loadingMore &&
+        current.error == null &&
+        _scrollController.position.extentAfter <= 0.5) {
+      unawaited(ShellScope.read(context).loadMoreCategories(widget.siteUrl));
+    }
+  }
+
+  // A taller viewport reveals the end without rebuilding this page.
+  bool _onScrollMetrics(ScrollMetricsNotification notification) {
+    if (notification.depth == 0) _loadMoreIfEndVisible();
+    return false;
   }
 
   void _resetScroll() {
@@ -125,9 +135,23 @@ class _CategoriesPageState extends State<CategoriesPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<Object?>(
+    select: (controller) => (
+      controller.currentUserFor(widget.siteUrl),
+      controller.filterCategoriesFor(widget.siteUrl),
+      controller.siteConfigFor(widget.siteUrl).maxCategoryNesting,
+      // Counts decide which rows exist only in the Unread scope. Every other
+      // scope lists the same rows, and each card follows its own badge.
+      _scope == CategoryDirectoryScope.unread
+          ? controller.categoryUnreadTopicCountsFor(widget.siteUrl)
+          : null,
+    ),
+    builder: (context, _, _) => _buildPage(context),
+  );
+
+  Widget _buildPage(BuildContext context) {
     final feed = widget.feed;
-    final controller = ShellScope.of(context);
+    final controller = ShellScope.read(context);
     final user = controller.currentUserFor(widget.siteUrl);
     final counts = controller.categoryUnreadTopicCountsFor(widget.siteUrl);
     final scope = user == null && _scope == CategoryDirectoryScope.unread
@@ -273,109 +297,125 @@ class _CategoriesPageState extends State<CategoriesPage> {
           ),
         ),
         bodyBuilder: (context, header) => DPageReadingLane(
-          builder: (context, lane) => NotificationListener<ScrollNotification>(
-            onNotification: _onScroll,
-            child: CustomScrollView(
-              controller: _scrollController,
-              physics: const AlwaysScrollableScrollPhysics(),
-              slivers: [
-                SliverToBoxAdapter(child: header.spacer),
-                SliverPadding(
-                  padding: lane.padding.add(
-                    EdgeInsets.fromLTRB(
-                      16,
-                      0,
-                      16,
-                      16 + DScrollChrome.bottomInsetOf(context),
-                    ),
-                  ),
-                  sliver: SliverMainAxisGroup(
+          builder: (context, lane) =>
+              NotificationListener<ScrollMetricsNotification>(
+                onNotification: _onScrollMetrics,
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: _onScroll,
+                  child: CustomScrollView(
+                    controller: _scrollController,
+                    physics: const AlwaysScrollableScrollPhysics(),
                     slivers: [
-                      if (loading)
-                        SliverLayoutBuilder(
-                          builder: (context, constraints) => SliverToBoxAdapter(
-                            child: SizedBox(
-                              height:
-                                  (constraints.viewportMainAxisExtent -
-                                          constraints.precedingScrollExtent -
-                                          lane.padding.bottom -
-                                          16 -
-                                          DScrollChrome.bottomInsetOf(context))
-                                      .clamp(0, double.infinity),
-                              child: const DirectorySkeleton(
-                                kind: DirectorySkeletonKind.categories,
-                              ),
-                            ),
-                          ),
-                        )
-                      else if (feed.error != null && feed.categoryIds.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _CategoryPageState(
-                            icon: DIcons.triangleExclamation,
-                            title: feed.error!,
-                            actionLabel: context.l10n.tryAgain,
-                            onAction: _retry,
-                          ),
-                        )
-                      else if (feed.isEmpty)
-                        SliverFillRemaining(
-                          hasScrollBody: false,
-                          child: _CategoryPageState(
-                            icon: DIcons.list,
-                            title: context.l10n.noCategoriesYet,
-                          ),
-                        )
-                      else ...[
-                        if (!feed.pageError && feed.error != null)
-                          SliverToBoxAdapter(
-                            child: _CategoryErrorBanner(
-                              message: feed.error!,
-                              onRetry: _retry,
-                            ),
-                          ),
-                        DPlaceCardGrid(
-                          itemCount: entries.length,
-                          itemBuilder: (context, index) => _CategoryCard(
-                            key: ValueKey(
-                              'category-row-${entries[index].category.id}',
-                            ),
-                            siteUrl: widget.siteUrl,
-                            entry: entries[index],
-                            categoriesById: directory.categoriesById,
+                      SliverToBoxAdapter(child: header.spacer),
+                      SliverPadding(
+                        padding: lane.padding.add(
+                          EdgeInsets.fromLTRB(
+                            16,
+                            0,
+                            16,
+                            16 + DScrollChrome.bottomInsetOf(context),
                           ),
                         ),
-                        if (entries.isEmpty && feed.error == null)
-                          SliverToBoxAdapter(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 24),
-                              child: DText(
-                                scope == CategoryDirectoryScope.unread
-                                    ? context.l10n.noUnreadCategories
-                                    : scope == CategoryDirectoryScope.withTopics
-                                    ? context.l10n.noCategoriesWithTopics
-                                    : context.l10n.nothingHereYet,
-                                style: TextStyle(
-                                  fontSize: DiscourseTypography.compact,
-                                  color: DTokens.of(context).mutedForeground,
+                        sliver: SliverMainAxisGroup(
+                          slivers: [
+                            if (loading)
+                              SliverLayoutBuilder(
+                                builder: (context, constraints) =>
+                                    SliverToBoxAdapter(
+                                      child: SizedBox(
+                                        height:
+                                            (constraints.viewportMainAxisExtent -
+                                                    constraints
+                                                        .precedingScrollExtent -
+                                                    lane.padding.bottom -
+                                                    16 -
+                                                    DScrollChrome.bottomInsetOf(
+                                                      context,
+                                                    ))
+                                                .clamp(0, double.infinity),
+                                        child: const DirectorySkeleton(
+                                          kind:
+                                              DirectorySkeletonKind.categories,
+                                        ),
+                                      ),
+                                    ),
+                              )
+                            else if (feed.error != null &&
+                                feed.categoryIds.isEmpty)
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: _CategoryPageState(
+                                  icon: DIcons.triangleExclamation,
+                                  title: feed.error!,
+                                  actionLabel: context.l10n.tryAgain,
+                                  onAction: _retry,
+                                ),
+                              )
+                            else if (feed.isEmpty)
+                              SliverFillRemaining(
+                                hasScrollBody: false,
+                                child: _CategoryPageState(
+                                  icon: DIcons.list,
+                                  title: context.l10n.noCategoriesYet,
+                                ),
+                              )
+                            else ...[
+                              if (!feed.pageError && feed.error != null)
+                                SliverToBoxAdapter(
+                                  child: _CategoryErrorBanner(
+                                    message: feed.error!,
+                                    onRetry: _retry,
+                                  ),
+                                ),
+                              DPlaceCardGrid(
+                                itemCount: entries.length,
+                                itemBuilder: (context, index) => _CategoryCard(
+                                  key: ValueKey(
+                                    'category-row-${entries[index].category.id}',
+                                  ),
+                                  siteUrl: widget.siteUrl,
+                                  entry: entries[index],
+                                  categoriesById: directory.categoriesById,
                                 ),
                               ),
-                            ),
-                          ),
-                        if (feed.pageError && feed.error != null)
-                          SliverToBoxAdapter(
-                            child: _CategoryErrorBanner(
-                              message: feed.error!,
-                              onRetry: _retry,
-                            ),
-                          ),
-                      ],
+                              if (entries.isEmpty && feed.error == null)
+                                SliverToBoxAdapter(
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 24,
+                                    ),
+                                    child: DText(
+                                      scope == CategoryDirectoryScope.unread
+                                          ? context.l10n.noUnreadCategories
+                                          : scope ==
+                                                CategoryDirectoryScope
+                                                    .withTopics
+                                          ? context.l10n.noCategoriesWithTopics
+                                          : context.l10n.nothingHereYet,
+                                      style: TextStyle(
+                                        fontSize: DiscourseTypography.compact,
+                                        color: DTokens.of(
+                                          context,
+                                        ).mutedForeground,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              if (feed.pageError && feed.error != null)
+                                SliverToBoxAdapter(
+                                  child: _CategoryErrorBanner(
+                                    message: feed.error!,
+                                    onRetry: _retry,
+                                  ),
+                                ),
+                            ],
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
+              ),
         ),
       ),
     );
@@ -410,11 +450,19 @@ class _CategoryCard extends StatelessWidget {
   final Map<int, TopicCategory> categoriesById;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => ShellSelector<int>(
+    select: (controller) => entry.unreadTopicCountIn(
+      controller.categoryUnreadTopicCountsFor(siteUrl) ?? const {},
+    ),
+    builder: (context, unreadTopicCount, _) =>
+        _buildCard(context, unreadTopicCount),
+  );
+
+  Widget _buildCard(BuildContext context, int unreadTopicCount) {
     final controller = ShellScope.read(context);
     final category = entry.category;
     final tokens = DTokens.of(context);
-    final unread = entry.unreadTopicCount > 0;
+    final unread = unreadTopicCount > 0;
     final latest = entry.latestTopic?.activityAt;
     final description = jsonHtmlText(category.descriptionExcerpt);
     final route = ContentRoute.fromDestination(
@@ -427,9 +475,9 @@ class _CategoryCard extends StatelessWidget {
         onPressed: () => controller.openCategory(category, siteUrl: siteUrl),
         strong: unread,
         muted: entry.muted,
-        unreadCount: unread ? entry.unreadTopicCount.toString() : null,
+        unreadCount: unread ? unreadTopicCount.toString() : null,
         semanticLabel: unread
-            ? context.l10n.categoryUnreadTopics(entry.unreadTopicCount)
+            ? context.l10n.categoryUnreadTopics(unreadTopicCount)
             : null,
         leading: DPlaceCardMark(
           color: Color(category.colorValue),

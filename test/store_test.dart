@@ -322,6 +322,30 @@ void main() {
       },
     );
 
+    test('an update to an equal value keeps the held record silently', () {
+      final store = Store();
+      const held = Post(id: 1, postNumber: 1, username: 'a', cooked: 'one');
+      store.put(_site, held);
+      final ref = store.ref<Post>(_site, 1);
+      var notifications = 0;
+      void listener() => notifications++;
+      ref.addListener(listener);
+      addTearDown(() => ref.removeListener(listener));
+      final generation = store.generationOf<Post>(_site);
+
+      store.update<Post>(_site, 1, (post) => post.copyWith(cooked: 'one'));
+
+      expect(ref.value, same(held));
+      expect(notifications, 0);
+      expect(store.generationOf<Post>(_site), generation);
+
+      store.update<Post>(_site, 1, (post) => post.withLike(true));
+
+      expect(ref.value?.liked, isTrue);
+      expect(notifications, 1);
+      expect(store.generationOf<Post>(_site), generation + 1);
+    });
+
     test('default structure follows canonical replacement identity', () {
       final store = Store();
       const first = _Record(1, 'one');

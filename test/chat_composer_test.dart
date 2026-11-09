@@ -3774,6 +3774,57 @@ void main() {
         'second',
       ]);
     });
+
+    testWidgets(
+      'the send control settles only once every staged row is delivered',
+      (tester) async {
+        final firstGate = Completer<void>();
+        final fixture = await _fixture(
+          pages: {FakeDiscourseApi.chatMessagesKey(9): _emptyPage},
+          sendGate: firstGate,
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+
+        await tester.enterText(_composerField(), 'first');
+        await tester.pump();
+        await tester.tap(find.byKey(const ValueKey('chat-composer-send')));
+        await tester.pump();
+        expect(_button(tester, 'chat-composer-send').loading, isTrue);
+
+        await tester.enterText(_composerField(), 'second');
+        await tester.pump();
+        _button(tester, 'chat-composer-send').onPressed!();
+        await tester.pump();
+        expect(_button(tester, 'chat-composer-send').loading, isTrue);
+
+        final secondGate = Completer<void>();
+        fixture.api.chatSendGate = secondGate;
+        firstGate.complete();
+        await tester.pump();
+        await tester.pump();
+        expect(fixture.api.chatMessagesSent.map((call) => call.message), [
+          'first',
+          'second',
+        ]);
+        expect(
+          _button(tester, 'chat-composer-send').loading,
+          isTrue,
+          reason: 'the second row is still on its way',
+        );
+
+        secondGate.complete();
+        await tester.pump();
+        await tester.pump();
+        expect(
+          _button(tester, 'chat-composer-send').loading,
+          isFalse,
+          reason: 'both rows have been delivered',
+        );
+        await tester.pumpAndSettle();
+      },
+    );
   });
 
   group('composer fallbacks and availability', () {

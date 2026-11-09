@@ -159,6 +159,17 @@ void main() {
     },
   );
 
+  test('refreshes an answer that arrived after the action was built', () async {
+    final f = Fixture();
+    f.readers.held = topic.copyWith(stream: const [1, 2, 3, 4]);
+    f.posts.records[4] = post(4, accepted: true);
+
+    expect((await f.change(true)).kind, SolvedChangeKind.applied);
+
+    expect(f.posts.refreshed, [2, 4]);
+    expect(f.readers.closed, 1);
+  });
+
   test('server refusal does not invent accepted state', () async {
     final f = Fixture();
     f.api.solvedFailure = const WriteException(WriteFailure.forbidden);
@@ -281,6 +292,7 @@ class Fixture {
   final requests = _Requests();
   final posts = _Posts();
   final reloads = <int>[];
+  final readers = _Readers();
   Object? reloadFailure;
   late final controller = SolvedController(
     transport: api,
@@ -292,6 +304,7 @@ class Fixture {
         if (reloadFailure != null) throw reloadFailure!;
       },
     ),
+    readers: readers,
   );
   Future<SolvedChangeResult> change(bool accepted) => controller.change(
     siteUrl: site,
@@ -356,6 +369,30 @@ class _Requests implements PluginRequestHost {
   @override
   Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
       const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+}
+
+class _Readers implements PluginTopicReaderHost {
+  TopicDetail? held;
+  int closed = 0;
+
+  @override
+  PluginTopicReader? forVisibleTopic(String siteUrl, int topicId) =>
+      held == null ? null : _Reader(this);
+}
+
+class _Reader implements PluginTopicReader {
+  _Reader(this.host);
+
+  final _Readers host;
+
+  @override
+  TopicDetail? get topic => host.held;
+
+  @override
+  void close() => host.closed++;
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 class _Posts implements PluginPostHost {

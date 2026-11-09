@@ -440,14 +440,7 @@ class ChatPlugin
 
     if (!shell.chatAvailable(siteUrl)) return null;
 
-    final user = shell.currentUser;
-    final indicator = user == null || shell.doNotDisturbActive(siteUrl)
-        ? ChatHeaderIndicator.none
-        : shell.chat.headerIndicator(
-            siteUrl,
-            user.chatCurrentUser?.headerIndicatorPreference ??
-                ChatHeaderIndicatorPreference.allNew,
-          );
+    final indicator = _indicator(shell, siteUrl);
     // What is urgent is the one unread chip, in the bar of places and on the
     // sidebar's switch alike; ordinary unread activity keeps its dot.
     Widget? badge({required bool mobile}) {
@@ -494,6 +487,20 @@ class ChatPlugin
     );
   }
 
+  static ChatHeaderIndicator _indicator(
+    ChatShellService shell,
+    String siteUrl,
+  ) {
+    final user = shell.currentUser;
+    return user == null || shell.doNotDisturbActive(siteUrl)
+        ? ChatHeaderIndicator.none
+        : shell.chat.headerIndicator(
+            siteUrl,
+            user.chatCurrentUser?.headerIndicatorPreference ??
+                ChatHeaderIndicatorPreference.allNew,
+          );
+  }
+
   static ({bool browse, bool myThreads, bool startMessage}) _panelActions(
     ChatShellService shell,
     String siteUrl,
@@ -523,10 +530,33 @@ class ChatPlugin
     ),
   );
 
+  /// What [sidebarPanel] and [mobileNavigationDestinations] read through the
+  /// controller. It notifies for every message, tracking echo and read credit
+  /// in every followed channel, and almost none of them change any of this.
+  static Listenable _chromeChanges(BuildContext context) {
+    final shell = PluginUiScope.require(context, chatShellService);
+    final chat = PluginUiScope.require(context, chatControllerService);
+    return _ChatChromeSelection(chat, () {
+      final siteUrl = shell.currentSiteUrl;
+      if (siteUrl == null) return null;
+      final indicator = _indicator(shell, siteUrl);
+      final settings = chat.siteConfigFor(siteUrl).chatSettings;
+      return (
+        siteUrl,
+        shell.chatAvailable(siteUrl),
+        shell.isConnected(siteUrl),
+        settings.publicChannelsEnabled,
+        settings.threadsEnabled,
+        indicator.urgentCount,
+        indicator.unread,
+      );
+    });
+  }
+
   @override
   Listenable sidebarPanelListenable(BuildContext context) => Listenable.merge([
     PluginUiScope.require(context, chatShellService),
-    PluginUiScope.require(context, chatControllerService),
+    _chromeChanges(context),
   ]);
 
   @override
@@ -535,7 +565,7 @@ class ChatPlugin
 
   @override
   Listenable mobileNavigationListenable(BuildContext context) =>
-      PluginUiScope.require(context, chatControllerService);
+      _chromeChanges(context);
 
   @override
   List<SidebarDestination> mobileNavigationDestinations(BuildContext context) {
@@ -979,5 +1009,33 @@ class _ChatChannelHeaderAvatar extends StatelessWidget {
         );
       },
     );
+  }
+}
+
+final class _ChatChromeSelection implements Listenable {
+  _ChatChromeSelection(this._source, this._read);
+
+  final Listenable _source;
+  final Object? Function() _read;
+  final Map<VoidCallback, VoidCallback> _forwarders = {};
+
+  @override
+  void addListener(VoidCallback listener) {
+    var seen = _read();
+    void forward() {
+      final next = _read();
+      if (next == seen) return;
+      seen = next;
+      listener();
+    }
+
+    _forwarders[listener] = forward;
+    _source.addListener(forward);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    final forward = _forwarders.remove(listener);
+    if (forward != null) _source.removeListener(forward);
   }
 }

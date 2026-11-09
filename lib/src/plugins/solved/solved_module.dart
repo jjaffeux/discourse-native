@@ -31,6 +31,7 @@ final class _Module implements PluginModule {
           requests: bindings.require(corePluginRequestPort),
           posts: bindings.require(corePluginPostPort),
           topics: bindings.require(corePluginTopicRefreshPort),
+          readers: bindings.require(corePluginTopicReaderPort),
         );
         return PluginSessionContribution(
           lifecycle: _Lifecycle(controller),
@@ -44,6 +45,7 @@ final class _Module implements PluginModule {
         corePluginRequestPort,
         corePluginPostPort,
         corePluginTopicRefreshPort,
+        corePluginTopicReaderPort,
       ],
     );
   }

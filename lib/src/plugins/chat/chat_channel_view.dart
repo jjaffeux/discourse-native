@@ -234,21 +234,47 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ChatStreamState>(
       valueListenable: _viewing.reader.changes,
-      builder: (context, stream, _) => ValueListenableBuilder<ChatChannel?>(
-        valueListenable: widget.chat.channelRef(
-          widget.siteUrl,
-          widget.channelId,
-        ),
-        // The transcript and its rows watch the few channel fields they read
-        // on their own. Built outside the channel builder, the same transcript
-        // widget comes back when only the channel changes, which the reader's
-        // dwell does every half second, so the held rows are not rebuilt.
-        child: _buildContent(stream),
-        builder: (context, channel, content) =>
-            _buildChannel(stream, channel: channel, content: content!),
-      ),
+      // The composer follows its own send state. Built outside the stream
+      // builder, the same widget comes back on every arriving message, so an
+      // idle composer is not rebuilt once per message.
+      child: _buildComposer(context),
+      builder: (context, stream, composer) =>
+          ValueListenableBuilder<ChatChannel?>(
+            valueListenable: widget.chat.channelRef(
+              widget.siteUrl,
+              widget.channelId,
+            ),
+            // The transcript and its rows watch the few channel fields they
+            // read on their own. Built outside the channel builder, the same
+            // transcript widget comes back when only the channel changes,
+            // which the reader's dwell does every half second, so the held
+            // rows are not rebuilt.
+            child: _buildContent(stream),
+            builder: (context, channel, content) => _buildChannel(
+              stream,
+              channel: channel,
+              content: content!,
+              composer: composer!,
+            ),
+          ),
     );
   }
+
+  Widget _buildComposer(BuildContext context) => RepaintBoundary(
+    child: ChatComposer(
+      reader: _viewing.reader,
+      key: ValueKey((widget.siteUrl, widget.channelId, 'composer')),
+      siteUrl: widget.siteUrl,
+      channelId: widget.channelId,
+      uploadDropController: _uploadDropController,
+      focusRequest:
+          _composerFocusRequest +
+          (widget.autofocusComposer && !context.isTouch ? 1 : 0),
+      editingMessage: _editingMessage,
+      onEditMessage: _editMessage,
+      onEditFinished: _finishEditing,
+    ),
+  );
 
   Widget _buildContent(ChatStreamState stream) {
     final hasMessages =
@@ -295,6 +321,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
     ChatStreamState stream, {
     required ChatChannel? channel,
     required Widget content,
+    required Widget composer,
   }) {
     final hasMessages =
         stream.messageIds.isNotEmpty || stream.localMessageIds.isNotEmpty;
@@ -378,25 +405,7 @@ class _ChatChannelBodyState extends State<_ChatChannelBody> {
                   allowMove: true,
                 )
               : stream.error == null || hasMessages
-              ? RepaintBoundary(
-                  child: ChatComposer(
-                    reader: _viewing.reader,
-                    key: ValueKey((
-                      widget.siteUrl,
-                      widget.channelId,
-                      'composer',
-                    )),
-                    siteUrl: widget.siteUrl,
-                    channelId: widget.channelId,
-                    uploadDropController: _uploadDropController,
-                    focusRequest:
-                        _composerFocusRequest +
-                        (widget.autofocusComposer && !context.isTouch ? 1 : 0),
-                    editingMessage: _editingMessage,
-                    onEditMessage: _editMessage,
-                    onEditFinished: _finishEditing,
-                  ),
-                )
+              ? composer
               : null,
           bodyBuilder: (_, header) =>
               hasMessages ? content : header.inset(content, fullExtent: true),

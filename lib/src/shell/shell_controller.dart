@@ -4443,6 +4443,7 @@ class ShellController extends FrameSafeNotifier
             ),
           )
         : null,
+    postSelected: isTopicPostSelected,
     store: store,
     credentials: credentials,
     lifecycle: lifecycle,

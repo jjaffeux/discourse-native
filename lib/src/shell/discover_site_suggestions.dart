@@ -6,6 +6,7 @@ import '../data/discover_site.dart';
 import '../data/discover_sites.dart';
 import '../theme/d_icons.dart';
 import 'external_link.dart';
+import 'image_decode.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'skeleton_fill.dart';
@@ -234,6 +235,9 @@ class _SiteLogo extends StatelessWidget {
               url: site.logoUrl!,
               siteUrl: null,
               fit: BoxFit.contain,
+              // Height only: the exact-size resize policy would stretch a
+              // non-square logo if both axes were bound.
+              cacheHeight: imagePhysicalPixels(context, 32),
               excludeFromSemantics: true,
               loadingBuilder: (_) => DSkeleton(
                 width: 32,

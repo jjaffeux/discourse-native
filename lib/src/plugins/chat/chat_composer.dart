@@ -4,7 +4,8 @@ import 'package:desktop_drop/desktop_drop.dart';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/foundation.dart'
+    show ValueListenable, defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -183,6 +184,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
   ChatController? _chat;
   ChatComposerDraftSession? _draftSession;
+  _TargetSendState? _targetSendState;
   ComposerController? get _composer => _draftSession?.composer;
   String _cookingLocale = 'en';
   String? _sourceKey;
@@ -248,6 +250,8 @@ class _ChatComposerState extends State<ChatComposer> {
     widget.uploadDropController?.detach(_composer);
     _draftSession?.dispose();
     _draftSession = null;
+    _targetSendState?.dispose();
+    _targetSendState = null;
     final channel = chat.channel(widget.siteUrl, widget.channelId);
     _host = host;
     _emoji = emoji;
@@ -272,6 +276,7 @@ class _ChatComposerState extends State<ChatComposer> {
       composer: composer,
       editingMessage: widget.editingMessage,
     );
+    _followTarget(chat);
     widget.uploadDropController?.attach(
       composer,
       canAccept: () =>
@@ -284,6 +289,18 @@ class _ChatComposerState extends State<ChatComposer> {
       _requestFocus(sourceKey);
     }
     if (widget.focusRequest > 0) _requestFocus(sourceKey);
+  }
+
+  void _followTarget(ChatController chat) {
+    _targetSendState?.dispose();
+    _targetSendState = _TargetSendState(
+      chat: chat,
+      siteUrl: widget.siteUrl,
+      target: _target,
+      changes:
+          widget.reader?.changes ??
+          chat.streamListenableFor(widget.siteUrl, _target),
+    );
   }
 
   void _requestFocus(String sourceKey) {
@@ -318,6 +335,9 @@ class _ChatComposerState extends State<ChatComposer> {
         oldWidget.channelId == widget.channelId &&
         oldWidget.threadId == widget.threadId;
     if (sameTarget) {
+      if (!identical(oldWidget.reader, widget.reader) && _chat != null) {
+        _followTarget(_chat!);
+      }
       if (oldWidget.editingMessage?.id != widget.editingMessage?.id) {
         _draftSession?.updateEditingMessage(widget.editingMessage);
         if (widget.editingMessage != null) _requestFocus(_sourceKey!);
@@ -339,6 +359,7 @@ class _ChatComposerState extends State<ChatComposer> {
   void dispose() {
     widget.uploadDropController?.detach(_composer);
     _draftSession?.dispose();
+    _targetSendState?.dispose();
     super.dispose();
   }
 
@@ -659,16 +680,17 @@ class _ChatComposerState extends State<ChatComposer> {
     final host = _host;
     if (composer == null || host == null) return const SizedBox.shrink();
 
-    return ValueListenableBuilder<ChatChannel?>(
-      valueListenable: PluginUiScope.require(
-        context,
-        chatControllerService,
-      ).channelRef(widget.siteUrl, widget.channelId),
-      builder: (context, channel, _) {
+    final chat = _chat!;
+    return ListenableBuilder(
+      listenable: Listenable.merge([
+        chat.channelRef(widget.siteUrl, widget.channelId),
+        _targetSendState!,
+      ]),
+      builder: (context, _) {
+        final channel = chat.channel(widget.siteUrl, widget.channelId);
         if (channel != null &&
-            !(_chat?.canSendMessageTo(widget.siteUrl, _target) ?? false)) {
-          if (_chat case final chat?
-              when channel.isCategoryChannel && !channel.membership.following) {
+            !chat.canSendMessageTo(widget.siteUrl, _target)) {
+          if (channel.isCategoryChannel && !channel.membership.following) {
             return _composerLane(
               Padding(
                 // Item paints its .5px outline outside its layout bounds.
@@ -707,17 +729,7 @@ class _ChatComposerState extends State<ChatComposer> {
           );
         }
         return ListenableBuilder(
-          listenable: Listenable.merge([
-            composer,
-            _draftSession!.replyChanges,
-            widget.reader?.changes ??
-                _chat!.streamListenableFor(widget.siteUrl, _target),
-            for (final id
-                in (widget.reader?.stream ??
-                        _chat!.streamFor(widget.siteUrl, _target))
-                    .localMessageIds)
-              _chat!.messageRef(widget.siteUrl, id),
-          ]),
+          listenable: Listenable.merge([composer, _draftSession!.replyChanges]),
           builder: (context, _) => _composerLaneBuilder(
             (context, compact) => Column(
               mainAxisSize: MainAxisSize.min,
@@ -1462,5 +1474,77 @@ class _ChatJoinChannelPromptState extends State<_ChatJoinChannelPrompt> {
           ),
       ],
     );
+  }
+}
+
+/// What the composer reads from the controller for its target: whether a
+/// message can be sent there, and whether one of its own is still on the
+/// wire. The records and stream behind both answers change on every arriving
+/// message, so this follows those sources itself and notifies only when an
+/// answer flips. A local row is followed from the moment the stream lists it,
+/// so a send staged after the bar was built still reports its delivery.
+final class _TargetSendState extends ChangeNotifier {
+  _TargetSendState({
+    required this.chat,
+    required this.siteUrl,
+    required this.target,
+    required this.changes,
+  }) : _last = _read(chat, siteUrl, target) {
+    changes.addListener(_followStream);
+    if (target.threadId case final threadId?) {
+      _thread = chat.threadRef(siteUrl, threadId)..addListener(_reread);
+    }
+    _followStream();
+  }
+
+  final ChatController chat;
+  final String siteUrl;
+  final ChatStreamTarget target;
+  final ValueListenable<ChatStreamState> changes;
+  final Map<int, Listenable> _rows = {};
+  Listenable? _thread;
+  ({bool canSend, bool sending}) _last;
+
+  static ({bool canSend, bool sending}) _read(
+    ChatController chat,
+    String siteUrl,
+    ChatStreamTarget target,
+  ) => (
+    canSend: chat.canSendMessageTo(siteUrl, target),
+    sending: chat.hasSendingMessage(siteUrl, target),
+  );
+
+  void _followStream() {
+    final ids = changes.value.localMessageIds;
+    _rows.removeWhere((id, row) {
+      if (ids.contains(id)) return false;
+      row.removeListener(_reread);
+      return true;
+    });
+    for (final id in ids) {
+      _rows.putIfAbsent(
+        id,
+        () => chat.messageRef(siteUrl, id)..addListener(_reread),
+      );
+    }
+    _reread();
+  }
+
+  void _reread() {
+    final next = _read(chat, siteUrl, target);
+    if (next == _last) return;
+    _last = next;
+    notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    changes.removeListener(_followStream);
+    _thread?.removeListener(_reread);
+    for (final row in _rows.values) {
+      row.removeListener(_reread);
+    }
+    _rows.clear();
+    super.dispose();
   }
 }

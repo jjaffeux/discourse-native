@@ -8,7 +8,8 @@ class CategoryDirectoryEntry {
     required this.category,
     required this.subcategories,
     required this.muted,
-    required this.unreadTopicCount,
+    required this._unreadCategoryIds,
+    required this._unreadTopicCounts,
     required this.topicCount,
     required this.latestTopic,
   });
@@ -16,9 +17,22 @@ class CategoryDirectoryEntry {
   final TopicCategory category;
   final List<TopicCategory> subcategories;
   final bool muted;
-  final int unreadTopicCount;
+
+  /// The categories whose unread topics this row totals: itself and its
+  /// descendants, without anything muted.
+  final List<int> _unreadCategoryIds;
+  final Map<int, int> _unreadTopicCounts;
   final int topicCount;
   final CategoryFeaturedTopic? latestTopic;
+
+  int get unreadTopicCount => unreadTopicCountIn(_unreadTopicCounts);
+
+  /// This row's total against [counts], for a row that outlives the counts it
+  /// was listed from.
+  int unreadTopicCountIn(Map<int, int> counts) => _unreadCategoryIds.fold(
+    0,
+    (total, categoryId) => total + (counts[categoryId] ?? 0),
+  );
 
   bool matches(CategoryDirectoryScope scope) => switch (scope) {
     CategoryDirectoryScope.all => true,
@@ -174,13 +188,11 @@ CategoryDirectoryEntry _categoryDirectoryEntry(
 
   final descendants = _categoryDescendants(root.id, children).toList();
   final family = [root, ...descendants];
-  var unreadTopicCount = 0;
   var topicCount = 0;
   CategoryFeaturedTopic? latest;
   for (final category in family) {
     topicCount += category.topicCount;
     if (isMuted(category)) continue;
-    unreadTopicCount += unreadTopicCounts[category.id] ?? 0;
     // Activity can differ from featured order because old topics can be pinned.
     for (final topic in category.featuredTopics) {
       if (latest == null ||
@@ -196,7 +208,13 @@ CategoryDirectoryEntry _categoryDirectoryEntry(
     category: root,
     subcategories: descendants,
     muted: muted,
-    unreadTopicCount: muted ? 0 : unreadTopicCount,
+    unreadCategoryIds: muted
+        ? const []
+        : [
+            for (final category in family)
+              if (!isMuted(category)) category.id,
+          ],
+    unreadTopicCounts: unreadTopicCounts,
     topicCount: topicCount,
     latestTopic: muted ? null : latest,
   );

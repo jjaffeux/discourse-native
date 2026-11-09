@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/plugins/bundled_plugin_manifest.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -96,6 +97,57 @@ void main() {
       expect(identical(held.merge(again), held), isTrue);
     });
   }
+
+  group('a topic as its post tiles compare it', () {
+    const held = TopicDetail(id: 7, title: 'Hello', stream: [1, 2]);
+
+    test('ignores the figures a like or a reply moves', () {
+      final moved = held.copyWith(
+        stream: const [1, 2, 3],
+        lastPostId: 3,
+        postsCount: 3,
+        likeCount: 9,
+        gapsAfter: const {
+          2: [3],
+        },
+        messageBusLastId: 12,
+      );
+
+      expect(moved == held, isFalse);
+      expect(moved.hasSamePostFacingFields(held), isTrue);
+    });
+
+    test('ignores a bookmark on one post and notices one on the topic', () {
+      Bookmark bookmark(String type) => Bookmark(
+        id: 1,
+        bookmarkableId: 7,
+        bookmarkableType: type,
+        postNumber: 1,
+        autoDeletePreference: BookmarkAutoDeletePreference.never,
+      );
+
+      final onPost = held.copyWith(bookmarks: [bookmark('Post')]);
+      final onTopic = held.copyWith(bookmarks: [bookmark('Topic')]);
+
+      expect(onPost == held, isFalse);
+      expect(onPost.hasSamePostFacingFields(held), isTrue);
+      expect(onTopic.hasSamePostFacingFields(held), isFalse);
+    });
+
+    test('notices every field a post can read', () {
+      for (final changed in [
+        held.copyWith(title: 'Renamed'),
+        held.copyWith(closed: true),
+        held.copyWith(archived: true),
+        held.copyWith(canEdit: true),
+        held.copyWith(privateMessage: true),
+        held.copyWith(visible: false),
+        held.copyWith(categoryId: 3),
+      ]) {
+        expect(changed.hasSamePostFacingFields(held), isFalse);
+      }
+    });
+  });
 
   test('every bundled topic record compares by value', () {
     final plugins = [
