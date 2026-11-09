@@ -200,7 +200,7 @@ final class DiscourseTopicApi {
     }
     final query = <String, String>{
       if (postNumber != null) 'post_number': '$postNumber',
-      if (summary) 'summary': 'true',
+      if (summary) 'filter': 'summary',
     };
     return _getTopicModel(
       // Topic ids are stable; slugs are presentation metadata and can become
