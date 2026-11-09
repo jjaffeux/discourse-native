@@ -499,6 +499,9 @@ final class DiscourseTransport {
     final http.Response response;
     try {
       final request = http.Request(method, url)
+        // Several paths carry no `.json`, and core renders its refusals by
+        // format: unnamed, a read-only or forbidden answer is an HTML page.
+        ..headers['Accept'] = 'application/json'
         // Rails reads a missing optional parameter and explicit null
         // differently. Null here means that the server should choose.
         ..body = jsonEncode({
