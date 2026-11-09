@@ -43,9 +43,31 @@ class VotingTestApi extends FakeDiscourseApi {
     required super.feeds,
     required super.topics,
     required super.pluginResponses,
+    required super.postsById,
     super.categoryList,
   });
   Future<void>? writeGate;
+  Future<void>? rereadGate;
+  @override
+  Future<List<Post>> posts({
+    required String siteUrl,
+    required int topicId,
+    required List<int> ids,
+    bool includeRaw = false,
+    String? apiKey,
+    String? clientId,
+  }) async {
+    await rereadGate;
+    return super.posts(
+      siteUrl: siteUrl,
+      topicId: topicId,
+      ids: ids,
+      includeRaw: includeRaw,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
+
   @override
   Future<Map<String, dynamic>> pluginWriteJson({
     required String siteUrl,
@@ -162,6 +184,7 @@ pumpFixture(
       '/latest.json': [row],
     },
     topics: {7: models.topic(wire, site)},
+    postsById: {},
     categoryList: categories,
     pluginResponses: {
       'GET /t/7.json?post_number=1': wire,
@@ -421,6 +444,26 @@ void main() {
       ),
     );
   }
+  testWidgets('a live re-read that lands after the message redraws the score', (
+    tester,
+  ) async {
+    final fixture = await pumpFixture(tester, desktop);
+    final reread = Completer<void>();
+    (fixture.api as VotingTestApi).rereadGate = reread.future;
+    fixture.api.postsById[103] = models.post(post(3, score: 13), site);
+
+    FakeSiteTracker.built.single.deliverTopicMessage('/topic/7', const {
+      'type': 'revised',
+      'id': 103,
+    });
+    await frames(tester);
+    expect(find.text('12'), findsOneWidget);
+    reread.complete();
+    await frames(tester);
+
+    expect(find.text('13'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox());
+  });
   testWidgets(
     'authoritative same actor event removes optimistic overlay before HTTP returns',
     (tester) async {
