@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../models/content_route.dart';
-import '../models/discourse_instance.dart';
 import '../plugin_api/plugin_scope.dart';
 import 'forum_tab_scope.dart';
 import 'header_preferences.dart';
@@ -121,19 +120,27 @@ class _ShellAccountHosts extends StatelessWidget {
 
   final Widget child;
 
-  // Only the account decides which preference document the hosts load, so a
-  // tracking message must not rebuild them.
+  // The hosts key their documents on the account, so a tracking message must
+  // not rebuild them. Instances compare by URL alone, which is why the user is
+  // selected separately: its id can arrive after the instance is first known.
   @override
   Widget build(BuildContext context) =>
-      ShellSelector<(DiscourseInstance?, String?)>(
-        select: (controller) =>
-            (controller.currentInstance, controller.currentAccountIdentity),
+      ShellSelector<(String?, int?, String?, String?)>(
+        select: (controller) {
+          final instance = controller.currentInstance;
+          return (
+            instance?.url,
+            instance?.user?.id,
+            instance?.user?.username,
+            controller.currentAccountIdentity,
+          );
+        },
         builder: (context, account, child) {
-          final (instance, identity) = account;
+          final (url, _, _, identity) = account;
           return HeaderPreferencesHost(
-            instance: instance,
+            instance: ShellScope.read(context).currentInstance,
             child: MobilePlaceOrderHost(
-              account: instance == null ? null : (instance.url, identity!),
+              account: url == null ? null : (url, identity!),
               child: child!,
             ),
           );
