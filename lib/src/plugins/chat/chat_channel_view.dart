@@ -1303,7 +1303,9 @@ class _StreamState extends State<ChatMessageStream>
       messageId: messageId,
     );
     if (seen == _seen) {
-      if (recheckVisibleRead && _readerActive) _readDwell.creditIfIdle();
+      // A hidden pane takes the recheck too. The dwell banks it and credits
+      // only after the reader is back for a full dwell, as web does.
+      if (recheckVisibleRead) _readDwell.creditIfIdle();
       return;
     }
     _seen = seen;
