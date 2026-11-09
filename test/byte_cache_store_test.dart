@@ -2,7 +2,10 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:discourse_native/src/data/byte_cache_store.dart';
+import 'package:discourse_native/src/data/media_pipeline.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 
 void main() {
   final now = DateTime.utc(2026, 10, 22, 12);
@@ -404,6 +407,118 @@ void main() {
       },
     );
   });
+
+  group('FileByteCacheStore last-used time', () {
+    test(
+      'a warm launch serves cached avatars without writing to disk',
+      () async {
+        final urls = [
+          for (var index = 0; index < 40; index++)
+            'https://cdn.test/user_avatar/u$index/48/1.png',
+        ];
+        final previousLaunch = FileByteCacheStore(directory);
+        for (final url in urls) {
+          await previousLaunch.write(
+            url,
+            Uint8List.fromList(List.filled(2048, 1)),
+            expiresAt: DateTime.now().add(const Duration(days: 365)),
+          );
+        }
+        final entries = await directory.list().cast<File>().toList();
+        final lastUsed = <String, DateTime>{};
+        for (final entry in entries) {
+          await entry.setLastModified(
+            DateTime.now().subtract(const Duration(hours: 1)),
+          );
+          lastUsed[entry.path] = entry.lastModifiedSync();
+        }
+        int rewritten() => entries
+            .where(
+              (entry) => !entry.lastModifiedSync().isAtSameMomentAs(
+                lastUsed[entry.path]!,
+              ),
+            )
+            .length;
+        var requests = 0;
+        final pipeline = MediaPipeline(
+          client: MockClient((_) async {
+            requests++;
+            return http.Response.bytes(const [], 404);
+          }),
+          store: FileByteCacheStore(directory),
+        );
+        addTearDown(pipeline.close);
+
+        final avatars = await Future.wait(urls.map(pipeline.avatars.load));
+        await _pollUntil(
+          () => rewritten() == entries.length,
+          const Duration(seconds: 1),
+        );
+
+        final writes = rewritten();
+        // ignore: avoid_print
+        print('PERF_PROOF image-cache-touch warm_launch_file_writes=$writes');
+        // ignore: avoid_print
+        print(
+          'PERF_PROOF image-cache-touch warm_launch_network_requests=$requests',
+        );
+        expect(entries, hasLength(urls.length));
+        expect(avatars, everyElement(isNotNull));
+        expect(requests, 0);
+        expect(writes, 0);
+      },
+    );
+
+    test('a read lets pruning keep an entry last used long ago', () async {
+      final read = await seed('read', [
+        1,
+      ], now.subtract(const Duration(hours: 48)));
+      final unread = await seed('unread', [
+        2,
+      ], now.subtract(const Duration(hours: 25)));
+      final store = FileByteCacheStore(
+        directory,
+        maxEntries: 1,
+        clock: () => now,
+      );
+
+      expect(await store.read(_url('read')), orderedEquals([1]));
+      await _pollUntil(
+        () => read.lastModifiedSync().isAtSameMomentAs(now),
+        const Duration(seconds: 5),
+      );
+      await store.initialize();
+
+      expect(await read.exists(), isTrue);
+      expect(await unread.exists(), isFalse);
+    });
+
+    test('a read records use only once the last record is a day old', () async {
+      final recentAt = now.subtract(const Duration(hours: 23, minutes: 59));
+      final recent = await seed('recent', [1], recentAt);
+      final due = await seed('due', [
+        2,
+      ], now.subtract(const Duration(hours: 24)));
+      final store = FileByteCacheStore(directory, clock: () => now);
+
+      expect(await store.read(_url('recent')), orderedEquals([1]));
+      expect(await store.read(_url('due')), orderedEquals([2]));
+      await _pollUntil(
+        () => due.lastModifiedSync().isAtSameMomentAs(now),
+        const Duration(seconds: 5),
+      );
+
+      expect(due.lastModifiedSync().isAtSameMomentAs(now), isTrue);
+      expect(recent.lastModifiedSync().isAtSameMomentAs(recentAt), isTrue);
+    });
+  });
+}
+
+Future<void> _pollUntil(bool Function() done, Duration limit) async {
+  final elapsed = Stopwatch()..start();
+  while (!done() && elapsed.elapsed < limit) {
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
 }
 
 String _url(String key) => 'https://cdn.test/$key.png';

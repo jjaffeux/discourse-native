@@ -39,6 +39,11 @@ final class FileByteCacheStore implements ByteCacheStore {
   static const _magic = [0x44, 0x4e, 0x42, 0x31]; // DNB1
   static const _headerBytes = 12;
   static const _staleTemporaryAge = Duration(hours: 1);
+  // An entry's mtime is its last-used time, and pruning only reaches an entry
+  // once the limits have turned over: thousands of images, far more than a day
+  // of reading. Recording use more finely buys no better eviction and costs a
+  // disk write for every image on every warm launch.
+  static const _lastUsedGranularity = Duration(hours: 24);
 
   final Directory directory;
   final int maxEntries;
@@ -104,16 +109,19 @@ final class FileByteCacheStore implements ByteCacheStore {
       return null;
     }
     final bodyLength = encoded.length - _headerBytes;
-    if (!expiresAt.isAfter(_clock().toUtc()) || bodyLength > maxEntryBytes) {
+    final now = _clock();
+    if (!expiresAt.isAfter(now.toUtc()) || bodyLength > maxEntryBytes) {
       await _delete(file);
       return null;
     }
 
-    unawaited(
-      file
-          .setLastModified(_clock())
-          .then<void>((_) {}, onError: (Object _, StackTrace _) {}),
-    );
+    if (now.difference(stat.modified) >= _lastUsedGranularity) {
+      unawaited(
+        file
+            .setLastModified(now)
+            .then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      );
+    }
     return Uint8List.sublistView(encoded, _headerBytes);
   }
 
