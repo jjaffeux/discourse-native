@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../../models/site_emoji.dart';
+import 'markdown_highlight.dart';
 
 enum ComposerTriggerKind {
   mention('@'),
@@ -148,6 +149,10 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
       ? query.runes.length
       : query.length;
   if (queryLength < kind.minimum || queryLength > kind.maximum) return null;
+
+  // Code is literal, as core's trigger rules hold it to be. Last, because
+  // only a caret already on a trigger is worth reading the draft's structure.
+  if (markdownCodeRanges(text).contains(sigil)) return null;
 
   return ComposerTrigger(kind: kind, query: query, start: sigil, end: caret);
 }
