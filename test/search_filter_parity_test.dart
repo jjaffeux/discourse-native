@@ -90,7 +90,10 @@ void main() {
       expect(search.conditions[1].operator, 'all');
       search.setQuery('status:invalid @john_doe words');
       expect(search.query, 'status:invalid words');
-      expect(search.conditions.first.text, 'john_doe');
+      expect(
+        search.conditions.singleWhere((c) => c.filterId == 'author').text,
+        'john_doe',
+      );
       search.setScope(GlobalSearchScope.messages);
       search.setQuery('@sam in:personal-direct ');
       expect(search.scope, GlobalSearchScope.messages);
