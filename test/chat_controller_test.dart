@@ -7435,6 +7435,36 @@ void main() {
       expect(restored.reactions.single.emoji, 'clap');
     });
 
+    test('does not offer pinning on a site with pins turned off', () async {
+      // Guardian#can_manage_chat_channel_pins? never reads the site setting,
+      // so a direct message reports the capability either way.
+      bool offeredWith(Object pinsEnabled) {
+        final subject = build(
+          currentUser: currentUser,
+          siteConfigFor: (_) => SiteConfig(
+            plugins: PluginData.none.withValue(
+              chatSettingsDataKey,
+              ChatSettings.fromSettings({
+                'chat_enabled': true,
+                'chat_pinned_messages': pinsEnabled,
+              }),
+            ),
+          ),
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(
+          site,
+          channel(9, kind: ChatChannelKind.directMessage, canManagePins: true),
+        );
+        final held = message(12);
+        subject.store.put(site, held);
+        return subject.chat.canPinMessage(site, held);
+      }
+
+      expect(offeredWith(true), isTrue);
+      expect(offeredWith(false), isFalse);
+    });
+
     test('does not offer pinning without the serialized capability', () async {
       final subject = build(currentUser: currentUser);
       addTearDown(subject.chat.dispose);
