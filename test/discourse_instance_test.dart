@@ -1,10 +1,12 @@
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_model_codec.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/site_basic_info.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -204,6 +206,89 @@ void main() {
         ]);
       },
     );
+  });
+
+  // config/site_settings.yml marks hide_user_profiles_from_public client: true
+  // and web's users-section-link.js leaves the link out for a visitor.
+  group('hide_user_profiles_from_public', () {
+    final config = SiteConfig.fromSettings(const {
+      'enable_user_directory': true,
+      'hide_user_profiles_from_public': true,
+    });
+
+    test('takes Users out of an anonymous visitor\'s sidebar', () {
+      final section = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        config: config,
+      ).sections.single;
+
+      expect(section.destinations.map((destination) => destination.id), [
+        'latest',
+      ]);
+    });
+
+    // routes/users.js replaces the route for a visitor, and Search#user_search
+    // (lib/search.rb:1155) returns nothing for one.
+    test('leaves the directory to the site for an anonymous visitor', () {
+      final visitor = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        config: config,
+      );
+
+      expect(
+        ContentRouteCodec.fromUrl(
+          'https://example.com/u',
+          instance: visitor,
+          config: visitor.config,
+          defaultTopPeriod: TopPeriod.yearly,
+        ),
+        isNull,
+      );
+      expect(
+        GlobalSearchCapabilities.fromSite(config, null).userDirectory,
+        isFalse,
+      );
+    });
+
+    test('keeps the directory link and search for a signed-in reader', () {
+      const reader = DiscourseUser(id: 1, username: 'reader');
+      final member = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: reader,
+        config: config,
+      );
+
+      expect(
+        ContentRouteCodec.fromUrl(
+          'https://example.com/u',
+          instance: member,
+          config: member.config,
+          defaultTopPeriod: TopPeriod.yearly,
+        )?.isUsers,
+        isTrue,
+      );
+      expect(
+        GlobalSearchCapabilities.fromSite(config, reader).userDirectory,
+        isTrue,
+      );
+    });
+
+    test('keeps Users for a signed-in reader', () {
+      final section = DiscourseInstance(
+        url: 'https://example.com',
+        title: 'Example',
+        user: const DiscourseUser(id: 1, username: 'reader'),
+        config: config,
+      ).sections.single;
+
+      expect(
+        section.destinations.map((destination) => destination.id),
+        contains('users'),
+      );
+    });
   });
 
   group('DiscourseInstance.sectionsWithCustomSections', () {
