@@ -45,30 +45,37 @@ are deterministic. Each line counts every widget rebuilt by that action.
 A row is 364 elements and 166 render objects on a phone, down from 429 and 224.
 On a desktop it is 341 and 155, down from 402 and 210.
 
-## iPhone baseline
+## iPhone timings
 
-Median of the worst UI-thread frame over five cycles, on an iPhone 15 Pro Max at
-120 Hz. The budget is 8.33 ms. Latency is a fake 120 ms per request.
+Worst UI-thread frame on an iPhone 15 Pro Max at 120 Hz, where the budget is
+8.33 ms. Each figure is the median of five alternating runs per side, with five
+cycles per run and a fake 120 ms latency per request. Both sides passed every
+run and did the same work, 24 requests and 150 rows per cycle.
 
-| Phase | Worst frame |
-| --- | --- |
-| Rows arrive for a new period | 46.6 ms |
-| Search results land | 47.0 ms |
-| Next page lands | 44.4 ms |
-| Unrelated notification | 17.7 ms |
-| Filter keystroke | 17.3 ms |
-| Vertical scroll | 12.5 ms |
-| Horizontal scroll | 3.8 ms |
+| Phase | Before | After |
+| --- | --- | --- |
+| Unrelated notification | 16.7 ms | 0.3 ms |
+| Filter keystroke | 16.6 ms | 1.2 ms |
+| Vertical scroll | 12.3 ms | 2.9 ms |
+| Next page lands | 46.5 ms | 34.0 ms |
+| Rows arrive for a new period | 46.2 ms | 41.4 ms |
+| Search results land | 28.9 ms | 37.2 ms |
+| Horizontal scroll | 3.7 ms | 3.5 ms |
 
-The after run could not be taken because the phone went offline during this
-work. Treat the rebuild counts above as the evidence for this change, not these
-timings.
+The search landing is slower and its cause is not known. Every landing after
+this work costs about the same, 36 to 40 ms in a traced run, and the search
+landing was the one cheap landing before it. Burning the CPU during the
+keystrokes that precede it did not reproduce the old figure.
 
 ## Limits
 
 The frame in which a new period or search first shows rows still builds every
 row on screen at once. The notification and keystroke paths are the ones this
 work removes, and the arrival frame only gains the cheaper row.
+
+A held row reports no change to the list holding it, so `DTable` tells the list
+when its row count changes. Without that signal the scroll range stays short
+and the Users prefetch requests every page.
 
 ## Reproduce
 
