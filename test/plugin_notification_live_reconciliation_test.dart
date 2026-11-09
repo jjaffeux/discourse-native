@@ -373,6 +373,7 @@ final class _GatedCurrentUserApi extends FakeDiscourseApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     notificationFilters.add(List.unmodifiable(filterByTypes));

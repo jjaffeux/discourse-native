@@ -303,12 +303,14 @@ class DiscourseApi
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async => _account.notifications(
     siteUrl: siteUrl,
     apiKey: apiKey,
     limit: limit,
     filterByTypes: filterByTypes,
+    background: background,
     clientId: clientId,
   );
 

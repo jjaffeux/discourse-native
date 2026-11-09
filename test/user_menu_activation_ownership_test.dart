@@ -234,6 +234,7 @@ class _MenuApi extends FakeDiscourseApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async => [
     DiscourseNotification.test(

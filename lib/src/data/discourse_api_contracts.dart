@@ -1068,11 +1068,13 @@ abstract interface class AccountActivityApi {
     String? clientId,
   });
 
+  /// A [background] read is one nobody is looking at.
   Future<List<DiscourseNotification>> notifications({
     required String siteUrl,
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   });
 
