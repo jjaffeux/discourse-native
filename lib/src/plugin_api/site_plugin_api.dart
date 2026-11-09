@@ -1086,6 +1086,11 @@ abstract interface class TopicLiveReloadPlugin {
   bool staleTopic(int topicId, String channel, Object? data);
 }
 
+abstract interface class IgnoredUsersPlugin {
+  /// Usernames whose posts a topic read leaves out for [user].
+  Iterable<String> ignoredUsernames(DiscourseUser user);
+}
+
 @immutable
 class PostMenuContribution {
   const PostMenuContribution({

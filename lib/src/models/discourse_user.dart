@@ -28,7 +28,6 @@ class DiscourseUser {
     this.canUseDsaAccountEmail = false,
     this.groups = const [],
     this.messageGroupNames = const [],
-    this.ignoredUsernames = const [],
     this.sidebarCategoryIds = const [],
     this.sidebarTags = const [],
     this.displaySidebarTags = false,
@@ -77,9 +76,6 @@ class DiscourseUser {
     ),
     messageGroupNames: List.unmodifiable(
       jsonArray(json['messageGroupNames']).map(jsonText).whereType<String>(),
-    ),
-    ignoredUsernames: List.unmodifiable(
-      jsonArray(json['ignoredUsernames']).map(jsonText).whereType<String>(),
     ),
     sidebarCategoryIds: List.unmodifiable([
       for (final value in jsonArray(json['sidebarCategoryIds']))
@@ -154,9 +150,6 @@ class DiscourseUser {
 
   final List<String> messageGroupNames;
 
-  /// Usernames whose posts a topic read leaves out for this reader.
-  final List<String> ignoredUsernames;
-
   final List<int> sidebarCategoryIds;
 
   final List<SidebarTag> sidebarTags;
@@ -227,7 +220,6 @@ class DiscourseUser {
       'canUseDsaAccountEmail': canUseDsaAccountEmail,
       'groups': groups,
       'messageGroupNames': messageGroupNames,
-      'ignoredUsernames': ignoredUsernames,
       'sidebarCategoryIds': sidebarCategoryIds,
       'sidebarTags': [for (final tag in sidebarTags) tag.toJson()],
       'displaySidebarTags': displaySidebarTags,
@@ -280,7 +272,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -321,7 +312,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -362,7 +352,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -403,7 +392,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -445,7 +433,6 @@ class DiscourseUser {
         canUseDsaAccountEmail: canUseDsaAccountEmail,
         groups: groups,
         messageGroupNames: messageGroupNames,
-        ignoredUsernames: ignoredUsernames,
         sidebarCategoryIds: sidebarCategoryIds,
         sidebarTags: sidebarTags,
         displaySidebarTags: displaySidebarTags,
@@ -492,7 +479,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds ?? this.sidebarCategoryIds,
     sidebarTags: sidebarTags ?? this.sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -535,7 +521,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -576,7 +561,6 @@ class DiscourseUser {
     canUseDsaAccountEmail: canUseDsaAccountEmail,
     groups: groups,
     messageGroupNames: messageGroupNames,
-    ignoredUsernames: ignoredUsernames,
     sidebarCategoryIds: sidebarCategoryIds,
     sidebarTags: sidebarTags,
     displaySidebarTags: displaySidebarTags,
@@ -619,7 +603,6 @@ class DiscourseUser {
       other.canUseDsaAccountEmail == canUseDsaAccountEmail &&
       listEquals(other.groups, groups) &&
       listEquals(other.messageGroupNames, messageGroupNames) &&
-      listEquals(other.ignoredUsernames, ignoredUsernames) &&
       listEquals(other.sidebarCategoryIds, sidebarCategoryIds) &&
       listEquals(other.sidebarTags, sidebarTags) &&
       other.displaySidebarTags == displaySidebarTags &&
@@ -666,7 +649,6 @@ class DiscourseUser {
     canUseDsaAccountEmail,
     Object.hashAll(groups),
     Object.hashAll(messageGroupNames),
-    Object.hashAll(ignoredUsernames),
     Object.hashAll(sidebarCategoryIds),
     Object.hashAll(sidebarTags),
     displaySidebarTags,

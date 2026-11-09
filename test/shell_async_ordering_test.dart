@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/site_message_bus_bootstrap.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/post_mutation_outcome.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
@@ -11,6 +12,7 @@ import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
+import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -241,6 +243,15 @@ const _laterReply = Post(
   postNumber: 3,
   username: 'replier',
   cooked: 'later',
+);
+
+final _ignoringReplier = DiscourseUser(
+  id: 1,
+  username: 'author',
+  plugins: PluginData.none.withValue(
+    chatCurrentUserDataKey,
+    const ChatCurrentUser(ignoredUsernames: ['replier']),
+  ),
 );
 
 Post _streamPost(int id) =>
@@ -2054,8 +2065,11 @@ void main() {
     >
     open({DiscourseUser? user}) async {
       final api = _PostOrderingApi();
-      final plugins = PluginInstaller.install(const PluginManifest([]));
-      addTearDown(plugins.close);
+      // Chat owns the ignored list. Otherwise core's own handling only.
+      final plugins = user == null
+          ? PluginInstaller.install(const PluginManifest([]))
+          : installedPlugins;
+      if (user == null) addTearDown(plugins.close);
       final shell = await _loadShell(
         api,
         plugins: plugins,
@@ -2202,13 +2216,7 @@ void main() {
     });
 
     test('a post number moves the topic\'s highest, even if ignored', () async {
-      final (:shell, api: _, :tracker) = await open(
-        user: const DiscourseUser(
-          id: 1,
-          username: 'author',
-          ignoredUsernames: ['replier'],
-        ),
-      );
+      final (:shell, api: _, :tracker) = await open(user: _ignoringReplier);
 
       tracker.deliverTopicMessage(
         '/topic/7',
@@ -2374,13 +2382,7 @@ void main() {
     });
 
     test('a reply from an ignored user is left out without a read', () async {
-      final (:shell, :api, :tracker) = await open(
-        user: const DiscourseUser(
-          id: 1,
-          username: 'author',
-          ignoredUsernames: ['replier'],
-        ),
-      );
+      final (:shell, :api, :tracker) = await open(user: _ignoringReplier);
 
       tracker.deliverTopicMessage('/topic/7', created(2, username: 'replier'));
       await pumpEventQueue();
@@ -2391,13 +2393,7 @@ void main() {
     });
 
     test('a post read for an ignored author is left out too', () async {
-      final (:shell, :api, :tracker) = await open(
-        user: const DiscourseUser(
-          id: 1,
-          username: 'author',
-          ignoredUsernames: ['replier'],
-        ),
-      );
+      final (:shell, :api, :tracker) = await open(user: _ignoringReplier);
 
       tracker.deliverTopicMessage('/topic/7', created(2));
       await api.waitForPostRequests(1);

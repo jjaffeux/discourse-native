@@ -3925,8 +3925,10 @@ class ShellController extends FrameSafeNotifier
 
     loadTimeout: topicLoadTimeout,
     bookmarkReads: (siteUrl, lease) => _bookmarks.forLease(siteUrl, lease)!,
-    ignoredUsernames: (siteUrl) =>
-        _instanceAt(siteUrl)?.user?.ignoredUsernames ?? const [],
+    ignoredUsernames: (siteUrl) {
+      final user = _instanceAt(siteUrl)?.user;
+      return user == null ? const {} : plugins.registry.ignoredUsernames(user);
+    },
     notificationReads: (siteUrl, lease, topicId) => _topicTracking
         .capture(siteUrl, lease: lease)
         ?.reconciler

@@ -106,7 +106,7 @@ final class TopicDataOwner {
   final bool Function(String siteUrl, TopicDetail topic)? usesReader;
   final bool Function(String siteUrl, int topicId, int postId)? postSelected;
   final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
-  final List<String> Function(String siteUrl)? ignoredUsernames;
+  final Set<String> Function(String siteUrl)? ignoredUsernames;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;

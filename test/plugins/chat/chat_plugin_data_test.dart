@@ -143,6 +143,16 @@ void main() {
       );
     });
 
+    test('hands the ignored list a core topic read needs', () {
+      const models = DiscourseModelCodec(extensions: _registry);
+      final user = models.currentUser(const {
+        'username': 'sam',
+        'ignored_users': ['hawk', 'kris'],
+      }, 'https://forum.example');
+
+      expect(_registry.ignoredUsernames(user), {'hawk', 'kris'});
+    });
+
     test('decodes current-user keys into immutable typed data', () {
       const models = DiscourseModelCodec(extensions: _registry);
       final user = models.currentUser(const {
