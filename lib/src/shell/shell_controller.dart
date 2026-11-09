@@ -97,6 +97,7 @@ import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/tag_directory_feed.dart';
+import '../models/tag_notification.dart';
 import '../models/tag_sidebar.dart';
 import '../models/topic.dart';
 import '../models/topic_feed.dart';
@@ -3942,6 +3943,7 @@ class ShellController extends FrameSafeNotifier
     lifecycle: lifecycle,
     topics: api.topicMutations,
     categories: api.categoryMutations,
+    tags: api.tagNotifications,
     site: api.site,
     currentUsers: NotificationPreferenceCurrentUsers(
       read: (siteUrl) => _instanceAt(siteUrl)?.user,
@@ -5157,6 +5159,20 @@ class ShellController extends FrameSafeNotifier
     int categoryId,
     CategoryNotificationLevel level,
   ) => _notificationPreferences.updateCategory(siteUrl, categoryId, level);
+
+  Ref<TagNotificationPreference> tagNotificationRef(
+    String siteUrl,
+    String tag,
+  ) => store.ref<TagNotificationPreference>(siteUrl, tag);
+
+  Future<void> refreshTagNotificationLevel(String siteUrl, String tag) =>
+      _notificationPreferences.refreshTag(siteUrl, tag);
+
+  Future<bool> updateTagNotificationLevel(
+    String siteUrl,
+    String tag,
+    TagNotificationLevel level,
+  ) => _notificationPreferences.updateTag(siteUrl, tag, level);
 
   bool topicPinWriteInFlight(String siteUrl, int topicId) =>
       _topicActions.topicPinWriteInFlight(siteUrl, topicId);

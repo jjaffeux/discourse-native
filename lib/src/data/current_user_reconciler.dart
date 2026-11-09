@@ -21,6 +21,7 @@ final class CurrentUserReconciler {
   int _groupedUnreadRevision = 0;
   int _draftCountRevision = 0;
   int _categoryPreferencesRevision = 0;
+  int _tagPreferencesRevision = 0;
   int _confirmationRevision = 0;
   bool _presenceWritePending = false;
   bool _retired = false;
@@ -51,6 +52,8 @@ final class CurrentUserReconciler {
     _categoryPreferencesRevision++;
     return beginSnapshot();
   }
+
+  void tagPreferencesChanged() => _tagPreferencesRevision++;
 
   DiscourseUser updatePluginOption(
     String field, {
@@ -135,6 +138,9 @@ final class CurrentUserReconciler {
             indirectlyMutedCategoryIds: previous.indirectlyMutedCategoryIds,
           );
         }
+        if (ticket._tagPreferencesRevision != _tagPreferencesRevision) {
+          user = user.withMutedTagIds(previous.mutedTagIds);
+        }
       }
       final confirmations =
           [..._pluginUpdates.values, ..._preferenceUpdates.values]
@@ -188,6 +194,7 @@ final class CurrentUserSnapshot {
       _groupedUnreadRevision = owner._groupedUnreadRevision,
       _draftCountRevision = owner._draftCountRevision,
       _categoryPreferencesRevision = owner._categoryPreferencesRevision,
+      _tagPreferencesRevision = owner._tagPreferencesRevision,
       _confirmationRevision = owner._confirmationRevision;
 
   final CurrentUserReconciler _owner;
@@ -197,6 +204,7 @@ final class CurrentUserSnapshot {
   final int _groupedUnreadRevision;
   final int _draftCountRevision;
   final int _categoryPreferencesRevision;
+  final int _tagPreferencesRevision;
   final int _confirmationRevision;
 }
 

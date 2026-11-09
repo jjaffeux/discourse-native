@@ -28,6 +28,32 @@ void main() {
     );
   });
 
+  test('a tag write protects its muted tags from a stale response', () {
+    final stale = reconciler.beginSnapshot();
+    reconciler.tagPreferencesChanged();
+    const held = DiscourseUser(id: 7, username: 'sam', mutedTagIds: [41]);
+    const incoming = DiscourseUser(id: 7, username: 'sam', mutedTagIds: []);
+
+    expect(
+      reconciler
+          .reconcile(stale, previous: held, incoming: incoming)!
+          .user
+          .mutedTagIds,
+      [41],
+    );
+    expect(
+      reconciler
+          .reconcile(
+            reconciler.beginSnapshot(),
+            previous: held,
+            incoming: incoming,
+          )!
+          .user
+          .mutedTagIds,
+      isEmpty,
+    );
+  });
+
   test(
     'confirmed preference sections protect stale responses but permit later server truth',
     () {

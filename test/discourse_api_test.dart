@@ -16,6 +16,7 @@ import 'package:discourse_native/src/models/post_creation.dart';
 import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
+import 'package:discourse_native/src/models/tag_notification.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_feed.dart';
 import 'package:discourse_native/src/models/user_preferences.dart';
@@ -3418,6 +3419,100 @@ void _feedGroups() {
         expect(sent.method, 'POST');
         expect(sent.url.path, '/t/12/notifications');
         expect(jsonDecode(sent.body), {'notification_level': 0});
+      },
+    );
+
+    test('reads a tag notification level by id or by encoded name', () async {
+      final paths = <String>[];
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          paths.add(request.url.path);
+          expect(request.method, 'GET');
+          expect(request.headers['User-Api-Key'], 'key');
+          return http.Response(
+            jsonEncode({
+              'tag_notification': {
+                'id': 41,
+                'name': 'ux',
+                'notification_level': 3,
+              },
+            }),
+            200,
+          );
+        }),
+      );
+
+      for (final tag in ['41', 'café/ux']) {
+        expect(
+          await api.tagNotificationLevel(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            tag: tag,
+          ),
+          TagNotificationLevel.watching,
+        );
+      }
+
+      expect(paths, [
+        '/tag/41/notifications.json',
+        '/tag/caf%C3%A9%2Fux/notifications.json',
+      ]);
+    });
+
+    test('updates a tag level through the web endpoint', () async {
+      late http.Request sent;
+      final api = DiscourseApi(
+        client: MockClient((request) async {
+          sent = request;
+          return http.Response(
+            jsonEncode({
+              'watched_tags': <Object>[],
+              'muted_tags': [
+                {'id': 41, 'name': 'ux', 'slug': 'ux'},
+                {'name': 'sparse'},
+              ],
+            }),
+            200,
+          );
+        }),
+      );
+
+      final muted = await api.updateTagNotificationLevel(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        tag: '41',
+        notificationLevel: TagNotificationLevel.muted,
+        clientId: 'client',
+      );
+
+      expect(sent.method, 'PUT');
+      expect(sent.url.path, '/tag/41/notifications.json');
+      expect(sent.headers['User-Api-Key'], 'key');
+      expect(sent.headers['User-Api-Client-Id'], 'client');
+      expect(jsonDecode(sent.body), {
+        'tag_notification': {'notification_level': 0},
+      });
+      expect(muted, [41]);
+    });
+
+    test(
+      'a tag write response without its lists names no muted tags',
+      () async {
+        final api = DiscourseApi(
+          client: MockClient(
+            (_) async => http.Response(jsonEncode({'success': 'OK'}), 200),
+          ),
+        );
+
+        expect(
+          await api.updateTagNotificationLevel(
+            siteUrl: 'https://example.com',
+            apiKey: 'key',
+            tag: 'ux',
+            notificationLevel: TagNotificationLevel.tracking,
+          ),
+          isNull,
+        );
       },
     );
 

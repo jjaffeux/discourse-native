@@ -759,6 +759,15 @@ class ContentRoute {
     return link?.kind == ListKind.tag ? link!.id : null;
   }
 
+  /// The `:tag` of `/tag/:tag/notifications` for the one tag scoping this
+  /// list. Core offers no level for an intersection or for untagged topics.
+  String? get notificationTag {
+    if (tagId case final id?) return '$id';
+    final names = tagNames;
+    if (names.length != 1 || names.single == 'none') return null;
+    return names.single;
+  }
+
   bool get isTopicListFilter =>
       destination is FeedDestination &&
       (TopicListMode.fromRoute(this) != null ||

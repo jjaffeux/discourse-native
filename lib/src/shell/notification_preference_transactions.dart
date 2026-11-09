@@ -9,6 +9,7 @@ import '../data/store.dart';
 import '../data/topic_tracking_reconciler.dart';
 import '../models/discourse_user.dart';
 import '../models/post.dart';
+import '../models/tag_notification.dart';
 import '../models/topic.dart';
 
 final class NotificationPreferenceCurrentUsers {
@@ -61,6 +62,7 @@ final class NotificationPreferenceTransactions {
     required this.lifecycle,
     required this.topics,
     required this.categories,
+    required this.tags,
     required this.site,
     required this.currentUsers,
     required this.taxonomy,
@@ -74,6 +76,7 @@ final class NotificationPreferenceTransactions {
   final SiteLifecycle lifecycle;
   final TopicMutationsApi topics;
   final CategoryMutationsApi categories;
+  final TagNotificationsApi tags;
   final ShellSiteApi site;
   final NotificationPreferenceCurrentUsers currentUsers;
   final NotificationPreferenceTaxonomy taxonomy;
@@ -312,13 +315,18 @@ final class NotificationPreferenceTransactions {
     final account = _session(siteUrl);
     if (account == null) return Future.value(false);
     if (held.notificationLevel == level &&
-        account.category(categoryId) == null) {
+        account.categories[categoryId] == null) {
       return Future.value(true);
     }
     final queue =
-        account.category(categoryId) ??
-        _CategoryNotificationQueue(account, categoryId, held.notificationLevel);
-    final write = _QueuedCategoryNotification(level: level);
+        account.categories[categoryId] ??
+        _LevelQueue(
+          account,
+          account.categories,
+          categoryId,
+          held.notificationLevel,
+        );
+    final write = _QueuedLevel(level: level);
     // The response includes a site-wide inherited mute list. Serialize category
     // writes across the account so an older response cannot undo another edit.
     late final Future<void> tail;
@@ -334,16 +342,16 @@ final class NotificationPreferenceTransactions {
     return write.result.future;
   }
 
-  bool _isLatestCategoryNotification(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+  bool _isLatestLevel<K extends Object>(
+    _LevelQueue<K> queue,
+    _QueuedLevel write,
   ) => queue.owns(write) && !_disposed;
 
   Future<void> _performCategoryNotificationWrite(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+    _LevelQueue<int> queue,
+    _QueuedLevel write,
   ) async {
-    bool isLatest() => _isLatestCategoryNotification(queue, write);
+    bool isLatest() => _isLatestLevel(queue, write);
 
     if (!isLatest()) {
       write.complete(false);
@@ -379,7 +387,7 @@ final class NotificationPreferenceTransactions {
         () => categories.updateCategoryNotificationLevel(
           siteUrl: queue.account.siteUrl,
           apiKey: apiKey,
-          categoryId: queue.categoryId,
+          categoryId: queue.key,
           notificationLevel: write.level,
           clientId: clientId,
         ),
@@ -409,8 +417,8 @@ final class NotificationPreferenceTransactions {
             ? null
             : List.unmodifiable({
                 for (final id in ids)
-                  if (id != queue.categoryId) id,
-                if (write.level == level) queue.categoryId,
+                  if (id != queue.key) id,
+                if (write.level == level) queue.key,
               });
         _commitCategoryNotificationPreferences(
           queue.account,
@@ -437,54 +445,66 @@ final class NotificationPreferenceTransactions {
         );
       }
       _projectCategoryNotificationLevel(queue, write, write.level);
-      if (!queue.account.isCurrent || _disposed) return;
-      final username = currentUsers.read(queue.account.siteUrl)?.username;
-      if (username == null) return;
-      final tracking = queue.account.tracking;
-      final ticket = tracking.beginSnapshot(replace: true);
-      if (ticket == null) return;
-      trackingEffects
-          .refresh(
-            siteUrl: queue.account.siteUrl,
-            username: username,
-            lease: queue.account.lease,
-            tracking: tracking,
-            ticket: ticket,
-            requestCredentials: requestCredentials,
-            refreshCategoryPreferences:
-                indirectlyMuted == null ||
-                    user?.followedCategoryIds == null ||
-                    user?.mutedCategoryIds == null
-                ? () async {
-                    final response = await requestCredentials.run(
-                      () => site.currentUser(
-                        siteUrl: queue.account.siteUrl,
-                        apiKey: apiKey,
-                        clientId: clientId,
-                      ),
-                    );
-                    if (!queue.account.isCurrent || _disposed) return;
-                    final held = currentUsers.read(queue.account.siteUrl);
-                    if (!currentUserOwner.acceptsCategoryPreferences(
-                      categoryTicket,
-                      previous: held,
-                      incoming: response,
-                    )) {
-                      return;
-                    }
-                    _commitCategoryNotificationPreferences(
-                      queue.account,
-                      response,
-                    );
-                  }
-                : null,
-          )
-          .ignore();
-      changed();
+      final refreshing = _refreshTracking(
+        queue.account,
+        requestCredentials,
+        refreshCategoryPreferences:
+            indirectlyMuted == null ||
+                user?.followedCategoryIds == null ||
+                user?.mutedCategoryIds == null
+            ? () async {
+                final response = await requestCredentials.run(
+                  () => site.currentUser(
+                    siteUrl: queue.account.siteUrl,
+                    apiKey: apiKey,
+                    clientId: clientId,
+                  ),
+                );
+                if (!queue.account.isCurrent || _disposed) return;
+                final held = currentUsers.read(queue.account.siteUrl);
+                if (!currentUserOwner.acceptsCategoryPreferences(
+                  categoryTicket,
+                  previous: held,
+                  incoming: response,
+                )) {
+                  return;
+                }
+                _commitCategoryNotificationPreferences(queue.account, response);
+              }
+            : null,
+      );
+      if (refreshing) changed();
     } catch (_) {
     } finally {
       write.complete(true);
     }
+  }
+
+  /// A preference change moves topics in and out of the unread counts, so the
+  /// snapshot taken before it no longer describes this account.
+  bool _refreshTracking(
+    _NotificationPreferenceSession account,
+    AccountRequestCredentials requestCredentials, {
+    Future<void> Function()? refreshCategoryPreferences,
+  }) {
+    if (!account.isCurrent || _disposed) return false;
+    final username = currentUsers.read(account.siteUrl)?.username;
+    if (username == null) return false;
+    final tracking = account.tracking;
+    final ticket = tracking.beginSnapshot(replace: true);
+    if (ticket == null) return false;
+    trackingEffects
+        .refresh(
+          siteUrl: account.siteUrl,
+          username: username,
+          lease: account.lease,
+          tracking: tracking,
+          ticket: ticket,
+          requestCredentials: requestCredentials,
+          refreshCategoryPreferences: refreshCategoryPreferences,
+        )
+        .ignore();
+    return true;
   }
 
   void _commitCategoryNotificationPreferences(
@@ -513,25 +533,183 @@ final class NotificationPreferenceTransactions {
   }
 
   void _rollbackCategoryNotification(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+    _LevelQueue<int> queue,
+    _QueuedLevel write,
   ) {
     _projectCategoryNotificationLevel(queue, write, queue.confirmed);
   }
 
   void _projectCategoryNotificationLevel(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+    _LevelQueue<int> queue,
+    _QueuedLevel write,
     CategoryNotificationLevel level, {
     bool pending = false,
   }) {
-    if (!_isLatestCategoryNotification(queue, write)) return;
+    if (!_isLatestLevel(queue, write)) return;
     taxonomy.projectNotificationLevel(
       queue.account.siteUrl,
-      queue.categoryId,
+      queue.key,
       level,
       queue.account.lease,
       pending: pending,
+    );
+  }
+
+  /// Core has no tag level on the list payload, so each opening of a tag list
+  /// asks for it. A write owns the level from the moment it is admitted.
+  Future<void> refreshTag(String siteUrl, String tag) async {
+    if (_disposed) return;
+    final account = _session(siteUrl);
+    if (account == null || account.tags.containsKey(tag)) return;
+    final read = Object();
+    account.tagReads[tag] = read;
+    bool isLatest() =>
+        account.isCurrent &&
+        !_disposed &&
+        identical(account.tagReads[tag], read);
+    try {
+      final credential = await AccountRequestSession(
+        siteUrl,
+        account.lease,
+      ).credentials(credentials);
+      final apiKey = credential.apiKey;
+      if (apiKey == null || !isLatest()) return;
+      final level = await credential.run(
+        () => tags.tagNotificationLevel(
+          siteUrl: siteUrl,
+          apiKey: apiKey,
+          tag: tag,
+          clientId: credential.clientId,
+        ),
+      );
+      if (isLatest()) {
+        store.put(siteUrl, TagNotificationPreference(tag: tag, level: level));
+      }
+    } catch (_) {
+      // Without a level the control stays hidden rather than guessing one.
+    } finally {
+      if (identical(account.tagReads[tag], read)) account.tagReads.remove(tag);
+    }
+  }
+
+  Future<bool> updateTag(
+    String siteUrl,
+    String tag,
+    TagNotificationLevel level,
+  ) {
+    if (_disposed) return Future.value(false);
+    final held = store.read<TagNotificationPreference>(siteUrl, tag);
+    if (held == null) return Future.value(false);
+
+    final account = _session(siteUrl);
+    if (account == null) return Future.value(false);
+    if (held.level == level && account.tags[tag] == null) {
+      return Future.value(true);
+    }
+    account.tagReads.remove(tag);
+    final queue =
+        account.tags[tag] ??
+        _LevelQueue(account, account.tags, tag, held.level);
+    final write = _QueuedLevel(level: level);
+    // The response lists every muted tag. Serialize across the account so an
+    // older response cannot undo another edit.
+    late final Future<void> tail;
+    tail = account.tail
+        .catchError((_) {})
+        .then((_) => _performTagNotificationWrite(queue, write))
+        .whenComplete(() {
+          account.finish(queue, write, tail);
+        });
+    account.admit(queue, write, tail);
+    unawaited(tail);
+    _projectTagNotificationLevel(queue, write, level);
+    return write.result.future;
+  }
+
+  Future<void> _performTagNotificationWrite(
+    _LevelQueue<String> queue,
+    _QueuedLevel write,
+  ) async {
+    bool isLatest() => _isLatestLevel(queue, write);
+
+    if (!isLatest()) {
+      write.complete(false);
+      return;
+    }
+
+    final account = queue.account;
+    late final AccountRequestCredentials requestCredentials;
+    final List<int>? mutedTagIds;
+    try {
+      final credential = await AccountRequestSession(
+        account.siteUrl,
+        account.lease,
+      ).credentials(credentials);
+      if (!isLatest()) {
+        write.complete(false);
+        return;
+      }
+      final apiKey = credential.apiKey;
+      if (apiKey == null) {
+        _rollbackTagNotification(queue, write);
+        write.complete(false);
+        return;
+      }
+      requestCredentials = credential;
+      mutedTagIds = await credential.run(
+        () => tags.updateTagNotificationLevel(
+          siteUrl: account.siteUrl,
+          apiKey: apiKey,
+          tag: queue.key,
+          notificationLevel: write.level,
+          clientId: credential.clientId,
+        ),
+      );
+    } catch (error) {
+      if (account.isCurrent && !_disposed && isLatest()) {
+        _rollbackTagNotification(queue, write);
+      }
+      write.complete(false);
+      return;
+    }
+
+    if (!account.isCurrent || _disposed) {
+      write.complete(false);
+      return;
+    }
+    queue.confirm(write.level);
+    try {
+      account.currentUser.tagPreferencesChanged();
+      final user = currentUsers.read(account.siteUrl);
+      if (user != null && mutedTagIds != null) {
+        currentUsers.publish(
+          account.siteUrl,
+          account.lease,
+          user.withMutedTagIds(mutedTagIds),
+        );
+      }
+      _refreshTracking(account, requestCredentials);
+    } catch (_) {
+    } finally {
+      write.complete(true);
+    }
+  }
+
+  void _rollbackTagNotification(
+    _LevelQueue<String> queue,
+    _QueuedLevel write,
+  ) => _projectTagNotificationLevel(queue, write, queue.confirmed);
+
+  void _projectTagNotificationLevel(
+    _LevelQueue<String> queue,
+    _QueuedLevel write,
+    TagNotificationLevel level,
+  ) {
+    if (!_isLatestLevel(queue, write)) return;
+    store.update<TagNotificationPreference>(
+      queue.account.siteUrl,
+      queue.key,
+      (held) => TagNotificationPreference(tag: held.tag, level: level),
     );
   }
 }
@@ -588,40 +766,32 @@ final class _NotificationPreferenceSession {
 
   final String siteUrl;
   final SiteLease lease;
-  final Map<int, _CategoryNotificationQueue> _categories = {};
+  final Map<int, _LevelQueue<int>> categories = {};
+  final Map<String, _LevelQueue<String>> tags = {};
+
+  /// The newest read still allowed to publish, per tag. A write removes it.
+  final Map<String, Object> tagReads = {};
   Future<void>? _tail;
   bool _retired = false;
 
   bool get isCurrent => !_retired && lease.isCurrent;
   Future<void> get tail => _tail ?? Future.value();
 
-  _CategoryNotificationQueue? category(int categoryId) =>
-      _categories[categoryId];
-
-  bool owns(_CategoryNotificationQueue queue) =>
-      isCurrent && identical(_categories[queue.categoryId], queue);
-
-  void admit(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+  void admit<K extends Object>(
+    _LevelQueue<K> queue,
+    _QueuedLevel write,
     Future<void> tail,
   ) {
     queue._admit(write, tail);
-    _categories[queue.categoryId] = queue;
     _tail = tail;
   }
 
-  void finish(
-    _CategoryNotificationQueue queue,
-    _QueuedCategoryNotification write,
+  void finish<K extends Object>(
+    _LevelQueue<K> queue,
+    _QueuedLevel write,
     Future<void> tail,
   ) {
-    if (_retired ||
-        !identical(_categories[queue.categoryId], queue) ||
-        !queue._finish(write, tail)) {
-      return;
-    }
-    _categories.remove(queue.categoryId);
+    if (_retired || !queue._finish(write, tail)) return;
     if (identical(_tail, tail)) _tail = null;
   }
 
@@ -633,40 +803,51 @@ final class _NotificationPreferenceSession {
       queue.retire();
     }
     topics.clear();
-    _categories.clear();
+    categories.clear();
+    tags.clear();
+    tagReads.clear();
     _tail = null;
   }
 }
 
-final class _CategoryNotificationQueue {
-  _CategoryNotificationQueue(this.account, this.categoryId, this._confirmed);
+/// The writes pending for one category or tag: only the newest may publish,
+/// and a failure returns to the last level the server confirmed.
+final class _LevelQueue<K extends Object> {
+  _LevelQueue(this.account, this._scope, this.key, this._confirmed);
 
   final _NotificationPreferenceSession account;
-  final int categoryId;
+  final Map<K, _LevelQueue<K>> _scope;
+  final K key;
   CategoryNotificationLevel _confirmed;
-  _QueuedCategoryNotification? _latest;
+  _QueuedLevel? _latest;
   Future<void>? _tail;
 
   CategoryNotificationLevel get confirmed => _confirmed;
 
-  bool owns(_QueuedCategoryNotification write) =>
-      account.owns(this) && identical(_latest, write);
+  bool owns(_QueuedLevel write) =>
+      account.isCurrent &&
+      identical(_scope[key], this) &&
+      identical(_latest, write);
 
   void confirm(CategoryNotificationLevel level) {
     _confirmed = level;
   }
 
-  void _admit(_QueuedCategoryNotification write, Future<void> tail) {
+  void _admit(_QueuedLevel write, Future<void> tail) {
     _latest = write;
     _tail = tail;
+    _scope[key] = this;
   }
 
-  bool _finish(_QueuedCategoryNotification write, Future<void> tail) {
-    if (!identical(_latest, write) || !identical(_tail, tail)) {
+  bool _finish(_QueuedLevel write, Future<void> tail) {
+    if (!identical(_scope[key], this) ||
+        !identical(_latest, write) ||
+        !identical(_tail, tail)) {
       return false;
     }
     _latest = null;
     _tail = null;
+    _scope.remove(key);
     return true;
   }
 }
@@ -688,8 +869,8 @@ final class _QueuedTopicNotification {
   }
 }
 
-final class _QueuedCategoryNotification {
-  _QueuedCategoryNotification({required this.level});
+final class _QueuedLevel {
+  _QueuedLevel({required this.level});
 
   final CategoryNotificationLevel level;
   final Completer<bool> result = Completer<bool>();

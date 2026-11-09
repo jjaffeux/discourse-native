@@ -28,6 +28,7 @@ import '../models/site_appearance.dart';
 import '../models/site_basic_info.dart';
 import '../models/site_config.dart';
 import '../models/site_emoji.dart';
+import '../models/tag_notification.dart';
 import '../models/topic.dart';
 import '../models/topic_filter.dart';
 import '../models/topic_tracking_state.dart';
@@ -326,6 +327,7 @@ abstract interface class ShellApiCapabilities
         CategoryQueriesApi,
         CategoryMutationsApi,
         TagQueriesApi,
+        TagNotificationsApi,
         TopicComposerQueriesApi,
         TopicContentApi,
         TopicMutationsApi,
@@ -568,6 +570,25 @@ abstract interface class CategoryMutationsApi {
     required String apiKey,
     required int categoryId,
     required CategoryNotificationLevel notificationLevel,
+    String? clientId,
+  });
+}
+
+abstract interface class TagNotificationsApi {
+  /// [tag] is what `/tag/:tag/notifications` resolves: an id or a name.
+  Future<TagNotificationLevel> tagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    String? clientId,
+  });
+
+  /// Returns every tag the account now mutes, when the response lists them.
+  Future<List<int>?> updateTagNotificationLevel({
+    required String siteUrl,
+    required String apiKey,
+    required String tag,
+    required TagNotificationLevel notificationLevel,
     String? clientId,
   });
 }
