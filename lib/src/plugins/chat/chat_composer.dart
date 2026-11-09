@@ -687,10 +687,7 @@ class _ChatComposerState extends State<ChatComposer> {
 
     final chat = _chat!;
     return ListenableBuilder(
-      listenable: Listenable.merge([
-        chat.channelRef(widget.siteUrl, widget.channelId),
-        _targetSendState!,
-      ]),
+      listenable: _targetSendState!,
       builder: (context, _) {
         final channel = chat.channel(widget.siteUrl, widget.channelId);
         if (channel != null &&
@@ -1482,12 +1479,22 @@ class _ChatJoinChannelPromptState extends State<_ChatJoinChannelPrompt> {
   }
 }
 
+typedef _TargetSendAnswers = ({
+  bool canSend,
+  bool sending,
+  String? channelTitle,
+  bool directMessage,
+  ChatChannel? blockedBy,
+});
+
 /// What the composer reads from the controller for its target: whether a
-/// message can be sent there, and whether one of its own is still on the
-/// wire. The records and stream behind both answers change on every arriving
-/// message, so this follows those sources itself and notifies only when an
-/// answer flips. A local row is followed from the moment the stream lists it,
-/// so a send staged after the bar was built still reports its delivery.
+/// message can be sent there, whether one of its own is still on the wire, the
+/// channel name its hint shows, and the channel a Join or read-only notice
+/// stands in for. The records and stream behind those answers change on every
+/// arriving message, so this follows those sources itself and notifies only
+/// when an answer changes. A local row is followed from the moment the stream
+/// lists it, so a send staged after the bar was built still reports its
+/// delivery.
 final class _TargetSendState extends ChangeNotifier {
   _TargetSendState({
     required this.chat,
@@ -1496,6 +1503,8 @@ final class _TargetSendState extends ChangeNotifier {
     required this.changes,
   }) : _last = _read(chat, siteUrl, target) {
     changes.addListener(_followStream);
+    _channel = chat.channelRef(siteUrl, target.channelId)
+      ..addListener(_channelChanged);
     if (target.threadId case final threadId?) {
       _thread = chat.threadRef(siteUrl, threadId)..addListener(_reread);
     }
@@ -1507,17 +1516,36 @@ final class _TargetSendState extends ChangeNotifier {
   final ChatStreamTarget target;
   final ValueListenable<ChatStreamState> changes;
   final Map<int, Listenable> _rows = {};
+  late Listenable _channel;
   Listenable? _thread;
-  ({bool canSend, bool sending}) _last;
+  _TargetSendAnswers _last;
 
-  static ({bool canSend, bool sending}) _read(
+  static _TargetSendAnswers _read(
     ChatController chat,
     String siteUrl,
     ChatStreamTarget target,
-  ) => (
-    canSend: chat.canSendMessageTo(siteUrl, target),
-    sending: chat.hasSendingMessage(siteUrl, target),
-  );
+  ) {
+    final channel = chat.channel(siteUrl, target.channelId);
+    final canSend = chat.canSendMessageTo(siteUrl, target);
+    return (
+      canSend: canSend,
+      sending: chat.hasSendingMessage(siteUrl, target),
+      channelTitle: channel?.title,
+      directMessage: channel?.isDirectMessage ?? false,
+      blockedBy: canSend ? null : channel,
+    );
+  }
+
+  /// Forgetting a site detaches its records' refs and notifies them, so the
+  /// next account's channel is followed through a new one.
+  void _channelChanged() {
+    final channel = chat.channelRef(siteUrl, target.channelId);
+    if (!identical(channel, _channel)) {
+      _channel.removeListener(_channelChanged);
+      _channel = channel..addListener(_channelChanged);
+    }
+    _reread();
+  }
 
   void _followStream() {
     final ids = changes.value.localMessageIds;
@@ -1545,6 +1573,7 @@ final class _TargetSendState extends ChangeNotifier {
   @override
   void dispose() {
     changes.removeListener(_followStream);
+    _channel.removeListener(_channelChanged);
     _thread?.removeListener(_reread);
     for (final row in _rows.values) {
       row.removeListener(_reread);
