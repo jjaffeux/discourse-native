@@ -228,7 +228,6 @@ void main() {
       expect(find.byType(InlineVideo), findsOneWidget);
       expect(find.bySemanticsLabel('Play video: demo.mp4'), findsOneWidget);
       expect(find.byTooltip('Download video'), findsOneWidget);
-      expect(find.text('demo.mp4'), findsOneWidget);
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: const Offset(-1, -1));
       addTearDown(mouse.removePointer);

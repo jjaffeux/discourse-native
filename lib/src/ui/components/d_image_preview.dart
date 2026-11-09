@@ -37,6 +37,11 @@ class _DImagePreviewState extends State<DImagePreview> {
   bool _hovered = false;
   bool _focused = false;
 
+  // Latched: the bar outweighs the rest of the preview, a pointer platform
+  // shows it to few of the images it scrolls past, and it must still be
+  // mounted while it fades out.
+  bool _barMounted = false;
+
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
@@ -51,6 +56,7 @@ class _DImagePreviewState extends State<DImagePreview> {
     };
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     final radius = tokens.borderRadius;
+    _barMounted |= active || (enabled && touch);
 
     return Semantics(
       container: true,
@@ -62,69 +68,61 @@ class _DImagePreviewState extends State<DImagePreview> {
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
-        child: Stack(
-          clipBehavior: Clip.none,
-          fit: StackFit.passthrough,
-          children: [
-            DecoratedBox(
-              position: DecorationPosition.foreground,
-              // Keep this layer mounted so focus and GIF state survive changes.
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                border: Border.all(
-                  color: focused ? tokens.focusRing : Colors.transparent,
-                  width: 2,
-                  strokeAlign: BorderSide.strokeAlignOutside,
-                ),
-              ),
-              child: ClipRRect(
-                borderRadius: radius,
-                child: Material(
-                  type: MaterialType.transparency,
-                  child: InkWell(
-                    focusNode: null,
-                    canRequestFocus: enabled,
-                    onFocusChange: (value) => setState(() => _focused = value),
-                    onTap: widget.onPressed,
-                    excludeFromSemantics: true,
-                    hoverColor: Colors.transparent,
-                    focusColor: Colors.transparent,
-                    highlightColor: Colors.transparent,
-                    splashFactory: NoSplash.splashFactory,
-                    child: Stack(
-                      fit: StackFit.passthrough,
-                      children: [
-                        widget.child,
-                        PositionedDirectional(
-                          start: 0,
-                          end: 0,
-                          bottom: 0,
-                          child: IgnorePointer(
-                            child: ExcludeSemantics(
-                              child: AnimatedOpacity(
-                                opacity: active
-                                    ? .9
-                                    : (enabled && touch ? .8 : 0),
-                                duration: reducedMotion
-                                    ? Duration.zero
-                                    : Duration(
-                                        milliseconds: active ? 500 : 200,
-                                      ),
-                                child: _metadata(
-                                  context,
-                                  compact: touch && !active,
+        // Keep this layer mounted so focus and GIF state survive changes.
+        child: DecoratedBox(
+          position: DecorationPosition.foreground,
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(
+              color: focused ? tokens.focusRing : Colors.transparent,
+              width: 2,
+              strokeAlign: BorderSide.strokeAlignOutside,
+            ),
+          ),
+          child: ClipRRect(
+            borderRadius: radius,
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                focusNode: null,
+                canRequestFocus: enabled,
+                onFocusChange: (value) => setState(() => _focused = value),
+                onTap: widget.onPressed,
+                excludeFromSemantics: true,
+                hoverColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                splashFactory: NoSplash.splashFactory,
+                child: Stack(
+                  fit: StackFit.passthrough,
+                  children: [
+                    widget.child,
+                    PositionedDirectional(
+                      start: 0,
+                      end: 0,
+                      bottom: 0,
+                      child: AnimatedOpacity(
+                        opacity: active ? .9 : (enabled && touch ? .8 : 0),
+                        duration: reducedMotion
+                            ? Duration.zero
+                            : Duration(milliseconds: active ? 500 : 200),
+                        child: _barMounted
+                            ? IgnorePointer(
+                                child: ExcludeSemantics(
+                                  child: _metadata(
+                                    context,
+                                    compact: touch && !active,
+                                  ),
                                 ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
+                              )
+                            : null,
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );

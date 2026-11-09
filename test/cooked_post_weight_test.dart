@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
+import 'package:discourse_native/discourse_ui.dart' show DImagePreview;
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
@@ -61,6 +64,24 @@ List<String> _ruby(int count) => [
   for (var index = 0; index < count; index++)
     '  def method_$index(arg) = arg + $index',
 ];
+
+/// What core cooks for an uploaded image.
+String _image(String name) =>
+    '<p><div class="lightbox-wrapper"><a class="lightbox" '
+    'href="https://forum.test/uploads/default/original/1X/$name.png" '
+    'data-download-href="/uploads/short-url/$name.png?dl=1" title="$name.png">'
+    '<img src="https://forum.test/uploads/default/optimized/1X/${name}_2_690x388.png" '
+    'alt="$name.png" data-base62-sha1="$name" width="690" height="388">'
+    '<div class="meta"><span class="filename">$name.png</span>'
+    '<span class="informations">1920×1080 120 KB</span></div></a></div></p>';
+
+/// Leaves a post's image on its way. The harness otherwise answers every
+/// request with an error, and a failed image is no longer a preview.
+final class _PendingImageHttpClient extends Fake implements HttpClient {
+  @override
+  Future<HttpClientRequest> getUrl(Uri url) =>
+      Completer<HttpClientRequest>().future;
+}
 
 void main() {
   group('code blocks', () {
@@ -149,6 +170,52 @@ void main() {
         16 + 48 + 4 + 4 * 21 + 12,
       );
     });
+  });
+
+  group('images', () {
+    testWidgets(
+      'a desktop image mounts its metadata bar only once it is shown',
+      (tester) async {
+        debugNetworkImageHttpClientProvider = _PendingImageHttpClient.new;
+        await _pumpPost(tester, _image('first'));
+        final one = _census();
+        await _pumpPost(tester, '${_image('first')}${_image('second')}');
+        final two = _census();
+
+        final renderObjects = two.renderObjects - one.renderObjects;
+        final elements = two.elements - one.elements;
+        _proof(
+          'cooked-image-metadata',
+          'render_objects_per_image',
+          renderObjects,
+        );
+        _proof('cooked-image-metadata', 'elements_per_image', elements);
+        expect(renderObjects, lessThanOrEqualTo(23));
+
+        expect(find.text('first.png'), findsNothing);
+        final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        addTearDown(mouse.removePointer);
+        await mouse.addPointer(location: Offset.zero);
+        await mouse.moveTo(tester.getCenter(find.byType(DImagePreview).first));
+        await tester.pump();
+        expect(find.text('first.png'), findsOneWidget);
+        expect(find.text('1920×1080 120 KB'), findsOneWidget);
+        expect(find.text('second.png'), findsNothing);
+        final fade = tester.widget<FadeTransition>(
+          find.descendant(
+            of: find.byType(DImagePreview).first,
+            matching: find.byType(FadeTransition),
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(fade.opacity.value, inExclusiveRange(0, .9));
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(fade.opacity.value, .9);
+        // The binding checks this variable before any tear-down runs.
+        debugNetworkImageHttpClientProvider = null;
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
   });
 
   group('headings', () {
