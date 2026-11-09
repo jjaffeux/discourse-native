@@ -448,6 +448,9 @@ final class DiscourseSearchApi {
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
+      // This path carries no `.json`, and core answers a read that names no
+      // JSON format with the application's HTML shell.
+      accept: 'application/json',
     );
 
     try {

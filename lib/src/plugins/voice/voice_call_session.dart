@@ -1250,9 +1250,12 @@ final class _VoiceCallSession {
     final call = _call;
     if (call != null && call.siteUrl == siteUrl && call.room.id == roomId) {
       final userId = controller._userIdFor(siteUrl);
+      // Only mesh media depends on keeping a lapsed peer's connection, but on
+      // either transport a lapsed local user is still in the call: its next
+      // heartbeat or LiveKit token request restores presence.
       final resumable = call.media.transport == VoiceTransport.mesh
           ? resumingIds
-          : const <int>{};
+          : resumingIds.intersection({?userId});
       final receivedIds = {
         for (final participant in participants) participant.id,
       };

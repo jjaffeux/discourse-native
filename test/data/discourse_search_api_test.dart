@@ -601,6 +601,43 @@ void main() {
       expect(real, {'sam', 'staff'});
     });
 
+    test('gets an answer from a site that serves browsers its shell', () async {
+      final api = _searchApi(
+        client: MockClient((request) async {
+          // ApplicationController#check_xhr answers a read that names no JSON
+          // format with the empty application document, and a 200.
+          if (!request.url.path.endsWith('.json') &&
+              request.headers['Accept'] != 'application/json') {
+            return http.Response(
+              '<!DOCTYPE html><html><body></body></html>',
+              200,
+              headers: {'content-type': 'text/html; charset=utf-8'},
+            );
+          }
+          return http.Response(
+            jsonEncode({
+              'users': ['sam'],
+              'user_reasons': <String, Object?>{},
+              'groups': <String, Object?>{},
+              'here_count': 0,
+            }),
+            200,
+            headers: {'content-type': 'application/json; charset=utf-8'},
+          );
+        }),
+      );
+
+      final outcome = await api
+          .checkMentions(
+            siteUrl: 'https://example.com',
+            names: ['sam', 'nobody'],
+            apiKey: 'secret',
+          )
+          .then<Object>((real) => real, onError: (Object error) => error);
+
+      expect(outcome, {'sam'});
+    });
+
     test('answers in the spellings that were asked', () async {
       Uri? asked;
       final api = _searchApi(

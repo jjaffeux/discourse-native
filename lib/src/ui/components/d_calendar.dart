@@ -7,6 +7,7 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../foundation/calendar_day.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
@@ -1102,7 +1103,9 @@ class _DCalendarState extends State<DCalendar> {
   String _weekdayLabel(BuildContext context, DateTime date) {
     final locale = (widget.locale ?? Localizations.localeOf(context))
         .toLanguageTag();
-    return DateFormat.E(locale).format(date).characters.take(2).toString();
+    return DateFormat.E(
+      locale,
+    ).format(headerColumnDay(date)).characters.take(2).toString();
   }
 
   Widget _caption(DCalendarDate month) {

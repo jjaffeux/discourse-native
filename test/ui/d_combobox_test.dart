@@ -269,6 +269,37 @@ void main() {
     expect(find.text('No items found.'), findsNothing);
   });
 
+  testWidgets('opening beside a selection lists every option until edited', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        DCombobox<String>.controlled(
+          value: 'svelte',
+          options: _options,
+          onChanged: (_, _) {},
+          anchor: const DComboboxInput<String>(key: ValueKey('input')),
+          content: const DComboboxContent(
+            children: [
+              DComboboxEmpty<String>(child: Text('No items found.')),
+              DComboboxList<String>(),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.byKey(const ValueKey('input')));
+    await tester.pumpAndSettle();
+    expect(find.text('Next.js'), findsOneWidget);
+    expect(find.text('Remix'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'Svel');
+    await tester.pumpAndSettle();
+    expect(find.text('Next.js'), findsNothing);
+    expect(find.text('Remix'), findsNothing);
+  });
+
   testWidgets('arrow navigation skips disabled options', (tester) async {
     String? selected;
     await tester.pumpWidget(

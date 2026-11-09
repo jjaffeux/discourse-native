@@ -573,7 +573,7 @@ final class _TopicCalendarState extends State<TopicCalendar> {
                   height: 36,
                   child: Center(
                     child: Text(
-                      DateFormat.E(_locale).format(date),
+                      DateFormat.E(_locale).format(headerColumnDay(date)),
                       maxLines: 1,
                       overflow: TextOverflow.clip,
                       style: Theme.of(context).textTheme.labelSmall,

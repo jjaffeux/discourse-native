@@ -261,4 +261,48 @@ void main() {
     expect(find.byType(kalender.KalenderView), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('month header names each column across a fall-back week', (
+    tester,
+  ) async {
+    // November 2026's grid opens on the day US clocks go back. A UTC run
+    // cannot tell the columns apart; TZ=America/New_York can.
+    await pump(
+      tester,
+      DCalendar(initialDisplayedMonth: DCalendarDate(2026, 11, 1)),
+    );
+    const names = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+    final cells =
+        find
+            .byWidgetPredicate(
+              (widget) => widget is Text && names.contains(widget.data),
+            )
+            .evaluate()
+            .toList()
+          ..sort(
+            (a, b) => tester
+                .getTopLeft(find.byElementPredicate((e) => e == a))
+                .dx
+                .compareTo(
+                  tester.getTopLeft(find.byElementPredicate((e) => e == b)).dx,
+                ),
+          );
+
+    expect([for (final cell in cells) (cell.widget as Text).data], names);
+  });
+
+  testWidgets('weekday header names the day of a column one hour short', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      SizedBox(width: 60, child: DCalendarWeekdayHeader(date: _lateSunday)),
+    );
+
+    expect(find.text('MON'), findsOneWidget);
+  });
 }
+
+// The moment the calendar package hands the Monday column of a week that
+// opens on a 25-hour Sunday: 24 elapsed hours after that Sunday's midnight.
+final _lateSunday = DateTime(2026, 11, 1, 23);

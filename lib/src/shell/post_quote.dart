@@ -134,6 +134,7 @@ class _CookedSelectionCharacter {
     this.preformatted = false,
     this.fastEditable = true,
     this.code,
+    this.emoji = false,
   });
 
   final String value;
@@ -141,6 +142,9 @@ class _CookedSelectionCharacter {
   final bool preformatted;
   final bool fastEditable;
   final _CookedCode? code;
+
+  /// Part of an emoji's shortcode, which a selection reports no text for.
+  final bool emoji;
 }
 
 class _CookedSelectionSource {
@@ -217,6 +221,19 @@ class _CookedSelectionSource {
         continue;
       }
       if (node is! dom.Element || _ignoredCookedElement(node)) continue;
+      if (_emojiShortcode(node) case final shortcode?) {
+        for (var index = 0; index < shortcode.length; index++) {
+          characters.add(
+            _CookedSelectionCharacter(
+              shortcode[index],
+              frame.marks,
+              fastEditable: false,
+              emoji: true,
+            ),
+          );
+        }
+        continue;
+      }
       final block = _cookedBlockElement(node);
       if (frame.exiting) {
         if (block) addBreak(2);
@@ -295,6 +312,16 @@ class _CookedSelectionSource {
   final String plainText;
   late final String foldedPlainText = plainText.toLowerCase();
 
+  // Emoji artwork reports no text to a selection, so one drawn across it is
+  // found by the characters around the emoji.
+  late final List<int> _drawnOffsets = [
+    for (final (offset, character) in characters.indexed)
+      if (!character.emoji) offset,
+  ];
+  late final String _drawnText = _drawnOffsets
+      .map((offset) => characters[offset].value)
+      .join();
+
   String get exportText {
     final out = StringBuffer();
     var trailingNewlines = 0;
@@ -320,7 +347,15 @@ class _CookedSelectionSource {
   ({int start, int end, bool unique})? match(String selected) {
     if (selected.isEmpty) return null;
     final start = plainText.indexOf(selected);
-    if (start < 0) return null;
+    if (start < 0) {
+      final drawn = _drawnText.indexOf(selected);
+      if (drawn < 0) return null;
+      return (
+        start: _drawnOffsets[drawn],
+        end: _drawnOffsets[drawn + selected.length - 1] + 1,
+        unique: false,
+      );
+    }
     final foldedSelected = selected.toLowerCase();
     final foldedStart = foldedPlainText.indexOf(foldedSelected);
     return (
@@ -417,7 +452,9 @@ class _CookedSelectionSource {
         active = next;
       }
       if (code == null) {
-        if (forQuote) {
+        if (character.emoji) {
+          out.write(character.value);
+        } else if (forQuote) {
           final value = character.value;
           final blockPrefix =
               (offset == lineStart && '+-='.contains(value)) ||
@@ -493,9 +530,23 @@ String _codeMarkdown(String text, {required bool block}) {
   return pad ? '$delimiter $text $delimiter' : '$delimiter$text$delimiter';
 }
 
+String? _emojiShortcode(dom.Element element) {
+  if (element.localName != 'img' || !element.classes.contains('emoji')) {
+    return null;
+  }
+  final attributes = element.attributes;
+  final name = (attributes['alt'] ?? attributes['title'] ?? '').replaceAll(
+    ':',
+    '',
+  );
+  return name.isEmpty ? null : ':$name:';
+}
+
 bool _ignoredCookedElement(dom.Element element) =>
     const {'script', 'style'}.contains(element.localName) ||
-    element.classes.contains('quote-controls');
+    element.classes.contains('quote-controls') ||
+    (element.classes.contains('meta') &&
+        element.parent?.classes.contains('lightbox') == true);
 
 bool _cookedBlockElement(dom.Element element) => const {
   'address',

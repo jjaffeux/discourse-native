@@ -371,6 +371,9 @@ class _ShareApi extends FakeDiscourseApi {
   _ShareApi({ComposerDraft? draft})
     : super(
         feeds: const {'/latest.json': []},
+        composerCapabilities: const TopicComposerCapabilities(
+          canTagTopics: true,
+        ),
         categoryList: const [
           TopicCategory(
             id: 5,

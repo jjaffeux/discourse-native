@@ -168,6 +168,25 @@ void main() {
       expect(triggerIn('"@sa|'), '@sa');
     });
 
+    test('a sigil written as code opens no completion', () {
+      for (final annotated in [
+        '```\n@sam|\n```',
+        '```ruby\nputs :sym|\n```',
+        '```c\n#include|\n```',
+        '~~~\nstill typing @sa|',
+        'run `@sam|` first',
+        'run `:smile|` first',
+      ]) {
+        expect(triggerIn(annotated), '-', reason: annotated);
+      }
+    });
+
+    test('a sigil written beside code still opens', () {
+      expect(triggerIn('`code` @sam|'), '@sam');
+      expect(triggerIn('```\ncode\n```\n@sam|'), '@sam');
+      expect(triggerIn('an open ` tick @sam|'), '@sam');
+    });
+
     test('needs the caret at the end of the run', () {
       expect(triggerIn('hey @s|am and'), '-');
       expect(triggerIn('hey @sam| and'), '@sam');

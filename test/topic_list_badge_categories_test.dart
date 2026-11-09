@@ -52,6 +52,7 @@ void main() {
       user: user,
       feeds: const {'/latest.json': [], '/c/bugs/5.json': []},
       creatableFeedPaths: const {'/latest.json', '/c/bugs/5.json'},
+      composerCapabilities: const TopicComposerCapabilities(canTagTopics: true),
       categoryPages: {
         1: [TopicCategory.fromJson(_bugs)],
       },

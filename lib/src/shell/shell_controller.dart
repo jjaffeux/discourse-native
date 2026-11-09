@@ -6220,11 +6220,19 @@ class ShellController extends FrameSafeNotifier
       maxImageWidth: config.maxImageWidth,
       maxImageHeight: config.maxImageHeight,
       minimumRequiredTags: minimumRequiredTags,
+      appliesTagMinimum: () => _appliesTagMinimum(target.siteUrl),
     );
     composerBuilt = true;
     if (draftSession != null) _composerDrafts.attach(draftSession, composer);
     return composer;
   }
+
+  /// Core's `cantSubmitPost` in `models/composer.ts`. A minimum set on the
+  /// category does not reach staff, or an author the site gives no tags to
+  /// choose from, who could otherwise never send.
+  bool _appliesTagMinimum(String siteUrl) =>
+      topicComposerCapabilities(siteUrl).canTagTopics &&
+      currentUserFor(siteUrl)?.staff != true;
 
   String? quoteContentsFor(ComposerTarget target, ComposerQuoteBlock block) {
     final topicId = block.topicId;
@@ -6906,6 +6914,7 @@ class ShellController extends FrameSafeNotifier
               siteUrl: instance.url,
             )?.minimumRequiredTags ??
             0,
+        appliesTagMinimum: () => _appliesTagMinimum(instance.url),
       ),
     );
     _notify();
