@@ -8718,6 +8718,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get minimizeComposer => 'Minimize composer';
 
   @override
+  String get resumeComposerEditing => 'Resume editing';
+
+  @override
   String get notSaved => 'Not saved';
 
   @override

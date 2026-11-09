@@ -197,6 +197,10 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(shell.visibleComposer, isNotNull);
+      final composerToggle = find.descendant(
+        of: title,
+        matching: find.byKey(ShellTitleBar.composerToggleKey),
+      );
       expect(
         find.descendant(
           of: title,
@@ -204,19 +208,24 @@ void main() {
         ),
         findsNothing,
       );
+      expect(composerToggle, findsOneWidget);
       await tester.tap(find.byKey(const ValueKey('composer-minimize')));
       await tester.pumpAndSettle();
-      // The composer occupies the secondary workspace. Minimizing it focuses
-      // that panel's topic; the title action follows that focused reader.
+      // A minimized draft holds the capsule on every page until it is closed.
+      expect(composerToggle, findsOneWidget);
+      shell.selectTab(main);
+      await tester.pumpAndSettle();
+      expect(composerToggle, findsOneWidget);
       expect(
         find.descendant(
           of: title,
-          matching: find.byKey(const ValueKey('title-bar-reply')),
+          matching: find.byKey(const ValueKey('new-message-button')),
         ),
-        findsOneWidget,
+        findsNothing,
       );
-      shell.selectTab(main);
+      shell.closeComposer();
       await tester.pumpAndSettle();
+      expect(composerToggle, findsNothing);
       expect(
         find.descendant(
           of: title,

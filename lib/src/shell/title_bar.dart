@@ -37,6 +37,9 @@ class ShellTitleBar extends StatelessWidget {
   @visibleForTesting
   static const maximizeGestureKey = ValueKey('shell-title-bar-maximize');
 
+  @visibleForTesting
+  static const composerToggleKey = ValueKey('title-bar-composer-toggle');
+
   final bool showControls;
 
   /// Clearance already supplied by the rail and docked sidebar.
@@ -232,6 +235,8 @@ class ShellTitleBar extends StatelessWidget {
 class _DesktopPrimaryAction extends StatelessWidget {
   const _DesktopPrimaryAction();
 
+  static const _replyKey = ValueKey('title-bar-reply');
+
   @override
   Widget build(BuildContext context) => ShellSelector<Object>(
     select: (shell) => (
@@ -250,29 +255,22 @@ class _DesktopPrimaryAction extends StatelessWidget {
 
   Widget _action(BuildContext context) {
     final shell = ShellScope.read(context);
-    if (!shell.forumActive ||
-        ComposerPresentationScope.hasVisibleComposerOf(context)) {
-      return const SizedBox.shrink();
-    }
+    if (!shell.forumActive) return const SizedBox.shrink();
     final route = shell.currentContent;
+    final inTopic = route?.isTopic == true;
+    final composerToggle = _composerToggle(context, inTopic: inTopic);
     Widget? action;
-    if (route?.isTopic == true) {
-      if (shell.canReplyHere) {
-        action = DButton(
-          key: const ValueKey('title-bar-reply'),
-          label: const DIcon(DIcons.reply, size: 14),
-          tooltip: context.l10n.reply,
-          semanticLabel: context.l10n.reply,
-          variant: DButtonVariant.primary,
-          shape: DButtonShape.pill,
-          size: DControlStyle.isTouch(context)
-              ? DButtonSize.action
-              : DButtonSize.chrome,
-          density: DControlStyle.isTouch(context)
-              ? DButtonDensity.standard
-              : DButtonDensity.chrome,
-          onPressed: shell.openReply,
-        );
+    if (inTopic) {
+      if (composerToggle != null || shell.canReplyHere) {
+        action =
+            composerToggle ??
+            _capsuleButton(
+              context,
+              key: _replyKey,
+              icon: DIcons.reply,
+              label: context.l10n.reply,
+              onPressed: shell.openReply,
+            );
         if (!DControlStyle.isTouch(context)) {
           action = IntrinsicWidth(
             child: DCard(
@@ -284,6 +282,12 @@ class _DesktopPrimaryAction extends StatelessWidget {
           );
         }
       }
+    } else if (composerToggle != null) {
+      action = TopicCreateButton(
+        onPressed: () {},
+        alwaysShowDrafts: true,
+        primaryAction: composerToggle,
+      );
     } else if (route?.isMessages == true) {
       if (shell.currentInstance?.isConnected == true &&
           shell.currentInstance?.user?.canSendPrivateMessages == true) {
@@ -298,31 +302,20 @@ class _DesktopPrimaryAction extends StatelessWidget {
       }
     } else if (shell.canCreateTopicFromList ||
         shell.canCreateTopicFromSidebar) {
+      void openNewTopic() => unawaited(
+        shell.canCreateTopicFromList
+            ? shell.openNewTopicFromList()
+            : shell.openNewTopicFromSidebar(),
+      );
       action = TopicCreateButton(
-        onPressed: () => unawaited(
-          shell.canCreateTopicFromList
-              ? shell.openNewTopicFromList()
-              : shell.openNewTopicFromSidebar(),
-        ),
+        onPressed: openNewTopic,
         alwaysShowDrafts: true,
-        primaryAction: DButton(
+        primaryAction: _capsuleButton(
+          context,
           key: TopicCreateButton.buttonKey,
-          label: const DIcon(DIcons.penToSquare, size: 14),
-          tooltip: context.l10n.newTopic,
-          semanticLabel: context.l10n.newTopic,
-          shape: DButtonShape.pill,
-          variant: DButtonVariant.primary,
-          size: DControlStyle.isTouch(context)
-              ? DButtonSize.action
-              : DButtonSize.chrome,
-          density: DControlStyle.isTouch(context)
-              ? DButtonDensity.standard
-              : DButtonDensity.chrome,
-          onPressed: () => unawaited(
-            shell.canCreateTopicFromList
-                ? shell.openNewTopicFromList()
-                : shell.openNewTopicFromSidebar(),
-          ),
+          icon: DIcons.penToSquare,
+          label: context.l10n.newTopic,
+          onPressed: openNewTopic,
         ),
       );
     }
@@ -345,6 +338,54 @@ class _DesktopPrimaryAction extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+
+  /// The way to the draft on screen, which replaces the page's own action for
+  /// as long as one is open. It answers for the forum's selected draft only.
+  Widget? _composerToggle(BuildContext context, {required bool inTopic}) {
+    final activity = ComposerActivityScope.of(context);
+    if (activity == ComposerActivity.none) return null;
+    final writing = activity == ComposerActivity.writing;
+    return MergeSemantics(
+      child: Semantics(
+        toggled: writing,
+        child: _capsuleButton(
+          context,
+          key: ShellTitleBar.composerToggleKey,
+          icon: inTopic ? DIcons.reply : DIcons.penToSquare,
+          heldIn: writing,
+          label: writing
+              ? context.l10n.minimizeComposer
+              : context.l10n.resumeComposerEditing,
+          onPressed: () => writing
+              ? ComposerPresentationScope.minimizeComposer(context)
+              : ComposerPresentationScope.restoreComposer(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _capsuleButton(
+    BuildContext context, {
+    required Key key,
+    required DIconData icon,
+    required String label,
+    required VoidCallback onPressed,
+    bool heldIn = false,
+  }) {
+    final touch = DControlStyle.isTouch(context);
+    return DButton(
+      key: key,
+      expanded: heldIn,
+      label: DIcon(icon, size: 14),
+      tooltip: label,
+      semanticLabel: label,
+      variant: DButtonVariant.primary,
+      shape: DButtonShape.pill,
+      size: touch ? DButtonSize.action : DButtonSize.chrome,
+      density: touch ? DButtonDensity.standard : DButtonDensity.chrome,
+      onPressed: onPressed,
     );
   }
 }

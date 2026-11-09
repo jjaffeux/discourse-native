@@ -83,9 +83,12 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
   @override
   Listenable get layoutChanges => _presentation;
 
-  @override
-  bool get hasVisibleComposer =>
-      _entries[_presentableComposer]?.minimized == false;
+  ComposerActivity get _activity =>
+      switch (_entries[_presentableComposer]?.minimized) {
+        null => ComposerActivity.none,
+        true => ComposerActivity.minimized,
+        false => ComposerActivity.writing,
+      };
 
   _ComposerEntry? get _mobileSheetEntry {
     if (!context.isTouch || _activeDock == null) return null;
@@ -184,6 +187,28 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
       return;
     }
     unawaited(_place(entry, _previousDockPlacement, focusEditor: false));
+  }
+
+  @override
+  void minimizeComposer() {
+    final entry = _entries[_presentableComposer];
+    if (entry != null && !entry.minimized) _putAway(entry);
+  }
+
+  @override
+  void restoreComposer() {
+    final entry = _entries[_presentableComposer];
+    if (entry != null && entry.minimized) _restore(entry);
+  }
+
+  void _putAway(_ComposerEntry entry) =>
+      context.isTouch ? unawaited(_dismissMobile(entry)) : _minimize(entry);
+
+  void _restore(_ComposerEntry entry) {
+    setState(() => entry.minimized = false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!entry.composer.isDisposed) entry.composer.focus.requestFocus();
+    });
   }
 
   void _minimize(_ComposerEntry entry) {
@@ -325,16 +350,8 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
         onPlacement: (value) => unawaited(_place(entry, value)),
         onExitFullScreen: () =>
             unawaited(_place(entry, _previousDockPlacement)),
-        onMinimize: () =>
-            mobile ? unawaited(_dismissMobile(entry)) : _minimize(entry),
-        onRestore: () {
-          setState(() => entry.minimized = false);
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (!entry.composer.isDisposed) {
-              entry.composer.focus.requestFocus();
-            }
-          });
-        },
+        onMinimize: () => _putAway(entry),
+        onRestore: () => _restore(entry),
         onCloseMenuOpenChanged: (open) {
           if (mounted && entry.closeMenuOpen != open) {
             setState(() => entry.closeMenuOpen = open);
@@ -387,7 +404,10 @@ class _ComposerPresentationHostState extends State<ComposerPresentationHost>
                   excluding: mobileSheet != null,
                   child: _CoveredContent(
                     covering: _sheetCovers,
-                    child: widget.child,
+                    child: ComposerActivityScope(
+                      activity: _activity,
+                      child: widget.child,
+                    ),
                   ),
                 ),
               ),

@@ -14977,11 +14977,17 @@ abstract class AppLocalizations {
   /// **'Full screen'**
   String get fullScreen;
 
-  /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
+  /// Action in the composer header and the desktop title bar that puts the open composer away.
   ///
   /// In en, this message translates to:
   /// **'Minimize composer'**
   String get minimizeComposer;
+
+  /// Action in the desktop title bar that brings the minimized composer back.
+  ///
+  /// In en, this message translates to:
+  /// **'Resume editing'**
+  String get resumeComposerEditing;
 
   /// English UI message used by shell/composer_header.dart. Keep placeholders intact.
   ///
