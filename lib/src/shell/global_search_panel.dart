@@ -32,10 +32,15 @@ part 'global_search_filter_picker.dart';
 final RegExp _whitespace = RegExp(r'\s+');
 
 class _PreparedSearchResult {
-  const _PreparedSearchResult({required this.result, required this.open});
+  _PreparedSearchResult({required this.result, required this.open});
 
   final GlobalSearchResult result;
   final VoidCallback open;
+
+  /// The row widget and the reads it was drawn from, kept while the result
+  /// stays in the list so a later source's answer does not redraw it.
+  List<Object?>? reads;
+  Widget? row;
 }
 
 /// Search scopes, conditions and results below the shell's persistent input.
@@ -101,6 +106,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   bool _hasMoreChoices = false;
   List<Object?>? _scopeBarReads, _skeletonReads;
   Widget? _builtScopeBar, _builtSkeleton;
+  List<Object?> _rowReads = const [];
 
   Object? _targetFor(String? id) => widget.controller.results
       .where((result) => result.id == id)
@@ -114,7 +120,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       _selectedNavigationIdentity = null;
       _initialSectionPending = false;
     }
+    _publishSelection();
   }
+
+  /// Rows kept across builds read the selection through [_resultSelection],
+  /// and only a result id draws one of them selected.
+  void _publishSelection() =>
+      _resultSelection.value = _targetFor(_selected) == null ? null : _selected;
 
   bool handleKey(LogicalKeyboardKey key, {bool reverse = false}) {
     _checkSelectionTarget();
@@ -168,7 +180,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       } else {
         setState(select);
       }
-      _resultSelection.value = _selected;
+      _publishSelection();
       _revealSelection(
         _actions[next].id,
         _navigationSignature,
@@ -780,6 +792,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         _navigationSignature = signature;
       }
       _checkSelectionTarget();
+      _rowReads = [
+        controller,
+        controller.siteUrl,
+        controller.query,
+        controller.conditions.any(
+          (condition) => condition.filterId == 'author',
+        ),
+        for (final property in GlobalSearchDisplayProperty.values)
+          controller.properties.contains(property),
+      ];
       _actions.clear();
       final liveResults = Set<GlobalSearchResult>.identity();
       final liveIds = <String>{};
@@ -1580,6 +1602,15 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   }
 
   Widget _result(_PreparedSearchResult row) {
+    final reads = [..._rowReads, widget.selectedResultId == row.result.id];
+    if (row.row == null || !listEquals(reads, row.reads)) {
+      row.reads = reads;
+      row.row = _buildResult(row);
+    }
+    return row.row!;
+  }
+
+  Widget _buildResult(_PreparedSearchResult row) {
     final result = row.result;
     final controller = widget.controller;
     final site = controller.siteUrl;

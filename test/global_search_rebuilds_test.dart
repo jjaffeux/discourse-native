@@ -21,11 +21,12 @@ typedef _Rebuilt = ({
   int skeleton,
   int editor,
   int footer,
+  int rows,
 });
 
 Future<_Rebuilt> _rebuilt(Future<void> Function() action) async {
   final seen = <Element>{};
-  var scope = 0, skeleton = 0, editor = 0, footer = 0;
+  var scope = 0, skeleton = 0, editor = 0, footer = 0, rows = 0;
   final previous = debugOnRebuildDirtyWidget;
   debugOnRebuildDirtyWidget = (element, builtOnce) {
     previous?.call(element, builtOnce);
@@ -35,6 +36,10 @@ Future<_Rebuilt> _rebuilt(Future<void> Function() action) async {
       final widget = ancestor.widget;
       if (widget.key == const ValueKey('global-search-footer')) {
         part = 'footer';
+      } else if (widget.key case ValueKey<String>(
+        :final value,
+      ) when value.startsWith('search-row:')) {
+        part = 'rows';
       } else if (widget is DToggleGroup<GlobalSearchScope>) {
         part = 'scope';
       } else if (widget is DInputGroup) {
@@ -49,6 +54,8 @@ Future<_Rebuilt> _rebuilt(Future<void> Function() action) async {
     switch (part) {
       case 'footer':
         footer++;
+      case 'rows':
+        rows++;
       case 'scope':
         scope++;
       case 'editor':
@@ -68,14 +75,48 @@ Future<_Rebuilt> _rebuilt(Future<void> Function() action) async {
     skeleton: skeleton,
     editor: editor,
     footer: footer,
+    rows: rows,
   );
+}
+
+/// Holds each source's answer to an All search until the test releases it.
+class _GatedSearchApi extends GlobalSearchFixtureApi {
+  final gates = {
+    for (final source in ['forum', 'messages', 'chat'])
+      source: Completer<void>(),
+  };
+
+  @override
+  Future<Map<String, dynamic>> pluginGetJson({
+    required String siteUrl,
+    required String path,
+    required String? apiKey,
+    String? clientId,
+  }) async {
+    final uri = Uri.parse(path);
+    final source = switch (uri.path) {
+      '/chat/api/search.json' => 'chat',
+      '/search/query.json' =>
+        uri.queryParameters['type_filter'] == 'private_messages'
+            ? 'messages'
+            : 'forum',
+      _ => null,
+    };
+    if (source != null) await gates[source]!.future;
+    return super.pluginGetJson(
+      siteUrl: siteUrl,
+      path: path,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 }
 
 final _mac = TargetPlatformVariant.only(TargetPlatform.macOS);
 
-void _proof(String metric, Object value) {
+void _proof(String metric, Object value, {String slug = 'search-panel'}) {
   // ignore: avoid_print
-  print('PERF_PROOF search-panel $metric=$value');
+  print('PERF_PROOF $slug $metric=$value');
 }
 
 Future<ShellController> _mount(
@@ -123,6 +164,34 @@ String _chipText(WidgetTester tester) {
   );
   return tester.widget<Text>(chip.first).textSpan!.toPlainText();
 }
+
+Finder _row(String id) => find.byKey(ValueKey('global-search-result-$id'));
+
+bool _selected(WidgetTester tester, String id) =>
+    tester.widget<DItem>(_row(id)).selected;
+
+/// Opens the desktop search and starts an All search whose three sources
+/// answer only when [_GatedSearchApi.gates] are released.
+Future<(ShellController, _GatedSearchApi)> _searchAll(
+  WidgetTester tester,
+) async {
+  final api = _GatedSearchApi();
+  final shell = await _mount(tester, desktop, api);
+  await _open(tester, desktop);
+  await _type(tester, 'keyboard');
+  await tester.pump(const Duration(milliseconds: 450));
+  return (shell, api);
+}
+
+Future<_Rebuilt> _deliver(
+  WidgetTester tester,
+  _GatedSearchApi api,
+  String source,
+) => _rebuilt(() async {
+  api.gates[source]!.complete();
+  await tester.pump();
+  await tester.pump();
+});
 
 void main() {
   for (final (name, size) in [('desktop', desktop), ('phone', phone)]) {
@@ -236,6 +305,97 @@ void main() {
     expect(tester.widgetList(find.byType(DSkeleton)).length, bars + 8);
     api.responseGate!.complete();
     await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: _mac);
+
+  testWidgets('a later source answer leaves settled result rows alone', (
+    tester,
+  ) async {
+    final (_, api) = await _searchAll(tester);
+    final first = await _deliver(tester, api, 'forum');
+    expect(_row('forum:2037'), findsOneWidget);
+    final second = await _deliver(tester, api, 'chat');
+    expect(_row('chat:3001'), findsOneWidget);
+    final last = await _deliver(tester, api, 'messages');
+    expect(_row('forum:2037'), findsOneWidget);
+    expect(_row('chat:3001'), findsOneWidget);
+
+    _proof('first_delivery_elements', first.total, slug: 'search-panel-rows');
+    _proof('second_delivery_elements', second.total, slug: 'search-panel-rows');
+    _proof(
+      'second_delivery_row_elements',
+      second.rows,
+      slug: 'search-panel-rows',
+    );
+    _proof('last_delivery_elements', last.total, slug: 'search-panel-rows');
+    _proof('last_delivery_row_elements', last.rows, slug: 'search-panel-rows');
+    expect(last.rows, 0);
+    expect(last.total, lessThanOrEqualTo(192));
+    expect(second.rows, lessThanOrEqualTo(70));
+    await tester.pumpAndSettle();
+  }, variant: _mac);
+
+  testWidgets('rows from a later source appear below the settled rows', (
+    tester,
+  ) async {
+    final (_, api) = await _searchAll(tester);
+    await _deliver(tester, api, 'forum');
+    expect(_row('forum:2037'), findsOneWidget);
+    expect(_row('chat:3001'), findsNothing);
+
+    await _deliver(tester, api, 'chat');
+
+    expect(_row('forum:2037'), findsOneWidget);
+    expect(_row('chat:3001'), findsOneWidget);
+    expect(
+      tester.getTopLeft(_row('chat:3001')).dy,
+      greaterThan(tester.getTopLeft(_row('forum:2037')).dy),
+    );
+    api.gates['messages']!.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: _mac);
+
+  testWidgets('a keyboard-selected row stays selected across a later answer', (
+    tester,
+  ) async {
+    final (_, api) = await _searchAll(tester);
+    await _deliver(tester, api, 'forum');
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pump();
+    expect(_selected(tester, 'forum:2038'), isTrue);
+    expect(_selected(tester, 'forum:2037'), isFalse);
+
+    await _deliver(tester, api, 'chat');
+
+    expect(_selected(tester, 'forum:2038'), isTrue);
+    expect(_selected(tester, 'forum:2037'), isFalse);
+    expect(_selected(tester, 'chat:3001'), isFalse);
+    api.gates['messages']!.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  }, variant: _mac);
+
+  testWidgets('hiding the excerpt property redraws settled rows', (
+    tester,
+  ) async {
+    final (shell, api) = await _searchAll(tester);
+    for (final source in ['forum', 'chat', 'messages']) {
+      await _deliver(tester, api, source);
+    }
+    final excerpt = find.descendant(
+      of: _row('forum:2037'),
+      matching: find.byType(DItemDescription),
+    );
+    expect(excerpt, findsOneWidget);
+
+    shell.globalSearch.setDisplayProperty(
+      GlobalSearchDisplayProperty.excerpt,
+      false,
+    );
+    await tester.pump();
+
+    expect(excerpt, findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: _mac);
 }
