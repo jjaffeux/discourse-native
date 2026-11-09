@@ -81,6 +81,7 @@ final class ChatSettings {
     this.publicChannelsEnabled = true,
     this.anonymousChatAllowed = false,
     this.threadsEnabled = true,
+    this.messagePinsEnabled = true,
     this.preferredIndex = ChatPreferredIndex.channels,
     this.channelRetentionDays = 0,
     this.directMessageRetentionDays = 0,
@@ -102,6 +103,7 @@ final class ChatSettings {
     publicChannelsEnabled: json['enable_public_channels'] != false,
     anonymousChatAllowed: _anonymousChatAllowed(json['chat_allowed_groups']),
     threadsEnabled: json['chat_threads_enabled'] != false,
+    messagePinsEnabled: json['chat_pinned_messages'] != false,
     preferredIndex: ChatPreferredIndex.read(json['chat_preferred_index']),
     channelRetentionDays: _retentionDays(json['chat_channel_retention_days']),
     directMessageRetentionDays: _retentionDays(json['chat_dm_retention_days']),
@@ -121,6 +123,7 @@ final class ChatSettings {
     publicChannelsEnabled: json['publicChannelsEnabled'] != false,
     anonymousChatAllowed: json['anonymousChatAllowed'] == true,
     threadsEnabled: json['threadsEnabled'] != false,
+    messagePinsEnabled: json['messagePinsEnabled'] != false,
     preferredIndex: ChatPreferredIndex.read(json['preferredIndex']),
     channelRetentionDays: _retentionDays(json['channelRetentionDays']),
     directMessageRetentionDays: _retentionDays(
@@ -143,6 +146,9 @@ final class ChatSettings {
   final bool publicChannelsEnabled;
   final bool anonymousChatAllowed;
   final bool threadsEnabled;
+
+  /// Channels report `can_manage_pins` without consulting this site setting.
+  final bool messagePinsEnabled;
   final ChatPreferredIndex preferredIndex;
   final int channelRetentionDays;
   final int directMessageRetentionDays;
@@ -157,6 +163,7 @@ final class ChatSettings {
     if (!publicChannelsEnabled) 'publicChannelsEnabled': false,
     if (anonymousChatAllowed) 'anonymousChatAllowed': true,
     if (!threadsEnabled) 'threadsEnabled': false,
+    if (!messagePinsEnabled) 'messagePinsEnabled': false,
     'preferredIndex': preferredIndex.wireName,
     'channelRetentionDays': channelRetentionDays,
     'directMessageRetentionDays': directMessageRetentionDays,
@@ -174,6 +181,7 @@ final class ChatSettings {
       other.publicChannelsEnabled == publicChannelsEnabled &&
       other.anonymousChatAllowed == anonymousChatAllowed &&
       other.threadsEnabled == threadsEnabled &&
+      other.messagePinsEnabled == messagePinsEnabled &&
       other.preferredIndex == preferredIndex &&
       other.channelRetentionDays == channelRetentionDays &&
       other.directMessageRetentionDays == directMessageRetentionDays &&
@@ -189,6 +197,7 @@ final class ChatSettings {
     publicChannelsEnabled,
     anonymousChatAllowed,
     threadsEnabled,
+    messagePinsEnabled,
     preferredIndex,
     channelRetentionDays,
     directMessageRetentionDays,

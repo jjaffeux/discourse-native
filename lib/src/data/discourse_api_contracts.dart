@@ -1212,6 +1212,7 @@ abstract interface class TopicFeedsApi {
     required String apiKey,
     required bool dismissTopics,
     required bool dismissPosts,
+    bool tracked = false,
     int? categoryId,
     String? tagName,
     List<int>? topicIds,

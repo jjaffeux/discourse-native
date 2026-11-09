@@ -1989,6 +1989,70 @@ void _registerComposerAndDraftTests() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('an edit left unfinished on the web does not become a reply', (
+      tester,
+    ) async {
+      // The web composer's `_draft_serializer`, saved under the topic's own
+      // draft key because that is the key web edits use too.
+      final webEdit = ComposerDraft.decode(
+        '{"reply":"The whole first post, half revised","action":"edit",'
+        '"categoryId":4,"tags":[],"archetypeId":"regular","composerTime":9000,'
+        '"typingTime":3000,"postId":1,'
+        '"original_text":"The whole first post",'
+        '"reply_to_post_number":null,"reply_to_user":null}',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draft: webEdit, draftSequence: 4)},
+      );
+
+      await openComposer(tester, api);
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+
+      expect(shell.visibleComposer?.text.text, isEmpty);
+      expect(shell.visibleComposer?.hasUnappliedDraft, isTrue);
+
+      await _saveAndClose(tester);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ComposerPanel), findsNothing);
+      expect(api.userDraftsDeleted, isEmpty);
+      expect(api.draftsSaved, isEmpty);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+    testWidgets('sending a saved draft reports the time already spent on it', (
+      tester,
+    ) async {
+      final saved = ComposerDraft.decode(
+        '{"reply":"Written over a long evening","action":"reply",'
+        '"archetypeId":"regular","composerTime":90000,"typingTime":42000}',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draft: saved, draftSequence: 4)},
+      );
+
+      await openComposer(tester, api);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byKey(const ValueKey('composer-submit')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Below the site's threshold, a member's first post is queued and the
+      // account silenced as a bot.
+      expect(
+        api.created.single['typingDurationMsecs'],
+        greaterThanOrEqualTo(42000),
+      );
+      expect(
+        api.created.single['composerOpenDurationMsecs'],
+        greaterThanOrEqualTo(90000),
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('discard closes an empty reply without confirmation', (
       tester,
     ) async {

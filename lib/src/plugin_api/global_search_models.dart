@@ -113,7 +113,7 @@ class GlobalSearchCapabilities {
     authenticated: user != null,
     username: user?.username,
     tagging: config.taggingEnabled,
-    userDirectory: config.userDirectoryEnabled,
+    userDirectory: config.userDirectoryOpenTo(signedIn: user != null),
     groupDirectory:
         config.groupDirectoryEnabled ||
         user?.staff == true ||

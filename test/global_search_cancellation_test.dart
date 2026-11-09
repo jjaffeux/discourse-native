@@ -246,6 +246,54 @@ void main() {
     expect(controller.hasMore, isFalse);
   });
 
+  // SearchController#show runs a :full_page search, and
+  // Search::GroupedSearchResults#add reports a truncated page of one as
+  // more_full_page_results; more_posts belongs to the header search only.
+  for (final scope in [GlobalSearchScope.forum, GlobalSearchScope.messages]) {
+    testWidgets('${scope.name} search offers the next page the server has', (
+      tester,
+    ) async {
+      final client = _SearchClient();
+      final api = DiscourseApi(client: client);
+      addTearDown(api.close);
+      final controller = _controller(api)
+        ..setScope(scope)
+        ..setQuery('first');
+      addTearDown(controller.dispose);
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(client.requests.single.request.url.path, '/search.json');
+      final body = _result('First page');
+      (body['topics'] as List)
+          .cast<Map<String, dynamic>>()
+          .single['archetype'] = scope == GlobalSearchScope.messages
+          ? 'private_message'
+          : 'regular';
+      client.requests.single.complete({
+        ...body,
+        'grouped_search_result': {
+          'term': 'first',
+          'more_full_page_results': true,
+          'can_create_topic': true,
+          'extra': <String, Object?>{},
+        },
+      });
+      await tester.pump();
+
+      expect(controller.results.single.title, 'First page');
+      expect(controller.hasMore, isTrue);
+
+      controller.loadMore();
+      await tester.pump();
+      expect(client.requests.last.request.url.queryParameters['page'], '2');
+      client.requests.last.complete({
+        'posts': <Object?>[],
+        'topics': <Object?>[],
+        'grouped_search_result': <String, Object?>{},
+      });
+      await tester.pump();
+    });
+  }
+
   testWidgets('cancellable forum reads retain the search timeout', (
     tester,
   ) async {

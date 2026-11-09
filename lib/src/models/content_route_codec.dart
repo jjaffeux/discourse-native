@@ -407,7 +407,8 @@ final class ContentRouteCodec {
         return ContentRoute.dashboard();
       }
       if (path == '/about') return ContentRoute.forumAbout();
-      if (path == '/u') {
+      if (path == '/u' &&
+          config.userDirectoryOpenTo(signedIn: instance.isConnected)) {
         return ContentRoute(
           destination: const PageDestination(CorePage.users),
           title: appL10n.users,

@@ -1708,6 +1708,39 @@ void main() {
       expect(updated.description, 'Ask for help');
     });
 
+    test(
+      'applies a remote rename of a group chat, which has no slug',
+      () async {
+        final subject = build(
+          currentUser: currentUser,
+          channels: {
+            site: ChatChannels(
+              direct: [
+                channel(
+                  14,
+                  title: 'Planning',
+                  kind: ChatChannelKind.directMessage,
+                ),
+              ],
+            ),
+          },
+        );
+        final tracker = attachTracker(subject.chat);
+        await subject.chat.loadChannels(site);
+
+        // Chat::DirectMessageChannel#generate_auto_slug never assigns one, and
+        // publish_chat_channel_edit sends the column as it is.
+        tracker.deliverPluginMessage('/chat/channel-edits', {
+          'chat_channel_id': 14,
+          'name': 'Launch crew',
+          'description': null,
+          'slug': null,
+        });
+
+        expect(subject.chat.channel(site, 14)!.title, 'Launch crew');
+      },
+    );
+
     test('applies remote status and clears archived unread state', () async {
       final subject = build(
         currentUser: currentUser,
@@ -7400,6 +7433,36 @@ void main() {
       final restored = subject.store.read<ChatMessage>(site, 12)!;
       expect(restored.pinned, isFalse);
       expect(restored.reactions.single.emoji, 'clap');
+    });
+
+    test('does not offer pinning on a site with pins turned off', () async {
+      // Guardian#can_manage_chat_channel_pins? never reads the site setting,
+      // so a direct message reports the capability either way.
+      bool offeredWith(Object pinsEnabled) {
+        final subject = build(
+          currentUser: currentUser,
+          siteConfigFor: (_) => SiteConfig(
+            plugins: PluginData.none.withValue(
+              chatSettingsDataKey,
+              ChatSettings.fromSettings({
+                'chat_enabled': true,
+                'chat_pinned_messages': pinsEnabled,
+              }),
+            ),
+          ),
+        );
+        addTearDown(subject.chat.dispose);
+        subject.store.put(
+          site,
+          channel(9, kind: ChatChannelKind.directMessage, canManagePins: true),
+        );
+        final held = message(12);
+        subject.store.put(site, held);
+        return subject.chat.canPinMessage(site, held);
+      }
+
+      expect(offeredWith(true), isTrue);
+      expect(offeredWith(false), isFalse);
     });
 
     test('does not offer pinning without the serialized capability', () async {

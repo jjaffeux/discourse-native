@@ -338,7 +338,7 @@ class DiscourseInstance {
         : _anonymousSections;
     final hidden = <String>{
       if (!config.groupDirectoryEnabled && user?.staff != true) 'groups',
-      if (!config.userDirectoryEnabled) 'users',
+      if (!config.userDirectoryOpenTo(signedIn: isConnected)) 'users',
       if (!config.badgesEnabled) 'badges',
     };
     return hidden.isEmpty ? base : _withoutDestinations(base, hidden);

@@ -22,14 +22,24 @@ final class DismissNewTopicsCommand {
   final TopicListMode mode;
   final String? tagName;
 
-  /// Core's reset-new takes one tag and never reads the list's search, so a
-  /// list narrowed further is dismissed by the topic ids it lists.
-  bool get listsTopicIds =>
-      route.tagNames.length > 1 || route.topicListSearch.isNotEmpty;
+  bool get tracked {
+    final query = Uri.tryParse(route.feedPath ?? '')?.queryParameters;
+    return (query?['f'] ?? query?['filter']) == 'tracked';
+  }
 
-  /// Without a category or tag, reset-new also moves `new_since`, clearing
-  /// New forum-wide whatever topic ids it is given.
-  bool get widensToForum => route.categoryId == null && tagName == null;
+  bool get _scoped => route.categoryId != null || tagName != null;
+
+  /// Core's reset-new takes one tag, never reads the list's search, and
+  /// ignores `tracked` under a category or tag, so a list narrowed further is
+  /// dismissed by the topic ids it lists.
+  bool get listsTopicIds =>
+      route.tagNames.length > 1 ||
+      route.topicListSearch.isNotEmpty ||
+      (tracked && _scoped);
+
+  /// Without a category, tag or `tracked`, reset-new also moves `new_since`,
+  /// clearing New forum-wide whatever topic ids it is given.
+  bool get widensToForum => !_scoped && !tracked;
 
   bool get dismissTopics => mode != TopicListMode.newReplies;
   bool get dismissPosts =>
@@ -151,6 +161,7 @@ final class NewTopicDismissals {
           clientId: credential.clientId,
           dismissTopics: topics,
           dismissPosts: posts,
+          tracked: scope.tracked,
           categoryId: route.categoryId,
           tagName: scope.tagName,
           topicIds: topicIds,

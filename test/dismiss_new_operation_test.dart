@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -87,6 +89,84 @@ void main() {
       expect(shell.store.read<Topic>(_site, 1)!.seen, isTrue);
     },
   );
+
+  test(
+    'dismissing forum-wide New re-reads a legacy account\'s counts',
+    () async {
+      const reader = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        sidebarShowCountOfNewItems: true,
+      );
+      final api = _LegacyTotalsApi(reader);
+      final site = instance('meta.discourse.org').copyWith(user: reader);
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: FakeAuthenticator()..keys[site.url] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+        ownsApi: false,
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      final source = ContentRoute.topicList(TopicListMode.newActivity);
+      shell.pushContent(source);
+      await shell.loadFeed(source.id);
+      await pumpEventQueue();
+      expect(shell.newTopicCount, 2);
+      expect(shell.sidebarBadgeFor('latest'), const SidebarBadge.count(2));
+
+      expect(await shell.dismissNewTopics(), isNull);
+      await pumpEventQueue();
+
+      expect(shell.newTopicCount, 0);
+      expect(shell.sidebarBadgeFor('latest'), SidebarBadge.none);
+    },
+  );
+
+  test(
+    'a tracked-only New list asks core to dismiss only tracked topics',
+    () async {
+      // `/new?f=tracked`, which `TopicQuery` narrows through `tracked_filter`.
+      final (shell, api) = await _fixture(
+        route: () => ContentRoute.filteredTopicList(
+          TopicListMode.newActivity,
+          query: const {
+            'f': ['tracked'],
+          },
+        ),
+      );
+
+      expect(await shell.dismissNewTopics(), isNull);
+
+      final call = api.dismissNewCalls.single;
+      expect(call.tracked, isTrue);
+      expect(call.topicIds, isNull);
+    },
+  );
+
+  test('a tracked-only category list dismisses the topics it lists', () async {
+    // Core reads `tracked` only when neither a category nor a tag scopes the
+    // request, so a scoped list can only be narrowed by its topic ids.
+    final (shell, api) = await _fixture(
+      route: () => ContentRoute.filteredTopicList(
+        TopicListMode.newActivity,
+        categoryId: 21,
+        query: const {
+          'f': ['tracked'],
+        },
+      ),
+    );
+
+    expect(await shell.dismissNewTopics(), isNull);
+
+    final call = api.dismissNewCalls.single;
+    expect(call.categoryId, 21);
+    expect(call.topicIds, [1, 2]);
+  });
 
   for (final failure in ['cycle', 'incomplete']) {
     test(
@@ -254,6 +334,59 @@ Future<(ShellController, _Api)> _fixture({
   return (shell, api);
 }
 
+/// `TopicTrackingState.report_totals` for an account on the legacy New list:
+/// the server's own count drops as soon as reset-new has run.
+final class _LegacyTotalsApi extends FakeDiscourseApi {
+  _LegacyTotalsApi(DiscourseUser user)
+    : super(
+        user: user,
+        feeds: const {'/new.json': _rows},
+        totals: const NotificationTotals(topicTrackingNew: 2),
+      ) {
+    dismissedNewIds = [1, 2];
+  }
+
+  var _dismissed = false;
+
+  @override
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    bool tracked = false,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  }) {
+    _dismissed = true;
+    return super.dismissNewTopics(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      dismissTopics: dismissTopics,
+      dismissPosts: dismissPosts,
+      tracked: tracked,
+      categoryId: categoryId,
+      tagName: tagName,
+      topicIds: topicIds,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    totalsCalls++;
+    return _dismissed
+        ? const NotificationTotals()
+        : const NotificationTotals(topicTrackingNew: 2);
+  }
+}
+
 final class _PageGate {
   final started = Completer<void>();
   final release = Completer<void>();
@@ -319,6 +452,7 @@ final class _Api extends FakeDiscourseApi {
     required String apiKey,
     required bool dismissTopics,
     required bool dismissPosts,
+    bool tracked = false,
     int? categoryId,
     String? tagName,
     List<int>? topicIds,
@@ -331,6 +465,7 @@ final class _Api extends FakeDiscourseApi {
       apiKey: apiKey,
       dismissTopics: dismissTopics,
       dismissPosts: dismissPosts,
+      tracked: tracked,
       categoryId: categoryId,
       tagName: tagName,
       topicIds: topicIds,
