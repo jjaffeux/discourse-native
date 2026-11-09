@@ -39,7 +39,7 @@ Future<void> _highlight(WidgetTester tester) async {
   for (var i = 0; i < 100; i++) {
     final block = tester.widget<CodeBlock>(find.byType(CodeBlock));
     var colored = false;
-    final line = tester.widget<Text>(find.text('def private_note'));
+    final line = tester.widget<Text>(find.textContaining('def private_note'));
     line.textSpan!.visitChildren((span) {
       if (span.style?.color == CodeColors.light.keyword) colored = true;
       return true;

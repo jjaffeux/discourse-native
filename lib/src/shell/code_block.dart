@@ -411,6 +411,14 @@ class _CodeBlockState extends State<CodeBlock> {
           // scrollbar stays up whenever there is somewhere to scroll.
           LayoutBuilder(
             builder: (context, constraints) {
+              final words = SearchWords.of(context);
+              final hitStyle = searchHitStyle(context);
+              Iterable<TextSpan> spansOf(CodeLine line) => _codeLineSpans(
+                line,
+                (scope) => scopeColor(scope, theme.code),
+                words,
+                hitStyle,
+              );
               if (_requiresVirtualCodeLayout(data.lines)) {
                 final lines = [
                   for (final (index, line) in data.lines.indexed)
@@ -420,8 +428,6 @@ class _CodeBlockState extends State<CodeBlock> {
                     ),
                 ];
                 final numbers = [for (final line in lines) line.number];
-                final words = SearchWords.of(context);
-                final hitStyle = searchHitStyle(context);
                 return DCodeViewer(
                   source: data.text,
                   horizontalController: _horizontal,
@@ -433,27 +439,17 @@ class _CodeBlockState extends State<CodeBlock> {
                     for (final (index, line) in lines.indexed)
                       if (line.isSelected) index,
                   },
-                  lineSpanBuilder: (index) => TextSpan(
-                    children: [
-                      if (lines[index].text.isNotEmpty)
-                        for (final span in _codeLineSpans(
-                          lines[index],
-                          (scope) => scopeColor(scope, theme.code),
-                        ))
-                          for (final hit in searchTextSpans(
-                            span.text ?? '',
-                            words,
-                            hitStyle,
-                          ))
-                            TextSpan(
-                              text: hit.text,
-                              style: span.style?.merge(hit.style) ?? hit.style,
-                            ),
-                    ],
-                  ),
+                  lineSpanBuilder: (index) =>
+                      TextSpan(children: [...spansOf(lines[index])]),
                 );
               }
               final gutterWidth = _gutterWidth;
+              // A fence is one paragraph: a selection across separate
+              // paragraphs copies without its line breaks, and each row costs
+              // render objects. Only numbered and highlighted lines need one.
+              final paragraph =
+                  gutterWidth == null &&
+                  data.lines.every((line) => !line.isSelected);
               return DScrollBar(
                 backgroundColor: theme.code.blockBackground,
                 axis: Axis.horizontal,
@@ -468,23 +464,42 @@ class _CodeBlockState extends State<CodeBlock> {
                   ),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(minWidth: constraints.maxWidth),
-                    child: IntrinsicWidth(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final line in data.lines)
-                            _Line(
-                              line: line,
-                              style: style,
-                              gutterStyle: gutterStyle,
-                              gutterWidth: gutterWidth,
-                              highlight: theme.colorScheme.tertiaryContainer,
-                              scopeColor: (scope) =>
-                                  scopeColor(scope, theme.code),
+                    child: paragraph
+                        ? Padding(
+                            padding: const EdgeInsetsDirectional.only(
+                              start: 8,
+                              end: 12,
                             ),
-                        ],
-                      ),
-                    ),
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  for (final (index, line)
+                                      in data.lines.indexed) ...[
+                                    if (index > 0) const TextSpan(text: '\n'),
+                                    ...spansOf(line),
+                                  ],
+                                ],
+                              ),
+                              style: style,
+                            ),
+                          )
+                        : IntrinsicWidth(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                for (final line in data.lines)
+                                  _Line(
+                                    line: line,
+                                    style: style,
+                                    gutterStyle: gutterStyle,
+                                    gutterWidth: gutterWidth,
+                                    highlight:
+                                        theme.colorScheme.tertiaryContainer,
+                                    spans: spansOf(line),
+                                  ),
+                              ],
+                            ),
+                          ),
                   ),
                 ),
               );
@@ -734,7 +749,7 @@ class _Line extends StatelessWidget {
     required this.gutterStyle,
     required this.gutterWidth,
     required this.highlight,
-    required this.scopeColor,
+    required this.spans,
   });
 
   final CodeLine line;
@@ -742,7 +757,7 @@ class _Line extends StatelessWidget {
   final TextStyle gutterStyle;
   final double? gutterWidth;
   final Color highlight;
-  final Color? Function(String?) scopeColor;
+  final Iterable<TextSpan> spans;
 
   @override
   Widget build(BuildContext context) {
@@ -763,16 +778,10 @@ class _Line extends StatelessWidget {
           Text.rich(
             TextSpan(
               children: [
-                for (final span in _codeLineSpans(line, scopeColor))
-                  for (final hit in searchTextSpans(
-                    span.text ?? '',
-                    SearchWords.of(context),
-                    searchHitStyle(context),
-                  ))
-                    TextSpan(
-                      text: hit.text,
-                      style: span.style?.merge(hit.style) ?? hit.style,
-                    ),
+                // A zero-width space keeps an empty line the height of a full
+                // one.
+                if (line.text.isEmpty) const TextSpan(text: '\u200b'),
+                ...spans,
               ],
             ),
             style: style,
@@ -784,23 +793,24 @@ class _Line extends StatelessWidget {
   }
 }
 
-List<TextSpan> _codeLineSpans(
+Iterable<TextSpan> _codeLineSpans(
   CodeLine line,
   Color? Function(String?) scopeColor,
-) {
-  // A zero-width space keeps an empty line the height of a full one.
-  if (line.text.isEmpty) return const [TextSpan(text: '​')];
-
-  return [
-    for (final token in line.tokens)
-      TextSpan(
-        text: token.text,
-        style: switch (scopeColor(token.scope)) {
-          final color? => TextStyle(color: color),
-          null => null,
-        },
-      ),
-  ];
+  String words,
+  TextStyle hitStyle,
+) sync* {
+  for (final token in line.tokens) {
+    final style = switch (scopeColor(token.scope)) {
+      final color? => TextStyle(color: color),
+      null => null,
+    };
+    for (final hit in searchTextSpans(token.text, words, hitStyle)) {
+      yield TextSpan(
+        text: hit.text,
+        style: style?.merge(hit.style) ?? hit.style,
+      );
+    }
+  }
 }
 
 Iterable<CodeLine> _physicalCodeLines(

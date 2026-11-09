@@ -1,9 +1,11 @@
 import 'dart:io';
 
+import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Mounts cooked markup the way a post body sits in a topic: selectable and
@@ -50,7 +52,105 @@ void _proof(String slug, String metric, Object value) =>
 String _heading(String slug, String title) =>
     '<h2><a name="$slug" class="anchor" href="#$slug"></a>$title</h2>';
 
+/// What core cooks for a Markdown fence, with its closing newline.
+String _fence(List<String> lines) =>
+    '<pre data-code-wrap="ruby"><code class="lang-ruby">'
+    '${lines.join('\n')}\n</code></pre>';
+
+List<String> _ruby(int count) => [
+  for (var index = 0; index < count; index++)
+    '  def method_$index(arg) = arg + $index',
+];
+
 void main() {
+  group('code blocks', () {
+    testWidgets('a fence costs one paragraph rather than a row per line, and '
+        'still shows and copies every line', (tester) async {
+      final messages =
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+      String? clipboard;
+      messages.setMockMethodCallHandler(SystemChannels.platform, (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboard = (call.arguments as Map)['text'] as String;
+        }
+        return null;
+      });
+      addTearDown(
+        () => messages.setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      await _pumpPost(tester, _fence(_ruby(10)));
+      final ten = _census();
+      final lines = _ruby(30);
+      await _pumpPost(tester, _fence(lines));
+      final thirty = _census();
+
+      final renderObjects = (thirty.renderObjects - ten.renderObjects) / 20;
+      final elements = (thirty.elements - ten.elements) / 20;
+      _proof('cooked-code-lines', 'render_objects_per_line', renderObjects);
+      _proof('cooked-code-lines', 'elements_per_line', elements);
+      _proof(
+        'cooked-code-lines',
+        'render_objects_30_line_fence',
+        thirty.renderObjects,
+      );
+      expect(renderObjects, 0);
+
+      expect(
+        tester.getSize(find.byType(CodeBlock)).height,
+        16 + 48 + 4 + 30 * 21 + 12,
+      );
+      for (final line in lines) {
+        expect(
+          find.textContaining(line.trimLeft(), findRichText: true),
+          findsOneWidget,
+        );
+      }
+      await tester.tap(find.byKey(const ValueKey('code-block-copy')));
+      await tester.pump();
+      expect(clipboard, lines.join('\n'));
+      await tester.pump(const Duration(seconds: 3));
+    });
+
+    testWidgets('a selection across a fence keeps its line breaks', (
+      tester,
+    ) async {
+      SelectedContent? selected;
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.light,
+          home: Scaffold(
+            body: SelectionArea(
+              onSelectionChanged: (content) => selected = content,
+              child: CookedHtml(
+                html: _fence(['first', '', '  third']),
+                buildAsync: false,
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      tester
+          .state<SelectableRegionState>(find.byType(SelectableRegion))
+          .selectAll(SelectionChangedCause.keyboard);
+      await tester.pump();
+
+      expect(selected?.plainText, 'first\n\n  third');
+    });
+
+    testWidgets('blank lines keep their height, also at the end of a fence', (
+      tester,
+    ) async {
+      await _pumpPost(tester, _fence(['first', '', 'third', '']));
+      expect(
+        tester.getSize(find.byType(CodeBlock)).height,
+        16 + 48 + 4 + 4 * 21 + 12,
+      );
+    });
+  });
+
   group('headings', () {
     testWidgets('an empty heading anchor costs no link machinery, and still '
         'receives navigation', (tester) async {
