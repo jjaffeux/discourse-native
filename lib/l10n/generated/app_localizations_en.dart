@@ -5106,6 +5106,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get gallery => 'Gallery';
 
   @override
+  String get brokenImage => 'Broken image';
+
+  @override
   String get image => 'Image';
 
   @override

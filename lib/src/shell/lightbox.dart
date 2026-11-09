@@ -14,6 +14,7 @@ import 'package:photo_view/photo_view.dart';
 import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
 import '../theme/app_theme.dart';
+import 'broken_image.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
 import 'image_download.dart';
@@ -306,13 +307,14 @@ class LightboxThumbnail extends StatelessWidget {
   }
 }
 
-class LightboxTile extends StatelessWidget {
+class LightboxTile extends StatefulWidget {
   const LightboxTile({
     super.key,
     required this.anchor,
     required this.image,
     this.fit = BoxFit.cover,
     this.fillsBox = true,
+    this.brokenRadius = BrokenImage.defaultRadius,
     this.siteUrl,
   });
 
@@ -322,10 +324,42 @@ class LightboxTile extends StatelessWidget {
   final String? siteUrl;
 
   final bool fillsBox;
+  final double brokenRadius;
+
+  @override
+  State<LightboxTile> createState() => _LightboxTileState();
+}
+
+class _LightboxTileState extends State<LightboxTile> {
+  bool _broken = false;
+
+  @override
+  void didUpdateWidget(LightboxTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.image.heroTag, widget.image.heroTag)) {
+      _broken = false;
+    }
+  }
+
+  /// The picture only learns it failed while it builds. A broken picture has
+  /// nothing to open, so the tile gives up its button on the next frame.
+  Widget _reportBroken() {
+    if (!_broken) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_broken) setState(() => _broken = true);
+      });
+    }
+    return BrokenImage(radius: widget.brokenRadius);
+  }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    if (_broken) return BrokenImage(radius: widget.brokenRadius);
+
+    final image = widget.image;
+    final fit = widget.fit;
+    final siteUrl = widget.siteUrl;
+    final fillsBox = widget.fillsBox;
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -341,7 +375,7 @@ class LightboxTile extends StatelessWidget {
             context.l10n.openImageLightbox((description).toString()),
           _ => context.l10n.openImageLightboxValue,
         };
-        void activate() => open(context);
+        void activate() => _open(context);
         final thumbnail = image.thumbnailSrc;
 
         return DImagePreview(
@@ -360,8 +394,7 @@ class LightboxTile extends StatelessWidget {
                   policy: ResizeImagePolicy.fit,
                 ),
                 fit: fit,
-                errorBuilder: (_, _, _) =>
-                    UnavailableImage(color: theme.shell.placeholder),
+                errorBuilder: (_, _, _) => _reportBroken(),
               ),
               LightboxVideo() => const Center(child: DIcon(DIcons.play)),
               RemoteLightboxImage(:final url) => SiteImage(
@@ -382,9 +415,7 @@ class LightboxTile extends StatelessWidget {
                 cacheWidth: cacheWidth,
                 gifPlaybackControls: true,
                 gifPlaybackControlsAtTop: true,
-                errorBuilder: (context, error, stackTrace) {
-                  return UnavailableImage(color: theme.shell.placeholder);
-                },
+                errorBuilder: (_, _, _) => _reportBroken(),
               ),
             },
           ),
@@ -393,8 +424,9 @@ class LightboxTile extends StatelessWidget {
     );
   }
 
-  void open(BuildContext context) {
-    final gallery = LightboxImage.galleryFor(anchor);
+  void _open(BuildContext context) {
+    final image = widget.image;
+    final gallery = LightboxImage.galleryFor(widget.anchor);
     if (gallery.isEmpty) return;
     final index = gallery.indexWhere((i) => i.heroTag == image.heroTag);
 
@@ -403,7 +435,7 @@ class LightboxTile extends StatelessWidget {
         context,
         images: gallery,
         initialIndex: index < 0 ? 0 : index,
-        siteUrl: siteUrl,
+        siteUrl: widget.siteUrl,
       ),
     );
   }
@@ -1063,9 +1095,8 @@ class _LightboxGalleryState extends State<LightboxGallery>
                                 policy: ResizeImagePolicy.fit,
                               ),
                               fit: BoxFit.contain,
-                              errorBuilder: (_, _, _) => const Center(
-                                child: UnavailableImage(color: Colors.white54),
-                              ),
+                              errorBuilder: (_, _, _) =>
+                                  const Center(child: BrokenImage()),
                             )
                           : SiteImage(
                               url:
@@ -1085,13 +1116,8 @@ class _LightboxGalleryState extends State<LightboxGallery>
                                 color: skeletonFill(context),
                                 child: const DSkeleton(),
                               ),
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: UnavailableImage(
-                                    color: Colors.white54,
-                                  ),
-                                );
-                              },
+                              errorBuilder: (_, _, _) =>
+                                  const Center(child: BrokenImage()),
                             ),
                     ),
                   ),
@@ -1390,16 +1416,6 @@ class _Arrow extends StatelessWidget {
       ),
     );
   }
-}
-
-class UnavailableImage extends StatelessWidget {
-  const UnavailableImage({super.key, required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) =>
-      Center(child: DIcon(DIcons.triangleExclamation, size: 20, color: color));
 }
 
 extension on String? {

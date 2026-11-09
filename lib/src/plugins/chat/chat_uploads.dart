@@ -124,9 +124,7 @@ class _Image extends StatelessWidget {
       cacheWidth: imagePhysicalPixels(context, width),
       gifPlaybackControls: true,
       gifPlaybackControlsAtTop: true,
-      errorBuilder: (context, error, stackTrace) {
-        return UnavailableImage(color: theme.shell.placeholder);
-      },
+      errorBuilder: (_, _, _) => const BrokenImage(),
     );
 
     if (ratio != null) {

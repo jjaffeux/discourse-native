@@ -17,6 +17,7 @@ import '../foundation/icons/d_icons.dart';
 import '../foundation/icons/d_native_icons.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/plugin_registry.dart';
+import 'broken_image.dart';
 import 'html_paragraph_selection.dart';
 import 'image_decode.dart';
 import 'open_link.dart';
@@ -363,8 +364,9 @@ class _SiteImageState extends State<SiteImage> {
     if (!_resolved) {
       child = widget.loadingBuilder?.call(context) ?? const SizedBox.shrink();
     } else if (_error case final error?) {
-      child =
-          widget.errorBuilder?.call(
+      // The failure names itself: the picture's own label and GIF controls
+      // describe something that is not there.
+      return widget.errorBuilder?.call(
             context,
             error,
             _errorStack ?? StackTrace.current,
@@ -900,6 +902,12 @@ final class SiteImageWidgetFactory extends WidgetFactory {
   static bool _hasImageDimensions(ImageSource source) =>
       (source.width ?? 0) > 0 && (source.height ?? 0) > 0;
 
+  /// An image sized to sit in a line of text has no room for [BrokenImage], so
+  /// it keeps reading as its alt text.
+  static bool _drawsAtTextSize(ImageSource source) =>
+      (source.width ?? double.infinity) < 40 ||
+      (source.height ?? double.infinity) < 40;
+
   // Remote images load through [SiteImage], whose site-scoped cache bounds
   // response size, refuses unsafe redirects and remembers failures, and an
   // inline `<img>` decodes within its layout in [_buildImageContent]. The HTML
@@ -981,8 +989,10 @@ final class SiteImageWidgetFactory extends WidgetFactory {
               onLoadingBuilder(context, tree, null, src) ??
               const SizedBox.shrink(),
           errorBuilder: (context, error, stackTrace) =>
-              onErrorBuilder(context, tree, error, src) ??
-              const SizedBox.shrink(),
+              _drawsAtTextSize(src) || _isAvatar(tree)
+              ? onErrorBuilder(context, tree, error, src) ??
+                    const SizedBox.shrink()
+              : const BrokenImage(),
         );
       },
     );

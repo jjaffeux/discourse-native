@@ -28,6 +28,7 @@ export 'src/shell/anchored_layout.dart' show AnchoredLayout;
 export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
+export 'src/shell/broken_image.dart' show BrokenImage;
 export 'src/shell/category_icon.dart' show CategoryIcon;
 export 'src/shell/code_block.dart' show CodeBlock, CodeBlockData, CodeLine;
 export 'src/shell/composer/block_selection.dart' show ComposerBlockSelection;
@@ -77,7 +78,6 @@ export 'src/shell/lightbox.dart'
         LightboxGallery,
         LightboxImage,
         RemoteLightboxImage,
-        UnavailableImage,
         showLightboxGallery;
 export 'src/shell/list_boundary_shortcuts.dart' show ListBoundaryShortcuts;
 export 'src/shell/mobile_footer_action.dart'

@@ -175,8 +175,10 @@ class _ThumbnailArtwork extends StatelessWidget {
       LightboxVideo(:final data) => data.posterUrl,
       LocalLightboxImage() => null,
     };
-    Widget unavailable(BuildContext _, Object _, StackTrace? _) =>
-        const UnavailableImage(color: Colors.white54);
+    const glyph = Center(
+      child: DIcon(DNativeIcons.image, size: 16, color: Colors.white54),
+    );
+    Widget unavailable(BuildContext _, Object _, StackTrace? _) => glyph;
     final source = image.source;
     return ColoredBox(
       color: Colors.white.withValues(alpha: .12),
@@ -204,9 +206,7 @@ class _ThumbnailArtwork extends StatelessWidget {
           (LightboxVideo(), _) => const Center(
             child: DIcon(DIcons.play, size: 16, color: Colors.white),
           ),
-          _ => const Center(
-            child: DIcon(DNativeIcons.image, size: 16, color: Colors.white54),
-          ),
+          _ => glyph,
         },
       ),
     );

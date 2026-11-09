@@ -8834,6 +8834,12 @@ abstract class AppLocalizations {
   /// **'Gallery'**
   String get gallery;
 
+  /// English UI message used by shell/broken_image.dart. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'Broken image'**
+  String get brokenImage;
+
   /// English UI message used by shell/composer_block_controller.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

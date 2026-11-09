@@ -9,6 +9,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
+import 'broken_image.dart';
 import 'cooked_dom.dart';
 import 'cooked_html.dart';
 import 'image_decode.dart';
@@ -466,6 +467,7 @@ class ImageGridTile extends StatelessWidget {
         anchor: item.anchor!,
         image: item.image!,
         fit: fit,
+        brokenRadius: 0,
         siteUrl: siteUrl,
       );
     }
@@ -502,11 +504,7 @@ class ImageGridTile extends StatelessWidget {
                 height: double.infinity,
                 cacheWidth: cacheWidth,
                 gifPlaybackControls: true,
-                errorBuilder: (context, error, stackTrace) {
-                  return UnavailableImage(
-                    color: Theme.of(context).shell.placeholder,
-                  );
-                },
+                errorBuilder: (_, _, _) => const BrokenImage(radius: 0),
               ),
             ),
           );
