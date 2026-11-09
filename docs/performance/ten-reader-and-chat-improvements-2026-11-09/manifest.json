@@ -1,0 +1,12 @@
+[
+ {"slug":"discover-logos","subject":"PERF: decode Discover logos at their drawn size","proofs":[{"path":"test/discover_site_suggestions_test.dart","name":"a full sheet of real logo sizes stays within its budget"}]},
+ {"slug":"image-cache-touch","subject":"PERF: stop writing to disk for each image a warm launch reads","proofs":[{"path":"test/byte_cache_store_test.dart","name":"a warm launch serves cached avatars without writing to disk"}]},
+ {"slug":"bookmark-store","subject":"PERF: stop a bookmark write redrawing every post on screen","proofs":[{"path":"test/bookmark_reader_rebuild_test.dart","name":"a bookmark write redraws only the post it changed"}]},
+ {"slug":"topic-totals","subject":"PERF: stop a topic's like or reply total redrawing every mounted post","proofs":[{"path":"test/topic_totals_rebuild_test.dart","name":"a topic stats message leaves mounted posts alone"},{"path":"test/topic_totals_rebuild_test.dart","name":"a live reply leaves the posts already read alone"}]},
+ {"slug":"post-reread","subject":"PERF: stop redrawing the shell when a live re-read only changes a post","proofs":[{"path":"test/live_post_reread_test.dart","name":"redraws only that post"}]},
+ {"slug":"presence-menu","subject":"PERF: keep the presence menu and phone footer out of shell notifications","proofs":[{"path":"test/user_presence_menu_rebuild_test.dart","name":"a shell notification leaves the presence menu alone"}]},
+ {"slug":"draft-autosave","subject":"PERF: a draft autosave no longer spawns isolates or makes no-op storage calls","proofs":[{"path":"test/draft_autosave_work_test.dart","name":"typing into a small draft spawns no codec isolate and makes no no-op storage call"}]},
+ {"slug":"phone-chat-chrome","subject":"PERF: stop rebuilding the phone chrome for every chat event","proofs":[{"path":"test/phone_chat_chrome_rebuild_test.dart","name":"redraws the chrome only for the indicator"}]},
+ {"slug":"categories-page","subject":"PERF: stop rebuilding the categories page for every shell notification","proofs":[{"path":"test/categories_page_test.dart","name":"page rebuilds only for what a notification changed"}]},
+ {"slug":"idle-chat-composer","subject":"PERF: stop rebuilding an idle chat composer for every arriving message","proofs":[{"path":"test/chat_composer_idle_test.dart","name":"composer alone on"}]}
+]
