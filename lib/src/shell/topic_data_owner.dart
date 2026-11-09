@@ -83,6 +83,7 @@ final class TopicDataOwner {
     this.postSelected,
     this.acceptedPost,
     this.ignoredUsernames,
+    this.currentUserId,
   });
 
   final TopicContentApi content;
@@ -107,6 +108,7 @@ final class TopicDataOwner {
   final bool Function(String siteUrl, int topicId, int postId)? postSelected;
   final void Function(String siteUrl, int topicId, Post post)? acceptedPost;
   final Set<String> Function(String siteUrl)? ignoredUsernames;
+  final int? Function(String siteUrl)? currentUserId;
   final _prefetch = TopicPrefetchController();
   final Map<String, TopicDataSession> _accounts = {};
   bool _disposed = false;
@@ -176,6 +178,8 @@ final class _TopicState {
   int archive = 0;
   int removals = 0;
   int streams = 0;
+  int likes = 0;
+  final Map<int, int> likedAt = {};
   int positions = 0;
   int matchingReads = 0;
   final Map<int, int> removedAt = {};
@@ -240,6 +244,7 @@ typedef _ReadStamp = ({
   int archive,
   int removals,
   int streams,
+  int likes,
   Map<int, Post> redacted,
 });
 
@@ -465,6 +470,7 @@ final class TopicDataSession implements BookmarkTopicData {
       archive: state.archive,
       removals: state.removals,
       streams: state.streams,
+      likes: state.likes,
       redacted: {
         for (final post in _store.retainedRecords<Post>(siteUrl))
           if (post != null &&
@@ -777,8 +783,11 @@ final class TopicDataSession implements BookmarkTopicData {
           (onlyUnloaded && _store.containsRecord<Post>(siteUrl, post.id))) {
         continue;
       }
-      final incoming = _bookmarks.postFromRead(topicId, stamp.bookmarks, post);
       final held = _store.read<Post>(siteUrl, post.id);
+      var incoming = _bookmarks.postFromRead(topicId, stamp.bookmarks, post);
+      if (held != null && (state.likedAt[post.id] ?? 0) > stamp.likes) {
+        incoming = incoming.withLikesOf(held);
+      }
       if ((restoreRedacted ?? !usesReader(topicId)) &&
           held?.contentRedacted == true &&
           identical(held, stamp.redacted[post.id]) &&
@@ -1156,6 +1165,7 @@ final class TopicDataSession implements BookmarkTopicData {
           archive: warmed.archiveVersion,
           removals: warmed.postRemovalVersion,
           streams: stamp.streams,
+          likes: stamp.likes,
           redacted: const {},
         );
       }
@@ -1838,6 +1848,40 @@ final class TopicDataSession implements BookmarkTopicData {
         post.refreshPending = true;
       }
     }
+  }
+
+  /// A like announced on the topic's channel, applied from its own total as
+  /// the web client's PostStream#triggerLikedPost does. False leaves it to a
+  /// read of the post: a write or a read already out could answer with a count
+  /// from either side of this one, and the announced total includes the likes
+  /// of users this viewer ignores, which PostSerializer leaves out.
+  bool acceptLiveLike(
+    int topicId,
+    int postId, {
+    required int likeCount,
+    required bool liked,
+    required int? actorId,
+  }) {
+    if (!isCurrent || _store.read<Post>(siteUrl, postId) == null) return true;
+    final state = _post(postId);
+    final own =
+        actorId != null && actorId == _owner.currentUserId?.call(siteUrl);
+    if (own && state.likeWrite != null) return true;
+    if (state.holders.isNotEmpty ||
+        state.refreshOwner != null ||
+        _owner.ignoredUsernames?.call(siteUrl).isNotEmpty == true) {
+      return false;
+    }
+    final topic = _topic(topicId);
+    topic.likedAt[postId] = ++topic.likes;
+    _update<Post>(
+      postId,
+      (held) =>
+          (own ? held.withLike(liked) : held).copyWith(likeCount: likeCount),
+    );
+    // A plugin reader reads posts on the shell's notification, not their refs.
+    if (isCurrent && usesReader(topicId)) _changed();
+    return true;
   }
 
   /// An id announced with no read behind it has no re-read to remove it, and
