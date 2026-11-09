@@ -8,6 +8,7 @@ import 'package:intl/intl.dart' show DateFormat;
 import 'package:kalender/kalender.dart' as kalender;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../foundation/calendar_day.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/discourse_typography.dart';
@@ -72,6 +73,7 @@ class DCalendarWeekdayHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
     final locale = Localizations.localeOf(context).toString();
+    final day = headerColumnDay(date);
     return SizedBox(
       height: math.max(32, scaler.scale(12) * 1.3 + 8),
       child: LayoutBuilder(
@@ -84,8 +86,8 @@ class DCalendarWeekdayHeader extends StatelessWidget {
             DateFormat(
               constraints.maxWidth < scaler.scale(28) + 8 ? 'EEEEE' : 'EEE',
               locale,
-            ).format(date).toUpperCase(),
-            semanticsLabel: DateFormat.EEEE(locale).format(date),
+            ).format(day).toUpperCase(),
+            semanticsLabel: DateFormat.EEEE(locale).format(day),
             maxLines: 1,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
               color: DTokens.of(context).mutedForeground,

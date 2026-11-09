@@ -17,6 +17,15 @@ DateTime? calendarDay(DateTime? value) {
   return DateTime(local.year, local.month, local.day);
 }
 
+/// The day a month grid's header column stands for, at noon.
+///
+/// The calendar package steps each column by 24 elapsed hours from the grid's
+/// first midnight, so after a 25-hour day a column's moment is 23:00 on the
+/// day before and its weekday reads one column early. Moved twelve hours by
+/// the wall clock, a moment that close to midnight lands on the right day.
+DateTime headerColumnDay(DateTime column) =>
+    DateTime(column.year, column.month, column.day, column.hour + 12);
+
 /// What a stream's day separator calls [day]: Today, Yesterday, or its date
 /// spelled out. A day still to come is dated rather than named.
 String dayLabel(DateTime day, {required DateTime now}) {
