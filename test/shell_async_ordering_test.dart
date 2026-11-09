@@ -311,18 +311,14 @@ Future<ShellController> _loadShell(
   FakeAuthenticator? authenticator,
   InstalledPlugins? plugins,
   DateTime Function()? clock,
+  DiscourseUser user = const DiscourseUser(id: 1, username: 'author'),
 }) async {
   final credentials = authenticator ?? FakeAuthenticator();
   credentials.keys[_siteUrl] = 'api-key';
-  api.accounts.putIfAbsent(
-    'api-key',
-    () => api.user ?? const DiscourseUser(id: 1, username: 'author'),
-  );
+  api.accounts.putIfAbsent('api-key', () => api.user ?? user);
   final shell = ShellController(
     instanceStore: FakeInstanceStore([
-      instance(
-        'meta.discourse.org',
-      ).copyWith(user: const DiscourseUser(id: 1, username: 'author')),
+      instance('meta.discourse.org').copyWith(user: user),
     ]),
     api: api,
     authenticator: credentials,
@@ -1205,6 +1201,7 @@ void main() {
           '/latest.json': [Topic(id: 7, title: 'A topic', slug: 'a-topic')],
         },
         topics: topics,
+        postsById: const {2: _closedAction},
       );
       final shell = await _loadShell(api);
       addTearDown(shell.dispose);
@@ -1224,6 +1221,7 @@ void main() {
       await pumpEventQueue();
 
       expect(api.topicsOpened, [7, 7]);
+      expect(shell.currentTopic?.closed, isTrue);
       expect(shell.currentTopic?.stream, [1, 2]);
       expect(shell.store.read<Post>(_siteUrl, 2), _closedAction);
       expect(shell.store.read<Post>(_siteUrl, 2)?.isSmallAction, isTrue);
@@ -1292,17 +1290,14 @@ void main() {
       await api.likeStarted.future;
       expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 1);
 
-      // Other readers liked the post while the request was out, and a new
-      // reply's refetch brought their count before the site answered.
+      // Other readers liked the post while the request was out, and a topic
+      // reload brought their count before the site answered.
       api.topics[7] = topicPayload(
         id: 7,
         title: 'A topic',
         posts: [_post('initial', canLike: true, likeCount: 5)],
       );
-      tracker.deliverTopicMessage('/topic/7', const {
-        'type': 'created',
-        'id': 2,
-      });
+      tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
       await pumpEventQueue();
       expect(shell.store.read<Post>(_siteUrl, 1)?.likeCount, 5);
 
@@ -1698,10 +1693,7 @@ void main() {
       if (forced) {
         unawaited(shell.loadTopic(7, 'a-topic', force: true));
       } else {
-        tracker.deliverTopicMessage('/topic/7', const {
-          'type': 'created',
-          'id': 3,
-        });
+        tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
       }
       await api.waitForTopicRequests(1);
       return (shell: shell, api: api, tracker: tracker);
@@ -2048,6 +2040,389 @@ void main() {
     });
   });
 
+  group('live created posts', () {
+    Map<String, Object?> created(int id, {int? postNumber, String? username}) =>
+        {
+          'type': 'created',
+          'id': id,
+          'post_number': ?postNumber,
+          'username': ?username,
+        };
+
+    Future<
+      ({ShellController shell, _PostOrderingApi api, FakeSiteTracker tracker})
+    >
+    open({DiscourseUser? user}) async {
+      final api = _PostOrderingApi();
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(
+        api,
+        plugins: plugins,
+        user: user ?? const DiscourseUser(id: 1, username: 'author'),
+      );
+      addTearDown(shell.dispose);
+      final tracker = await _openTopic(shell);
+      expect(api.topicsOpened, [7]);
+      return (shell: shell, api: api, tracker: tracker);
+    }
+
+    test('replies during a read wait for it and land in order', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      tracker.deliverTopicMessage('/topic/7', created(3));
+      await pumpEventQueue();
+      expect(api.postRequests, hasLength(1));
+
+      api.postRequests[0].response.complete([_reply]);
+      await api.waitForPostRequests(2);
+      expect(api.postRequests[1].ids, [3]);
+      expect(shell.currentTopic?.stream, [1, 2]);
+
+      api.postRequests[1].response.complete([_laterReply]);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, 2, 3]);
+      expect(api.topicsOpened, [7]);
+    });
+
+    test('a post is announced only once a read brought it', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      expect(shell.currentTopic?.stream, [1]);
+
+      api.postRequests.single.response.complete(const []);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1]);
+    });
+
+    test('a stats message that lands first is not counted again', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'stats',
+        'posts_count': 2,
+      });
+      await api.waitForPostRequests(1);
+      expect(shell.currentTopic?.postsCount, 2);
+
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.postsCount, 2);
+    });
+
+    test('a read older than the reply does not drop it', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      api.holdTopics = true;
+      tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
+      await api.waitForTopicRequests(1);
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+      expect(shell.currentTopic?.stream, [1, 2]);
+
+      api.topicRequests.single.complete(
+        topicPayload(id: 7, title: 'A topic', posts: [_post('older')]),
+      );
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.store.read<Post>(_siteUrl, 1)?.cooked, 'older');
+    });
+
+    test('a read out when a reply arrives is followed by another', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      api.holdTopics = true;
+      tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
+      await api.waitForTopicRequests(1);
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'stats',
+        'posts_count': 2,
+      });
+      await api.waitForPostRequests(1);
+
+      api.topicRequests[0].complete(
+        topicPayload(id: 7, title: 'A topic', posts: [_post('older')]),
+      );
+      await api.waitForTopicRequests(2);
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+      api.topicRequests[1].complete(
+        topicPayload(id: 7, title: 'A topic', posts: [_post('fresh'), _reply]),
+      );
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.currentTopic?.postsCount, 2);
+    });
+
+    test('a reply deleted before any read leaves stream and count', () async {
+      final api = _PostOrderingApi();
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial')],
+        stream: const [1, 2],
+        postsCount: 2,
+      );
+      final tracker = await _openTopic(shell);
+
+      for (final message in [
+        created(3),
+        const {'type': 'stats', 'posts_count': 3},
+        const {'type': 'deleted', 'id': 3},
+        const {'type': 'stats', 'posts_count': 2},
+      ]) {
+        tracker.deliverTopicMessage('/topic/7', message);
+      }
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.currentTopic?.postsCount, 2);
+
+      await shell.loadTopic(7, 'a-topic', force: true);
+
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.currentTopic?.postsCount, 2);
+    });
+
+    test('a post number moves the topic\'s highest, even if ignored', () async {
+      final (:shell, api: _, :tracker) = await open(
+        user: const DiscourseUser(
+          id: 1,
+          username: 'author',
+          ignoredUsernames: ['replier'],
+        ),
+      );
+
+      tracker.deliverTopicMessage(
+        '/topic/7',
+        created(2, postNumber: 2, username: 'replier'),
+      );
+
+      expect(shell.currentTopic?.highestPostNumber, 2);
+    });
+
+    test('a read that lands with the reply answered keeps one id', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      api.holdTopics = true;
+      tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
+      await api.waitForTopicRequests(1);
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      api.topicRequests.single.complete(
+        topicPayload(id: 7, title: 'A topic', posts: [_post('fresh'), _reply]),
+      );
+      await pumpEventQueue();
+      api.postRequests.single.response.complete([
+        _reply.copyWith(cooked: 'older'),
+      ]);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, 2]);
+      expect(shell.store.read<Post>(_siteUrl, 2)?.cooked, 'reply');
+    });
+
+    test('a post deleted while its read was out stays out', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [
+          _post('initial'),
+          const Post(
+            id: 2,
+            postNumber: 2,
+            username: 'replier',
+            cooked: 'reply',
+            canDelete: true,
+          ),
+        ],
+      );
+      tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
+      await pumpEventQueue();
+      final held = shell.store.read<Post>(_siteUrl, 2)!;
+
+      final deleting = shell.deletePost(held);
+      await api.waitForPostRequests(2);
+      api.postRequests[1].response.complete(const []);
+      await deleting;
+      expect(shell.currentTopic?.stream, [1]);
+
+      api.postRequests[0].response.complete([_reply]);
+      await pumpEventQueue();
+      expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+      expect(shell.currentTopic?.stream, [1]);
+
+      // A cursor behind the deletion replays the announcement.
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await pumpEventQueue();
+      expect(api.postRequests, hasLength(2));
+      expect(shell.currentTopic?.stream, [1]);
+    });
+
+    test('a read finishing after the account left stores nothing', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      await shell.disconnectCurrentInstance();
+
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+
+      expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+    });
+
+    test(
+      'a failed read leaves the post for paging and the next open',
+      () async {
+        final (:shell, :api, :tracker) = await open();
+
+        tracker.deliverTopicMessage('/topic/7', created(2));
+        await api.waitForPostRequests(1);
+        api.postRequests.single.response.completeError(StateError('offline'));
+        await pumpEventQueue();
+
+        expect(shell.currentTopic?.stream, [1, 2]);
+        expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+
+        await shell.loadTopic(7, 'a-topic');
+        expect(api.topicsOpened, [7, 7]);
+      },
+    );
+
+    test('an id already in the stream reads nothing', () async {
+      final (:shell, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', created(1));
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(api.topicsOpened, [7]);
+      expect(shell.currentTopic?.stream, [1]);
+    });
+
+    test('a reader not at the end learns the id and reads no post', () async {
+      final api = _PostOrderingApi();
+      final plugins = PluginInstaller.install(const PluginManifest([]));
+      addTearDown(plugins.close);
+      final shell = await _loadShell(api, plugins: plugins);
+      addTearDown(shell.dispose);
+      api.topics[7] = topicPayload(
+        id: 7,
+        title: 'A topic',
+        posts: [_post('initial')],
+        stream: const [1, 2],
+        postsCount: 2,
+      );
+      final tracker = await _openTopic(shell);
+
+      tracker.deliverTopicMessage('/topic/7', created(3));
+      tracker.deliverTopicMessage('/topic/7', created(4));
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(api.topicsOpened, [7]);
+      expect(shell.currentTopic?.stream, [1, 2, 3, 4]);
+      expect(shell.currentTopic?.postsCount, 2);
+
+      await shell.loadTopic(7, 'a-topic');
+      expect(api.topicsOpened, [7, 7]);
+    });
+
+    test('a burst past one page reads in pages and keeps its order', () async {
+      final (:shell, :api, :tracker) = await open();
+      const count = TopicDetail.maximumInitialPosts + 3;
+      final ids = [for (var id = 2; id < 2 + count; id++) id];
+
+      for (final id in ids) {
+        tracker.deliverTopicMessage('/topic/7', created(id));
+      }
+      await api.waitForPostRequests(1);
+      expect(api.postRequests[0].ids, ids.take(20));
+      api.postRequests[0].response.complete([
+        for (final id in ids.take(20)) _streamPost(id),
+      ]);
+      await api.waitForPostRequests(2);
+      expect(api.postRequests[1].ids, ids.skip(20));
+      api.postRequests[1].response.complete([
+        for (final id in ids.skip(20).toList().reversed) _streamPost(id),
+      ]);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1, ...ids]);
+    });
+
+    test('a reply from an ignored user is left out without a read', () async {
+      final (:shell, :api, :tracker) = await open(
+        user: const DiscourseUser(
+          id: 1,
+          username: 'author',
+          ignoredUsernames: ['replier'],
+        ),
+      );
+
+      tracker.deliverTopicMessage('/topic/7', created(2, username: 'replier'));
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(api.topicsOpened, [7]);
+      expect(shell.currentTopic?.stream, [1]);
+    });
+
+    test('a post read for an ignored author is left out too', () async {
+      final (:shell, :api, :tracker) = await open(
+        user: const DiscourseUser(
+          id: 1,
+          username: 'author',
+          ignoredUsernames: ['replier'],
+        ),
+      );
+
+      tracker.deliverTopicMessage('/topic/7', created(2));
+      await api.waitForPostRequests(1);
+      api.postRequests.single.response.complete([_reply]);
+      await pumpEventQueue();
+
+      expect(shell.currentTopic?.stream, [1]);
+      expect(shell.store.read<Post>(_siteUrl, 2), isNull);
+    });
+
+    test('a created message that asks for a reload reads the topic', () async {
+      final (shell: _, :api, :tracker) = await open();
+
+      tracker.deliverTopicMessage('/topic/7', const {
+        'type': 'created',
+        'id': 2,
+        'reload_topic': true,
+      });
+      await pumpEventQueue();
+
+      expect(api.postRequests, isEmpty);
+      expect(api.topicsOpened, [7, 7]);
+    });
+  });
+
   group('ID page freshness', () {
     final stream = [for (var id = 1; id <= 45; id++) id];
 
@@ -2271,7 +2646,8 @@ void main() {
           await shell.loadMorePosts();
         }
 
-        // A reply arrives, and the site's stream no longer has the post.
+        // A reload brings a new reply, and the site's stream no longer has
+        // the post.
         final current = [...without(25), 46];
         api.topics[7] = topicPayload(
           id: 7,
@@ -2281,10 +2657,7 @@ void main() {
           postsCount: current.length,
         );
         api.postsById[46] = _streamPost(46);
-        tracker.deliverTopicMessage('/topic/7', const {
-          'type': 'created',
-          'id': 46,
-        });
+        tracker.deliverTopicMessage('/topic/7', const {'reload_topic': true});
         await pumpEventQueue();
 
         expect(shell.currentTopic?.stream, current);

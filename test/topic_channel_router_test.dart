@@ -60,6 +60,37 @@ void main() {
     expect(h.api.topicsOpened, [7]);
   });
 
+  test('a reply on a topic a plugin reader owns reads nothing here', () async {
+    final h = _Harness(
+      usesReader: true,
+      api: FakeDiscourseApi(
+        topics: {
+          7: topicPayload(
+            id: 7,
+            title: 'Topic',
+            posts: const [
+              Post(id: 1, postNumber: 1, username: 'sam', cooked: 'first'),
+            ],
+          ),
+        },
+      ),
+    );
+    addTearDown(h.dispose);
+    h.watch();
+    await h.topics.forSite(_site).refresh(7, slug: 'topic');
+    h.api.topicsOpened.clear();
+
+    h.tracker.deliverTopicMessage('/topic/7', const {
+      'type': 'created',
+      'id': 2,
+    });
+    await _drain();
+
+    expect(h.readerEvents, hasLength(1));
+    expect(h.api.topicsOpened, isEmpty);
+    expect(h.api.postFetches, isEmpty);
+  });
+
   test(
     'a reader listener retiring the account ends the message there',
     () async {
@@ -242,7 +273,8 @@ final class _Plugin
 }
 
 final class _Harness {
-  _Harness() {
+  _Harness({this.usesReader = false, FakeDiscourseApi? api})
+    : api = api ?? FakeDiscourseApi() {
     store.put(
       _site,
       const TopicDetail(id: 7, title: 'Topic', stream: [1], postsCount: 1),
@@ -250,7 +282,8 @@ final class _Harness {
     heldTracker = tracker;
   }
 
-  final api = FakeDiscourseApi();
+  final bool usesReader;
+  final FakeDiscourseApi api;
   final store = Store();
   final lifecycle = SiteLifecycle();
   final credentials = FakeAuthenticator();
@@ -307,6 +340,7 @@ final class _Harness {
     prepareCategories: (_, _) async {},
     loadTimeout: const Duration(seconds: 5),
     bookmarkReads: (siteUrl, lease) => bookmarks.forLease(siteUrl, lease)!,
+    usesReader: usesReader ? (_, _) => true : null,
   );
   late final router = TopicChannelRouter(
     trackerFor: (_) => heldTracker,

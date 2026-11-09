@@ -98,9 +98,7 @@ void main() {
 
     reader.api.publish(_post(31), privateMessage: true);
     reader.tracker.deliverTopicMessage('/topic/7', const {
-      'type': 'created',
-      'id': 31,
-      'post_number': 31,
+      'reload_topic': true,
     });
     await _settle(tester);
 
