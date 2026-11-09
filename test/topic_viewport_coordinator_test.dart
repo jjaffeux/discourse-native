@@ -1,5 +1,7 @@
 // Kept free of testWidgets so the coordinator's pure-Dart construction stays
 // pinned without a scheduler binding.
+import 'dart:async';
+
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/topic_viewport_coordinator.dart';
 import 'package:flutter/widgets.dart';
@@ -1407,7 +1409,7 @@ final class _ManualClock {
 
   DateTime now() => _now;
 
-  TopicViewportTimer startTimer(Duration duration, VoidCallback callback) {
+  Timer startTimer(Duration duration, VoidCallback callback) {
     final timer = _ManualTimer(_now.add(duration), callback);
     _timers.add(timer);
     return timer;
@@ -1427,7 +1429,7 @@ final class _ManualClock {
   }
 }
 
-final class _ManualTimer implements TopicViewportTimer {
+final class _ManualTimer implements Timer {
   _ManualTimer(this.deadline, this.callback);
 
   final DateTime deadline;
@@ -1436,6 +1438,12 @@ final class _ManualTimer implements TopicViewportTimer {
 
   @override
   void cancel() => cancelled = true;
+
+  @override
+  bool get isActive => !cancelled;
+
+  @override
+  int get tick => 0;
 }
 
 Future<void> _drainMicrotasks() async {

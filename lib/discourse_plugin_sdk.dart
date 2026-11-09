@@ -21,6 +21,7 @@ export 'discourse_ui.dart'
         DSelectField,
         DMultiSelect;
 export 'discourse_ui.dart' show monospaceTextStyle;
+export 'src/foundation/read_dwell.dart';
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/plugin_api/plugin_runtime.dart';

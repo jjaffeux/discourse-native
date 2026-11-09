@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
 import '../foundation/frame_safe_notifier.dart';
+import '../foundation/read_dwell.dart';
 import '../models/post.dart';
 import '../models/topic.dart';
 import '../utils/pagination.dart';
@@ -37,27 +38,11 @@ typedef TopicViewportControllers = ({
   ListController list,
 });
 typedef TopicViewportPostFrameScheduler = void Function(VoidCallback callback);
-typedef TopicViewportTimerFactory =
-    TopicViewportTimer Function(Duration duration, VoidCallback callback);
 typedef TopicViewportInspector =
     void Function(TopicViewportSnapshot snapshot, {required bool saveAnchor});
 typedef TopicViewportControllersFactory = TopicViewportControllers Function();
 typedef TopicViewportControllersDisposer =
     void Function(TopicViewportControllers controllers);
-
-abstract interface class TopicViewportTimer {
-  void cancel();
-}
-
-final class _DartTopicViewportTimer implements TopicViewportTimer {
-  _DartTopicViewportTimer(Duration duration, VoidCallback callback)
-    : _timer = Timer(duration, callback);
-
-  final Timer _timer;
-
-  @override
-  void cancel() => _timer.cancel();
-}
 
 /// The render-owned measurements needed by the viewport state machine.
 ///
@@ -220,34 +205,35 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     required TopicViewportGeometry geometry,
     required TopicViewportInspector inspectViewport,
     VoidCallback? listLayoutChanged,
-    TopicViewportTimerFactory? timerFactory,
+    Timer Function(Duration, void Function())? timerFactory,
     DateTime Function()? clock,
     TopicViewportControllersFactory? controllersFactory,
     TopicViewportControllersDisposer? controllersDisposer,
 
     this.pagingThreshold = 900,
-    this.readInterval = const Duration(milliseconds: 500),
   }) : _postFrame = postFrame,
        _geometry = geometry,
        _inspectViewport = inspectViewport,
        _listLayoutChanged = listLayoutChanged,
-       _timerFactory = timerFactory ?? _defaultTimerFactory,
-       _clock = clock ?? DateTime.now,
        _controllersFactory = controllersFactory ?? _defaultControllersFactory,
        _controllersDisposer =
-           controllersDisposer ?? _defaultControllersDisposer;
+           controllersDisposer ?? _defaultControllersDisposer {
+    _readDwell = ReadDwell(
+      isActive: () => _readerActive && _appResumed,
+      onCredit: _creditReaderNow,
+      clock: clock ?? DateTime.now,
+      timerFactory: timerFactory ?? Timer.new,
+    );
+  }
 
   final TopicViewportPostFrameScheduler _postFrame;
   final TopicViewportGeometry _geometry;
   final TopicViewportInspector _inspectViewport;
   final VoidCallback? _listLayoutChanged;
-  final TopicViewportTimerFactory _timerFactory;
-  final DateTime Function() _clock;
   final TopicViewportControllersFactory _controllersFactory;
   final TopicViewportControllersDisposer _controllersDisposer;
 
   final double pagingThreshold;
-  final Duration readInterval;
 
   TopicViewportBinding? _binding;
   TopicViewportControllers? _controllers;
@@ -289,19 +275,11 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   Map<int, int>? _streamIndexes;
   List<int>? _indexedStream;
 
-  TopicViewportTimer? _readTimer;
-  DateTime? _readTimerStartedAt;
-  late Duration _readTimeRemaining = readInterval;
-  bool _readDwellPending = false;
+  late final ReadDwell _readDwell;
   bool _tickerEnabled = true;
   bool _appResumed = true;
   _TopicViewportReading? _seen;
   _TopicViewportReading? _leadingSeen;
-
-  static TopicViewportTimer _defaultTimerFactory(
-    Duration duration,
-    VoidCallback callback,
-  ) => _DartTopicViewportTimer(duration, callback);
 
   static TopicViewportControllers _defaultControllersFactory() =>
       (scroll: PaginationScrollController(), list: ListController());
@@ -420,11 +398,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _indexedStream = null;
     _seen = null;
     _leadingSeen = null;
-    _readDwellPending = false;
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = readInterval;
+    _readDwell.cancel();
 
     if (!retainViewport) {
       final controllers = _controllersFactory();
@@ -1073,16 +1047,12 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
       // Like web's periodic screen tracking, a dwell already under way keeps
       // running and credits whatever is readable when it elapses. Restarting
       // it on every change would never credit a reader who keeps scrolling.
-      if (!_readDwellPending) _startReadDwell(readInterval);
+      _readDwell.startIfIdle();
       return;
     }
 
     _seen = null;
-    _readDwellPending = false;
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = readInterval;
+    _readDwell.cancel();
   }
 
   void _recordProgress({
@@ -1246,74 +1216,20 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
   void setTickerEnabled(bool enabled) {
     if (_tickerEnabled == enabled) return;
     _tickerEnabled = enabled;
-    if (_readerActive) {
-      if (_readDwellPending && _seen != null && _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-    } else {
-      _pauseReadDwell();
-    }
+    _readDwell.sync();
   }
 
   void handleAppLifecycleState(AppLifecycleState state) {
     _appResumed = state == AppLifecycleState.resumed;
-    if (_appResumed) {
-      if (_readerActive &&
-          _readDwellPending &&
-          _seen != null &&
-          _readTimer == null) {
-        _startReadDwell(_readTimeRemaining);
-      }
-      return;
-    }
-    if (!_readerActive) {
-      _pauseReadDwell();
+    if (_appResumed || !_readerActive) {
+      _readDwell.sync();
       return;
     }
     _creditReaderNow(leavingForeground: true);
   }
 
-  void _startReadDwell(Duration duration) {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = duration;
-    _readDwellPending = true;
-    if (!_readerActive || !_appResumed) return;
-    _readTimerStartedAt = _clock();
-    _readTimer = _timerFactory(duration, _creditReaderFromTimer);
-  }
-
-  void _pauseReadDwell() {
-    final timer = _readTimer;
-    final startedAt = _readTimerStartedAt;
-    if (timer == null || startedAt == null) return;
-    final elapsed = _clock().difference(startedAt);
-    final remaining = _readTimeRemaining - elapsed;
-    _readTimeRemaining = remaining > Duration.zero ? remaining : Duration.zero;
-    timer.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-  }
-
-  void _creditReaderFromTimer() {
-    if (!_readerActive || !_appResumed) {
-      _readTimer?.cancel();
-      _readTimer = null;
-      _readTimerStartedAt = null;
-      _readTimeRemaining = readInterval;
-      _readDwellPending = _seen != null;
-      return;
-    }
-    _creditReaderNow();
-  }
-
   void _creditReaderNow({bool leavingForeground = false}) {
-    _readTimer?.cancel();
-    _readTimer = null;
-    _readTimerStartedAt = null;
-    _readTimeRemaining = readInterval;
-    _readDwellPending = false;
+    _readDwell.cancel();
 
     final seen = leavingForeground ? _seen ?? _leadingSeen : _seen;
     final binding = _binding;
@@ -1347,8 +1263,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _loadEarlierToken = null;
     _anchorRestoreToken = null;
     _anchorRestoreBoundary = null;
-    _readTimer?.cancel();
-    _readTimer = null;
+    _readDwell.cancel();
     _retireControllers();
     _floatingDayOverlayNotifier.dispose();
     _floatingDayNotifier.dispose();
