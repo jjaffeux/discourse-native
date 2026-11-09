@@ -274,6 +274,63 @@ void main() {
         );
       }
 
+      for (final imageFails in [true, false]) {
+        testWidgets('holds the text below a late image above the reading line '
+            '(failure: $imageFails)', (tester) async {
+          final image = await _pumpLateImageInSecondPost(
+            tester,
+            scrollBack: 200,
+          );
+          final post = find.byKey(const ValueKey(2));
+          final next = find.byKey(const ValueKey(3));
+          expect(
+            tester.getTopLeft(image.finder).dy,
+            lessThan(topicReadingViewportRect(tester).top),
+          );
+          final postHeight = tester.getSize(post).height;
+          final nextTop = tester.getTopLeft(next).dy;
+
+          await image.finish(failed: imageFails);
+
+          final tops = <double>[];
+          for (var frame = 0; frame < 8; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+            tops.add(tester.getTopLeft(next).dy);
+          }
+          expect(tester.getSize(post).height, greaterThan(postHeight + 100));
+          expect(tops, everyElement(closeTo(nextTop, 1)));
+        });
+      }
+
+      testWidgets(
+        'lets a late image below the reading line move what follows',
+        (tester) async {
+          final image = await _pumpLateImageInSecondPost(
+            tester,
+            scrollBack: 350,
+          );
+          final post = find.byKey(const ValueKey(2));
+          final next = find.byKey(const ValueKey(3), skipOffstage: false);
+          expect(
+            tester.getTopLeft(image.finder).dy,
+            greaterThan(topicReadingViewportRect(tester).top),
+          );
+          final postTop = tester.getTopLeft(post).dy;
+          final postHeight = tester.getSize(post).height;
+          final nextTop = tester.getTopLeft(next).dy;
+
+          await image.finish(failed: true);
+          for (var frame = 0; frame < 8; frame++) {
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+
+          final growth = tester.getSize(post).height - postHeight;
+          expect(growth, greaterThan(100));
+          expect(tester.getTopLeft(post).dy, closeTo(postTop, 1));
+          expect(tester.getTopLeft(next).dy, closeTo(nextTop + growth, 1));
+        },
+      );
+
       testWidgets(
         'completes distant unknown-size media before keyboard post paging',
         (tester) async {
@@ -3439,6 +3496,83 @@ Future<void> _precachePublishedImage(
       : FittedMemoryImage(bytes, width: image.cacheWidth);
   await tester.runAsync(
     () => precacheImage(provider, tester.element(find.byType(TopicView))),
+  );
+}
+
+/// Opens a topic on its last post with the second post's image still loading,
+/// then drags [scrollBack] towards the start. The image has no declared size.
+Future<({Finder finder, Future<void> Function({required bool failed}) finish})>
+_pumpLateImageInSecondPost(
+  WidgetTester tester, {
+  required double scrollBack,
+}) async {
+  final site = instance('meta.example').copyWith(user: _reader);
+  final response = Completer<http.Response>();
+  final lifecycle = SiteLifecycle();
+  final authenticator = FakeAuthenticator()..keys[site.url] = 'key';
+  final images = SiteImageRepository(
+    credentials: authenticator,
+    lifecycle: lifecycle,
+    client: MockClient((_) => response.future),
+  );
+  final controller = ShellController(
+    instanceStore: FakeInstanceStore([site]),
+    api: FakeDiscourseApi(feeds: const {'/latest.json': []}),
+    authenticator: authenticator,
+    drafts: FakeDraftStore(),
+    lifecycle: lifecycle,
+    siteImages: images,
+    trackers: FakeSiteTracker.reset(),
+  );
+  addTearDown(controller.dispose);
+  await controller.load();
+  final long = List.filled(30, '<p>Words words words</p>').join();
+  controller.store
+    ..put(
+      site.url,
+      const TopicDetail(id: 1, title: 'One', stream: [1, 2, 3], postsCount: 3),
+    )
+    ..putAll(site.url, [
+      Post(id: 1, postNumber: 1, username: 'sam', cooked: long),
+      const Post(
+        id: 2,
+        postNumber: 2,
+        username: 'sam',
+        cooked:
+            '<p>Above</p><img style="display:block" '
+            'src="/uploads/tall.png" alt="Tall image"><p>Below</p>',
+      ),
+      Post(id: 3, postNumber: 3, username: 'sam', cooked: long),
+    ]);
+  controller.pushContent(
+    ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+  );
+  controller.saveTopicScrollPost(1, 3, viewportOffset: -100);
+  await tester.pumpWidget(_topicView(controller));
+  // Fixed frames: settling can pass the image transfer's ten-second timeout.
+  for (var frame = 0; frame < 30; frame++) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  await tester.dragFrom(const Offset(400, 350), Offset(0, scrollBack));
+  for (var frame = 0; frame < 60; frame++) {
+    await tester.pump(const Duration(milliseconds: 16));
+  }
+  final finder = find.byType(SiteImage);
+  return (
+    finder: finder,
+    finish: ({required bool failed}) async {
+      final image = tester.widget<SiteImage>(finder);
+      response.complete(
+        failed
+            ? http.Response('', 404)
+            : http.Response.bytes(
+                _tallPng,
+                200,
+                headers: const {'content-type': 'image/png'},
+              ),
+      );
+      await _precachePublishedImage(tester, images, image);
+    },
   );
 }
 
