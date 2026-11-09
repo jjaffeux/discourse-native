@@ -30,6 +30,19 @@ Travel of 64 logical pixels or a forward flick commits the action. Short drags a
 Reduced motion preserves these actions without moving the page.
 The menu button and existing Back controls remain available.
 
+## Desktop trackpad
+
+On desktop, `TrackpadHistoryRegion` takes a two-finger sideways swipe over a panel's content as Back or Forward.
+Fingers moving right go Back. The buttons' own action runs, so the same history moves and the same availability applies.
+
+A run is one pan-zoom gesture from start to end, which is what the macOS and Linux engines deliver, and momentum is not part of it.
+One run is at most one step, however far it travels. It commits at 80 logical pixels of sideways travel.
+An update counts only when it is more sideways than vertical, and the run so far must be too, so a vertical scroll never commits.
+
+The region listens beside the gesture arena rather than joining it, so scrolling keeps working unchanged.
+A horizontal `Scrollable` under the pointer keeps the swipe for as long as it has room in that direction. Only travel it cannot take counts.
+Web views keep the swipe natively, so it never becomes a pan. On macOS `MainFlutterWindow` hands a gesture that starts over one to the web view's reader as a vertical scroll. On Linux the web view is a GTK overlay that receives its own scroll events.
+
 ## Research and rationale
 
 Sources checked on October 28, 2026:

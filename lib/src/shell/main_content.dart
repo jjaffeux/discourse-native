@@ -22,6 +22,7 @@ import 'bookmark_list.dart';
 import 'categories_page.dart';
 import 'category_icon.dart';
 import 'category_notifications.dart';
+import 'content_navigation_controls.dart';
 import 'content_page_contract.dart';
 import 'content_reading_lane.dart';
 import 'dashboard_host.dart';
@@ -64,6 +65,7 @@ import 'topic_presentation.dart';
 import 'topic_presentation_controller.dart';
 import 'topic_title.dart';
 import 'topic_view.dart';
+import 'trackpad_history_region.dart';
 import 'user_activity.dart';
 import 'user_menu_button.dart';
 import 'user_summary.dart';
@@ -168,7 +170,7 @@ class _MainContentState extends State<MainContent> {
             canPopContent: state.canPop,
           ),
         );
-        return ListenableBuilder(
+        final content = ListenableBuilder(
           listenable: shell.search,
           builder: (context, _) {
             final words = state.siteUrl == null || route == null
@@ -239,6 +241,12 @@ class _MainContentState extends State<MainContent> {
               ),
             );
           },
+        );
+        if (!ContentNavigationControls.isSupported) return content;
+        return TrackpadHistoryRegion(
+          onBack: () => ContentNavigationControls.goBack(shell, document),
+          onForward: document.handleForward,
+          child: content,
         );
       },
     );

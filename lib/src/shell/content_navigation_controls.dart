@@ -26,13 +26,20 @@ class ContentNavigationControls extends StatelessWidget {
     _ => false,
   };
 
+  static bool _canGoBack(ShellController shell, ShellTabContext tab) =>
+      shell.rootMode == ShellRootMode.forum && tab.canPopContent;
+
+  /// The Back button's action, for input that has no button of its own.
+  static bool goBack(ShellController shell, ShellTabContext tab) =>
+      _canGoBack(shell, tab) && tab.handleBack(canReturnToSidebar: false);
+
   @override
   Widget build(BuildContext context) =>
       ForumTabSelector<
         ({bool back, bool forward, bool refresh, bool refreshing})
       >(
         select: (controller, tab) => (
-          back: controller.rootMode == ShellRootMode.forum && tab.canPopContent,
+          back: _canGoBack(controller, tab),
           forward:
               controller.rootMode == ShellRootMode.forum &&
               tab.canForwardContent,
@@ -95,8 +102,7 @@ class ContentNavigationControls extends StatelessWidget {
                             variant: DButtonVariant.ghost,
                             density: DButtonDensity.chrome,
                             onPressed: state.back
-                                ? () =>
-                                      tab.handleBack(canReturnToSidebar: false)
+                                ? () => goBack(ShellScope.read(context), tab)
                                 : null,
                           ),
                           DButton.iconOnly(

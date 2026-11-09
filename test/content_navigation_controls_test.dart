@@ -4,13 +4,18 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer/panel.dart';
 import 'package:discourse_native/src/shell/content_navigation_controls.dart';
 import 'package:discourse_native/src/shell/forum_search.dart';
+import 'package:discourse_native/src/shell/forum_tab_scope.dart';
+import 'package:discourse_native/src/shell/instance_sidebar.dart';
+import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/trackpad_history_region.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -265,6 +270,39 @@ void main() {
         expect(
           _button(tester, ContentNavigationControls.backKey).onPressed,
           isNotNull,
+        );
+      },
+    );
+
+    _testOnPlatform(
+      platform,
+      '${platform.name} trackpad swipes walk the history the buttons walk',
+      (tester) async {
+        await pumpShell(tester, desktop);
+        final shell = _shell(tester);
+        shell.pushContent(_route('navigation-test'));
+        await tester.pumpAndSettle();
+
+        await _swipe(tester, primaryMainContent, const Offset(120, 0));
+        expect(shell.currentContent?.id, 'latest');
+        expect(
+          _button(tester, ContentNavigationControls.backKey).onPressed,
+          isNull,
+        );
+        expect(
+          _button(tester, ContentNavigationControls.forwardKey).onPressed,
+          isNotNull,
+        );
+
+        await _swipe(tester, primaryMainContent, const Offset(-120, 0));
+        expect(shell.currentContent?.id, 'navigation-test');
+        expect(
+          _button(tester, ContentNavigationControls.backKey).onPressed,
+          isNotNull,
+        );
+        expect(
+          _button(tester, ContentNavigationControls.forwardKey).onPressed,
+          isNull,
         );
       },
     );
@@ -581,6 +619,79 @@ void main() {
     },
   );
 
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'one trackpad run is one step through a deep history',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+      for (final id in ['first', 'second', 'third']) {
+        shell.pushContent(_route(id));
+        await tester.pumpAndSettle();
+      }
+
+      await _swipe(tester, primaryMainContent, const Offset(900, 0));
+
+      expect(shell.currentContent?.id, 'second');
+    },
+  );
+
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'a trackpad swipe at the end of the history stays put',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+
+      await _swipe(tester, primaryMainContent, const Offset(120, 0));
+      await _swipe(tester, primaryMainContent, const Offset(-120, 0));
+
+      expect(shell.currentContent?.id, 'latest');
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'a trackpad swipe over the sidebar is not a history step',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+      shell.pushContent(_route('navigation-test'));
+      await tester.pumpAndSettle();
+
+      await _swipe(tester, find.byType(InstanceSidebar), const Offset(120, 0));
+
+      expect(shell.currentContent?.id, 'navigation-test');
+    },
+  );
+
+  _testOnPlatform(
+    TargetPlatform.macOS,
+    'a trackpad swipe walks the panel it is made over',
+    (tester) async {
+      await pumpShell(tester, desktop);
+      final shell = _shell(tester);
+      final mainTab = shell.activeTabId!;
+      shell.pushContent(_route('main-page'));
+      shell.createTab();
+      final sideTab = shell.activeTabId!;
+      shell.moveTabToPanel(sideTab, ForumPanel.secondary);
+      shell.pushContent(_route('side-page'));
+      shell.selectTab(mainTab);
+      await tester.pumpAndSettle();
+
+      await _swipe(tester, _secondaryMainContent, const Offset(120, 0));
+
+      expect(shell.activeTabId, mainTab);
+      expect(shell.currentContent?.id, 'main-page');
+      expect(
+        shell.selectedTabIn(ForumPanel.secondary)?.currentContent.id,
+        'latest',
+      );
+    },
+  );
+
   for (final platform in [TargetPlatform.iOS, TargetPlatform.android]) {
     _testOnPlatform(
       platform,
@@ -589,6 +700,7 @@ void main() {
         await pumpShell(tester, phone);
         expect(find.byType(ForumSearch), findsOneWidget);
         expect(find.byType(ContentNavigationControls), findsNothing);
+        expect(find.byType(TrackpadHistoryRegion), findsNothing);
         expect(tester.takeException(), isNull);
       },
     );
@@ -609,6 +721,32 @@ void _testOnPlatform(
       debugDefaultTargetPlatformOverride = previous;
     }
   });
+}
+
+ContentRoute _route(String id) => ContentRoute(
+  destination: ExtensionDestination(id),
+  title: id,
+  icon: DIcons.comments,
+);
+
+Finder get _secondaryMainContent => find.byElementPredicate(
+  (element) =>
+      element.widget is MainContent &&
+      element.getInheritedWidgetOfExactType<ForumTabScope>()?.panel ==
+          ForumPanel.secondary,
+);
+
+Future<void> _swipe(WidgetTester tester, Finder over, Offset travel) async {
+  final location = tester.getCenter(over);
+  final run = await tester.createGesture(kind: PointerDeviceKind.trackpad);
+  await run.panZoomStart(location);
+  await tester.pump();
+  for (var step = 1; step <= 10; step++) {
+    await run.panZoomUpdate(location, pan: travel * (step / 10));
+    await tester.pump();
+  }
+  await run.panZoomEnd();
+  await tester.pumpAndSettle();
 }
 
 ShellController _shell(WidgetTester tester) =>
