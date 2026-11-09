@@ -785,6 +785,9 @@ class _DResizableHandleState extends State<DResizableHandle> {
               container: true,
               slider: true,
               enabled: enabled,
+              onFocus: defaultTargetPlatform != TargetPlatform.iOS && enabled
+                  ? _focus.requestFocus
+                  : null,
               focusable: enabled,
               focused: _focused,
               label: widget.semanticLabel,
