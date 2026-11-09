@@ -995,6 +995,7 @@ final class _SiteMenuApi extends FakeDiscourseApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     if (filterByTypes.isNotEmpty) {

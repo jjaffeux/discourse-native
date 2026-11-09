@@ -174,6 +174,7 @@ class _BulkApi extends FakeDiscourseApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     notificationReads++;

@@ -1,0 +1,7 @@
+[
+  {"slug": "chat-restored-message", "repro": "FIX: reproduce a restored message staying missing from an open channel", "fix": "FIX: show a restored message the reader was never sent", "test": "test/chat_controller_test.dart", "name": "a restore shows a row the reader was never sent"},
+  {"slug": "event-answer-withdraw", "repro": "FIX: reproduce an event answer that cannot be taken back by tapping it again", "fix": "FIX: take back an event answer when its pressed button is tapped again", "test": "test/event_card_lifecycle_test.dart", "name": "tapping the answer already given takes it back"},
+  {"slug": "bookmark-reminder-labels", "repro": "FIX: reproduce Preferences misdescribing what bookmark reminders do", "fix": "FIX: describe each bookmark reminder choice the same way everywhere", "test": "test/preferences_page_test.dart", "name": "bookmark choices name what happens to the bookmark"},
+  {"slug": "linked-posts-switch", "repro": "FIX: reproduce the linked posts switch describing replies", "fix": "FIX: say that the linked posts switch is about links to my posts", "test": "test/preferences_page_test.dart", "name": "the linked posts switch names the link it notifies about"},
+  {"slug": "review-count-seen", "repro": "FIX: reproduce a moderator's badge counting review items after opening notifications", "fix": "FIX: clear the unseen review count when the notification list opens", "test": "test/data/discourse_account_api_test.dart", "name": "opening the whole list tells core the review queue was seen"}
+]

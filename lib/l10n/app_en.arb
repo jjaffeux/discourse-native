@@ -11151,12 +11151,12 @@
   "@firstTime": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
   },
-  "notifyMeAboutRepliesToLinkedPosts": "Notify me about replies to linked posts",
-  "@notifyMeAboutRepliesToLinkedPosts": {
+  "notifyWhenSomeoneLinksToMyPosts": "Notify when someone shares a link to one of my posts",
+  "@notifyWhenSomeoneLinksToMyPosts": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
   },
-  "getANotificationWhenSomeoneRepliesToAPostYouLinked": "Get a notification when someone replies to a post you linked.",
-  "@getANotificationWhenSomeoneRepliesToAPostYouLinked": {
+  "turnOffLinkNotifications": "Turn this off to stop getting a notification for each link.",
+  "@turnOffLinkNotifications": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
   },
   "considerTopicsNew": "Consider topics new",
@@ -11278,18 +11278,6 @@
   },
   "chooseWhatHappensAfterABookmarkReminder": "Choose what happens after a bookmark reminder.",
   "@chooseWhatHappensAfterABookmarkReminder": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
-  "afterTheReminderIsSent": "After the reminder is sent",
-  "@afterTheReminderIsSent": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
-  "whenTheTopicOwnerReplies": "When the topic owner replies",
-  "@whenTheTopicOwnerReplies": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
-  "whenTheReminderIsCleared": "When the reminder is cleared",
-  "@whenTheReminderIsCleared": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
   },
   "preferencesSaved": "{sectionTitleSectionPluginSections} preferences saved.",

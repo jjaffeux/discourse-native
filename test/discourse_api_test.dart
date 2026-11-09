@@ -1187,7 +1187,8 @@ void main() {
       );
       expect(requested, [
         Uri.parse(
-          'https://example.com/notifications.json?recent=true&limit=30',
+          'https://example.com/notifications.json?recent=true&limit=30'
+          '&bump_last_seen_reviewable=true',
         ),
       ]);
     });

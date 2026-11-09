@@ -218,6 +218,7 @@ class _AccountApi implements AccountActivityApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async => switch (_notificationFeedKind(filterByTypes)) {
     _NotificationFeedKind.all =>
@@ -3850,6 +3851,7 @@ final class _CountingAccountApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     calls.add(switch (_notificationFeedKind(filterByTypes)) {
@@ -3911,6 +3913,7 @@ final class _GatedNotificationsApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     calls++;
@@ -3935,6 +3938,7 @@ final class _SequencedNotificationsApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     final call = calls++;
@@ -4045,6 +4049,7 @@ final class _GatedActivityRefreshApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     final kind = _notificationFeedKind(filterByTypes);
@@ -4203,6 +4208,7 @@ final class _GatedDisjointBulkDismissApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async => const [];
 
@@ -4245,6 +4251,7 @@ final class _GatedBulkDismissApi extends _AccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     notificationCalls++;

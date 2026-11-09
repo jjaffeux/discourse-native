@@ -8508,12 +8508,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get firstTime => 'First time';
 
   @override
-  String get notifyMeAboutRepliesToLinkedPosts =>
-      'Notify me about replies to linked posts';
+  String get notifyWhenSomeoneLinksToMyPosts =>
+      'Notify when someone shares a link to one of my posts';
 
   @override
-  String get getANotificationWhenSomeoneRepliesToAPostYouLinked =>
-      'Get a notification when someone replies to a post you linked.';
+  String get turnOffLinkNotifications =>
+      'Turn this off to stop getting a notification for each link.';
 
   @override
   String get considerTopicsNew => 'Consider topics new';
@@ -8608,15 +8608,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get chooseWhatHappensAfterABookmarkReminder =>
       'Choose what happens after a bookmark reminder.';
-
-  @override
-  String get afterTheReminderIsSent => 'After the reminder is sent';
-
-  @override
-  String get whenTheTopicOwnerReplies => 'When the topic owner replies';
-
-  @override
-  String get whenTheReminderIsCleared => 'When the reminder is cleared';
 
   @override
   String preferencesSaved(String sectionTitleSectionPluginSections) {

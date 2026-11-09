@@ -13,6 +13,7 @@ import 'package:discourse_native/src/plugins/chat/chat_plugin_data.dart';
 import 'package:discourse_native/src/plugins/chat/chat_user_preferences.dart';
 import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
+import 'package:discourse_native/src/shell/preference_fields.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -765,6 +766,51 @@ void main() {
       semantics.dispose();
     },
   );
+  testWidgets('the linked posts switch names the link it notifies about', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.notifications);
+    expect(
+      [
+        for (final text in tester.widgetList<Text>(
+          find.descendant(
+            of: find.byKey(const ValueKey('notify-on-linked-posts')),
+            matching: find.byType(Text),
+          ),
+        ))
+          text.data,
+      ],
+      [
+        'Notify when someone shares a link to one of my posts',
+        'Turn this off to stop getting a notification for each link.',
+      ],
+    );
+  });
+  testWidgets('bookmark choices name what happens to the bookmark', (
+    tester,
+  ) async {
+    final fixture = await _fixture();
+    await _pumpPage(tester, fixture);
+    await _section(tester, PreferenceSection.interface);
+    final select = tester
+        .widget<PreferenceSelect<BookmarkAutoDeletePreference>>(
+          find.byType(PreferenceSelect<BookmarkAutoDeletePreference>),
+        );
+    expect(
+      [
+        for (final entry in select.entries)
+          (entry as DSelectItem<BookmarkAutoDeletePreference>).textValue,
+      ],
+      [
+        'Keep bookmark',
+        'Delete after the reminder',
+        'Delete once I reply',
+        'Keep bookmark and clear reminder',
+      ],
+    );
+  });
   testWidgets('server bookmark preference still mirrors after confirmation', (
     tester,
   ) async {
@@ -772,9 +818,9 @@ void main() {
     await _pumpPage(tester, fixture);
     await _section(tester, PreferenceSection.interface);
     expect(find.byType(HeaderTuningPreferences), findsOneWidget);
-    await tester.tap(find.text('When the reminder is cleared'));
+    await tester.tap(find.text('Keep bookmark and clear reminder'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Never').last);
+    await tester.tap(find.text('Keep bookmark').last);
     await tester.pumpAndSettle();
     expect(
       fixture.shell.instanceFor(_siteUrl)!.user!.bookmarkAutoDeletePreference,

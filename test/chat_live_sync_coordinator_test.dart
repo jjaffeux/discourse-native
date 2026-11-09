@@ -287,7 +287,7 @@ void main() {
           expect(fixture.effects, [
             ['put', 101, true],
             if (threadStream && type == 'restore') ['bump', 101],
-            if (type == 'sent') ['admit', target, 101],
+            if (type == 'sent' || type == 'restore') ['admit', target, 101],
             ['reconcile', target, event],
             if (!threadStream && type == 'restore') ...[
               ['bump', 101],
@@ -435,7 +435,7 @@ void main() {
     );
 
     test('thread suppresses every message update for its loaded original', () {
-      final fixture = _Fixture();
+      final fixture = _Fixture()..containsMessage = true;
       final tracker = _viewStreams(fixture);
       for (final type in ['sent', 'processed', 'edit', 'refresh', 'restore']) {
         tracker.deliver(
@@ -928,6 +928,8 @@ final class _Fixture {
         },
         streamContainsMessage: (_, _, _) => containsMessage,
         admitLiveMessage: (_, target, message) =>
+            effects.add(['admit', target, message.id]),
+        admitRestoredMessage: (_, target, message) =>
             effects.add(['admit', target, message.id]),
         bumpStreamsHolding: (_, id) => effects.add(['bump', id]),
         setLoadedThreadOriginalDeleted: (_, channelId, id, deletedAt, clear) =>

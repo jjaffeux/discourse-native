@@ -18,6 +18,9 @@ enum ChatTimelineMergeMode { sortedUnion, prependPage, appendPage }
 /// The edge whose newly arrived messages must survive a bounded reduction.
 enum ChatTimelineRetainedEdge { past, future }
 
+/// Where a message falls against the rows a window holds.
+enum ChatTimelinePlacement { beforeHeld, insideHeld, afterHeld }
+
 typedef ChatTimelineSeam = ({List<int> ids, List<ChatMessage> admittedPending});
 typedef ChatTimelineRetention = ({
   List<int> ids,
@@ -73,6 +76,30 @@ abstract final class ChatMessageTimeline {
         droppedFuture: false,
       ),
     };
+  }
+
+  static ChatTimelinePlacement placement({
+    required ChatTimelineSnapshot held,
+    required ChatMessage message,
+  }) {
+    final newestId = held.ids.lastOrNull;
+    final oldestId = held.ids.firstOrNull;
+    if (newestId == null ||
+        oldestId == null ||
+        _sortsAfter(
+          message,
+          at: held._message(newestId)?.createdAt ?? _wireEpoch,
+          id: newestId,
+        )) {
+      return ChatTimelinePlacement.afterHeld;
+    }
+    return _sortsAfter(
+          message,
+          at: held._message(oldestId)?.createdAt ?? _wireEpoch,
+          id: oldestId,
+        )
+        ? ChatTimelinePlacement.insideHeld
+        : ChatTimelinePlacement.beforeHeld;
   }
 
   /// Appends normal live arrivals; an earlier `client_created_at` re-derives

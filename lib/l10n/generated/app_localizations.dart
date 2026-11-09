@@ -14608,14 +14608,14 @@ abstract class AppLocalizations {
   /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Notify me about replies to linked posts'**
-  String get notifyMeAboutRepliesToLinkedPosts;
+  /// **'Notify when someone shares a link to one of my posts'**
+  String get notifyWhenSomeoneLinksToMyPosts;
 
   /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Get a notification when someone replies to a post you linked.'**
-  String get getANotificationWhenSomeoneRepliesToAPostYouLinked;
+  /// **'Turn this off to stop getting a notification for each link.'**
+  String get turnOffLinkNotifications;
 
   /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
   ///
@@ -14790,24 +14790,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Choose what happens after a bookmark reminder.'**
   String get chooseWhatHappensAfterABookmarkReminder;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'After the reminder is sent'**
-  String get afterTheReminderIsSent;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'When the topic owner replies'**
-  String get whenTheTopicOwnerReplies;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'When the reminder is cleared'**
-  String get whenTheReminderIsCleared;
 
   /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
   ///

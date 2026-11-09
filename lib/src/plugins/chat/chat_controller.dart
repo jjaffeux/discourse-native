@@ -563,6 +563,7 @@ class ChatController extends FrameSafeNotifier {
           target,
         ).every((owner) => owner.snapshot.messageIds.contains(messageId)),
         admitLiveMessage: _admitLiveMessage,
+        admitRestoredMessage: _admitRestoredMessage,
         bumpStreamsHolding: _bumpStreamsHolding,
         setLoadedThreadOriginalDeleted:
             (siteUrl, channelId, originalMessageId, deletedAt, clear) =>
@@ -2330,6 +2331,16 @@ class ChatController extends FrameSafeNotifier {
   ) {
     for (final owner in _windowsFor(siteUrl, target)) {
       owner.admitLive(message);
+    }
+  }
+
+  void _admitRestoredMessage(
+    String siteUrl,
+    ChatStreamTarget target,
+    ChatMessage message,
+  ) {
+    for (final owner in _windowsFor(siteUrl, target)) {
+      owner.admitRestored(message);
     }
   }
 

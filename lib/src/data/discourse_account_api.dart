@@ -259,6 +259,7 @@ final class DiscourseAccountApi {
     required String apiKey,
     int limit = 30,
     List<NotificationTypeName> filterByTypes = const [],
+    bool background = false,
     String? clientId,
   }) async {
     if (limit < 1 || limit > maximumRecentNotifications) {
@@ -271,7 +272,8 @@ final class DiscourseAccountApi {
         if (filterByTypes.isNotEmpty) ...{
           'filter_by_types': filterByTypes.map((type) => type.value).join(','),
           'silent': 'true',
-        },
+        } else if (!background)
+          'bump_last_seen_reviewable': 'true',
       },
     );
     final body = await _transport.getObject(
