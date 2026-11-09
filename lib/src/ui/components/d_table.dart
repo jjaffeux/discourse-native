@@ -91,6 +91,56 @@ class DTable extends StatefulWidget {
 
 /// Everything a virtualized row's frame reads besides the row itself.
 @immutable
+/// A list that lays out again whenever its row count changes. A list otherwise
+/// lays out only when a child's render object reports a change, and a held row
+/// reports none, so rows added beyond the cache extent would leave the scroll
+/// range, and any prefetch reading it, short.
+class _VirtualizedRowList extends ListView {
+  _VirtualizedRowList({
+    super.padding,
+    super.controller,
+    super.primary,
+    super.findChildIndexCallback,
+    required super.itemCount,
+    required super.itemBuilder,
+  }) : super.builder();
+
+  @override
+  Widget buildChildLayout(BuildContext context) => _RowCountSliver(
+    rowCount: childrenDelegate.estimatedChildCount ?? 0,
+    sliver: super.buildChildLayout(context),
+  );
+}
+
+class _RowCountSliver extends SingleChildRenderObjectWidget {
+  const _RowCountSliver({required this.rowCount, required Widget sliver})
+    : super(child: sliver);
+
+  final int rowCount;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderRowCountSliver(rowCount);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _RenderRowCountSliver renderObject,
+  ) => renderObject.rowCount = rowCount;
+}
+
+class _RenderRowCountSliver extends RenderProxySliver {
+  _RenderRowCountSliver(this._rowCount);
+
+  int _rowCount;
+
+  set rowCount(int value) {
+    if (value == _rowCount) return;
+    _rowCount = value;
+    child?.markNeedsLayout();
+  }
+}
+
 class _VirtualizedRowLayout {
   _VirtualizedRowLayout(DTable table, this.border)
     : widths = [
@@ -377,7 +427,7 @@ class _DTableState extends State<DTable> {
                   if (widget.header != null)
                     fragment(widget.header!.rows, header: true),
                   Expanded(
-                    child: ListView.builder(
+                    child: _VirtualizedRowList(
                       padding: EdgeInsets.only(
                         bottom: DScrollChrome.bottomInsetOf(context),
                       ),

@@ -206,6 +206,48 @@ void main() {
     scroll.dispose();
   });
 
+  testWidgets('virtual rows extend the scroll range when rows are appended', (
+    tester,
+  ) async {
+    final scroll = ScrollController();
+    addTearDown(scroll.dispose);
+    late StateSetter update;
+    var rows = List.generate(50, (i) => i);
+    final columns = [
+      DDataTableColumn<int>(
+        id: 'name',
+        label: 'Name',
+        width: const FixedColumnWidth(240),
+        cellBuilder: (context, cell) => Text('Row ${cell.row}'),
+      ),
+    ];
+    await _pump(
+      tester,
+      SizedBox(
+        height: 260,
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return DDataTable<int>(
+              data: rows,
+              rowId: (row) => row,
+              operationMode: DDataTableOperationMode.manual,
+              virtualized: true,
+              verticalScrollController: scroll,
+              columns: columns,
+            );
+          },
+        ),
+      ),
+    );
+    final before = scroll.position.maxScrollExtent;
+
+    update(() => rows = List.generate(100, (i) => i));
+    await tester.pump();
+
+    expect(scroll.position.maxScrollExtent, greaterThan(before * 1.5));
+  });
+
   testWidgets('column resize emits stable IDs and restores saved widths', (
     tester,
   ) async {

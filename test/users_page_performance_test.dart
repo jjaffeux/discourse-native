@@ -41,7 +41,7 @@ Future<int> _rebuildsDuring(
 
 Finder get _list => find.descendant(
   of: find.byType(DDataTable<UserDirectoryItem>),
-  matching: find.byType(ListView),
+  matching: find.byWidgetPredicate((widget) => widget is ListView),
 );
 
 ScrollPosition _vertical(WidgetTester tester) => tester
@@ -241,6 +241,24 @@ void main() {
       });
     });
   }
+
+  testWidgets('a page that lands above the fold fetches only that page', (
+    tester,
+  ) async {
+    await pumpUsersDirectoryFixture(
+      tester,
+      size: const Size(430, 1200),
+      platform: TargetPlatform.iOS,
+    );
+    await tester.pumpAndSettle();
+
+    final position = _vertical(tester);
+    expect(_pageData(tester).items.length, usersDirectoryPageSize * 2);
+    expect(
+      position.extentAfter,
+      greaterThan(paginationPrefetchDistance(position)),
+    );
+  });
 
   testWidgets('controls keep working after an equal route replaces this one', (
     tester,

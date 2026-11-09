@@ -451,7 +451,9 @@ void main() {
     );
     expect(find.byType(DDataTable<UserDirectoryItem>), findsOneWidget);
     expect(find.byKey(const ValueKey('user-row-user999')), findsNothing);
-    final list = tester.widget<ListView>(find.byType(ListView));
+    final list = tester.widget<ListView>(
+      find.byWidgetPredicate((widget) => widget is ListView),
+    );
     list.controller!.jumpTo(1200);
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('user-row-user0')), findsNothing);
@@ -1213,7 +1215,9 @@ void main() {
     );
 
     expect(loads, 0);
-    final list = tester.widget<ListView>(find.byType(ListView));
+    final list = tester.widget<ListView>(
+      find.byWidgetPredicate((widget) => widget is ListView),
+    );
     list.controller!.jumpTo(list.controller!.position.maxScrollExtent - 1400);
     await tester.pump();
 
