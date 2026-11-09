@@ -1693,7 +1693,7 @@ void _registerConnectionSessionTests() {
 
       expect(find.text('No activity yet'), findsOneWidget);
       expect(
-        find.textContaining('Topics you create and replies you post'),
+        find.text('Topics, replies, and liked posts appear here.'),
         findsOneWidget,
       );
 
@@ -2496,7 +2496,7 @@ void _registerConnectionSessionTests() {
       expect(find.text('12 badges'), findsOneWidget);
       expect(
         tester.getSize(find.byKey(const ValueKey('user-card-surface'))).width,
-        400,
+        340,
       );
       semantics.dispose();
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
