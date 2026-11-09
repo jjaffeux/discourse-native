@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -8,7 +9,9 @@ import 'package:flutter/material.dart';
 
 import 'fakes.dart';
 
-Future<ShellController> topicScrollController() async {
+Future<ShellController> topicScrollController({
+  ForumTabStore? forumTabs,
+}) async {
   final controller = ShellController(
     instanceStore: FakeInstanceStore([instance('scroll.example')]),
     api: FakeDiscourseApi(
@@ -41,7 +44,7 @@ Future<ShellController> topicScrollController() async {
     ),
     authenticator: FakeAuthenticator(),
     drafts: FakeDraftStore(),
-    forumTabs: FakeForumTabStore(),
+    forumTabs: forumTabs ?? FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
   );

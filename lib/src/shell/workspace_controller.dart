@@ -275,7 +275,9 @@ final class _WorkspaceController {
 
   void schedulePersistAnchors() {
     _anchorPersistencePending = true;
-    if (_anchorPersistTimer != null) return;
+    // Restarted by every change: a scroll in progress supersedes its anchor
+    // before anyone could return to it, so only the resting one is written.
+    _anchorPersistTimer?.cancel();
     _anchorPersistTimer = Timer(_shell.anchorPersistDebounce, () {
       _anchorPersistTimer = null;
       if (_disposed || !_anchorPersistencePending) return;
