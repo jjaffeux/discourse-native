@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/shell/header_preferences.dart';
+import 'package:discourse_native/src/shell/header_preferences_controller.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

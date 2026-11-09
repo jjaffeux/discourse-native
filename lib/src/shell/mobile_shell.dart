@@ -27,6 +27,7 @@ import 'mobile_footer_action.dart';
 import 'mobile_navigation.dart';
 import 'mobile_page_title.dart';
 import 'mobile_place_order.dart';
+import 'mobile_place_order_controller.dart';
 import 'mobile_presentation.dart';
 import 'mobile_scroll_dock.dart';
 import 'shell_controller.dart';

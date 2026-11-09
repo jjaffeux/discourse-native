@@ -43,7 +43,7 @@ import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/mobile_navigation.dart';
-import 'package:discourse_native/src/shell/mobile_place_order.dart';
+import 'package:discourse_native/src/shell/mobile_place_order_controller.dart';
 import 'package:discourse_native/src/shell/mobile_shell.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';

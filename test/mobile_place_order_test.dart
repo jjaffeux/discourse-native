@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/data/scalar_preference_repository.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
-import 'package:discourse_native/src/shell/mobile_place_order.dart';
+import 'package:discourse_native/src/shell/mobile_place_order_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 class _Persistence implements ScalarPreferencePersistence<List<String>> {
