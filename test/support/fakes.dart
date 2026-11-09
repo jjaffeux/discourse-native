@@ -4,7 +4,6 @@ import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
-import 'package:discourse_native/src/data/dsa_notices_api.dart';
 import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/data/instance_store.dart';

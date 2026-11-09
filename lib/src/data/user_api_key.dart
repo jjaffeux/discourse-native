@@ -5,7 +5,7 @@ import 'package:basic_utils/basic_utils.dart' show CryptoUtils;
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:pointycastle/export.dart';
 
-import 'http_transport.dart';
+import 'http_url_safety.dart';
 
 class UserApiCredentials {
   const UserApiCredentials({

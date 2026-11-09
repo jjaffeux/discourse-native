@@ -9,6 +9,7 @@ import 'account_request_session.dart';
 import 'discourse_get_sender.dart';
 import 'discourse_request_coordinator.dart';
 import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'json_decode.dart';
 import 'site_appearance_parser.dart';
 

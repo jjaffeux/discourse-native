@@ -35,8 +35,8 @@ import '../models/user_card.dart';
 import '../models/user_draft.dart';
 import '../models/user_preferences.dart';
 import '../models/user_summary.dart';
-import 'dsa_notices_api.dart';
 import 'http_basic_auth.dart';
+import 'http_url_safety.dart';
 import 'plugin_transport.dart';
 import 'site_message_bus_bootstrap.dart';
 
@@ -100,6 +100,17 @@ final class ApiKeyRejectedException extends SiteLookupException {
 
   @override
   String toString() => appL10n.apiKeyRejectedExceptionStatusCode403;
+}
+
+final class HttpBasicAuthenticationRequired extends SiteLookupException {
+  HttpBasicAuthenticationRequired(Uri url)
+    : origin = Uri.parse(requireSafeHttpUrl(url).origin),
+      super(SiteLookupFailure.unreachable, url.origin, statusCode: 401);
+
+  final Uri origin;
+
+  @override
+  String get message => appL10n.httpBasicAuthenticationRequired(origin.origin);
 }
 
 /// Writes preserve failure categories because each requires different recovery.
@@ -263,6 +274,26 @@ final class CategoryLoadResult {
   /// read reports it through `can_search`. Null means that read was
   /// authenticated, failed, or was not made.
   final bool? anonymousSearchAllowed;
+}
+
+abstract interface class DsaNoticesApi {
+  DsaNoticeConnection dsaNoticeConnection({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+  });
+}
+
+abstract interface class DsaNoticeConnection {
+  Future<String> requestVerification(String email);
+  Future<void> verifyEmail(String email, String token, String code);
+  Future<String> submit(Map<String, Object?> notice, {String? token});
+  void dispose();
+}
+
+final class DsaVerificationRequired extends WriteException {
+  const DsaVerificationRequired({super.errors})
+    : super(WriteFailure.validation, statusCode: 422);
 }
 
 /// Compile-time aggregate accepted only at the shell composition boundary.

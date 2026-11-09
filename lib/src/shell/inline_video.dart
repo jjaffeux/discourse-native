@@ -9,7 +9,7 @@ import 'package:flutter/services.dart' show LogicalKeyboardKey;
 import 'package:html/dom.dart' as dom;
 
 import '../data/api_credentials.dart';
-import '../data/http_transport.dart';
+import '../data/http_url_safety.dart';
 import '../data/site_lifecycle.dart';
 
 import '../foundation/uri_path.dart';

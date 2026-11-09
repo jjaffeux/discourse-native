@@ -9,6 +9,7 @@ import '../foundation/bounded_lru_cache.dart';
 import '../models/incoming_topics.dart';
 import 'discourse_api_contracts.dart';
 import 'http_transport.dart';
+import 'http_url_safety.dart';
 import 'live_channels.dart';
 
 typedef SiteTrackerFactory =

@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:discourse_native/src/data/dsa_notices_api.dart';
+import 'package:discourse_native/src/data/discourse_api_contracts.dart';
 import 'package:discourse_native/src/models/dsa_notice.dart';
 import 'package:discourse_native/src/shell/dsa_notice_controller.dart';
 import 'package:flutter_test/flutter_test.dart';

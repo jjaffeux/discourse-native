@@ -39,7 +39,7 @@ import '../data/forum_settings_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/groups_api.dart';
 import '../data/http_basic_auth.dart';
-import '../data/http_transport.dart';
+import '../data/http_url_safety.dart';
 import '../data/instance_store.dart';
 import '../data/recent_destinations_store.dart';
 import '../data/request_intent.dart';

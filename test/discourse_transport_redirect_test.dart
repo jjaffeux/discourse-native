@@ -5,6 +5,7 @@ import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/discourse_request_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_transport.dart';
 import 'package:discourse_native/src/data/http_transport.dart';
+import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/origin_cooldown.dart';
 import 'package:discourse_native/src/data/request_intent.dart';
 import 'package:flutter_test/flutter_test.dart';

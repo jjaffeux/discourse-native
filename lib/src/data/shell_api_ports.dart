@@ -1,6 +1,5 @@
 import '../models/discourse_model_codec.dart';
 import 'discourse_api_contracts.dart';
-import 'dsa_notices_api.dart';
 import 'plugin_transport.dart';
 
 final class ShellApiPorts {

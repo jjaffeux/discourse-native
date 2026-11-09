@@ -4,24 +4,12 @@ import 'dart:typed_data';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
-import '../foundation/loopback_host.dart';
-import '../foundation/redacted_uri.dart';
 import 'http_basic_auth.dart';
+import 'http_url_safety.dart';
 
 /// Discourse's crawler policy must recognize anonymous native requests too.
 /// Shared by API, appearance, live-update, and media HTTP producers.
 const discourseUserAgent = 'DiscourseNative/1.0';
-
-final class UnsafeHttpTransportException implements Exception {
-  UnsafeHttpTransportException(Uri url) : url = Uri.parse(redactUri(url));
-
-  /// A safe representation with credentials, fragments, and query
-  /// values removed. Rejected request data must not outlive the safety check.
-  final Uri url;
-
-  @override
-  String toString() => 'UnsafeHttpTransportException($url)';
-}
 
 final class HttpResponseTooLargeException implements Exception {
   const HttpResponseTooLargeException(this.url, this.maxBytes);
@@ -34,34 +22,6 @@ final class HttpResponseTooLargeException implements Exception {
     (url).toString(),
     (maxBytes).toString(),
   );
-}
-
-/// Plaintext is accepted only for loopback development.
-Uri requireSafeHttpUrl(Uri url) {
-  if (!url.hasAuthority || url.host.isEmpty || url.userInfo.isNotEmpty) {
-    throw UnsafeHttpTransportException(url);
-  }
-  if (url.hasPort) {
-    try {
-      if (url.port < 1 || url.port > 65535) {
-        throw UnsafeHttpTransportException(url);
-      }
-    } on FormatException {
-      throw UnsafeHttpTransportException(url);
-    }
-  }
-  if (url.scheme == 'https') return url;
-  if (url.scheme == 'http' && isLoopbackHost(url.host)) return url;
-
-  throw UnsafeHttpTransportException(url);
-}
-
-Uri resolveSafeHttpRedirect(Uri source, String location) {
-  final target = source.resolve(location);
-  if (source.scheme == 'https' && target.scheme != 'https') {
-    throw UnsafeHttpTransportException(target);
-  }
-  return requireSafeHttpUrl(target);
 }
 
 /// Rechecks transport safety at the final boundary and refuses redirects.
