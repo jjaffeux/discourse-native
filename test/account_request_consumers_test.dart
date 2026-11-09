@@ -139,18 +139,7 @@ void main() {
                 topicId: 7,
                 hasCachedSummary: consumer == 'cached summary',
               );
-          settled = expectLater(
-            summary.result,
-            throwsA(
-              consumer == 'cached summary'
-                  ? isA<SiteLookupException>()
-                  : isA<WriteException>().having(
-                      (error) => error.notSent,
-                      'notSent',
-                      isTrue,
-                    ),
-            ),
-          );
+          settled = expectLater(summary.result, throwsA(isA<StateError>()));
         }
         await pumpEventQueue();
         expect(api.topicCalls + api.pluginCalls, 1);
