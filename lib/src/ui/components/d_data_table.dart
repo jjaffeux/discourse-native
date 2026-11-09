@@ -324,6 +324,62 @@ class _LocalRowsSnapshot<T> {
   final List<T> rows;
 }
 
+/// A virtualized row's built cells, reusable while everything they read holds.
+class _HeldRow<T> {
+  const _HeldRow({
+    required this.value,
+    required this.index,
+    required this.selected,
+    required this.columns,
+    required this.row,
+  });
+
+  final T value;
+  final int index;
+  final bool selected;
+  final List<DDataTableColumn<T>> columns;
+  final DTableRow row;
+
+  bool matches(
+    T value,
+    int index,
+    bool selected,
+    List<DDataTableColumn<T>> columns,
+  ) {
+    if (!identical(this.value, value) ||
+        this.index != index ||
+        this.selected != selected ||
+        this.columns.length != columns.length) {
+      return false;
+    }
+    for (var column = 0; column < columns.length; column++) {
+      final held = this.columns[column];
+      final next = columns[column];
+      if (held.id != next.id ||
+          held.cellBuilder != next.cellBuilder ||
+          held.alignment != next.alignment ||
+          held.onCellTap != next.onCellTap ||
+          held.cellMouseCursor != next.cellMouseCursor ||
+          held.cellContextMenuBuilder != next.cellContextMenuBuilder) {
+        return false;
+      }
+    }
+    return true;
+  }
+}
+
+/// Runs a virtualized cell's builder in its own element, so inherited values it
+/// reads reach a held cell without the row being built again.
+class _VirtualizedCellContent<T> extends StatelessWidget {
+  const _VirtualizedCellContent({required this.builder, required this.cell});
+
+  final DDataTableCellBuilder<T> builder;
+  final DDataTableCellContext<T> cell;
+
+  @override
+  Widget build(BuildContext context) => builder(context, cell);
+}
+
 /// A headless-friendly typed data table built from the shadcn Table primitives.
 ///
 /// Supply either [controller], or [state] with [onStateChanged], or neither for
@@ -386,6 +442,10 @@ class DDataTable<T> extends StatefulWidget {
   /// Requires bounded height. Unspecified column widths default to 160 pixels.
   /// The native scroll viewport exposes lazy rows as accessible groups;
   /// cells retain their controls and header labels. Eager mode uses table roles.
+  ///
+  /// A built row is reused while its value and every column's
+  /// [DDataTableColumn.cellBuilder] compare equal, so a builder whose output
+  /// depends on anything beyond its row must be replaced when that changes.
   final bool virtualized;
   final ScrollController? verticalScrollController;
   @override
@@ -397,6 +457,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   late DDataTableState _ownedState = _defaultState();
   bool _normalizationScheduled = false;
   final Map<String, double> _resizedWidths = {};
+  final Map<Object, _HeldRow<T>> _heldRows = {};
   _LocalRowsSnapshot<T>? _localRowsSnapshot;
 
   DDataTableState _defaultState() => DDataTableState(hiddenColumnIds: const {});
@@ -416,6 +477,12 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     }
     if (!mapEquals(oldWidget.columnWidths, widget.columnWidths)) {
       _resizedWidths.clear();
+    }
+    if (oldWidget.variant != widget.variant) {
+      _heldRows.clear();
+    } else if (!identical(oldWidget.data, widget.data)) {
+      final ids = {for (final row in widget.data) widget.rowId(row)};
+      _heldRows.removeWhere((id, _) => !ids.contains(id));
     }
   }
 
@@ -838,6 +905,12 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
   ) {
     final id = widget.rowId(row);
     final selected = state.selectedRowIds.contains(id);
+    if (widget.virtualized) {
+      final held = _heldRows[id];
+      if (held != null && held.matches(row, index, selected, columns)) {
+        return held.row;
+      }
+    }
 
     final cell = DDataTableCellContext<T>(
       row: row,
@@ -846,7 +919,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       selected: selected,
       onSelectedChanged: null,
     );
-    return DTableRow(
+    final built = DTableRow(
       key: ValueKey(id),
       selected: selected,
       cells: [
@@ -866,10 +939,25 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
                 : column.padding)),
             textStyle: _softHeader ? const TextStyle(height: 1.5) : null,
-            child: column.cellBuilder(context, cell),
+            child: widget.virtualized
+                ? _VirtualizedCellContent<T>(
+                    builder: column.cellBuilder,
+                    cell: cell,
+                  )
+                : column.cellBuilder(context, cell),
           ),
       ],
     );
+    if (widget.virtualized) {
+      _heldRows[id] = _HeldRow(
+        value: row,
+        index: index,
+        selected: selected,
+        columns: columns,
+        row: built,
+      );
+    }
+    return built;
   }
 }
 

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
@@ -88,8 +89,46 @@ class DTable extends StatefulWidget {
   State<DTable> createState() => _DTableState();
 }
 
+/// Everything a virtualized row's frame reads besides the row itself.
+@immutable
+class _VirtualizedRowLayout {
+  _VirtualizedRowLayout(DTable table, this.border)
+    : widths = [
+        for (final entry in table.columnWidths.entries)
+          (entry.key, (entry.value as FixedColumnWidth).value),
+      ],
+      headerRows = table.header?.rows.length ?? 0,
+      headerBackground = table.headerBackgroundColor;
+
+  final List<(int, double)> widths;
+  final Color border;
+  final int headerRows;
+  final Color? headerBackground;
+
+  bool matches(_VirtualizedRowLayout other) =>
+      listEquals(widths, other.widths) &&
+      border == other.border &&
+      headerRows == other.headerRows &&
+      headerBackground == other.headerBackground;
+}
+
+class _BuiltVirtualizedRow {
+  const _BuiltVirtualizedRow({
+    required this.layout,
+    required this.index,
+    required this.separated,
+    required this.widget,
+  });
+
+  final _VirtualizedRowLayout layout;
+  final int index;
+  final bool separated;
+  final Widget widget;
+}
+
 class _DTableState extends State<DTable> {
   final _hovered = ValueNotifier<int?>(null);
+  final _builtRows = Expando<_BuiltVirtualizedRow>();
 
   @override
   void dispose() {
@@ -301,6 +340,8 @@ class _DTableState extends State<DTable> {
         (sum, w) => sum + (w as FixedColumnWidth).value,
       ),
     );
+    final border = widget.borderColor ?? DTokens.of(context).border;
+    final layout = _VirtualizedRowLayout(widget, border);
     Widget fragment(
       List<DTableRow> rows, {
       bool header = false,
@@ -349,18 +390,20 @@ class _DTableState extends State<DTable> {
                           return fragment(widget.body.rows);
                         }
                         final row = widget.rowBuilder!(context, index);
-                        return KeyedSubtree(
+                        final separated = index < widget.rowCount - 1;
+                        final held = _builtRows[row];
+                        if (held != null &&
+                            held.index == index &&
+                            held.separated == separated &&
+                            held.layout.matches(layout)) {
+                          return held.widget;
+                        }
+                        final built = KeyedSubtree(
                           key: row.key,
                           child: DecoratedBox(
                             decoration: BoxDecoration(
-                              border: index < widget.rowCount - 1
-                                  ? Border(
-                                      bottom: BorderSide(
-                                        color:
-                                            widget.borderColor ??
-                                            DTokens.of(context).border,
-                                      ),
-                                    )
+                              border: separated
+                                  ? Border(bottom: BorderSide(color: border))
                                   : null,
                             ),
                             child: fragment(
@@ -370,6 +413,13 @@ class _DTableState extends State<DTable> {
                             ),
                           ),
                         );
+                        _builtRows[row] = _BuiltVirtualizedRow(
+                          layout: layout,
+                          index: index,
+                          separated: separated,
+                          widget: built,
+                        );
+                        return built;
                       },
                     ),
                   ),
