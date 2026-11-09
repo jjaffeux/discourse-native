@@ -14,6 +14,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_activity.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -118,24 +119,27 @@ Future<(ShellController, FakeDiscourseApi)> pumpCard(
   await controller.load();
   addTearDown(controller.dispose);
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.dark.copyWith(
-          platform: desktop ? TargetPlatform.macOS : TargetPlatform.iOS,
-          textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Lato'),
-        ),
-        builder: (context, child) => MediaQuery(
-          data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
-          child: RepaintBoundary(key: capture, child: child!),
-        ),
-        home: const Scaffold(
-          body: Padding(
-            padding: EdgeInsets.all(24),
-            child: UserCardTarget(
-              username: 'sam',
-              siteUrl: site,
-              child: Text('Open Sam'),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.dark.copyWith(
+            platform: desktop ? TargetPlatform.macOS : TargetPlatform.iOS,
+            textTheme: AppTheme.dark.textTheme.apply(fontFamily: 'Lato'),
+          ),
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: reduced),
+            child: RepaintBoundary(key: capture, child: child!),
+          ),
+          home: const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(24),
+              child: UserCardTarget(
+                username: 'sam',
+                siteUrl: site,
+                child: Text('Open Sam'),
+              ),
             ),
           ),
         ),

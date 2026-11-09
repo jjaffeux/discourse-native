@@ -5,11 +5,13 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/hashtag.dart';
 import 'package:discourse_native/src/shell/mention.dart';
-import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/site_url.dart';
+import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,13 +57,16 @@ Future<ShellController> pumpCookedFromSource(
   await controller.load();
 
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.dark,
-        home: Scaffold(
-          body: SingleChildScrollView(
-            child: CookedHtml(html: html, siteUrl: sourceSite),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.dark,
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: CookedHtml(html: html, siteUrl: sourceSite),
+            ),
           ),
         ),
       ),

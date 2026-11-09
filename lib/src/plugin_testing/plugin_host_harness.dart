@@ -30,6 +30,8 @@ import '../plugin_api/core_plugin_manifest.dart';
 import '../plugin_api/plugin_runtime.dart';
 import '../shell/shell_controller.dart';
 import '../shell/shell_scope.dart';
+import '../shell/user_card.dart';
+import '../shell/user_card_target.dart';
 
 @immutable
 final class PluginHostUser {
@@ -158,8 +160,10 @@ final class PluginHostHarness {
 
   bool popContent() => _shell.handleBack(canReturnToSidebar: false);
 
-  Widget scope({required Widget child}) =>
-      ShellScope(controller: _shell, child: child);
+  Widget scope({required Widget child}) => UserCardOpenerScope(
+    open: showUserCard,
+    child: ShellScope(controller: _shell, child: child),
+  );
 
   Widget buildApp({Key? key, PluginManifest manifest = corePluginManifest}) =>
       DiscourseApp(

@@ -17,7 +17,6 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import 'adaptive_shell.dart';
 import 'badges_host.dart';
 import 'bookmark_list.dart';
 import 'categories_page.dart';

@@ -8,7 +8,7 @@ import '../../../cooked_dom.dart';
 import '../../../open_link.dart';
 import '../../../site_url.dart';
 import '../../markup.dart';
-import '../../onebox.dart';
+import '../../onebox_card.dart';
 
 class DiscourseUserOnebox extends StatelessWidget {
   const DiscourseUserOnebox({super.key, required this.data, this.siteUrl});

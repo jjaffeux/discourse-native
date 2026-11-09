@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

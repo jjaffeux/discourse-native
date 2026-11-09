@@ -11,6 +11,7 @@ import 'package:discourse_native/src/plugins/chat/chat_user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -120,19 +121,22 @@ Future<ShellController> _pumpCard(WidgetTester tester, _CardChatApi api) async {
   addTearDown(controller.dispose);
   await controller.load();
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-        home: const Scaffold(
-          body: Padding(
-            padding: EdgeInsets.all(24),
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: UserCardTarget(
-                username: 'sam',
-                siteUrl: _site,
-                child: Text('Open Sam'),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const Scaffold(
+            body: Padding(
+              padding: EdgeInsets.all(24),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: UserCardTarget(
+                  username: 'sam',
+                  siteUrl: _site,
+                  child: Text('Open Sam'),
+                ),
               ),
             ),
           ),

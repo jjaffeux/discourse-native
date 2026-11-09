@@ -14,7 +14,7 @@ import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/embedded.dart';
 import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
-import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';

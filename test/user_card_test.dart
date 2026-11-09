@@ -1,5 +1,5 @@
 import 'package:discourse_native/src/models/user_card.dart';
-import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {

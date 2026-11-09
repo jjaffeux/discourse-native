@@ -11,7 +11,9 @@ import 'package:discourse_native/src/models/user_status.dart';
 import 'package:discourse_native/src/shell/preferences_page.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/user_card.dart';
 import 'package:discourse_native/src/shell/user_card_header.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/shell/user_menu.dart';
 import 'package:discourse_native/src/shell/user_status_editor.dart';
 import 'package:discourse_native/src/shell/users_page.dart';
@@ -102,23 +104,26 @@ Future<void> _pump(
   final theme = dark ? AppTheme.dark : AppTheme.light;
   debugNetworkImageHttpClientProvider = () => FakeImageHttpClient(_bannerBytes);
   await tester.pumpWidget(
-    ShellScope(
-      controller: shell,
-      child: RepaintBoundary(
-        key: _capture,
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: theme.copyWith(
-            platform: platform,
-            textTheme: theme.textTheme.apply(fontFamily: 'ParityFont'),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: shell,
+        child: RepaintBoundary(
+          key: _capture,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: theme.copyWith(
+              platform: platform,
+              textTheme: theme.textTheme.apply(fontFamily: 'ParityFont'),
+            ),
+            builder: (context, child) => MediaQuery(
+              data: MediaQuery.of(
+                context,
+              ).copyWith(textScaler: TextScaler.linear(scale)),
+              child: Directionality(textDirection: direction, child: child!),
+            ),
+            home: Scaffold(body: child),
           ),
-          builder: (context, child) => MediaQuery(
-            data: MediaQuery.of(
-              context,
-            ).copyWith(textScaler: TextScaler.linear(scale)),
-            child: Directionality(textDirection: direction, child: child!),
-          ),
-          home: Scaffold(body: child),
         ),
       ),
     ),

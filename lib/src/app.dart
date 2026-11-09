@@ -39,6 +39,8 @@ import 'shell/content_reading_lane.dart';
 import 'shell/platform.dart';
 import 'shell/shell_controller.dart';
 import 'shell/shell_scope.dart';
+import 'shell/user_card.dart';
+import 'shell/user_card_target.dart';
 import 'theme/app_theme.dart';
 
 class DiscourseApp extends StatefulWidget {
@@ -316,7 +318,7 @@ class _DiscourseAppState extends State<DiscourseApp>
         ),
       ),
     );
-    return app;
+    return UserCardOpenerScope(open: showUserCard, child: app);
   }
 
   Widget _materialApp({

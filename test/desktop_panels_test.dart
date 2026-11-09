@@ -13,6 +13,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
+import 'package:discourse_native/src/shell/desktop_panels_layout.dart';
 import 'package:discourse_native/src/shell/forum_tabs_bar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

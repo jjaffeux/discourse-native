@@ -19,7 +19,6 @@ import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/plugins/assign/assign_plugin.dart';
-import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/avatar_image.dart';
 import 'package:discourse_native/src/shell/category_icon.dart';
 import 'package:discourse_native/src/shell/composer/controller.dart';

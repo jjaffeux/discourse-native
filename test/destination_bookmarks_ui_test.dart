@@ -10,6 +10,7 @@ import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_workspace.dart';
 import 'package:discourse_native/src/shell/bookmark_list.dart';
+import 'package:discourse_native/src/shell/destination_bookmark_menu_item.dart';
 import 'package:discourse_native/src/shell/destination_bookmark_ui.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/open_link.dart';

@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/theme/code_colors.dart';
 import 'package:discourse_native/src/theme/discourse_colors.dart';
@@ -898,7 +899,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(body: OneboxCard(data: OneboxData.from(aside))),
+          home: Scaffold(body: genericOneboxCard(OneboxData.from(aside))),
         ),
       );
       await tester.pump();

@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/composer/presentation.dart';
 import 'package:discourse_native/src/shell/composer/presentation_controller.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';

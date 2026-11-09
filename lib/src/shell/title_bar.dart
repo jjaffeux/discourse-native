@@ -11,12 +11,13 @@ import '../foundation/icons/d_icons.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
-import 'composer/presentation.dart';
-import 'desktop_panels.dart';
+import 'composer/presentation_scope.dart';
+import 'desktop_panels_layout.dart';
 import 'forum_search.dart';
 import 'forum_theme_surfaces.dart';
 import 'message_archive_button.dart';
 import 'message_create_button.dart';
+import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'topic_create_button.dart';
 import 'user_menu_button.dart';
@@ -42,8 +43,6 @@ class ShellTitleBar extends StatelessWidget {
   final double? leadingInset;
   final DesktopPanelsLayout? panelsLayout;
 
-  // Desktop mockup chrome row, including its vertical control insets.
-  static const double height = 49;
   static const double controlGap = 10;
   static const double trailingInset = 14;
   static const _rowPadding = EdgeInsets.only(top: 8, bottom: 4);
@@ -77,7 +76,7 @@ class ShellTitleBar extends StatelessWidget {
         (searchSize == DControlSize.field ? .5 : 0);
     final avatarHeight = 36 * math.max(1, scaler.scale(14) / 14);
     return math.max(
-      height,
+      shellTitleBarHeight,
       math.max(searchHeight, avatarHeight) + _rowPadding.vertical,
     );
   }
@@ -118,7 +117,9 @@ class ShellTitleBar extends StatelessWidget {
           final searchSize = DControlStyle.isTouch(context)
               ? DControlSize.large
               : DControlSize.field;
-          final rowHeight = showControls ? _rowHeight(context) : height;
+          final rowHeight = showControls
+              ? _rowHeight(context)
+              : shellTitleBarHeight;
           final search = Expanded(
             child: ForumSearch(dense: true, size: searchSize),
           );
@@ -248,7 +249,7 @@ class _DesktopPrimaryAction extends StatelessWidget {
   Widget _action(BuildContext context) {
     final shell = ShellScope.read(context);
     if (!shell.forumActive ||
-        ComposerPresentationHost.hasVisibleComposerOf(context)) {
+        ComposerPresentationScope.hasVisibleComposerOf(context)) {
       return const SizedBox.shrink();
     }
     final route = shell.currentContent;

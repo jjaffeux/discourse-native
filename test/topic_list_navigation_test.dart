@@ -21,6 +21,7 @@ import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/open_link.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_create_button.dart';
 import 'package:discourse_native/src/shell/topic_list_bottom_bar.dart';

@@ -24,7 +24,7 @@ export 'discourse_ui.dart' show monospaceTextStyle;
 export 'src/plugin_api/composer_sheet_header.dart';
 export 'src/plugin_api/composer_sheet_layout.dart';
 export 'src/shell/adaptive_dialog_action.dart';
-export 'src/shell/adaptive_shell.dart' show ShellLayout;
+export 'src/shell/anchored_layout.dart' show AnchoredLayout;
 export 'src/shell/animated_emoji.dart' show DAnimatedEmoji;
 export 'src/shell/avatar_image.dart';
 export 'src/shell/bookmark_ui.dart' show showPluginBookmarkMenu;
@@ -58,7 +58,7 @@ export 'src/shell/content_reading_lane.dart'
         ContentReadingLaneGeometry;
 export 'src/shell/cooked_html.dart';
 export 'src/shell/desktop_header_menu.dart';
-export 'src/shell/destination_bookmark_ui.dart'
+export 'src/shell/destination_bookmark_menu_item.dart'
     show DestinationBookmarkMenuItem;
 export 'src/shell/dsa_notice_form.dart' show showIllegalContentReport;
 export 'src/shell/emoji.dart' show EmojiImage;
@@ -87,7 +87,8 @@ export 'src/shell/mobile_footer_action.dart'
         MobileFooterActionScope;
 export 'src/shell/notification_list.dart' show PluginNotificationsSection;
 export 'src/shell/oneboxes/embedded.dart' show embeddedOneboxWidgetBuilder;
-export 'src/shell/oneboxes/onebox.dart' show OneboxCard, OneboxData;
+export 'src/shell/oneboxes/markup.dart' show digitsIn, oneLineText;
+export 'src/shell/oneboxes/onebox_card.dart' show OneboxCard, OneboxData;
 export 'src/shell/open_link.dart' show LinkTarget, openLink;
 export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
@@ -104,7 +105,7 @@ export 'src/shell/relative_time.dart'
 export 'src/shell/route_aware_selection_area.dart' show RouteAwareSelectionArea;
 export 'src/shell/search_words.dart'
     show SearchWords, SearchText, searchSnippet;
-export 'src/shell/shell_metrics.dart' show shellHeaderHeight;
+export 'src/shell/shell_metrics.dart' show ShellLayout, shellHeaderHeight;
 export 'src/shell/shell_sheet.dart'
     show ShellSheetActions, ShellSheetForm, showShellSheet;
 export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;
@@ -119,7 +120,7 @@ export 'src/shell/topic_corner_controls.dart' show TopicCornerControls;
 export 'src/shell/topic_list_footer.dart' show TopicSourceFooter;
 export 'src/shell/topic_list_view.dart'
     show TopicListLoadingSkeleton, TopicListRow, TopicListSeparator;
-export 'src/shell/user_card.dart' show UserCardTarget;
+export 'src/shell/user_card_target.dart' show UserCardTarget;
 export 'src/shell/user_menu.dart' show UserPresenceMenu;
 export 'src/shell/user_menu_button.dart' show UserMenuButton;
 export 'src/shell/user_status.dart' show UserStatusMessage;

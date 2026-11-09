@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 
 import '../models/composer_placement.dart';
 import '../theme/app_theme.dart';
-import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'forum_theme_surfaces.dart';
 import 'platform.dart';
 import 'shell_metrics.dart';
@@ -25,7 +25,9 @@ class ShellPanel extends StatelessWidget {
     const borderRadius = BorderRadius.only(
       topLeft: Radius.circular(cornerRadius),
     );
-    final composerPlacement = ComposerDock.workspacePlacementOf(context);
+    final composerPlacement = ComposerWorkspacePlacementScope.placementOf(
+      context,
+    );
     final rtl = Directionality.of(context) == TextDirection.rtl;
     final side = BorderSide(color: Theme.of(context).shell.divider);
 

@@ -57,6 +57,7 @@ import 'discard.dart';
 import 'draft_preview.dart';
 import 'drop.dart';
 import 'drop_geometry.dart';
+import 'editor_scope.dart';
 import 'header.dart';
 import 'history_scope.dart';
 import 'markdown_editing_controller.dart';
@@ -1565,7 +1566,32 @@ class ComposerEditor extends StatefulWidget {
   State<ComposerEditor> createState() => _ComposerEditorState();
 }
 
-class _ComposerEditorState extends State<ComposerEditor> {
+class _ComposerEditorState extends State<ComposerEditor>
+    implements ComposerEditorEmbedding {
+  @override
+  TextStyle? get textStyle => widget.textStyle;
+
+  @override
+  Widget richBody({
+    Key? key,
+    required ComposerController composer,
+    required String label,
+    required String hintText,
+    required VoidCallback onExit,
+    KeyEventResult Function(KeyEvent)? onKeyEvent,
+    VoidCallback? onEmptyBackspace,
+    bool? enableBlockReordering,
+  }) => ComposerRichBodyEditor(
+    key: key,
+    composer: composer,
+    label: label,
+    hintText: hintText,
+    onExit: onExit,
+    onKeyEvent: onKeyEvent,
+    onEmptyBackspace: onEmptyBackspace,
+    enableBlockReordering: enableBlockReordering,
+  );
+
   AppSettingsController? _appSettings;
   bool get _rawMarkdown => widget.composer.text.rawMarkdown;
   final _slashMenu = GlobalKey<ComposerSlashMenuState>();
@@ -3473,24 +3499,27 @@ class _ComposerEditorState extends State<ComposerEditor> {
   }
 
   @override
-  Widget build(BuildContext context) => ComposerHistoryScope(
-    composer: widget.composer,
-    child:
-        !_rawMarkdown && widget.enableBlockReordering && _parentEditor == null
-        ? ComposerBlockSurface(
-            composer: widget.composer,
-            expands: widget.expands,
-            blockRect: _blockRect,
-            blockActionRect: _blockActionRect,
-            lineHeight: _minimumLineHeight(context),
-            emptyLineAt: _emptyLineAt,
-            geometryChanges: _mediaLayoutRevision,
-            editorScroll: () =>
-                _ancestorScroll ??
-                (_scroll.hasClients ? _scroll.position : null),
-            child: _imageSelectionRegion(_editorBody()),
-          )
-        : _imageSelectionRegion(_editorBody()),
+  Widget build(BuildContext context) => ComposerEditorScope(
+    embedding: this,
+    child: ComposerHistoryScope(
+      composer: widget.composer,
+      child:
+          !_rawMarkdown && widget.enableBlockReordering && _parentEditor == null
+          ? ComposerBlockSurface(
+              composer: widget.composer,
+              expands: widget.expands,
+              blockRect: _blockRect,
+              blockActionRect: _blockActionRect,
+              lineHeight: _minimumLineHeight(context),
+              emptyLineAt: _emptyLineAt,
+              geometryChanges: _mediaLayoutRevision,
+              editorScroll: () =>
+                  _ancestorScroll ??
+                  (_scroll.hasClients ? _scroll.position : null),
+              child: _imageSelectionRegion(_editorBody()),
+            )
+          : _imageSelectionRegion(_editorBody()),
+    ),
   );
 
   Widget _imageSelectionRegion(Widget child) => TapRegion(

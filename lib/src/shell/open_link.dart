@@ -11,12 +11,12 @@ import '../models/destination_bookmark.dart';
 import '../models/forum_workspace.dart';
 import '../plugin_api/bookmark_host.dart';
 import '../plugin_api/shell_extensions.dart';
-import 'destination_bookmark_ui.dart';
+import 'destination_bookmark_menu_item.dart';
 import 'external_link.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
 import 'site_url.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 Future<bool> openLink(
   BuildContext context,

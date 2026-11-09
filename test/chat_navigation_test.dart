@@ -40,6 +40,7 @@ import 'package:discourse_native/src/shell/group_flair.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/main_content.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
+import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';

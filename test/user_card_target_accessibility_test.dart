@@ -5,6 +5,7 @@ import 'package:discourse_native/src/models/user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -48,17 +49,20 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
-          ShellScope(
-            controller: controller,
-            child: MaterialApp(
-              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-              home: const Scaffold(
-                body: Align(
-                  alignment: Alignment.topLeft,
-                  child: UserCardTarget(
-                    username: 'profilee',
-                    siteUrl: _siteUrl,
-                    child: Text('Profilee'),
+          UserCardOpenerScope(
+            open: showUserCard,
+            child: ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+                home: const Scaffold(
+                  body: Align(
+                    alignment: Alignment.topLeft,
+                    child: UserCardTarget(
+                      username: 'profilee',
+                      siteUrl: _siteUrl,
+                      child: Text('Profilee'),
+                    ),
                   ),
                 ),
               ),
@@ -148,16 +152,19 @@ void main() {
       final semantics = tester.ensureSemantics();
       try {
         await tester.pumpWidget(
-          ShellScope(
-            controller: controller,
-            child: MaterialApp(
-              theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-              home: const Scaffold(
-                body: Center(
-                  child: UserCardTarget(
-                    username: 'profilee',
-                    siteUrl: _siteUrl,
-                    child: Text('Profilee'),
+          UserCardOpenerScope(
+            open: showUserCard,
+            child: ShellScope(
+              controller: controller,
+              child: MaterialApp(
+                theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+                home: const Scaffold(
+                  body: Center(
+                    child: UserCardTarget(
+                      username: 'profilee',
+                      siteUrl: _siteUrl,
+                      child: Text('Profilee'),
+                    ),
                   ),
                 ),
               ),
@@ -209,16 +216,19 @@ void main() {
     await controller.load();
     addTearDown(controller.dispose);
     await tester.pumpWidget(
-      ShellScope(
-        controller: controller,
-        child: MaterialApp(
-          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-          home: const Scaffold(
-            body: Center(
-              child: UserCardTarget(
-                username: 'missing',
-                siteUrl: _siteUrl,
-                child: Text('Missing profile'),
+      UserCardOpenerScope(
+        open: showUserCard,
+        child: ShellScope(
+          controller: controller,
+          child: MaterialApp(
+            theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+            home: const Scaffold(
+              body: Center(
+                child: UserCardTarget(
+                  username: 'missing',
+                  siteUrl: _siteUrl,
+                  child: Text('Missing profile'),
+                ),
               ),
             ),
           ),

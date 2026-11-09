@@ -3,6 +3,8 @@ import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_view.dart';
+import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -166,14 +168,17 @@ Future<ShellController> _pump(
   final controller = await topicScrollController();
   addTearDown(controller.dispose);
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: AppTheme.light.copyWith(platform: platform),
-        home: Directionality(
-          textDirection: direction,
-          child: Scaffold(
-            body: TopicView(inbox: inbox, route: controller.currentContent),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: platform),
+          home: Directionality(
+            textDirection: direction,
+            child: Scaffold(
+              body: TopicView(inbox: inbox, route: controller.currentContent),
+            ),
           ),
         ),
       ),

@@ -15,7 +15,7 @@ import '../plugin_api/plugin_registry.dart';
 import '../plugin_api/plugin_scope.dart';
 import '../theme/app_theme.dart';
 import 'avatar_image.dart';
-import 'destination_bookmark_ui.dart';
+import 'destination_bookmark_menu_item.dart';
 import 'emoji.dart';
 import 'shell_controller.dart';
 import 'shell_metrics.dart';

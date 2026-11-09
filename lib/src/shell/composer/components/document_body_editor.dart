@@ -1,8 +1,8 @@
 import 'package:flutter/widgets.dart';
 
 import '../controller.dart';
+import '../editor_scope.dart';
 import '../embedded_editor.dart';
-import '../panel.dart';
 import 'document_body_controller.dart';
 
 class ComposerDocumentBodyEditor extends StatefulWidget {
@@ -60,7 +60,7 @@ class _ComposerDocumentBodyEditorState
     owner: widget.parent,
     scrollController: widget.parent.text.imageScrollController,
     semanticLabel: widget.semanticLabel,
-    child: ComposerRichBodyEditor(
+    child: ComposerEditorScope.of(context).richBody(
       composer: _body,
       label: widget.semanticLabel,
       hintText: '',

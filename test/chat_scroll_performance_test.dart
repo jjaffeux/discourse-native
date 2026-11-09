@@ -19,7 +19,7 @@ import 'package:discourse_native/src/plugins/chat/chat_shell_service.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream.dart';
 import 'package:discourse_native/src/plugins/chat/chat_stream_target.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
-import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
+import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/reaction_presentation.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';

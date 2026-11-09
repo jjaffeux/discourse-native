@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../models/forum_workspace.dart';
 import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'forum_tab_scope.dart';
 import 'forum_tabs_bar.dart';
 import 'platform.dart';
@@ -54,7 +55,7 @@ class TopicWorkspace extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => ComposerDock(
-    key: ComposerPresentationHost.dockKeyOf(context),
+    key: ComposerPresentationScope.dockKeyOf(context),
     appWorkspace: true,
     child: ReaderContentBounds(child: child),
   );

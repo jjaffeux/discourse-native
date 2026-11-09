@@ -10,6 +10,9 @@ const double workspaceEdgeInset = 6;
 const double shellHeaderHeight = 52;
 const double readerHeaderHeight = 44;
 
+/// The desktop title bar's chrome row, including its vertical control insets.
+const double shellTitleBarHeight = 49;
+
 /// Grows with the title and subtitle roles when a header stacks both, so the
 /// pair keeps the inset it has at 100%. The two lines leave the fixed height
 /// only 15px of slack, which they outgrow before 150% text; a lone title has
@@ -60,3 +63,22 @@ const double composerHeight = 280;
 const double topicComposerHeight = 380;
 
 const double composerSuggestionsWidth = 320;
+
+enum ShellLayout {
+  compact,
+
+  medium,
+
+  expanded;
+
+  static const double mediumMinWidth = 768;
+  static const double expandedMinWidth = 1200;
+
+  static ShellLayout forWidth(double width) {
+    if (width >= expandedMinWidth) return ShellLayout.expanded;
+    if (width >= mediumMinWidth) return ShellLayout.medium;
+    return ShellLayout.compact;
+  }
+
+  bool get isCompact => this == ShellLayout.compact;
+}

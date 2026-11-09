@@ -7,9 +7,9 @@ import '../../../foundation/icons/d_icons.dart';
 import '../block_surface.dart';
 import '../component_artwork.dart';
 import '../controller.dart';
+import '../editor_scope.dart';
 import '../embedded_editor.dart';
 import '../markdown_editing_controller.dart';
-import '../panel.dart';
 import 'details.dart';
 import 'details_body_controller.dart';
 import 'details_source.dart';
@@ -291,9 +291,7 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor>
                     focusNode: _summaryFocus,
                     semanticLabel: context.l10n.detailsSummary,
                     hintText: context.l10n.summary,
-                    style: context
-                        .findAncestorWidgetOfExactType<ComposerEditor>()
-                        ?.textStyle,
+                    style: ComposerEditorScope.maybeOf(context)?.textStyle,
                     errorText: _error,
                     enabled: widget.composer.isEditing,
                     textInputAction: TextInputAction.next,
@@ -307,7 +305,7 @@ class _ComposerDetailsEditorState extends State<ComposerDetailsEditor>
                     keepMounted: true,
                     child: Padding(
                       padding: const EdgeInsets.only(top: DSpacing.xs),
-                      child: ComposerRichBodyEditor(
+                      child: ComposerEditorScope.of(context).richBody(
                         key: const ValueKey('details-body'),
                         composer: _body,
                         label: context.l10n.detailsContent,

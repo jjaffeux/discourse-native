@@ -4,7 +4,7 @@ import 'package:flutter/widgets.dart';
 import '../../models/composer_placement.dart';
 import '../../models/forum_workspace.dart';
 import '../shell_scope.dart';
-import 'presentation.dart';
+import 'presentation_scope.dart';
 
 /// Shares the desktop panel glyph and its live window visibility.
 class ComposerPlacementIcon extends StatelessWidget {
@@ -18,7 +18,7 @@ class ComposerPlacementIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
-    final layout = ComposerPresentationHost.panelsLayoutOf(context);
+    final layout = ComposerPresentationScope.panelsLayoutOf(context);
     return ListenableBuilder(
       listenable: Listenable.merge([shell, ?layout]),
       builder: (context, _) {

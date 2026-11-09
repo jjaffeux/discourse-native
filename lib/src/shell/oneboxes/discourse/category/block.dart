@@ -3,7 +3,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../../../cooked_dom.dart';
 import '../../markup.dart';
-import '../../onebox.dart';
+import '../../onebox_card.dart';
 
 class DiscourseCategoryOnebox extends StatelessWidget {
   const DiscourseCategoryOnebox({super.key, required this.data});

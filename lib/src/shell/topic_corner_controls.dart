@@ -3,7 +3,7 @@ import 'dart:math' as math;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/widgets.dart';
 
-import 'composer/presentation.dart';
+import 'composer/presentation_scope.dart';
 import 'platform.dart';
 import 'shell_scope.dart';
 
@@ -31,7 +31,7 @@ class TopicCornerControls extends StatelessWidget {
           ? math.max(
               DScrollChrome.bottomInsetOf(context),
               DMobileDockGeometry.of(context).footerExtent +
-                  ComposerDock.parkedDraftRoomOf(context),
+                  ComposerParkedDraftScope.roomOf(context),
             )
           : 0) +
       height +
@@ -48,7 +48,7 @@ class TopicCornerControls extends StatelessWidget {
       builder: (context, hiddenFraction, child) {
         final geometry = DMobileDockGeometry.of(context);
         final dock = mobile
-            ? geometry.footerExtent + ComposerDock.parkedDraftRoomOf(context)
+            ? geometry.footerExtent + ComposerParkedDraftScope.roomOf(context)
             : 0.0;
         final folded = dock > 0 && hiddenFraction >= .5;
         final corner = geometry.cornerAt(height);

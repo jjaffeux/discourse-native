@@ -17,7 +17,7 @@ import 'avatar_image.dart';
 import 'directory_skeleton.dart';
 import 'search_words.dart';
 import 'shell_scope.dart';
-import 'user_card.dart';
+import 'user_card_target.dart';
 
 const String _identityColumnWidthKey = 'identity';
 

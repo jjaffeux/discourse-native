@@ -7,7 +7,7 @@ import 'package:discourse_native/src/plugins/assign/assigned_group_link.dart';
 import 'package:discourse_native/src/plugins/discourse_github/oneboxes/pr/inline.dart';
 import 'package:discourse_native/src/shell/inline_video.dart';
 import 'package:discourse_native/src/shell/mention.dart';
-import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:html/dom.dart' as dom;

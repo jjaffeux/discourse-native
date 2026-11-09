@@ -16,6 +16,7 @@ import 'package:discourse_native/src/plugins/voice/voice_user_card.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/user_card.dart';
+import 'package:discourse_native/src/shell/user_card_target.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -881,40 +882,43 @@ Future<_CardApi> _pumpTarget(
   await controller.load();
   addTearDown(controller.dispose);
   await tester.pumpWidget(
-    ShellScope(
-      controller: controller,
-      child: MaterialApp(
-        theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
-          platform: platform,
-          textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
-            fontFamily: 'Lato',
-          ),
-        ),
-        builder: (context, child) => RepaintBoundary(
-          key: const ValueKey('user-card-capture'),
-          child: MediaQuery(
-            data: MediaQuery.of(context).copyWith(
-              textScaler: TextScaler.linear(scale),
-              viewPadding: EdgeInsets.only(bottom: safeBottom),
-              padding: EdgeInsets.only(bottom: safeBottom),
+    UserCardOpenerScope(
+      open: showUserCard,
+      child: ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: (dark ? AppTheme.dark : AppTheme.light).copyWith(
+            platform: platform,
+            textTheme: (dark ? AppTheme.dark : AppTheme.light).textTheme.apply(
+              fontFamily: 'Lato',
             ),
-            child: child!,
           ),
-        ),
-        home: nested
-            ? Align(
-                alignment: Alignment.bottomRight,
-                child: SizedBox(
-                  width: 360,
-                  height: 500,
-                  child: Navigator(
-                    onGenerateRoute: (_) => MaterialPageRoute<void>(
-                      builder: (_) => const _TargetPage(),
+          builder: (context, child) => RepaintBoundary(
+            key: const ValueKey('user-card-capture'),
+            child: MediaQuery(
+              data: MediaQuery.of(context).copyWith(
+                textScaler: TextScaler.linear(scale),
+                viewPadding: EdgeInsets.only(bottom: safeBottom),
+                padding: EdgeInsets.only(bottom: safeBottom),
+              ),
+              child: child!,
+            ),
+          ),
+          home: nested
+              ? Align(
+                  alignment: Alignment.bottomRight,
+                  child: SizedBox(
+                    width: 360,
+                    height: 500,
+                    child: Navigator(
+                      onGenerateRoute: (_) => MaterialPageRoute<void>(
+                        builder: (_) => const _TargetPage(),
+                      ),
                     ),
                   ),
-                ),
-              )
-            : const _TargetPage(),
+                )
+              : const _TargetPage(),
+        ),
       ),
     ),
   );
