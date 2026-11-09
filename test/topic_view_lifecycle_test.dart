@@ -1245,7 +1245,7 @@ void main() {
         },
       );
 
-      testWidgets('the Settings modal does not credit obscured dwell time', (
+      testWidgets('closing the Settings modal resumes the dwell it paused', (
         tester,
       ) async {
         final site = instance('meta.example').copyWith(user: _reader);
@@ -1289,13 +1289,12 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
         expect(api.topicReadsRecorded, isEmpty);
 
+        // The modal is a dialog route, so the reader beneath it keeps ticking.
         expect(controller.openAppSettingsModal(), isTrue);
         await tester.pump(const Duration(seconds: 2));
         expect(api.topicReadsRecorded, isEmpty);
 
-        await tester.pumpWidget(_topicView(controller, tickerEnabled: false));
         controller.closeAppSettingsModal();
-        await tester.pumpWidget(_topicView(controller));
         await tester.pump(const Duration(milliseconds: 200));
         expect(api.topicReadsRecorded, isEmpty);
         await tester.pump(const Duration(milliseconds: 600));
