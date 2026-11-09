@@ -1090,22 +1090,16 @@ class _InlineLinkContextMenuState extends State<_InlineLinkContextMenu> {
     if (event.buttons != kSecondaryMouseButton) return;
     final paragraph = _paragraph(_textKey.currentContext?.findRenderObject());
     if (paragraph == null) return;
-    final offset = paragraph.globalToLocal(event.position);
-    final position = paragraph.getPositionForOffset(offset);
-    final span = paragraph.text.getSpanForPosition(position);
-    final recognizer = span is TextSpan ? span.recognizer : null;
-    final url = widget.urls[recognizer];
-    if (url == null) {
-      _url = null;
-      return;
-    }
-    final boxes = paragraph.getBoxesForSelection(
-      TextSelection(
-        baseOffset: position.offset,
-        extentOffset: position.offset + 1,
-      ),
-    );
-    _url = boxes.any((box) => box.toRect().contains(offset)) ? url : null;
+    // A secondary press must land on the same glyphs a primary press does, so
+    // it asks the paragraph's own hit test. A caret position cannot answer
+    // this: it names the gap nearest the press, on either side of the glyph.
+    final hit = BoxHitTestResult();
+    paragraph.hitTest(hit, position: paragraph.globalToLocal(event.position));
+    final span = hit.path
+        .map((entry) => entry.target)
+        .whereType<TextSpan>()
+        .firstOrNull;
+    _url = widget.urls[span?.recognizer];
     if (_url == null || _menu != null) return;
     // The trigger clamps the anchor to its own size, so it opens once it has
     // laid out, in the frame after it mounts.
