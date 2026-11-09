@@ -114,9 +114,7 @@ class BoardCardEditorState extends State<BoardCardEditor> {
                         setState(() {
                           _saving = false;
                           _uncertain = result.state == BoardWriteState.unknown;
-                          _error = _uncertain
-                              ? context.l10n.boardsUnknownWrite
-                              : result.error ?? context.l10n.boardsRefused;
+                          _error = result.error ?? context.l10n.boardsRefused;
                         });
                       }
                     }
