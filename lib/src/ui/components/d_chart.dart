@@ -441,34 +441,133 @@ class DChartLegendContent extends StatelessWidget {
 /// A quantitative bar mark, usable in inline result rows or other chart layouts.
 /// [fraction] is clamped to 0–1. The containing row owns semantic description.
 /// It is not a task-progress or editable Form control.
-class DChartBar extends StatelessWidget {
+class DChartBar extends LeafRenderObjectWidget {
   const DChartBar({
     super.key,
     required this.fraction,
     this.color,
     this.backgroundColor,
-  }) : assert(fraction > -double.infinity && fraction < double.infinity),
-       assert((7 < double.infinity)),
-       assert((4 < double.infinity));
+  }) : assert(fraction > -double.infinity && fraction < double.infinity);
   final double fraction;
   final Color? color;
   final Color? backgroundColor;
 
   @override
-  Widget build(BuildContext context) => Container(
-    height: 7,
-    decoration: BoxDecoration(
-      color: backgroundColor,
-      borderRadius: BorderRadius.circular(4),
-    ),
-    clipBehavior: Clip.antiAlias,
-    alignment: AlignmentDirectional.centerStart,
-    child: FractionallySizedBox(
-      widthFactor: fraction.clamp(0.0, 1.0),
-      heightFactor: 1,
-      child: ColoredBox(color: color ?? DTokens.of(context).primary),
-    ),
+  RenderObject createRenderObject(BuildContext context) => _RenderChartBar(
+    fraction.clamp(0.0, 1.0),
+    color ?? DTokens.of(context).primary,
+    backgroundColor,
+    Directionality.of(context),
   );
+
+  @override
+  void updateRenderObject(BuildContext context, RenderObject renderObject) =>
+      (renderObject as _RenderChartBar)
+        ..fraction = fraction.clamp(0.0, 1.0)
+        ..color = color ?? DTokens.of(context).primary
+        ..backgroundColor = backgroundColor
+        ..direction = Directionality.of(context);
+}
+
+/// One box in place of a clipped, decorated and aligned subtree, because a
+/// table can draw this mark in every cell of every row.
+class _RenderChartBar extends RenderBox {
+  _RenderChartBar(
+    this._fraction,
+    this._color,
+    this._backgroundColor,
+    this._direction,
+  );
+
+  static const _height = 7.0;
+  static const _radius = Radius.circular(4);
+
+  double get fraction => _fraction;
+  double _fraction;
+  set fraction(double value) {
+    if (value == _fraction) return;
+    _fraction = value;
+    markNeedsPaint();
+  }
+
+  Color get color => _color;
+  Color _color;
+  set color(Color value) {
+    if (value == _color) return;
+    _color = value;
+    markNeedsPaint();
+  }
+
+  Color? get backgroundColor => _backgroundColor;
+  Color? _backgroundColor;
+  set backgroundColor(Color? value) {
+    if (value == _backgroundColor) return;
+    _backgroundColor = value;
+    markNeedsPaint();
+  }
+
+  TextDirection get direction => _direction;
+  TextDirection _direction;
+  set direction(TextDirection value) {
+    if (value == _direction) return;
+    _direction = value;
+    markNeedsPaint();
+  }
+
+  @override
+  bool get sizedByParent => true;
+
+  @override
+  Size computeDryLayout(covariant BoxConstraints constraints) =>
+      constraints.constrain(
+        Size(constraints.hasBoundedWidth ? constraints.maxWidth : 0, _height),
+      );
+
+  @override
+  double computeMinIntrinsicHeight(double width) => _height;
+
+  @override
+  double computeMaxIntrinsicHeight(double width) => _height;
+
+  @override
+  bool hitTestSelf(Offset position) => true;
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    final canvas = context.canvas;
+    final bounds = offset & size;
+    final track = RRect.fromRectAndRadius(bounds, _radius);
+    if (_backgroundColor case final background?) {
+      canvas.drawRRect(track, Paint()..color = background);
+    }
+    final width = size.width * _fraction;
+    if (width <= 0) return;
+    final ltr = _direction == TextDirection.ltr;
+    final mark = ltr
+        ? Rect.fromLTWH(bounds.left, bounds.top, width, bounds.height)
+        : Rect.fromLTWH(bounds.right - width, bounds.top, width, bounds.height);
+    final paint = Paint()..color = _color;
+    // The track's rounding only reaches a mark that ends inside a corner, so
+    // the usual bar is drawn without paying for a clip.
+    if (width >= _radius.x && width <= size.width - _radius.x) {
+      canvas.drawRRect(
+        RRect.fromRectAndCorners(
+          mark,
+          topLeft: ltr ? _radius : Radius.zero,
+          bottomLeft: ltr ? _radius : Radius.zero,
+          topRight: ltr ? Radius.zero : _radius,
+          bottomRight: ltr ? Radius.zero : _radius,
+        ),
+        paint,
+      );
+      return;
+    }
+    canvas
+      ..save()
+      ..clipRRect(track)
+      ..drawRect(mark, paint)
+      ..restore();
+  }
 }
 
 /// Typed value accessors keep arbitrary domain data outside rendering primitives.

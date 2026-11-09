@@ -605,17 +605,25 @@ void main() {
       width: 200,
       direction: TextDirection.rtl,
     );
-    final mark = find.descendant(
-      of: find.byType(DChartBar),
-      matching: find.byType(ColoredBox),
-    );
-    expect(tester.getSize(mark), const Size(50, 7));
+    final bar = find.byType(DChartBar);
+    expect(tester.getSize(bar), const Size(200, 7));
     expect(
-      tester.getTopRight(mark),
-      tester.getTopRight(find.byType(DChartBar)),
+      tester.renderObject(bar),
+      paints..rrect(
+        rrect: RRect.fromRectAndCorners(
+          const Rect.fromLTWH(150, 0, 50, 7),
+          topRight: const Radius.circular(4),
+          bottomRight: const Radius.circular(4),
+        ),
+      ),
     );
     await pump(tester, const DChartBar(fraction: 2), width: 200);
-    expect(tester.getSize(mark), const Size(200, 7));
+    expect(
+      tester.renderObject(bar),
+      paints
+        ..clipRRect()
+        ..rect(rect: const Rect.fromLTWH(0, 0, 200, 7)),
+    );
   });
 
   testWidgets(
