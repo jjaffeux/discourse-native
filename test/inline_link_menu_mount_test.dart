@@ -123,6 +123,55 @@ void main() {
     expect(find.byType(DContextMenuContent), findsNothing);
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+  testWidgets(
+    'a right-click on the right half of a link glyph opens its menu',
+    (tester) async {
+      final controller = await _openTopic(tester, TargetPlatform.macOS);
+      controller.desktopTopicTabs = true;
+      await tester.pumpAndSettle();
+
+      final paragraph = _paragraph(tester, 'first topic');
+      final glyph = _glyph(paragraph, _linkEnd(paragraph, 'first topic') - 1);
+      await tester.tapAt(
+        paragraph.localToGlobal(
+          Offset(glyph.right - glyph.width / 4, glyph.center.dy),
+        ),
+        kind: PointerDeviceKind.mouse,
+        buttons: kSecondaryMouseButton,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byType(DContextMenuContent), findsOneWidget);
+      await tester.tap(find.text('Open in main panel'));
+      await tester.pumpAndSettle();
+      expect(controller.currentContent?.topicId, 42);
+      expect(tester.takeException(), isNull);
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+  );
+
+  testWidgets('a right-click past a link that ends its line opens nothing', (
+    tester,
+  ) async {
+    await _openTopic(tester, TargetPlatform.macOS);
+
+    final paragraph = _paragraph(tester, 'second topic');
+    final end = _linkEnd(paragraph, 'second topic');
+    expect(end, paragraph.text.toPlainText().length);
+    final glyph = _glyph(paragraph, end - 1);
+    final past = Offset(glyph.right + glyph.width, glyph.center.dy);
+    expect(paragraph.size.contains(past), isTrue);
+    await tester.tapAt(
+      paragraph.localToGlobal(past),
+      kind: PointerDeviceKind.mouse,
+      buttons: kSecondaryMouseButton,
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(DContextMenuContent), findsNothing);
+    expect(tester.takeException(), isNull);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }
 
 /// The after-numbers of the proof, so a regression fails here.
@@ -151,7 +200,7 @@ Post _post(int id) => Post(
   createdAt: DateTime.utc(2026, 9, 1, 0, id),
   cooked: id == 1
       ? '<p>Read <a href="/t/first/42">first topic</a> or '
-            '<a href="/t/second/43">second topic</a> here.</p>'
+            '<a href="/t/second/43">second topic</a></p>'
             '${_paragraphHtml(id, 1)}'
       : [
           for (var index = 0; index < 4; index++) _paragraphHtml(id, index),
@@ -183,21 +232,20 @@ RenderParagraph _paragraph(
       .first,
 );
 
+Rect _glyph(RenderParagraph paragraph, int offset) => paragraph
+    .getBoxesForSelection(
+      TextSelection(baseOffset: offset, extentOffset: offset + 1),
+    )
+    .first
+    .toRect();
+
+int _linkEnd(RenderParagraph paragraph, String linkText) =>
+    paragraph.text.toPlainText().indexOf(linkText) + linkText.length;
+
 Offset _linkPoint(WidgetTester tester, String linkText) {
   final paragraph = _paragraph(tester, linkText);
   final start = paragraph.text.toPlainText().indexOf(linkText);
-  // The handler tests the glyph after the nearest caret, so a press in the
-  // right half of a glyph misses the link; press inside the first glyph's
-  // left half.
-  final glyph = paragraph
-      .getBoxesForSelection(
-        TextSelection(baseOffset: start, extentOffset: start + 1),
-      )
-      .first
-      .toRect();
-  return paragraph.localToGlobal(
-    Offset(glyph.left + glyph.width / 4, glyph.center.dy),
-  );
+  return paragraph.localToGlobal(_glyph(paragraph, start).center);
 }
 
 Future<ShellController> _openTopic(
