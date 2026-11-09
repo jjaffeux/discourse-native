@@ -989,8 +989,8 @@ class _BookmarkEditorState extends State<_BookmarkEditor> {
               for (final preference in BookmarkAutoDeletePreference.values)
                 DSelectOption(
                   value: preference,
-                  label: _preferenceLabel(preference),
-                  child: Text(_preferenceLabel(preference)),
+                  label: preference.label,
+                  child: Text(preference.label),
                 ),
             ],
             onChanged: _busy
@@ -1477,16 +1477,6 @@ void _showWriteMessage(BuildContext context, BookmarkWriteResult result) {
     DToast.show(context, message);
   }
 }
-
-String _preferenceLabel(BookmarkAutoDeletePreference preference) =>
-    switch (preference) {
-      BookmarkAutoDeletePreference.never => appL10n.keepBookmark,
-      BookmarkAutoDeletePreference.whenReminderSent =>
-        appL10n.deleteAfterTheReminder,
-      BookmarkAutoDeletePreference.onOwnerReply => appL10n.deleteOnceIReply,
-      BookmarkAutoDeletePreference.clearReminder =>
-        appL10n.keepBookmarkAndClearReminder,
-    };
 
 String _formatReminder(
   BuildContext context,

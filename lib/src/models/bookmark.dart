@@ -1,3 +1,4 @@
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_plugin_api/discourse_plugin_api.dart';
 import 'package:flutter/foundation.dart';
 
@@ -76,6 +77,13 @@ enum BookmarkAutoDeletePreference {
   const BookmarkAutoDeletePreference(this.wireValue);
 
   final int wireValue;
+
+  String get label => switch (this) {
+    never => appL10n.keepBookmark,
+    whenReminderSent => appL10n.deleteAfterTheReminder,
+    onOwnerReply => appL10n.deleteOnceIReply,
+    clearReminder => appL10n.keepBookmarkAndClearReminder,
+  };
 
   static BookmarkAutoDeletePreference read(Object? value) {
     final wire = jsonIntOrNull(value);

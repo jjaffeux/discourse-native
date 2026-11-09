@@ -14794,24 +14794,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'After the reminder is sent'**
-  String get afterTheReminderIsSent;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'When the topic owner replies'**
-  String get whenTheTopicOwnerReplies;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
-  /// **'When the reminder is cleared'**
-  String get whenTheReminderIsCleared;
-
-  /// English UI message used by shell/preferences_page.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'{sectionTitleSectionPluginSections} preferences saved.'**
   String preferencesSaved(String sectionTitleSectionPluginSections);
 

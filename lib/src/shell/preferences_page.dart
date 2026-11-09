@@ -814,26 +814,12 @@ class _InterfaceForm extends StatelessWidget {
             context.l10n.chooseWhatHappensAfterABookmarkReminder,
           ),
           entries: [
-            DSelectOption(
-              value: BookmarkAutoDeletePreference.never,
-              label: context.l10n.never,
-              child: Text(context.l10n.never),
-            ),
-            DSelectOption(
-              value: BookmarkAutoDeletePreference.whenReminderSent,
-              label: context.l10n.afterTheReminderIsSent,
-              child: Text(context.l10n.afterTheReminderIsSent),
-            ),
-            DSelectOption(
-              value: BookmarkAutoDeletePreference.onOwnerReply,
-              label: context.l10n.whenTheTopicOwnerReplies,
-              child: Text(context.l10n.whenTheTopicOwnerReplies),
-            ),
-            DSelectOption(
-              value: BookmarkAutoDeletePreference.clearReminder,
-              label: context.l10n.whenTheReminderIsCleared,
-              child: Text(context.l10n.whenTheReminderIsCleared),
-            ),
+            for (final preference in BookmarkAutoDeletePreference.values)
+              DSelectOption(
+                value: preference,
+                label: preference.label,
+                child: Text(preference.label),
+              ),
           ],
           onChanged: enabled
               ? (value) {

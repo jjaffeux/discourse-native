@@ -11280,18 +11280,6 @@
   "@chooseWhatHappensAfterABookmarkReminder": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
   },
-  "afterTheReminderIsSent": "After the reminder is sent",
-  "@afterTheReminderIsSent": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
-  "whenTheTopicOwnerReplies": "When the topic owner replies",
-  "@whenTheTopicOwnerReplies": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
-  "whenTheReminderIsCleared": "When the reminder is cleared",
-  "@whenTheReminderIsCleared": {
-    "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact."
-  },
   "preferencesSaved": "{sectionTitleSectionPluginSections} preferences saved.",
   "@preferencesSaved": {
     "description": "English UI message used by shell/preferences_page.dart. Keep placeholders intact.",

@@ -8610,15 +8610,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Choose what happens after a bookmark reminder.';
 
   @override
-  String get afterTheReminderIsSent => 'After the reminder is sent';
-
-  @override
-  String get whenTheTopicOwnerReplies => 'When the topic owner replies';
-
-  @override
-  String get whenTheReminderIsCleared => 'When the reminder is cleared';
-
-  @override
   String preferencesSaved(String sectionTitleSectionPluginSections) {
     return '$sectionTitleSectionPluginSections preferences saved.';
   }
