@@ -600,12 +600,328 @@ void main() {
       expect(api.topicPostNumbersOpened, isEmpty);
     });
   });
+
+  group('moving the topic during a timeline drag', () {
+    test('the posts arrive before the route moves', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final load = api.gatePost(300);
+      final route = shell.currentContent;
+      final revision = shell.topicNavigationRevision;
+
+      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => true);
+      await load.started.future;
+      expect(shell.currentContent, same(route));
+      expect(shell.topicNavigationRevision, revision);
+
+      load.release.complete();
+      expect(await moved, isTrue);
+      await pumpEventQueue();
+
+      expect(shell.currentContent?.postNumber, 12);
+      expect(shell.topicNavigationRevision, revision + 1);
+      expect(api.postFetches, [
+        [200, 300],
+      ]);
+      expect(api.topicPostNumbersOpened, isEmpty);
+    });
+
+    test('posts already held need no request', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      shell.store
+        ..put(_siteUrl, _secondPost)
+        ..put(_siteUrl, _lastPost);
+
+      expect(
+        await shell.scrubCurrentTopicToIndex(3, isWanted: () => true),
+        isTrue,
+      );
+      await pumpEventQueue();
+
+      expect(shell.currentContent?.postNumber, 12);
+      expect(api.postFetches, isEmpty);
+      expect(api.topicPostNumbersOpened, isEmpty);
+    });
+
+    test('a load the drag moved on from applies nothing', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      var newest = 3;
+      final load = api.gatePost(300);
+      final route = shell.currentContent;
+      final revision = shell.topicNavigationRevision;
+      final moved = shell.scrubCurrentTopicToIndex(
+        3,
+        isWanted: () => newest == 3,
+      );
+      await load.started.future;
+
+      newest = 2;
+      load.release.complete();
+
+      expect(await moved, isFalse);
+      await pumpEventQueue();
+      expect(shell.currentContent, same(route));
+      expect(shell.topicNavigationRevision, revision);
+      // Kept, so a drag coming back through it needs no second request.
+      expect(shell.store.read<Post>(_siteUrl, 300), isNotNull);
+    });
+
+    test('positions passed through stay out of the saved tabs', () async {
+      final tabs = FakeForumTabStore();
+      final (:shell, :api, authenticator: _) = await _fixture(forumTabs: tabs);
+      shell.store
+        ..put(_siteUrl, _secondPost)
+        ..put(_siteUrl, _lastPost);
+      await pumpEventQueue();
+      final saves = tabs.saveCount;
+
+      expect(
+        await shell.scrubCurrentTopicToIndex(3, isWanted: () => true),
+        isTrue,
+      );
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 12);
+      expect(tabs.saveCount, saves);
+
+      expect(await shell.jumpToCurrentTopicIndex(3), isTrue);
+      await pumpEventQueue();
+      expect(tabs.saveCount, greaterThan(saves));
+      expect(api.postFetches, isEmpty);
+    });
+
+    test('an abandoned jump cannot land under the drag replacing it', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final load = api.gatePost(300);
+      final route = shell.currentContent;
+      final revision = shell.topicNavigationRevision;
+      final jump = shell.jumpToCurrentTopicIndex(3);
+      await load.started.future;
+
+      shell.abandonCurrentTopicJump();
+      load.release.complete();
+
+      expect(await jump, isFalse);
+      await pumpEventQueue();
+      expect(shell.currentContent, same(route));
+      expect(shell.topicNavigationRevision, revision);
+    });
+
+    for (final olderFinishesFirst in [true, false]) {
+      test('an older load landing '
+          '${olderFinishesFirst ? 'first' : 'last'} cannot displace the '
+          'newest position', () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        var newest = 3;
+        final olderLoad = api.gatePost(300);
+        final older = shell.scrubCurrentTopicToIndex(
+          3,
+          isWanted: () => newest == 3,
+        );
+        await olderLoad.started.future;
+        newest = 2;
+        final newerLoad = api.gatePost(200);
+        final newer = shell.scrubCurrentTopicToIndex(
+          2,
+          isWanted: () => newest == 2,
+        );
+        await newerLoad.started.future;
+
+        if (olderFinishesFirst) {
+          final revision = shell.topicNavigationRevision;
+          olderLoad.release.complete();
+          expect(await older, isFalse);
+          expect(shell.topicNavigationRevision, revision);
+        }
+        newerLoad.release.complete();
+        expect(await newer, isTrue);
+        await pumpEventQueue();
+        expect(shell.currentContent?.postNumber, 2);
+        final settled = shell.topicNavigationRevision;
+        if (!olderFinishesFirst) {
+          olderLoad.release.complete();
+          expect(await older, isFalse);
+          await pumpEventQueue();
+        }
+
+        expect(shell.currentContent?.postNumber, 2);
+        expect(shell.topicNavigationRevision, settled);
+      });
+    }
+
+    test('a release settles over a drag load still pending', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      var dragging = true;
+      final load = api.gatePost(300);
+      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => dragging);
+      await load.started.future;
+
+      dragging = false;
+      expect(await shell.jumpToCurrentTopicIndex(2), isTrue);
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 2);
+      final settled = shell.topicNavigationRevision;
+
+      load.release.complete();
+      expect(await moved, isFalse);
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 2);
+      expect(shell.topicNavigationRevision, settled);
+      expect(shell.topicScrollPostNumber(1), 2);
+      expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+    });
+
+    test('other navigation supersedes a drag load', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final load = api.gatePost(300);
+      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => true);
+      await load.started.future;
+
+      shell.openCurrentTopicPost(1);
+      await pumpEventQueue();
+      final settled = shell.topicNavigationRevision;
+      load.release.complete();
+
+      expect(await moved, isFalse);
+      await pumpEventQueue();
+      expect(shell.currentContent?.postNumber, 1);
+      expect(shell.topicNavigationRevision, settled);
+    });
+
+    test('a drag load cannot settle a retired account', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      final load = api.gatePost(300);
+      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => true);
+      await load.started.future;
+
+      expect(await shell.removeInstance(shell.currentInstance!), isTrue);
+      load.release.complete();
+
+      expect(await moved, isFalse);
+      await pumpEventQueue();
+      expect(shell.currentInstance, isNull);
+      expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+    });
+
+    group('in a mega topic', () {
+      const heldStream = [100, 200, 300];
+      const run = (
+        detail: TopicDetail(
+          id: 1,
+          title: 'One',
+          stream: [800, 801],
+          postsCount: 9000,
+          isMegaTopic: true,
+          highestPostNumber: 12000,
+        ),
+        posts: [
+          Post(id: 800, postNumber: 8000, username: 'sam', cooked: '<p>A</p>'),
+          Post(id: 801, postNumber: 8001, username: 'sam', cooked: '<p>B</p>'),
+        ],
+      );
+
+      Future<({ShellController shell, _JumpApi api})> megaFixture() async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        shell.store.put(
+          _siteUrl,
+          const TopicDetail(
+            id: 1,
+            title: 'One',
+            stream: heldStream,
+            postsCount: 9000,
+            highestPostNumber: 12000,
+            isMegaTopic: true,
+          ),
+        );
+        api.positionedPayloads[8000] = run;
+        return (shell: shell, api: api);
+      }
+
+      test('the run arrives before the route moves', () async {
+        final (:shell, :api) = await megaFixture();
+        final load = api.gateTopic(8000);
+        final route = shell.currentContent;
+
+        final moved = shell.scrubCurrentTopicToIndex(
+          8000,
+          isWanted: () => true,
+        );
+        await load.started.future;
+        expect(shell.currentContent, same(route));
+        expect(shell.store.read<TopicDetail>(_siteUrl, 1)?.stream, heldStream);
+
+        load.release.complete();
+        expect(await moved, isTrue);
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.postNumber, 8000);
+        expect(shell.store.read<TopicDetail>(_siteUrl, 1)?.stream, [800, 801]);
+        expect(api.topicPostNumbersOpened, [8000]);
+      });
+
+      test('a deleted post number settles on the post after it', () async {
+        final (:shell, :api) = await megaFixture();
+        api.positionedPayloads[7999] = run;
+
+        expect(
+          await shell.scrubCurrentTopicToIndex(7999, isWanted: () => true),
+          isTrue,
+        );
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.postNumber, 8000);
+        expect(shell.focusedTabContext.currentTopicLoading, isFalse);
+        expect(api.topicPostNumbersOpened, [7999]);
+      });
+
+      test('a gap inside the held run needs no request', () async {
+        final (:shell, :api) = await megaFixture();
+        shell.store
+          ..put(_siteUrl, _firstPost)
+          ..put(_siteUrl, _secondPost)
+          ..put(_siteUrl, _lastPost);
+
+        expect(
+          await shell.scrubCurrentTopicToIndex(7, isWanted: () => true),
+          isTrue,
+        );
+        await pumpEventQueue();
+
+        expect(shell.currentContent?.postNumber, 12);
+        expect(api.topicPostNumbersOpened, isEmpty);
+      });
+
+      test(
+        'a run the drag moved on from does not replace the held one',
+        () async {
+          final (:shell, :api) = await megaFixture();
+          var dragging = true;
+          final load = api.gateTopic(8000);
+          final route = shell.currentContent;
+          final moved = shell.scrubCurrentTopicToIndex(
+            8000,
+            isWanted: () => dragging,
+          );
+          await load.started.future;
+
+          dragging = false;
+          load.release.complete();
+
+          expect(await moved, isFalse);
+          await pumpEventQueue();
+          expect(shell.currentContent, same(route));
+          expect(
+            shell.store.read<TopicDetail>(_siteUrl, 1)?.stream,
+            heldStream,
+          );
+        },
+      );
+    });
+  });
 }
 
 Future<
   ({ShellController shell, _JumpApi api, _GatedAuthenticator authenticator})
 >
-_fixture({bool mobile = false}) async {
+_fixture({bool mobile = false, FakeForumTabStore? forumTabs}) async {
   final api = _JumpApi();
   // Only a signed-in forum reads its stored key, so a gated lookup is reached.
   final authenticator = _GatedAuthenticator()..keys[_siteUrl] = 'api-key';
@@ -616,7 +932,7 @@ _fixture({bool mobile = false}) async {
     api: api,
     authenticator: authenticator,
     drafts: FakeDraftStore(),
-    forumTabs: FakeForumTabStore(),
+    forumTabs: forumTabs ?? FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
     updateStore: FakeUpdateStore(),
     mobileNavigationEnabled: mobile,
@@ -675,6 +991,7 @@ final class _JumpApi extends FakeDiscourseApi {
     detail: _topic,
     posts: const [_secondPost, _lastPost],
   );
+  final positionedPayloads = <int, TopicPayload>{};
   final _topicGates = <int, _Gate>{};
   _Gate gateTopic(int number) => _topicGates[number] = _Gate();
 
@@ -690,6 +1007,14 @@ final class _JumpApi extends FakeDiscourseApi {
     Future<void>? abortTrigger,
   }) async {
     final gate = _topicGates.remove(postNumber);
+    if (positionedPayloads[postNumber] case final payload?) {
+      topicPostNumbersOpened.add(postNumber);
+      if (gate != null) {
+        gate.started.complete();
+        await gate.release.future;
+      }
+      return payload;
+    }
     if (postNumber == 99999999) {
       topicsOpened.add(id);
       topicPostNumbersOpened.add(postNumber);
@@ -729,7 +1054,7 @@ final class _JumpApi extends FakeDiscourseApi {
     String? clientId,
   }) async {
     postFetches.add(List.of(ids));
-    final gate = _gates.remove(ids.single);
+    final gate = [for (final id in ids) ?_gates.remove(id)].firstOrNull;
     if (gate != null) {
       gate.started.complete();
       await gate.release.future;

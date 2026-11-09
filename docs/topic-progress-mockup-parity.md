@@ -27,10 +27,19 @@ of sheet dismissal. Existing sheet presets keep
 their original geometry.
 
 The editor retains its opening account/site/topic/tab lease. A drag previews
-loaded author/date metadata, falling back to Post N for unloaded positions.
+loaded author/date metadata, falling back to Post N for unloaded positions, and
+moves the topic as it goes, as the mockup's `TimelineMenu` does. A position in
+the laid-out posts moves the list directly and leaves the route alone. Anywhere
+else loads first and changes the route only once the posts are held, so a drag
+never draws a skeleton. Only the newest position is loaded, one load at a time
+and at most every 120ms. A load that lands after the drag has moved on is used
+only if it lies between the reader and the drag. Nothing a drag passes through
+is read, saved as an anchor or written to the saved tabs. Paging waits until the
+drag ends.
 Releasing the slider or tapping First post/Latest post commits navigation and
-closes the phone sheet immediately while an unloaded post resolves. Cancellation
-restores the preview and leaves it open.
+closes the phone sheet immediately while an unloaded post resolves. Reading
+stays off until that release lands. Cancellation restores the preview, returns
+the reader to where the drag began and leaves the panel open.
 Late lookups cannot mutate a replacement route or a reopened panel. Topic API
 creation/latest timestamps remain available when endpoint posts are unloaded.
 

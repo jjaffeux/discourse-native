@@ -809,6 +809,398 @@ void main() {
       expect(geometry.itemJumps, const [(itemIndex: 2, viewportOffset: 10)]);
     });
 
+    group('timeline drag', () {
+      ({
+        TopicViewportCoordinator subject,
+        _Owner owner,
+        _Geometry geometry,
+        _FrameQueue frames,
+        _ManualClock clock,
+      })
+      arrange({
+        bool hasMore = false,
+        bool hasEarlier = false,
+        List<int> postIds = const [10, 11, 12],
+      }) {
+        final frames = _FrameQueue();
+        final geometry = _Geometry()
+          ..offsets.addAll({for (final id in postIds) id: 0});
+        final clock = _ManualClock();
+        final subject = _coordinator(
+          frames: frames,
+          geometry: geometry,
+          clock: clock,
+        );
+        _disposeAfter(subject, frames);
+        final owner = _Owner(
+          _snapshot(
+            topicId: 1,
+            postIds: postIds,
+            hasMore: hasMore,
+            hasEarlier: hasEarlier,
+            initialPostIndex: 0,
+          ),
+        );
+        subject
+          ..bind(owner.binding)
+          ..updateLaidOutSnapshot(owner.snapshot)
+          ..restoreInitialPost(owner.snapshot);
+        frames.flushAll();
+        return (
+          subject: subject,
+          owner: owner,
+          geometry: geometry,
+          frames: frames,
+          clock: clock,
+        );
+      }
+
+      void observe(
+        TopicViewportCoordinator subject,
+        _Owner owner, {
+        required int postId,
+        required int postNumber,
+      }) {
+        final seen = (postId: postId, postNumber: postNumber, caughtUp: false);
+        subject.recordObservation(
+          snapshot: owner.snapshot,
+          saveAnchor: true,
+          leading: seen,
+          visible: seen,
+          readable: seen,
+          readablePostNumbers: [postNumber],
+        );
+      }
+
+      test('credits what was read, and nothing the drag passes', () async {
+        final (:subject, :owner, geometry: _, frames: _, :clock) = arrange();
+        observe(subject, owner, postId: 10, postNumber: 1);
+        owner.anchors.clear();
+
+        final scrub = subject.beginScrub();
+        await pumpEventQueue();
+        expect(owner.reads.map((read) => read.postNumber), [1]);
+
+        observe(subject, owner, postId: 12, postNumber: 3);
+        clock.elapse(const Duration(seconds: 5));
+        await pumpEventQueue();
+
+        expect(owner.reads.map((read) => read.postNumber), [1]);
+        expect(owner.anchors, isEmpty);
+        expect(subject.progressPosition, 3);
+
+        subject.endScrub(scrub);
+        observe(subject, owner, postId: 11, postNumber: 2);
+        clock.elapse(const Duration(milliseconds: 500));
+        await pumpEventQueue();
+        expect(owner.reads.map((read) => read.postNumber), [1, 2]);
+        expect(owner.anchors.map((anchor) => anchor.postNumber), [2]);
+      });
+
+      test('a rebind partway through credits no position passed', () async {
+        final (:subject, :owner, geometry: _, frames: _, clock: _) = arrange();
+        final scrub = subject.beginScrub();
+        observe(subject, owner, postId: 12, postNumber: 3);
+
+        final next = _Owner(
+          _snapshot(
+            topicId: 1,
+            postIds: const [10, 11, 12],
+            initialPostIndex: 2,
+            navigationRevision: 2,
+          ),
+          owner: owner.binding.owner,
+          session: owner.binding.session,
+        );
+        expect(subject.bind(next.binding), isTrue);
+        await pumpEventQueue();
+
+        expect(owner.reads, isEmpty);
+        expect(next.reads, isEmpty);
+        subject.endScrub(scrub);
+      });
+
+      test('leaving the foreground credits no position passed', () async {
+        final (:subject, :owner, geometry: _, frames: _, clock: _) = arrange();
+        subject.beginScrub();
+        observe(subject, owner, postId: 12, postNumber: 3);
+
+        subject.handleAppLifecycleState(AppLifecycleState.paused);
+        await pumpEventQueue();
+
+        expect(owner.reads, isEmpty);
+      });
+
+      test('paging waits for the drag to end', () {
+        final (:subject, :owner, geometry: _, :frames, clock: _) = arrange(
+          hasMore: true,
+        );
+        final scrub = subject.beginScrub();
+
+        subject.scheduleLoadMore(owner.snapshot);
+        frames.flushAll();
+        expect(owner.loadMoreCount, 0);
+
+        subject
+          ..endScrub(scrub)
+          ..scheduleLoadMore(owner.snapshot);
+        frames.flushAll();
+        expect(owner.loadMoreCount, 1);
+      });
+
+      test('a laid-out position moves the list and leaves the route', () {
+        final (:subject, owner: _, :geometry, frames: _, clock: _) = arrange();
+        geometry.itemJumps.clear();
+
+        expect(subject.showScrubPosition(1), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+
+        subject.beginScrub();
+        expect(subject.showScrubPosition(3), isTrue);
+
+        expect(geometry.itemJumps.single.itemIndex, 2);
+        expect(geometry.itemJumps.single.viewportOffset, 0);
+      });
+
+      test('a laid-out position counts the earlier-posts row', () {
+        final (:subject, owner: _, :geometry, frames: _, clock: _) = arrange(
+          hasEarlier: true,
+        );
+        geometry.itemJumps.clear();
+
+        subject.beginScrub();
+        expect(subject.showScrubPosition(2), isTrue);
+
+        expect(geometry.itemJumps.single.itemIndex, 2);
+      });
+
+      test('a position beyond the laid-out window needs a load', () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final snapshot = _snapshot(
+          topicId: 1,
+          postIds: const [11, 12],
+          initialPostIndex: 0,
+        );
+        final owner = _Owner(
+          TopicViewportSnapshot(
+            topicId: 1,
+            topic: snapshot.topic,
+            siteUrl: snapshot.siteUrl,
+            postIds: snapshot.postIds,
+            streamIds: const [10, 11, 12, 13],
+            loading: false,
+            loadingMore: false,
+            loadingEarlier: false,
+            hasMore: false,
+            hasEarlier: false,
+            initialPostIndex: 0,
+            recommendations: null,
+            summary: false,
+            summaryLoading: false,
+            readTimeWordCount: 500,
+            showTimeGapDays: 14,
+            navigationRevision: 1,
+          ),
+        );
+        subject
+          ..bind(owner.binding)
+          ..updateLaidOutSnapshot(owner.snapshot)
+          ..restoreInitialPost(owner.snapshot);
+        frames.flushAll();
+        geometry.itemJumps.clear();
+        subject.beginScrub();
+
+        expect(subject.showScrubPosition(1), isFalse);
+        expect(subject.showScrubPosition(4), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+        expect(subject.showScrubPosition(3), isTrue);
+        expect(geometry.itemJumps.single.itemIndex, 1);
+      });
+
+      test('a mega topic finds its position by post number', () {
+        final frames = _FrameQueue();
+        final geometry = _Geometry();
+        final subject = _coordinator(frames: frames, geometry: geometry);
+        _disposeAfter(subject, frames);
+        final owner = _Owner(
+          const TopicViewportSnapshot(
+            topicId: 1,
+            topic: TopicDetail(
+              id: 1,
+              title: 'Mega',
+              stream: [10, 11, 12],
+              postsCount: 9000,
+              highestPostNumber: 12000,
+              isMegaTopic: true,
+            ),
+            siteUrl: 'https://meta.example',
+            postIds: [10, 11, 12],
+            streamIds: [10, 11, 12],
+            loading: false,
+            loadingMore: false,
+            loadingEarlier: false,
+            hasMore: false,
+            hasEarlier: false,
+            initialPostIndex: 0,
+            recommendations: null,
+            summary: false,
+            summaryLoading: false,
+            readTimeWordCount: 500,
+            showTimeGapDays: 14,
+            navigationRevision: 1,
+          ),
+        );
+        owner.postNumbers.addAll({10: 8000, 11: 8002, 12: 8005});
+        subject
+          ..bind(owner.binding)
+          ..updateLaidOutSnapshot(owner.snapshot)
+          ..restoreInitialPost(owner.snapshot);
+        frames.flushAll();
+        geometry.itemJumps.clear();
+        subject.beginScrub();
+
+        expect(subject.showScrubPosition(7999), isFalse);
+        expect(subject.showScrubPosition(8006), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+
+        // The next post that exists, as a jump to a deleted number lands.
+        expect(subject.showScrubPosition(8001), isTrue);
+        expect(geometry.itemJumps.single.itemIndex, 1);
+      });
+
+      test('a position cannot be shown under a pending restoration', () {
+        final (:subject, :owner, :geometry, :frames, clock: _) = arrange();
+        subject.beginScrub();
+        final next = _Owner(
+          _snapshot(
+            topicId: 1,
+            postIds: const [10, 11, 12],
+            initialPostIndex: 2,
+            navigationRevision: 2,
+          ),
+          owner: owner.binding.owner,
+          session: owner.binding.session,
+        );
+        subject.bind(next.binding);
+        subject
+          ..updateLaidOutSnapshot(next.snapshot)
+          ..restoreInitialPost(next.snapshot);
+        geometry.itemJumps.clear();
+
+        expect(subject.showScrubPosition(1), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+
+        frames.flushAll();
+        expect(subject.showScrubPosition(1), isTrue);
+      });
+
+      test('a stale route cannot be moved in place', () {
+        final (:subject, :owner, :geometry, frames: _, clock: _) = arrange();
+        subject.beginScrub();
+        owner.current = false;
+        geometry.itemJumps.clear();
+
+        expect(subject.showScrubPosition(1), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+      });
+
+      test('cancelling returns to the exact place the drag began', () {
+        final (:subject, owner: _, :geometry, frames: _, clock: _) = arrange();
+        geometry.capturedAnchor = (postId: 11, viewportOffset: -32);
+        subject.beginScrub();
+        geometry.itemJumps.clear();
+
+        expect(subject.restoreScrubOrigin(), isTrue);
+
+        expect(geometry.itemJumps.single.itemIndex, 1);
+        expect(geometry.itemJumps.single.viewportOffset, -32);
+      });
+
+      test('cancelling needs a load once the origin has left the window', () {
+        final (:subject, owner: _, :geometry, frames: _, clock: _) = arrange();
+        geometry.capturedAnchor = (postId: 99, viewportOffset: 0);
+        subject.beginScrub();
+        geometry.itemJumps.clear();
+
+        expect(subject.restoreScrubOrigin(), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+      });
+
+      test('cancelling under a pending restoration needs a route', () {
+        final (:subject, :owner, :geometry, :frames, clock: _) = arrange();
+        geometry.capturedAnchor = (postId: 11, viewportOffset: -32);
+        subject.beginScrub();
+        final next = _Owner(
+          _snapshot(
+            topicId: 1,
+            postIds: const [10, 11, 12],
+            initialPostIndex: 2,
+            navigationRevision: 2,
+          ),
+          owner: owner.binding.owner,
+          session: owner.binding.session,
+        );
+        subject
+          ..bind(next.binding)
+          ..updateLaidOutSnapshot(next.snapshot)
+          ..restoreInitialPost(next.snapshot);
+        geometry.itemJumps.clear();
+
+        expect(subject.restoreScrubOrigin(), isFalse);
+        expect(geometry.itemJumps, isEmpty);
+
+        frames.flushAll();
+        expect(subject.restoreScrubOrigin(), isTrue);
+      });
+
+      test('a later drag starts from where the reader is now', () {
+        final (:subject, owner: _, :geometry, frames: _, clock: _) = arrange();
+        geometry.capturedAnchor = (postId: 10, viewportOffset: 0);
+        subject.beginScrub();
+        geometry.capturedAnchor = (postId: 12, viewportOffset: -8);
+        subject.beginScrub();
+        geometry.itemJumps.clear();
+
+        expect(subject.restoreScrubOrigin(), isTrue);
+
+        expect(geometry.itemJumps.single.itemIndex, 2);
+        expect(geometry.itemJumps.single.viewportOffset, -8);
+      });
+
+      test('a finished drag cannot end the one that replaced it', () async {
+        final (:subject, :owner, geometry: _, frames: _, clock: _) = arrange();
+        final finished = subject.beginScrub();
+        final current = subject.beginScrub();
+
+        subject.endScrub(finished);
+        observe(subject, owner, postId: 12, postNumber: 3);
+        await pumpEventQueue();
+        expect(owner.anchors, isEmpty);
+
+        subject.endScrub(current);
+        observe(subject, owner, postId: 12, postNumber: 3);
+        expect(owner.anchors, isNotEmpty);
+      });
+
+      test('another topic ends the drag', () {
+        final (:subject, :owner, geometry: _, frames: _, clock: _) = arrange();
+        subject.beginScrub();
+
+        final other = _Owner(
+          _snapshot(topicId: 2, postIds: const [20], initialPostIndex: 0),
+        );
+        subject
+          ..bind(other.binding)
+          ..updateLaidOutSnapshot(other.snapshot);
+
+        expect(subject.showScrubPosition(1), isFalse);
+        expect(owner.reads, isEmpty);
+      });
+    });
+
     test('observations during restoration do not save the anchor', () {
       final frames = _FrameQueue();
       final geometry = _Geometry()..offsets[10] = 0;

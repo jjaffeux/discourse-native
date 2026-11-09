@@ -4018,6 +4018,7 @@ class ShellController extends FrameSafeNotifier
     topicData: _topicData,
     lifecycle: lifecycle,
     openPost: openCurrentTopicPost,
+    openScrubbedPost: _openScrubbedTopicPost,
     changed: _notify,
     loadTimeout: topicLoadTimeout,
   );
@@ -4738,12 +4739,21 @@ class ShellController extends FrameSafeNotifier
     );
   }
 
+  /// A place a timeline drag is passing through is not somewhere to reopen
+  /// the topic, so it stays out of the saved tabs until the drag lands.
+  void _openScrubbedTopicPost(int postNumber) {
+    final target = _targetCurrentTopicPost(postNumber, persist: false);
+    if (target == null) return;
+    unawaited(loadTopic(target.topicId, target.slug, postNumber: postNumber));
+  }
+
   ({int topicId, String slug})? _targetCurrentTopicPost(
     int postNumber, {
     ShellTabContext? context,
     int? topicId,
     String? query,
     bool replaceQuery = false,
+    bool persist = true,
   }) {
     final document = context ?? focusedTabContext;
     if (!document.isCurrent) return null;
@@ -4778,6 +4788,7 @@ class ShellController extends FrameSafeNotifier
           anchors: anchors,
         ),
         mobile: _MobileVisitCommit.push,
+        persist: persist,
       );
       _notify();
       return (topicId: topicId, slug: route.slug ?? '');
@@ -4830,6 +4841,17 @@ class ShellController extends FrameSafeNotifier
   /// far, its post number (TopicViewportSnapshot.progressTotal).
   Future<bool> jumpToCurrentTopicIndex(int index) =>
       _topicNavigation.jumpToCurrentTopicIndex(index);
+
+  /// Moves the reader to progress [index] partway through a timeline drag,
+  /// loading first so a drag never shows a skeleton. The reader stays put once
+  /// [isWanted] answers false; [jumpToCurrentTopicIndex] settles the release.
+  Future<bool> scrubCurrentTopicToIndex(
+    int index, {
+    required bool Function() isWanted,
+  }) => _topicNavigation.scrubCurrentTopicTo(index, isWanted: isWanted);
+
+  /// Drops a jump still waiting for its post, for a drag that has replaced it.
+  void abandonCurrentTopicJump() => _topicNavigation.abandonJump();
 
   bool openCorePageUrl(String url) {
     final destination = _routeForLink(url);

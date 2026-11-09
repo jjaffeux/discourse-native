@@ -1420,6 +1420,7 @@ class _TopicViewState extends State<TopicView>
       siteUrl: snapshot.siteUrl,
       isConnected: widget.isConnected,
       viewport: _viewportState,
+      scrubViewport: _viewport,
       controlsCovered: _topicControlsCovered,
       totalPosts: totalPosts,
       canReply: widget.canReply,
@@ -2206,6 +2207,7 @@ class _TopicViewState extends State<TopicView>
                                     position: position,
                                     total: snapshot.progressTotal,
                                     floating: true,
+                                    viewport: _viewport,
                                   ),
                               ],
                             ),
@@ -2324,6 +2326,7 @@ class _TopicViewState extends State<TopicView>
 class _TopicBottomBar extends StatelessWidget {
   const _TopicBottomBar({
     required this.viewport,
+    required this.scrubViewport,
     required this.controlsCovered,
     required this.totalPosts,
     required this.canReply,
@@ -2339,6 +2342,7 @@ class _TopicBottomBar extends StatelessWidget {
   /// Only the progress control listens: the reading position changes with
   /// every post scrolled past, and the other controls never depend on it.
   final TopicViewportListenable viewport;
+  final TopicScrubViewport scrubViewport;
   final ValueListenable<bool> controlsCovered;
   final int totalPosts;
   final bool canReply;
@@ -2455,6 +2459,7 @@ class _TopicBottomBar extends StatelessWidget {
                               controller: controller,
                               position: position,
                               total: totalPosts,
+                              viewport: scrubViewport,
                             ),
                           ),
                         );

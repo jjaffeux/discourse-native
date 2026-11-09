@@ -1902,6 +1902,86 @@ void main() {
       });
 
       testWidgets(
+        'a timeline drag moves the posts and reads only where it lands',
+        (tester) async {
+          const user = DiscourseUser(id: 1, username: 'sam');
+          final site = instance('meta.example').copyWith(user: user);
+          final api = FakeDiscourseApi(user: user);
+          final controller = ShellController(
+            instanceStore: FakeInstanceStore([site]),
+            api: api,
+            authenticator: FakeAuthenticator.signedIn([site], site: api),
+            drafts: FakeDraftStore(),
+            trackers: FakeSiteTracker.reset(),
+          );
+          addTearDown(controller.dispose);
+          await controller.load();
+          _storeFullTopic(controller, site.url, topicId: 1, firstPostId: 100);
+          controller.pushContent(
+            ContentRoute.topic(topicId: 1, slug: 'one', title: 'One'),
+          );
+          await tester.pumpWidget(_topicView(controller));
+          await tester.pumpAndSettle();
+          await tester.pump(const Duration(seconds: 1));
+          final mobile =
+              debugDefaultTargetPlatformOverride == TargetPlatform.iOS;
+          await tester.tap(find.byKey(const ValueKey('topic-progress-button')));
+          await tester.pumpAndSettle();
+          api.topicReadsRecorded.clear();
+          final revision = controller.topicNavigationRevision;
+          final saved = controller.topicScrollPostNumber(1);
+          final slider = tester.getRect(find.byType(DMultiSlider));
+          Offset at(int position) => Offset(
+            slider.left + 10 + (position - 1) / 29 * (slider.width - 20),
+            slider.center.dy,
+          );
+
+          final gesture = await tester.startGesture(
+            at(1),
+            kind: mobile ? PointerDeviceKind.touch : PointerDeviceKind.mouse,
+          );
+          await tester.pump();
+          await gesture.moveTo(at(20));
+          await tester.pump(const Duration(seconds: 2));
+
+          expect(find.byKey(const ValueKey(119)), findsOneWidget);
+          expect(controller.topicNavigationRevision, revision);
+          expect(controller.topicScrollPostNumber(1), saved);
+          expect(api.topicReadsRecorded, isEmpty);
+
+          await gesture.moveTo(at(12));
+          await tester.pump(const Duration(seconds: 2));
+          expect(find.byKey(const ValueKey(111)), findsOneWidget);
+          expect(api.topicReadsRecorded, isEmpty);
+
+          await gesture.up();
+          await tester.pumpAndSettle();
+          expect(controller.currentContent?.postNumber, 12);
+          expect(controller.topicScrollPostNumber(1), 12);
+          expect(api.topicPostNumbersOpened, isEmpty);
+
+          await tester.pump(const Duration(seconds: 3));
+          expect(
+            api.topicReadsRecorded,
+            contains((topicId: 1, postNumber: 12)),
+          );
+          expect(
+            api.topicReadsRecorded.map((read) => read.postNumber),
+            isNot(contains(20)),
+          );
+          expect(tester.takeException(), isNull);
+          if (!mobile) {
+            await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+            await tester.pumpAndSettle();
+          }
+        },
+        variant: const TargetPlatformVariant({
+          TargetPlatform.macOS,
+          TargetPlatform.iOS,
+        }),
+      );
+
+      testWidgets(
         'still reveals the named post when initial jumps straddle a prepend',
         (tester) async {
           final site = instance('meta.example');

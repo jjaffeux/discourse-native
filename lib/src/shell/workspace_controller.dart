@@ -307,9 +307,10 @@ final class _WorkspaceController {
     String siteUrl,
     ForumTab replacement, {
     required _MobileVisitCommit mobile,
+    bool persist = true,
   }) {
     consumeHomepage(replacement.id);
-    replaceTab(siteUrl, replacement);
+    replaceTab(siteUrl, replacement, persist: persist);
     if (_shell.currentInstance?.url == siteUrl &&
         _shell.activeTabId == replacement.id) {
       _shell._commitMobileDocument(mobile);

@@ -14,6 +14,7 @@ import 'post_plain_text.dart';
 import 'shell_controller.dart';
 import 'stream_day_separator.dart';
 import 'topic_corner_controls.dart';
+import 'topic_viewport_coordinator.dart';
 
 class TopicProgressButton extends StatelessWidget {
   const TopicProgressButton({
@@ -92,12 +93,17 @@ class TopicProgressPopover extends StatefulWidget {
     required this.position,
     required this.total,
     this.floating = false,
+    this.viewport,
   });
 
   final ShellController controller;
   final int position;
   final int total;
   final bool floating;
+
+  /// The reader a drag moves as it goes. Without one a drag still reaches the
+  /// topic, only by way of a route each time.
+  final TopicScrubViewport? viewport;
 
   @override
   State<TopicProgressPopover> createState() => _TopicProgressPopoverState();
@@ -141,6 +147,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
                 total: widget.total < 1 ? 1 : widget.total,
                 isOpen: () => _sheet.isOpen,
                 onJumpCommitted: _sheet.close,
+                viewport: widget.viewport,
               ),
             ),
           ],
@@ -176,6 +183,7 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
           position: widget.position,
           total: widget.total < 1 ? 1 : widget.total,
           isOpen: () => _popover.isOpen,
+          viewport: widget.viewport,
         ),
       ),
       child: DPopoverTrigger(
@@ -192,6 +200,90 @@ class _TopicProgressPopoverState extends State<TopicProgressPopover> {
   }
 }
 
+/// One drag along the timeline, reduced to the moves the reader can keep up
+/// with.
+///
+/// A position already laid out is shown at once. Anywhere else costs a load,
+/// so only the newest position is ever loaded, one at a time and no more often
+/// than [_interval]. A load landing after the drag has moved on is still used
+/// when it lies between the reader and the drag, which keeps a drag faster
+/// than the network moving, and otherwise takes the reader nowhere.
+final class _TimelineDrag {
+  _TimelineDrag({
+    required this.viewport,
+    required this.origin,
+    required this.revision,
+    required this.load,
+  }) : _shown = origin,
+       _scrub = viewport?.beginScrub();
+
+  final TopicScrubViewport? viewport;
+  final int origin;
+  final int revision;
+  final Future<bool> Function(int position, {required bool Function() isWanted})
+  load;
+  final Object? _scrub;
+
+  static const _interval = Duration(milliseconds: 120);
+
+  int _shown;
+  int? _target;
+  Timer? _wait;
+  bool _loading = false;
+
+  bool _show(int position) {
+    final shown = viewport?.showScrubPosition(position) ?? false;
+    if (shown) _shown = position;
+    return shown;
+  }
+
+  bool _isOnTheWay(int position) {
+    final target = _target;
+    if (target == null) return false;
+    return position == target ||
+        (position > _shown && position < target) ||
+        (position < _shown && position > target);
+  }
+
+  void moveTo(int position) {
+    _target = position;
+    if (_show(position)) {
+      _wait?.cancel();
+      _wait = null;
+      return;
+    }
+    _schedule();
+  }
+
+  void stop() {
+    _target = null;
+    _wait?.cancel();
+    _wait = null;
+  }
+
+  bool restoreOrigin() => viewport?.restoreScrubOrigin() ?? false;
+
+  void end() {
+    if (_scrub case final scrub?) viewport?.endScrub(scrub);
+  }
+
+  void _schedule() {
+    if (_wait != null || _loading || _target == null) return;
+    _wait = Timer(_interval, () => unawaited(_loadNewest()));
+  }
+
+  Future<void> _loadNewest() async {
+    _wait = null;
+    final position = _target;
+    if (position == null || _show(position)) return;
+    _loading = true;
+    final moved = await load(position, isWanted: () => _isOnTheWay(position));
+    if (moved) _shown = position;
+    _loading = false;
+    if (_target != position) _schedule();
+  }
+}
+
 class _TopicProgressEditor extends StatefulWidget {
   const _TopicProgressEditor({
     required this.controller,
@@ -200,6 +292,7 @@ class _TopicProgressEditor extends StatefulWidget {
     super.key,
     required this.isOpen,
     this.onJumpCommitted,
+    this.viewport,
   });
 
   final ShellController controller;
@@ -207,6 +300,7 @@ class _TopicProgressEditor extends StatefulWidget {
   final int total;
   final bool Function() isOpen;
   final VoidCallback? onJumpCommitted;
+  final TopicScrubViewport? viewport;
 
   @override
   State<_TopicProgressEditor> createState() => _TopicProgressEditorState();
@@ -215,6 +309,7 @@ class _TopicProgressEditor extends StatefulWidget {
 class _TopicProgressEditorState extends State<_TopicProgressEditor> {
   late int _selected = widget.position.clamp(1, widget.total);
   int _request = 0;
+  _TimelineDrag? _drag;
   String? _error;
   String? _siteUrl;
   TopicDetail? _topic;
@@ -270,6 +365,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
 
   @override
   void dispose() {
+    _cancelScrub();
     widget.controller.removeListener(_sourceListener);
     super.dispose();
   }
@@ -282,8 +378,53 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     return false;
   }
 
-  Future<void> _jump(int position) async {
+  void _scrub(int position) {
     if (!mounted || !widget.isOpen() || !_checkSource()) {
+      _cancelScrub();
+      return;
+    }
+    var drag = _drag;
+    if (drag == null) {
+      // A release still waiting for its post belongs to an earlier gesture.
+      _request++;
+      widget.controller.abandonCurrentTopicJump();
+      drag = _drag = _TimelineDrag(
+        viewport: widget.viewport,
+        origin: widget.position.clamp(1, widget.total),
+        revision: widget.controller.topicNavigationRevision,
+        load: widget.controller.scrubCurrentTopicToIndex,
+      );
+    }
+    drag.moveTo(position.clamp(1, widget.total));
+  }
+
+  void _cancelScrub() {
+    final drag = _drag;
+    if (drag == null) return;
+    _drag = null;
+    drag.stop();
+    unawaited(_returnToOrigin(drag));
+  }
+
+  Future<void> _returnToOrigin(_TimelineDrag drag) async {
+    final controller = widget.controller;
+    if (!drag.restoreOrigin() &&
+        controller.topicNavigationRevision != drag.revision &&
+        _ownsSource()) {
+      await controller.jumpToCurrentTopicIndex(drag.origin);
+    }
+    drag.end();
+  }
+
+  Future<void> _jump(int position) async {
+    // Reading stays off until the release has landed. Waiting for its post
+    // can outlast a read dwell, and the sheet may close in the meantime, and
+    // neither may credit the place the drag happened to stop.
+    final drag = _drag;
+    _drag = null;
+    drag?.stop();
+    if (!mounted || !widget.isOpen() || !_checkSource()) {
+      drag?.end();
       return;
     }
     final target = position.clamp(1, widget.total);
@@ -295,6 +436,7 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     final navigation = widget.controller.jumpToCurrentTopicIndex(target);
     widget.onJumpCommitted?.call();
     final opened = await navigation;
+    drag?.end();
     if (!mounted ||
         request != _request ||
         !widget.isOpen() ||
@@ -345,6 +487,8 @@ class _TopicProgressEditorState extends State<_TopicProgressEditor> {
     firstPostedAt: _postAt(1)?.createdAt ?? _topic?.createdAt,
     lastPostedAt: _postAt(widget.total)?.createdAt ?? _topic?.lastPostedAt,
     onJump: (value) => unawaited(_jump(value)),
+    onScrub: _scrub,
+    onScrubCancel: _cancelScrub,
   );
 }
 
@@ -356,6 +500,8 @@ class TopicProgressPanel extends StatefulWidget {
     required this.position,
     required this.total,
     required this.onJump,
+    this.onScrub,
+    this.onScrubCancel,
     this.error,
     this.postAt,
     this.firstPostedAt,
@@ -364,7 +510,13 @@ class TopicProgressPanel extends StatefulWidget {
 
   final int position;
   final int total;
+
+  /// Where a release, or either end of the timeline, lands.
   final ValueChanged<int> onJump;
+
+  /// Each position a drag passes through, before its release reaches [onJump].
+  final ValueChanged<int>? onScrub;
+  final VoidCallback? onScrubCancel;
   final String? error;
   final Post? Function(int position)? postAt;
   final DateTime? firstPostedAt;
@@ -377,9 +529,14 @@ class TopicProgressPanel extends StatefulWidget {
 class _TopicProgressPanelState extends State<TopicProgressPanel> {
   late int _preview = widget.position;
 
+  /// The total a drag started with. A reply landing mid-drag would otherwise
+  /// change the slider's range, which cancels the drag under the finger.
+  int? _dragTotal;
+
   @override
   void didUpdateWidget(TopicProgressPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_dragTotal != null) return;
     if (oldWidget.position != widget.position ||
         oldWidget.total != widget.total) {
       _preview = widget.position;
@@ -389,7 +546,8 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
   @override
   Widget build(BuildContext context) {
     final tokens = DTokens.of(context);
-    final total = widget.total < 1 ? 1 : widget.total;
+    final heldTotal = _dragTotal ?? widget.total;
+    final total = heldTotal < 1 ? 1 : heldTotal;
     final at = _preview.clamp(1, total);
     final post = widget.postAt?.call(at);
     final words = post == null || post.hidden || post.isDeleted
@@ -530,9 +688,22 @@ class _TopicProgressPanelState extends State<TopicProgressPanel> {
           total: total,
           onChanged: total <= 1
               ? null
-              : (value) => setState(() => _preview = value),
-          onChangeEnd: widget.onJump,
-          onChangeCancel: () => setState(() => _preview = widget.position),
+              : (value) {
+                  setState(() => _preview = value);
+                  widget.onScrub?.call(value);
+                },
+          onChangeStart: () => _dragTotal = total,
+          onChangeEnd: (value) {
+            setState(() => _dragTotal = null);
+            widget.onJump(value);
+          },
+          onChangeCancel: () {
+            setState(() {
+              _dragTotal = null;
+              _preview = widget.position;
+            });
+            widget.onScrubCancel?.call();
+          },
         ),
         const SizedBox(height: 4),
         Row(
@@ -594,12 +765,14 @@ class TopicPositionSlider extends StatelessWidget {
     required this.position,
     required this.total,
     required this.onChanged,
+    this.onChangeStart,
     this.onChangeEnd,
     this.onChangeCancel,
   });
   final int position;
   final int total;
   final ValueChanged<int>? onChanged;
+  final VoidCallback? onChangeStart;
   final ValueChanged<int>? onChangeEnd;
   final VoidCallback? onChangeCancel;
   @override
@@ -615,6 +788,7 @@ class TopicPositionSlider extends StatelessWidget {
     onChanged: onChanged == null
         ? null
         : (values) => onChanged!(values.single.round()),
+    onChangeStart: onChangeStart == null ? null : (_) => onChangeStart!(),
     onChangeEnd: onChangeEnd == null
         ? null
         : (values) => onChangeEnd!(values.single.round()),

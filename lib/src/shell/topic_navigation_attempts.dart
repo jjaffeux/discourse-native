@@ -6,14 +6,12 @@ final class _TopicJumpAttempt {
     required this.tabId,
     required this.revision,
     required this.lease,
-    required this.postId,
   });
 
   final ({String siteUrl, int topicId}) key;
   final String tabId;
   final int revision;
   final SiteLease lease;
-  final int postId;
 }
 
 final class _TopicPostHighlight {
@@ -38,6 +36,7 @@ final class _TopicNavigationAttempts {
     required this._topicData,
     required this._lifecycle,
     required this._openPost,
+    required this._openScrubbedPost,
     required this._changed,
     required this._loadTimeout,
   });
@@ -47,6 +46,7 @@ final class _TopicNavigationAttempts {
   final TopicDataOwner _topicData;
   final SiteLifecycle _lifecycle;
   final void Function(int postNumber, {bool loadAroundPost}) _openPost;
+  final void Function(int postNumber) _openScrubbedPost;
   final void Function() _changed;
   final Duration _loadTimeout;
   final _revisions = <String, int>{};
@@ -56,6 +56,9 @@ final class _TopicNavigationAttempts {
   bool _disposed = false;
 
   static const _highlightDuration = Duration(milliseconds: 2200);
+
+  /// Enough posts below a drag's position to fill any screen it stops on.
+  static const _scrubChunk = 20;
 
   int revisionFor(String? tabId) => _revisions[tabId] ?? 0;
 
@@ -84,24 +87,24 @@ final class _TopicNavigationAttempts {
 
     final stream = document.currentTopicStreamIds;
     final boundedIndex = index.clamp(1, stream.length);
+    final postId = stream[boundedIndex - 1];
     final attempt = _TopicJumpAttempt(
       key: (siteUrl: siteUrl, topicId: topic.id),
       tabId: tabId,
       revision: revision,
       lease: _lifecycle.capture(siteUrl),
-      postId: stream[boundedIndex - 1],
     );
     _jumps[attempt.key] = attempt;
 
     try {
-      var target = _store.read<Post>(siteUrl, attempt.postId);
+      var target = _store.read<Post>(siteUrl, postId);
       final loadAroundPost = target == null;
       if (target == null) {
         target = await _topicData
             .forLease(siteUrl, attempt.lease)
             ?.ensurePost(
               topic.id,
-              attempt.postId,
+              postId,
               isInterested: () => _isCurrent(attempt),
             );
         if (target == null) return false;
@@ -116,6 +119,84 @@ final class _TopicNavigationAttempts {
         final _ = _jumps.remove(attempt.key);
       }
     }
+  }
+
+  /// Takes the reader to progress [index] for a timeline drag.
+  ///
+  /// Unlike a jump, the posts arrive before the route changes. A route that
+  /// names a post not yet loaded drops the list for a skeleton, and a drag
+  /// would flash one at every position it stopped at. It also means a load the
+  /// drag has moved on from has nothing to undo: the reader goes nowhere once
+  /// [isWanted] answers false, and its posts wait in the store for a return.
+  Future<bool> scrubCurrentTopicTo(
+    int index, {
+    required bool Function() isWanted,
+  }) async {
+    final document = _focusedContext();
+    final siteUrl = document.siteUrl;
+    final route = document.currentContent;
+    final topic = document.currentTopic;
+    final tabId = document.tabId;
+    final stream = document.currentTopicStreamIds;
+    if (siteUrl == null ||
+        route?.topicId == null ||
+        topic == null ||
+        tabId == null ||
+        stream.isEmpty) {
+      return false;
+    }
+    final attempt = _TopicJumpAttempt(
+      key: (siteUrl: siteUrl, topicId: topic.id),
+      tabId: tabId,
+      revision: revisionFor(tabId),
+      lease: _lifecycle.capture(siteUrl),
+    );
+    _jumps[attempt.key] = attempt;
+    bool wanted() => _isCurrent(attempt) && isWanted();
+
+    try {
+      final data = _topicData.forLease(siteUrl, attempt.lease);
+      if (data == null) return false;
+      final int? postNumber;
+      if (topic.isMegaTopic && !document.currentTopicSummary) {
+        final requested = math.max(index, 1);
+        postNumber = await data.ensureMegaRun(
+          topic.id,
+          slug: route!.slug ?? '',
+          postNumber: requested,
+          isInterested: wanted,
+        );
+      } else {
+        final target = index.clamp(1, stream.length) - 1;
+        final end = math.min(target + _scrubChunk, stream.length);
+        final held = await data.ensurePosts(
+          topic.id,
+          stream.sublist(math.max(0, end - _scrubChunk), end),
+          isInterested: () => _isCurrent(attempt),
+        );
+        if (!held) return false;
+        postNumber = _store.read<Post>(siteUrl, stream[target])?.postNumber;
+      }
+      if (postNumber == null || !wanted()) return false;
+      _openScrubbedPost(postNumber);
+      return true;
+    } catch (error) {
+      return false;
+    } finally {
+      if (identical(_jumps[attempt.key], attempt)) {
+        final _ = _jumps.remove(attempt.key);
+      }
+    }
+  }
+
+  /// Drops a jump still waiting for its post, so it cannot land under a drag
+  /// that started after it.
+  void abandonJump() {
+    final document = _focusedContext();
+    final siteUrl = document.siteUrl;
+    final topicId = document.currentTopic?.id;
+    if (siteUrl == null || topicId == null) return;
+    final _ = _jumps.remove((siteUrl: siteUrl, topicId: topicId));
   }
 
   bool _isCurrent(_TopicJumpAttempt attempt) {

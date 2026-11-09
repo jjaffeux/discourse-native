@@ -165,6 +165,56 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('a reply landing partway through a drag does not cancel it', (
+    tester,
+  ) async {
+    final scrubbed = <int>[];
+    var cancels = 0;
+    Widget panel(int total) => MaterialApp(
+      theme: AppTheme.light,
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 300,
+            child: TopicProgressPanel(
+              position: 2,
+              total: total,
+              onJump: (_) {},
+              onScrub: scrubbed.add,
+              onScrubCancel: () => cancels++,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpWidget(panel(3));
+    final slider = tester.getRect(find.byType(DMultiSlider));
+    final gesture = await tester.startGesture(slider.center);
+    await tester.pump();
+    await gesture.moveTo(Offset(slider.right - 7, slider.center.dy));
+    await tester.pump();
+
+    await tester.pumpWidget(panel(4));
+    await tester.pump();
+    expect(cancels, 0);
+    expect(tester.takeException(), isNull);
+
+    await gesture.moveTo(slider.center);
+    await tester.pump();
+    expect(scrubbed, [3, 2]);
+    expect(cancels, 0);
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(
+        of: find.byType(TopicProgressPanel),
+        matching: find.text('2 / 4'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('one-post timeline disables its ends and stays bounded', (
     tester,
   ) async {
