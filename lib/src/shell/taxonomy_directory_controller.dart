@@ -139,9 +139,10 @@ final class _TaxonomyDirectoryController
     final user = _shell._instanceAt(siteUrl)?.user;
     final config = _shell.siteConfigFor(siteUrl);
     final site = _sites[siteUrl]!;
+    final scopeCategoryId = _shell.sidebarFilterRoute?.categoryId;
     final held = site.categorySidebarCache;
-    if (_shell.sidebarFilterRoute?.categoryId == null &&
-        held != null &&
+    if (held != null &&
+        held.scopeCategoryId == scopeCategoryId &&
         identical(held.categories, categories) &&
         identical(held.user, user) &&
         held.config == config) {
@@ -152,7 +153,7 @@ final class _TaxonomyDirectoryController
       categories: categories,
       connected: user != null,
       preferredCategoryIds: user?.sidebarCategoryIds ?? const [],
-      scopeCategoryId: _shell.sidebarFilterRoute?.categoryId,
+      scopeCategoryId: scopeCategoryId,
       onSaveCategory: user == null
           ? null
           : (id) => unawaited(_shell.saveSidebarCategory(siteUrl, id)),
@@ -160,29 +161,27 @@ final class _TaxonomyDirectoryController
       fixedCategoryPositions: config.fixedCategoryPositions,
       allowUncategorizedTopics: config.allowUncategorizedTopics,
     );
-    if (_shell.sidebarFilterRoute?.categoryId == null) {
-      final sources = categorySidebarSources(section, {
-        for (final category in categories) category.id: category,
-      });
-      // A merge that leaves every listed category and its ancestors equal
-      // keeps the held section, so the sidebar's selector sees no change.
-      final kept =
-          held != null &&
-              identical(held.user, user) &&
-              held.config == config &&
-              listEquals(held.sources, sources)
-          ? held.section
-          : section;
-      site.categorySidebarCache = (
-        categories: categories,
-        user: user,
-        config: config,
-        section: kept,
-        sources: sources,
-      );
-      return kept;
-    }
-    return section;
+    final sources = categorySidebarSources(section, {
+      for (final category in categories) category.id: category,
+    });
+    // A merge or a scope that leaves every listed category and its ancestors
+    // equal keeps the held section, so the sidebar's selector sees no change.
+    final kept =
+        held != null &&
+            identical(held.user, user) &&
+            held.config == config &&
+            listEquals(held.sources, sources)
+        ? held.section
+        : section;
+    site.categorySidebarCache = (
+      scopeCategoryId: scopeCategoryId,
+      categories: categories,
+      user: user,
+      config: config,
+      section: kept,
+      sources: sources,
+    );
+    return kept;
   }
 
   SidebarSection? tagSidebarSectionFor(String siteUrl) {
@@ -201,7 +200,11 @@ final class _TaxonomyDirectoryController
         : (user.sidebarTags.isNotEmpty ? user.sidebarTags : siteTop);
     final display = user == null ? tags.isNotEmpty : user.displaySidebarTags;
 
-    if (selectedTag != null) {
+    if (selectedTag != null &&
+        (!display ||
+            !tags.any(
+              (tag) => tag.name.toLowerCase() == selectedTag.toLowerCase(),
+            ))) {
       return SidebarSection(
         id: 'tags',
         title: appL10n.tags,
@@ -209,23 +212,18 @@ final class _TaxonomyDirectoryController
           if (display)
             for (final tag in tags)
               ?buildTagDestination(tag, username: user?.username),
-          if (!display ||
-              !tags.any(
-                (tag) => tag.name.toLowerCase() == selectedTag.toLowerCase(),
-              ))
-            SidebarDestination(
-              id: 'transient-tag-$selectedTag',
-              label: selectedTag,
-              icon: DIcons.tag,
-              feedPath: buildTopicTagDestination(
-                TopicTag(name: selectedTag),
-              )?.feedPath,
-              trailingIcon: user == null ? null : DIcons.plus,
-              onSecondaryTap: user == null
-                  ? null
-                  : () =>
-                        unawaited(_shell.saveSidebarTag(siteUrl, selectedTag)),
-            ),
+          SidebarDestination(
+            id: 'transient-tag-$selectedTag',
+            label: selectedTag,
+            icon: DIcons.tag,
+            feedPath: buildTopicTagDestination(
+              TopicTag(name: selectedTag),
+            )?.feedPath,
+            trailingIcon: user == null ? null : DIcons.plus,
+            onSecondaryTap: user == null
+                ? null
+                : () => unawaited(_shell.saveSidebarTag(siteUrl, selectedTag)),
+          ),
           if (user != null)
             SidebarDestination(
               id: 'edit-sidebar-tags',
@@ -1016,6 +1014,7 @@ final class _TaxonomyDirectoryController
 }
 
 typedef _CategorySidebarCache = ({
+  int? scopeCategoryId,
   List<TopicCategory> categories,
   DiscourseUser? user,
   SiteConfig config,

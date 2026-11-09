@@ -311,6 +311,20 @@ final class BookmarkPresentation {
   final Color? color;
 
   String get subtitle => [typeLabel, ?contextLabel].join(' · ');
+
+  @override
+  bool operator ==(Object other) =>
+      other is BookmarkPresentation &&
+      other.title == title &&
+      other.typeLabel == typeLabel &&
+      other.filterLabel == filterLabel &&
+      other.icon == icon &&
+      other.contextLabel == contextLabel &&
+      other.color == color;
+
+  @override
+  int get hashCode =>
+      Object.hash(title, typeLabel, filterLabel, icon, contextLabel, color);
 }
 
 abstract interface class PluginBookmarkPresenter

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -31,10 +32,15 @@ part 'global_search_filter_picker.dart';
 final RegExp _whitespace = RegExp(r'\s+');
 
 class _PreparedSearchResult {
-  const _PreparedSearchResult({required this.result, required this.open});
+  _PreparedSearchResult({required this.result, required this.open});
 
   final GlobalSearchResult result;
   final VoidCallback open;
+
+  /// The row widget and the reads it was drawn from, kept while the result
+  /// stays in the list so a later source's answer does not redraw it.
+  List<Object?>? reads;
+  Widget? row;
 }
 
 /// Search scopes, conditions and results below the shell's persistent input.
@@ -98,6 +104,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   Object? _navigationSignature;
   int _categoryPage = 0;
   bool _hasMoreChoices = false;
+  List<Object?>? _scopeBarReads, _skeletonReads;
+  Widget? _builtScopeBar, _builtSkeleton;
+  List<Object?> _rowReads = const [];
 
   Object? _targetFor(String? id) => widget.controller.results
       .where((result) => result.id == id)
@@ -111,7 +120,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       _selectedNavigationIdentity = null;
       _initialSectionPending = false;
     }
+    _publishSelection();
   }
+
+  /// Rows kept across builds read the selection through [_resultSelection],
+  /// and only a result id draws one of them selected.
+  void _publishSelection() =>
+      _resultSelection.value = _targetFor(_selected) == null ? null : _selected;
 
   bool handleKey(LogicalKeyboardKey key, {bool reverse = false}) {
     _checkSelectionTarget();
@@ -165,7 +180,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       } else {
         setState(select);
       }
-      _resultSelection.value = _selected;
+      _publishSelection();
       _revealSelection(
         _actions[next].id,
         _navigationSignature,
@@ -777,6 +792,16 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         _navigationSignature = signature;
       }
       _checkSelectionTarget();
+      _rowReads = [
+        controller,
+        controller.siteUrl,
+        controller.query,
+        controller.conditions.any(
+          (condition) => condition.filterId == 'author',
+        ),
+        for (final property in GlobalSearchDisplayProperty.values)
+          controller.properties.contains(property),
+      ];
       _actions.clear();
       final liveResults = Set<GlobalSearchResult>.identity();
       final liveIds = <String>{};
@@ -811,49 +836,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    DToggleGroup<GlobalSearchScope>(
-                      values: [controller.scope],
-                      onChanged: (values) => controller.setScope(values.single),
-                      allowEmptySelection: false,
-                      density: DToggleDensity.menuFilter,
-                      variant: DToggleVariant.outline,
-                      spacing: 1.5,
-                      semanticLabel: context.l10n.globalSearch,
-                      items: [
-                        for (final scope in controller.scopes)
-                          DToggleGroupItem(
-                            value: scope,
-                            semanticLabel: scope.label,
-                            child: KeyedSubtree(
-                              key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
-                              child: Row(
-                                key: ValueKey(
-                                  'global-search-scope-${scope.keyName}',
-                                ),
-                                mainAxisSize: MainAxisSize.min,
-                                spacing: 6,
-                                children: [
-                                  Text(scope.label),
-                                  if (scope != GlobalSearchScope.all &&
-                                      controller.sections.any(
-                                        (section) =>
-                                            section.scope == scope &&
-                                            section.topicId == null &&
-                                            section.results.isNotEmpty,
-                                      ))
-                                    Text(
-                                      '${controller.sections.where((section) => section.scope == scope && section.topicId == null).fold<int>(0, (count, section) => count + section.results.length)}',
-                                      style: const TextStyle(
-                                        fontSize: DiscourseTypography.micro,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                ],
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                    _scopeBar(context),
                     if (widget.showConditions)
                       Padding(
                         padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
@@ -879,6 +862,62 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     },
   );
+
+  int _scopeCount(GlobalSearchScope scope) => widget.controller.sections
+      .where((section) => section.scope == scope && section.topicId == null)
+      .fold(0, (count, section) => count + section.results.length);
+
+  /// The scope bar is drawn again only when a scope, its count or the
+  /// selection changes; every keystroke and result delivery notifies.
+  Widget _scopeBar(BuildContext context) {
+    final controller = widget.controller;
+    final reads = <Object?>[
+      controller,
+      context.l10n,
+      controller.scope,
+      for (final scope in controller.scopes) ...[scope, _scopeCount(scope)],
+    ];
+    if (_builtScopeBar == null || !listEquals(reads, _scopeBarReads)) {
+      _scopeBarReads = reads;
+      _builtScopeBar = DToggleGroup<GlobalSearchScope>(
+        values: [controller.scope],
+        onChanged: (values) => controller.setScope(values.single),
+        allowEmptySelection: false,
+        density: DToggleDensity.menuFilter,
+        variant: DToggleVariant.outline,
+        spacing: 1.5,
+        semanticLabel: context.l10n.globalSearch,
+        items: [
+          for (final scope in controller.scopes)
+            DToggleGroupItem(
+              value: scope,
+              semanticLabel: scope.label,
+              child: KeyedSubtree(
+                key: _scopeKeys.putIfAbsent(scope, GlobalKey.new),
+                child: Row(
+                  key: ValueKey('global-search-scope-${scope.keyName}'),
+                  mainAxisSize: MainAxisSize.min,
+                  spacing: 6,
+                  children: [
+                    Text(scope.label),
+                    if (scope != GlobalSearchScope.all &&
+                        _scopeCount(scope) > 0)
+                      Text(
+                        '${_scopeCount(scope)}',
+                        style: const TextStyle(
+                          fontSize: DiscourseTypography.micro,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+    return _builtScopeBar!;
+  }
 
   Widget _conditions(BuildContext context) {
     final controller = widget.controller;
@@ -1090,11 +1129,28 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     );
   }
 
-  Widget _loadingResults(BuildContext context) => SingleChildScrollView(
+  /// The skeleton is shaped by the scope and the theme alone, while every
+  /// keystroke of a pending search notifies.
+  Widget _loadingResults(BuildContext context) {
+    final showAvatar = widget.controller.scope.showAvatar;
+    final fill = skeletonFill(context, on: SkeletonSurface.floating);
+    final reads = <Object?>[context.l10n, showAvatar, fill];
+    if (_builtSkeleton == null || !listEquals(reads, _skeletonReads)) {
+      _skeletonReads = reads;
+      _builtSkeleton = _buildLoadingResults(context, showAvatar, fill);
+    }
+    return _builtSkeleton!;
+  }
+
+  Widget _buildLoadingResults(
+    BuildContext context,
+    bool showAvatar,
+    Color fill,
+  ) => SingleChildScrollView(
     padding: const EdgeInsets.all(6),
     child: DSkeletonRegion(
       semanticsLabel: context.l10n.loading,
-      color: skeletonFill(context, on: SkeletonSurface.floating),
+      color: fill,
       child: Column(
         children: [
           for (var index = 0; index < 8; index++)
@@ -1108,7 +1164,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       spacing: 10,
                       children: [
-                        if (widget.controller.scope.showAvatar)
+                        if (showAvatar)
                           const DSkeleton.circle(diameter: 30)
                         else
                           const SizedBox(width: 30),
@@ -1546,6 +1602,15 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
   }
 
   Widget _result(_PreparedSearchResult row) {
+    final reads = [..._rowReads, widget.selectedResultId == row.result.id];
+    if (row.row == null || !listEquals(reads, row.reads)) {
+      row.reads = reads;
+      row.row = _buildResult(row);
+    }
+    return row.row!;
+  }
+
+  Widget _buildResult(_PreparedSearchResult row) {
     final result = row.result;
     final controller = widget.controller;
     final site = controller.siteUrl;

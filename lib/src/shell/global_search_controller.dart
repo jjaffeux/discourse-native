@@ -411,8 +411,7 @@ class GlobalSearchController extends ChangeNotifier {
     }
     _sanitize();
     // History publication may synchronously configure a successor search.
-    _execution.reset();
-    _execution.phase = GlobalSearchPhase.idle;
+    _execution.settle(GlobalSearchPhase.idle);
     history.configure(
       siteUrl: siteUrl,
       username: capabilities.username,
@@ -1074,19 +1073,21 @@ class GlobalSearchController extends ChangeNotifier {
 
   void _schedule({bool immediate = false}) {
     if (_disposed) return;
-    _execution.reset();
-    if (siteUrl == null || !_hasInput) {
-      _execution.phase = GlobalSearchPhase.idle;
-    } else if (query.length > 2048 ||
-        globalSearchTerm(_request()).length > 2048) {
-      _execution.phase = GlobalSearchPhase.failed;
-      _execution.error = appL10n.searchesCanBeAtMost2048Characters;
+    final request = siteUrl == null || !_hasInput ? null : _request();
+    if (request == null) {
+      _execution.settle(GlobalSearchPhase.idle);
+    } else if (query.length > 2048 || globalSearchTerm(request).length > 2048) {
+      _execution.settle(
+        GlobalSearchPhase.failed,
+        error: appL10n.searchesCanBeAtMost2048Characters,
+      );
     } else if (_tooShort) {
-      _execution.phase = GlobalSearchPhase.tooShort;
-    } else {
+      _execution.settle(GlobalSearchPhase.tooShort);
+    } else if (immediate || !_execution.answers(request)) {
       _execution.start(
         siteUrl!,
         _lease!,
+        request,
         (page, offset) => _request(page: page, offset: offset),
         delay: immediate ? null : debounceDuration,
       );

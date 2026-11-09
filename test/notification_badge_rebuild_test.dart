@@ -119,6 +119,44 @@ Future<void> _frames(WidgetTester tester) async {
   }
 }
 
+/// What `User#publish_notifications_state` puts on `/notification/:id`.
+Map<String, Object?> _notificationState({
+  required int unread,
+  int personalMessages = 0,
+}) => {
+  'unread_notifications': unread,
+  'unread_high_priority_notifications': 0,
+  'read_first_notification': true,
+  'last_notification': null,
+  'recent': [
+    [unread, false],
+  ],
+  'seen_notification_id': unread,
+  'all_unread_notifications_count': unread,
+  'grouped_unread_notifications': {'1': unread},
+  'available_notification_types': const [1],
+  'new_personal_messages_notifications_count': personalMessages,
+};
+
+/// What `TopicTrackingState.publish_unread` puts on its channel.
+Map<String, Object?> _unreadTracking(int topicId) => {
+  'topic_id': topicId,
+  'message_type': 'unread',
+  'payload': {
+    'highest_post_number': 2,
+    'updated_at': '2026-09-02T00:00:00.000Z',
+    'created_at': '2026-09-02T00:00:00.000Z',
+    'category_id': 1,
+    'archetype': 'regular',
+  },
+};
+
+Future<void> _settleLiveMessage(WidgetTester tester) async {
+  await _frames(tester);
+  await tester.pump(const Duration(milliseconds: 400));
+  await _frames(tester);
+}
+
 void _report(String metric, int value) {
   // ignore: avoid_print
   print('PERF_PROOF notification-badges $metric=$value');
@@ -205,6 +243,54 @@ void main() {
       expect(elements, lessThanOrEqualTo(_isPhone ? 340 : 150));
     }, variant: _bothPlatforms);
   }
+
+  testWidgets(
+    'the tracking message after a count leaves the sidebar as built',
+    (tester) async {
+      await _pumpForums(tester);
+      final tracker = _tracker(_selected);
+      final platform = defaultTargetPlatform.name;
+      tracker.deliverNotification(_notificationState(unread: 1));
+      await _settleLiveMessage(tester);
+      final rebuilds = _recordRebuilds();
+
+      tracker.deliverNotification(_notificationState(unread: 2));
+      await _settleLiveMessage(tester);
+      rebuilds.clear();
+      tracker.deliverTopicTracking(_unreadTracking(9001));
+      await _settleLiveMessage(tester);
+      final sidebar = rebuilds.sidebar;
+      final total = rebuilds.total;
+
+      // ignore: avoid_print
+      print('PERF_PROOF sidebar-totals ${platform}_tracking_sidebar=$sidebar');
+      // ignore: avoid_print
+      print('PERF_PROOF sidebar-totals ${platform}_tracking_total=$total');
+      expect(_bellCount(2), findsWidgets);
+      expect(sidebar, lessThanOrEqualTo(68));
+      expect(total, lessThanOrEqualTo(_isPhone ? 801 : 364));
+    },
+    variant: _bothPlatforms,
+  );
+
+  testWidgets('a count that a sidebar row draws reaches it and leaves it', (
+    tester,
+  ) async {
+    await _pumpForums(tester);
+    final tracker = _tracker(_selected);
+    final badge = find.byKey(const ValueKey('sidebar-badge-messages'));
+    expect(badge, findsNothing);
+
+    tracker.deliverNotification(
+      _notificationState(unread: 3, personalMessages: 2),
+    );
+    await _settleLiveMessage(tester);
+    expect(badge, findsOneWidget);
+
+    tracker.deliverNotification(_notificationState(unread: 1));
+    await _settleLiveMessage(tester);
+    expect(badge, findsNothing);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
   testWidgets('a personal message still reaches its sidebar row', (
     tester,

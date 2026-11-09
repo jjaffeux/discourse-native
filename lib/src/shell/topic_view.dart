@@ -427,6 +427,9 @@ class _TopicViewState extends State<TopicView>
     if (_tickerEnabled == tickerEnabled) return;
     _tickerEnabled = tickerEnabled;
     _viewport.setTickerEnabled(tickerEnabled);
+    // Showing a retained reader lays nothing out, and another reader may have
+    // published what is on screen while this one was hidden.
+    if (tickerEnabled) _scheduleLook();
   }
 
   @override

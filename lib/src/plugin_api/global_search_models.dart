@@ -272,6 +272,16 @@ class GlobalSearchCondition {
   final String filterId, operator;
   final List<String> value;
   String get text => value.join(',');
+
+  @override
+  bool operator ==(Object other) =>
+      other is GlobalSearchCondition &&
+      other.filterId == filterId &&
+      other.operator == operator &&
+      listEquals(other.value, value);
+
+  @override
+  int get hashCode => Object.hash(filterId, operator, Object.hashAll(value));
 }
 
 @immutable
@@ -396,6 +406,22 @@ class GlobalSearchRequest {
   final int page, offset;
   final int? contextTopicId;
   final String? contextTopicTitle;
+
+  /// Whether [other] asks the forum exactly what this request asks. Every
+  /// field takes part: one left out would keep a stale answer on screen.
+  /// Capabilities compare by fingerprint because an answer can rebuild them
+  /// with the same values.
+  bool sameRequestAs(GlobalSearchRequest other) =>
+      other.scope == scope &&
+      other.query == query &&
+      other.order == order &&
+      listEquals(other.conditions, conditions) &&
+      other.capabilities.fingerprint == capabilities.fingerprint &&
+      other.ascending == ascending &&
+      other.page == page &&
+      other.offset == offset &&
+      other.contextTopicId == contextTopicId &&
+      other.contextTopicTitle == contextTopicTitle;
 }
 
 enum GlobalSearchLookup { none, users, groups, contributed }

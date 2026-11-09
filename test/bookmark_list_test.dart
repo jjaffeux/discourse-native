@@ -1,5 +1,19 @@
 import 'dart:async';
 
+import 'package:discourse_native/discourse_plugin_sdk.dart'
+    show
+        NotificationPresentation,
+        PluginDescriptor,
+        PluginId,
+        PluginInstaller,
+        PluginManifest,
+        PluginModule,
+        PluginNotificationPresentationContext,
+        PluginNotificationPresentationStrategy,
+        PluginRegistrar,
+        PluginSessionContribution,
+        PluginSessionLifecycle,
+        ResolvedNotification;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
@@ -7,6 +21,7 @@ import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/bookmark.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
@@ -494,6 +509,234 @@ void main() {
       );
     },
   );
+  group('without a feed change the open page', () {
+    testWidgets('shows and drops a place bookmarked elsewhere', (tester) async {
+      const place = ContentRoute(
+        destination: PageDestination(CorePage.preferences),
+        title: 'Preferences',
+        icon: DIcons.gear,
+      );
+      final shell = await _shell();
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell);
+      expect(find.text('Preferences'), findsNothing);
+
+      await tester.runAsync(
+        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Preferences'), findsOneWidget);
+
+      await tester.runAsync(
+        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Preferences'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('names a renamed category on its rows', (tester) async {
+      final categories = [
+        const TopicCategory(id: 1, name: 'plants', color: '0088CC'),
+        const TopicCategory(id: 2, name: 'pkm', color: 'BB7733'),
+      ];
+      final api = FakeDiscourseApi(
+        user: _user,
+        bookmarkList: _bookmarks,
+        categoryList: categories,
+      );
+      final shell = await _shell(api: api);
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell);
+      expect(find.text('Post #2 · plants'), findsOneWidget);
+
+      categories[0] = const TopicCategory(
+        id: 1,
+        name: 'indoor plants',
+        color: '0088CC',
+      );
+      await tester.runAsync(() => shell.loadCategories(_site, force: true));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Post #2 · indoor plants'), findsOneWidget);
+      expect(find.text('Post #2 · plants'), findsNothing);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('names a renamed channel on its chat rows', (tester) async {
+      final shell = await _shell();
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell);
+      expect(find.text('flourpower in #travel'), findsOneWidget);
+
+      shell.pluginSession
+          .require(chatShellService)
+          .store
+          .put(
+            _site,
+            const ChatChannel(
+              id: 9,
+              title: 'journeys',
+              kind: ChatChannelKind.category,
+              categoryColor: Color(0xff8f63b8),
+            ),
+          );
+      shell.notifyPluginStateChanged();
+      await tester.pumpAndSettle();
+
+      expect(find.text('flourpower in #journeys'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('reloads and clears its filters for a new account', (
+      tester,
+    ) async {
+      final api = FakeDiscourseApi(user: _user, bookmarkList: _bookmarks);
+      final shell = await _shell(api: api);
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell);
+      await _filter(tester, 'Chat');
+      expect(find.byType(BookmarkRow), findsNWidgets(2));
+      expect(api.bookmarkListRequests, hasLength(1));
+
+      shell.lifecycle.invalidate(_site);
+      shell.notifyPluginStateChanged();
+      await tester.pumpAndSettle();
+
+      expect(api.bookmarkListRequests, hasLength(2));
+      expect(find.byType(BookmarkRow), findsNWidgets(_bookmarks.length));
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('pages on when its window grows', (tester) async {
+      final api = FakeDiscourseApi(user: _user, bookmarkList: _numbered(45));
+      final shell = await _shell(api: api);
+      addTearDown(shell.dispose);
+      await _pumpPage(tester, shell, size: const Size(1080, 400));
+      expect(api.bookmarkListRequests.map((request) => request.page), [0]);
+
+      tester.view.physicalSize = const Size(1080, 9000);
+      await tester.pumpAndSettle();
+
+      expect(api.bookmarkListRequests.map((request) => request.page), [
+        0,
+        1,
+        2,
+      ]);
+      expect(tester.takeException(), isNull);
+    });
+  });
+
+  testWidgets('a bookmark saved elsewhere reaches the open page', (
+    tester,
+  ) async {
+    final bookmarks = [..._bookmarks];
+    final api = FakeDiscourseApi(user: _user, bookmarkList: bookmarks);
+    final shell = await _shell(api: api);
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell);
+    expect(find.text('Saved from a topic'), findsNothing);
+
+    bookmarks.insert(
+      0,
+      const Bookmark(
+        id: 90,
+        bookmarkableId: 77,
+        bookmarkableType: 'Topic',
+        title: 'Saved from a topic',
+        path: '/t/saved/77',
+      ),
+    );
+    await tester.runAsync(() => shell.loadBookmarkList(_site, refresh: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Saved from a topic'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  group('the open tab', () {
+    testWidgets('shows a place bookmarked elsewhere', (tester) async {
+      const place = ContentRoute(
+        destination: PageDestination(CorePage.preferences),
+        title: 'Preferences',
+        icon: DIcons.gear,
+      );
+      final shell = await _shell();
+      addTearDown(shell.dispose);
+      await _pumpTab(tester, shell);
+      expect(find.text('Preferences'), findsNothing);
+
+      await tester.runAsync(
+        () => shell.destinationBookmarkAction(place, siteUrl: _site)!.invoke(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Preferences'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('redraws a reminder a plugin presents anew', (tester) async {
+      final strategy = _ReminderStrategy();
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([
+          instance('meta.example').copyWith(user: _user),
+        ]),
+        api: FakeDiscourseApi(
+          user: _user,
+          bookmarkList: const [],
+          reminderList: const [
+            DiscourseNotification.test(
+              id: 41,
+              typeId: NotificationTypeId(24),
+              title: 'Better image handling',
+              topicId: 7,
+              slug: 'better-image-handling',
+            ),
+          ],
+        ),
+        authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        plugins: PluginInstaller.install(
+          PluginManifest([_ReminderModule(strategy)]),
+        ),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      await _pumpTab(tester, shell);
+      expect(find.textContaining('Noted by a plugin'), findsNothing);
+
+      strategy.enabled = true;
+      shell.notifyPluginStateChanged();
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Noted by a plugin'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    });
+
+    testWidgets('accents a reminder that falls due at the next notification', (
+      tester,
+    ) async {
+      final due = DateTime.now().add(const Duration(seconds: 2));
+      final shell = await _shell(
+        bookmarks: [_bookmarks[0].copyWith(reminderAt: due)],
+      );
+      addTearDown(shell.dispose);
+      await _pumpTab(tester, shell);
+      DItem row() =>
+          tester.widget<DItem>(find.byKey(const ValueKey('bookmark-row-1')));
+      expect(row().selected, isFalse);
+
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 2100)),
+      );
+      shell.notifyPluginStateChanged();
+      await tester.pumpAndSettle();
+
+      expect(row().selected, isTrue);
+      expect(tester.takeException(), isNull);
+    });
+  });
 }
 
 Future<void> _filter(WidgetTester tester, String label) async {
@@ -507,6 +750,47 @@ final _pageScrollable = find.descendant(
   of: find.byType(CustomScrollView),
   matching: find.byType(Scrollable),
 );
+
+final class _ReminderModule implements PluginModule {
+  const _ReminderModule(this.strategy);
+
+  final _ReminderStrategy strategy;
+
+  @override
+  PluginDescriptor get descriptor =>
+      const PluginDescriptor(id: PluginId('reminder-presentation'));
+
+  @override
+  void register(PluginRegistrar registrar) {
+    registrar.addSession(
+      (_, _) => PluginSessionContribution(
+        lifecycle: _ReminderLifecycle(),
+        capabilities: [strategy],
+      ),
+    );
+  }
+}
+
+final class _ReminderLifecycle extends PluginSessionLifecycle {}
+
+final class _ReminderStrategy
+    implements PluginNotificationPresentationStrategy {
+  bool enabled = false;
+
+  @override
+  ResolvedNotification? resolveNotification(
+    PluginNotificationPresentationContext context,
+  ) => enabled
+      ? ResolvedNotification(
+          presentation: NotificationPresentation(
+            icon: context.fallback.presentation.icon,
+            phrase: 'Noted by a plugin',
+            subject: 'Noted by a plugin',
+          ),
+          path: context.fallback.path,
+        )
+      : null;
+}
 
 /// Post bookmarks, except for the [topics] ids.
 List<Bookmark> _numbered(int count, {Set<int> topics = const {}}) => [
@@ -672,6 +956,23 @@ Future<void> _pumpPage(
   } else {
     await tester.pump();
   }
+}
+
+Future<void> _pumpTab(WidgetTester tester, ShellController shell) async {
+  await tester.pumpWidget(
+    ShellScope(
+      controller: shell,
+      child: MaterialApp(
+        theme: AppTheme.dark,
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: BookmarkSection(siteUrl: _site, onOpened: () {}),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 Future<void> _reminderFilter(WidgetTester tester, String label) async {

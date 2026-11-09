@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 import 'dart:ui' show ViewFocusEvent, ViewFocusState;
 
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -205,7 +206,8 @@ class DTooltipState extends State<DTooltip>
   Timer? _showTimer;
   Timer? _hideTimer;
   bool _open = false;
-  bool _available = false;
+  bool _visibilityAllowed = true;
+  ValueListenable<TickerModeData>? _tickerMode;
   bool _hovered = false;
   bool _popupHovered = false;
   bool _focused = false;
@@ -222,6 +224,12 @@ class DTooltipState extends State<DTooltip>
   LongPressGestureRecognizer? _longPress;
   int? _tapPointer;
   Offset? _tapStart;
+
+  bool get _available =>
+      !widget.disabled &&
+      widget.message.isNotEmpty &&
+      _visibilityAllowed &&
+      _tickerMode!.value.enabled;
 
   Duration get _delay => _group?.warm == true
       ? Duration.zero
@@ -253,23 +261,25 @@ class DTooltipState extends State<DTooltip>
       _group?.closed(this);
       _group = group;
     }
-    _available =
-        !widget.disabled &&
-        widget.message.isNotEmpty &&
-        TooltipVisibility.of(context) &&
-        TickerMode.valuesOf(context).enabled;
+    _visibilityAllowed = TooltipVisibility.of(context);
+    // Inherited dependencies bring this back after a move to a new parent.
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_tickerModeChanged);
+      _tickerMode = mode..addListener(_tickerModeChanged);
+    }
+    _scheduleSync();
+  }
+
+  void _tickerModeChanged() {
+    // A showing popup goes with its hidden page, in this frame.
+    if (_portal.isShowing) setState(() {});
     _scheduleSync();
   }
 
   @override
   void didUpdateWidget(DTooltip oldWidget) {
     super.didUpdateWidget(oldWidget);
-
-    _available =
-        !widget.disabled &&
-        widget.message.isNotEmpty &&
-        TooltipVisibility.of(context) &&
-        TickerMode.valuesOf(context).enabled;
     _scheduleSync();
   }
 
@@ -749,6 +759,7 @@ class DTooltipState extends State<DTooltip>
 
   @override
   void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
     _cancelTimers();
     _stopScrollTracking();
     _longPress?.onLongPressCancel = null;

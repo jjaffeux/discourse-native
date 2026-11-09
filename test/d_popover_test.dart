@@ -561,6 +561,7 @@ void main() {
 
         enabled.value = false;
         await tester.pump();
+        expect(find.text('Popover title', skipOffstage: false), findsNothing);
         await tester.pumpAndSettle();
         expect(controller.isOpen, isFalse);
         expect(find.text('Popover title', skipOffstage: false), findsNothing);
@@ -584,6 +585,85 @@ void main() {
       },
     );
   }
+
+  testWidgets('hiding stops a popover partway through its opening', (
+    tester,
+  ) async {
+    final enabled = ValueNotifier(true);
+    final controller = DPopoverController();
+    addTearDown(enabled.dispose);
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      _app(
+        ValueListenableBuilder<bool>(
+          valueListenable: enabled,
+          builder: (context, value, child) =>
+              TickerMode(enabled: value, child: child!),
+          child: _TestPopover(controller: controller),
+        ),
+      ),
+    );
+    controller.open();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(tester.binding.transientCallbackCount, greaterThan(0));
+
+    enabled.value = false;
+    await tester.pump();
+    await tester.pump();
+    expect(controller.isOpen, isFalse);
+    expect(tester.binding.transientCallbackCount, 0);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+  });
+
+  testWidgets('a popover obeys the TickerMode of wherever it is moved to', (
+    tester,
+  ) async {
+    final controller = DPopoverController();
+    addTearDown(controller.dispose);
+    final key = GlobalKey();
+    Widget placed({required bool hidden}) {
+      final popover = KeyedSubtree(
+        key: key,
+        child: _TestPopover(controller: controller),
+      );
+      return _app(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TickerMode(
+              enabled: false,
+              child: hidden ? popover : const SizedBox.shrink(),
+            ),
+            TickerMode(
+              enabled: true,
+              child: hidden ? const SizedBox.shrink() : popover,
+            ),
+          ],
+        ),
+      );
+    }
+
+    await tester.pumpWidget(placed(hidden: false));
+    controller.open();
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsOneWidget);
+
+    await tester.pumpWidget(placed(hidden: true));
+    await tester.pumpAndSettle();
+    expect(controller.isOpen, isFalse);
+    expect(find.text('Popover title', skipOffstage: false), findsNothing);
+    controller.open();
+    await tester.pump();
+    expect(controller.isOpen, isFalse);
+
+    await tester.pumpWidget(placed(hidden: false));
+    await tester.pumpAndSettle();
+    controller.open();
+    await tester.pumpAndSettle();
+    expect(find.text('Popover title'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('only an open anchored popover observes global pointer events', (
     tester,

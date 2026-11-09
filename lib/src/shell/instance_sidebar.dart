@@ -35,7 +35,6 @@ import 'skeleton_fill.dart';
 final class _SidebarSnapshot {
   const _SidebarSnapshot({
     required this.siteUrl,
-    required this.destinationId,
     required this.draftCount,
     required this.canCreateTopic,
     required this.sections,
@@ -45,7 +44,6 @@ final class _SidebarSnapshot {
   });
 
   final String? siteUrl;
-  final String? destinationId;
   final int draftCount;
   final bool canCreateTopic;
   final List<SidebarSection> sections;
@@ -57,7 +55,6 @@ final class _SidebarSnapshot {
   bool operator ==(Object other) {
     if (other is! _SidebarSnapshot ||
         siteUrl != other.siteUrl ||
-        destinationId != other.destinationId ||
         draftCount != other.draftCount ||
         canCreateTopic != other.canCreateTopic ||
         !identical(presentationToken, other.presentationToken) ||
@@ -83,7 +80,6 @@ final class _SidebarSnapshot {
   @override
   int get hashCode => Object.hash(
     siteUrl,
-    destinationId,
     draftCount,
     canCreateTopic,
     identityHashCode(presentationToken),
@@ -93,24 +89,28 @@ final class _SidebarSnapshot {
   );
 }
 
-@immutable
-final class _SidebarPanelSnapshot {
-  const _SidebarPanelSnapshot({
-    required this.contentId,
-    required this.presentation,
-  });
+/// The destination the sidebar highlights. A row depends on its own id alone,
+/// so a move redraws the row it leaves and the row it reaches.
+class _SelectedDestination extends InheritedModel<String> {
+  const _SelectedDestination({required this.id, required super.child});
 
-  final String? contentId;
-  final Object? presentation;
+  final String? id;
 
-  @override
-  bool operator ==(Object other) =>
-      other is _SidebarPanelSnapshot &&
-      contentId == other.contentId &&
-      presentation == other.presentation;
+  static bool isSelected(BuildContext context, String destinationId) =>
+      InheritedModel.inheritFrom<_SelectedDestination>(
+        context,
+        aspect: destinationId,
+      )!.id ==
+      destinationId;
 
   @override
-  int get hashCode => Object.hash(contentId, presentation);
+  bool updateShouldNotify(_SelectedDestination oldWidget) => id != oldWidget.id;
+
+  @override
+  bool updateShouldNotifyDependent(
+    _SelectedDestination oldWidget,
+    Set<String> dependencies,
+  ) => dependencies.contains(id) || dependencies.contains(oldWidget.id);
 }
 
 /// Everything the panel body reads from the plugin panels. A panel's
@@ -168,6 +168,14 @@ Object? _sidebarSectionCounts(ShellController shell) {
   );
 }
 
+/// What decides which panel a navigation returns the tabs to.
+typedef _SidebarNavigation = ({
+  String? siteUrl,
+  String? tabId,
+  String? contentId,
+  PluginId? routedOwner,
+});
+
 const String _moreDestinationId = 'sidebar-more-destinations';
 
 SidebarDestination get _moreDestination => SidebarDestination(
@@ -212,31 +220,41 @@ class InstanceSidebar extends StatelessWidget {
     return mobile ? ForumSidebarTheme(child: navigation) : navigation;
   }
 
+  String? _selectedDestinationId(ShellController controller) {
+    // A mobile root must not highlight a retained, hidden document.
+    if (mobile &&
+        (!controller.mobileNavigationEnabled ||
+            controller.mobileNavigation.atRoot)) {
+      return null;
+    }
+    final currentContent = controller.currentContent;
+    // The focused document owns the highlighted sidebar destination.
+    var selectedDestinationId = controller.topicListTab?.rootDestinationId;
+    if (currentContent?.groupRoute != null) {
+      selectedDestinationId = 'groups';
+    } else if (currentContent?.isBadges == true) {
+      selectedDestinationId = 'badges';
+    } else if (currentContent?.isAppearance == true ||
+        currentContent?.isPreferences == true ||
+        currentContent?.isPage(CorePage.categories) == true ||
+        currentContent?.isPage(CorePage.bookmarks) == true ||
+        currentContent?.isPage(CorePage.dashboard) == true) {
+      selectedDestinationId = currentContent?.id;
+    } else if (currentContent?.isTopic == true &&
+        selectedDestinationId == 'drafts') {
+      // Reply drafts keep Drafts in their back stack, but the topic itself
+      // is not the Drafts route.
+      selectedDestinationId = null;
+    }
+    if (controller.sidebarFilterRoute != null) {
+      selectedDestinationId = controller.sidebarFilterDestinationId;
+    }
+    return selectedDestinationId;
+  }
+
   Widget _navigation(BuildContext context) => ShellSelector<_SidebarSnapshot>(
     select: (controller) {
       final instance = controller.currentInstance;
-      final currentContent = controller.currentContent;
-      // The focused document owns the highlighted sidebar destination.
-      var selectedDestinationId = controller.topicListTab?.rootDestinationId;
-      if (currentContent?.groupRoute != null) {
-        selectedDestinationId = 'groups';
-      } else if (currentContent?.isBadges == true) {
-        selectedDestinationId = 'badges';
-      } else if (currentContent?.isAppearance == true ||
-          currentContent?.isPreferences == true ||
-          currentContent?.isPage(CorePage.categories) == true ||
-          currentContent?.isPage(CorePage.bookmarks) == true ||
-          currentContent?.isPage(CorePage.dashboard) == true) {
-        selectedDestinationId = currentContent?.id;
-      } else if (currentContent?.isTopic == true &&
-          selectedDestinationId == 'drafts') {
-        // Reply drafts keep Drafts in their back stack, but the topic itself
-        // is not the Drafts route.
-        selectedDestinationId = null;
-      }
-      if (controller.sidebarFilterRoute != null) {
-        selectedDestinationId = controller.sidebarFilterDestinationId;
-      }
       final categorySection = instance == null
           ? null
           : controller.categorySidebarSectionFor(instance.url);
@@ -245,13 +263,6 @@ class InstanceSidebar extends StatelessWidget {
           : controller.tagSidebarSectionFor(instance.url);
       return _SidebarSnapshot(
         siteUrl: instance?.url,
-        // A mobile root must not highlight a retained, hidden document.
-        destinationId:
-            mobile &&
-                (!controller.mobileNavigationEnabled ||
-                    controller.mobileNavigation.atRoot)
-            ? null
-            : selectedDestinationId,
         draftCount: instance?.user?.draftCount ?? 0,
         canCreateTopic: instance?.user?.canCreateTopic ?? false,
         navigationLoading:
@@ -283,17 +294,22 @@ class InstanceSidebar extends StatelessWidget {
           top: !mobile,
           bottom: !mobile,
           left: false,
-          child: _SidebarPanelBody(
-            sidebar: sidebar,
-            backgroundColor: backgroundColor,
-            mobile: mobile,
-            panelOwner: panelOwner,
-            onNavigate: onNavigate,
-            mobilePlaceOf: mobilePlaceOf,
-            footer: footer,
-            communityHeaderLeadingInset: communityHeaderLeadingInset,
-            sectionStore:
-                sectionStore ?? ShellScope.read(context).sidebarSections,
+          child: ShellSelector<String?>(
+            select: _selectedDestinationId,
+            builder: (context, selectedId, child) =>
+                _SelectedDestination(id: selectedId, child: child!),
+            child: _SidebarPanelBody(
+              sidebar: sidebar,
+              backgroundColor: backgroundColor,
+              mobile: mobile,
+              panelOwner: panelOwner,
+              onNavigate: onNavigate,
+              mobilePlaceOf: mobilePlaceOf,
+              footer: footer,
+              communityHeaderLeadingInset: communityHeaderLeadingInset,
+              sectionStore:
+                  sectionStore ?? ShellScope.read(context).sidebarSections,
+            ),
           ),
         ),
       );
@@ -330,7 +346,8 @@ class _SidebarPanelBody extends StatefulWidget {
 
 class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   String? _selectedOwner;
-  Object? _navigation;
+  _SidebarNavigation? _navigation;
+  bool _drawsPluginSections = false;
   ShellController? _controller;
   bool _navigationOpen = false;
 
@@ -345,8 +362,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     super.didChangeDependencies();
     final controller = ShellScope.read(context);
     if (identical(controller, _controller)) return;
-    _controller?.removeListener(_navigationVisibilityChanged);
-    _controller = controller..addListener(_navigationVisibilityChanged);
+    _controller?.removeListener(_shellChanged);
+    _controller = controller..addListener(_shellChanged);
     _navigationOpen = controller.mobileNavigation.sidebarOpen;
   }
 
@@ -359,6 +376,57 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     }
     return panel.panel.active;
   }).firstOrNull;
+
+  void _shellChanged() {
+    _navigationVisibilityChanged();
+    _followNavigation();
+  }
+
+  _SidebarNavigation _navigationTo(
+    ShellController controller,
+    OwnedSidebarPanel? routedPanel,
+  ) => (
+    siteUrl: sidebar.siteUrl,
+    tabId: controller.activeTabId,
+    contentId: controller.currentContent?.id,
+    routedOwner: routedPanel?.owner,
+  );
+
+  bool _inForumPanel(List<OwnedSidebarPanel> panels, PluginId owner) =>
+      !panels.any((candidate) => candidate.includesOwner(owner));
+
+  /// Rebuilds for a navigation only when the panel tabs would move or plugin
+  /// content might follow the route, as Chat's directories do. The forum's own
+  /// sections read no route, and each row selects its own highlight. Recording
+  /// the navigation keeps a later tab choice from being read as this one.
+  void _followNavigation() {
+    final controller = _controller!;
+    final seen = _navigation;
+    if (seen == null ||
+        (seen.tabId == controller.activeTabId &&
+            seen.contentId == controller.currentContent?.id)) {
+      return;
+    }
+    final registry = PluginScope.of(context).registry;
+    final panels = registry.sidebarPanels(context);
+    final routedPanel = _routedPanel(panels, controller);
+    final staysOnForum =
+        routedPanel == null &&
+        _selectedOwner == null &&
+        !(widget.mobile && _shortcuts);
+    if (!staysOnForum ||
+        _drawsPluginSections ||
+        registry
+            .sidebarSections(
+              context,
+              includeOwner: (owner) => _inForumPanel(panels, owner),
+            )
+            .isNotEmpty) {
+      setState(() {});
+      return;
+    }
+    _navigation = _navigationTo(controller, null);
+  }
 
   void _navigationVisibilityChanged() {
     final controller = _controller!;
@@ -379,7 +447,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
   @override
   void dispose() {
-    _controller?.removeListener(_navigationVisibilityChanged);
+    _controller?.removeListener(_shellChanged);
     _linkEdit.dispose();
     super.dispose();
   }
@@ -388,24 +456,16 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
   Widget build(BuildContext context) {
     // Only the tabs follow every panel notification. The body, including a
     // panel's footer and mobile root builders, is read again when the panels
-    // change shape or the forum's connection, user, config or content change.
+    // change shape, when the forum's connection, user or config change, and
+    // for the navigations [_followNavigation] lets through.
     return _SidebarPanelShapeSelector(
       listenable: _sidebarPanelChanges(context),
-      builder: (context) => ShellSelector<_SidebarPanelSnapshot>(
+      builder: (context) => ShellSelector<Object?>(
         select: (controller) {
           final instance = controller.currentInstance;
-          return _SidebarPanelSnapshot(
-            contentId:
-                '${controller.activeTabId}:${controller.currentContent?.id}',
-            presentation: instance == null
-                ? null
-                : (
-                    instance.isConnected,
-                    instance.user,
-                    instance.config,
-                    controller.currentTotals,
-                  ),
-          );
+          return instance == null
+              ? null
+              : (instance.isConnected, instance.user, instance.config);
         },
         builder: (context, state, _) => _buildPanel(context),
       ),
@@ -417,12 +477,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
     final registry = PluginScope.of(context).registry;
     final panels = registry.sidebarPanels(context);
     final routedPanel = _routedPanel(panels, controller);
-    final navigation = (
-      sidebar.siteUrl,
-      controller.activeTabId,
-      controller.currentContent?.id,
-      routedPanel?.owner,
-    );
+    final navigation = _navigationTo(controller, routedPanel);
     if (_navigation != navigation) {
       _navigation = navigation;
       _selectedOwner = routedPanel?.owner.value;
@@ -445,7 +500,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 
     bool includePluginOwner(PluginId owner) {
       if (activePanel case final active?) return active.includesOwner(owner);
-      return !panels.any((candidate) => candidate.includesOwner(owner));
+      return _inForumPanel(panels, owner);
     }
 
     final customSections = [
@@ -511,6 +566,13 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
           section,
     ];
 
+    final panelSelection = selectedPanel?.panel.selectedDestinationId;
+    final bool Function(BuildContext, String) pluginSelection = widget.mobile
+        ? (_, _) => false
+        : panelSelection == null
+        ? _SelectedDestination.isSelected
+        : (_, id) => id == panelSelection;
+
     final panelTabs = DSidebarHeader(
       child: _SidebarPanelTabs(
         selectedOwner: selectedPanel?.owner.value,
@@ -521,14 +583,15 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
         }),
       ),
     );
+    final pluginSections =
+        !showShortcuts && (!widget.mobile || !showCoreSections)
+        ? registry.sidebarSections(context, includeOwner: includePluginOwner)
+        : const <SidebarSection>[];
+    _drawsPluginSections = pluginSections.isNotEmpty;
     final pinnedHeaders = [
-      if (!showShortcuts && (!widget.mobile || !showCoreSections))
-        for (final section in registry.sidebarSections(
-          context,
-          includeOwner: includePluginOwner,
-        ))
-          if (section.pinnedHeaderBuilder case final builder?)
-            Builder(builder: builder),
+      for (final section in pluginSections)
+        if (section.pinnedHeaderBuilder case final builder?)
+          Builder(builder: builder),
     ];
 
     return DSidebar(
@@ -659,7 +722,8 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                                     ]
                                                   : const [],
                                               store: sectionStore,
-                                              selectedId: sidebar.destinationId,
+                                              isSelected: _SelectedDestination
+                                                  .isSelected,
                                               loadingDestinationId:
                                                   loadingDestinationId,
                                               onNavigate: widget.onNavigate,
@@ -747,12 +811,7 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
                                         siteUrl: sidebar.siteUrl!,
                                         section: section,
                                         store: sectionStore,
-                                        selectedId: widget.mobile
-                                            ? null
-                                            : selectedPanel
-                                                      ?.panel
-                                                      .selectedDestinationId ??
-                                                  sidebar.destinationId,
+                                        isSelected: pluginSelection,
                                         onNavigate: widget.onNavigate,
                                         onSelect: controller.selectDestination,
                                       ),
@@ -776,8 +835,9 @@ class _SidebarPanelBodyState extends State<_SidebarPanelBody> {
 }
 
 /// Rebuilds [builder] only when the destination refreshing over topics it
-/// already shows changes. The feeds also publish every page they append and
-/// every viewport they track, which leave that destination as it was.
+/// already shows changes, by the feed loading or the shell moving to another
+/// feed. The feeds also publish every page they append and every viewport
+/// they track, which leave that destination as it was.
 class _LoadingDestinationSelector extends StatefulWidget {
   const _LoadingDestinationSelector({
     required this.controller,
@@ -807,6 +867,7 @@ class _LoadingDestinationSelectorState
   void initState() {
     super.initState();
     widget.controller.topicFeeds.addListener(_changed);
+    widget.controller.addListener(_changed);
   }
 
   @override
@@ -814,7 +875,9 @@ class _LoadingDestinationSelectorState
     super.didUpdateWidget(oldWidget);
     if (!identical(oldWidget.controller, widget.controller)) {
       oldWidget.controller.topicFeeds.removeListener(_changed);
+      oldWidget.controller.removeListener(_changed);
       widget.controller.topicFeeds.addListener(_changed);
+      widget.controller.addListener(_changed);
     }
   }
 
@@ -831,6 +894,7 @@ class _LoadingDestinationSelectorState
   @override
   void dispose() {
     widget.controller.topicFeeds.removeListener(_changed);
+    widget.controller.removeListener(_changed);
     super.dispose();
   }
 }
@@ -1142,7 +1206,7 @@ class _Section extends StatefulWidget {
     required this.siteUrl,
     required this.section,
     required this.store,
-    required this.selectedId,
+    required this.isSelected,
     required this.onSelect,
     this.onNavigate,
     this.loadingDestinationId,
@@ -1154,7 +1218,10 @@ class _Section extends StatefulWidget {
   final SidebarSection section;
   final _SidebarLinkEditController? linkEdit;
   final SidebarSectionStore store;
-  final String? selectedId;
+
+  /// Registers the caller for what it asks, so it redraws when the answer
+  /// changes.
+  final bool Function(BuildContext context, String destinationId) isSelected;
   final String? loadingDestinationId;
   final ValueChanged<SidebarDestination> onSelect;
   final VoidCallback? onNavigate;
@@ -1257,6 +1324,7 @@ class _SidebarLoadingSkeleton extends StatelessWidget {
 class _SectionState extends State<_Section> {
   bool _collapsed = false;
   bool _moreOpen = false;
+  String? _selectedMoreId;
   bool _reordering = false;
   List<SidebarDestination>? _pendingDestinations;
 
@@ -1438,7 +1506,6 @@ class _SectionState extends State<_Section> {
   @override
   void initState() {
     super.initState();
-    _moreOpen = _selectedMore;
     _collapsed =
         widget.store.collapsedFor(
           siteUrl: widget.siteUrl,
@@ -1448,13 +1515,20 @@ class _SectionState extends State<_Section> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _followSelectedMore();
+  }
+
+  @override
   void didUpdateWidget(_Section oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.section.id != widget.section.id) {
+      _selectedMoreId = _readSelectedMore();
       _moreOpen = _selectedMore;
-    } else if (oldWidget.selectedId != widget.selectedId && _selectedMore) {
-      _moreOpen = true;
+    } else {
+      _followSelectedMore();
     }
     if (oldWidget.siteUrl != widget.siteUrl ||
         !identical(oldWidget.section, widget.section)) {
@@ -1485,9 +1559,28 @@ class _SectionState extends State<_Section> {
     );
   }
 
-  bool get _selectedMore => widget.section.moreDestinations.any(
-    (destination) => destination.id == widget.selectedId,
-  );
+  bool get _selectedMore => _selectedMoreId != null;
+
+  String? _readSelectedMore() {
+    for (final destination in widget.section.moreDestinations) {
+      if (widget.isSelected(context, destination.id)) return destination.id;
+    }
+    return null;
+  }
+
+  /// A dragged row is built in the overlay, outside the sidebar's selection,
+  /// so its section reads the selection for it.
+  BuildContext _selectionScope(BuildContext row) =>
+      row.getInheritedWidgetOfExactType<_SelectedDestination>() == null
+      ? context
+      : row;
+
+  /// A selection arriving under More opens it; one leaving closes nothing.
+  void _followSelectedMore() {
+    final selected = _readSelectedMore();
+    if (selected != null && selected != _selectedMoreId) _moreOpen = true;
+    _selectedMoreId = selected;
+  }
 
   Widget _destinationMenus(
     BuildContext context,
@@ -1505,7 +1598,7 @@ class _SectionState extends State<_Section> {
       ...widget.appendedDestinations,
       if (!_moreOpen)
         ...section.moreDestinations.where(
-          (destination) => destination.id == widget.selectedId,
+          (destination) => destination.id == _selectedMoreId,
         ),
       if (section.moreDestinations.isNotEmpty) _moreDestination,
     ];
@@ -1547,7 +1640,10 @@ class _SectionState extends State<_Section> {
           select: (controller) => controller.sidebarBadgeFor(destination.id),
           builder: (context, badge, _) => SidebarDestinationTile(
             destination: destination,
-            selected: destination.id == widget.selectedId,
+            selected: widget.isSelected(
+              _selectionScope(context),
+              destination.id,
+            ),
             navigation: navigation,
             loading: destination.id == widget.loadingDestinationId,
             badge: badge,
@@ -1629,7 +1725,7 @@ class _SectionState extends State<_Section> {
                       controller.sidebarBadgeFor(destination.id),
                   builder: (context, badge, _) => SidebarDestinationTile(
                     destination: destination,
-                    selected: destination.id == widget.selectedId,
+                    selected: widget.isSelected(context, destination.id),
                     loading: destination.id == widget.loadingDestinationId,
                     badge: badge,
                     onTap: () => _selectDestination(destination),

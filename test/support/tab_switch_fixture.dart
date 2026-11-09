@@ -14,7 +14,12 @@ import 'shell_test_harness.dart';
 
 const tabSwitchIds = ['list-a', 'list-b', 'reader-a', 'reader-b'];
 
-Future<ShellController> pumpTabSwitchFixture(WidgetTester tester) async {
+/// [feed] replaces the default rows of the first list, which carry no times
+/// or posters.
+Future<ShellController> pumpTabSwitchFixture(
+  WidgetTester tester, {
+  List<Topic>? feed,
+}) async {
   const latest = ContentRoute(
     destination: FeedDestination(key: 'latest', mode: TopicListMode.latest),
     title: 'Topics',
@@ -28,16 +33,18 @@ Future<ShellController> pumpTabSwitchFixture(WidgetTester tester) async {
     title: 'Other discussions',
     icon: DIcons.folder,
   );
-  final topics = [
-    for (var id = 1; id <= 100; id++)
-      Topic(
-        id: id,
-        title: 'Discussion $id about fast navigation and reading',
-        slug: 'discussion-$id',
-        excerpt:
-            'A discussion with formatted replies and a retained reading position.',
-      ),
-  ];
+  final topics =
+      feed ??
+      [
+        for (var id = 1; id <= 100; id++)
+          Topic(
+            id: id,
+            title: 'Discussion $id about fast navigation and reading',
+            slug: 'discussion-$id',
+            excerpt:
+                'A discussion with formatted replies and a retained reading position.',
+          ),
+      ];
   await pumpShell(
     tester,
     desktop,

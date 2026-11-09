@@ -4403,8 +4403,31 @@ class _ComposerHistoryControls extends StatefulWidget {
       _ComposerHistoryControlsState();
 }
 
+typedef _ComposerHistoryControlsInputs = ({
+  bool editing,
+  bool loadingBody,
+  bool composing,
+  bool canUndo,
+  bool canRedo,
+});
+
 class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
   bool _scheduled = false;
+  _ComposerHistoryControlsInputs? _drawn;
+
+  // Build may branch only on these values, so the comparison in _changed sees
+  // everything the controls draw from.
+  _ComposerHistoryControlsInputs _read() {
+    final composer = widget.composer;
+    final composing = composer.text.value.composing;
+    return (
+      editing: composer.isEditing,
+      loadingBody: composer.loadingBody,
+      composing: composing.isValid && !composing.isCollapsed,
+      canUndo: composer.history.canUndo,
+      canRedo: composer.history.canRedo,
+    );
+  }
 
   @override
   void initState() {
@@ -4427,7 +4450,7 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
     // Embedded editors can attach to history while the panel is building.
     scheduleMicrotask(() {
       _scheduled = false;
-      if (mounted) setState(() {});
+      if (mounted && _read() != _drawn) setState(() {});
     });
   }
 
@@ -4441,11 +4464,11 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
   Widget build(BuildContext context) {
     final composer = widget.composer;
     final history = composer.history;
-    final composing = composer.text.value.composing;
-    if (!composer.isEditing ||
-        composer.loadingBody ||
-        (composing.isValid && !composing.isCollapsed) ||
-        (!history.canUndo && !history.canRedo)) {
+    final inputs = _drawn = _read();
+    if (!inputs.editing ||
+        inputs.loadingBody ||
+        inputs.composing ||
+        (!inputs.canUndo && !inputs.canRedo)) {
       return const SizedBox.shrink();
     }
     return TextFieldTapRegion(
@@ -4454,7 +4477,7 @@ class _ComposerHistoryControlsState extends State<_ComposerHistoryControls> {
         spacing: 2,
         children: [
           for (final redo in [false, true])
-            if (redo ? history.canRedo : history.canUndo)
+            if (redo ? inputs.canRedo : inputs.canUndo)
               DButton.iconOnly(
                 key: ValueKey(redo ? 'composer-redo' : 'composer-undo'),
                 tooltip: redo ? context.l10n.redo : context.l10n.undo,

@@ -362,6 +362,8 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
   final _scrollController = ScrollController();
   final _listController = ListController();
   List<_MenuLazyRow>? _lazyRows;
+  ({ThemeData inherited, DPopoverVariant variant, ThemeData content})?
+  _heldTheme;
   int? _focusedIndex;
   int? _pendingIndex;
   int _focusGeneration = 0;
@@ -845,9 +847,18 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final baseTokens = DTokens.of(context);
+  // Derived tokens are a new object that never compares equal, so deriving
+  // them on every build would tell each theme reader in the menu that the
+  // theme changed. The held theme stands until its inputs really differ.
+  ThemeData _contentTheme(ThemeData inherited) {
+    final held = _heldTheme;
+    if (held != null &&
+        held.inherited == inherited &&
+        held.variant == widget.variant) {
+      return held.content;
+    }
+    final baseTokens =
+        inherited.extension<DTokens>() ?? DTokens.fromTheme(inherited);
     final tokens = widget.variant == DPopoverVariant.timeline
         ? baseTokens.copyWith(
             surface: Color.lerp(
@@ -874,7 +885,27 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
             ),
           )
         : baseTokens;
-    final textStyle = Theme.of(context).textTheme.bodyMedium!.copyWith(
+    final content = inherited.copyWith(
+      extensions: [
+        ...inherited.extensions.values.where(
+          (extension) => extension is! DTokens,
+        ),
+        tokens,
+      ],
+    );
+    _heldTheme = (
+      inherited: inherited,
+      variant: widget.variant,
+      content: content,
+    );
+    return content;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = _contentTheme(Theme.of(context));
+    final tokens = theme.extension<DTokens>()!;
+    final textStyle = theme.textTheme.bodyMedium!.copyWith(
       color: tokens.foreground,
       fontSize: DControlStyle.labelFontSize,
       height: DControlStyle.labelLineHeight / DControlStyle.labelFontSize,
@@ -883,14 +914,7 @@ class _DDropdownMenuContentState extends State<DDropdownMenuContent> {
       decoration: TextDecoration.none,
     );
     return Theme(
-      data: Theme.of(context).copyWith(
-        extensions: [
-          ...Theme.of(
-            context,
-          ).extensions.values.where((extension) => extension is! DTokens),
-          tokens,
-        ],
-      ),
+      data: theme,
       child: _DropdownMenuContentScope(
         state: this,
         child: MouseRegion(

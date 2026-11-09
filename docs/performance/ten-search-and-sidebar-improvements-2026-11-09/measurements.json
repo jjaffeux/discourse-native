@@ -1,0 +1,716 @@
+{
+ "head": "14021b8add7f6e5e30d87e2b8b2cbc005eaeab3a",
+ "failures": [],
+ "proven": [
+  {
+   "slug": "composer-undo",
+   "subject": "PERF: stop rebuilding the composer undo and redo buttons for every body key",
+   "commit": "90dc9380b1ed8325be949d3391e30594e4e7e764",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body keys leave the undo and redo buttons alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-undo.ten_keys_total_elements_desktop": "1030",
+      "composer-undo.key_mean_elements_desktop": "103.0",
+      "composer-undo.key_costliest_elements_desktop": "103",
+      "composer-undo.undo_button_builds_desktop": "10",
+      "composer-undo.ten_keys_total_elements_phone": "860",
+      "composer-undo.key_mean_elements_phone": "86.0",
+      "composer-undo.key_costliest_elements_phone": "86",
+      "composer-undo.undo_button_builds_phone": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body keys leave the undo and redo buttons alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-undo.ten_keys_total_elements_desktop": "630",
+      "composer-undo.key_mean_elements_desktop": "63.0",
+      "composer-undo.key_costliest_elements_desktop": "63",
+      "composer-undo.undo_button_builds_desktop": "0",
+      "composer-undo.ten_keys_total_elements_phone": "470",
+      "composer-undo.key_mean_elements_phone": "47.0",
+      "composer-undo.key_costliest_elements_phone": "47",
+      "composer-undo.undo_button_builds_phone": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body keys leave the undo and redo buttons alone",
+     "exit_code": 1,
+     "metrics": {
+      "composer-undo.ten_keys_total_elements_desktop": "1030",
+      "composer-undo.key_mean_elements_desktop": "103.0",
+      "composer-undo.key_costliest_elements_desktop": "103",
+      "composer-undo.undo_button_builds_desktop": "10",
+      "composer-undo.ten_keys_total_elements_phone": "860",
+      "composer-undo.key_mean_elements_phone": "86.0",
+      "composer-undo.key_costliest_elements_phone": "86",
+      "composer-undo.undo_button_builds_phone": "10"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/composer_keystroke_rebuild_test.dart",
+     "name": "body keys leave the undo and redo buttons alone",
+     "exit_code": 0,
+     "metrics": {
+      "composer-undo.ten_keys_total_elements_desktop": "630",
+      "composer-undo.key_mean_elements_desktop": "63.0",
+      "composer-undo.key_costliest_elements_desktop": "63",
+      "composer-undo.undo_button_builds_desktop": "0",
+      "composer-undo.ten_keys_total_elements_phone": "470",
+      "composer-undo.key_mean_elements_phone": "47.0",
+      "composer-undo.key_costliest_elements_phone": "47",
+      "composer-undo.undo_button_builds_phone": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "search-unchanged",
+   "subject": "PERF: stop resending a search whose words did not change",
+   "commit": "091082b426336662f1fe2ee7e8eeaf6f6ce6bd41",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/search_staging_keyboard_test.dart",
+     "name": "paused keystrokes that keep the words send no search",
+     "exit_code": 1,
+     "metrics": {
+      "search-unchanged.first_searches": "3",
+      "search-unchanged.searches": "24",
+      "search-unchanged.trailing_space_searches": "3",
+      "search-unchanged.trailing_space_elements": "1296",
+      "search-unchanged.tag_lookups": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/search_staging_keyboard_test.dart",
+     "name": "paused keystrokes that keep the words send no search",
+     "exit_code": 0,
+     "metrics": {
+      "search-unchanged.first_searches": "3",
+      "search-unchanged.searches": "3",
+      "search-unchanged.trailing_space_searches": "0",
+      "search-unchanged.trailing_space_elements": "828",
+      "search-unchanged.tag_lookups": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/search_staging_keyboard_test.dart",
+     "name": "paused keystrokes that keep the words send no search",
+     "exit_code": 1,
+     "metrics": {
+      "search-unchanged.first_searches": "3",
+      "search-unchanged.searches": "24",
+      "search-unchanged.trailing_space_searches": "3",
+      "search-unchanged.trailing_space_elements": "1296",
+      "search-unchanged.tag_lookups": "1"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/search_staging_keyboard_test.dart",
+     "name": "paused keystrokes that keep the words send no search",
+     "exit_code": 0,
+     "metrics": {
+      "search-unchanged.first_searches": "3",
+      "search-unchanged.searches": "3",
+      "search-unchanged.trailing_space_searches": "0",
+      "search-unchanged.trailing_space_elements": "828",
+      "search-unchanged.tag_lookups": "1"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "bookmarks-page",
+   "subject": "PERF: stop rebuilding the bookmarks page and tab for every shell notification",
+   "commit": "99ae3f5f787f004bbf5b4977941946b550aa71b6",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_section_rebuild_test.dart",
+     "name": "a tracking message leaves the bookmarks",
+     "exit_code": 1,
+     "metrics": {
+      "bookmarks-page.macOS_page_section_elements": "1019",
+      "bookmarks-page.macOS_page_total_elements": "1114",
+      "bookmarks-page.macOS_tab_section_elements": "62",
+      "bookmarks-page.macOS_tab_total_elements": "330",
+      "bookmarks-page.iOS_page_section_elements": "882",
+      "bookmarks-page.iOS_page_total_elements": "1168",
+      "bookmarks-page.iOS_tab_section_elements": "62",
+      "bookmarks-page.iOS_tab_total_elements": "116"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_section_rebuild_test.dart",
+     "name": "a tracking message leaves the bookmarks",
+     "exit_code": 0,
+     "metrics": {
+      "bookmarks-page.macOS_page_section_elements": "0",
+      "bookmarks-page.macOS_page_total_elements": "95",
+      "bookmarks-page.macOS_tab_section_elements": "0",
+      "bookmarks-page.macOS_tab_total_elements": "96",
+      "bookmarks-page.iOS_page_section_elements": "0",
+      "bookmarks-page.iOS_page_total_elements": "286",
+      "bookmarks-page.iOS_tab_section_elements": "0",
+      "bookmarks-page.iOS_tab_total_elements": "54"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_section_rebuild_test.dart",
+     "name": "a tracking message leaves the bookmarks",
+     "exit_code": 1,
+     "metrics": {
+      "bookmarks-page.macOS_page_section_elements": "1019",
+      "bookmarks-page.macOS_page_total_elements": "1114",
+      "bookmarks-page.macOS_tab_section_elements": "62",
+      "bookmarks-page.macOS_tab_total_elements": "330",
+      "bookmarks-page.iOS_page_section_elements": "882",
+      "bookmarks-page.iOS_page_total_elements": "1168",
+      "bookmarks-page.iOS_tab_section_elements": "62",
+      "bookmarks-page.iOS_tab_total_elements": "116"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_section_rebuild_test.dart",
+     "name": "a tracking message leaves the bookmarks",
+     "exit_code": 0,
+     "metrics": {
+      "bookmarks-page.macOS_page_section_elements": "0",
+      "bookmarks-page.macOS_page_total_elements": "95",
+      "bookmarks-page.macOS_tab_section_elements": "0",
+      "bookmarks-page.macOS_tab_total_elements": "96",
+      "bookmarks-page.iOS_page_section_elements": "0",
+      "bookmarks-page.iOS_page_total_elements": "286",
+      "bookmarks-page.iOS_tab_section_elements": "0",
+      "bookmarks-page.iOS_tab_total_elements": "54"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "ticker-mode",
+   "subject": "PERF: stop hiding and showing a list rebuilding its labels and popovers",
+   "commit": "a11ea38701d14817a3f0166341eddf7838650240",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/retained_list_ticker_mode_test.dart",
+     "name": "opening and closing a topic leaves the retained list labels alone",
+     "exit_code": 1,
+     "metrics": {
+      "ticker-mode.open_elements": "3578",
+      "ticker-mode.open_invalidated": "61",
+      "ticker-mode.close_elements": "2075",
+      "ticker-mode.close_invalidated": "55"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/retained_list_ticker_mode_test.dart",
+     "name": "opening and closing a topic leaves the retained list labels alone",
+     "exit_code": 0,
+     "metrics": {
+      "ticker-mode.open_elements": "3288",
+      "ticker-mode.open_invalidated": "0",
+      "ticker-mode.close_elements": "1835",
+      "ticker-mode.close_invalidated": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/retained_list_ticker_mode_test.dart",
+     "name": "opening and closing a topic leaves the retained list labels alone",
+     "exit_code": 1,
+     "metrics": {
+      "ticker-mode.open_elements": "3578",
+      "ticker-mode.open_invalidated": "61",
+      "ticker-mode.close_elements": "2075",
+      "ticker-mode.close_invalidated": "55"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/retained_list_ticker_mode_test.dart",
+     "name": "opening and closing a topic leaves the retained list labels alone",
+     "exit_code": 0,
+     "metrics": {
+      "ticker-mode.open_elements": "3288",
+      "ticker-mode.open_invalidated": "0",
+      "ticker-mode.close_elements": "1835",
+      "ticker-mode.close_invalidated": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "search-panel",
+   "subject": "PERF: stop redrawing the search field, scope bar and skeleton per keystroke",
+   "commit": "5dab1c14c8375da40066c114ea05365181e8aa29",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "keystroke while loading redraws only the field",
+     "exit_code": 1,
+     "metrics": {
+      "search-panel.desktop_keystroke_elements": "442",
+      "search-panel.desktop_keystroke_scope_elements": "155",
+      "search-panel.desktop_keystroke_skeleton_elements": "78",
+      "search-panel.desktop_keystroke_editor_elements": "94",
+      "search-panel.desktop_keystroke_footer_elements": "21",
+      "search-panel.phone_keystroke_elements": "494",
+      "search-panel.phone_keystroke_scope_elements": "159",
+      "search-panel.phone_keystroke_skeleton_elements": "78",
+      "search-panel.phone_keystroke_editor_elements": "94",
+      "search-panel.phone_keystroke_footer_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "keystroke while loading redraws only the field",
+     "exit_code": 0,
+     "metrics": {
+      "search-panel.desktop_keystroke_elements": "66",
+      "search-panel.desktop_keystroke_scope_elements": "0",
+      "search-panel.desktop_keystroke_skeleton_elements": "0",
+      "search-panel.desktop_keystroke_editor_elements": "27",
+      "search-panel.desktop_keystroke_footer_elements": "0",
+      "search-panel.phone_keystroke_elements": "72",
+      "search-panel.phone_keystroke_scope_elements": "0",
+      "search-panel.phone_keystroke_skeleton_elements": "0",
+      "search-panel.phone_keystroke_editor_elements": "27",
+      "search-panel.phone_keystroke_footer_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "keystroke while loading redraws only the field",
+     "exit_code": 1,
+     "metrics": {
+      "search-panel.desktop_keystroke_elements": "442",
+      "search-panel.desktop_keystroke_scope_elements": "155",
+      "search-panel.desktop_keystroke_skeleton_elements": "78",
+      "search-panel.desktop_keystroke_editor_elements": "94",
+      "search-panel.desktop_keystroke_footer_elements": "21",
+      "search-panel.phone_keystroke_elements": "494",
+      "search-panel.phone_keystroke_scope_elements": "159",
+      "search-panel.phone_keystroke_skeleton_elements": "78",
+      "search-panel.phone_keystroke_editor_elements": "94",
+      "search-panel.phone_keystroke_footer_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "keystroke while loading redraws only the field",
+     "exit_code": 0,
+     "metrics": {
+      "search-panel.desktop_keystroke_elements": "66",
+      "search-panel.desktop_keystroke_scope_elements": "0",
+      "search-panel.desktop_keystroke_skeleton_elements": "0",
+      "search-panel.desktop_keystroke_editor_elements": "27",
+      "search-panel.desktop_keystroke_footer_elements": "0",
+      "search-panel.phone_keystroke_elements": "72",
+      "search-panel.phone_keystroke_scope_elements": "0",
+      "search-panel.phone_keystroke_skeleton_elements": "0",
+      "search-panel.phone_keystroke_editor_elements": "27",
+      "search-panel.phone_keystroke_footer_elements": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "search-panel-rows",
+   "subject": "PERF: keep settled search result rows when a later source answers",
+   "commit": "6955b645194ac80f43623bfa42515efccd7b21df",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "a later source answer leaves settled result rows alone",
+     "exit_code": 1,
+     "metrics": {
+      "search-panel-rows.first_delivery_elements": "564",
+      "search-panel-rows.second_delivery_elements": "664",
+      "search-panel-rows.second_delivery_row_elements": "313",
+      "search-panel-rows.last_delivery_elements": "503",
+      "search-panel-rows.last_delivery_row_elements": "311"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "a later source answer leaves settled result rows alone",
+     "exit_code": 0,
+     "metrics": {
+      "search-panel-rows.first_delivery_elements": "564",
+      "search-panel-rows.second_delivery_elements": "421",
+      "search-panel-rows.second_delivery_row_elements": "70",
+      "search-panel-rows.last_delivery_elements": "192",
+      "search-panel-rows.last_delivery_row_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "a later source answer leaves settled result rows alone",
+     "exit_code": 1,
+     "metrics": {
+      "search-panel-rows.first_delivery_elements": "564",
+      "search-panel-rows.second_delivery_elements": "664",
+      "search-panel-rows.second_delivery_row_elements": "313",
+      "search-panel-rows.last_delivery_elements": "503",
+      "search-panel-rows.last_delivery_row_elements": "311"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/global_search_rebuilds_test.dart",
+     "name": "a later source answer leaves settled result rows alone",
+     "exit_code": 0,
+     "metrics": {
+      "search-panel-rows.first_delivery_elements": "564",
+      "search-panel-rows.second_delivery_elements": "421",
+      "search-panel-rows.second_delivery_row_elements": "70",
+      "search-panel-rows.last_delivery_elements": "192",
+      "search-panel-rows.last_delivery_row_elements": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "notification-panel",
+   "subject": "PERF: stop rebuilding every notification row for each live count",
+   "commit": "c9756c788e4d5e3945602bf239846315dade0385",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/notification_panel_rebuild_test.dart",
+     "name": "a live count does not rebuild the open panel rows",
+     "exit_code": 1,
+     "metrics": {
+      "notification-panel.iOS_count_elements": "2145",
+      "notification-panel.iOS_count_rows": "18",
+      "notification-panel.iOS_review_elements": "2145",
+      "notification-panel.iOS_review_rows": "18",
+      "notification-panel.macOS_count_elements": "2324",
+      "notification-panel.macOS_count_rows": "15",
+      "notification-panel.macOS_review_elements": "2324",
+      "notification-panel.macOS_review_rows": "15"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/notification_panel_rebuild_test.dart",
+     "name": "a live count does not rebuild the open panel rows",
+     "exit_code": 0,
+     "metrics": {
+      "notification-panel.iOS_count_elements": "758",
+      "notification-panel.iOS_count_rows": "0",
+      "notification-panel.iOS_review_elements": "758",
+      "notification-panel.iOS_review_rows": "0",
+      "notification-panel.macOS_count_elements": "513",
+      "notification-panel.macOS_count_rows": "0",
+      "notification-panel.macOS_review_elements": "513",
+      "notification-panel.macOS_review_rows": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/notification_panel_rebuild_test.dart",
+     "name": "a live count does not rebuild the open panel rows",
+     "exit_code": 1,
+     "metrics": {
+      "notification-panel.iOS_count_elements": "2145",
+      "notification-panel.iOS_count_rows": "18",
+      "notification-panel.iOS_review_elements": "2145",
+      "notification-panel.iOS_review_rows": "18",
+      "notification-panel.macOS_count_elements": "2324",
+      "notification-panel.macOS_count_rows": "15",
+      "notification-panel.macOS_review_elements": "2324",
+      "notification-panel.macOS_review_rows": "15"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/notification_panel_rebuild_test.dart",
+     "name": "a live count does not rebuild the open panel rows",
+     "exit_code": 0,
+     "metrics": {
+      "notification-panel.iOS_count_elements": "758",
+      "notification-panel.iOS_count_rows": "0",
+      "notification-panel.iOS_review_elements": "758",
+      "notification-panel.iOS_review_rows": "0",
+      "notification-panel.macOS_count_elements": "513",
+      "notification-panel.macOS_count_rows": "0",
+      "notification-panel.macOS_review_elements": "513",
+      "notification-panel.macOS_review_rows": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "link-context-menu",
+   "subject": "PERF: stop mounting a context menu under every paragraph with a link",
+   "commit": "8db02a8bb5f03ee74f805cbcf280814d4882aced",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/inline_link_menu_mount_test.dart",
+     "name": "linked paragraphs mount within the topic budget",
+     "exit_code": 1,
+     "metrics": {
+      "link-context-menu.macos_render_objects": "1266",
+      "link-context-menu.ios_render_objects": "1417"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/inline_link_menu_mount_test.dart",
+     "name": "linked paragraphs mount within the topic budget",
+     "exit_code": 0,
+     "metrics": {
+      "link-context-menu.macos_render_objects": "1098",
+      "link-context-menu.ios_render_objects": "1201"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/inline_link_menu_mount_test.dart",
+     "name": "linked paragraphs mount within the topic budget",
+     "exit_code": 1,
+     "metrics": {
+      "link-context-menu.macos_render_objects": "1266",
+      "link-context-menu.ios_render_objects": "1417"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/inline_link_menu_mount_test.dart",
+     "name": "linked paragraphs mount within the topic budget",
+     "exit_code": 0,
+     "metrics": {
+      "link-context-menu.macos_render_objects": "1098",
+      "link-context-menu.ios_render_objects": "1201"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "sidebar-navigation",
+   "subject": "PERF: stop rebuilding the sidebar for navigation that moves no highlight",
+   "commit": "f17f123a77d68db0e7a75084451c3f05b04ea370",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/sidebar_navigation_rebuild_test.dart",
+     "name": "a navigation redraws only the sidebar rows its selection moves between",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-navigation.open_elements": "1596",
+      "sidebar-navigation.open_tiles": "28",
+      "sidebar-navigation.close_elements": "1596",
+      "sidebar-navigation.close_tiles": "28",
+      "sidebar-navigation.click_elements": "1608",
+      "sidebar-navigation.click_tiles": "28"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/sidebar_navigation_rebuild_test.dart",
+     "name": "a navigation redraws only the sidebar rows its selection moves between",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-navigation.open_elements": "68",
+      "sidebar-navigation.open_tiles": "0",
+      "sidebar-navigation.close_elements": "68",
+      "sidebar-navigation.close_tiles": "0",
+      "sidebar-navigation.click_elements": "220",
+      "sidebar-navigation.click_tiles": "2"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/sidebar_navigation_rebuild_test.dart",
+     "name": "a navigation redraws only the sidebar rows its selection moves between",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-navigation.open_elements": "1596",
+      "sidebar-navigation.open_tiles": "28",
+      "sidebar-navigation.close_elements": "1596",
+      "sidebar-navigation.close_tiles": "28",
+      "sidebar-navigation.click_elements": "1608",
+      "sidebar-navigation.click_tiles": "28"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/sidebar_navigation_rebuild_test.dart",
+     "name": "a navigation redraws only the sidebar rows its selection moves between",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-navigation.open_elements": "68",
+      "sidebar-navigation.open_tiles": "0",
+      "sidebar-navigation.close_elements": "68",
+      "sidebar-navigation.close_tiles": "0",
+      "sidebar-navigation.click_elements": "220",
+      "sidebar-navigation.click_tiles": "2"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "sidebar-totals",
+   "subject": "PERF: stop rebuilding the sidebar on the message after every count change",
+   "commit": "14021b8add7f6e5e30d87e2b8b2cbc005eaeab3a",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "the tracking message after a count leaves the sidebar as built",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-totals.iOS_tracking_sidebar": "522",
+      "sidebar-totals.iOS_tracking_total": "1255",
+      "sidebar-totals.macOS_tracking_sidebar": "480",
+      "sidebar-totals.macOS_tracking_total": "776"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "the tracking message after a count leaves the sidebar as built",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-totals.iOS_tracking_sidebar": "68",
+      "sidebar-totals.iOS_tracking_total": "801",
+      "sidebar-totals.macOS_tracking_sidebar": "68",
+      "sidebar-totals.macOS_tracking_total": "364"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "the tracking message after a count leaves the sidebar as built",
+     "exit_code": 1,
+     "metrics": {
+      "sidebar-totals.iOS_tracking_sidebar": "522",
+      "sidebar-totals.iOS_tracking_total": "1255",
+      "sidebar-totals.macOS_tracking_sidebar": "480",
+      "sidebar-totals.macOS_tracking_total": "776"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/notification_badge_rebuild_test.dart",
+     "name": "the tracking message after a count leaves the sidebar as built",
+     "exit_code": 0,
+     "metrics": {
+      "sidebar-totals.iOS_tracking_sidebar": "68",
+      "sidebar-totals.iOS_tracking_total": "801",
+      "sidebar-totals.macOS_tracking_sidebar": "68",
+      "sidebar-totals.macOS_tracking_total": "364"
+     },
+     "tail": null
+    }
+   ]
+  }
+ ]
+}

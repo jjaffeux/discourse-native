@@ -199,6 +199,37 @@ void main() {
     variant: _platforms,
   );
 
+  testWidgets(
+    'removing the active list item drops its retired editor from the toolbar',
+    (tester) async {
+      final composer = await _pumpPanel(tester, source: '- [ ] Body');
+      final body = find.byWidgetPredicate(
+        (widget) => widget is EditableText && widget.controller.text == 'Body',
+      );
+      await tester.enterText(body, 'Changed');
+      await tester.pumpAndSettle();
+      final embedded = composer.activeEditor;
+      expect(embedded, isNot(same(composer)));
+      expect(_action('undo'), findsOneWidget);
+
+      composer.history.transact(() {
+        composer.text.value = const TextEditingValue(
+          text: 'Plain now',
+          selection: TextSelection.collapsed(offset: 9),
+        );
+      });
+      await tester.pump();
+      expect(embedded.isEditing, isFalse);
+      expect(_action('undo'), findsNothing);
+
+      await tester.pumpAndSettle();
+      expect(composer.activeEditor, same(composer));
+      expect(_action('undo'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   for (final details in [false, true]) {
     testWidgets(
       'toolbar restores the active embedded ${details ? 'details' : 'list'} editor',

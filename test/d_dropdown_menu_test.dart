@@ -42,6 +42,34 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('an open menu follows a changed variant', (tester) async {
+    final variant = ValueNotifier(DPopoverVariant.standard);
+    addTearDown(variant.dispose);
+    await pumpMenu(
+      tester,
+      child: ValueListenableBuilder(
+        valueListenable: variant,
+        builder: (context, value, _) => DDropdownMenu(
+          content: DDropdownMenuContent(
+            variant: value,
+            children: const [
+              DDropdownMenuItem(onPressed: _noop, child: Text('Action')),
+            ],
+          ),
+          child: DDropdownMenuTrigger.button(label: const Text('Open')),
+        ),
+      ),
+    );
+    await open(tester);
+    Color surface() => DTokens.of(tester.element(find.text('Action'))).surface;
+    final standard = surface();
+
+    variant.value = DPopoverVariant.timeline;
+    await tester.pumpAndSettle();
+
+    expect(surface(), isNot(standard));
+  });
+
   testWidgets('forwards an explicit popup radius to the Native surface', (
     tester,
   ) async {
