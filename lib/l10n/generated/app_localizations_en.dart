@@ -7267,6 +7267,11 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextImage => 'Next image';
 
   @override
+  String lightboxPosition(String number, String total) {
+    return '$number of $total';
+  }
+
+  @override
   String goToImageOf(String number, String total) {
     return 'Go to image $number of $total';
   }

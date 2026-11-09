@@ -12,6 +12,7 @@ import 'package:html/dom.dart' as dom;
 import 'package:photo_view/photo_view.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../theme/app_theme.dart';
 import 'cooked_dom.dart';
 import 'image_decode.dart';
@@ -23,6 +24,8 @@ import 'shell_metrics.dart';
 import 'shell_scope.dart';
 import 'site_image.dart';
 import 'skeleton_fill.dart';
+
+part 'lightbox_thumbnail_strip.dart';
 
 const double _maximumPhotoViewDimension = 10000;
 const double _maximumPhotoViewAspectRatio = 10000;
@@ -585,6 +588,12 @@ class _LightboxGalleryState extends State<LightboxGallery>
     );
   }
 
+  // Straight there, the way the mockup swaps the image: sliding across the
+  // gallery would build, and fetch, every full-size image in between.
+  void _jumpTo(int target) {
+    if (target != _index) _controller.jumpToPage(target);
+  }
+
   void _pageChanged(int index) {
     _resetZoom(_index);
     setState(() => _index = index);
@@ -895,6 +904,13 @@ class _LightboxGalleryState extends State<LightboxGallery>
               },
             ),
           ),
+          _ThumbnailStrip(
+            images: widget.images,
+            index: _index,
+            visible: _chromeVisible && !_closeDragging,
+            siteUrl: widget.siteUrl,
+            onSelect: _jumpTo,
+          ),
         ],
       ),
     );
@@ -1135,6 +1151,8 @@ class _Chrome extends StatelessWidget {
   final void Function(int delta) onStep;
   final VoidCallback onClose;
 
+  static const double _barGap = 12;
+
   @override
   Widget build(BuildContext context) {
     final showArrows = total > 1 && !context.isTouch;
@@ -1158,7 +1176,7 @@ class _Chrome extends StatelessWidget {
         child: Stack(
           fit: StackFit.expand,
           children: [
-            if (image.title != null || image.details != null)
+            if (image.details != null)
               Align(
                 alignment: Alignment.bottomCenter,
                 child: _caption(context),
@@ -1196,64 +1214,62 @@ class _Chrome extends StatelessWidget {
     final stackBelowWindowControls =
         hasWindowChrome && MediaQuery.sizeOf(context).width < 480;
 
-    return DCard(
-      spacing: 0,
-      child: SafeArea(
-        bottom: false,
-        child: Padding(
-          // macOS traffic lights overlay Flutter and are not in SafeArea.
-          padding: EdgeInsets.fromLTRB(
-            hasWindowChrome && !stackBelowWindowControls ? 88 : 8,
-            12 + (stackBelowWindowControls ? shellTitleBarHeight : 0),
-            8,
-            12,
-          ),
-          child: Row(
-            spacing: DSpacing.controlGap,
+    final actions = [
+      _Button(
+        icon: DIcons.circleMinus,
+        tooltip: context.l10n.zoomOut,
+        onTap: onZoomOut,
+      ),
+      _Button(
+        icon: DIcons.expand,
+        tooltip: context.l10n.resetZoom,
+        onTap: onResetZoom,
+      ),
+      _Button(
+        icon: DIcons.circlePlus,
+        tooltip: context.l10n.zoomIn,
+        onTap: onZoomIn,
+      ),
+      if (downloadHref != null)
+        _Button(
+          icon: DIcons.download,
+          tooltip: downloading
+              ? context.l10n.downloading
+              : context.l10n.download,
+          onTap: downloading ? null : onDownload,
+        ),
+      _Button(icon: DIcons.xmark, tooltip: context.l10n.close, onTap: onClose),
+    ];
+
+    return SafeArea(
+      bottom: false,
+      child: Padding(
+        // macOS traffic lights overlay Flutter and are not in SafeArea.
+        padding: EdgeInsets.fromLTRB(
+          hasWindowChrome && !stackBelowWindowControls ? 88 : 16,
+          12 + (stackBelowWindowControls ? shellTitleBarHeight : 0),
+          16,
+          12,
+        ),
+        child: LayoutBuilder(
+          builder: (context, constraints) => Row(
+            spacing: _barGap,
             children: [
-              if (total > 1)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 8),
-                    child: Text(
-                      '${index + 1} / $total',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: DTokens.of(context).foreground,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                const Spacer(),
-              _Button(
-                icon: DIcons.circleMinus,
-                tooltip: context.l10n.zoomOut,
-                onTap: onZoomOut,
-              ),
-              _Button(
-                icon: DIcons.expand,
-                tooltip: context.l10n.resetZoom,
-                onTap: onResetZoom,
-              ),
-              _Button(
-                icon: DIcons.circlePlus,
-                tooltip: context.l10n.zoomIn,
-                onTap: onZoomIn,
-              ),
-              if (downloadHref != null)
-                _Button(
-                  icon: DIcons.download,
-                  tooltip: downloading
-                      ? context.l10n.downloading
-                      : context.l10n.download,
-                  onTap: downloading ? null : onDownload,
+              Expanded(child: _position(context)),
+              // Every control at a large text size does not fit a phone; they
+              // shrink together rather than overflow or take the whole bar.
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * .8,
                 ),
-              _Button(
-                icon: DIcons.xmark,
-                tooltip: context.l10n.close,
-                onTap: onClose,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    spacing: _barGap,
+                    children: actions,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1262,49 +1278,62 @@ class _Chrome extends StatelessWidget {
     );
   }
 
-  Widget _caption(BuildContext context) {
+  /// One line, so paging to a longer filename never resizes the image area.
+  Widget _position(BuildContext context) {
     final title = image.title;
-    final details = image.details;
-
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
-        child: DecoratedBox(
-          decoration: const BoxDecoration(
-            color: Color(0xCC000000),
-            borderRadius: BorderRadius.all(Radius.circular(8)),
-          ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (title != null)
-                  Text(
-                    title,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodyMedium?.copyWith(color: Colors.white),
-                  ),
-                if (title != null && details != null) const SizedBox(height: 2),
-                if (details != null)
-                  Text(
-                    details,
-                    textAlign: TextAlign.center,
-                    style: Theme.of(
-                      context,
-                    ).textTheme.labelSmall?.copyWith(color: Colors.white60),
-                  ),
-              ],
+    final counted = total > 1;
+    return Text.rich(
+      TextSpan(
+        children: [
+          if (counted)
+            TextSpan(
+              text: context.l10n.lightboxPosition(
+                (index + 1).toString(),
+                total.toString(),
+              ),
+              style: const TextStyle(fontWeight: FontWeight.w600),
             ),
-          ),
-        ),
+          if (counted && title != null)
+            const WidgetSpan(child: SizedBox(width: 10)),
+          if (title != null)
+            TextSpan(
+              text: title,
+              style: TextStyle(color: Colors.white.withValues(alpha: .65)),
+            ),
+        ],
+      ),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        fontSize: DiscourseTypography.control,
+        color: Colors.white,
       ),
     );
   }
+
+  Widget _caption(BuildContext context) => SafeArea(
+    top: false,
+    bottom: false,
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
+      child: DecoratedBox(
+        decoration: const BoxDecoration(
+          color: Color(0xCC000000),
+          borderRadius: BorderRadius.all(Radius.circular(8)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          child: Text(
+            image.details!,
+            textAlign: TextAlign.center,
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(color: Colors.white60),
+          ),
+        ),
+      ),
+    ),
+  );
 }
 
 class _Button extends StatelessWidget {
@@ -1322,8 +1351,10 @@ class _Button extends StatelessWidget {
   Widget build(BuildContext context) {
     return DButton.iconOnly(
       onPressed: onTap,
-      variant: DButtonVariant.secondary,
-      size: DButtonSize.large,
+      variant: DButtonVariant.ghost,
+      density: DButtonDensity.overMedia,
+      backgroundColor: Colors.white.withValues(alpha: .12),
+      foregroundColor: Colors.white,
       tooltip: tooltip,
       icon: DIcon(icon),
     );

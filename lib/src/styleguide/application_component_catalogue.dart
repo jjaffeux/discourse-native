@@ -162,6 +162,11 @@ const applicationComponentCatalogue = <ComponentReference>[
     sections: ['Post image', 'Chat image', 'Narrow and disabled'],
   ),
   ComponentReference(
+    id: 'image-thumbnail',
+    name: 'Image thumbnail',
+    sections: ['Gallery strip'],
+  ),
+  ComponentReference(
     id: 'notification-dot',
     name: 'Notification dot',
     sections: ['Inline states', 'Header overlay', 'Surface rings'],

@@ -157,6 +157,12 @@ enum DButtonDensity {
 
   /// A 32px circular rail action with 16px artwork and matching hit bounds.
   rail,
+
+  /// A 36px circular icon action over a photo or video with 14px artwork on
+  /// every platform, growing with text. The media decides what reads against
+  /// it, so pair it with [DButton.backgroundColor] and
+  /// [DButton.foregroundColor] rather than the theme's own.
+  overMedia,
 }
 
 @immutable
@@ -572,6 +578,7 @@ class DButton extends StatelessWidget {
         (DInputGroupControlScope.maybeOf(context)?.quiet ?? false);
     final avatar = density == DButtonDensity.avatar;
     final rail = density == DButtonDensity.rail;
+    final overMedia = density == DButtonDensity.overMedia;
     final dashedTile = variant == DButtonVariant.dashedTile;
     final resume = variant == DButtonVariant.resume;
     final intrinsicIcon =
@@ -616,6 +623,8 @@ class DButton extends StatelessWidget {
         ? 11.0
         : header || rail
         ? 16.0
+        : overMedia
+        ? 14.0
         : chrome
         ? 15.0
         : backLink
@@ -686,6 +695,8 @@ class DButton extends StatelessWidget {
                   DiscourseTypography.lineHeightSmall
         : rail
         ? 32.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
+        : overMedia
+        ? 36.0 + math.max(0, MediaQuery.textScalerOf(context).scale(14) - 14)
         : searchClear
         ? MediaQuery.textScalerOf(context).scale(quietSearchClear ? 22 : 12)
         : avatar
@@ -744,6 +755,7 @@ class DButton extends StatelessWidget {
                     chrome ||
                     avatar ||
                     rail ||
+                    overMedia ||
                     shape == DButtonShape.pill ||
                     quiet ||
                     variant == DButtonVariant.tool ||

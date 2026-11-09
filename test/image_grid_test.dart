@@ -382,20 +382,32 @@ void main() {
           expect(gallery.images.map((image) => image.title), [
             for (var index = 0; index < 100; index++) 'img$index.png',
           ]);
-          expect(find.text('4 / 100'), findsOneWidget);
+          expect(
+            find.textContaining('4 of 100', findRichText: true),
+            findsOneWidget,
+          );
           await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 250));
           await tester.pump();
-          expect(find.text('5 / 100'), findsOneWidget);
+          expect(
+            find.textContaining('5 of 100', findRichText: true),
+            findsOneWidget,
+          );
           tester
               .widget<PageView>(find.byType(PageView))
               .controller!
               .jumpToPage(99);
           await tester.pump();
           await tester.pump();
-          expect(find.text('100 / 100'), findsOneWidget);
-          expect(find.text('img99.png'), findsOneWidget);
+          expect(
+            find.textContaining('100 of 100', findRichText: true),
+            findsOneWidget,
+          );
+          expect(
+            find.textContaining('img99.png', findRichText: true),
+            findsOneWidget,
+          );
           expect(requests.any((url) => url.path == '/img99.png'), isTrue);
         } finally {
           Navigator.of(tester.element(find.byType(LightboxGallery))).pop();
@@ -858,8 +870,11 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('4 / 6'), findsOneWidget);
-      expect(find.text('img3.png'), findsOneWidget);
+      expect(find.textContaining('4 of 6', findRichText: true), findsOneWidget);
+      expect(
+        find.textContaining('img3.png', findRichText: true),
+        findsOneWidget,
+      );
     });
   });
 
@@ -1120,7 +1135,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('1 / 3'), findsOneWidget);
+      expect(find.textContaining('1 of 3', findRichText: true), findsOneWidget);
     });
   });
 }

@@ -41,6 +41,7 @@ import 'examples/header_tags_examples.dart';
 import 'examples/history_transition_examples.dart';
 import 'examples/hover_card_examples.dart';
 import 'examples/image_preview_examples.dart';
+import 'examples/image_thumbnail_examples.dart';
 import 'examples/input_examples.dart';
 import 'examples/input_group_examples.dart';
 import 'examples/input_otp_examples.dart';
@@ -115,6 +116,7 @@ final componentExamples = <String, ComponentExamples>{
   'math': mathExamples,
   'code-editor': codeEditorExamples,
   'image-preview': imagePreviewExamples,
+  'image-thumbnail': imageThumbnailExamples,
   'message-inbox-menu': messageInboxMenuExamples,
   'notification-level-menu': notificationLevelMenuExamples,
   'page-surface': pageSurfaceExamples,

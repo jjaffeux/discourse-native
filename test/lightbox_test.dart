@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
@@ -121,6 +122,11 @@ PhotoViewControllerBase<PhotoViewControllerValue> photoControllerAt(
 
 Finder fullImageAt(int index) =>
     find.descendant(of: photoViewAt(index), matching: find.byType(SiteImage));
+
+Finder barText(String text) => find.descendant(
+  of: find.byType(LightboxGallery),
+  matching: find.textContaining(text, findRichText: true),
+);
 
 Finder galleryButton(String tooltip) =>
     find.ancestor(of: find.byTooltip(tooltip), matching: find.byType(DButton));
@@ -623,8 +629,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(photoViewAt(2), findsOneWidget);
-      expect(find.text('3 / 3'), findsOneWidget);
-      expect(find.text('three.png'), findsOneWidget);
+      expect(barText('3 of 3'), findsOneWidget);
+      expect(barText('three.png'), findsOneWidget);
     });
 
     testWidgets('galleries respect closed and revealed spoiler boundaries', (
@@ -655,7 +661,7 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(find.text('after'), findsOneWidget);
+      expect(barText('after'), findsOneWidget);
       await tester.tap(find.dIcon(DIcons.xmark));
       await tester.pumpAndSettle();
 
@@ -679,7 +685,7 @@ void main() {
       );
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(find.text('revealed-two'), findsOneWidget);
+      expect(barText('revealed-two'), findsOneWidget);
       expect(tester.takeException(), isNull);
     });
 
@@ -727,8 +733,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.dIcon(DIcons.download), findsOneWidget);
-      expect(find.text('1 / 1'), findsNothing);
-      expect(find.text('screenshot.png'), findsOneWidget);
+      expect(barText('1 of 1'), findsNothing);
+      expect(barText('screenshot.png'), findsOneWidget);
       expect(find.text('1920×1080 234 KB'), findsOneWidget);
 
       final captionSurfaces = tester
@@ -884,8 +890,7 @@ void main() {
               .isButton,
           isTrue,
         );
-        expect(tester.getSize(button).width, DControlStyle.largeHeight);
-        expect(tester.getSize(button).height, DControlStyle.largeHeight);
+        expect(tester.getSize(button), const Size.square(36));
       }
 
       expect(
@@ -957,7 +962,7 @@ void main() {
       );
 
       expect(button.onPressed, isNull);
-      expect(button.variant, DButtonVariant.secondary);
+      expect(button.variant, DButtonVariant.ghost);
       expect(icon.color, isNull);
     });
 
@@ -1035,8 +1040,8 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(first.scale, lessThan(zoomedScale));
-      expect(find.text('1 / 3'), findsOneWidget);
-      expect(find.text('2 / 3'), findsNothing);
+      expect(barText('1 of 3'), findsOneWidget);
+      expect(barText('2 of 3'), findsNothing);
     });
 
     testWidgets('scrolling up over a toolbar button increases image scale', (
@@ -1094,12 +1099,12 @@ void main() {
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
       await tester.pumpAndSettle();
-      expect(find.text('2 / 3'), findsOneWidget);
+      expect(barText('2 of 3'), findsOneWidget);
       expect(first.scale, closeTo(initialScale, 0.001));
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
       await tester.pumpAndSettle();
-      expect(find.text('1 / 3'), findsOneWidget);
+      expect(barText('1 of 3'), findsOneWidget);
       expect(first.scale, closeTo(initialScale, 0.001));
     });
 
@@ -1256,19 +1261,15 @@ void main() {
         tester,
         images: LightboxImage.galleryFor(anchorIn(threeImages)),
       );
-      final counter = find.text('1 / 3');
-      final toolbar = find.byType(DCard);
+      final counter = barText('1 of 3');
       final imageViewport = tester.getRect(find.byType(PageView));
+      expect(find.byType(DCard), findsNothing);
       expect(tester.getRect(counter).left, greaterThanOrEqualTo(88));
       expect(
-        tester.getRect(toolbar).bottom,
+        tester.getRect(galleryButton('Zoom in')).bottom,
         lessThanOrEqualTo(imageViewport.top),
       );
-      final context = tester.element(counter);
-      expect(
-        tester.widget<Text>(counter).style!.color,
-        DTokens.of(context).foreground,
-      );
+      expect(tester.widget<RichText>(counter).text.style!.color, Colors.white);
       await tester.tap(galleryButton('Zoom in'));
       await tester.pump();
       expect(tester.getRect(find.byType(PageView)), imageViewport);
@@ -1276,7 +1277,9 @@ void main() {
       debugDefaultTargetPlatformOverride = null;
     });
 
-    testWidgets('puts top controls on dark surfaces', (tester) async {
+    testWidgets('draws top controls as white rounds over the backdrop', (
+      tester,
+    ) async {
       await pumpCooked(tester, singleImage);
       await tester.tap(thumbnail());
       await tester.pumpAndSettle();
@@ -1286,8 +1289,12 @@ void main() {
       );
 
       for (final icon in [DIcons.download, DIcons.xmark]) {
-        expect(button(icon).variant, DButtonVariant.secondary);
-        expect(button(icon).size, DButtonSize.large);
+        expect(button(icon).density, DButtonDensity.overMedia);
+        expect(button(icon).foregroundColor, Colors.white);
+        expect(
+          button(icon).backgroundColor,
+          Colors.white.withValues(alpha: .12),
+        );
       }
     });
 
@@ -1319,7 +1326,7 @@ void main() {
       await tester.pump();
 
       expect(tester.takeException(), isNull);
-      expect(find.text('1 / 4'), findsOneWidget);
+      expect(barText('1 of 4'), findsOneWidget);
       expect(galleryButton('Zoom in'), findsOneWidget);
       expect(find.dIcon(DIcons.download), findsOneWidget);
       expect(find.dIcon(DIcons.xmark), findsOneWidget);
@@ -1590,11 +1597,11 @@ void main() {
         await tester.pumpAndSettle();
         double page() =>
             tester.widget<PageView>(find.byType(PageView)).controller!.page!;
-        expect(find.text('1 / 3'), findsOneWidget);
+        expect(barText('1 of 3'), findsOneWidget);
 
         for (final (key, target, counter) in [
-          (LogicalKeyboardKey.arrowRight, 1.0, '2 / 3'),
-          (LogicalKeyboardKey.arrowLeft, 0.0, '1 / 3'),
+          (LogicalKeyboardKey.arrowRight, 1.0, '2 of 3'),
+          (LogicalKeyboardKey.arrowLeft, 0.0, '1 of 3'),
         ]) {
           await tester.sendKeyEvent(key);
           await tester.pump();
@@ -1606,7 +1613,7 @@ void main() {
           }
           await tester.pumpAndSettle();
           expect(page(), target);
-          expect(find.text(counter), findsOneWidget);
+          expect(barText(counter), findsOneWidget);
         }
       });
     }
@@ -1621,7 +1628,7 @@ void main() {
 
       await tester.tap(find.dIcon(DIcons.chevronRight));
       await tester.pumpAndSettle();
-      expect(find.text('3 / 3'), findsOneWidget);
+      expect(barText('3 of 3'), findsOneWidget);
     });
 
     testWidgets('offers no arrows to a finger, which swipes instead', (
@@ -1633,6 +1640,373 @@ void main() {
 
       expect(find.dIcon(DIcons.chevronLeft), findsNothing);
       expect(find.dIcon(DIcons.chevronRight), findsNothing);
+    });
+
+    group('top bar and thumbnail strip', () {
+      List<LightboxImage> manyImages(int count) => [
+        for (var index = 0; index < count; index++)
+          parse(
+            '<a class="lightbox" href="https://example.com/full-$index.png" '
+            'title="photo-$index.png"><img '
+            'src="https://example.com/thumb-$index.png" '
+            'width="100" height="100"></a>',
+          ),
+      ];
+
+      Finder thumbnailAt(int index) => find.byWidgetPredicate(
+        (widget) =>
+            widget is DImageThumbnail &&
+            widget.semanticLabel.startsWith('Go to image ${index + 1} of'),
+      );
+
+      Future<void> useScreen(
+        WidgetTester tester,
+        Size size, {
+        double bottomPadding = 0,
+      }) async {
+        tester.view.physicalSize = size;
+        tester.view.devicePixelRatio = 1;
+        tester.view.padding = FakeViewPadding(bottom: bottomPadding);
+        addTearDown(tester.view.reset);
+      }
+
+      double page(WidgetTester tester) =>
+          tester.widget<PageView>(find.byType(PageView)).controller!.page!;
+
+      testWidgets('one image names itself and has no strip or count', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester);
+
+        expect(barText('screenshot.png'), findsOneWidget);
+        expect(barText('of 1'), findsNothing);
+        expect(find.byType(DImageThumbnail), findsNothing);
+        expect(tester.getRect(find.byType(PageView)).bottom, 600 - 24);
+      });
+
+      testWidgets('many images count, name the current one and draw a strip', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(3), initialIndex: 1);
+
+        expect(barText('2 of 3'), findsOneWidget);
+        expect(barText('photo-1.png'), findsOneWidget);
+        expect(barText('photo-0.png'), findsNothing);
+
+        expect(find.byType(DImageThumbnail), findsNWidgets(3));
+        expect(tester.getSize(thumbnailAt(0)), const Size.square(52));
+        expect(
+          [
+            for (final index in [0, 1, 2])
+              tester.widget<DImageThumbnail>(thumbnailAt(index)).selected,
+          ],
+          [false, true, false],
+        );
+        expect(
+          tester.getRect(thumbnailAt(1)).left -
+              tester.getRect(thumbnailAt(0)).right,
+          6,
+        );
+        expect(tester.getBottomLeft(thumbnailAt(0)).dy, 600 - 18);
+      });
+
+      testWidgets('centres a strip that fits the window', (tester) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(3));
+
+        final content = tester
+            .getRect(thumbnailAt(0))
+            .expandToInclude(tester.getRect(thumbnailAt(2)));
+        expect(content.center.dx, 400);
+      });
+
+      testWidgets('a tap goes straight to that image', (tester) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(6));
+
+        await tester.tap(thumbnailAt(5));
+        await tester.pump();
+
+        // Sliding across would have built every page in between.
+        expect(page(tester), 5);
+        expect(barText('6 of 6'), findsOneWidget);
+        expect(barText('photo-5.png'), findsOneWidget);
+        expect(fullImageAt(5), findsOneWidget);
+        expect(fullImageAt(3), findsNothing);
+        expect(tester.widget<DImageThumbnail>(thumbnailAt(5)).selected, isTrue);
+        await tester.pumpAndSettle();
+      });
+
+      testWidgets('thumbnails use the small copy decoded for their size', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(3));
+
+        final images = tester
+            .widgetList<SiteImage>(
+              find.descendant(
+                of: find.byType(DImageThumbnail),
+                matching: find.byType(SiteImage),
+              ),
+            )
+            .toList();
+        expect(images.map((image) => image.url), [
+          for (final index in [0, 1, 2]) 'https://example.com/thumb-$index.png',
+        ]);
+        for (final image in images) {
+          expect(image.coverDecodeSize, const Size.square(52));
+          expect(image.fit, BoxFit.cover);
+          expect(image.viewportAware, isTrue);
+        }
+      });
+
+      testWidgets('a remote image with no small copy never fetches its full', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        const noCopy = LightboxImage(
+          source: RemoteLightboxImage('https://example.com/original.png'),
+          thumbnailSrc: null,
+          title: 'chat.png',
+          description: null,
+          details: null,
+          downloadHref: null,
+          width: 100,
+          height: 100,
+          heroTag: 'no-copy',
+        );
+        await pumpGallery(tester, images: [...manyImages(1), noCopy]);
+
+        expect(
+          find.descendant(of: thumbnailAt(1), matching: find.byType(SiteImage)),
+          findsNothing,
+        );
+        expect(
+          find.descendant(of: thumbnailAt(1), matching: find.byType(DIcon)),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('a local image is decoded to cover its thumbnail', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        final directory = Directory.systemTemp.createTempSync('lightbox-strip');
+        addTearDown(() => directory.deleteSync(recursive: true));
+        final file = File('${directory.path}/local.png')
+          ..writeAsBytesSync(blankPng(width: 2000, height: 2000));
+        final local = LightboxImage(
+          source: LocalLightboxImage(file),
+          thumbnailSrc: null,
+          title: 'local.png',
+          description: null,
+          details: null,
+          downloadHref: null,
+          width: 100,
+          height: 100,
+          heroTag: 'local',
+        );
+        await pumpGallery(tester, images: [...manyImages(1), local]);
+
+        final thumbnail = tester.widget<Image>(
+          find.descendant(of: thumbnailAt(1), matching: find.byType(Image)),
+        );
+        expect(
+          thumbnail.image,
+          imageForCover(
+            tester.element(thumbnailAt(1)),
+            FileImage(file),
+            logicalSize: const Size.square(52),
+          ),
+        );
+      });
+
+      testWidgets('a long gallery builds only the thumbnails near the screen', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(200), initialIndex: 100);
+
+        final built = find.byType(DImageThumbnail).evaluate().length;
+        expect(built, greaterThan(0));
+        expect(built, lessThan(40));
+      });
+
+      testWidgets('opens with a far image already in view', (tester) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(200), initialIndex: 100);
+
+        expect(tester.getCenter(thumbnailAt(100)).dx, 400);
+      });
+
+      for (final reduceMotion in [false, true]) {
+        testWidgets('keeps the current thumbnail in view when paging'
+            '${reduceMotion ? ' under Reduce Motion' : ''}', (tester) async {
+          tester.platformDispatcher.accessibilityFeaturesTestValue =
+              FakeAccessibilityFeatures(disableAnimations: reduceMotion);
+          addTearDown(
+            tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+          );
+          await useScreen(tester, const Size(800, 600));
+          await pumpGallery(tester, images: manyImages(100));
+
+          tester
+              .widget<PageView>(find.byType(PageView))
+              .controller!
+              .jumpToPage(60);
+          await tester.pump();
+          await tester.pump();
+          if (reduceMotion) {
+            expect(tester.getCenter(thumbnailAt(60)).dx, 400);
+          }
+          await tester.pumpAndSettle();
+
+          expect(tester.getCenter(thumbnailAt(60)).dx, 400);
+        });
+      }
+
+      testWidgets('stops at the ends instead of centring past them', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(100), initialIndex: 99);
+
+        expect(tester.getRect(thumbnailAt(99)).right, 800 - 16);
+      });
+
+      testWidgets('a resized window keeps the current thumbnail in view', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(1000, 600));
+        await pumpGallery(tester, images: manyImages(100), initialIndex: 60);
+
+        tester.view.physicalSize = const Size(500, 600);
+        await tester.pump();
+        await tester.pump();
+
+        expect(tester.getCenter(thumbnailAt(60)).dx, 250);
+      });
+
+      testWidgets('hiding the controls hides the strip but keeps its room', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(3));
+        final viewport = tester.getRect(find.byType(PageView));
+        final strip = find.ancestor(
+          of: thumbnailAt(0),
+          matching: find.byType(AnimatedOpacity),
+        );
+        expect(tester.widget<AnimatedOpacity>(strip.first).opacity, 1);
+
+        final photoView = find.byType(PhotoView);
+        tester.widget<PhotoView>(photoView).onTapUp!(
+          tester.element(photoView),
+          TapUpDetails(kind: PointerDeviceKind.touch),
+          const PhotoViewControllerValue(
+            position: Offset.zero,
+            scale: 1,
+            rotation: 0,
+            rotationFocusPoint: null,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final opacities = tester
+            .widgetList<AnimatedOpacity>(strip)
+            .map((widget) => widget.opacity);
+        expect(opacities, contains(0));
+        expect(tester.getRect(find.byType(PageView)), viewport);
+
+        final position = tester.getCenter(thumbnailAt(2));
+        await tester.tapAt(position);
+        await tester.pump();
+        expect(page(tester), 0);
+      });
+
+      testWidgets(
+        'a long filename stays on one line and keeps the image area',
+        (tester) async {
+          await useScreen(tester, const Size(390, 700));
+          final long = 'a-very-long-screenshot-name-' * 8;
+          final images = [
+            parse(
+              '<a class="lightbox" href="https://example.com/a.png" '
+              'title="$long"><img src="https://example.com/a-t.png" '
+              'width="100" height="100"></a>',
+            ),
+            ...manyImages(1),
+          ];
+          await pumpGallery(
+            tester,
+            images: images,
+            platform: TargetPlatform.iOS,
+          );
+          final viewport = tester.getRect(find.byType(PageView));
+          final name = tester.widget<RichText>(barText(long));
+
+          expect(name.maxLines, 1);
+          expect(name.overflow, TextOverflow.ellipsis);
+          expect(tester.takeException(), isNull);
+
+          await tester.tap(thumbnailAt(1));
+          await tester.pumpAndSettle();
+          expect(tester.getRect(find.byType(PageView)), viewport);
+        },
+      );
+
+      testWidgets('a phone clears the home indicator below the strip', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(390, 700), bottomPadding: 34);
+        await pumpGallery(
+          tester,
+          images: manyImages(6),
+          platform: TargetPlatform.iOS,
+        );
+
+        expect(tester.getBottomLeft(thumbnailAt(0)).dy, 700 - 34);
+        expect(tester.takeException(), isNull);
+      });
+
+      testWidgets('a single image on a phone leaves the home indicator clear', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(390, 700), bottomPadding: 34);
+        await pumpGallery(tester, platform: TargetPlatform.iOS);
+
+        expect(tester.getRect(find.byType(PageView)).bottom, 700 - 34);
+      });
+
+      testWidgets('the size details stay in a caption without the filename', (
+        tester,
+      ) async {
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester);
+
+        expect(find.text('1920×1080 234 KB'), findsOneWidget);
+        // One match in the whole gallery: the caption no longer repeats it.
+        expect(barText('screenshot.png'), findsOneWidget);
+      });
+
+      testWidgets('offers each thumbnail to assistive technology', (
+        tester,
+      ) async {
+        final semantics = tester.ensureSemantics();
+        await useScreen(tester, const Size(800, 600));
+        await pumpGallery(tester, images: manyImages(3), initialIndex: 1);
+
+        final data = tester
+            .getSemantics(find.bySemanticsLabel('Go to image 2 of 3'))
+            .getSemanticsData();
+        expect(data.flagsCollection.isButton, isTrue);
+        expect(data.flagsCollection.isSelected, Tristate.isTrue);
+        expect(data.hasAction(SemanticsAction.tap), isTrue);
+        semantics.dispose();
+      });
     });
 
     testWidgets('leaves images Discourse did not lightbox alone', (

@@ -12416,6 +12416,12 @@ abstract class AppLocalizations {
   /// **'Next image'**
   String get nextImage;
 
+  /// Which image of a gallery is showing, in the lightbox's top bar. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'{number} of {total}'**
+  String lightboxPosition(String number, String total);
+
   /// English UI message used by shell/image_grid.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

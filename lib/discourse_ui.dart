@@ -60,6 +60,7 @@ export 'src/ui/components/d_header_tags.dart';
 export 'src/ui/components/d_history_transition.dart';
 export 'src/ui/components/d_hover_card.dart';
 export 'src/ui/components/d_image_preview.dart';
+export 'src/ui/components/d_image_thumbnail.dart';
 export 'src/ui/components/d_input.dart';
 export 'src/ui/components/d_input_group.dart';
 export 'src/ui/components/d_input_otp.dart';
