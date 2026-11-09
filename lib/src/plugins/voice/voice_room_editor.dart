@@ -484,7 +484,7 @@ class _VoiceRoomEditorDialogState extends State<_VoiceRoomEditorDialog> {
         maxParticipants: int.tryParse(_maximum.text.trim()),
         chatChannelId: int.tryParse(_chatChannel.text.trim()),
         chatIdleMinutes: int.tryParse(_chatIdle.text.trim()) ?? 15,
-        livekitEnabled: _room?.livekitEnabled == null ? null : _livekit,
+        livekitEnabled: _livekit,
         maxQualityProfile: _quality,
       ),
     );
