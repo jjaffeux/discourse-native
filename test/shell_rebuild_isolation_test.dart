@@ -1859,6 +1859,41 @@ void main() {
       expect(find.text('First post.', findRichText: true), findsOneWidget);
     });
 
+    testWidgets('moving the topic to another category recolors its tab', (
+      tester,
+    ) async {
+      final payload = _readerTopic();
+      final reader = await _pumpReader(
+        tester,
+        size,
+        platform,
+        topic: (
+          detail: payload.detail.copyWith(canEdit: true),
+          posts: payload.posts,
+        ),
+      );
+      final controller = reader.controller;
+      final prefix = find.byKey(
+        ValueKey('forum-tab-prefix-${controller.activeTabId}'),
+      );
+      Color? tabColor() => prefix.evaluate().isEmpty
+          ? null
+          : (tester.widget<Container>(prefix).decoration! as BoxDecoration)
+                .color;
+
+      expect(
+        await controller.saveTopicCategory(
+          siteUrl: _readerSite,
+          topicId: 7,
+          categoryId: 4,
+        ),
+        isNull,
+      );
+      await tester.pumpAndSettle();
+
+      expect(tabColor(), const Color(0xFF008804));
+    });
+
     testWidgets('a tab activated in a minimized panel brings it back', (
       tester,
     ) async {
@@ -1971,7 +2006,7 @@ _pumpReader(
         id: id,
         name: 'Category $id',
         slug: 'c$id',
-        color: '0088cc',
+        color: '0088${id.toRadixString(16).padLeft(2, '0')}',
       ),
   ];
   final controller = ShellController(

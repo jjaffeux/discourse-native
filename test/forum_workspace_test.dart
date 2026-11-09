@@ -258,7 +258,7 @@ void main() {
                   postNumber: 7,
                 ),
                 title: 'A durable topic',
-                icon: DIcons.comments,
+                icon: DNativeIcons.topic,
                 subtitle: 'Topic subtitle',
                 color: Color(0xFF654321),
               ),
@@ -270,7 +270,7 @@ void main() {
                   slug: 'a-farther-future-topic',
                 ),
                 title: 'A farther future topic',
-                icon: DIcons.comments,
+                icon: DNativeIcons.topic,
               ),
               ContentRoute(
                 destination: TopicDestination(
@@ -278,7 +278,7 @@ void main() {
                   slug: 'the-next-future-topic',
                 ),
                 title: 'The next future topic',
-                icon: DIcons.comments,
+                icon: DNativeIcons.topic,
               ),
             ],
             anchors: const {
@@ -576,12 +576,13 @@ void main() {
       expect(first, isNot(differentFuture));
     });
 
-    test('only anchors can differ between tabs the same except anchors', () {
+    test('tabs the same except anchors differ in nothing a route draws', () {
       final topic = ContentRoute.topic(topicId: 1, slug: 'one', title: 'One');
       final other = ContentRoute.topic(topicId: 2, slug: 'two', title: 'Two');
       ForumTab tab(
         String id, {
         ContentRoute? route,
+        ContentRoute? visited,
         ForumPanel panel = ForumPanel.main,
         Map<String, ForumTabAnchor> anchors = const {},
       }) => ForumTab(
@@ -589,6 +590,12 @@ void main() {
         rootDestinationId: 'latest',
         panel: panel,
         contentStack: [route ?? topic],
+        backHistory: [
+          ForumTabLocation(
+            rootDestinationId: 'latest',
+            contentStack: [visited ?? other],
+          ),
+        ],
         anchors: anchors,
       );
       ForumWorkspace workspace(List<ForumTab> tabs, {String active = 'a'}) =>
@@ -599,22 +606,65 @@ void main() {
             activeTabId: active,
           );
       const anchors = {'topic-1': ForumTabAnchor(kind: 'topic', itemId: 9)};
+      const recolored = Color(0xFF008804);
 
       final plain = workspace([tab('a'), tab('b')]);
       final scrolled = workspace([tab('a', anchors: anchors), tab('b')]);
+      // A timeline drag retargets the post at every step, like a scroll.
+      final retargeted = workspace([
+        tab(
+          'a',
+          route: ContentRoute.topic(
+            topicId: 1,
+            slug: 'one',
+            title: 'One',
+            postNumber: 5,
+          ),
+        ),
+        tab('b'),
+      ]);
 
       expect(scrolled, isNot(plain));
       expect(scrolled.sameExceptAnchors(plain), isTrue);
+      expect(retargeted.sameExceptAnchors(plain), isTrue);
       expect(tab('a', anchors: anchors).sameExceptAnchors(tab('a')), isTrue);
-      for (final different in [
-        workspace([tab('a', route: other), tab('b')]),
-        workspace([tab('a', panel: ForumPanel.secondary), tab('b')]),
-        workspace([tab('a'), tab('c')]),
-        workspace([tab('a')]),
-        workspace([tab('a'), tab('b')], active: 'b'),
-      ]) {
-        expect(different.sameExceptAnchors(plain), isFalse);
+      final different = {
+        'destination': [tab('a', route: other), tab('b')],
+        'title': [
+          tab('a', route: topic.withDisplay(title: 'Renamed')),
+          tab('b'),
+        ],
+        'color': [
+          tab('a', route: topic.withDisplay(color: recolored)),
+          tab('b'),
+        ],
+        'icon': [
+          tab('a', route: topic.withDisplay(icon: DIcons.folder)),
+          tab('b'),
+        ],
+        'subtitle': [
+          tab('a', route: topic.withDisplay(subtitle: 'Support')),
+          tab('b'),
+        ],
+        'visited color': [
+          tab('a', visited: other.withDisplay(color: recolored)),
+          tab('b'),
+        ],
+        'panel': [tab('a', panel: ForumPanel.secondary), tab('b')],
+        'tab': [tab('a'), tab('c')],
+        'tab count': [tab('a')],
+      };
+      for (final MapEntry(key: field, value: tabs) in different.entries) {
+        expect(
+          workspace(tabs).sameExceptAnchors(plain),
+          isFalse,
+          reason: field,
+        );
       }
+      expect(
+        workspace([tab('a'), tab('b')], active: 'b').sameExceptAnchors(plain),
+        isFalse,
+      );
     });
 
     test('discarded restored routes cannot retain orphaned anchors', () {
