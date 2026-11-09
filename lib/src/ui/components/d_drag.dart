@@ -5,7 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_button.dart';
 
 /// Drags visible content after a touch hold, or immediately with a mouse or pen.

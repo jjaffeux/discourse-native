@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// The physical position of an editor represented inside a layout glyph.
 enum DLayoutGlyphDock { left, right, bottom, full }

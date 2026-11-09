@@ -3,8 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 
 import '../foundation/icons/d_icon_data.dart';
 import '../foundation/icons/d_icon_sets.dart';
-import '../ui/foundation/tokens.dart';
 import 'd_icon_glyph.dart';
+import 'tokens.dart';
 
 // Mapping paints while compiling avoids a saveLayer for every icon paint.
 @immutable

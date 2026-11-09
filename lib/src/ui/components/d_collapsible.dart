@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import '../foundation/touch_target.dart';
 
 /// A disclosure scope. Layout and decoration belong to its child composition.

@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Flat post-reaction artwork shared by Native actions and toggles.
 abstract final class DPostReactionStyle {

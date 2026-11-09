@@ -3,9 +3,9 @@ import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
 
-import '../../foundation/palette_contrast.dart';
+import '../foundation/oklab.dart';
+import '../foundation/palette_contrast.dart';
 import 'control_theme.dart';
-import 'oklab.dart';
 
 /// Semantic component tokens. The host maps its palette at the theme boundary.
 @immutable

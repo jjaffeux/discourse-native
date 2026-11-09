@@ -8,6 +8,7 @@ import 'package:html/dom.dart' as dom;
 
 import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
+import '../theme/code_colors.dart';
 import 'cooked_dom.dart';
 import 'search_words.dart';
 

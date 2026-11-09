@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/surface_depth.dart';
-import '../foundation/tokens.dart';
 import 'd_item.dart';
 
 enum DCardSize { normal, small }

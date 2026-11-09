@@ -23,9 +23,26 @@ void main() {
       };
       expect(offenders, isEmpty);
     });
+  });
 
-    test('models and the theme do not depend on each other', () {
-      expect(graph.mutualLayerPairs(), isNot(contains('models <-> theme')));
+  group('the theme sits below the kit', () {
+    test('no theme library imports the kit', () {
+      expect(graph.edgesBetween('theme', 'ui'), isEmpty);
+    });
+
+    test('the kit reaches no model through the theme', () {
+      final offenders = {
+        for (final library in graph.edges.keys)
+          if (LibraryGraph.areaOf(library) == 'ui')
+            for (final reached in graph.closureOf(library))
+              if (LibraryGraph.areaOf(reached) == 'models')
+                '$library -> $reached',
+      };
+      expect(offenders, isEmpty);
+    });
+
+    test('no pair of layers depends on each other', () {
+      expect(graph.mutualLayerPairs(), isEmpty);
     });
   });
 }

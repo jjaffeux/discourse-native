@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/tooltip_metrics.dart';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -1347,7 +1348,7 @@ void main() {
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(tooltip));
-    await tester.pump(DTooltip.defaultHoverDelay);
+    await tester.pump(DTooltipMetrics.hoverDelay);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 
@@ -1410,7 +1411,7 @@ void main() {
     addTearDown(mouse.removePointer);
     await mouse.addPointer(location: Offset.zero);
     await mouse.moveTo(tester.getCenter(tooltip));
-    await tester.pump(DTooltip.defaultHoverDelay);
+    await tester.pump(DTooltipMetrics.hoverDelay);
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 150));
 

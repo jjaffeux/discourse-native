@@ -4,7 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_button.dart';
 import 'd_dialog.dart';
 

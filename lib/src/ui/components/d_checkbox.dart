@@ -6,7 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import '../foundation/touch_target.dart';
 import 'd_label.dart';
 

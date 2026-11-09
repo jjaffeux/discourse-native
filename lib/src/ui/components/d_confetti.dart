@@ -3,7 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Celebrates when its visible anchor is first seen and the host accepts it.
 class DConfetti extends StatefulWidget {

@@ -263,15 +263,8 @@ final field = FormField<String>(builder: build);
     );
     expect(
       inspect(
-        "import '../ui/foundation/tokens.dart';",
-        path: 'lib/src/theme/d_icon.dart',
-      ),
-      isEmpty,
-    );
-    expect(
-      inspect(
-        "export '../ui/foundation/tokens.dart';",
-        path: 'lib/src/theme/d_icon.dart',
+        "import '../ui/components/d_button.dart';",
+        path: 'lib/src/theme/app_theme.dart',
       ).single.kind,
       NativeUiFindingKind.internalImport,
     );

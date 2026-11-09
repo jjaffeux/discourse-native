@@ -2,9 +2,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../foundation/oklab.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/oklab.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// The three conversation marker layouts from shadcn Base UI.
 enum DMarkerVariant { inline, separator }

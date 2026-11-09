@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_aspect_ratio.dart';
 
 /// A decorative placeholder for content whose size is known while loading.

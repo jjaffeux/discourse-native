@@ -4,8 +4,8 @@ import 'package:flutter/foundation.dart' show precisionErrorTolerance;
 import 'package:flutter/rendering.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/tokens.dart';
 import '../foundation/control_motion.dart';
-import '../foundation/tokens.dart';
 
 /// Spaces Native controls using their layout bounds. Gaps are not interactive.
 /// Nested layouts keep their own spacing, keyboard order and semantics.

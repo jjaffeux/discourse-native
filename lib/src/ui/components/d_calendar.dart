@@ -11,8 +11,8 @@ import '../../foundation/calendar_day.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_select.dart';
 

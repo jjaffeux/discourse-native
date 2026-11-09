@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// A visual or semantic boundary between adjacent content.
 ///

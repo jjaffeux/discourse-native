@@ -4,10 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
-import '../foundation/tokens.dart';
 import 'd_label.dart';
 
 /// A content-growing multiline field styled from shadcn's base-nova Textarea.

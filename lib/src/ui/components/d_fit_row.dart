@@ -6,10 +6,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_motion.dart';
 import '../foundation/control_style.dart';
-import '../foundation/tokens.dart';
 import 'd_control_wrap.dart';
 
 /// The presentation a [DFitRow] requests from its controls.

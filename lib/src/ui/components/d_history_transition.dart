@@ -6,7 +6,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// A tab among ordered tabs: which one, and where it stands among them.
 typedef DHistoryTab = ({Object id, int index});

@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_scroll_area.dart';
 
 enum DTextRevisionKind { unchanged, removed, restored }

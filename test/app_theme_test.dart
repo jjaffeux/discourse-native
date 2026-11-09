@@ -4,7 +4,10 @@ import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/site_appearance.dart';
 import 'package:discourse_native/src/shell/forum_theme_surfaces.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/code_colors.dart';
+import 'package:discourse_native/src/theme/discourse_colors.dart';
 import 'package:discourse_native/src/theme/discourse_typography.dart' as leaf;
+import 'package:discourse_native/src/theme/tooltip_metrics.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -613,10 +616,10 @@ void main() {
       final tooltip = theme.tooltipTheme;
       final decoration = tooltip.decoration! as BoxDecoration;
 
-      expect(tooltip.constraints, DTooltip.defaultConstraints);
-      expect(tooltip.padding, DTooltip.defaultPadding);
-      expect(tooltip.margin, DTooltip.defaultMargin);
-      expect(tooltip.verticalOffset, DTooltip.defaultVerticalOffset);
+      expect(tooltip.constraints, DTooltipMetrics.constraints);
+      expect(tooltip.padding, DTooltipMetrics.padding);
+      expect(tooltip.margin, DTooltipMetrics.margin);
+      expect(tooltip.verticalOffset, DTooltipMetrics.verticalOffset);
       expect(tooltip.textStyle?.fontSize, 12);
       expect(tooltip.textStyle?.height, 1.5);
       expect(tooltip.textStyle?.color, theme.extension<DTokens>()!.background);

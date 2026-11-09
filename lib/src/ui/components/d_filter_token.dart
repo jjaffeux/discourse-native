@@ -4,9 +4,9 @@ import 'package:flutter/services.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/app_text_scaler.dart';
 import '../foundation/control_artwork.dart';
-import '../foundation/tokens.dart';
 import 'd_tooltip.dart';
 
 /// A compact filter pill with independent edit and remove actions.

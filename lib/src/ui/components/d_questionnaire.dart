@@ -6,8 +6,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/tokens.dart';
 import 'd_button.dart';
 import 'd_field.dart';
 import 'd_input.dart';

@@ -24,6 +24,7 @@ import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/topic_list_view.dart';
 import 'package:discourse_native/src/shell/topic_presentation.dart';
+import 'package:discourse_native/src/theme/tooltip_metrics.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -221,7 +222,7 @@ void main() {
       ]) {
         final button = find.byKey(ValueKey(key));
         await mouse.moveTo(tester.getCenter(button));
-        await tester.pump(DTooltip.defaultHoverDelay);
+        await tester.pump(DTooltipMetrics.hoverDelay);
         await tester.pumpAndSettle();
         expect(
           tester.getRect(find.text(message).last).left,

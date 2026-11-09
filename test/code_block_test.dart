@@ -5,6 +5,8 @@ import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/shell/code_block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:discourse_native/src/theme/code_colors.dart';
+import 'package:discourse_native/src/theme/discourse_colors.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_code_editor/flutter_code_editor.dart' as editor;

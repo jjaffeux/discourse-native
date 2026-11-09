@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_badge.dart';
 import 'd_item.dart';
 import 'd_notification_dot.dart';

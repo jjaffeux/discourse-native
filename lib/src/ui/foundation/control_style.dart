@@ -4,8 +4,8 @@ import 'dart:ui' show lerpDouble;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import 'menu_content_scale.dart';
-import 'tokens.dart';
 
 /// General controls adapt to the platform. Application presets reproduce the
 /// mockup artwork on every platform, with matching hit areas; a phone adds

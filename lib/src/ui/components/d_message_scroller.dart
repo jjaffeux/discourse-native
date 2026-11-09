@@ -7,7 +7,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:super_sliver_list/super_sliver_list.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_button.dart';
 import 'd_page_surface.dart';
 import 'd_scroll_area.dart';

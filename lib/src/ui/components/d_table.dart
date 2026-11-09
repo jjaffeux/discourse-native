@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_context_menu.dart';
 import 'd_scroll_chrome.dart';
 

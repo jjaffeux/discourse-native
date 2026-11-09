@@ -2,7 +2,7 @@ import 'dart:math' as math;
 import 'dart:ui' as ui show Gradient;
 import 'package:flutter/material.dart';
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// What the bar says as it peeks: faded in and risen a little once [up],
 /// faded and lowered with no wait as it goes, with a light passing over its

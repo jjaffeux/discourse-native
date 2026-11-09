@@ -3,7 +3,7 @@ import 'dart:ui' show SemanticsRole;
 import 'package:flutter/material.dart';
 
 import '../../theme/discourse_typography.dart';
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 final RegExp _words = RegExp(r'\S+');
 

@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../foundation/icons/d_icons.dart';
 import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
+import '../../theme/tokens.dart';
 import '../foundation/focus_highlight.dart';
-import '../foundation/tokens.dart';
 
 /// An image trigger with Discourse's fading metadata bar.
 ///

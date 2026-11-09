@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Shared measured selection artwork for Native's inset groups.
 class DGroupIndicator extends StatefulWidget {

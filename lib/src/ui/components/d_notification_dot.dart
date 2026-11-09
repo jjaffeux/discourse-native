@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 
 /// An 8px unread or new-activity indicator, without a count or interaction.
 ///

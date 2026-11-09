@@ -1,7 +1,7 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
-import '../foundation/tokens.dart';
+import '../../theme/tokens.dart';
 import 'd_button.dart';
 import 'd_card.dart';
 import 'd_slider.dart';

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../theme/app_theme.dart';
+import '../../theme/code_colors.dart';
 
 CodeColors codeEditorColors(ThemeData theme) =>
     theme.extension<CodeColors>() ??

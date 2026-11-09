@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'tokens.dart';
+import '../../theme/tokens.dart';
 
 /// Shared drawer metrics for sidebar links and rich sidebar Items.
 class DSidebarRowScope extends InheritedWidget {
