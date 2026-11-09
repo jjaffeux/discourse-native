@@ -191,7 +191,9 @@ class _EventCardState extends State<EventCard> {
                     status: status,
                     selected: selected == status,
                     enabled: !pending && event.canChoose(status),
-                    onTap: () => onRespond(status, false),
+                    onTap: selected == status && onWithdraw != null
+                        ? onWithdraw
+                        : () => onRespond(status, false),
                   ),
             ],
           )
