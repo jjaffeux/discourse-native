@@ -85,7 +85,7 @@ final class TopicViewportBinding {
     this.session,
     required this.currentSnapshot,
     required this.forumActive,
-    this.forumActiveChanges,
+    required this.forumActiveChanges,
     required this.loadMore,
     required this.loadEarlier,
     required this.markRead,
@@ -106,9 +106,8 @@ final class TopicViewportBinding {
   final TopicViewportSnapshot Function() currentSnapshot;
   final bool Function() forumActive;
 
-  /// Notifies whenever [forumActive] may have changed. Null only when it never
-  /// does.
-  final Listenable? forumActiveChanges;
+  /// Notifies whenever [forumActive] may have changed.
+  final Listenable forumActiveChanges;
   final Future<void> Function() loadMore;
   final Future<void> Function() loadEarlier;
   final Future<void> Function({
@@ -368,8 +367,8 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     if (previous != null && !identical(previous.owner, binding.owner)) {
       previous.flushAnchorPersist();
     }
-    previous?.forumActiveChanges?.removeListener(_readDwell.sync);
-    binding.forumActiveChanges?.addListener(_readDwell.sync);
+    previous?.forumActiveChanges.removeListener(_readDwell.sync);
+    binding.forumActiveChanges.addListener(_readDwell.sync);
 
     _binding = binding;
     _generation++;
@@ -1265,7 +1264,7 @@ final class TopicViewportCoordinator extends FrameSafeNotifier
     _generation++;
     _creditReaderNow();
     _binding?.flushAnchorPersist();
-    _binding?.forumActiveChanges?.removeListener(_readDwell.sync);
+    _binding?.forumActiveChanges.removeListener(_readDwell.sync);
     _binding = null;
     _loadMoreToken = null;
     _loadEarlierToken = null;
