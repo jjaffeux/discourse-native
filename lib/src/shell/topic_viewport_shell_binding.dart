@@ -35,6 +35,7 @@ TopicViewportBinding topicViewportBindingFromShell(
     },
     currentSnapshot: () => topicViewportSnapshotFrom(controller, tab: tab),
     forumActive: () => controller.forumActive,
+    forumActiveChanges: controller.changes,
     loadMore: tab.loadMorePosts,
     loadEarlier: tab.loadEarlierPosts,
     markRead:
