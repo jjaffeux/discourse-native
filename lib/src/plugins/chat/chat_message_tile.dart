@@ -164,6 +164,7 @@ class ChatMessageTile extends StatelessWidget {
       messageReaction: messageReaction,
       messageReply: messageReply,
       onQuickReact: onQuickReact,
+      offersReply: onReply != null && contextThreadId == null && !selecting,
     );
     if (selecting) {
       // The row already speaks its author, time and body; the checkbox is the
@@ -700,7 +701,8 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
       onPressed: _reply,
     ),
     builder: (context, child) {
-      final visible = !_hoverSuppressed && (_hovered || _focused);
+      final visible =
+          context.isTouch || (!_hoverSuppressed && (_hovered || _focused));
       return Opacity(
         opacity: visible ? 1 : 0,
         child: IgnorePointer(
@@ -1119,7 +1121,6 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
                       ? _messageReaction(enabled: true)
                       : null,
                   widget.onReply != null &&
-                          !context.isTouch &&
                           chat.canReplyToMessage(widget.siteUrl, widget.message)
                       ? _messageReply()
                       : null,
@@ -1162,6 +1163,7 @@ class _Tile extends StatelessWidget {
     required this.onJumpToMessage,
     required this.showThreadSummary,
     required this.showReply,
+    required this.offersReply,
     this.messageActions,
     this.messageReaction,
     this.messageReply,
@@ -1175,6 +1177,10 @@ class _Tile extends StatelessWidget {
   final ValueChanged<int>? onJumpToMessage;
   final bool showThreadSummary;
   final bool showReply;
+
+  /// Whether this row's pane starts replies. A message still being sent has
+  /// no [messageReply] yet, so this decides if it keeps the button's column.
+  final bool offersReply;
   final Widget? messageActions;
   final Widget? messageReaction;
   final Widget? messageReply;
@@ -1287,14 +1293,15 @@ class _Tile extends StatelessWidget {
           context.l10n.addReaction,
           density: DButtonDensity.chatMessageAction,
         );
-    final reply =
-        messageReply ??
-        pendingAction(
-          DIcons.reply,
-          DButtonSize.regular,
-          context.l10n.reply,
-          density: DButtonDensity.chatMessageAction,
-        );
+    final reply = context.isTouch
+        ? null
+        : messageReply ??
+              pendingAction(
+                DIcons.reply,
+                DButtonSize.regular,
+                context.l10n.reply,
+                density: DButtonDensity.chatMessageAction,
+              );
     final target = message.threadId == null
         ? ChatChannelTarget(message.channelId)
         : ChatThreadTarget(
@@ -1313,6 +1320,12 @@ class _Tile extends StatelessWidget {
         message.blocks.isNotEmpty ||
         message.uploads.isNotEmpty ||
         showReply;
+    final touchReply = context.isTouch && hasSurface ? messageReply : null;
+    // A sent message keeps the column the confirmed one needs, so its text
+    // does not rewrap when the button arrives.
+    final reservesTouchReply =
+        touchReply != null ||
+        (context.isTouch && hasSurface && message.isOptimistic && offersReply);
     final hideAuthor = chained || message.isAction;
     final author = message.author.displayName;
     final time = switch (message.createdAt) {
@@ -1399,7 +1412,7 @@ class _Tile extends StatelessWidget {
         ),
     ];
 
-    return Padding(
+    final row = Padding(
       key: ValueKey('chat-message-${message.id}'),
       padding: const EdgeInsetsDirectional.fromSTEB(12, 4, 8, 4),
       // A chained row draws no header, yet each row is its own screen-reader
@@ -1574,9 +1587,24 @@ class _Tile extends StatelessWidget {
                 if (!hasSurface && more != null) more,
               ],
             ),
+            if (reservesTouchReply)
+              SizedBox(width: MediaQuery.textScalerOf(context).scale(26)),
           ],
         ),
       ),
+    );
+    if (!context.isTouch) return row;
+    // One line of text is shorter than this button, so the bubble's trailing
+    // slot would make every such row taller. Inside the row's own padding the
+    // button adds no height, and each point it draws stays pressable, which
+    // overflowing the bubble would not allow.
+    return Stack(
+      fit: StackFit.passthrough,
+      children: [
+        row,
+        if (touchReply != null)
+          PositionedDirectional(top: 2, end: 8, child: touchReply),
+      ],
     );
   }
 }
