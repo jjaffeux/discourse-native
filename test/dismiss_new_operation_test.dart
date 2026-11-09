@@ -127,6 +127,47 @@ void main() {
     },
   );
 
+  test(
+    'a tracked-only New list asks core to dismiss only tracked topics',
+    () async {
+      // `/new?f=tracked`, which `TopicQuery` narrows through `tracked_filter`.
+      final (shell, api) = await _fixture(
+        route: () => ContentRoute.filteredTopicList(
+          TopicListMode.newActivity,
+          query: const {
+            'f': ['tracked'],
+          },
+        ),
+      );
+
+      expect(await shell.dismissNewTopics(), isNull);
+
+      final call = api.dismissNewCalls.single;
+      expect(call.tracked, isTrue);
+      expect(call.topicIds, isNull);
+    },
+  );
+
+  test('a tracked-only category list dismisses the topics it lists', () async {
+    // Core reads `tracked` only when neither a category nor a tag scopes the
+    // request, so a scoped list can only be narrowed by its topic ids.
+    final (shell, api) = await _fixture(
+      route: () => ContentRoute.filteredTopicList(
+        TopicListMode.newActivity,
+        categoryId: 21,
+        query: const {
+          'f': ['tracked'],
+        },
+      ),
+    );
+
+    expect(await shell.dismissNewTopics(), isNull);
+
+    final call = api.dismissNewCalls.single;
+    expect(call.categoryId, 21);
+    expect(call.topicIds, [1, 2]);
+  });
+
   for (final failure in ['cycle', 'incomplete']) {
     test(
       '$failure enumeration refuses every bulk write and can retry',
