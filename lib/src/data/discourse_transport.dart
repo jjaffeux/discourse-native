@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
+import '../foundation/active_use.dart';
 import '../models/json.dart';
 import '../models/site_appearance.dart';
 import 'account_request_session.dart';
@@ -32,12 +33,14 @@ final class DiscourseTransport {
     HttpBasicAuthStore? basicAuth,
     Duration timeout = const Duration(seconds: 10),
     int maxResponseBytes = 16 * 1024 * 1024,
+    ActiveUse? activeUse,
   }) => DiscourseTransport(
     client == null
         ? SafeHttpClient.create(basicAuth: basicAuth)
         : SafeHttpClient.owned(client, basicAuth: basicAuth),
     timeout,
     maxResponseBytes,
+    activeUse: activeUse,
   );
 
   DiscourseTransport(
@@ -48,6 +51,7 @@ final class DiscourseTransport {
     int maxConcurrentPerOrigin = 4,
     int maxQueuedPerOrigin = 64,
     Duration defaultRateLimitCooldown = const Duration(seconds: 15),
+    this._activeUse,
   }) : coordinator =
            coordinator ??
            DiscourseRequestCoordinator(
@@ -57,6 +61,7 @@ final class DiscourseTransport {
            );
 
   final SafeHttpClient _client;
+  final ActiveUse? _activeUse;
   final Duration timeout;
   final int _maxResponseBytes;
   final DiscourseRequestCoordinator coordinator;

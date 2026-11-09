@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:http/http.dart' as http;
 
+import '../foundation/active_use.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -69,12 +70,17 @@ class DiscourseApi
     this.timeout = const Duration(seconds: 10),
     this.searchTimeout = const Duration(seconds: 30),
     int maxResponseBytes = 16 * 1024 * 1024,
+    ActiveUse? activeUse,
   }) : assert(timeout > Duration.zero),
        assert(searchTimeout > Duration.zero),
        assert(maxResponseBytes > 0),
        assert(
          client == null || transport == null,
          'Provide either client or transport, not both.',
+       ),
+       assert(
+         activeUse == null || transport == null,
+         'A supplied transport already has its own activeUse.',
        ),
        _transport =
            transport ??
@@ -83,6 +89,7 @@ class DiscourseApi
              basicAuth: basicAuth,
              timeout: timeout,
              maxResponseBytes: maxResponseBytes,
+             activeUse: activeUse,
            );
 
   @override

@@ -14,6 +14,7 @@ import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
+import 'foundation/active_use.dart';
 import 'foundation/startup_timeline.dart';
 import 'plugin_api/core_plugin_manifest.dart';
 import 'plugin_api/plugin_runtime.dart';
@@ -90,7 +91,9 @@ final class AppRuntime {
           models: _plugins.models,
           basicAuth: HttpBasicAuthStore.instance,
         );
-    _api = dependencies.api ?? DiscourseApi(models: _plugins.models);
+    _api =
+        dependencies.api ??
+        DiscourseApi(models: _plugins.models, activeUse: activeUse);
     _authenticator = dependencies.authenticator ?? Authenticator();
     _appSettingsStore = dependencies.appSettingsStore ?? AppSettingsStore();
     _forumSettingsStore =
@@ -104,6 +107,8 @@ final class AppRuntime {
   }
 
   static const Duration exitFlushTimeout = Duration(milliseconds: 1500);
+
+  late final ActiveUse activeUse = ActiveUse(foreground: _foreground);
 
   AppRuntimeDependencies _dependencies;
   late InstanceStore _store;
@@ -223,7 +228,9 @@ final class AppRuntime {
       if (!identical(_dependencies.api, previous.api) ||
           (pluginsChanged && _dependencies.api == null)) {
         _closeApiAfter(previousApi, previousTeardown);
-        _api = _dependencies.api ?? DiscourseApi(models: _plugins.models);
+        _api =
+            _dependencies.api ??
+            DiscourseApi(models: _plugins.models, activeUse: activeUse);
       }
       if (!identical(_dependencies.authenticator, previous.authenticator)) {
         _authenticator = _dependencies.authenticator ?? Authenticator();
@@ -323,6 +330,8 @@ final class AppRuntime {
     if (_disposed) return;
     _lifecycleState = state;
     _foreground = foreground;
+    activeUse.setForeground(foreground);
+    if (state == 'resumed') activeUse.seen();
     unawaited(_observePluginAppState(_plugins, state));
     _controller.setForeground(foreground);
     if (!foreground) unawaited(_flushPlugins(_plugins));

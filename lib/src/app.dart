@@ -23,6 +23,7 @@ import 'data/site_tracker.dart';
 import 'data/update_store.dart';
 import 'data/updater.dart';
 
+import 'foundation/active_use_signals.dart';
 import 'foundation/bounded_lru_cache.dart';
 import 'foundation/foreground_lifecycle.dart';
 import 'foundation/timezone_environment.dart';
@@ -95,6 +96,7 @@ class DiscourseApp extends StatefulWidget {
 class _DiscourseAppState extends State<DiscourseApp>
     with WidgetsBindingObserver {
   late final AppRuntime _runtime;
+  late final ActiveUseSignals _activeUseSignals;
   late final PlatformNotificationOpens _platformNotificationOpens;
 
   ShellController get _controller => _runtime.controller;
@@ -184,6 +186,7 @@ class _DiscourseAppState extends State<DiscourseApp>
       widget.notificationOpenUrls ?? _platformNotificationOpens.urls,
     );
     WidgetsBinding.instance.addObserver(this);
+    _activeUseSignals = ActiveUseSignals(_runtime.activeUse)..attach();
     _startAfterFirstFrame(_controller);
   }
 
@@ -211,6 +214,7 @@ class _DiscourseAppState extends State<DiscourseApp>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _activeUseSignals.detach();
     _runtime.dispose();
     super.dispose();
   }

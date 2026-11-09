@@ -17,6 +17,7 @@ const Map<String, Set<String>> _windowSites = {
     'expires.difference(responseDate)',
   },
   'lib/src/data/custom_sidebar_sections.dart': {},
+  'lib/src/foundation/active_use.dart': {},
   'lib/src/plugins/chat/chat_controller.dart': {},
   'lib/src/plugins/chat/chat_conversation_stream.dart': {},
   'lib/src/plugins/gamification/gamification_controller.dart': {},
