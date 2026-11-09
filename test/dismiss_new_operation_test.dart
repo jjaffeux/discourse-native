@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
+import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/models/topic_tracking_state.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
@@ -85,6 +87,43 @@ void main() {
       expect(shell.topicFeeds.feedFor(_site, source.id)!.topicIds, [1]);
       expect(shell.dismissingNewTopics, isFalse);
       expect(shell.store.read<Topic>(_site, 1)!.seen, isTrue);
+    },
+  );
+
+  test(
+    'dismissing forum-wide New re-reads a legacy account\'s counts',
+    () async {
+      const reader = DiscourseUser(
+        id: 7,
+        username: 'reader',
+        sidebarShowCountOfNewItems: true,
+      );
+      final api = _LegacyTotalsApi(reader);
+      final site = instance('meta.discourse.org').copyWith(user: reader);
+      final shell = ShellController(
+        instanceStore: FakeInstanceStore([site]),
+        api: api,
+        authenticator: FakeAuthenticator()..keys[site.url] = 'key',
+        drafts: FakeDraftStore(),
+        trackers: FakeSiteTracker.reset(),
+        updater: FakeUpdater(),
+        updateStore: FakeUpdateStore(),
+        ownsApi: false,
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      final source = ContentRoute.topicList(TopicListMode.newActivity);
+      shell.pushContent(source);
+      await shell.loadFeed(source.id);
+      await pumpEventQueue();
+      expect(shell.newTopicCount, 2);
+      expect(shell.sidebarBadgeFor('latest'), const SidebarBadge.count(2));
+
+      expect(await shell.dismissNewTopics(), isNull);
+      await pumpEventQueue();
+
+      expect(shell.newTopicCount, 0);
+      expect(shell.sidebarBadgeFor('latest'), SidebarBadge.none);
     },
   );
 
@@ -252,6 +291,57 @@ Future<(ShellController, _Api)> _fixture({
   expect(shell.canDismissNewTopics, dismissible);
   api.reads.clear();
   return (shell, api);
+}
+
+/// `TopicTrackingState.report_totals` for an account on the legacy New list:
+/// the server's own count drops as soon as reset-new has run.
+final class _LegacyTotalsApi extends FakeDiscourseApi {
+  _LegacyTotalsApi(DiscourseUser user)
+    : super(
+        user: user,
+        feeds: const {'/new.json': _rows},
+        totals: const NotificationTotals(topicTrackingNew: 2),
+      ) {
+    dismissedNewIds = [1, 2];
+  }
+
+  var _dismissed = false;
+
+  @override
+  Future<List<int>> dismissNewTopics({
+    required String siteUrl,
+    required String apiKey,
+    required bool dismissTopics,
+    required bool dismissPosts,
+    int? categoryId,
+    String? tagName,
+    List<int>? topicIds,
+    String? clientId,
+  }) {
+    _dismissed = true;
+    return super.dismissNewTopics(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      dismissTopics: dismissTopics,
+      dismissPosts: dismissPosts,
+      categoryId: categoryId,
+      tagName: tagName,
+      topicIds: topicIds,
+      clientId: clientId,
+    );
+  }
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) async {
+    totalsCalls++;
+    return _dismissed
+        ? const NotificationTotals()
+        : const NotificationTotals(topicTrackingNew: 2);
+  }
 }
 
 final class _PageGate {
