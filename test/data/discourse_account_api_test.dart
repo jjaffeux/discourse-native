@@ -330,6 +330,30 @@ void main() {
       },
     );
 
+    test('a background read does not count the review queue as seen', () async {
+      Uri? url;
+      final api = _accountApi(
+        client: MockClient((request) async {
+          url = request.url;
+          return http.Response(
+            jsonEncode({'notifications': const <Object>[]}),
+            200,
+          );
+        }),
+      );
+
+      await api.notifications(
+        siteUrl: 'https://meta.discourse.org',
+        apiKey: 'the-key',
+        background: true,
+      );
+
+      expect(
+        url!.queryParameters,
+        isNot(contains('bump_last_seen_reviewable')),
+      );
+    });
+
     test('reads the list the user menu shows', () async {
       Uri? url;
       final api = _accountApi(
