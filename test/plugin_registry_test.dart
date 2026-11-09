@@ -4,7 +4,7 @@ import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugin_api/post_action.dart';
 import 'package:discourse_native/src/plugin_api/site_plugin_api.dart';
 import 'package:discourse_native/src/theme/d_icon.dart';

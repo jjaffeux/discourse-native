@@ -1,47 +1,10 @@
-import 'package:discourse_native/l10n/strings.dart';
 import 'global_search_models.dart';
 
 export 'global_search_filters.dart';
 export 'global_search_models.dart';
 
-enum GlobalSearchLookup { none, users, groups, contributed }
-
-/// A bounded authenticated read; no credentials or concrete host escape.
-final class GlobalSearchReadContext {
-  const GlobalSearchReadContext({
-    required this.siteUrl,
-    required this.authenticated,
-    required this.get,
-  });
-  final String siteUrl;
-  final bool authenticated;
-  final Future<Map<String, dynamic>> Function(String path) get;
-}
-
 abstract interface class GlobalSearchPlugin {
   List<GlobalSearchContribution> get searchContributions;
-}
-
-abstract class GlobalSearchContribution {
-  const GlobalSearchContribution(this.owner);
-  final String owner;
-  List<GlobalSearchFilter> get filters => const [];
-  List<GlobalSearchScope> get scopes => const [];
-  List<GlobalSearchOrder> orders(GlobalSearchScope scope) => const [];
-  bool available(
-    Map<String, dynamic> settings,
-    Map<String, dynamic> user,
-    bool authenticated,
-  );
-  Future<GlobalSearchPage> search(
-    GlobalSearchReadContext context,
-    GlobalSearchRequest request,
-  ) => Future.error(FormatException(appL10n.searchIsUnavailable));
-  Future<List<GlobalSearchFilterChoice>> lookup(
-    GlobalSearchReadContext context,
-    GlobalSearchFilter filter,
-    String term,
-  ) async => const [];
 }
 
 /// Installation snapshots the schema while retaining the contributor's behavior.

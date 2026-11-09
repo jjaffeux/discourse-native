@@ -10,7 +10,7 @@ import 'package:discourse_native/src/models/site_emoji.dart';
 import 'package:discourse_native/src/models/storable.dart';
 import 'package:discourse_native/src/models/user_flair.dart';
 import 'package:discourse_native/src/plugin_api/plugin_runtime.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel_view.dart';

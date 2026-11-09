@@ -7,7 +7,6 @@ import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/bounded_lru_cache.dart';
-import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import 'global_search_api.dart';

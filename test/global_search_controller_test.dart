@@ -6,8 +6,6 @@ import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/search_results.dart';
 import 'package:discourse_native/src/models/topic.dart';
-import 'package:discourse_native/src/plugin_api/global_search.dart'
-    show GlobalSearchContribution;
 import 'package:discourse_native/src/plugin_api/global_search_filters.dart';
 import 'package:discourse_native/src/plugin_api/global_search_models.dart';
 import 'package:discourse_native/src/plugins/assign/assign_global_search.dart';

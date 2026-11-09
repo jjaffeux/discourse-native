@@ -11,6 +11,7 @@ import '../models/discourse_instance.dart';
 import '../models/group_route.dart';
 import '../models/sidebar.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../plugin_api/plugin_ui_scope.dart';
 import '../plugin_api/site_plugin_api.dart';
 import '../theme/app_theme.dart';
 import '../theme/d_icons.dart';

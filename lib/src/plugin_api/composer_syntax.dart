@@ -7,7 +7,7 @@ import 'package:flutter/services.dart';
 
 import '../models/composer_metadata.dart';
 import '../models/plugin_data.dart';
-import 'plugin_scope.dart';
+import 'plugin_ui_scope.dart';
 
 @immutable
 final class ComposerSyntaxKind {

@@ -7,7 +7,7 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/forum_background.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
 import 'package:discourse_native/src/models/site_config.dart';
-import 'package:discourse_native/src/plugin_api/plugin_scope.dart';
+import 'package:discourse_native/src/plugin_api/plugin_ui_scope.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_navigation.dart';
 import 'package:discourse_native/src/plugins/chat/chat_browse_skeleton.dart';
 import 'package:discourse_native/src/plugins/chat/chat_channel.dart';

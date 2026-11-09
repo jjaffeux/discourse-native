@@ -136,6 +136,8 @@ export 'src/plugin_api/notification_types.dart';
 export 'src/plugin_api/plugin_manifest.dart';
 export 'src/plugin_api/plugin_runtime.dart';
 export 'src/plugin_api/plugin_scope.dart';
+export 'src/plugin_api/plugin_ui_scope.dart'
+    show PluginOwnedServices, PluginServiceSelector, PluginUiScope;
 export 'src/plugin_api/post_action.dart'
     show PostAction, PostActionGroup, PostActionPlacement, PostActionRole;
 export 'src/plugin_api/reaction_presentation.dart';

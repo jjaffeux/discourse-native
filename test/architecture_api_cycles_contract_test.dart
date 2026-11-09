@@ -13,6 +13,15 @@ void main() {
     expect(cyclesThrough('lib/src/data/'), isEmpty);
   });
 
+  test('no plugin API library participates in an import cycle', () {
+    expect(cyclesThrough('lib/src/plugin_api/'), isEmpty);
+  });
+
+  test('plugin UI ownership compiles without any application library', () {
+    const scope = 'lib/src/plugin_api/plugin_ui_scope.dart';
+    expect(graph.closureOf(scope), {scope});
+  });
+
   test('the API contracts stay below every transport implementation', () {
     expect(
       graph

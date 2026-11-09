@@ -5,6 +5,7 @@ import '../models/bookmark.dart';
 import '../models/discourse_model_codec.dart';
 import 'plugin_manifest.dart';
 import 'plugin_registry.dart';
+import 'plugin_ui_scope.dart';
 import 'site_plugin_api.dart';
 
 export 'plugin_contracts.dart';
@@ -645,7 +646,7 @@ final class InstalledPlugins {
   }
 }
 
-final class PluginSession {
+final class PluginSession implements PluginServiceDirectory {
   PluginSession._(
     List<_OwnedSessionContribution> contributions,
     Map<PluginServiceKey<Object>, Object> services,
@@ -660,8 +661,7 @@ final class PluginSession {
           ...contribution.value.capabilities,
       ]) {
     _ownedServiceViews = Map.unmodifiable({
-      for (final owner in _owners)
-        owner: PluginOwnedServices._(owner, _services),
+      for (final owner in _owners) owner: PluginOwnedServices(owner, _services),
     });
     _validateBookmarkTargets(contributions);
   }
@@ -736,6 +736,7 @@ final class PluginSession {
   /// Dependency services are intentionally not transitively visible here. A
   /// module may consume them while constructing its session and republish a
   /// deliberately narrower adapter under one of its own keys for its UI.
+  @override
   PluginOwnedServices servicesFor(PluginId owner) {
     final services = _ownedServiceViews[owner];
     if (services == null) {
@@ -894,33 +895,6 @@ final class PluginSession {
     if (failures.isNotEmpty) {
       throw PluginLifecycleException(operation, failures);
     }
-  }
-}
-
-final class PluginOwnedServices {
-  const PluginOwnedServices._(this.owner, this._services);
-
-  const PluginOwnedServices.detached(PluginId owner) : this._(owner, const {});
-
-  final PluginId owner;
-  final Map<PluginServiceKey<Object>, Object> _services;
-
-  T? maybe<T extends Object>(PluginServiceKey<T> key) {
-    _checkOwner(key);
-    return _services[key] as T?;
-  }
-
-  T require<T extends Object>(PluginServiceKey<T> key) {
-    final value = maybe(key);
-    if (value == null) throw StateError('Plugin service ${key.id} is absent.');
-    return value;
-  }
-
-  void _checkOwner<T extends Object>(PluginServiceKey<T> key) {
-    if (key.owner == owner) return;
-    throw StateError(
-      'Plugin $owner cannot resolve service ${key.id} owned by ${key.owner}.',
-    );
   }
 }
 

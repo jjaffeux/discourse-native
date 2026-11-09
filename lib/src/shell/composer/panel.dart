@@ -20,6 +20,7 @@ import '../../plugin_api/composer_footer_layout.dart';
 import '../../plugin_api/composer_syntax.dart';
 import '../../plugin_api/plugin_registry.dart';
 import '../../plugin_api/plugin_scope.dart';
+import '../../plugin_api/plugin_ui_scope.dart';
 import '../../theme/d_icons.dart';
 import '../../theme/d_native_icons.dart';
 import '../app_settings_controller.dart';

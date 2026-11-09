@@ -20,7 +20,7 @@ import '../theme/d_icons.dart';
 import 'composer_target.dart';
 import 'global_search.dart';
 import 'plugin_manifest.dart';
-import 'plugin_scope.dart';
+import 'plugin_ui_scope.dart';
 import 'post_action.dart';
 import 'site_plugin_api.dart';
 import 'topic_reader.dart';

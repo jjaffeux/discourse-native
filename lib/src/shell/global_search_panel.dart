@@ -10,7 +10,6 @@ import '../foundation/calendar_day.dart';
 import '../foundation/count_label.dart';
 import '../models/search_results.dart';
 import '../models/topic.dart';
-import '../plugin_api/global_search.dart' show GlobalSearchLookup;
 import '../plugin_api/global_search_filters.dart';
 import '../plugin_api/global_search_models.dart';
 import '../plugin_api/plugin_scope.dart';
