@@ -1,0 +1,146 @@
+[
+ {
+  "slug": "live-like",
+  "subject": "PERF: stop reading a post for every like on the topic being read",
+  "proofs": [
+   {
+    "path": "test/live_like_read_budget_test.dart",
+    "name": "ten likes from other readers read no post"
+   },
+   {
+    "path": "test/live_like_read_budget_test.dart",
+    "name": "the echo of the reader's own like reads no post"
+   },
+   {
+    "path": "test/live_like_read_budget_test.dart",
+    "name": "the echo arriving after the write reads no post"
+   }
+  ]
+ },
+ {
+  "slug": "bookmark-write",
+  "subject": "PERF: stop reading the whole topic after a saved bookmark",
+  "proofs": [
+   {
+    "path": "test/bookmark_write_read_budget_test.dart",
+    "name": "saving a post bookmark does not read the topic"
+   },
+   {
+    "path": "test/bookmark_write_read_budget_test.dart",
+    "name": "saving a topic bookmark does not read the topic"
+   },
+   {
+    "path": "test/bookmark_write_read_budget_test.dart",
+    "name": "editing a bookmark does not read the topic"
+   },
+   {
+    "path": "test/bookmark_write_read_budget_test.dart",
+    "name": "deleting a bookmark does not read the topic"
+   },
+   {
+    "path": "test/bookmark_write_read_budget_test.dart",
+    "name": "clearing a topic's bookmarks does not read the topic"
+   }
+  ]
+ },
+ {
+  "slug": "heading-anchor",
+  "subject": "PERF: stop mounting a link around each heading's invisible anchor",
+  "proofs": [
+   {
+    "path": "test/cooked_post_weight_test.dart",
+    "name": "an empty heading anchor costs no link machinery"
+   }
+  ]
+ },
+ {
+  "slug": "code-fence",
+  "subject": "PERF: draw a code fence as one paragraph, not a row per line",
+  "proofs": [
+   {
+    "path": "test/cooked_post_weight_test.dart",
+    "name": "a fence costs one paragraph rather than a row per line"
+   }
+  ]
+ },
+ {
+  "slug": "image-metadata",
+  "subject": "PERF: mount a desktop image's metadata bar only once it is shown",
+  "proofs": [
+   {
+    "path": "test/cooked_post_weight_test.dart",
+    "name": "a desktop image mounts its metadata bar only once it is shown"
+   }
+  ]
+ },
+ {
+  "slug": "idle-chat-composer",
+  "subject": "PERF: stop rebuilding an idle composer for each channel message",
+  "proofs": [
+   {
+    "path": "test/chat_composer_idle_test.dart",
+    "name": "a message as the server publishes it leaves an idle channel composer alone"
+   },
+   {
+    "path": "test/chat_composer_idle_test.dart",
+    "name": "a reply as the server publishes it leaves an idle thread composer alone"
+   }
+  ]
+ },
+ {
+  "slug": "anchor-writes",
+  "subject": "PERF: stop rewriting the tab document while a list or topic scrolls",
+  "proofs": [
+   {
+    "path": "test/anchor_persistence_writes_test.dart",
+    "name": "scrolling a topic list writes its resting anchor once"
+   },
+   {
+    "path": "test/anchor_persistence_writes_test.dart",
+    "name": "scrolling a topic writes its resting anchor once"
+   }
+  ]
+ },
+ {
+  "slug": "workspace-navigation",
+  "subject": "PERF: write the phone workspace once per navigation",
+  "proofs": [
+   {
+    "path": "test/workspace_navigation_writes_test.dart",
+    "name": "a phone writes its workspace once per navigation"
+   }
+  ]
+ },
+ {
+  "slug": "local-date-countdown",
+  "subject": "PERF: stop redrawing a date countdown every second",
+  "proofs": [
+   {
+    "path": "test/plugins/local_dates/local_date_widget_test.dart",
+    "name": "a countdown days away redraws a minute apart, not a second"
+   }
+  ]
+ },
+ {
+  "slug": "main-content-search",
+  "subject": "PERF: stop rebuilding the page when the search panel opens or closes",
+  "proofs": [
+   {
+    "path": "test/main_content_search_notifications_test.dart",
+    "name": "phone opening search leaves the tags page built"
+   },
+   {
+    "path": "test/main_content_search_notifications_test.dart",
+    "name": "mac opening search leaves the tags page built"
+   },
+   {
+    "path": "test/main_content_search_notifications_test.dart",
+    "name": "phone opening search leaves the topic list built"
+   },
+   {
+    "path": "test/main_content_search_notifications_test.dart",
+    "name": "mac opening search leaves the topic list built"
+   }
+  ]
+ }
+]

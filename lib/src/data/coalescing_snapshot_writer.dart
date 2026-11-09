@@ -79,6 +79,9 @@ final class CoalescingSnapshotWriter<T> {
 
   Future<void> _drain() async {
     try {
+      // One synchronous transaction can save several times; waiting out its
+      // turn leaves one write, of the state it ended with.
+      await Future<void>.value();
       while (_lane.pendingWrite != null) {
         final write = _lane.pendingWrite!;
         final result = _lane.pendingResult!;

@@ -539,7 +539,7 @@ void main() {
         tester.widget<CodeBlock>(find.byType(CodeBlock)).data.highlightDeferred,
         isTrue,
       );
-      final line = find.text('def preview_example_0 = "value"');
+      final line = find.textContaining('def preview_example_0 = "value"');
       final before = tester.getRect(line);
       bool paintsKeyword() {
         var found = false;

@@ -196,6 +196,13 @@ sealed class _AdmittedBookmarkTarget {
   void reconcile(DiscourseInstance instance) {
     if (!account.isCurrent) return;
     reconcileTarget();
+    refreshFeeds(instance);
+  }
+
+  /// After a write the forum confirmed, once its result is projected.
+  void reconcileSaved(DiscourseInstance instance) => reconcile(instance);
+
+  void refreshFeeds(DiscourseInstance instance) {
     if (!account.isCurrent) return;
     unawaited(account._owner.refreshMenu(instance));
     if (!account.isCurrent) return;
@@ -238,6 +245,11 @@ final class _AdmittedCoreBookmarkTarget extends _AdmittedBookmarkTarget {
         isPost: isPost,
         topicBookmarked: topicBookmarked,
       );
+
+  /// The write's own answer is the whole of what changed on this topic, so
+  /// as on the web client it is projected and the topic is not read again.
+  @override
+  void reconcileSaved(DiscourseInstance instance) => refreshFeeds(instance);
 
   @override
   void reconcileTarget() {
@@ -651,7 +663,13 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           appL10n.theBookmarkWasSavedOnTheForum,
         );
       }
-      target.reconcile(instance);
+      // Only a read can number a post this account does not hold.
+      if (target.type == BookmarkTargetType.post &&
+          bookmark.postNumber == null) {
+        target.reconcile(instance);
+      } else {
+        target.reconcileSaved(instance);
+      }
       return BookmarkWriteResult.saved(bookmark);
     } finally {
       target.release();
@@ -756,7 +774,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           appL10n.theBookmarkWasUpdatedOnTheForum,
         );
       }
-      target.reconcile(instance);
+      target.reconcileSaved(instance);
       return BookmarkWriteResult.saved(updated);
     } finally {
       target.release();
@@ -853,7 +871,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
           appL10n.theBookmarkWasDeletedOnTheForum,
         );
       }
-      target.reconcile(instance);
+      target.reconcileSaved(instance);
       return const BookmarkWriteResult.saved();
     } finally {
       target.release();
@@ -948,7 +966,7 @@ final class BookmarkAccountSession implements BookmarkReadProjection {
         );
       }
       lease.commit(() => _clearBookmarks(topicId));
-      target.reconcile(instance);
+      target.reconcileSaved(instance);
       return const BookmarkWriteResult.saved();
     } finally {
       target.release();

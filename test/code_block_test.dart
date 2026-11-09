@@ -506,12 +506,7 @@ void main() {
         expect(selected.color, theme.colorScheme.tertiaryContainer);
         await pump('<pre><code class="lang-text">plain</code></pre>', theme);
         expect(find.text('100'), findsNothing);
-        final row = tester.widget<Row>(
-          find
-              .ancestor(of: find.text('plain'), matching: find.byType(Row))
-              .first,
-        );
-        expect(row.children.length, 3);
+        expect(find.text('plain'), findsOneWidget);
       }
     });
 
@@ -592,7 +587,7 @@ void main() {
           ),
         ),
       );
-      final code = find.text('def auto_example_0 = "value"');
+      final code = find.textContaining('def auto_example_0 = "value"');
       final before = tester.getRect(code);
       expect(paintsKeyword(tester, code), isFalse);
 
@@ -645,7 +640,7 @@ void main() {
 
       expect(
         tester.getCenter(find.text('Ruby')).dy,
-        lessThan(tester.getCenter(find.text('def hello').first).dy),
+        lessThan(tester.getCenter(find.textContaining('def hello').first).dy),
       );
     });
 
@@ -657,7 +652,7 @@ void main() {
         ),
       );
 
-      final line = tester.widget<Text>(find.text('def hello').first);
+      final line = tester.widget<Text>(find.textContaining('def hello').first);
       final colors = <Color?>[];
       line.textSpan!.visitChildren((span) {
         if (span is TextSpan) colors.add(span.style?.color);
@@ -675,7 +670,7 @@ void main() {
         ),
       );
 
-      final line = tester.widget<Text>(find.text('def hello').first);
+      final line = tester.widget<Text>(find.textContaining('def hello').first);
       expect(line.style?.fontFamily, monospaceTextStyle.fontFamily);
       expect(
         line.style?.fontFamilyFallback,

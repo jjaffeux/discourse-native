@@ -1099,7 +1099,7 @@ void main() {
             .map((bookmark) => bookmark.id),
         [91],
       );
-      expect(api.topicCalls, 3);
+      expect(api.topicCalls, 2);
     });
 
     test('a same-topic bookmark jump replays after an active load', () async {

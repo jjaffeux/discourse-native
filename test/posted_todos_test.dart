@@ -117,6 +117,7 @@ class ChecklistApi extends FakeDiscourseApi {
 class ChecklistBookmarkApi extends ChecklistApi {
   final bookmarkGate = Completer<void>();
   Completer<void>? bookmarkReadGate;
+  WriteException? bookmarkFailure;
 
   @override
   Future<int> createBookmark({
@@ -143,6 +144,7 @@ class ChecklistBookmarkApi extends ChecklistApi {
     server = server.withBookmark(
       Bookmark(id: id, bookmarkableType: 'Post', bookmarkableId: targetId),
     );
+    if (bookmarkFailure case final failure?) throw failure;
     return id;
   }
 
@@ -511,7 +513,6 @@ void main() {
               api.bookmarkGate.complete();
               expect((await savingBookmark).saved, isTrue);
               await pumpEventQueue();
-              expect(api.topicsOpened, [7]);
               expect(bookmarkBusy(shell), isFalse);
               expect(states(shell), [true, true]);
               expect(shell.postWriteInFlight(22), isTrue);
@@ -545,12 +546,13 @@ void main() {
     () async {
       final api = ChecklistBookmarkApi()
         ..writeGates.add(Completer<void>())
-        ..bookmarkReadGate = Completer<void>();
+        ..bookmarkReadGate = Completer<void>()
+        ..bookmarkFailure = const WriteException(WriteFailure.unreachable);
       final shell = await shellFor(api);
       addTearDown(shell.dispose);
       final savingChecklist = toggle(shell, 0, true);
       api.bookmarkGate.complete();
-      expect((await bookmark(shell)).saved, isTrue);
+      expect((await bookmark(shell)).reconciled, isTrue);
       await pumpEventQueue();
       expect(api.topicsOpened, [7]);
       api.writeGates.single.complete();

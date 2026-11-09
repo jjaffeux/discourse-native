@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/app_settings_store.dart';
+import 'package:discourse_native/src/data/forum_tab_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/plugin_data.dart';
@@ -30,6 +31,7 @@ Future<ShellController> topicListScrollController({
   bool assignments = false,
   int posters = 0,
   void Function(String path)? onPageRequest,
+  ForumTabStore? forumTabs,
 }) async {
   assert(count > 0);
   assert(pageSize == null || pageSize > 0);
@@ -135,7 +137,7 @@ Future<ShellController> topicListScrollController({
     ),
     authenticator: FakeAuthenticator()..keys[site.url] = 'key',
     drafts: FakeDraftStore(),
-    forumTabs: FakeForumTabStore(),
+    forumTabs: forumTabs ?? FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
     updater: FakeUpdater(),
     updateStore: FakeUpdateStore(),

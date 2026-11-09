@@ -3941,6 +3941,7 @@ class ShellController extends FrameSafeNotifier
       final user = _instanceAt(siteUrl)?.user;
       return user == null ? const {} : plugins.registry.ignoredUsernames(user);
     },
+    currentUserId: (siteUrl) => _instanceAt(siteUrl)?.user?.id,
     notificationReads: (siteUrl, lease, topicId) => _topicTracking
         .capture(siteUrl, lease: lease)
         ?.reconciler

@@ -365,6 +365,68 @@ void main() {
       });
     });
 
+    testWidgets('a countdown days away redraws a minute apart, not a second', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(tester, DateTime.utc(2026, 1, 9, 12));
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(find.textContaining('2 days'), findsOneWidget);
+        await tester.pump();
+        final timers = countdown._timers.length;
+        final builds = countdown._clockReads;
+
+        var frames = 0;
+        for (var second = 0; second < 300; second++) {
+          await tester.binding.delayed(const Duration(seconds: 1));
+          if (tester.binding.hasScheduledFrame) frames++;
+          await tester.pump();
+        }
+
+        final armed = countdown._timers.length - timers;
+        final rebuilt = countdown._clockReads - builds;
+        debugPrint('PERF_PROOF local-date-countdown frames_5min=$frames');
+        debugPrint('PERF_PROOF local-date-countdown timers_5min=$armed');
+        debugPrint('PERF_PROOF local-date-countdown clock_reads_5min=$rebuilt');
+        expect(frames, lessThanOrEqualTo(5));
+        expect(find.textContaining('2 days'), findsOneWidget);
+        expect(countdown.activeTimers, hasLength(1));
+      });
+    });
+
+    testWidgets('a countdown takes its new label when its rounding steps', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(
+        tester,
+        DateTime.utc(2026, 1, 11, 11, 30),
+      );
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(find.textContaining('30 minutes'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 30));
+        expect(find.textContaining('30 minutes'), findsOneWidget);
+        await tester.pump(const Duration(milliseconds: 1));
+        expect(find.textContaining('29 minutes'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a jumped wall clock reaches a distant countdown in a minute', (
+      tester,
+    ) async {
+      final countdown = _CountdownHarness(tester, DateTime.utc(2026, 1, 11, 2));
+      await countdown.run(() async {
+        await countdown.show(spec);
+        expect(find.textContaining('10 hours'), findsOneWidget);
+
+        countdown.wallClockJump = const Duration(hours: 5);
+        await tester.pump(const Duration(minutes: 1));
+
+        expect(find.textContaining('5 hours'), findsOneWidget);
+      });
+    });
+
     testWidgets('a countdown mounted under disabled tickers stays idle', (
       tester,
     ) async {
@@ -790,12 +852,15 @@ class _CountdownHarness {
   final DateTime clockStart;
   final List<Timer> _timers = [];
   int _clockReads = 0;
+  Duration wallClockJump = Duration.zero;
 
   Iterable<Timer> get activeTimers => _timers.where((timer) => timer.isActive);
 
   DateTime now() {
     _clockReads++;
-    return start.add(tester.binding.clock.now().difference(clockStart));
+    return start
+        .add(tester.binding.clock.now().difference(clockStart))
+        .add(wallClockJump);
   }
 
   Future<void> run(Future<void> Function() body) => runZoned(

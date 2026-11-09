@@ -577,6 +577,24 @@ class LocalDateFormatter {
     return countLabel(years, CountNoun.year);
   }
 
+  /// When a countdown to [source] first reads differently from how it reads
+  /// at [now], or [source] itself when it reads the same until then. Its label
+  /// is a step of the remaining time and never returns to an earlier step.
+  static DateTime countdownChangesAt(DateTime source, DateTime now) {
+    var same = source.difference(now).inMilliseconds;
+    final label = _countdown(Duration(milliseconds: same));
+    var changed = 0;
+    while (same - changed > 1) {
+      final middle = changed + (same - changed) ~/ 2;
+      if (_countdown(Duration(milliseconds: middle)) == label) {
+        same = middle;
+      } else {
+        changed = middle;
+      }
+    }
+    return source.subtract(Duration(milliseconds: changed));
+  }
+
   static int _calendarDayDifference(DateTime value, DateTime reference) =>
       DateTime.utc(value.year, value.month, value.day)
           .difference(

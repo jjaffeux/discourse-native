@@ -129,7 +129,8 @@ final class TopicChannelRouter {
           if (stale.isNotEmpty) {
             _topics.forSite(siteUrl).invalidatePosts(topicId, stale);
           }
-          if (core.post case final id?) {
+          if (core.post case final id?
+              when !_applyLike(siteUrl, topicId, id, data)) {
             _topics.forSite(siteUrl).invalidatePosts(topicId, {
               id,
             }, deletion: core.deletion);
@@ -224,6 +225,25 @@ final class TopicChannelRouter {
       deletion: type == 'deleted' || type == 'destroyed',
       created: null,
     );
+  }
+
+  /// `PostActionCreator#notify_subscribers` publishes the post's new total
+  /// and, as `user_id`, who acted. False leaves the message to a post read.
+  bool _applyLike(String siteUrl, int topicId, int postId, Object? data) {
+    if (data is! Map) return false;
+    final type = data['type'];
+    if (type != 'liked' && type != 'unliked') return false;
+    final likeCount = data['likes_count'];
+    if (likeCount is! int || likeCount < 0) return false;
+    return _topics
+        .forSite(siteUrl)
+        .acceptLiveLike(
+          topicId,
+          postId,
+          likeCount: likeCount,
+          liked: type == 'liked',
+          actorId: jsonIntOrNull(data['user_id']),
+        );
   }
 
   void _applyStats(String siteUrl, int topicId, Object? data, SiteLease lease) {

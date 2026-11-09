@@ -64,6 +64,103 @@ void main() {
       expect(counts.composer, 0);
     }, variant: TargetPlatformVariant.only(platform));
 
+    testWidgets('a message as the server publishes it leaves an idle channel '
+        'composer alone on $name', (tester) async {
+      final tracker = await _pumpBusyChannel(tester, platform);
+      await _openChannel(tester, platform);
+      final hint = await _composerHint(tester);
+      expect(hint, contains('Support'));
+
+      void publish(int id) {
+        final message = _payload(id);
+        tracker
+          ..deliverPluginMessage('/chat/$_channelId', {
+            'type': 'sent',
+            'chat_message': message,
+          })
+          ..deliverPluginMessage('/chat/$_channelId/new-messages', {
+            'type': 'channel',
+            'channel_id': _channelId,
+            'message': message,
+          });
+      }
+
+      // The first arrival settles the page's scroll fade, which the phone
+      // composer dock follows once.
+      publish(199);
+      await tester.pump(const Duration(milliseconds: 16));
+
+      final counts = await _countArrivalRebuilds(
+        tester,
+        (index) => publish(200 + index),
+      );
+
+      print(
+        'PERF_PROOF idle-chat-composer '
+        'server_published_composer_rebuilds_$name=${counts.composer} '
+        'server_published_total_rebuilds_$name=${counts.total}',
+      );
+      expect(tester.takeException(), isNull);
+      expect(find.text('Arrival 209.', findRichText: true), findsOneWidget);
+      expect(counts.composer, 0);
+
+      tracker.deliverPluginMessage('/chat/channel-edits', {
+        'chat_channel_id': _channelId,
+        'name': 'Renamed',
+        'slug': 'renamed',
+        'description': null,
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(await _composerHint(tester), contains('Renamed'));
+      expect(await _composerHint(tester), isNot(contains('Support')));
+
+      tracker.deliverPluginMessage('/chat/channel-status', {
+        'chat_channel_id': _channelId,
+        'status': 'read_only',
+      });
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(
+        find.byKey(const ValueKey('chat-composer-read-only')),
+        findsOneWidget,
+      );
+    }, variant: TargetPlatformVariant.only(platform));
+
+    testWidgets('a reply as the server publishes it leaves an idle thread '
+        'composer alone on $name', (tester) async {
+      final tracker = await _pumpBusyChannel(tester, platform);
+      await _openChannel(tester, platform);
+      final shell = ShellScope.read(tester.element(primaryMainContent));
+      shell.openChatThread(
+        siteUrl: _site,
+        channelId: _channelId,
+        threadId: _threadId,
+      );
+      await tester.pumpAndSettle();
+
+      final counts = await _countArrivalRebuilds(tester, (index) {
+        final message = _payload(300 + index, threadId: _threadId);
+        tracker
+          ..deliverPluginMessage('/chat/$_channelId/thread/$_threadId', {
+            'type': 'sent',
+            'chat_message': message,
+          })
+          ..deliverPluginMessage('/chat/$_channelId/new-messages', {
+            'type': 'thread',
+            'channel_id': _channelId,
+            'thread_id': _threadId,
+            'message': message,
+          });
+      });
+
+      print(
+        'PERF_PROOF idle-chat-composer '
+        'server_published_thread_composer_rebuilds_$name=${counts.composer} '
+        'server_published_thread_total_rebuilds_$name=${counts.total}',
+      );
+      expect(tester.takeException(), isNull);
+      expect(counts.composer, 0);
+    }, variant: TargetPlatformVariant.only(platform));
+
     testWidgets('arrivals leave an idle thread composer alone on $name', (
       tester,
     ) async {
@@ -106,17 +203,37 @@ void main() {
   }
 }
 
+Map<String, dynamic> _payload(int id, {int? threadId}) => {
+  'id': id,
+  'chat_channel_id': _channelId,
+  'thread_id': ?threadId,
+  'cooked': '<p>Arrival $id.</p>',
+  'created_at': DateTime.utc(2026, 10, 2, 0, id % 60).toIso8601String(),
+  'user': {'id': 2, 'username': 'sam'},
+};
+
 Map<String, dynamic> _sent(int id, {int? threadId}) => {
   'type': 'sent',
-  'chat_message': {
-    'id': id,
-    'chat_channel_id': _channelId,
-    'thread_id': ?threadId,
-    'cooked': '<p>Arrival $id.</p>',
-    'created_at': DateTime.utc(2026, 10, 2, 0, id % 60).toIso8601String(),
-    'user': {'id': 2, 'username': 'sam'},
-  },
+  'chat_message': _payload(id, threadId: threadId),
 };
+
+Future<void> _openChannel(WidgetTester tester, TargetPlatform platform) async {
+  final shell = ShellScope.read(tester.element(primaryMainContent));
+  if (platform != TargetPlatform.macOS) {
+    shell.selectMobilePanel('chat');
+    await tester.pumpAndSettle();
+  }
+  shell.openChatChannel(_channelId);
+  await tester.pumpAndSettle();
+  expect(find.byType(ChatComposer), findsOneWidget);
+}
+
+Future<String> _composerHint(WidgetTester tester) async {
+  final hints = tester.widgetList<Text>(
+    find.descendant(of: find.byType(ChatComposer), matching: find.byType(Text)),
+  );
+  return hints.map((text) => text.data ?? '').join(' | ');
+}
 
 /// Elements rebuilt over [_arrivals] deliveries, and how many of them sat
 /// under a [ChatComposer].
