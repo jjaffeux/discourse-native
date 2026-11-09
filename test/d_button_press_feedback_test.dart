@@ -192,6 +192,35 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('a press in the invisible phone area gives the button', (
+    tester,
+  ) async {
+    var presses = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        builder: (context, child) => DTouchTargets(child: child!),
+        home: Scaffold(
+          body: Center(child: _dButton(onPressed: () => presses++)),
+        ),
+      ),
+    );
+    final resting = tester.getRect(_button);
+    expect(resting.height, lessThan(kDTouchTargetExtent));
+
+    final press = await tester.startGesture(
+      resting.bottomCenter + const Offset(0, 2),
+    );
+    await tester.pump();
+    await tester.pump(_pressIn);
+
+    expect(_paintedScale(tester), moreOrLessEquals(.92, epsilon: 1e-9));
+    await press.up();
+    await tester.pumpAndSettle();
+    expect(presses, 1);
+    expect(_paintedScale(tester), 1);
+  });
+
   for (final density in [DButtonDensity.standard, DButtonDensity.postAction]) {
     testWidgets('an idle $density button holds no press ticker', (
       tester,

@@ -143,4 +143,4 @@ export 'src/ui/foundation/press_scale.dart' show DPressDepth;
 export 'src/ui/foundation/sheet_page_band.dart'
     show DSheetPageBand, DSheetReaderStart;
 export 'src/ui/foundation/surface_depth.dart';
-export 'src/ui/foundation/touch_target.dart';
+export 'src/ui/foundation/touch_target.dart' hide DTouchTargetBox;

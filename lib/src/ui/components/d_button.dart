@@ -1350,12 +1350,14 @@ class DButton extends StatelessWidget {
 
     // The exterior ring paints beyond the Material, so the button never clips.
     Widget result = inlineMetadata
-        ? _DInlineButtonPrimitive(
-            onPressed: enabled ? linkActivation.onPressed : null,
-            style: style,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            child: child,
+        ? DTouchTarget(
+            child: _DInlineButtonPrimitive(
+              onPressed: enabled ? linkActivation.onPressed : null,
+              style: style,
+              focusNode: focusNode,
+              autofocus: autofocus,
+              child: child,
+            ),
           )
         : _DPressableButton(
             onPressed: enabled ? linkActivation.onPressed : null,
@@ -1366,7 +1368,6 @@ class DButton extends StatelessWidget {
             depth: pressDepth,
             child: child,
           );
-    result = DTouchTarget(child: result);
     if (!enabled && !timelineEnd) {
       result = Opacity(opacity: buttons.disabledOpacity, child: result);
     }
@@ -1969,7 +1970,7 @@ class _DPressableButtonState extends State<_DPressableButton> {
   }
 
   @override
-  Widget build(BuildContext context) => DPressScale(
+  Widget build(BuildContext context) => DPressTarget(
     states: _states,
     depth: widget.depth,
     child: widget.isLink
