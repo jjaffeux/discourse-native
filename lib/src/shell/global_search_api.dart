@@ -10,6 +10,13 @@ import '../models/topic.dart';
 import '../plugin_api/global_search.dart';
 
 /// Requests retain the transport's same-origin, credential and payload bounds.
+/// Discovery read what it could, but the forum never answered part of it.
+final class GlobalSearchCapabilitiesIncomplete implements Exception {
+  const GlobalSearchCapabilitiesIncomplete(this.answered);
+
+  final GlobalSearchCapabilities answered;
+}
+
 class GlobalSearchApi {
   const GlobalSearchApi({required this.transport});
 
@@ -83,17 +90,19 @@ class GlobalSearchApi {
   }) async {
     // Dispatch independent reads together while the caller's session lease is
     // current. No later metadata read reuses credentials after an await. A read
-    // the forum refused is settled; one it never answered throws, so the caller
-    // can ask again instead of mistaking silence for a forum with no features.
+    // the forum refused is settled; one it never answered leaves that part of
+    // [base] alone, so what did arrive still counts and the caller can ask
+    // again instead of mistaking silence for a forum with no features.
+    var unanswered = false;
     Future<Map<String, dynamic>?> optionalRead(String path) async {
       try {
         return await _get(siteUrl, path, apiKey, clientId);
-      } on SiteLookupException catch (error) {
-        final status = error.statusCode;
-        if (status != null && status >= 400 && status < 500 && status != 429) {
-          return null;
-        }
-        rethrow;
+      } catch (error) {
+        final status = error is SiteLookupException ? error.statusCode : null;
+        final refused =
+            status != null && status >= 400 && status < 500 && status != 429;
+        if (!refused) unanswered = true;
+        return null;
       }
     }
 
@@ -132,6 +141,7 @@ class GlobalSearchApi {
         ),
       );
     }
+    if (unanswered) throw GlobalSearchCapabilitiesIncomplete(next);
     return next;
   }
 

@@ -457,23 +457,37 @@ class GlobalSearchController extends ChangeNotifier {
       if (!current()) return;
       final client = key == null ? null : auth.clientId;
       if (!current()) return;
-      final loaded = await auth.run(
-        () => api.capabilities(
-          siteUrl: site,
-          apiKey: key,
-          clientId: client,
-          base: base,
-        ),
-      );
-      if (!current() || loaded.fingerprint == capabilities.fingerprint) return;
-      _capabilities = loaded;
-      _sanitize();
-      if (_pendingContext case final pending?) setContext(pending);
-      _schedule();
+      final GlobalSearchCapabilities loaded;
+      try {
+        loaded = await auth.run(
+          () => api.capabilities(
+            siteUrl: site,
+            apiKey: key,
+            clientId: client,
+            base: base,
+          ),
+        );
+      } on GlobalSearchCapabilitiesIncomplete catch (incomplete) {
+        if (current()) _discoveryUnanswered = true;
+        _adoptCapabilities(incomplete.answered, current);
+        return;
+      }
+      _adoptCapabilities(loaded, current);
     } catch (_) {
       // Optional discovery does not prevent core search.
       if (current()) _discoveryUnanswered = true;
     }
+  }
+
+  void _adoptCapabilities(
+    GlobalSearchCapabilities loaded,
+    bool Function() current,
+  ) {
+    if (!current() || loaded.fingerprint == capabilities.fingerprint) return;
+    _capabilities = loaded;
+    _sanitize();
+    if (_pendingContext case final pending?) setContext(pending);
+    _schedule();
   }
 
   void _sanitize() {
