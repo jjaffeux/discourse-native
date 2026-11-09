@@ -3004,6 +3004,20 @@ void main() {
       );
     }
 
+    testWidgets('new room sends a LiveKit choice the server column can hold', (
+      tester,
+    ) async {
+      final harness = _Harness();
+      addTearDown(harness.dispose);
+      await openEditor(tester, harness);
+      await enter(tester, 'Name', 'Community lounge');
+      await tester.tap(find.widgetWithText(DButton, 'Create room'));
+      await tester.pumpAndSettle();
+
+      final room = harness.transport.writes.single.body['room']! as Map;
+      expect(room['livekit_enabled'], isFalse);
+    });
+
     testWidgets('creates a room with defaults and no advanced setup', (
       tester,
     ) async {
@@ -3029,7 +3043,7 @@ void main() {
         'max_participants': null,
         'chat_channel_id': null,
         'chat_idle_minutes': 15,
-        'livekit_enabled': null,
+        'livekit_enabled': false,
         'max_quality_profile': 'maximum',
       });
       expect(tester.takeException(), isNull);
