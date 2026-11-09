@@ -8508,12 +8508,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get firstTime => 'First time';
 
   @override
-  String get notifyMeAboutRepliesToLinkedPosts =>
-      'Notify me about replies to linked posts';
+  String get notifyWhenSomeoneLinksToMyPosts =>
+      'Notify when someone shares a link to one of my posts';
 
   @override
-  String get getANotificationWhenSomeoneRepliesToAPostYouLinked =>
-      'Get a notification when someone replies to a post you linked.';
+  String get turnOffLinkNotifications =>
+      'Turn this off to stop getting a notification for each link.';
 
   @override
   String get considerTopicsNew => 'Consider topics new';

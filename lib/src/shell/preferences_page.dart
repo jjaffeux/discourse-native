@@ -462,11 +462,9 @@ class _NotificationsForm extends StatelessWidget {
           contentPadding: EdgeInsets.zero,
           title: DLabel(
             enabled: enabled,
-            child: Text(context.l10n.notifyMeAboutRepliesToLinkedPosts),
+            child: Text(context.l10n.notifyWhenSomeoneLinksToMyPosts),
           ),
-          subtitle: Text(
-            context.l10n.getANotificationWhenSomeoneRepliesToAPostYouLinked,
-          ),
+          subtitle: Text(context.l10n.turnOffLinkNotifications),
           value: preferences.notifyOnLinkedPosts,
           onChanged: enabled
               ? (value) => onChanged(
