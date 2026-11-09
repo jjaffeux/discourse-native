@@ -634,7 +634,8 @@ void main() {
           ),
         );
         final rest = buttonSurface(tester).color;
-        final origin = tester.getTopLeft(find.text('Press'));
+        double centre() => tester.getCenter(find.byType(FilledButton)).dy;
+        final origin = centre();
         final gesture = await tester.startGesture(
           tester.getCenter(find.text('Press')),
         );
@@ -647,11 +648,11 @@ void main() {
               : tokens.buttonTheme.outline.hover,
           reason: variant.name,
         );
-        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
+        expect(centre(), moreOrLessEquals(origin, epsilon: 1e-9));
         await gesture.up();
         await tester.pumpAndSettle();
         expect(buttonSurface(tester).color, rest);
-        expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
+        expect(centre(), origin);
       }
     },
   );
@@ -1018,12 +1019,13 @@ void main() {
         tester,
         DButton(label: const Text('Press'), hasPopup: popup, onPressed: () {}),
       );
-      final origin = tester.getTopLeft(find.text('Press'));
+      double centre() => tester.getCenter(find.byType(FilledButton)).dy;
+      final origin = centre();
       final gesture = await tester.startGesture(
         tester.getCenter(find.text('Press')),
       );
       await tester.pumpAndSettle();
-      expect(tester.getTopLeft(find.text('Press')).dy, origin.dy);
+      expect(centre(), moreOrLessEquals(origin, epsilon: 1e-9));
       await gesture.up();
       await tester.pumpAndSettle();
     }

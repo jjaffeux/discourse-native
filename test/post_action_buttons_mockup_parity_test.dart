@@ -215,14 +215,18 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getSize(reply).height, greaterThan(30));
       expect(tester.getRect(reply).left - tester.getRect(more).right, 4);
-      expect(
-        tester
-            .widget<AnimatedScale>(
-              find.descendant(of: reply, matching: find.byType(AnimatedScale)),
-            )
-            .duration,
-        Duration.zero,
+      final press = await tester.startGesture(tester.getCenter(reply));
+      await tester.pump(const Duration(milliseconds: 100));
+      final button = find.descendant(
+        of: reply,
+        matching: find.byType(FilledButton),
       );
+      expect(
+        tester.getRect(button).width / tester.getSize(button).width,
+        moreOrLessEquals(.92, epsilon: 1e-9),
+      );
+      await press.cancel();
+      await tester.pump();
       expect(tester.takeException(), isNull);
     });
   }

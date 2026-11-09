@@ -10,6 +10,7 @@ import '../../theme/d_icon.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/control_style.dart';
+import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_kbd.dart';
@@ -750,8 +751,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   final FocusNode _ownedFocusNode = FocusNode();
   _DTabsState<T>? _root;
 
+  final _press = WidgetStatesController();
   bool _hovered = false;
-  bool _pressed = false;
   bool _focused = false;
   bool _focusFromPointer = false;
 
@@ -786,6 +787,7 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
   void dispose() {
     _root?.unregister(this);
 
+    _press.dispose();
     _ownedFocusNode.dispose();
     super.dispose();
   }
@@ -826,6 +828,8 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
     final tokens = DTokens.of(context);
     final selected = root.value == widget.value;
     final enabled = root.enabled;
+    // Losing its tap callbacks cancels nothing: the press has to end here.
+    if (!enabled) _press.update(WidgetState.pressed, false);
     focusNode.skipTraversal = _skipsTraversal;
     final dark = Theme.of(context).brightness == Brightness.dark;
     final line = list.variant == DTabListVariant.line;
@@ -1134,13 +1138,13 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
             behavior: HitTestBehavior.opaque,
             excludeFromSemantics: true,
             onTapDown: expanding && enabled
-                ? (_) => setState(() => _pressed = true)
+                ? (_) => _press.update(WidgetState.pressed, true)
                 : null,
             onTapUp: expanding && enabled
-                ? (_) => setState(() => _pressed = false)
+                ? (_) => _press.update(WidgetState.pressed, false)
                 : null,
             onTapCancel: expanding && enabled
-                ? () => setState(() => _pressed = false)
+                ? () => _press.update(WidgetState.pressed, false)
                 : null,
             onTap: enabled
                 ? () {
@@ -1157,13 +1161,9 @@ class _DTabTriggerState<T> extends State<DTabTrigger<T>> {
       ),
     );
     return expanding
-        ? AnimatedScale(
-            scale: _pressed ? (selected ? .95 : .92) : 1,
-            duration: DMotion.duration(
-              context,
-              Duration(milliseconds: _pressed ? 80 : 400),
-            ),
-            curve: _pressed ? Curves.ease : const Cubic(.34, 1.56, .64, 1),
+        ? DPressScale(
+            states: _press,
+            depth: selected ? DPressDepth.filled : DPressDepth.bare,
             child: MouseRegion(
               onEnter: enabled ? (_) => setState(() => _hovered = true) : null,
               onExit: enabled ? (_) => setState(() => _hovered = false) : null,

@@ -19,6 +19,7 @@ import '../foundation/implicit_transition.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
 import '../foundation/post_reaction_style.dart';
+import '../foundation/press_scale.dart';
 import '../foundation/touch_target.dart';
 import 'd_fit_row.dart';
 import 'd_kbd.dart';
@@ -707,6 +708,27 @@ class DButton extends StatelessWidget {
                   1.5
         : standardDimension;
     final enabled = onPressed != null && !loading;
+    // The mockup's `:active` scales: `.glass` for what has a fill of its own,
+    // `.glass-bare` for what has none, and nothing for text or the dock's tiles.
+    final pressDepth = density == DButtonDensity.mobileDockTile
+        ? DPressDepth.still
+        : switch (variant) {
+            DButtonVariant.inline || DButtonVariant.link => DPressDepth.still,
+            DButtonVariant.recessed => DPressDepth.inset,
+            DButtonVariant.primary ||
+            DButtonVariant.destructive ||
+            DButtonVariant.quietSelected ||
+            DButtonVariant.resume => DPressDepth.filled,
+            DButtonVariant.outline ||
+            DButtonVariant.dashedTile ||
+            DButtonVariant.secondary ||
+            DButtonVariant.quiet ||
+            DButtonVariant.ghost => DPressDepth.bare,
+            DButtonVariant.tool =>
+              DJoinedControlScope.maybeOf(context) == null
+                  ? DPressDepth.filled
+                  : DPressDepth.bare,
+          };
     final baseRadius =
         borderRadius ??
         (filterPill ? BorderRadius.circular(DRadius.pill) : null) ??
@@ -1317,29 +1339,13 @@ class DButton extends StatelessWidget {
             autofocus: autofocus,
             child: child,
           )
-        : isLink
-        ? _DLinkPrimitive(
+        : _DPressableButton(
             onPressed: enabled ? linkActivation.onPressed : null,
             style: style,
             focusNode: focusNode,
             autofocus: autofocus,
-            clipBehavior: Clip.none,
-            child: child,
-          )
-        : postAction
-        ? _DPostActionPrimitive(
-            onPressed: enabled ? linkActivation.onPressed : null,
-            style: style,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            child: child,
-          )
-        : FilledButton(
-            onPressed: enabled ? linkActivation.onPressed : null,
-            style: style,
-            focusNode: focusNode,
-            autofocus: autofocus,
-            clipBehavior: Clip.none,
+            isLink: isLink,
+            depth: pressDepth,
             child: child,
           );
     result = DTouchTarget(child: result);
@@ -1903,32 +1909,41 @@ class _DLinkPrimitive extends FilledButton {
     super.focusNode,
     super.autofocus,
     super.clipBehavior,
+    super.statesController,
   });
 
   @override
   bool get isSemanticButton => false;
 }
 
-class _DPostActionPrimitive extends StatefulWidget {
-  const _DPostActionPrimitive({
+// The states controller replaces the one a FilledButton would allocate for
+// itself, so following its press adds no notifier per button.
+class _DPressableButton extends StatefulWidget {
+  const _DPressableButton({
     required this.onPressed,
     required this.style,
     required this.focusNode,
     required this.autofocus,
+    required this.isLink,
+    required this.depth,
     required this.child,
   });
+
   final VoidCallback? onPressed;
   final ButtonStyle style;
   final FocusNode? focusNode;
   final bool autofocus;
+  final bool isLink;
+  final DPressDepth depth;
   final Widget child;
 
   @override
-  State<_DPostActionPrimitive> createState() => _DPostActionPrimitiveState();
+  State<_DPressableButton> createState() => _DPressableButtonState();
 }
 
-class _DPostActionPrimitiveState extends State<_DPostActionPrimitive> {
+class _DPressableButtonState extends State<_DPressableButton> {
   final _states = WidgetStatesController();
+
   @override
   void dispose() {
     _states.dispose();
@@ -1936,31 +1951,27 @@ class _DPostActionPrimitiveState extends State<_DPostActionPrimitive> {
   }
 
   @override
-  Widget build(BuildContext context) =>
-      ValueListenableBuilder<Set<WidgetState>>(
-        valueListenable: _states,
-        child: FilledButton(
-          onPressed: widget.onPressed,
-          style: widget.style,
-          focusNode: widget.focusNode,
-          autofocus: widget.autofocus,
-          statesController: _states,
-          clipBehavior: Clip.none,
-          child: widget.child,
-        ),
-        builder: (context, states, child) {
-          final pressed =
-              widget.onPressed != null && states.contains(WidgetState.pressed);
-
-          return AnimatedScale(
-            scale: pressed ? .92 : 1,
-            duration: DMotion.duration(
-              context,
-              Duration(milliseconds: pressed ? 80 : (0)),
-            ),
-            curve: Curves.ease,
-            child: child,
-          );
-        },
-      );
+  Widget build(BuildContext context) => DPressScale(
+    states: _states,
+    depth: widget.depth,
+    child: widget.isLink
+        ? _DLinkPrimitive(
+            onPressed: widget.onPressed,
+            style: widget.style,
+            focusNode: widget.focusNode,
+            autofocus: widget.autofocus,
+            clipBehavior: Clip.none,
+            statesController: _states,
+            child: widget.child,
+          )
+        : FilledButton(
+            onPressed: widget.onPressed,
+            style: widget.style,
+            focusNode: widget.focusNode,
+            autofocus: widget.autofocus,
+            clipBehavior: Clip.none,
+            statesController: _states,
+            child: widget.child,
+          ),
+  );
 }
