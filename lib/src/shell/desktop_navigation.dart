@@ -16,14 +16,23 @@ class DesktopNavigation extends StatefulWidget {
     required this.compact,
     this.showTrigger = true,
     required this.sidebar,
+    required this.sidebarReveal,
     required this.child,
+    this.contentWidth,
     this.header,
   });
 
   final bool compact;
   final bool showTrigger;
   final Widget sidebar;
+
+  /// How much of the docked sidebar shows, from 0 closed to 1 open.
+  final Animation<double> sidebarReveal;
   final Widget child;
+
+  /// The width [child] takes while the sidebar moves. It lays out once at the
+  /// width it ends at and slides, so a long topic never reflows on a tick.
+  final double? contentWidth;
   final Widget? header;
 
   @override
@@ -95,10 +104,23 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
       child: Row(
         children: [
           Offstage(
-            offstage: widget.compact,
+            offstage: widget.compact && widget.sidebarReveal.isDismissed,
             child: ExcludeFocus(
               excluding: widget.compact,
-              child: widget.sidebar,
+              child: ClipRect(
+                clipBehavior: widget.sidebarReveal.isAnimating
+                    ? Clip.hardEdge
+                    : Clip.none,
+                child: AnimatedBuilder(
+                  animation: widget.sidebarReveal,
+                  builder: (context, child) => Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    widthFactor: widget.sidebarReveal.value,
+                    child: child,
+                  ),
+                  child: widget.sidebar,
+                ),
+              ),
             ),
           ),
           Expanded(
@@ -129,7 +151,19 @@ class _DesktopNavigationState extends State<DesktopNavigation> {
                     ),
                   ),
                 ),
-                Expanded(child: widget.child),
+                Expanded(
+                  child: ClipRect(
+                    clipBehavior: widget.contentWidth == null
+                        ? Clip.none
+                        : Clip.hardEdge,
+                    child: OverflowBox(
+                      alignment: AlignmentDirectional.centerStart,
+                      minWidth: widget.contentWidth,
+                      maxWidth: widget.contentWidth,
+                      child: RepaintBoundary(child: widget.child),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),

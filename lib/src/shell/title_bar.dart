@@ -43,6 +43,10 @@ class ShellTitleBar extends StatelessWidget {
   final double? leadingInset;
   final DesktopPanelsLayout? panelsLayout;
 
+  /// How far the search field starts when nothing else clears the window's
+  /// controls.
+  static double get defaultLeadingInset => hasWindowChrome ? 94 : 8;
+
   static const double controlGap = 10;
   static const double trailingInset = 14;
   static const _rowPadding = EdgeInsets.only(top: 8, bottom: 4);
@@ -172,9 +176,7 @@ class ShellTitleBar extends StatelessWidget {
                               child: Row(
                                 children: [
                                   SizedBox(
-                                    width:
-                                        leadingInset ??
-                                        (hasWindowChrome ? 94 : 8),
+                                    width: leadingInset ?? defaultLeadingInset,
                                   ),
                                   search,
                                   const SizedBox(width: trailingInset),
@@ -206,7 +208,7 @@ class ShellTitleBar extends StatelessWidget {
                         child: Row(
                           children: [
                             SizedBox(
-                              width: leadingInset ?? (hasWindowChrome ? 94 : 8),
+                              width: leadingInset ?? defaultLeadingInset,
                             ),
                             search,
                             const SizedBox(width: controlGap),

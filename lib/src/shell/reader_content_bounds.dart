@@ -3,6 +3,21 @@ import 'package:flutter/widgets.dart';
 import 'composer/presentation_scope.dart';
 import 'shell_scope.dart';
 
+/// Names what moves the reader without giving it a new layout.
+class ReaderMotionScope extends InheritedWidget {
+  const ReaderMotionScope({
+    super.key,
+    required this.motion,
+    required super.child,
+  });
+
+  final Listenable motion;
+
+  @override
+  bool updateShouldNotify(ReaderMotionScope oldWidget) =>
+      motion != oldWidget.motion;
+}
+
 /// Reports the painted reader, excluding navigation and the app-level composer.
 class ReaderContentBounds extends StatefulWidget {
   const ReaderContentBounds({super.key, required this.child});
@@ -33,6 +48,7 @@ class _ReaderContentBoundsState extends State<ReaderContentBounds> {
     listenable: Listenable.merge([
       ComposerPresentationScope.layoutChangesOf(context),
       ModalRoute.of(context)?.animation,
+      context.dependOnInheritedWidgetOfExactType<ReaderMotionScope>()?.motion,
     ]),
     builder: (context, _) => LayoutBuilder(
       builder: (context, bounds) {

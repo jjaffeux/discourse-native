@@ -51,6 +51,7 @@ class UserMenuButton extends StatefulWidget {
     this.leadingActions,
     this.presentation = UserMenuPresentation.combined,
     this.menuController,
+    this.cardReveal = kAlwaysCompleteAnimation,
   }) : drawerBuilder = null,
        profileController = null;
 
@@ -63,7 +64,8 @@ class UserMenuButton extends StatefulWidget {
        ringColor = null,
        compact = false,
        leadingActions = null,
-       menuController = null;
+       menuController = null,
+       cardReveal = kAlwaysCompleteAnimation;
 
   final Color? ringColor;
 
@@ -80,6 +82,10 @@ class UserMenuButton extends StatefulWidget {
 
   /// Opens the drawer's profile menu from another account control.
   final DPopoverController? profileController;
+
+  /// How much of the [UserMenuPresentation.profileCard] shows: its fill, name
+  /// and presence control fade with this as the docked sidebar eases.
+  final Animation<double> cardReveal;
 
   static double footerExtent(BuildContext context) {
     final scaler = MediaQuery.textScalerOf(context);
@@ -297,18 +303,26 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                 dimension: avatarDimension,
               ),
             );
-            Widget card(Widget profile, Widget? presence) => DCard(
-              key: const ValueKey('user-profile-card'),
-              border: false,
-              spacing: 0,
-              backgroundColor: rail
-                  ? Colors.transparent
-                  : tokens.primary.withValues(alpha: .10),
-              borderRadius: drawer
-                  ? BorderRadius.circular(
-                      DMobileDockGeometry.of(context).endRadius(DRadius.panel),
-                    )
-                  : null,
+            Widget card(Widget profile, Widget? presence) => ListenableBuilder(
+              listenable: widget.cardReveal,
+              builder: (_, child) => DCard(
+                key: const ValueKey('user-profile-card'),
+                border: false,
+                spacing: 0,
+                backgroundColor: rail
+                    ? Colors.transparent
+                    : tokens.primary.withValues(
+                        alpha: .10 * widget.cardReveal.value,
+                      ),
+                borderRadius: drawer
+                    ? BorderRadius.circular(
+                        DMobileDockGeometry.of(
+                          context,
+                        ).endRadius(DRadius.panel),
+                      )
+                    : null,
+                child: child!,
+              ),
               child: Padding(
                 padding: rail
                     ? EdgeInsets.zero
@@ -371,53 +385,56 @@ class _UserMenuButtonState extends State<UserMenuButton> {
                       children: [
                         avatar,
                         Expanded(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                account.displayName ?? account.username!,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: DiscourseTypography.compact,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.3,
-                                  color: tokens.foreground,
+                          child: FadeTransition(
+                            opacity: widget.cardReveal,
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  account.displayName ?? account.username!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    fontSize: DiscourseTypography.compact,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.3,
+                                    color: tokens.foreground,
+                                  ),
                                 ),
-                              ),
-                              LayoutBuilder(
-                                builder: (context, constraints) =>
-                                    UserStatusMessage(
-                                      siteUrl: siteUrl,
-                                      userId: account.userId,
-                                      status: account.userStatus,
-                                      showDescription: true,
-                                      descriptionMaxWidth:
-                                          (constraints.maxWidth - 17).clamp(
-                                            0,
-                                            double.infinity,
-                                          ),
-                                      size: 12,
-                                      style: TextStyle(
-                                        fontSize: DiscourseTypography.xs,
-                                        height: 1.3,
-                                        color: tokens.mutedForeground,
-                                      ),
-                                      fallback: Text(
-                                        '@${account.username}',
-                                        textDirection: TextDirection.ltr,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
+                                LayoutBuilder(
+                                  builder: (context, constraints) =>
+                                      UserStatusMessage(
+                                        siteUrl: siteUrl,
+                                        userId: account.userId,
+                                        status: account.userStatus,
+                                        showDescription: true,
+                                        descriptionMaxWidth:
+                                            (constraints.maxWidth - 17).clamp(
+                                              0,
+                                              double.infinity,
+                                            ),
+                                        size: 12,
                                         style: TextStyle(
                                           fontSize: DiscourseTypography.xs,
                                           height: 1.3,
                                           color: tokens.mutedForeground,
                                         ),
+                                        fallback: Text(
+                                          '@${account.username}',
+                                          textDirection: TextDirection.ltr,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            fontSize: DiscourseTypography.xs,
+                                            height: 1.3,
+                                            color: tokens.mutedForeground,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                              ),
-                            ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -428,12 +445,19 @@ class _UserMenuButtonState extends State<UserMenuButton> {
               profile,
               rail
                   ? null
-                  : UserPresenceMenu(
-                      key: ValueKey((siteUrl, account.userId, account.session)),
-                      siteUrl: siteUrl,
-                      iconOnly: true,
-                      side: DPopoverSide.top,
-                      onBeforeOpen: _profile.close,
+                  : FadeTransition(
+                      opacity: widget.cardReveal,
+                      child: UserPresenceMenu(
+                        key: ValueKey((
+                          siteUrl,
+                          account.userId,
+                          account.session,
+                        )),
+                        siteUrl: siteUrl,
+                        iconOnly: true,
+                        side: DPopoverSide.top,
+                        onBeforeOpen: _profile.close,
+                      ),
                     ),
             );
           }

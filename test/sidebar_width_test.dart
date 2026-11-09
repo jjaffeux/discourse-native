@@ -8,6 +8,7 @@ import 'package:discourse_native/src/models/sidebar.dart';
 import 'package:discourse_native/src/shell/adaptive_shell.dart';
 import 'package:discourse_native/src/shell/app_text_scale.dart';
 import 'package:discourse_native/src/shell/desktop_panels.dart';
+import 'package:discourse_native/src/shell/forum_search.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/resizable_pane.dart';
@@ -528,6 +529,169 @@ void main() {
       variant: TargetPlatformVariant.only(TargetPlatform.macOS),
     );
   }
+
+  group('rail toggle', () {
+    const wide = Size(1400, 800);
+    const halfway = Duration(milliseconds: 110);
+    final toggle = find.byKey(const ValueKey('rail-sidebar-toggle'));
+    final panels = find.byType(DesktopPanels);
+    final search = find.byKey(ForumSearch.inputKey);
+    final mockupEase = Curves.ease.transform(.5);
+
+    testWidgets('eases the sidebar while the panels keep their final width', (
+      tester,
+    ) async {
+      final controller = await _controller();
+      await _pumpShell(tester, controller, wide);
+      final openLeft = tester.getTopLeft(panels).dx;
+      final openWidth = tester.getSize(panels).width;
+      final openSearch = tester.getTopLeft(search).dx;
+
+      await tester.tap(toggle);
+      await tester.pump();
+      final closingWidth = tester.getSize(panels).width;
+      expect(closingWidth, greaterThan(openWidth));
+      expect(tester.getTopLeft(panels).dx, openLeft);
+
+      await tester.pump(halfway);
+      final midLeft = tester.getTopLeft(panels).dx;
+      final midSearch = tester.getTopLeft(search).dx;
+      expect(tester.getSize(panels).width, closingWidth);
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+
+      await tester.pump(halfway + const Duration(milliseconds: 1));
+      expect(find.byType(InstanceSidebar), findsNothing);
+      final closedLeft = tester.getTopLeft(panels).dx;
+      final closedSearch = tester.getTopLeft(search).dx;
+      expect(tester.getSize(panels).width, closingWidth);
+      expect(
+        midLeft,
+        closeTo(openLeft + (closedLeft - openLeft) * mockupEase, .5),
+      );
+      expect(
+        midSearch,
+        closeTo(openSearch + (closedSearch - openSearch) * mockupEase, .5),
+      );
+
+      await tester.tap(toggle);
+      await tester.pump();
+      expect(tester.getSize(panels).width, openWidth);
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      await tester.pump(halfway);
+      expect(
+        tester.getTopLeft(panels).dx,
+        closeTo(closedLeft + (openLeft - closedLeft) * mockupEase, .5),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getTopLeft(panels).dx, openLeft);
+      expect(tester.getTopLeft(search).dx, openSearch);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets(
+      'moves the sidebar without rebuilding the content or the chrome',
+      (tester) async {
+        final controller = await _controller();
+        await _pumpShell(tester, controller, wide);
+
+        await tester.tap(toggle);
+        await tester.pump();
+
+        final isolated = [
+          tester.element(find.byType(AdaptiveShell)),
+          tester.element(find.byType(InstanceRail)),
+          tester.element(find.byType(InstanceSidebar)),
+          tester.element(primaryMainContent),
+          tester.element(panels),
+          tester.element(
+            find
+                .descendant(of: panels, matching: find.byType(LayoutBuilder))
+                .first,
+          ),
+          tester.element(find.byType(ShellTitleBar)),
+        ];
+        final rebuilt = <Element>{};
+        final previousRebuildCallback = debugOnRebuildDirtyWidget;
+        debugOnRebuildDirtyWidget = (element, builtOnce) {
+          rebuilt.add(element);
+          previousRebuildCallback?.call(element, builtOnce);
+        };
+        addTearDown(() {
+          debugOnRebuildDirtyWidget = previousRebuildCallback;
+        });
+
+        final width = tester.getSize(panels).width;
+        for (var tick = 0; tick < 8; tick++) {
+          await tester.pump(const Duration(milliseconds: 16));
+          expect(tester.getSize(panels).width, width);
+        }
+        for (final element in isolated) {
+          expect(rebuilt, isNot(contains(element)));
+        }
+        await tester.pumpAndSettle();
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.macOS),
+    );
+
+    testWidgets('turns back from where it is when pressed again', (
+      tester,
+    ) async {
+      final controller = await _controller();
+      await _pumpShell(tester, controller, wide);
+      final openLeft = tester.getTopLeft(panels).dx;
+
+      await tester.tap(toggle);
+      await tester.pump();
+      await tester.pump(halfway);
+      final midLeft = tester.getTopLeft(panels).dx;
+
+      tester.widget<DButton>(toggle).onPressed!();
+      await tester.pump();
+      expect(tester.getTopLeft(panels).dx, midLeft);
+      await tester.pump(const Duration(milliseconds: 16));
+      expect(tester.getTopLeft(panels).dx, greaterThan(midLeft));
+
+      await tester.pumpAndSettle();
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(tester.getTopLeft(panels).dx, openLeft);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('snaps when animations are reduced', (tester) async {
+      tester.platformDispatcher.accessibilityFeaturesTestValue =
+          const FakeAccessibilityFeatures(disableAnimations: true);
+      addTearDown(
+        tester.platformDispatcher.clearAccessibilityFeaturesTestValue,
+      );
+      final controller = await _controller();
+      await _pumpShell(tester, controller, wide);
+      final openLeft = tester.getTopLeft(panels).dx;
+      final openWidth = tester.getSize(panels).width;
+
+      await tester.tap(toggle);
+      await tester.pump();
+
+      expect(find.byType(InstanceSidebar), findsNothing);
+      expect(tester.getSize(panels).width, greaterThan(openWidth));
+
+      await tester.tap(toggle);
+      await tester.pump();
+
+      expect(find.byType(InstanceSidebar), findsOneWidget);
+      expect(tester.getTopLeft(panels).dx, openLeft);
+      expect(tester.getSize(panels).width, openWidth);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+
+    testWidgets('leaves a window crossing the width breakpoint to snap', (
+      tester,
+    ) async {
+      final controller = await _controller();
+      await _pumpShell(tester, controller, wide);
+
+      tester.view.physicalSize = const Size(1000, 800);
+      await tester.pump();
+
+      expect(find.byType(InstanceSidebar), findsNothing);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
+  });
 
   testWidgets('live drag leaves the shell and pane content unrebuilt', (
     tester,

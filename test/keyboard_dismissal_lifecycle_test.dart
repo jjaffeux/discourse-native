@@ -35,6 +35,9 @@ void main() {
                 update = setState;
                 return DesktopNavigation(
                   compact: compact,
+                  sidebarReveal: compact
+                      ? kAlwaysDismissedAnimation
+                      : kAlwaysCompleteAnimation,
                   sidebar: SizedBox(
                     width: 240,
                     child: DInput(focusNode: focus),

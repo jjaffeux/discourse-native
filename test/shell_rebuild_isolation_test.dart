@@ -27,6 +27,7 @@ import 'package:discourse_native/src/shell/hover_panel.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
 import 'package:discourse_native/src/shell/instance_sidebar.dart';
 import 'package:discourse_native/src/shell/post_likes.dart';
+import 'package:discourse_native/src/shell/reader_content_bounds.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/title_bar.dart';
@@ -642,6 +643,56 @@ void main() {
     expect(controller.readerContentBounds, isNot(beforeResize));
     expect(boundsNotifications, greaterThan(5));
     expect(shellNotifications, 0);
+  });
+
+  testWidgets('reader bounds follow the sidebar as it moves', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = ShellController(
+      instanceStore: FakeInstanceStore([
+        instance('meta.discourse.org', title: 'Meta'),
+      ]),
+      api: FakeDiscourseApi(
+        feeds: const {
+          '/latest.json': [
+            Topic(id: 7, title: 'A real topic', slug: 'a-real-topic'),
+          ],
+        },
+      ),
+      authenticator: FakeAuthenticator(),
+      drafts: FakeDraftStore(),
+      trackers: FakeSiteTracker.reset(),
+      updateStore: FakeUpdateStore(),
+    );
+    addTearDown(controller.dispose);
+    await controller.load();
+    await tester.pumpWidget(
+      ShellScope(
+        controller: controller,
+        child: MaterialApp(
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+          home: const AdaptiveShell(),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final before = controller.readerContentBounds!;
+
+    await tester.tap(find.byKey(const ValueKey('rail-sidebar-toggle')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 110));
+
+    expect(controller.readerContentBounds!.left, lessThan(before.left));
+    expect(
+      controller.readerContentBounds,
+      tester.getRect(find.byType(ReaderContentBounds).first),
+    );
+
+    await tester.pumpAndSettle();
+    expect(
+      controller.readerContentBounds,
+      tester.getRect(find.byType(ReaderContentBounds).first),
+    );
   });
 
   testWidgets('sitewide user status events do not notify the shell facade', (
