@@ -128,6 +128,11 @@ final class _VoiceCallSession {
     if (call != null) _call = call.copyWith(room: update(call.room));
   }
 
+  /// Clears the end of the site's wait, so the retry is not refused for
+  /// arriving on it.
+  static Duration _retryDelayAfter(WriteException error) =>
+      error.retryWait + const Duration(milliseconds: 150);
+
   void retire() {
     if (_retired) return;
     _retired = true;
@@ -230,16 +235,20 @@ final class _VoiceCallSession {
           ),
         );
       } on WriteException catch (error) {
-        if (error.failure != WriteFailure.rateLimited) rethrow;
+        if (error.failure != WriteFailure.rateLimited ||
+            !error.canWaitInPlace) {
+          rethrow;
+        }
 
         // A 429 is the one write failure that is safe to retry: Discourse
         // rejected it before the room mutation ran. Native user API keys share
         // a site-wide request budget, so a room switch can legitimately land
-        // behind ordinary app refreshes or WebRTC signaling.
-        await Future<void>.delayed(
-          (error.retryAfter ?? const Duration(seconds: 1)) +
-              const Duration(milliseconds: 150),
-        );
+        // behind ordinary app refreshes or WebRTC signaling. Leaving awaits this
+        // start, so retirement must end the wait rather than outlast it.
+        final elapsed = Completer<void>();
+        final retry = Timer(_retryDelayAfter(error), elapsed.complete);
+        await Future.any<void>([elapsed.future, _retirement.future]);
+        retry.cancel();
         if (!isCurrent()) return;
         response = await credentials.run(
           () => controller.api.join(
@@ -1039,14 +1048,10 @@ final class _VoiceCallSession {
         }
 
         _stateSyncPending = true;
-        _stateRetry = Timer(
-          (error.retryAfter ?? const Duration(seconds: 1)) +
-              const Duration(milliseconds: 150),
-          () {
-            _stateRetry = null;
-            if (!controller._disposed) unawaited(_requestStateSync());
-          },
-        );
+        _stateRetry = Timer(_retryDelayAfter(error), () {
+          _stateRetry = null;
+          if (!controller._disposed) unawaited(_requestStateSync());
+        });
       } catch (error) {
         return;
       }

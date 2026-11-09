@@ -213,10 +213,7 @@ final class DiscourseRequestCoordinator {
       url,
       (lease) async {
         final response = await send();
-        if (response.statusCode == 429 && _pausesOrigin(response)) {
-          final delay =
-              explicitRetryAfter(response, now: _clock()) ??
-              defaultRateLimitCooldown;
+        if (_originCooldownFrom(response) case final delay?) {
           lease.extendCooldown(delay);
           // A request-wide limiter counts the site's requests whichever lane
           // sent them, so the other lane must wait out the same delay.
@@ -289,8 +286,20 @@ final class DiscourseRequestCoordinator {
     }
   }
 
-  /// The explicit server delay, preserving the write error contract while the
-  /// coordinator separately supplies a conservative default when it is absent.
+  /// The cooldown [response] puts on its origin, if it pauses it at all.
+  Duration? _originCooldownFrom(http.Response response) =>
+      response.statusCode == 429 && _pausesOrigin(response)
+      ? explicitRetryAfter(response, now: _clock()) ?? defaultRateLimitCooldown
+      : null;
+
+  /// How long [response] tells its sender to hold: the origin cooldown it
+  /// started, so a sender never unlocks into a silent wait at the gate, or else
+  /// the delay the site named for this one action.
+  Duration? retryAfterFor(http.Response response) =>
+      _originCooldownFrom(response) ??
+      explicitRetryAfter(response, now: _clock());
+
+  /// The delay the site itself named, if any.
   static Duration? explicitRetryAfter(http.Response response, {DateTime? now}) {
     final headerDuration = parseRetryAfter(
       response.headers['retry-after'],

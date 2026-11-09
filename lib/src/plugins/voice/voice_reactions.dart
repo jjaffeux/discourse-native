@@ -151,7 +151,7 @@ final class VoiceReactionSession extends FrameSafeNotifier {
       if (!isCurrent) return;
       if (error is WriteException && error.statusCode == 429) {
         _cooldown?.cancel();
-        final wait = error.retryAfter ?? const Duration(seconds: 1);
+        final wait = error.retryWait;
         _cooldown = _timerFactory(
           wait < const Duration(seconds: 1) ? const Duration(seconds: 1) : wait,
           () {

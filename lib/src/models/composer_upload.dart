@@ -4,6 +4,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 
 import '../foundation/count_label.dart';
+import '../foundation/retry_wait.dart';
 
 @immutable
 class ComposerUploadFile {
@@ -164,9 +165,8 @@ final class ComposerUploadException implements Exception {
     if (statusCode != 429) return message;
     final wait = retryAfter;
     if (wait == null) return appL10n.tooManyUploadsPleaseWaitAndRetry;
-    final seconds = (wait.inMilliseconds / 1000).ceil();
     return appL10n.tooManyUploadsTryAgainIn(
-      (countLabel(seconds, CountNoun.second)).toString(),
+      (countLabel(waitSeconds(wait), CountNoun.second)).toString(),
     );
   }
 

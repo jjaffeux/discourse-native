@@ -4,6 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/widgets.dart';
 
+import '../foundation/retry_wait.dart';
 import '../models/post_mutation_outcome.dart';
 import 'shell_controller.dart';
 import 'shell_scope.dart';
@@ -37,7 +38,7 @@ String _problemText(BuildContext context, PostMutationProblem problem) {
   return switch (problem.kind) {
     PostMutationProblemKind.validation => l10n.thatWasnTAccepted,
     PostMutationProblemKind.rateLimited => switch (problem.retryAfter) {
-      final wait? => l10n.tooFastTryAgainInS(wait.inSeconds.toString()),
+      final wait? => l10n.tooFastTryAgainInS(waitSeconds(wait).toString()),
       null => l10n.tooFastTryAgainInAMoment,
     },
     PostMutationProblemKind.forbidden ||

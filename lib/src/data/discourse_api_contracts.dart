@@ -1,5 +1,6 @@
 import 'package:discourse_native/l10n/strings.dart';
 
+import '../foundation/retry_wait.dart';
 import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
@@ -148,6 +149,8 @@ class WriteException implements Exception {
 
   final int? statusCode;
 
+  /// How long the site or its origin cooldown holds this write; null when
+  /// neither named a wait.
   final Duration? retryAfter;
 
   /// The request provably never reached the site, so nothing it asked for can
@@ -163,12 +166,20 @@ class WriteException implements Exception {
   final Object? cause;
   final StackTrace? causeStackTrace;
 
+  /// How long a sender holds before trying this write again. Nothing asked the
+  /// site to wait for a request that never reached it.
+  Duration get retryWait =>
+      notSent ? Duration.zero : retryWaitAfter(retryAfter);
+
+  /// Whether the sender may wait this out itself instead of reporting it.
+  bool get canWaitInPlace => retryWait <= maximumInlineRetryWait;
+
   String get message {
     if (errors.isNotEmpty) return errors.join('\n');
     return switch (failure) {
       WriteFailure.validation => appL10n.thatWasnTAccepted,
       WriteFailure.rateLimited => switch (retryAfter) {
-        final wait? => appL10n.tooFastTryAgainInS((wait.inSeconds).toString()),
+        final wait? => appL10n.tooFastTryAgainInS(waitSeconds(wait).toString()),
         null => appL10n.tooFastTryAgainInAMoment,
       },
       WriteFailure.forbidden =>

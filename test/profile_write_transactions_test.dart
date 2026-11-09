@@ -144,6 +144,24 @@ void main() {
     },
   );
 
+  test('a presence refusal shorter than a second reads as one', () async {
+    final request = h.owner.togglePresence(_site);
+    await pumpEventQueue();
+    h.api.presenceRequests.single.completeError(
+      const WriteException(
+        WriteFailure.rateLimited,
+        statusCode: 429,
+        retryAfter: Duration(milliseconds: 400),
+      ),
+    );
+    await request;
+
+    expect(
+      h.owner.presenceErrorFor(_site),
+      'Too fast — try changing presence again in 1s.',
+    );
+  });
+
   for (final action in ['presence', 'status', 'retry']) {
     for (final retirement in ['forget', 'dispose']) {
       test(

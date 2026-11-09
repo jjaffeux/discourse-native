@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
 
+import '../foundation/retry_wait.dart';
 import 'origin_cooldown.dart';
 import 'origin_request_gate.dart';
 import 'retry_after.dart';
@@ -156,7 +157,7 @@ final class MediaOriginRateLimitedException implements Exception {
   @override
   String toString() => appL10n.mediaRequestsToArePausedForS(
     (origin).toString(),
-    (retryAfter.inSeconds).toString(),
+    waitSeconds(retryAfter).toString(),
   );
 }
 

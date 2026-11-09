@@ -5,6 +5,7 @@ import '../data/api_credentials.dart';
 import '../data/current_user_reconciler.dart';
 import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../foundation/retry_wait.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
 import '../models/user_status.dart';
@@ -342,7 +343,7 @@ final class ProfileWriteTransactions {
       WriteFailure.validation => appL10n.theSiteDidnTAcceptThatPresenceSetting,
       WriteFailure.rateLimited => switch (error.retryAfter) {
         final wait? => appL10n.tooFastTryChangingPresenceAgainInS(
-          (wait.inSeconds).toString(),
+          waitSeconds(wait).toString(),
         ),
         null => appL10n.tooFastTryChangingPresenceAgainInAMoment,
       },

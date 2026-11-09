@@ -2419,7 +2419,7 @@ class ComposerController extends ChangeNotifier
     if (_disposed) return;
     _retireSubmission();
     _error = error;
-    if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryAfter);
+    if (error.failure == WriteFailure.rateLimited) _holdFor(error.retryWait);
     _notify();
   }
 
@@ -2451,9 +2451,9 @@ class ComposerController extends ChangeNotifier
     _notify();
   }
 
-  void _holdFor(Duration? wait) {
+  void _holdFor(Duration wait) {
     _wait?.cancel();
-    if (wait == null || wait <= Duration.zero) return;
+    if (wait <= Duration.zero) return;
 
     _rateLimited = true;
     // One timer for the whole wait, not a per-second tick: a repeating timer
