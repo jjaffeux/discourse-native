@@ -2020,6 +2020,39 @@ void _registerComposerAndDraftTests() {
       expect(api.draftsSaved, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+    testWidgets('sending a saved draft reports the time already spent on it', (
+      tester,
+    ) async {
+      final saved = ComposerDraft.decode(
+        '{"reply":"Written over a long evening","action":"reply",'
+        '"archetypeId":"regular","composerTime":90000,"typingTime":42000}',
+      );
+      final api = FakeDiscourseApi(
+        feeds: {'/latest.json': listed},
+        topics: {7: detail(draft: saved, draftSequence: 4)},
+      );
+
+      await openComposer(tester, api);
+      await tester.tap(
+        find.descendant(
+          of: find.byType(ComposerPanel),
+          matching: find.byKey(const ValueKey('composer-submit')),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Below the site's threshold, a member's first post is queued and the
+      // account silenced as a bot.
+      expect(
+        api.created.single['typingDurationMsecs'],
+        greaterThanOrEqualTo(42000),
+      );
+      expect(
+        api.created.single['composerOpenDurationMsecs'],
+        greaterThanOrEqualTo(90000),
+      );
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
     testWidgets('discard closes an empty reply without confirmation', (
       tester,
     ) async {
