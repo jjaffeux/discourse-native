@@ -13,7 +13,6 @@ import 'package:http/testing.dart';
 import 'support/fakes.dart';
 
 const _site = 'https://forum.example';
-const _reply = {'reply': 'half-written on the website', 'action': 'reply'};
 
 Map<String, Object?> _wirePost(int id) => {
   'id': id,
