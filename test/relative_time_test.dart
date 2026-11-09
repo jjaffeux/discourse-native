@@ -260,6 +260,124 @@ void main() {
       });
     });
 
+    testWidgets('a label left behind while hidden is right on its return', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        final visible = ValueNotifier(true);
+        addTearDown(visible.dispose);
+        await clock.show(
+          ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (context, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            // A topic row's nesting: its own TickerMode, then a LayoutBuilder.
+            child: TickerMode(
+              enabled: true,
+              child: LayoutBuilder(
+                builder: (context, _) =>
+                    RelativeTimeText(clock.start, now: clock.now),
+              ),
+            ),
+          ),
+        );
+        expect(find.text('now'), findsOneWidget);
+        expect(clock.activeTimers, hasLength(1));
+
+        visible.value = false;
+        await tester.pump();
+        await clock.expectIdle();
+        await tester.pump(const Duration(minutes: 5));
+        expect(find.text('now'), findsOneWidget);
+
+        visible.value = true;
+        await tester.pump();
+        expect(find.text('6m'), findsOneWidget);
+        expect(clock.activeTimers, hasLength(1));
+
+        await tester.pump(const Duration(minutes: 1));
+        expect(find.text('7m'), findsOneWidget);
+      });
+    });
+
+    testWidgets('a label still right is not rebuilt by hiding and showing', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        final visible = ValueNotifier(true);
+        addTearDown(visible.dispose);
+        var builds = 0;
+        await clock.show(
+          ValueListenableBuilder<bool>(
+            valueListenable: visible,
+            builder: (context, enabled, child) =>
+                TickerMode(enabled: enabled, child: child!),
+            child: RelativeTimeBuilder(
+              when: clock.start,
+              now: clock.now,
+              builder: (context, label) {
+                builds++;
+                return Text(label);
+              },
+            ),
+          ),
+        );
+        expect(builds, 1);
+
+        visible.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 10));
+        expect(clock.activeTimers, isEmpty);
+
+        visible.value = true;
+        await tester.pump();
+        expect(builds, 1);
+        expect(clock.activeTimers, hasLength(1));
+
+        await tester.pump(const Duration(seconds: 50));
+        expect(find.text('1m'), findsOneWidget);
+        expect(builds, 2);
+      });
+    });
+
+    testWidgets('obeys the TickerMode of wherever it is moved to', (
+      tester,
+    ) async {
+      final clock = _TickingClock(tester);
+      await clock.run(() async {
+        final key = GlobalKey();
+        Widget placed({required bool hidden}) {
+          final label = RelativeTimeText(clock.start, key: key, now: clock.now);
+          return Column(
+            children: [
+              TickerMode(
+                enabled: false,
+                child: hidden ? label : const SizedBox.shrink(),
+              ),
+              TickerMode(
+                enabled: true,
+                child: hidden ? const SizedBox.shrink() : label,
+              ),
+            ],
+          );
+        }
+
+        await clock.show(placed(hidden: false));
+        expect(clock.activeTimers, hasLength(1));
+
+        await clock.show(placed(hidden: true));
+        await clock.expectIdle();
+        await tester.pump(const Duration(minutes: 4));
+        expect(find.text('now'), findsOneWidget);
+
+        await clock.show(placed(hidden: false));
+        expect(find.text('5m'), findsOneWidget);
+        expect(clock.activeTimers, hasLength(1));
+      });
+    });
+
     testWidgets('never arms a timer shorter than a millisecond', (
       tester,
     ) async {

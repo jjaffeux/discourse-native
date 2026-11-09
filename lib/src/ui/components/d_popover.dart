@@ -410,7 +410,8 @@ class _DPopoverState extends State<DPopover>
   bool _initialized = false;
   bool _syncScheduled = false;
   bool _suspended = false;
-  bool _tickersEnabled = true;
+  ValueListenable<TickerModeData>? _tickerMode;
+  bool get _tickersEnabled => _tickerMode!.value.enabled;
   bool _restoreFocusForNextClose = true;
   bool _listening = false;
   DPopoverInteraction _interaction = DPopoverInteraction.imperative;
@@ -428,7 +429,18 @@ class _DPopoverState extends State<DPopover>
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncPresentation();
-    _tickersEnabled = TickerMode.valuesOf(context).enabled;
+    // Inherited dependencies bring this back after a move to a new parent.
+    final mode = TickerMode.getValuesNotifier(context);
+    if (!identical(mode, _tickerMode)) {
+      _tickerMode?.removeListener(_tickerModeChanged);
+      _tickerMode = mode..addListener(_tickerModeChanged);
+    }
+    _scheduleSync();
+  }
+
+  void _tickerModeChanged() {
+    // A showing popup goes with its hidden page, in this frame.
+    if (_portal.isShowing) setState(() {});
     _scheduleSync();
   }
 
@@ -1027,6 +1039,7 @@ class _DPopoverState extends State<DPopover>
 
   @override
   void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
     _DPopoverLayers.deactivate(this);
     _controller._detach(this);
     _open = false;

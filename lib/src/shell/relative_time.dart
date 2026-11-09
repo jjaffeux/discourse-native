@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/l10n/strings.dart';
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/widgets.dart';
 
 String relativeTime(DateTime when, {DateTime? now}) {
@@ -121,9 +122,10 @@ DateTime _refreshDeadline(DateTime change) => change.add(
 /// stays open.
 ///
 /// It wakes once per label change rather than on a fixed tick, and not at
-/// all under a disabled [TickerMode]. Re-arming happens only in build, so a
-/// backgrounded app, which draws no frames, wakes at most once until it is
-/// shown again.
+/// all under a disabled [TickerMode]. Re-arming happens only in build or when
+/// the subtree is shown again, so a backgrounded app, which draws no frames,
+/// wakes at most once until it is shown again. Showing it again rebuilds only
+/// a label that went stale while hidden.
 class RelativeTimeBuilder extends StatefulWidget {
   const RelativeTimeBuilder({
     super.key,
@@ -143,9 +145,41 @@ class RelativeTimeBuilder extends StatefulWidget {
 class _RelativeTimeBuilderState extends State<RelativeTimeBuilder> {
   Timer? _timer;
   DateTime? _scheduledFor;
+  ValueListenable<TickerModeData>? _tickerMode;
+  String? _label;
+
+  @override
+  void initState() {
+    super.initState();
+    _bindTickerMode();
+  }
+
+  @override
+  void activate() {
+    super.activate();
+    _bindTickerMode();
+  }
+
+  void _bindTickerMode() {
+    final mode = TickerMode.getValuesNotifier(context);
+    if (identical(mode, _tickerMode)) return;
+    _tickerMode?.removeListener(_tickerModeChanged);
+    _tickerMode = mode..addListener(_tickerModeChanged);
+  }
+
+  void _tickerModeChanged() {
+    final now = widget.now?.call() ?? DateTime.now();
+    if (_tickerMode!.value.enabled &&
+        relativeTime(widget.when, now: now) != _label) {
+      setState(() {});
+    } else {
+      _schedule(now);
+    }
+  }
 
   @override
   void dispose() {
+    _tickerMode?.removeListener(_tickerModeChanged);
     _timer?.cancel();
     super.dispose();
   }
@@ -153,16 +187,17 @@ class _RelativeTimeBuilderState extends State<RelativeTimeBuilder> {
   @override
   Widget build(BuildContext context) {
     final now = widget.now?.call() ?? DateTime.now();
-    _schedule(
-      TickerMode.valuesOf(context).enabled
-          ? _relativeTimeChangesAt(widget.when, now)
-          : null,
-      now,
+    _schedule(now);
+    return widget.builder(
+      context,
+      _label = relativeTime(widget.when, now: now),
     );
-    return widget.builder(context, relativeTime(widget.when, now: now));
   }
 
-  void _schedule(DateTime? next, DateTime now) {
+  void _schedule(DateTime now) {
+    final next = _tickerMode!.value.enabled
+        ? _relativeTimeChangesAt(widget.when, now)
+        : null;
     final armed = _timer?.isActive ?? false;
     if (next == _scheduledFor && (armed || next == null)) return;
     _timer?.cancel();
