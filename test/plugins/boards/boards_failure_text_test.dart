@@ -27,11 +27,7 @@ void main() {
       final shown = <String, String?>{};
 
       fixture.transport.failures['GET /boards/api/boards/1.json'] =
-          const SiteLookupException(
-            SiteLookupFailure.unreachable,
-            boardsSite,
-            statusCode: 500,
-          );
+          const SiteLookupException(SiteLookupFailure.unreachable, boardsSite);
       await handle.refresh();
       shown['read unreachable'] = handle.error;
 
@@ -80,4 +76,30 @@ void main() {
       });
     },
   );
+
+  test('a board the site answered for is not called unreachable', () async {
+    final fixture = BoardsFixture();
+    addTearDown(fixture.dispose);
+    final handle = fixture.controller.acquire(boardsSite, 1);
+    addTearDown(handle.release);
+    await handle.refresh();
+
+    final shown = <int, String?>{};
+    for (final status in [500, 404]) {
+      fixture.transport.failures['GET /boards/api/boards/1.json'] =
+          SiteLookupException(
+            SiteLookupFailure.unreachable,
+            boardsSite,
+            statusCode: status,
+          );
+      await handle.refresh();
+      shown[status] = handle.error;
+    }
+
+    expect(handle.snapshot, isNull, reason: 'a 404 withdraws a deleted board');
+    expect(shown, {
+      500: "Couldn't load this board.",
+      404: "Couldn't load this board.",
+    });
+  });
 }
