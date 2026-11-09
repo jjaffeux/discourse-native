@@ -109,4 +109,55 @@ void main() {
       expect(tester.takeException(), isNull);
     });
   }
+
+  testWidgets('the path, tags and tools are parts of the morph around them', (
+    tester,
+  ) async {
+    final placed = <String>[];
+    final bucket = PageStorageBucket();
+    Future<void> show() => tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: PageStorage(
+            bucket: bucket,
+            child: SizedBox(
+              width: 180,
+              child: DHeaderTags(
+                identity: 'topic',
+                expandSemanticLabel: 'All tags',
+                moreKey: const ValueKey('more'),
+                part: (id, child, {fontSize}) {
+                  placed.add(id);
+                  return child;
+                },
+                tools: const SizedBox(width: 30, height: 30),
+                tags: [
+                  for (var index = 0; index < 10; index++)
+                    DHeaderTag(
+                      name: 'tag-$index',
+                      child: DButton(
+                        size: DButtonSize.filter,
+                        variant: DButtonVariant.tool,
+                        label: Text('# tag-$index'),
+                        onPressed: () {},
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await show();
+    expect(placed, unorderedEquals(['meta', 'tools']));
+
+    placed.clear();
+    await tester.tap(find.byKey(const ValueKey('more')));
+    await tester.pumpAndSettle();
+    expect(placed, ['tools']);
+    expect(tester.takeException(), isNull);
+  });
 }

@@ -270,21 +270,33 @@ void main() {
   ) async {
     await _openTopic(tester);
     await _wheel(tester, 4);
+    final fullTitle = tester.getTopLeft(
+      find.byKey(const ValueKey('topic-header-compact-title')),
+    );
     final fullTools = tester.getTopLeft(_tools);
+    final fullMeta = tester.getTopLeft(
+      find.byKey(const ValueKey('topic-header-taxonomy')),
+    );
 
     _scroll(tester).jumpTo(600);
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump();
     expect(_compact, findsOneWidget);
-    final midTitle = tester.getRect(_compactTitle);
-    final midTools = tester.getTopLeft(_tools);
+    final firstTitle = tester.getRect(_compactTitle);
+    final firstTools = tester.getTopLeft(_tools);
+    final firstMeta = tester.getTopLeft(_metadata);
 
     await tester.pumpAndSettle();
     final restTitle = tester.getRect(_compactTitle);
-    final restTools = tester.getTopLeft(_tools);
-    expect(midTitle.width, greaterThan(restTitle.width * 1.1));
-    expect(midTools.dy, greaterThan(restTools.dy));
-    expect(midTools.dy, lessThanOrEqualTo(fullTools.dy));
+    expect(firstTitle.left, closeTo(fullTitle.dx, 1));
+    expect(firstTitle.top, closeTo(fullTitle.dy, 1));
+    expect(firstTitle.width / restTitle.width, closeTo(22 / 14, .02));
+    expect(firstTitle.height / restTitle.height, closeTo(22 / 14, .02));
+    expect(firstTools.dx, closeTo(fullTools.dx, 1));
+    expect(firstTools.dy, closeTo(fullTools.dy, 1));
+    expect(firstMeta.dx, closeTo(fullMeta.dx, 1));
+    expect(firstMeta.dy, closeTo(fullMeta.dy, 1));
+    expect(tester.getTopLeft(_metadata).dy, lessThan(firstMeta.dy));
     expect(tester.takeException(), isNull);
   }, variant: _desktopOnly);
 

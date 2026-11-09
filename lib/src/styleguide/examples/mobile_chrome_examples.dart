@@ -81,10 +81,12 @@ final composerDockExamples = ComponentExamples(
 );
 final headerMorphExamples = ComponentExamples(
   status: ComponentStatus.implemented,
-  description: 'Shared header parts move and resize between reader layouts.',
+  description: 'Shared header parts move between reader layouts.',
   notes:
       'Wrap shared parts using stable names supplied by the builder. Their '
-      'visible artwork and hit targets travel together over 260ms. Reduced '
+      'visible artwork and hit targets travel together over 260ms. A part '
+      'given a fontSize scales by the ratio of its two sizes, keeping its '
+      'proportions; any other part only moves. Reduced '
       'motion changes the layout immediately. DPageSurface.compactHeader '
       'switches reader layouts while retaining its full scroll spacer.',
   examples: [
@@ -128,6 +130,7 @@ class _MorphExampleState extends State<_MorphExample> {
                 fontWeight: FontWeight.w700,
               ),
             ),
+            fontSize: compact ? 14 : 22,
           );
           final tools = part(
             'tools',

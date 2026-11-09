@@ -66,7 +66,7 @@ class TopicCompactHead extends StatelessWidget {
   /// Null while loading a topic whose title no route or list row supplied.
   final String? title;
   final String siteUrl;
-  final Widget Function(String id, Widget child) part;
+  final DHeaderMorphPart part;
   final List<TopicCompactStatus> status;
   final List<TopicCategory> path;
   final List<TopicTag> tags;
@@ -80,10 +80,12 @@ class TopicCompactHead extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 3,
       children: [
-        // Left to its own width, so the title resizes in its proportions.
-        part('title', _title(context)),
+        part('title', _title(context), fontSize: DiscourseTypography.sm),
         if (path.isNotEmpty || tags.isNotEmpty)
-          _TopicCompactMetadata(siteUrl: siteUrl, path: path, tags: tags),
+          part(
+            'meta',
+            _TopicCompactMetadata(siteUrl: siteUrl, path: path, tags: tags),
+          ),
       ],
     );
     return ContentReadingLaneBox(
