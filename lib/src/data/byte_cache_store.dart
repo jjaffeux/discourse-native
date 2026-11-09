@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:path_provider/path_provider.dart';
 import 'package:pointycastle/digests/sha256.dart';
 
+import '../foundation/elapsed_time.dart';
 import 'byte_cache_directory.dart';
 
 abstract interface class ByteCacheStore {
@@ -115,7 +116,7 @@ final class FileByteCacheStore implements ByteCacheStore {
       return null;
     }
 
-    if (now.difference(stat.modified) >= _lastUsedGranularity) {
+    if (elapsedSince(stat.modified, now: now) >= _lastUsedGranularity) {
       unawaited(
         file
             .setLastModified(now)

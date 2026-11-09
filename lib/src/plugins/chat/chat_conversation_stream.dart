@@ -78,7 +78,7 @@ final class _ChatConversationStream {
   bool get attemptedRecently {
     final attemptedAt = _attemptedAt;
     return attemptedAt != null &&
-        _controller._clock().difference(attemptedAt) <
+        elapsedSince(attemptedAt, now: _controller._clock()) <
             _controller.minimumWindowRefreshInterval;
   }
 

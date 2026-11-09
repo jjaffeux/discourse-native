@@ -57,6 +57,7 @@ import '../data/topic_sidebar_store.dart';
 import '../data/update_store.dart';
 import '../data/updater.dart';
 import '../data/user_directory_api.dart';
+import '../foundation/elapsed_time.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../foundation/icons/d_icons.dart';
 import '../foundation/startup_timeline.dart';
@@ -4014,7 +4015,8 @@ class ShellController extends FrameSafeNotifier
 
     final resyncTracking =
         backgroundedAt != null &&
-        _clock().difference(backgroundedAt) >= _topicTrackingResyncAfter;
+        elapsedSince(backgroundedAt, now: _clock()) >=
+            _topicTrackingResyncAfter;
     final instance = currentInstance;
     _liveSessions.resume(resyncTracking: resyncTracking);
     // A reader with one forum never reselects it, so returning to the app is

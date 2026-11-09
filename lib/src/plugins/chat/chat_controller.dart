@@ -3413,7 +3413,7 @@ class ChatController extends FrameSafeNotifier {
     final backgroundedAt = _backgroundedAt;
     _backgroundedAt = null;
     if (backgroundedAt == null ||
-        _clock().difference(backgroundedAt) < resumeResyncThreshold) {
+        elapsedSince(backgroundedAt, now: _clock()) < resumeResyncThreshold) {
       return;
     }
     for (final siteUrl

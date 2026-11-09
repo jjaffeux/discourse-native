@@ -1201,6 +1201,61 @@ void main() {
     },
   );
 
+  testWidgets('a wall clock moved backward expires the remembered reader', (
+    tester,
+  ) async {
+    final transport = RecordingPluginTransport(
+      responses: {
+        '$_rootPath&track_visit=true': _roots(ignored: true, child: true),
+        _rootPath: _roots(ignored: true, child: true),
+      },
+    );
+    final host = await PluginHostHarness.open(
+      transport: transport,
+      sites: [const PluginHostSite(url: _site)],
+    );
+    addTearDown(host.close);
+    final reader = _Reader();
+    addTearDown(reader.dispose);
+    var now = DateTime.utc(2026, 11, 9, 12);
+    final memory = NestedRepliesReaderMemory(clock: () => now);
+    addTearDown(memory.dispose);
+    Future<void> remount() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await tester.pumpWidget(
+        host.scope(
+          child: MaterialApp(
+            theme: AppTheme.light,
+            home: Scaffold(
+              body: NestedRepliesReader(
+                reader: reader,
+                memory: memory,
+                api: NestedRepliesApi(transport, reader.models),
+                settings: const NestedRepliesSettings(enabled: true),
+              ),
+            ),
+          ),
+        ),
+      );
+      await _frames(tester);
+    }
+
+    final remembered = find.bySemanticsLabel(RegExp('^Expand post'));
+    await remount();
+    await tester.tap(find.text('Ignored post').first);
+    await _frames(tester);
+
+    await remount();
+    expect(remembered, findsOneWidget, reason: 'still inside its window');
+
+    now = now.subtract(const Duration(hours: 1));
+    await remount();
+    expect(remembered, findsNothing, reason: 'its save now lies ahead');
+
+    expect(tester.takeException(), isNull);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
+
   testWidgets(
     'administrative invalidation preserves collapse without another visit',
     (tester) async {

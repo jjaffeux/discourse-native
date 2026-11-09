@@ -70,6 +70,7 @@ export 'src/data/store.dart' show Ref, Store, StorePolicy;
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
+export 'src/foundation/elapsed_time.dart';
 export 'src/foundation/frame_safe_notifier.dart'
     show FrameSafeNotifier, FrameSafeValueNotifier;
 export 'src/foundation/icons/d_icon_data.dart';

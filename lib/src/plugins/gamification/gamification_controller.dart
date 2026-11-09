@@ -194,7 +194,8 @@ final class GamificationController extends FrameSafeNotifier
         : null;
     if (enabled(site) && cached != null && _usableSnapshot(site, cached)) {
       handle.state = GamificationReady(cached);
-      if (now().difference(cached.fetchedAt) >= const Duration(seconds: 60)) {
+      if (elapsedSince(cached.fetchedAt, now: now()) >=
+          const Duration(seconds: 60)) {
         unawaited(handle.refresh());
       }
     } else {

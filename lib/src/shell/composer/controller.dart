@@ -11,6 +11,7 @@ import '../../data/discourse_api.dart';
 import '../../data/draft_store.dart';
 import '../../data/site_pdf_thumbnail_repository.dart';
 import '../../foundation/count_label.dart';
+import '../../foundation/elapsed_time.dart';
 import '../../models/composer_draft.dart';
 import '../../models/composer_metadata.dart';
 import '../../models/composer_upload.dart';
@@ -2211,7 +2212,7 @@ class ComposerController extends ChangeNotifier
     }
 
     final last = _lastDraftSaveAt;
-    if (last != null && _now().difference(last) >= draftMaxWait) {
+    if (last != null && elapsedSince(last, now: _now()) >= draftMaxWait) {
       unawaited(_enqueueDraft());
       return;
     }

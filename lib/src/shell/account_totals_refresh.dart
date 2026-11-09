@@ -37,7 +37,7 @@ final class _AccountTotalsRefresh {
     final attemptedAt = _attemptedAt;
     if (!force &&
         attemptedAt != null &&
-        controller._clock().difference(attemptedAt) <
+        elapsedSince(attemptedAt, now: controller._clock()) <
             controller.minimumRefreshInterval) {
       return Future.value(controller.totalsFor(siteUrl));
     }
