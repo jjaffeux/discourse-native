@@ -1,0 +1,1084 @@
+{
+ "head": "c32d9097e78d573442b3ac50954bea219e432dc0",
+ "failures": [],
+ "proven": [
+  {
+   "slug": "live-like",
+   "subject": "PERF: stop reading a post for every like on the topic being read",
+   "commit": "5fd0ac5141de70cb5f8d7ce0383fe0c80d5ca337",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "ten likes from other readers read no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.others_post_reads": "10",
+      "live-like.others_post_read_bytes": "17020"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo of the reader's own like reads no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.own_echo_during_write_post_reads": "1",
+      "live-like.own_echo_during_write_post_read_bytes": "1716"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo arriving after the write reads no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.own_echo_after_write_post_reads": "1",
+      "live-like.own_echo_after_write_post_read_bytes": "1716"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "ten likes from other readers read no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.others_post_reads": "0",
+      "live-like.others_post_read_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo of the reader's own like reads no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.own_echo_during_write_post_reads": "0",
+      "live-like.own_echo_during_write_post_read_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo arriving after the write reads no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.own_echo_after_write_post_reads": "0",
+      "live-like.own_echo_after_write_post_read_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "ten likes from other readers read no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.others_post_reads": "10",
+      "live-like.others_post_read_bytes": "17020"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo of the reader's own like reads no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.own_echo_during_write_post_reads": "1",
+      "live-like.own_echo_during_write_post_read_bytes": "1716"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo arriving after the write reads no post",
+     "exit_code": 1,
+     "metrics": {
+      "live-like.own_echo_after_write_post_reads": "1",
+      "live-like.own_echo_after_write_post_read_bytes": "1716"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "ten likes from other readers read no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.others_post_reads": "0",
+      "live-like.others_post_read_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo of the reader's own like reads no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.own_echo_during_write_post_reads": "0",
+      "live-like.own_echo_during_write_post_read_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/live_like_read_budget_test.dart",
+     "name": "the echo arriving after the write reads no post",
+     "exit_code": 0,
+     "metrics": {
+      "live-like.own_echo_after_write_post_reads": "0",
+      "live-like.own_echo_after_write_post_read_bytes": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "bookmark-write",
+   "subject": "PERF: stop reading the whole topic after a saved bookmark",
+   "commit": "893f95a64a2c5b9cfd2e3154a1cb07013b995e6c",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a post bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.create_post_topic_reads": "1",
+      "bookmark-write.create_post_topic_bytes": "29646"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a topic bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.create_topic_topic_reads": "1",
+      "bookmark-write.create_topic_topic_bytes": "29516"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "editing a bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.update_topic_reads": "1",
+      "bookmark-write.update_topic_bytes": "29642"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "deleting a bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.delete_topic_reads": "1",
+      "bookmark-write.delete_topic_bytes": "29402"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "clearing a topic's bookmarks does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.clear_topic_reads": "1",
+      "bookmark-write.clear_topic_bytes": "29402"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a post bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.create_post_topic_reads": "0",
+      "bookmark-write.create_post_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a topic bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.create_topic_topic_reads": "0",
+      "bookmark-write.create_topic_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "editing a bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.update_topic_reads": "0",
+      "bookmark-write.update_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "deleting a bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.delete_topic_reads": "0",
+      "bookmark-write.delete_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "clearing a topic's bookmarks does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.clear_topic_reads": "0",
+      "bookmark-write.clear_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a post bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.create_post_topic_reads": "1",
+      "bookmark-write.create_post_topic_bytes": "29646"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a topic bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.create_topic_topic_reads": "1",
+      "bookmark-write.create_topic_topic_bytes": "29516"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "editing a bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.update_topic_reads": "1",
+      "bookmark-write.update_topic_bytes": "29642"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "deleting a bookmark does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.delete_topic_reads": "1",
+      "bookmark-write.delete_topic_bytes": "29402"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "clearing a topic's bookmarks does not read the topic",
+     "exit_code": 1,
+     "metrics": {
+      "bookmark-write.clear_topic_reads": "1",
+      "bookmark-write.clear_topic_bytes": "29402"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a post bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.create_post_topic_reads": "0",
+      "bookmark-write.create_post_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "saving a topic bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.create_topic_topic_reads": "0",
+      "bookmark-write.create_topic_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "editing a bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.update_topic_reads": "0",
+      "bookmark-write.update_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "deleting a bookmark does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.delete_topic_reads": "0",
+      "bookmark-write.delete_topic_bytes": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/bookmark_write_read_budget_test.dart",
+     "name": "clearing a topic's bookmarks does not read the topic",
+     "exit_code": 0,
+     "metrics": {
+      "bookmark-write.clear_topic_reads": "0",
+      "bookmark-write.clear_topic_bytes": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "heading-anchor",
+   "subject": "PERF: stop mounting a link around each heading's invisible anchor",
+   "commit": "039ab309f5476512ef477131cbe22474701120dc",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "an empty heading anchor costs no link machinery",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-heading-anchor.render_objects_per_heading": "21.0",
+      "cooked-heading-anchor.elements_per_heading": "53.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "an empty heading anchor costs no link machinery",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-heading-anchor.render_objects_per_heading": "3.0",
+      "cooked-heading-anchor.elements_per_heading": "10.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "an empty heading anchor costs no link machinery",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-heading-anchor.render_objects_per_heading": "21.0",
+      "cooked-heading-anchor.elements_per_heading": "53.0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "an empty heading anchor costs no link machinery",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-heading-anchor.render_objects_per_heading": "3.0",
+      "cooked-heading-anchor.elements_per_heading": "10.0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "code-fence",
+   "subject": "PERF: draw a code fence as one paragraph, not a row per line",
+   "commit": "1376748d15a11f96373145208f41bb6a6e6fead8",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a fence costs one paragraph rather than a row per line",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-code-lines.render_objects_per_line": "6.0",
+      "cooked-code-lines.elements_per_line": "12.0",
+      "cooked-code-lines.render_objects_30_line_fence": "262"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a fence costs one paragraph rather than a row per line",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-code-lines.render_objects_per_line": "0.0",
+      "cooked-code-lines.elements_per_line": "0.0",
+      "cooked-code-lines.render_objects_30_line_fence": "83"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a fence costs one paragraph rather than a row per line",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-code-lines.render_objects_per_line": "6.0",
+      "cooked-code-lines.elements_per_line": "12.0",
+      "cooked-code-lines.render_objects_30_line_fence": "262"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a fence costs one paragraph rather than a row per line",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-code-lines.render_objects_per_line": "0.0",
+      "cooked-code-lines.elements_per_line": "0.0",
+      "cooked-code-lines.render_objects_30_line_fence": "83"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "image-metadata",
+   "subject": "PERF: mount a desktop image's metadata bar only once it is shown",
+   "commit": "52c4f278e0cfb9582113d6f059574f8d24d47076",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a desktop image mounts its metadata bar only once it is shown",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-image-metadata.render_objects_per_image": "40",
+      "cooked-image-metadata.elements_per_image": "86"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a desktop image mounts its metadata bar only once it is shown",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-image-metadata.render_objects_per_image": "23",
+      "cooked-image-metadata.elements_per_image": "54"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a desktop image mounts its metadata bar only once it is shown",
+     "exit_code": 1,
+     "metrics": {
+      "cooked-image-metadata.render_objects_per_image": "40",
+      "cooked-image-metadata.elements_per_image": "86"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/cooked_post_weight_test.dart",
+     "name": "a desktop image mounts its metadata bar only once it is shown",
+     "exit_code": 0,
+     "metrics": {
+      "cooked-image-metadata.render_objects_per_image": "23",
+      "cooked-image-metadata.elements_per_image": "54"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "idle-chat-composer",
+   "subject": "PERF: stop rebuilding an idle composer for each channel message",
+   "commit": "3135e44e35e600c2c9083be4e33aa75216c1ad08",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a message as the server publishes it leaves an idle channel composer alone",
+     "exit_code": 1,
+     "metrics": {
+      "idle-chat-composer.server_published_composer_rebuilds_ios": "2600",
+      "idle-chat-composer.server_published_composer_rebuilds_macos": "2580"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a reply as the server publishes it leaves an idle thread composer alone",
+     "exit_code": 1,
+     "metrics": {
+      "idle-chat-composer.server_published_thread_composer_rebuilds_ios": "2600",
+      "idle-chat-composer.server_published_thread_composer_rebuilds_macos": "2580"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a message as the server publishes it leaves an idle channel composer alone",
+     "exit_code": 0,
+     "metrics": {
+      "idle-chat-composer.server_published_composer_rebuilds_ios": "0",
+      "idle-chat-composer.server_published_composer_rebuilds_macos": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a reply as the server publishes it leaves an idle thread composer alone",
+     "exit_code": 0,
+     "metrics": {
+      "idle-chat-composer.server_published_thread_composer_rebuilds_ios": "0",
+      "idle-chat-composer.server_published_thread_composer_rebuilds_macos": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a message as the server publishes it leaves an idle channel composer alone",
+     "exit_code": 1,
+     "metrics": {
+      "idle-chat-composer.server_published_composer_rebuilds_ios": "2600",
+      "idle-chat-composer.server_published_composer_rebuilds_macos": "2580"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a reply as the server publishes it leaves an idle thread composer alone",
+     "exit_code": 1,
+     "metrics": {
+      "idle-chat-composer.server_published_thread_composer_rebuilds_ios": "2600",
+      "idle-chat-composer.server_published_thread_composer_rebuilds_macos": "2580"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a message as the server publishes it leaves an idle channel composer alone",
+     "exit_code": 0,
+     "metrics": {
+      "idle-chat-composer.server_published_composer_rebuilds_ios": "0",
+      "idle-chat-composer.server_published_composer_rebuilds_macos": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_composer_idle_test.dart",
+     "name": "a reply as the server publishes it leaves an idle thread composer alone",
+     "exit_code": 0,
+     "metrics": {
+      "idle-chat-composer.server_published_thread_composer_rebuilds_ios": "0",
+      "idle-chat-composer.server_published_thread_composer_rebuilds_macos": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "anchor-writes",
+   "subject": "PERF: stop rewriting the tab document while a list or topic scrolls",
+   "commit": "5adfad53c6d99e5893b4fae69801746708235d5a",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic list writes its resting anchor once",
+     "exit_code": 1,
+     "metrics": {
+      "anchor-writes.list_writes": "20",
+      "anchor-writes.list_bytes": "11332"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic writes its resting anchor once",
+     "exit_code": 1,
+     "metrics": {
+      "anchor-writes.reader_writes": "20",
+      "anchor-writes.reader_bytes": "17778"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic list writes its resting anchor once",
+     "exit_code": 0,
+     "metrics": {
+      "anchor-writes.list_writes": "1",
+      "anchor-writes.list_bytes": "567"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic writes its resting anchor once",
+     "exit_code": 0,
+     "metrics": {
+      "anchor-writes.reader_writes": "1",
+      "anchor-writes.reader_bytes": "888"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic list writes its resting anchor once",
+     "exit_code": 1,
+     "metrics": {
+      "anchor-writes.list_writes": "20",
+      "anchor-writes.list_bytes": "11332"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic writes its resting anchor once",
+     "exit_code": 1,
+     "metrics": {
+      "anchor-writes.reader_writes": "20",
+      "anchor-writes.reader_bytes": "17778"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic list writes its resting anchor once",
+     "exit_code": 0,
+     "metrics": {
+      "anchor-writes.list_writes": "1",
+      "anchor-writes.list_bytes": "567"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/anchor_persistence_writes_test.dart",
+     "name": "scrolling a topic writes its resting anchor once",
+     "exit_code": 0,
+     "metrics": {
+      "anchor-writes.reader_writes": "1",
+      "anchor-writes.reader_bytes": "888"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "workspace-navigation",
+   "subject": "PERF: write the phone workspace once per navigation",
+   "commit": "66c63bca8c6d7c2930f2f592d165c77da70b1fcd",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/workspace_navigation_writes_test.dart",
+     "name": "a phone writes its workspace once per navigation",
+     "exit_code": 1,
+     "metrics": {
+      "workspace-navigation.writes_10_navigations": "20",
+      "workspace-navigation.bytes_10_navigations": "30861"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/workspace_navigation_writes_test.dart",
+     "name": "a phone writes its workspace once per navigation",
+     "exit_code": 0,
+     "metrics": {
+      "workspace-navigation.writes_10_navigations": "10",
+      "workspace-navigation.bytes_10_navigations": "15570"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/workspace_navigation_writes_test.dart",
+     "name": "a phone writes its workspace once per navigation",
+     "exit_code": 1,
+     "metrics": {
+      "workspace-navigation.writes_10_navigations": "20",
+      "workspace-navigation.bytes_10_navigations": "30861"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/workspace_navigation_writes_test.dart",
+     "name": "a phone writes its workspace once per navigation",
+     "exit_code": 0,
+     "metrics": {
+      "workspace-navigation.writes_10_navigations": "10",
+      "workspace-navigation.bytes_10_navigations": "15570"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "local-date-countdown",
+   "subject": "PERF: stop redrawing a date countdown every second",
+   "commit": "ba2bed5ba98517398247f30127d152df562a9b8a",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/plugins/local_dates/local_date_widget_test.dart",
+     "name": "a countdown days away redraws a minute apart, not a second",
+     "exit_code": 1,
+     "metrics": {
+      "local-date-countdown.frames_5min": "300",
+      "local-date-countdown.timers_5min": "300",
+      "local-date-countdown.clock_reads_5min": "300"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/plugins/local_dates/local_date_widget_test.dart",
+     "name": "a countdown days away redraws a minute apart, not a second",
+     "exit_code": 0,
+     "metrics": {
+      "local-date-countdown.frames_5min": "5",
+      "local-date-countdown.timers_5min": "5",
+      "local-date-countdown.clock_reads_5min": "5"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/plugins/local_dates/local_date_widget_test.dart",
+     "name": "a countdown days away redraws a minute apart, not a second",
+     "exit_code": 1,
+     "metrics": {
+      "local-date-countdown.frames_5min": "300",
+      "local-date-countdown.timers_5min": "300",
+      "local-date-countdown.clock_reads_5min": "300"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/plugins/local_dates/local_date_widget_test.dart",
+     "name": "a countdown days away redraws a minute apart, not a second",
+     "exit_code": 0,
+     "metrics": {
+      "local-date-countdown.frames_5min": "5",
+      "local-date-countdown.timers_5min": "5",
+      "local-date-countdown.clock_reads_5min": "5"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "main-content-search",
+   "subject": "PERF: stop rebuilding the page when the search panel opens or closes",
+   "commit": "c32d9097e78d573442b3ac50954bea219e432dc0",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the tags page built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.phone_open_tags_elements": "549",
+      "main-content-search.phone_close_tags_elements": "549"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the tags page built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.mac_open_tags_elements": "601",
+      "main-content-search.mac_close_tags_elements": "601"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the topic list built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.phone_open_list_elements": "280"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the topic list built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.mac_open_list_elements": "610"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the tags page built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.phone_open_tags_elements": "0",
+      "main-content-search.phone_close_tags_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the tags page built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.mac_open_tags_elements": "0",
+      "main-content-search.mac_close_tags_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the topic list built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.phone_open_list_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the topic list built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.mac_open_list_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the tags page built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.phone_open_tags_elements": "549",
+      "main-content-search.phone_close_tags_elements": "549"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the tags page built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.mac_open_tags_elements": "601",
+      "main-content-search.mac_close_tags_elements": "601"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the topic list built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.phone_open_list_elements": "280"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the topic list built",
+     "exit_code": 1,
+     "metrics": {
+      "main-content-search.mac_open_list_elements": "610"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the tags page built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.phone_open_tags_elements": "0",
+      "main-content-search.phone_close_tags_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the tags page built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.mac_open_tags_elements": "0",
+      "main-content-search.mac_close_tags_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "phone opening search leaves the topic list built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.phone_open_list_elements": "0"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/main_content_search_notifications_test.dart",
+     "name": "mac opening search leaves the topic list built",
+     "exit_code": 0,
+     "metrics": {
+      "main-content-search.mac_open_list_elements": "0"
+     },
+     "tail": null
+    }
+   ]
+  }
+ ]
+}
