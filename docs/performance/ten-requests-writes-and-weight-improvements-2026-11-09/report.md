@@ -103,15 +103,28 @@ rounds per side, so this stack added no failure. The six are
 `phone_chat_chrome_rebuild_test`, and two in
 `site_image_playback_visibility_test`.
 
+## Two more, landed the same day
+
+These were proven in the same round and held back to keep it to ten. They use
+the same proof tool and appear in [manifest.json](manifest.json) and
+[measurements.json](measurements.json).
+
+| Improvement | Measured path | Metric | Before | After |
+| --- | --- | --- | ---: | ---: |
+| Browse channels | Ten messages with 31 channels listed, iOS | Elements rebuilt | 29,371 | 1,511 |
+| | Ten messages with 31 channels listed, macOS | Elements rebuilt | 33,931 | 1,511 |
+| Category filter | A category clause at 500 categories | Category id reads | 273,109 | 3,409 |
+
+Browse channels now rebuilds one card per message. Its Joined and Not joined
+filters still follow the controller through `ChatBrowseSession`, which the proof
+asserts by leaving a channel under the Joined filter. The category lookup keeps
+the first row of a repeated id, as the walk it replaces did.
+
+The 45 test files that mention their code all passed on the final stack: 1,856
+passed and 2 were skipped. All twelve proofs were rerun there with the same
+counts as the ten reported above.
+
 ## Candidates this round did not take
-
-Proven on a branch, and left out so this round holds ten:
-
-- Browse channels redraws for every chat message: 29,371 elements against 1,511
-  over ten messages, on `claude/perf4-chatlong`. Readers rarely rest on that
-  page.
-- A category filter walks the category list per parent: 273,109 id reads against
-  3,409 at 500 categories, on `claude/perf4-algo`. It costs about a millisecond.
 
 Measured, and needing a decision or a better proof:
 

@@ -142,5 +142,25 @@
     "name": "mac opening search leaves the topic list built"
    }
   ]
+ },
+ {
+  "slug": "chat-browse-idle",
+  "subject": "PERF: stop redrawing Browse channels for every chat message",
+  "proofs": [
+   {
+    "path": "test/chat_browse_channels_idle_test.dart",
+    "name": "messages redraw only their own channel card"
+   }
+  ]
+ },
+ {
+  "slug": "topic-filter-scope",
+  "subject": "PERF: find a filter's category in one pass over the site's categories",
+  "proofs": [
+   {
+    "path": "test/topic_filter_scope_lookup_budget_test.dart",
+    "name": "a category filter finds its category in one pass"
+   }
+  ]
  }
 ]

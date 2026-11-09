@@ -1,5 +1,5 @@
 {
- "head": "c32d9097e78d573442b3ac50954bea219e432dc0",
+ "head": "a935a2f41a3ca2927b009e0eaf8604abb4aac634",
  "failures": [],
  "proven": [
   {
@@ -1075,6 +1075,112 @@
      "exit_code": 0,
      "metrics": {
       "main-content-search.mac_open_list_elements": "0"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "chat-browse-idle",
+   "subject": "PERF: stop redrawing Browse channels for every chat message",
+   "commit": "6a3adf9d94523162dc88df2e480fcda2fbacb9c0",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/chat_browse_channels_idle_test.dart",
+     "name": "messages redraw only their own channel card",
+     "exit_code": 1,
+     "metrics": {
+      "chat-browse-idle.elements_rebuilt_ios": "29371",
+      "chat-browse-idle.elements_rebuilt_macos": "33931"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/chat_browse_channels_idle_test.dart",
+     "name": "messages redraw only their own channel card",
+     "exit_code": 0,
+     "metrics": {
+      "chat-browse-idle.elements_rebuilt_ios": "1511",
+      "chat-browse-idle.elements_rebuilt_macos": "1511"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/chat_browse_channels_idle_test.dart",
+     "name": "messages redraw only their own channel card",
+     "exit_code": 1,
+     "metrics": {
+      "chat-browse-idle.elements_rebuilt_ios": "29371",
+      "chat-browse-idle.elements_rebuilt_macos": "33931"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/chat_browse_channels_idle_test.dart",
+     "name": "messages redraw only their own channel card",
+     "exit_code": 0,
+     "metrics": {
+      "chat-browse-idle.elements_rebuilt_ios": "1511",
+      "chat-browse-idle.elements_rebuilt_macos": "1511"
+     },
+     "tail": null
+    }
+   ]
+  },
+  {
+   "slug": "topic-filter-scope",
+   "subject": "PERF: find a filter's category in one pass over the site's categories",
+   "commit": "a935a2f41a3ca2927b009e0eaf8604abb4aac634",
+   "runs": [
+    {
+     "side": "before",
+     "round": 1,
+     "test": "test/topic_filter_scope_lookup_budget_test.dart",
+     "name": "a category filter finds its category in one pass",
+     "exit_code": 1,
+     "metrics": {
+      "topic-filter-scope.category_id_reads": "273109"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 1,
+     "test": "test/topic_filter_scope_lookup_budget_test.dart",
+     "name": "a category filter finds its category in one pass",
+     "exit_code": 0,
+     "metrics": {
+      "topic-filter-scope.category_id_reads": "3409"
+     },
+     "tail": null
+    },
+    {
+     "side": "before",
+     "round": 2,
+     "test": "test/topic_filter_scope_lookup_budget_test.dart",
+     "name": "a category filter finds its category in one pass",
+     "exit_code": 1,
+     "metrics": {
+      "topic-filter-scope.category_id_reads": "273109"
+     },
+     "tail": null
+    },
+    {
+     "side": "after",
+     "round": 2,
+     "test": "test/topic_filter_scope_lookup_budget_test.dart",
+     "name": "a category filter finds its category in one pass",
+     "exit_code": 0,
+     "metrics": {
+      "topic-filter-scope.category_id_reads": "3409"
      },
      "tail": null
     }
