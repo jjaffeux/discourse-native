@@ -71,6 +71,7 @@ final class DiscourseTopicApi {
     required String apiKey,
     required bool dismissTopics,
     required bool dismissPosts,
+    bool tracked = false,
     int? categoryId,
     String? tagName,
     List<int>? topicIds,
@@ -84,7 +85,7 @@ final class DiscourseTopicApi {
       apiKey: apiKey,
       clientId: clientId,
       body: {
-        'tracked': false,
+        'tracked': tracked,
         if (dismissTopics) 'dismiss_topics': true,
         if (dismissPosts) 'dismiss_posts': true,
         if (categoryId != null) ...{

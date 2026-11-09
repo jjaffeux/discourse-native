@@ -34,6 +34,28 @@ void main() {
     );
   });
 
+  test('reset-new names a tracked-only dismissal', () async {
+    final api = DiscourseApi(
+      client: MockClient((request) async {
+        expect(jsonDecode(request.body), {
+          'tracked': true,
+          'dismiss_topics': true,
+        });
+        return http.Response('{"topic_ids":[1]}', 200);
+      }),
+    );
+    expect(
+      await api.dismissNewTopics(
+        siteUrl: 'https://example.com',
+        apiKey: 'key',
+        dismissTopics: true,
+        dismissPosts: false,
+        tracked: true,
+      ),
+      [1],
+    );
+  });
+
   test('empty explicit intersection never becomes a global reset', () async {
     final api = DiscourseApi(
       client: MockClient((_) async {

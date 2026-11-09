@@ -1863,6 +1863,7 @@ class FakeDiscourseApi
         ({
           bool topics,
           bool posts,
+          bool tracked,
           int? categoryId,
           String? tagName,
           List<int>? topicIds,
@@ -1878,6 +1879,7 @@ class FakeDiscourseApi
     required String apiKey,
     required bool dismissTopics,
     required bool dismissPosts,
+    bool tracked = false,
     int? categoryId,
     String? tagName,
     List<int>? topicIds,
@@ -1886,6 +1888,7 @@ class FakeDiscourseApi
     dismissNewCalls.add((
       topics: dismissTopics,
       posts: dismissPosts,
+      tracked: tracked,
       categoryId: categoryId,
       tagName: tagName,
       topicIds: topicIds,
