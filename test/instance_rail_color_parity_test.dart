@@ -1,5 +1,6 @@
 import 'package:discourse_native/discourse_ui.dart';
 
+import 'package:discourse_native/src/models/discourse_instance.dart';
 import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/shell/component_styleguide_scope.dart';
 import 'package:discourse_native/src/shell/instance_rail.dart';
@@ -33,7 +34,11 @@ void main() {
   testWidgets(
     'rail actions match mockup colors at rest, hover, and press',
     (tester) async {
-      final shell = settings.controller();
+      final shell = settings.controller(
+        instances: const [
+          DiscourseInstance(url: 'https://a.example', title: 'A'),
+        ],
+      );
 
       try {
         await shell.load();
@@ -81,13 +86,12 @@ void main() {
           await tester.pumpAndSettle();
           for (final key in [
             'add-instance-rail-button',
-            if ({
+            if (!{
               TargetPlatform.iOS,
               TargetPlatform.android,
             }.contains(debugDefaultTargetPlatformOverride))
-              'theme-mode-rail-button'
-            else
               'styleguide-rail-button',
+            'theme-mode-rail-button',
             'settings-rail-button',
           ]) {
             final expected = key == 'add-instance-rail-button'
