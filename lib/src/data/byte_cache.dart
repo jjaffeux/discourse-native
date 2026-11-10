@@ -587,33 +587,52 @@ abstract class ByteCache<T extends Object> {
       if (timeoutAbort.isCompleted) {
         throw TimeoutException(appL10n.timedOutFetchingCachedBytes, timeout);
       }
-      final remaining = _remaining(elapsed);
-      final request =
-          http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
-            ..headers['User-Agent'] = discourseUserAgent
-            ..followRedirects = false;
-      request.headers.addAll(requestHeaders(url, original));
-      _syncAuthentication();
-      transfer.checkDemand();
-      response = _client.send(request);
-      final streamed = await Future.any<http.StreamedResponse>([
-        response,
-        transfer.abort.future.then(
-          (_) => throw const _ByteCacheRequestCancelled(),
-        ),
-      ]).timeout(remaining);
-      transfer.checkDemand();
-      if (streamed.statusCode == 429 && lease != null) {
-        // A CDN 429 also gates the source forum. Otherwise queued forum avatar
-        // URLs would all continue producing redirects into the blocked CDN.
-        lease.rateLimited(streamed.headers);
+      for (var resends = 0; ; resends++) {
+        final remaining = _remaining(elapsed);
+        final request =
+            http.AbortableRequest('GET', url, abortTrigger: timeoutAbort.future)
+              ..headers['User-Agent'] = discourseUserAgent
+              ..followRedirects = false;
+        request.headers.addAll(requestHeaders(url, original));
+        _syncAuthentication();
+        transfer.checkDemand();
+        response = _client.send(request);
+        final http.StreamedResponse streamed;
+        try {
+          streamed = await Future.any<http.StreamedResponse>([
+            response,
+            transfer.abort.future.then(
+              (_) => throw const _ByteCacheRequestCancelled(),
+            ),
+          ]).timeout(remaining);
+        } on http.ClientException catch (error) {
+          // The client reuses the connections it keeps idle, and one can be
+          // dead by then: iOS reclaims a suspended app's sockets and a network
+          // change strands them. The send fails on it before any response, so
+          // the GET goes again. Each failure discards one kept connection, and
+          // the client opens one only when none is idle, so it keeps no more
+          // to an origin than admission runs at once.
+          if (error is http.RequestAbortedException ||
+              connectionNeverOpened(error) ||
+              resends >= _keptConnectionsPerOrigin) {
+            rethrow;
+          }
+          continue;
+        }
+        transfer.checkDemand();
+        if (streamed.statusCode == 429 && lease != null) {
+          // A CDN 429 also gates the source forum. Otherwise queued forum
+          // avatar URLs would all continue producing redirects into the
+          // blocked CDN.
+          lease.rateLimited(streamed.headers);
+        }
+        return (
+          response: streamed,
+          timeoutAbort: timeoutAbort,
+          lease: lease,
+          authenticated: request.headers.containsKey('Authorization'),
+        );
       }
-      return (
-        response: streamed,
-        timeoutAbort: timeoutAbort,
-        lease: lease,
-        authenticated: request.headers.containsKey('Authorization'),
-      );
     } catch (error) {
       if (error is TimeoutException || transfer.cancelled) _abort(timeoutAbort);
       response
@@ -626,6 +645,11 @@ abstract class ByteCache<T extends Object> {
       rethrow;
     }
   }
+
+  /// A cache without admission is held to the media default.
+  int get _keptConnectionsPerOrigin =>
+      _coordinator?.maxConcurrentPerOrigin ??
+      MediaRequestCoordinator.defaultMaxConcurrentPerOrigin;
 
   static bool _isRedirect(int statusCode) =>
       statusCode == 301 ||

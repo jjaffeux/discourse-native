@@ -43,6 +43,8 @@ final class MediaRequestCoordinator {
   final DateTime Function() _clock;
   final OriginRequestGate _gate;
 
+  int get maxConcurrentPerOrigin => _gate.maxConcurrentPerOrigin;
+
   Future<MediaRequestLease> acquire(
     Uri url, {
     Uri? relatedUrl,

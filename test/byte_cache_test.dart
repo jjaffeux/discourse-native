@@ -526,6 +526,42 @@ void main() {
 
       expect(cancelled, isTrue);
     });
+
+    test('resends past every connection admission could have kept', () async {
+      var sent = 0;
+      final cache = _TestByteCache(
+        coordinator: MediaRequestCoordinator(
+          maxConcurrent: 2,
+          maxConcurrentPerOrigin: 2,
+        ),
+        client: MockClient((request) async {
+          sent++;
+          throw http.ClientException(
+            'Connection closed before full header was received',
+            request.url,
+          );
+        }),
+      );
+
+      expect(await cache.load('https://site.test/image.png'), isNull);
+      expect(sent, 3);
+    });
+
+    test('does not resend a send that never opened a connection', () async {
+      var sent = 0;
+      final cache = _TestByteCache(
+        client: MockClient((request) async {
+          sent++;
+          throw _ClientSocketException(
+            "Failed host lookup: 'site.test'",
+            request.url,
+          );
+        }),
+      );
+
+      expect(await cache.load('https://site.test/image.png'), isNull);
+      expect(sent, 1);
+    });
   });
 
   group('memory retention and shared coordination', () {
@@ -1655,4 +1691,19 @@ final class _GatedMutationByteCacheStore implements ByteCacheStore {
     operations.add('removed');
     if (!removed.isCompleted) removed.complete();
   }
+}
+
+/// How package:http's IOClient reports a socket failure.
+final class _ClientSocketException extends http.ClientException
+    implements SocketException {
+  _ClientSocketException(super.message, super.uri);
+
+  @override
+  OSError? get osError => null;
+
+  @override
+  InternetAddress? get address => null;
+
+  @override
+  int? get port => null;
 }
