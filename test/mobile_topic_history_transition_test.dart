@@ -190,4 +190,138 @@ void main() {
       }),
     );
   }
+
+  for (final pull in [true, false]) {
+    testWidgets(
+      '${pull ? 'pulling down' : 'going back from'} a topic opened from another topic never shows the earlier topic loading',
+      (tester) async {
+        List<Post> posts(int topicId) => [
+          for (var number = 1; number <= 8; number++)
+            Post(
+              id: topicId * 100 + number,
+              postNumber: number,
+              username: 'reader',
+              cooked: List.filled(
+                320,
+                '<p>Post $number keeps topic $topicId going.</p>',
+              ).join(),
+            ),
+        ];
+        const first = Topic(id: 7, title: 'First discussion', slug: 'first');
+        const second = Topic(id: 8, title: 'Second discussion', slug: 'second');
+        final shell = await pumpMobileShellFixture(
+          tester,
+          topic: topicPayload(id: 7, title: first.title, posts: posts(7)),
+          onApi: (api) => api.topics[8] = topicPayload(
+            id: 8,
+            title: second.title,
+            posts: posts(8),
+          ),
+        );
+        Future<void> load() async {
+          for (var frame = 0; frame < 40; frame++) {
+            await tester.runAsync(
+              () => Future<void>.delayed(const Duration(milliseconds: 10)),
+            );
+            await tester.pump(const Duration(milliseconds: 16));
+          }
+          await tester.pumpAndSettle();
+        }
+
+        shell.openTopic(first);
+        await load();
+        await tester.drag(topicPostListFinder(), const Offset(0, -850));
+        await tester.pumpAndSettle();
+        shell.openTopic(second);
+        await load();
+        expect(shell.currentContent?.topicId, 8);
+        expect(find.byType(TopicLoadingSkeleton), findsNothing);
+
+        if (pull) {
+          final drag = await tester.startGesture(
+            tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+          );
+          for (var step = 1; step <= 20; step++) {
+            await drag.moveBy(
+              const Offset(0, 10),
+              timeStamp: Duration(milliseconds: step * 20),
+            );
+            await tester.pump(const Duration(milliseconds: 20));
+          }
+          await drag.up();
+        } else {
+          shell.handleBack();
+        }
+        final handoff = find.byKey(const ValueKey('history-page-handoff'));
+        var returned = false;
+        for (var frame = 0; frame < 80; frame++) {
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 10)),
+          );
+          await tester.pump(const Duration(milliseconds: 16));
+          if (shell.currentContent?.topicId != 7) continue;
+          returned = true;
+          if (find.byType(TopicLoadingSkeleton).evaluate().isEmpty) continue;
+          expect(
+            handoff,
+            findsOneWidget,
+            reason: 'frame $frame shows the first topic loading uncovered',
+          );
+          expect(
+            tester.widget<Opacity>(handoff).opacity,
+            1,
+            reason: 'frame $frame fades the image over the loading reader',
+          );
+        }
+        expect(returned, isTrue);
+        expect(handoff, findsNothing);
+        expect(find.byType(TopicLoadingSkeleton), findsNothing);
+        expect(tester.takeException(), isNull);
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+  }
+
+  testWidgets(
+    'pulling a topic down to its list leaves the live list usable at once',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
+
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      for (var step = 1; step <= 20; step++) {
+        await drag.moveBy(
+          const Offset(0, 10),
+          timeStamp: Duration(milliseconds: step * 20),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await drag.up();
+      final card = find.byKey(const ValueKey('topic-card-7'));
+      var returned = false;
+      for (var frame = 0; frame < 30; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (shell.currentContent?.isTopicList != true) continue;
+        returned = true;
+        expect(
+          card.hitTestable(),
+          findsOneWidget,
+          reason: 'frame $frame must not cover the live list with its image',
+        );
+      }
+      expect(returned, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 }

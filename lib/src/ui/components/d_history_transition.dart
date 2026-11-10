@@ -129,12 +129,16 @@ class DHistoryTransition extends StatefulWidget {
           ?.animatePageEntrance ??
       true;
 
-  /// Keeps a committed swipe's image visible until the page is ready to paint.
+  /// Keeps a returning page's retained image visible until the page is ready.
+  ///
+  /// A committed swipe always hands its image off. Any other return to the
+  /// previous visit, such as a dismissed sheet or Back, shows the image only
+  /// once its page calls this.
   ///
   /// Call while building the page's initial loading frame. Release the returned
   /// callback when its reading position and content have finished layout, or
   /// when the page is disposed. All holders must release before the image fades
-  /// away. Returns `null` outside a swipe handoff. Navigation and owner changes
+  /// away. Returns `null` outside a handoff. Navigation and owner changes
   /// cancel the handoff and make old release callbacks inert.
   static VoidCallback? deferPageRevealOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<_HistoryPageScope>()
@@ -247,6 +251,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   final _pointers = <int>{};
   final _revealHolds = <Object>{};
   bool _handingOff = false;
+  bool _handoffCovers = false;
   bool _revealScheduled = false;
   late final _progress = AnimationController(vsync: this);
   ui.Image? _preview;
@@ -271,6 +276,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   int _generation = 0;
 
   bool get _routeIsCurrent => ModalRoute.of(context)?.isCurrent ?? true;
+  bool get _coveringPage => _handingOff && _handoffCovers;
   bool get _rtl => Directionality.of(context) == TextDirection.rtl;
   double get _sign => _back != _rtl ? 1 : -1;
   bool get _navigationOpen => widget.navigation?.entry == widget.entry;
@@ -345,7 +351,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
             !MediaQuery.disableAnimationsOf(context) &&
             _routeIsCurrent) {
       final boundary = _boundary.currentContext?.findRenderObject();
-      final image = _handingOff
+      final image = _coveringPage
           ? _preview?.clone()
           : boundary is _HistoryRepaintBoundary
           ? boundary.snapshot(MediaQuery.devicePixelRatioOf(context))
@@ -380,7 +386,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
       // The descendant still contains the outgoing page's last painted frame.
       // Capture it before rebuilding that one live renderer for the new entry.
       final boundary = _boundary.currentContext?.findRenderObject();
-      if (!_handingOff && boundary is _HistoryRepaintBoundary) {
+      if (!_coveringPage && boundary is _HistoryRepaintBoundary) {
         final image = boundary.snapshot(MediaQuery.devicePixelRatioOf(context));
         if (image != null) {
           _remember(
@@ -394,12 +400,17 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         }
       }
       _resetGesture();
-      if (committed && !navigationChanged) {
+      // A committed swipe already shows its destination's image. Any other
+      // return to the previous visit shows it only over a page that defers
+      // its reveal, so a page that is ready never shows a stale image.
+      if ((committed || widget.entry == oldWidget.previousEntry) &&
+          !navigationChanged) {
         final destination = _previews[widget.entry];
         if (destination != null) {
           _preview = destination.image.clone();
           _previewOrigin = destination.origin;
           _handingOff = true;
+          _handoffCovers = committed;
           _queuePageReveal();
         }
       }
@@ -435,6 +446,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
   void _resetGesture() {
     _generation++;
     _handingOff = false;
+    _handoffCovers = false;
     _revealHolds.clear();
     _revealScheduled = false;
     _dragging = false;
@@ -641,6 +653,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
 
   VoidCallback? _deferPageReveal() {
     if (!_handingOff || _progress.isAnimating) return null;
+    _handoffCovers = true;
     final hold = Object();
     _revealHolds.add(hold);
     return () {
@@ -656,7 +669,15 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || generation != _generation) return;
       _revealScheduled = false;
-      if (_revealHolds.isEmpty) unawaited(_revealPage());
+      if (!_handoffCovers) {
+        setState(_resetGesture);
+      } else if (_revealHolds.isEmpty) {
+        unawaited(_revealPage());
+      } else {
+        // A page that deferred while laying out was built without the
+        // exclusions below. Apply them from the next frame.
+        setState(() {});
+      }
     });
     WidgetsBinding.instance.ensureVisualUpdate();
   }
@@ -1092,15 +1113,11 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                       child: ColorFiltered(
                         colorFilter: _back ? clear : dim,
                         child: IgnorePointer(
-                          ignoring:
-                              _dragging ||
-                              _settling ||
-                              switching ||
-                              _handingOff,
+                          ignoring: _dragging || _settling || switching,
                           child: ExcludeFocus(
-                            excluding: _handingOff,
+                            excluding: _coveringPage,
                             child: ExcludeSemantics(
-                              excluding: _handingOff,
+                              excluding: _coveringPage,
                               child: Opacity(
                                 opacity: switching ? p : 1,
                                 child: child,
@@ -1113,10 +1130,13 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                   ),
                   if (active && !_back) previewLayer(preview, back: false),
                   if (_handingOff)
-                    Opacity(
-                      key: const ValueKey('history-page-handoff'),
-                      opacity: 1 - _progress.value,
-                      child: preview,
+                    _HistoryHandoffCover(
+                      covering: () => _coveringPage,
+                      child: Opacity(
+                        key: const ValueKey('history-page-handoff'),
+                        opacity: 1 - _progress.value,
+                        child: preview,
+                      ),
                     ),
                 ],
               );
@@ -1296,6 +1316,46 @@ class _HistoryRepaintBoundary extends RenderRepaintBoundary {
       math.sqrt(4000000 / (painted.width * painted.height)),
     );
     return paintedLayer.toImageSync(Offset.zero & painted, pixelRatio: ratio);
+  }
+}
+
+/// Paints a handoff image and absorbs pointers only once a page has asked to
+/// be covered. Pages ask while they lay out, after this layer is built.
+class _HistoryHandoffCover extends SingleChildRenderObjectWidget {
+  const _HistoryHandoffCover({required this.covering, required super.child});
+
+  final ValueGetter<bool> covering;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _HistoryHandoffCoverRenderer(covering);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _HistoryHandoffCoverRenderer renderObject,
+  ) => renderObject.covering = covering;
+}
+
+class _HistoryHandoffCoverRenderer extends RenderProxyBox {
+  _HistoryHandoffCoverRenderer(this._covering);
+
+  ValueGetter<bool> _covering;
+  set covering(ValueGetter<bool> value) {
+    _covering = value;
+    markNeedsPaint();
+  }
+
+  @override
+  void paint(PaintingContext context, Offset offset) {
+    if (_covering()) super.paint(context, offset);
+  }
+
+  @override
+  bool hitTest(BoxHitTestResult result, {required Offset position}) {
+    if (!_covering() || !size.contains(position)) return false;
+    result.add(BoxHitTestEntry(this, position));
+    return true;
   }
 }
 
