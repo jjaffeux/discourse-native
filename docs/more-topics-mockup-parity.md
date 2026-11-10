@@ -41,9 +41,11 @@ separation and 8px foot inset. It has a page-sized localized title, Native pill
 tabs, and ordinary topic rows. Narrow/enlarged layouts stack title and tabs.
 The panel follows the last post directly: the end marker, More topics action
 and Reply that once preceded it were removed on 2026-10-26, Reply being in the
-tab bar. Selecting a source brings its start into view with an interruptible
-400ms Flutter ease-out scroll; reduced motion jumps immediately. Ordinary
-scrolling has no snapping, pause timer, sticky overlap, grip, scale or fade.
+tab bar. Selecting a source keeps the reader where it is: the panel never
+scrolls itself, and its list keeps the tallest height shown at the current
+width so a shorter source cannot shrink the extent under a reader parked at
+the end. Ordinary scrolling has no snapping, pause timer, sticky overlap,
+grip, scale or fade.
 
 The approved Native `DPageSurface.headerSuppressed` option retains the full
 scroll spacer and viewport while releasing the header and its obstruction over
