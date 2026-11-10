@@ -177,34 +177,42 @@ class _SheetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DSheetHeader(
-          leading: nested
-              ? DSheetHeaderAction(
-                  onPressed: () => DDialogClose.close<void>(context),
-                  tooltip: context.l10n.back,
-                  icon: const DIcon(DIcons.arrowLeft),
-                )
-              : null,
-          trailing: nested || grabbed
-              ? null
-              : DSheetHeaderAction.close(
-                  onPressed: () => DDialogClose.close<void>(context),
+        Padding(
+          // The mockup insets a phone sheet's heading 15px before its 17/13
+          // zoom. This padding is zoomed; the header's own inset is not.
+          padding: EdgeInsets.symmetric(
+            horizontal: grabbed ? 15 - DSpacing.md * 13 / 17 : 0,
+          ),
+          child: DSheetHeader(
+            leading: nested
+                ? DSheetHeaderAction(
+                    onPressed: () => DDialogClose.close<void>(context),
+                    tooltip: context.l10n.back,
+                    icon: const DIcon(DIcons.arrowLeft),
+                  )
+                : null,
+            trailing: nested || grabbed
+                ? null
+                : DSheetHeaderAction.close(
+                    onPressed: () => DDialogClose.close<void>(context),
+                  ),
+            children: [
+              DSheetTitle(
+                child: DText(
+                  title,
+                  variant: DTextVariant.h4,
+                  headingLevel: 1,
+                  style: grabbed
+                      ? TextStyle(
+                          fontSize: DiscourseTypography.sheetTitle,
+                          fontWeight: FontWeight.w600,
+                          color: DTokens.of(context).foreground,
+                        )
+                      : null,
                 ),
-          children: [
-            DSheetTitle(
-              child: DText(
-                title,
-                variant: DTextVariant.h4,
-                headingLevel: 1,
-                style: grabbed
-                    ? TextStyle(
-                        fontSize: DiscourseTypography.sheetTitle,
-                        color: DTokens.of(context).foreground,
-                      )
-                    : null,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
         if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(
