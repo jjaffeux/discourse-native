@@ -84,6 +84,12 @@ void main() {
         // The schedule's full-width save action keeps the pill of the
         // notification menu the sheet opens from.
         'lib/src/shell/notification_schedule_sheet.dart': {'shape': 1},
+        // The sidebar editor's Reset and Save are the mockup's sheet pills,
+        // Reset outlined over the sheet with no fill of its own.
+        'lib/src/shell/sidebar_taxonomy_editor.dart': {
+          'shape': 2,
+          'backgroundColor': 1,
+        },
         // The avatar trigger uses the mockup's 22% outline around the avatar,
         // with no fill of its own at rest or on hover. In the drawer, the
         // profile action is a pill inside the footer card's rounded end, and

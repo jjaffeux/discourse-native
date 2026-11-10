@@ -35,7 +35,6 @@ Future<void> showAddInstanceSheet(
         title: title,
         initialFocusNode: addressFocus,
         fillAvailableHeight: true,
-        padding: const EdgeInsets.all(DSpacing.lg),
         surfaceBuilder: (context, child) => AppHomeTheme(child: child),
         builder: (context) =>
             _AddInstanceForm(focusNode: addressFocus, discoverSites: source),

@@ -19480,11 +19480,11 @@
   "@sidebarSearchCategories": {
     "description": "Category and tag sidebar preference editor."
   },
-  "sidebarEditCategories": "Edit categories",
+  "sidebarEditCategories": "Edit your categories",
   "@sidebarEditCategories": {
     "description": "Category and tag sidebar preference editor."
   },
-  "sidebarEditTags": "Edit tags",
+  "sidebarEditTags": "Edit your tags",
   "@sidebarEditTags": {
     "description": "Category and tag sidebar preference editor."
   },
@@ -19497,8 +19497,12 @@
       }
     }
   },
-  "sidebarNoMatches": "No matches.",
-  "@sidebarNoMatches": {
+  "sidebarNoCategoriesMatch": "No categories match.",
+  "@sidebarNoCategoriesMatch": {
+    "description": "Category and tag sidebar preference editor."
+  },
+  "sidebarNoTagsMatch": "No tags match.",
+  "@sidebarNoTagsMatch": {
     "description": "Category and tag sidebar preference editor."
   },
   "backToTopOf": "Back to the top of {title}",

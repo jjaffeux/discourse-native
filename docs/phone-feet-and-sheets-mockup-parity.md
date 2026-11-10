@@ -77,15 +77,23 @@ as a 15pt heading, no close button. Every use of it, and what opens here:
 | Poll, Date in post, Event, Emoji, GIFs | Already touch bottom sheets. |
 | Upload | The upload choice's `DDropdownMenu` opens its adaptive sheet on a phone. |
 
-`showShellSheet` on touch is the adaptive menu, as every phone menu is: a
-tall sheet opens at its lower height and is pulled up for the rest,
-including a pinned footer, as the mockup's does. Its title row has no
-close button; a nested sheet keeps its back button. `fillAvailableHeight`
+`showShellSheet` on touch is the adaptive menu, as every phone menu is,
+and as tall as what it holds, as the mockup's sheet is. A tall one opens
+at its lower height, 55% of the screen, and is pulled up for the rest, no
+taller than what it holds. Its actions stay in view at whatever height it
+rests: the sheet lays out only what is in view (`keepFootInView`), so a
+short form sits right above its actions. Its title row has no close
+button; a nested sheet keeps its back button. `fillAvailableHeight`
 there reserves the fixed opening height and takes the room above a
-visible keyboard. A form whose body and actions the sheet builds apart
+visible keyboard; with actions, past the kit's large-text threshold, it
+opens at its full height, since its heading and actions alone can fill
+the lower one. A form whose body and actions the sheet builds apart
 shares its state through `ShellSheetForm`, and closes with `DDialogClose`
-so the same form serves the desktop dialog. Desktop keeps every dialog as
-it was.
+so the same form serves the desktop dialog. Desktop keeps every dialog.
+Both hold the title, what the sheet holds and its actions on one inset
+from the sides, as the mockup does: 15 inside a phone's 17/13 zoom,
+19.5pt on a 390pt phone, with the actions 14 above the foot, and 17 in a
+desktop dialog, 16 inside its rim, with the actions 16 under what it holds.
 
 Fixed actions use `DSheetFooter`. At a partial detent, Native reserves the
 bottom safe area below the actions, inside the sheet. With the keyboard
@@ -96,8 +104,9 @@ body's scrollable region.
 On touch the backdrop and the grabber dismiss, where the dialogs refused
 a barrier tap; `canDismiss` still refuses while a write is in flight. The
 touch sheet keeps the generic "Dismiss sheet" barrier label, so Assign's
-own label is not carried over. The divider under the title stays, though
-the mockup's phone sheet has none.
+own label is not carried over. No rule is drawn under the title or above
+the actions, as the mockup draws none; what the sheet holds starts right
+under its title.
 
 The poll, date, event, emoji, GIF and status sheets keep their standard
 inset sheet rather than the menu sheet; moving them is not part of this

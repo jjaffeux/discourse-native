@@ -11,6 +11,7 @@ import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../models/user_preferences.dart';
 import 'category_icon.dart';
+import 'platform.dart';
 import 'shell_controller.dart';
 import 'shell_sheet.dart';
 
@@ -28,9 +29,12 @@ Future<void> showSidebarTaxonomyEditor({
         ? context.l10n.sidebarEditCategories
         : context.l10n.sidebarEditTags,
     dialogOnDesktop: true,
-    scrollBody: false,
+    desktopDialogConstraints: const BoxConstraints(
+      maxWidth: 380,
+      maxHeight: 560,
+    ),
+    scrollBody: context.isTouch,
     fillAvailableHeight: true,
-    nested: true,
     surfaceBuilder: (_, sheet) => SidebarTaxonomyEditor(
       controller: controller,
       siteUrl: siteUrl,
@@ -231,6 +235,7 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
 
   Widget _body(BuildContext context) {
     if (_loading) return const Center(child: DSpinner());
+    final tokens = DTokens.of(context);
     final byId = {for (final c in _categories) c.id: c};
     int depth(TopicCategory category) {
       if (_query.isNotEmpty || _selection != _Selection.all) return 0;
@@ -244,117 +249,173 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
       return value;
     }
 
+    Widget row({
+      required Key key,
+      required int id,
+      required String name,
+      required Widget mark,
+      int depth = 0,
+    }) => Padding(
+      padding: EdgeInsetsDirectional.only(start: 18.0 * depth),
+      child: DCheckbox(
+        key: key,
+        size: DCheckboxSize.compact,
+        value: _selected.contains(id),
+        onChanged: _canAct ? (_) => _toggle(id) : null,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 8),
+        title: Padding(
+          padding: const EdgeInsetsDirectional.only(
+            start: 2,
+            top: 7,
+            bottom: 7,
+          ),
+          child: Row(
+            spacing: 10,
+            children: [
+              mark,
+              Expanded(
+                child: Text(
+                  name,
+                  style: const TextStyle(fontSize: 13.5, height: 1.5),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
     final rows = <Widget>[
       if (widget.categories)
         for (final category in _categories)
           if (_matches(category.id, category.name))
-            Padding(
-              padding: EdgeInsetsDirectional.only(
-                start: depth(category) * DSpacing.lg,
-              ),
-              child: DCheckbox(
-                key: ValueKey('sidebar-choice-category-${category.id}'),
-                value: _selected.contains(category.id),
-                onChanged: _canAct ? (_) => _toggle(category.id) : null,
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: DSpacing.sm,
-                ),
-                title: Row(
-                  spacing: DSpacing.sm,
-                  children: [
-                    CategoryIcon(
-                      category: category,
-                      size: 14,
-                      siteUrl: widget.siteUrl,
-                    ),
-                    Expanded(child: Text(category.name)),
-                  ],
-                ),
+            row(
+              key: ValueKey('sidebar-choice-category-${category.id}'),
+              id: category.id,
+              name: category.name,
+              depth: depth(category),
+              mark: CategoryIcon(
+                category: category,
+                size: 14,
+                squareSize: 10,
+                siteUrl: widget.siteUrl,
               ),
             ),
       if (!widget.categories)
         for (final tag in _tags)
           if (_matches(tag.id, tag.name))
-            DCheckbox(
+            row(
               key: ValueKey('sidebar-choice-tag-${tag.id}'),
-              value: _selected.contains(tag.id),
-              onChanged: _canAct ? (_) => _toggle(tag.id) : null,
-              contentPadding: const EdgeInsets.symmetric(vertical: DSpacing.sm),
-              title: Text(tag.name),
+              id: tag.id,
+              name: tag.name,
+              mark: DIcon(DIcons.tag, size: 12, color: tokens.mutedForeground),
             ),
+    ];
+    final list = Column(
+      key: const ValueKey('sidebar-taxonomy-choices'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: rows.isEmpty
+          ? [
+              Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Text(
+                  widget.categories
+                      ? context.l10n.sidebarNoCategoriesMatch
+                      : context.l10n.sidebarNoTagsMatch,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    height: 1.5,
+                    color: tokens.mutedForeground,
+                  ),
+                ),
+              ),
+            ]
+          : rows,
+    );
+    final label = widget.categories
+        ? context.l10n.sidebarSearchCategories
+        : context.l10n.searchTagsTopictagselector;
+    Widget chip(_Selection value, String text) => Semantics(
+      key: ValueKey('sidebar-taxonomy-filter-${value.name}'),
+      container: true,
+      selected: _selection == value,
+      child: DButton(
+        variant: _selection == value
+            ? DButtonVariant.quietSelected
+            : DButtonVariant.quiet,
+        size: DControlSize.filter,
+        label: Text(text),
+        onPressed: () => setState(() => _selection = value),
+      ),
+    );
+    final fixed = <Widget>[
+      DecoratedBox(
+        key: const ValueKey('sidebar-taxonomy-search'),
+        decoration: BoxDecoration(
+          border: Border(bottom: BorderSide(color: tokens.border)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 8),
+          child: DInput(
+            borderless: true,
+            semanticLabel: label,
+            hintText: label,
+            style: const TextStyle(fontSize: 15, height: 1.4),
+            onChanged: (value) => setState(() => _query = value),
+          ),
+        ),
+      ),
+      const SizedBox(height: 10),
+      Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        children: [
+          chip(_Selection.all, context.l10n.all),
+          chip(_Selection.selected, context.l10n.sidebarSelected),
+          chip(_Selection.unselected, context.l10n.sidebarUnselected),
+        ],
+      ),
+      const SizedBox(height: 6),
+      if (_error != null)
+        DAlert(
+          variant: DAlertVariant.destructive,
+          description: DAlertDescription(child: Text(_error!)),
+        ),
     ];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DInput(
-          semanticLabel: widget.categories
-              ? context.l10n.sidebarSearchCategories
-              : context.l10n.searchTagsTopictagselector,
-          hintText: widget.categories
-              ? context.l10n.sidebarSearchCategories
-              : context.l10n.searchTagsTopictagselector,
-          prefix: const DIcon(DIcons.magnifyingGlass, size: 16),
-          onChanged: (value) => setState(() => _query = value),
-        ),
-        const SizedBox(height: DSpacing.sm),
-        DToggleGroup<_Selection>(
-          values: [_selection],
-          allowEmptySelection: false,
-          wrap: true,
-          density: DToggleDensity.menuFilter,
-          onChanged: (values) => setState(() => _selection = values.single),
-          items: [
-            DToggleGroupItem(
-              value: _Selection.all,
-              child: Text(context.l10n.all),
-            ),
-            DToggleGroupItem(
-              value: _Selection.selected,
-              child: Text(context.l10n.sidebarSelected),
-            ),
-            DToggleGroupItem(
-              value: _Selection.unselected,
-              child: Text(context.l10n.sidebarUnselected),
-            ),
-          ],
-        ),
-        const SizedBox(height: DSpacing.sm),
-        if (_error != null)
-          DAlert(
-            variant: DAlertVariant.destructive,
-            description: DAlertDescription(child: Text(_error!)),
-          ),
-        Flexible(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 360),
-            child: DScrollArea(
-              key: const ValueKey('sidebar-taxonomy-choices'),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: rows.isEmpty
-                    ? [Text(context.l10n.sidebarNoMatches)]
-                    : rows,
+        ...fixed,
+        if (context.isTouch)
+          list
+        else
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.sizeOf(context).height * .45,
               ),
+              child: DScrollArea(child: list),
             ),
           ),
-        ),
       ],
     );
   }
 
-  Widget _footer(BuildContext context) => Wrap(
+  Widget _footer(BuildContext context) => ShellSheetActions(
     key: const ValueKey('sidebar-taxonomy-actions'),
-    alignment: WrapAlignment.spaceBetween,
-    spacing: DSpacing.sm,
-    runSpacing: DSpacing.sm,
     children: [
       DButton(
         variant: DButtonVariant.outline,
+        shape: DButtonShape.pill,
+        size: DControlSize.field,
+        backgroundColor: Colors.transparent,
         label: Text(context.l10n.sidebarResetDefault),
         onPressed: _canAct ? _reset : null,
       ),
       DButton(
+        shape: DButtonShape.pill,
+        size: DControlSize.field,
         label: Text(context.l10n.save),
         loading: _saving,
         onPressed: _canAct ? _save : null,

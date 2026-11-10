@@ -249,8 +249,6 @@ Future<void> _showShare(
       context: context,
       title: subject.heading,
       dialogOnDesktop: true,
-      showHeaderDivider: false,
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 16),
       builder: (context) => _ShareSheetBody(subject: subject),
     );
   }

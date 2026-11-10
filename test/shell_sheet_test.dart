@@ -26,7 +26,7 @@ void main() {
     testWidgets(
       'edit footer stays at the visible foot through partial detents and keyboard on $platform',
       (tester) async {
-        const footerPadding = 16 * 17 / 13;
+        const footerPadding = 14 * 17 / 13;
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -237,6 +237,119 @@ void main() {
     );
   }
 
+  // The mockup's sheet is as tall as what it holds, a tall one resting at
+  // 55% of the screen with its actions held where they are seen; they sit
+  // 28 of its zoom under what it holds, and 14 above its foot.
+  Future<({Rect surface, Rect content, Rect action})> openPhoneEditor(
+    WidgetTester tester, {
+    required double contentHeight,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpSurface(
+      tester,
+      dialog: true,
+      platform: TargetPlatform.iOS,
+      builder: (_) => SizedBox(
+        key: const ValueKey('content'),
+        width: double.infinity,
+        height: contentHeight,
+      ),
+      footerBuilder: (context) => ShellSheetActions(
+        children: [
+          DButton(
+            key: const ValueKey('action'),
+            label: const Text('Insert link'),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    return _phoneEditorRects(tester);
+  }
+
+  testWidgets('a short phone sheet with actions is as tall as what it holds', (
+    tester,
+  ) async {
+    final rest = await openPhoneEditor(tester, contentHeight: 120);
+    expect(rest.surface.bottom, 844);
+    expect(rest.surface.height, lessThan(844 * .55));
+    expect(rest.action.top - rest.content.bottom, closeTo(28 * 17 / 13, 0.2));
+    expect(
+      rest.surface.bottom - rest.action.bottom,
+      closeTo(14 * 17 / 13, 0.2),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'a tall phone sheet with actions rests with them in view and rises only '
+    'as tall as what it holds',
+    (tester) async {
+      final rest = await openPhoneEditor(tester, contentHeight: 330);
+      expect(rest.surface.height, closeTo(844 * .55, 0.5));
+      expect(
+        rest.surface.bottom - rest.action.bottom,
+        closeTo(14 * 17 / 13, 0.2),
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      final risen = _phoneEditorRects(tester);
+      expect(risen.surface.height, greaterThan(rest.surface.height));
+      expect(
+        risen.action.top - risen.content.bottom,
+        closeTo(28 * 17 / 13, 0.2),
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
+  // A fixed sheet's lower height cannot grow with its heading and actions,
+  // which large text can make taller than it; a sheet sized to its content
+  // rests there with them in view.
+  for (final fill in [true, false]) {
+    testWidgets(
+      'under large text a ${fill ? 'fixed' : 'content-sized'} phone sheet '
+      'with actions opens at its ${fill ? 'full' : 'lower'} height',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pumpSurface(
+          tester,
+          dialog: true,
+          platform: TargetPlatform.iOS,
+          textScaler: const TextScaler.linear(2),
+          fillAvailableHeight: fill,
+          builder: (_) => const SizedBox(
+            key: ValueKey('content'),
+            width: double.infinity,
+            height: 2000,
+          ),
+          footerBuilder: (context) => ShellSheetActions(
+            children: [
+              for (final label in ['Unassign', 'Cancel', 'Save changes'])
+                DButton(label: Text(label), onPressed: () {}),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byType(DSheetContent)).top,
+          fill ? lessThan(40) : closeTo(740 * .45, 1),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
   testWidgets('a phone sheet is put away by its grabber', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -263,6 +376,86 @@ void main() {
     expect(surface.width, 640);
     expect(surface.left, 180);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  // Measured on the mockup's Insert link sheet: a phone's at 390 wide, a
+  // desktop dialog's at its own size, which a desktop sheet shares. What the
+  // sheet holds starts right under its heading, with no rule between. The
+  // gap to the actions is read at the end of what scrolls, where they are
+  // held.
+  for (final (presentation, platform, dialog, side, gap, foot) in [
+    ('phone sheet', TargetPlatform.iOS, true, 19.46, 36.62, 18.46),
+    ('desktop dialog', TargetPlatform.macOS, true, 17.0, 16.0, 17.0),
+    ('desktop sheet', TargetPlatform.macOS, false, 17.0, 16.0, 17.0),
+  ]) {
+    testWidgets(
+      'a $presentation lines its heading, content and actions up as the '
+      'mockup does',
+      (tester) async {
+        tester.view.physicalSize = platform == TargetPlatform.iOS
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pumpSurface(
+          tester,
+          dialog: dialog,
+          platform: platform,
+          builder: (_) => const SizedBox(
+            key: ValueKey('content'),
+            width: double.infinity,
+            height: 2000,
+          ),
+          footerBuilder: (context) => ShellSheetActions(
+            children: [
+              DButton(
+                key: const ValueKey('action'),
+                label: const Text('Insert link'),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final sheet = find.byType(
+          dialog && platform == TargetPlatform.macOS
+              ? DDialogContent
+              : DSheetContent,
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('content'))).top,
+          closeTo(tester.getRect(find.byType(DSheetHeader)).bottom, 0.2),
+        );
+        expect(
+          find.descendant(of: sheet, matching: find.byType(DSeparator)),
+          findsNothing,
+        );
+        final scroll = tester
+            .state<ScrollableState>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('content')),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
+            )
+            .position;
+        scroll.jumpTo(scroll.maxScrollExtent);
+        await tester.pumpAndSettle();
+        final surface = tester.getRect(sheet);
+        final title = tester.getRect(find.text(_title));
+        final content = tester.getRect(find.byKey(const ValueKey('content')));
+        final action = tester.getRect(find.byKey(const ValueKey('action')));
+        expect(title.left - surface.left, closeTo(side, 0.2));
+        expect(content.left - surface.left, closeTo(side, 0.2));
+        expect(surface.right - content.right, closeTo(side, 0.2));
+        expect(surface.right - action.right, closeTo(side, 0.2));
+        expect(action.top - content.bottom, closeTo(gap, 0.2));
+        expect(surface.bottom - action.bottom, closeTo(foot, 0.2));
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
 
   for (final dialog in [false, true]) {
     testWidgets(
@@ -445,6 +638,14 @@ void main() {
   }
 }
 
+({Rect surface, Rect content, Rect action}) _phoneEditorRects(
+  WidgetTester tester,
+) => (
+  surface: tester.getRect(find.byType(DSheetContent)),
+  content: tester.getRect(find.byKey(const ValueKey('content'))),
+  action: tester.getRect(find.byKey(const ValueKey('action'))),
+);
+
 Future<FocusNode> _pumpMenu(
   WidgetTester tester, {
   required bool dialog,
@@ -561,6 +762,7 @@ Future<FocusNode> _pumpSurface(
   ValueChanged<String?>? onResult,
   ValueNotifier<double>? keyboard,
   TextScaler textScaler = TextScaler.noScaling,
+  bool fillAvailableHeight = false,
   BoxConstraints constraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
@@ -606,6 +808,7 @@ Future<FocusNode> _pumpSurface(
                   title: _title,
                   dialogOnDesktop: dialog,
                   enableDrag: enableDrag,
+                  fillAvailableHeight: fillAvailableHeight,
                   desktopDialogConstraints: constraints,
                   builder: builder ?? (_) => const Text('Body'),
                   footerBuilder: footerBuilder,

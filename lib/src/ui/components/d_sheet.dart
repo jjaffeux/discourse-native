@@ -990,6 +990,7 @@ Widget _sheetPresentation(
   bool dismissOnSwipe, {
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
+  bool keepFootInView = false,
   bool initiallyExpanded = false,
   bool contentLoading = false,
   GlobalKey? restAt,
@@ -1008,6 +1009,7 @@ Widget _sheetPresentation(
       retained: retainKeyboardInsets,
       onDismissRequested: onRetainedSwipeDismissRequested,
       sizeToContent: sizeToContent,
+      keepFootInView: keepFootInView,
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
       restAt: restAt,
@@ -3117,6 +3119,11 @@ Future<T?> showDSheet<T>({
   bool inset = false,
   DSheetVariant variant = DSheetVariant.standard,
   bool sizeToContent = true,
+
+  /// While an adaptive menu sized to its content rests below its full height,
+  /// lays out only what is in view, so what is at its foot, such as a footer,
+  /// stays in view rather than below the screen.
+  bool keepFootInView = false,
   bool initiallyExpanded = false,
   bool contentLoading = false,
   GlobalKey? restAt,
@@ -3136,6 +3143,7 @@ Future<T?> showDSheet<T>({
   FocusNode? finalFocusNode,
 }) {
   assert(topBottomMaxWidth == null || topBottomMaxWidth > 0);
+  assert(!keepFootInView || (sizeToContent && restAt == null));
   return showDDialog<T>(
     context: context,
     builder: builder,
@@ -3161,6 +3169,7 @@ Future<T?> showDSheet<T>({
       dismissOnSwipe,
       variant: variant,
       sizeToContent: sizeToContent,
+      keepFootInView: keepFootInView,
       initiallyExpanded: initiallyExpanded,
       contentLoading: contentLoading,
       restAt: restAt,

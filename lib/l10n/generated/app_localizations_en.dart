@@ -14912,10 +14912,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get sidebarSearchCategories => 'Search categories';
 
   @override
-  String get sidebarEditCategories => 'Edit categories';
+  String get sidebarEditCategories => 'Edit your categories';
 
   @override
-  String get sidebarEditTags => 'Edit tags';
+  String get sidebarEditTags => 'Edit your tags';
 
   @override
   String saveSidebarItem(String name) {
@@ -14923,7 +14923,10 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get sidebarNoMatches => 'No matches.';
+  String get sidebarNoCategoriesMatch => 'No categories match.';
+
+  @override
+  String get sidebarNoTagsMatch => 'No tags match.';
 
   @override
   String backToTopOf(String title) {

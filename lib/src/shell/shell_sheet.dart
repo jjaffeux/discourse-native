@@ -16,16 +16,14 @@ Future<T?> showShellSheet<T>({
   bool nested = false,
   bool scrollBody = true,
   bool dialogOnDesktop = false,
-  bool showHeaderDivider = true,
   BoxConstraints desktopDialogConstraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
   ),
-  EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-    horizontal: 24,
-    vertical: 16,
-  ),
-  EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
+
+  /// Default to the mockup's insets for where the sheet is shown.
+  EdgeInsetsGeometry? padding,
+  EdgeInsetsGeometry? footerPadding,
   bool enableDrag = true,
   bool Function()? canDismiss,
   FocusNode? initialFocusNode,
@@ -43,6 +41,7 @@ Future<T?> showShellSheet<T>({
   Widget surface(BuildContext context, Widget child) =>
       surfaceBuilder?.call(context, child) ?? child;
   if (dialogOnDesktop && !context.isTouch) {
+    const insets = _pointerInsets;
     return showDDialog<T>(
       context: context,
       useRootNavigator: true,
@@ -68,9 +67,9 @@ Future<T?> showShellSheet<T>({
                   footerBuilder: footerBuilder,
                   nested: nested,
                   scrollBody: scrollBody,
-                  showHeaderDivider: showHeaderDivider,
-                  padding: padding,
-                  footerPadding: footerPadding,
+                  headingInset: insets.heading,
+                  padding: padding ?? insets.body,
+                  footerPadding: footerPadding ?? insets.footer,
                 ),
               ),
             ],
@@ -87,13 +86,24 @@ Future<T?> showShellSheet<T>({
       ? DSheetVariant.adaptiveMenu
       : DSheetVariant.menu;
   final adaptive = variant == DSheetVariant.adaptiveMenu;
+  final insets = context.isTouch ? _phoneInsets : _pointerInsets;
+  // As tall as what it holds, a tall one resting at its lower height with its
+  // actions held in view, as the mockup's sheets are. One that fills the room
+  // keeps that height, so arriving results cannot resize it.
+  final sizeToContent = !(adaptive && fillAvailableHeight);
   final pinnedFooter = adaptive && footerBuilder != null;
-  final sizeToContent = !(adaptive && (fillAvailableHeight || pinnedFooter));
   return showDSheet<T>(
     context: context,
     side: DSheetSide.bottom,
     variant: variant,
     sizeToContent: sizeToContent,
+    keepFootInView: sizeToContent && pinnedFooter,
+    // Past the kit's large-text threshold, a fixed sheet's heading and actions
+    // can take its whole lower height, so it opens at its full height instead.
+    initiallyExpanded:
+        !sizeToContent &&
+        pinnedFooter &&
+        MediaQuery.textScalerOf(context).scale(1) > 1.5,
     dismissOnSwipe: enableDrag,
     canDismiss: canDismiss,
     initialFocusNode: initialFocusNode,
@@ -109,7 +119,12 @@ Future<T?> showShellSheet<T>({
                 : 0,
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 640),
+            // A phone sheet with actions rises as far as the screen lets it,
+            // as it did at its fixed height. A cap here would also count a
+            // raised keyboard against it.
+            constraints: BoxConstraints(
+              maxHeight: pinnedFooter ? double.infinity : 640,
+            ),
             child: DSheetContent(
               side: DSheetSide.bottom,
               variant: variant,
@@ -127,11 +142,11 @@ Future<T?> showShellSheet<T>({
                     footerBuilder: footerBuilder,
                     nested: nested,
                     grabbed: adaptive,
-                    expandBody: pinnedFooter,
+                    expandBody: !sizeToContent && pinnedFooter,
                     scrollBody: scrollBody,
-                    showHeaderDivider: showHeaderDivider,
-                    padding: padding,
-                    footerPadding: footerPadding,
+                    headingInset: insets.heading,
+                    padding: padding ?? insets.body,
+                    footerPadding: footerPadding ?? insets.footer,
                   ),
                 ),
               ],
@@ -143,6 +158,29 @@ Future<T?> showShellSheet<T>({
   );
 }
 
+/// Where a sheet's heading, content and actions sit, from the mockup's
+/// sheets. The heading's is added to the sheet header's own inset, and what
+/// the sheet holds starts right under it, with no rule between.
+typedef _SheetInsets = ({double heading, EdgeInsets body, EdgeInsets footer});
+
+/// A phone's, in the zoomed units its content is laid out in: one inset from
+/// the sides for all three, its actions 28 under what it holds, and either
+/// 14 above its foot.
+const _SheetInsets _phoneInsets = (
+  // The header's own inset is not zoomed.
+  heading: 15 - DSpacing.md * 13 / 17,
+  body: EdgeInsets.fromLTRB(15, 0, 15, 14),
+  footer: EdgeInsets.fromLTRB(15, 14, 15, 14),
+);
+
+/// A desktop dialog's: 16 inside its 1px rim, with its actions 16 under what
+/// it holds.
+const _SheetInsets _pointerInsets = (
+  heading: 17 - DSpacing.md,
+  body: EdgeInsets.fromLTRB(17, 0, 17, 16),
+  footer: EdgeInsets.fromLTRB(17, 0, 17, 17),
+);
+
 class _SheetBody extends StatelessWidget {
   const _SheetBody({
     required this.title,
@@ -152,7 +190,7 @@ class _SheetBody extends StatelessWidget {
     this.grabbed = false,
     this.expandBody = false,
     required this.scrollBody,
-    required this.showHeaderDivider,
+    required this.headingInset,
     required this.padding,
     required this.footerPadding,
   });
@@ -166,47 +204,49 @@ class _SheetBody extends StatelessWidget {
   final bool grabbed;
   final bool expandBody;
   final bool scrollBody;
-  final bool showHeaderDivider;
+  final double headingInset;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        DSheetHeader(
-          leading: nested
-              ? DSheetHeaderAction(
-                  onPressed: () => DDialogClose.close<void>(context),
-                  tooltip: context.l10n.back,
-                  icon: const DIcon(DIcons.arrowLeft),
-                )
-              : null,
-          trailing: nested || grabbed
-              ? null
-              : DSheetHeaderAction.close(
-                  onPressed: () => DDialogClose.close<void>(context),
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: headingInset),
+          child: DSheetHeader(
+            leading: nested
+                ? DSheetHeaderAction(
+                    onPressed: () => DDialogClose.close<void>(context),
+                    tooltip: context.l10n.back,
+                    icon: const DIcon(DIcons.arrowLeft),
+                  )
+                : null,
+            trailing: nested || grabbed
+                ? null
+                : DSheetHeaderAction.close(
+                    onPressed: () => DDialogClose.close<void>(context),
+                  ),
+            children: [
+              DSheetTitle(
+                child: DText(
+                  title,
+                  variant: DTextVariant.h4,
+                  headingLevel: 1,
+                  style: grabbed
+                      ? TextStyle(
+                          fontSize: DiscourseTypography.sheetTitle,
+                          fontWeight: FontWeight.w600,
+                          color: DTokens.of(context).foreground,
+                        )
+                      : null,
                 ),
-          children: [
-            DSheetTitle(
-              child: DText(
-                title,
-                variant: DTextVariant.h4,
-                headingLevel: 1,
-                style: grabbed
-                    ? TextStyle(
-                        fontSize: DiscourseTypography.sheetTitle,
-                        color: DTokens.of(context).foreground,
-                      )
-                    : null,
               ),
-            ),
-          ],
+            ],
+          ),
         ),
-        if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(
           fit: expandBody ? FlexFit.tight : FlexFit.loose,
           child: scrollBody
@@ -215,13 +255,11 @@ class _SheetBody extends StatelessWidget {
                 )
               : Padding(padding: padding, child: builder(context)),
         ),
-        if (footerBuilder case final footerBuilder?) ...[
-          DSeparator(color: theme.shell.divider, space: 1),
+        if (footerBuilder case final footerBuilder?)
           DSheetFooter(
             padding: footerPadding,
             children: [footerBuilder(context)],
           ),
-        ],
       ],
     );
   }
