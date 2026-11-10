@@ -13,6 +13,7 @@ import 'package:discourse_native/src/shell/shell_metrics.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
 import 'package:discourse_native/src/shell/tags_page.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -413,6 +414,58 @@ void main() {
       expect(find.byType(TagsPage), findsNothing);
     },
   );
+
+  testWidgets('the directory title retracts on scroll like the reference', (
+    tester,
+  ) async {
+    final tags = [
+      for (var id = 1; id <= 120; id++)
+        SidebarTag(id: id, name: 'tag-$id', slug: 'tag-$id', count: 200 - id),
+    ];
+    final controller = await _loadController(
+      api: FakeDiscourseApi(feeds: const {'/latest.json': []}, tagList: tags),
+      user: const DiscourseUser(
+        id: 1,
+        username: 'reader',
+        displaySidebarTags: true,
+      ),
+    );
+    await _pumpShell(tester, controller);
+    await tester.tap(_sidebarText('All tags'));
+    await tester.pumpAndSettle();
+
+    final title = find
+        .descendant(of: find.byType(TagsPage), matching: find.text('Tags'))
+        .hitTestable();
+    final grid = find.byKey(const ValueKey('tag-directory-tag-4'));
+    final scroller = Scrollable.of(tester.element(grid)).position;
+    Future<void> wheel(double amount) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byType(TagsPage)),
+          scrollDelta: Offset(0, amount),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(title, findsOneWidget);
+    await wheel(600);
+    expect(title, findsNothing);
+    // Past the end-of-scroll hold, a short scroll back brings the title in
+    // while the list is still well away from its top.
+    await tester.pump(const Duration(milliseconds: 500));
+    await wheel(-160);
+    expect(scroller.pixels, greaterThan(200));
+    expect(title, findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 500));
+    await wheel(400);
+    expect(title, findsNothing);
+    scroller.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(title, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('an initial directory failure shows a retryable error state', (
     tester,

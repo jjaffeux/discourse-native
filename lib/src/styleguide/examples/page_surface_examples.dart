@@ -16,7 +16,6 @@ final pageSurfaceExamples = ComponentExamples(
       'Reader fadeHeaderOnScroll fades DHeaderMorph parts before posts reach them; '
       'barOpacity carries the topic title into surrounding chrome. holdTitleInBar keeps channel names there. '
       'The first 48px and pages with less than 120px of overflow keep their title. '
-      'foldTitleAtTop keeps indexed directories compact away from the top. '
       'bodyBuilder retains a fixed viewport. Reserve header.spacer in its content, '
       'or use DPageScrollInsets for list padding. child retains a bounded body. '
       'adaptiveBodyBuilder keeps directories lazy while the full heading fits and '

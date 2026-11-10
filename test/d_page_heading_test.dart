@@ -21,7 +21,6 @@ Future<void> _mount(
   ScrollController scroll, {
   bool floating = true,
   bool shared = false,
-  bool foldAtTop = false,
   bool dark = false,
   double scale = 1,
   Size size = const Size(1100, 800),
@@ -44,7 +43,6 @@ Future<void> _mount(
   );
   final page = DPageSurface.headed(
     title: const Text('Messages', key: _title),
-    foldTitleAtTop: foldAtTop,
     controls:
         controls ??
         Align(
@@ -648,23 +646,6 @@ void main() {
       );
       expect(find.byKey(_title).hitTestable(), findsNothing);
       expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
-    'indexed directories fold at the top through jumps and reversals',
-    (tester) async {
-      final scroll = ScrollController();
-      addTearDown(scroll.dispose);
-      await _mount(tester, scroll, foldAtTop: true);
-      scroll.jumpTo(400);
-      await tester.pumpAndSettle();
-      expect(find.byKey(_title).hitTestable(), findsNothing);
-      await _wheel(tester, -120);
-      expect(find.byKey(_title).hitTestable(), findsNothing);
-      scroll.jumpTo(0);
-      await tester.pumpAndSettle();
-      expect(find.byKey(_title).hitTestable(), findsOneWidget);
     },
   );
 
