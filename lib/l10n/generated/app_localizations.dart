@@ -124,6 +124,12 @@ abstract class AppLocalizations {
   /// **'Next type'**
   String get nextSearchType;
 
+  /// Keyboard hint in global search for moving into and out of subcategories with the arrow keys.
+  ///
+  /// In en, this message translates to:
+  /// **'Into a category'**
+  String get intoACategory;
+
   /// Combined global search result type for categories and tags.
   ///
   /// In en, this message translates to:

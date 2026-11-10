@@ -237,16 +237,25 @@ mixin DTouchTargetBox on RenderProxyBox {
   }
 }
 
-/// A page's own controls under its title. On a phone the fields in it are
-/// drawn [kDTouchTargetExtent] tall, since a field's press cannot reach past
-/// what it draws the way a control's can.
+/// A page's own controls: those under its title, or the field heading the
+/// phone's search screen. On a phone the fields in it are drawn
+/// [kDTouchTargetExtent] tall, since a field's press cannot reach past what it
+/// draws the way a control's can. A quiet input group, the field that narrows
+/// a list, keeps its pill height.
 class DTouchFields extends InheritedWidget {
-  const DTouchFields({super.key, required super.child});
+  const DTouchFields({super.key, required super.child}) : _grows = true;
+
+  /// A picker drawn as a field, such as a combobox. It keeps the height of
+  /// the pickers beside it, which the mockup draws as buttons.
+  const DTouchFields.picker({super.key, required super.child}) : _grows = false;
+
+  final bool _grows;
 
   /// The least height a field under [context] is drawn at.
   static double minHeightOf(BuildContext context) =>
       DControlStyle.isTouch(context) &&
-          context.getInheritedWidgetOfExactType<DTouchFields>() != null
+          (context.getInheritedWidgetOfExactType<DTouchFields>()?._grows ??
+              false)
       ? kDTouchTargetExtent
       : 0;
 

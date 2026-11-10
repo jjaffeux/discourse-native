@@ -60,6 +60,41 @@ light/dark, and 200% text. They are focused widget renders with wire-shaped
 test responses; no physical-device or authenticated live-server run was made.
 The Native surface renderer belongs to the separate glass/depth group.
 
+## Folded filters and row details (`13db54c`)
+
+Rechecked against `7f43e9d`, `6542d02` and `13db54c` on `test-mobile-layout`.
+
+- Under an empty field the filters wait folded behind a "Filters" row with a
+  chevron, closed each time search opens. The row opens and closes on a press,
+  on Enter, or on the right and left arrows. Those arrows reach a row's own way
+  sideways before they switch search types. While a word that could start a
+  filter is being typed, the matching filters stand open under a plain
+  heading.
+- "Recent searches" and "Filters" are 32-point headings with their mark in
+  the rows' 30-point mark column. Past searches have no icon of their own and
+  start under the heading's label. A typed word narrows them, and Clear
+  history hides while it does.
+- Each filter row is 38 points tall, with its icon in a raised 30-point circle
+  and its help text beside its name on the same line.
+- "In this topic" is bold, the topic's title follows in muted text, and the
+  heading ends in the navigation pill. Its post rows centre a 22-point face in
+  the 30-point column.
+- Chat results use the message layout that plugin scopes can now declare
+  (`GlobalSearchResultLayout.message`): two lines of what was said, the
+  channel as `#name` or "Direct message" under them, and the date beside the
+  row. At large text the date returns to the details line.
+- Search-type counts stop at 99+. The details line's separators are half as
+  strong as its text and are not read aloud. While a category is browsed, the
+  desktop footer says "← → Into a category" in place of "Tab Next type".
+
+- The phone's search field is 44 points tall, as `.phone-search`'s field is,
+  so what it finds starts 8 + 44 + 8 points under the screen's top. The head
+  is wrapped in `DTouchFields`, and `DInputGroup` now follows that rule as
+  `DInput` already did.
+
+Return on a phone still keeps search open and only closes the keyboard, as
+`1c17b226e` chose; the mockup opens the highlighted row.
+
 The focused run has five baseline macOS assertions in
 `test/message_inbox_page_test.dart`: three expect `new-message-button`, and
 two expect the old list/footer navigation. All five fail identically on

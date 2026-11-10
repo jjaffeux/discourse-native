@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/plugins/chat/chat_global_search.dart';
@@ -211,6 +212,45 @@ void main() {
       expect(shell.globalSearch.scopes, contains(chatSearchScope));
     });
   });
+
+  for (final (platform, field) in [
+    (TargetPlatform.iOS, 44.0),
+    (TargetPlatform.android, 44.0),
+    (TargetPlatform.macOS, 30.0),
+  ]) {
+    testWidgets('the search screen field is $field tall on $platform', (
+      tester,
+    ) async {
+      final shell = createGlobalSearchFixtureController(
+        api: GlobalSearchFixtureApi(),
+      );
+      addTearDown(shell.dispose);
+      await shell.load();
+      shell.pushContent(ContentRoute.search());
+
+      await _pumpSearch(
+        tester,
+        shell,
+        const ForumSearch.page(),
+        platform: platform,
+      );
+      await tester.pumpAndSettle();
+
+      final head = tester.getRect(find.byKey(ForumSearch.panelKey));
+      final editor = tester.getRect(
+        find.ancestor(
+          of: find.byKey(ForumSearch.inputKey),
+          matching: find.byType(DInputGroup),
+        ),
+      );
+      expect(editor.height, field);
+      expect(
+        tester.getRect(find.byType(GlobalSearchPanel)).top - head.top,
+        8 + field + 8,
+        reason: 'what it finds starts 8 under the field',
+      );
+    });
+  }
 }
 
 const _clearKey = ValueKey('forum-search-clear');

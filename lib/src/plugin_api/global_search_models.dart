@@ -16,6 +16,7 @@ final class GlobalSearchScope {
     this.showAvatar = false,
     this.singletonFilters = false,
     this.displayProperties = const {GlobalSearchDisplayProperty.excerpt},
+    this.layout = GlobalSearchResultLayout.entry,
   });
   const GlobalSearchScope._core(
     this.name, {
@@ -23,7 +24,8 @@ final class GlobalSearchScope {
     this.singletonFilters = false,
   }) : _label = null,
        owner = 'core',
-       displayProperties = const {GlobalSearchDisplayProperty.excerpt};
+       displayProperties = const {GlobalSearchDisplayProperty.excerpt},
+       layout = GlobalSearchResultLayout.entry;
   static const all = GlobalSearchScope._core('all');
   static const forum = GlobalSearchScope._core('forum');
   static const messages = GlobalSearchScope._core('messages');
@@ -53,6 +55,7 @@ final class GlobalSearchScope {
       };
   final bool showAvatar, singletonFilters;
   final Set<GlobalSearchDisplayProperty> displayProperties;
+  final GlobalSearchResultLayout layout;
   bool get isCore => owner == 'core';
   String get keyName => isCore ? name : '$owner/$name';
   @override
@@ -63,6 +66,16 @@ final class GlobalSearchScope {
 }
 
 enum GlobalSearchPhase { idle, tooShort, loading, results, empty, failed }
+
+/// How a scope's result rows are drawn.
+enum GlobalSearchResultLayout {
+  /// A titled entry: a line of its excerpt and its details under that.
+  entry,
+
+  /// Something someone said: who said it, two lines of what they said, where
+  /// it was said under that and when beside it.
+  message,
+}
 
 enum GlobalSearchDisplayProperty {
   excerpt,

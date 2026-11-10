@@ -48,6 +48,7 @@ typedef _GlobalReads = ({
   bool hasQuery,
   bool hasWords,
   String? selectedResultId,
+  bool browsingCategories,
 });
 
 class ForumSearch extends StatefulWidget {
@@ -174,6 +175,8 @@ class _ForumSearchState extends State<ForumSearch> {
     hasQuery: _query.isNotEmpty,
     hasWords: _global.wordsQuery.isNotEmpty,
     selectedResultId: _selectedResultId,
+    browsingCategories:
+        _global.stagedFilter?.id == 'category' && _global.stagedTerm.isEmpty,
   );
 
   bool get _shellPage => widget.fullScreen && _shell!.mobileNavigationEnabled;
@@ -1136,10 +1139,19 @@ class _ForumSearchState extends State<ForumSearch> {
                                 context.l10n.move,
                               ),
                               ([LogicalKeyboardKey.enter], context.l10n.open),
-                              (
-                                [LogicalKeyboardKey.tab],
-                                context.l10n.nextSearchType,
-                              ),
+                              if (_globalReads.browsingCategories)
+                                (
+                                  [
+                                    LogicalKeyboardKey.arrowLeft,
+                                    LogicalKeyboardKey.arrowRight,
+                                  ],
+                                  context.l10n.intoACategory,
+                                )
+                              else
+                                (
+                                  [LogicalKeyboardKey.tab],
+                                  context.l10n.nextSearchType,
+                                ),
                               ([LogicalKeyboardKey.escape], context.l10n.close),
                             ])
                               Row(
@@ -1239,26 +1251,28 @@ class _ForumSearchState extends State<ForumSearch> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Row(
-                spacing: 10,
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) =>
-                          _editor(constraints.maxWidth, expanded: true),
+              child: DTouchFields(
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) =>
+                            _editor(constraints.maxWidth, expanded: true),
+                      ),
                     ),
-                  ),
-                  DButton(
-                    key: const ValueKey('mobile-search-back'),
-                    label: Text(
-                      appL10n.cancel,
-                      style: TextStyle(color: DTokens.of(context).primary),
+                    DButton(
+                      key: const ValueKey('mobile-search-back'),
+                      label: Text(
+                        appL10n.cancel,
+                        style: TextStyle(color: DTokens.of(context).primary),
+                      ),
+                      size: DButtonSize.filter,
+                      variant: DButtonVariant.inline,
+                      onPressed: _closeSearch,
                     ),
-                    size: DButtonSize.filter,
-                    variant: DButtonVariant.inline,
-                    onPressed: _closeSearch,
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
             Expanded(

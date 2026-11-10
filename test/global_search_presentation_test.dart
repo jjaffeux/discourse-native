@@ -2034,6 +2034,25 @@ void main({bool useDeviceMetrics = false}) {
           findsOneWidget,
         );
       }
+      final search = shell.globalSearch;
+      search.beginFilter(
+        search.availableFilters.singleWhere((f) => f.id == 'category'),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: footer, matching: find.text('Into a category')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: footer, matching: find.text('Next type')),
+        findsNothing,
+      );
+      search.setQuery('');
+      await tester.pumpAndSettle();
+      expect(
+        find.descendant(of: footer, matching: find.text('Next type')),
+        findsOneWidget,
+      );
       expect(
         find.descendant(
           of: panel,

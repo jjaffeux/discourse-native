@@ -1,6 +1,7 @@
 import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:discourse_native/l10n/strings.dart';
 
+import 'chat_channel.dart';
 import 'chat_route.dart';
 import 'chat_search_response.dart';
 
@@ -14,6 +15,7 @@ GlobalSearchScope get chatSearchScope => GlobalSearchScope.plugin(
     GlobalSearchDisplayProperty.excerpt,
     GlobalSearchDisplayProperty.likes,
   },
+  layout: GlobalSearchResultLayout.message,
 );
 
 final class ChatGlobalSearch extends GlobalSearchContribution {
@@ -178,7 +180,10 @@ final class ChatGlobalSearch extends GlobalSearchContribution {
           avatarUrl: resolveAvatarUrl(jsonText(user['avatar_template']), site),
           createdAt: jsonDate(row['created_at']),
           contextLabel:
-              '# ${jsonText(channel['title']) ?? jsonText(channel['name']) ?? jsonText(channel['slug']) ?? ''}',
+              ChatChannelKind.read(channel['chatable_type']) ==
+                  ChatChannelKind.directMessage
+              ? appL10n.directMessage
+              : '#${jsonText(channel['title']) ?? jsonText(channel['name']) ?? jsonText(channel['slug']) ?? ''}',
         ),
       );
     }

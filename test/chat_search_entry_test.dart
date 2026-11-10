@@ -115,7 +115,7 @@ void main() {
         expect(fieldBounds.left, 12);
         expect(fieldBounds.top, greaterThanOrEqualTo(55));
         expect(fieldBounds.center.dy, cancelBounds.center.dy);
-        expect(fieldBounds.height, scale == 1 ? 36 : greaterThanOrEqualTo(36));
+        expect(fieldBounds.height, scale == 1 ? 44 : greaterThanOrEqualTo(44));
         expect(fieldBounds.width, greaterThan(0));
         expect(fieldBounds.right, lessThanOrEqualTo(cancelBounds.left));
         expect(cancelBounds.right, lessThanOrEqualTo(width - 8));
