@@ -447,10 +447,16 @@ class DChartBar extends LeafRenderObjectWidget {
     required this.fraction,
     this.color,
     this.backgroundColor,
-  }) : assert(fraction > -double.infinity && fraction < double.infinity);
+    this.radius = 4,
+  }) : assert(fraction > -double.infinity && fraction < double.infinity),
+       assert(radius >= 0);
   final double fraction;
   final Color? color;
   final Color? backgroundColor;
+
+  /// Corner rounding. Without a [backgroundColor] track, the mark rounds its
+  /// far end as well.
+  final double radius;
 
   @override
   RenderObject createRenderObject(BuildContext context) => _RenderChartBar(
@@ -458,6 +464,7 @@ class DChartBar extends LeafRenderObjectWidget {
     color ?? DTokens.of(context).primary,
     backgroundColor,
     Directionality.of(context),
+    Radius.circular(radius),
   );
 
   @override
@@ -466,7 +473,8 @@ class DChartBar extends LeafRenderObjectWidget {
         ..fraction = fraction.clamp(0.0, 1.0)
         ..color = color ?? DTokens.of(context).primary
         ..backgroundColor = backgroundColor
-        ..direction = Directionality.of(context);
+        ..direction = Directionality.of(context)
+        ..radius = Radius.circular(radius);
 }
 
 /// One box in place of a clipped, decorated and aligned subtree, because a
@@ -477,10 +485,18 @@ class _RenderChartBar extends RenderBox {
     this._color,
     this._backgroundColor,
     this._direction,
+    this._radius,
   );
 
   static const _height = 7.0;
-  static const _radius = Radius.circular(4);
+
+  Radius get radius => _radius;
+  Radius _radius;
+  set radius(Radius value) {
+    if (value == _radius) return;
+    _radius = value;
+    markNeedsPaint();
+  }
 
   double get fraction => _fraction;
   double _fraction;
@@ -547,6 +563,10 @@ class _RenderChartBar extends RenderBox {
         ? Rect.fromLTWH(bounds.left, bounds.top, width, bounds.height)
         : Rect.fromLTWH(bounds.right - width, bounds.top, width, bounds.height);
     final paint = Paint()..color = _color;
+    if (_backgroundColor == null) {
+      canvas.drawRRect(RRect.fromRectAndRadius(mark, _radius), paint);
+      return;
+    }
     // The track's rounding only reaches a mark that ends inside a corner, so
     // the usual bar is drawn without paying for a clip.
     if (width >= _radius.x && width <= size.width - _radius.x) {

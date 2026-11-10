@@ -481,40 +481,100 @@ void main() {
     expect(find.text('zara@example.com'), findsOneWidget);
   });
 
-  testWidgets('column menu toggles repeatedly and all-hidden stays valid', (
+  testWidgets(
+    'column menu keeps the last shown column; all-hidden stays valid',
+    (tester) async {
+      var hidden = <String>{};
+      late StateSetter update;
+      await _pump(
+        tester,
+        StatefulBuilder(
+          builder: (context, setState) {
+            update = setState;
+            return Column(
+              children: [
+                DDataTableColumnToggle<_Payment>(
+                  columns: _columns(),
+                  hiddenColumnIds: hidden,
+                  onChanged: (next) => setState(() => hidden = next),
+                ),
+                DDataTable<_Payment>(
+                  data: _payments,
+                  columns: _columns(),
+                  rowId: (row) => row.id,
+                  state: DDataTableState(hiddenColumnIds: hidden),
+                  onStateChanged: (_) {},
+                ),
+              ],
+            );
+          },
+        ),
+      );
+      await tester.tap(find.text('Columns'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(DDropdownMenuCheckboxItem).first);
+      await tester.pump();
+      expect(hidden, {'email'});
+      expect(find.text('zara@example.com'), findsNothing);
+      await tester.tap(find.byType(DDropdownMenuCheckboxItem).last);
+      await tester.pump();
+      expect(hidden, {'email'});
+      expect(find.text('\$30.00'), findsOneWidget);
+      await tester.tap(find.byType(DDropdownMenuCheckboxItem).first);
+      await tester.pump();
+      expect(hidden, isEmpty);
+
+      update(() => hidden = {'email', 'amount'});
+      await tester.pump();
+      expect(find.text('\$30.00'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('directory grid insets columns like the reference', (
     tester,
   ) async {
-    var hidden = <String>{};
     await _pump(
       tester,
-      StatefulBuilder(
-        builder: (context, setState) => Column(
-          children: [
-            DDataTableColumnToggle<_Payment>(
-              columns: _columns(),
-              hiddenColumnIds: hidden,
-              onChanged: (next) => setState(() => hidden = next),
+      SizedBox(
+        height: 400,
+        child: DDataTable<_Payment>(
+          variant: DDataTableVariant.directory,
+          data: _payments,
+          virtualized: true,
+          columns: [
+            DDataTableColumn(
+              id: 'email',
+              label: 'Email',
+              width: const FixedColumnWidth(170),
+              cellBuilder: (context, cell) => Text(cell.row.email),
             ),
-            DDataTable<_Payment>(
-              data: _payments,
-              columns: _columns(),
-              rowId: (row) => row.id,
-              state: DDataTableState(hiddenColumnIds: hidden),
-              onStateChanged: (_) {},
+            DDataTableColumn(
+              id: 'amount',
+              label: 'Amount',
+              width: const FixedColumnWidth(132),
+              alignment: AlignmentDirectional.centerEnd,
+              cellBuilder: (context, cell) => Text('\$${cell.row.amount}.00'),
             ),
           ],
+          rowId: (row) => row.id,
+          operationMode: DDataTableOperationMode.manual,
         ),
       ),
     );
-    await tester.tap(find.text('Columns'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.byType(DDropdownMenuCheckboxItem).first);
-    await tester.pump();
-    expect(hidden, {'email'});
-    expect(find.text('zara@example.com'), findsNothing);
-    await tester.tap(find.byType(DDropdownMenuCheckboxItem).last);
-    await tester.pump();
-    expect(hidden, {'email', 'amount'});
+
+    final email = tester.getRect(find.text('Email'));
+    final first = tester.getRect(find.text('zara@example.com'));
+    final second = tester.getRect(find.text('abe@example.com'));
+    expect(email.left, 16);
+    expect(first.left, 16);
+    expect(tester.getRect(find.text('Amount')).right, 16 + 170 + 16 + 132);
+    expect(tester.getRect(find.text('\$30.00')).right, 16 + 170 + 16 + 132);
+    // The header is its label and 8 under it; each row is 8 over its
+    // content and 8 under, with its hairline on top of that.
+    expect(first.top - email.bottom, 8 + 1 + 8);
+    expect(second.top - first.bottom, 8 + 1 + 8);
+    expect(find.byType(DResizableHandle), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

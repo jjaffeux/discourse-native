@@ -599,9 +599,10 @@ void main() {
   testWidgets('quantitative marks clamp and fill from the directional start', (
     tester,
   ) async {
+    const track = Color(0xFFEEEEEE);
     await pump(
       tester,
-      const DChartBar(fraction: .25),
+      const DChartBar(fraction: .25, backgroundColor: track),
       width: 200,
       direction: TextDirection.rtl,
     );
@@ -609,20 +610,63 @@ void main() {
     expect(tester.getSize(bar), const Size(200, 7));
     expect(
       tester.renderObject(bar),
-      paints..rrect(
-        rrect: RRect.fromRectAndCorners(
-          const Rect.fromLTWH(150, 0, 50, 7),
-          topRight: const Radius.circular(4),
-          bottomRight: const Radius.circular(4),
+      paints
+        ..rrect(
+          rrect: RRect.fromRectAndRadius(
+            const Rect.fromLTWH(0, 0, 200, 7),
+            const Radius.circular(4),
+          ),
+        )
+        ..rrect(
+          rrect: RRect.fromRectAndCorners(
+            const Rect.fromLTWH(150, 0, 50, 7),
+            topRight: const Radius.circular(4),
+            bottomRight: const Radius.circular(4),
+          ),
         ),
-      ),
     );
-    await pump(tester, const DChartBar(fraction: 2), width: 200);
+    await pump(
+      tester,
+      const DChartBar(fraction: 2, backgroundColor: track),
+      width: 200,
+    );
     expect(
       tester.renderObject(bar),
       paints
+        ..rrect()
         ..clipRRect()
         ..rect(rect: const Rect.fromLTWH(0, 0, 200, 7)),
+    );
+  });
+
+  testWidgets('a bar without a track rounds both ends of its mark', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const DChartBar(fraction: .25, radius: 3),
+      width: 200,
+      direction: TextDirection.rtl,
+    );
+    final bar = find.byType(DChartBar);
+    expect(
+      tester.renderObject(bar),
+      paints..rrect(
+        rrect: RRect.fromRectAndRadius(
+          const Rect.fromLTWH(150, 0, 50, 7),
+          const Radius.circular(3),
+        ),
+      ),
+    );
+    await pump(tester, const DChartBar(fraction: 2, radius: 3), width: 200);
+    expect(
+      tester.renderObject(bar),
+      paints..rrect(
+        rrect: RRect.fromRectAndRadius(
+          const Rect.fromLTWH(0, 0, 200, 7),
+          const Radius.circular(3),
+        ),
+      ),
     );
   });
 

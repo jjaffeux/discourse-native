@@ -56,7 +56,6 @@ class DPageSurface extends StatefulWidget {
     this.identity,
     this.limitContentSize,
     this.footer,
-    this.foldTitleAtTop = false,
   }) : assert(
          (bodyBuilder != null ? 1 : 0) +
                  (adaptiveBodyBuilder != null ? 1 : 0) +
@@ -119,7 +118,6 @@ class DPageSurface extends StatefulWidget {
     this.identity,
   }) : assert(child != null),
        retractControls = false,
-       foldTitleAtTop = false,
        floatingFooter = false,
        compactHeaderBand = false,
        adaptiveBodyBuilder = null,
@@ -159,13 +157,8 @@ class DPageSurface extends StatefulWidget {
     required this.bodyBuilder,
   }) : assert(bodyBuilder != null),
        retractControls = false,
-       foldTitleAtTop = false,
        adaptiveBodyBuilder = null,
        child = null;
-
-  /// Directory indexes keep a compact title away from the top, including
-  /// programmatic jumps; ordinary pages reveal their title on upward input.
-  final bool foldTitleAtTop;
 
   /// Retracts a headed page's controls with its title. A title held in the
   /// surrounding bar stays there while the controls yield to the body.
@@ -330,11 +323,6 @@ class _DPageSurfaceState extends State<DPageSurface>
     vsync: this,
     duration: const Duration(milliseconds: 240),
   )..addListener(_updateHeader);
-  late final _titleFold = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 240),
-  )..addListener(_updateHeader);
-  double _titleFoldTarget = 0;
   bool _compact = false;
   bool _compactFollowsScroll = true;
   double _compactHeight = 76;
@@ -380,9 +368,8 @@ class _DPageSurfaceState extends State<DPageSurface>
         : header.naturalHeight;
   }
 
-  ValueListenable<double> get _progress => widget.foldTitleAtTop
-      ? _titleFold
-      : (_chromeHeaderEnabled ? _scrollChrome : null) ?? _motion;
+  ValueListenable<double> get _progress =>
+      (_chromeHeaderEnabled ? _scrollChrome : null) ?? _motion;
   double get _hiddenFraction =>
       widget.hideHeaderOnScroll && !widget.fadeHeaderOnScroll
       ? _progress.value
@@ -601,8 +588,6 @@ class _DPageSurfaceState extends State<DPageSurface>
       _direction = ScrollDirection.idle;
       _headerGeometry._update(0, 0);
       _motion.reset();
-      _titleFold.value = 0;
-      _titleFoldTarget = 0;
     }
     _reportBand();
   }
@@ -748,12 +733,6 @@ class _DPageSurfaceState extends State<DPageSurface>
       notification.depth,
       notification.context,
     );
-    _updateTitleFold(
-      notification.metrics,
-      notification.depth,
-      notification.context,
-    );
-    if (widget.foldTitleAtTop) return false;
     if (_scrollChrome != null) return false;
     if (_header != null &&
         widget.hideHeaderOnScroll &&
@@ -764,43 +743,12 @@ class _DPageSurfaceState extends State<DPageSurface>
     return false;
   }
 
-  void _updateTitleFold(
-    ScrollMetrics metrics,
-    int depth,
-    BuildContext? origin,
-  ) {
-    if (!widget.foldTitleAtTop ||
-        metrics.axis != Axis.vertical ||
-        !_isPageScroll(depth, origin)) {
-      return;
-    }
-    final target = metrics.pixels - metrics.minScrollExtent > 2 ? 1.0 : 0.0;
-    if (_titleFoldTarget == target) return;
-    _titleFoldTarget = target;
-    void update() {
-      if (!mounted) return;
-      if (MediaQuery.disableAnimationsOf(context)) {
-        _titleFold.value = target;
-      } else {
-        _titleFold.animateTo(target, curve: Curves.easeOutCubic);
-      }
-    }
-
-    if (SchedulerBinding.instance.schedulerPhase ==
-        SchedulerPhase.persistentCallbacks) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => update());
-    } else {
-      update();
-    }
-  }
-
   void _revealStandardTitleAtTop(
     ScrollMetrics metrics,
     int depth,
     BuildContext? origin,
   ) {
     if (widget.header is! _PageTitle ||
-        widget.foldTitleAtTop ||
         metrics.axis != Axis.vertical ||
         !_isPageScroll(depth, origin) ||
         metrics.pixels - metrics.minScrollExtent > 2 ||
@@ -885,18 +833,12 @@ class _DPageSurfaceState extends State<DPageSurface>
       notification.depth,
       notification.context,
     );
-    _updateTitleFold(
-      notification.metrics,
-      notification.depth,
-      notification.context,
-    );
     _updateCompact(
       notification.metrics,
       notification.depth,
       notification.context,
     );
-    if (widget.foldTitleAtTop ||
-        _scrollChrome != null ||
+    if (_scrollChrome != null ||
         _header == null ||
         !widget.hideHeaderOnScroll) {
       return false;
@@ -955,7 +897,6 @@ class _DPageSurfaceState extends State<DPageSurface>
     _scrollChrome?.unregisterHeader(this);
     widget.headerSuppressed?.removeListener(_syncSuppression);
     _suppression.dispose();
-    _titleFold.dispose();
     _bodyAtTop.dispose();
     _compactTimer?.cancel();
     _motion.dispose();

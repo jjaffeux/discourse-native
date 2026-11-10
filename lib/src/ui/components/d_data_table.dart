@@ -29,6 +29,12 @@ enum DDataTableVariant {
 
   /// Square, unframed table with inset cells and full-width row separators.
   borderless,
+
+  /// The reference's directory grid: unframed, 16 between columns and at
+  /// either end, a subtle hairline over each row, and a header only as tall
+  /// as its labels with 8 under them, each label over its column's alignment.
+  /// A fixed column width is its content's; the grid's gaps are added to it.
+  directory,
 }
 
 enum DDataTableOperationMode {
@@ -454,6 +460,7 @@ class DDataTable<T> extends StatefulWidget {
 
 class _DDataTableState<T> extends State<DDataTable<T>> {
   bool get _softHeader => widget.variant == DDataTableVariant.softHeader;
+  bool get _directory => widget.variant == DDataTableVariant.directory;
   late DDataTableState _ownedState = _defaultState();
   bool _normalizationScheduled = false;
   final Map<String, double> _resizedWidths = {};
@@ -652,8 +659,11 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
             tokens.foreground.withValues(alpha: .08),
             tokens.background,
           )
+        : _directory
+        ? tokens.footerBorder
         : tokens.border;
-    final borderless = widget.variant == DDataTableVariant.borderless;
+    final borderless =
+        widget.variant == DDataTableVariant.borderless || _directory;
     final radius = borderless
         ? 0.0
         : _softHeader
@@ -681,7 +691,13 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
               widget.columnWidths.containsKey(column.id)
           ? FixedColumnWidth(_columnWidth(column))
           : column.width;
-      if (width != null) columnWidths[index + offset] = width;
+      if (width == null) continue;
+      columnWidths[index + offset] = width is FixedColumnWidth && _directory
+          ? FixedColumnWidth(
+              width.value +
+                  _directoryInsets(index, visible.length, 0, 0).horizontal,
+            )
+          : width;
     }
 
     final rowIndices = widget.virtualized
@@ -736,15 +752,19 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                   if (visible.isEmpty)
                     const DTableHead(child: SizedBox.shrink()),
 
-                  for (final column in visible)
+                  for (final (index, column) in visible.indexed)
                     DTableHead(
-                      alignment: AlignmentDirectional.centerStart,
+                      alignment: _directory
+                          ? column.alignment
+                          : AlignmentDirectional.centerStart,
+                      minHeight: _directory ? 0 : 40,
                       onTap: column.onHeaderTap,
                       contextMenu: column.headerContextMenu,
                       mouseCursor: column.cellMouseCursor,
                       padding: EdgeInsets.zero,
                       child: _resizableHeader(
                         column,
+                        _headerPadding(column, index, visible.length),
                         column.headerBuilder?.call(
                               context,
                               DDataTableHeaderContext(
@@ -803,14 +823,23 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 ? [
                     DTableRow(
                       cells: [
-                        DTableCell(
-                          columnSpan: math.max(1, visible.length + 0),
-                          alignment: Alignment.center,
-                          child: SizedBox(
-                            height: 80,
-                            child: Center(child: widget.empty),
-                          ),
-                        ),
+                        _directory
+                            ? DTableCell(
+                                columnSpan: math.max(1, visible.length),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 24,
+                                ),
+                                child: widget.empty,
+                              )
+                            : DTableCell(
+                                columnSpan: math.max(1, visible.length + 0),
+                                alignment: Alignment.center,
+                                child: SizedBox(
+                                  height: 80,
+                                  child: Center(child: widget.empty),
+                                ),
+                              ),
                       ],
                     ),
                   ]
@@ -851,15 +880,52 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
     );
   }
 
-  Widget _resizableHeader(DDataTableColumn<T> column, Widget child) {
-    final padded = Padding(
-      padding: ((_softHeader
-          ? const EdgeInsets.symmetric(horizontal: 14)
-          : widget.variant == DDataTableVariant.borderless
-          ? const EdgeInsets.symmetric(horizontal: 16)
-          : column.headerPadding)),
-      child: child,
-    );
+  /// Half the reference grid's 16 gap on each side of a column, and its full
+  /// 16 at either end of the row.
+  static EdgeInsetsDirectional _directoryInsets(
+    int index,
+    int count,
+    double top,
+    double bottom,
+  ) => EdgeInsetsDirectional.fromSTEB(
+    index == 0 ? 16 : 8,
+    top,
+    index == count - 1 ? 16 : 8,
+    bottom,
+  );
+
+  EdgeInsetsGeometry _headerPadding(
+    DDataTableColumn<T> column,
+    int index,
+    int count,
+  ) => _directory
+      ? _directoryInsets(index, count, 0, 8)
+      : _softHeader
+      ? const EdgeInsets.symmetric(horizontal: 14)
+      : widget.variant == DDataTableVariant.borderless
+      ? const EdgeInsets.symmetric(horizontal: 16)
+      : column.headerPadding;
+
+  EdgeInsetsGeometry _cellPadding(
+    DDataTableColumn<T> column,
+    int index,
+    int count,
+  ) => _directory
+      // The hairline is drawn inside the bottom of the row it follows, so the
+      // row keeps one more under its content.
+      ? _directoryInsets(index, count, 8, 9)
+      : _softHeader
+      ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
+      : widget.variant == DDataTableVariant.borderless
+      ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
+      : column.padding;
+
+  Widget _resizableHeader(
+    DDataTableColumn<T> column,
+    EdgeInsetsGeometry padding,
+    Widget child,
+  ) {
+    final padded = Padding(padding: padding, child: child);
     if (!column.resizable) return padded;
     return SizedBox(
       width: double.infinity,
@@ -925,7 +991,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
       cells: [
         if (columns.isEmpty) const DTableCell(child: SizedBox.shrink()),
 
-        for (final column in columns)
+        for (final (index, column) in columns.indexed)
           DTableCell(
             alignment: column.alignment,
             onTap: column.onCellTap == null
@@ -933,11 +999,7 @@ class _DDataTableState<T> extends State<DDataTable<T>> {
                 : () => column.onCellTap!(cell),
             mouseCursor: column.cellMouseCursor,
             contextMenu: column.cellContextMenuBuilder?.call(cell),
-            padding: ((_softHeader
-                ? const EdgeInsets.symmetric(horizontal: 14, vertical: 11)
-                : widget.variant == DDataTableVariant.borderless
-                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 7)
-                : column.padding)),
+            padding: _cellPadding(column, index, columns.length),
             textStyle: _softHeader ? const TextStyle(height: 1.5) : null,
             child: widget.virtualized
                 ? _VirtualizedCellContent<T>(
@@ -1095,52 +1157,76 @@ class DDataTableColumnToggle<T> extends StatelessWidget {
   String get menuLabel => _menuLabel ?? appL10n.toggleColumns;
   final DControlSize size;
 
-  @override
-  Widget build(BuildContext context) => DDropdownMenu(
-    content: DDropdownMenuContent(
-      semanticLabel: menuLabel,
-      align: DPopoverAlign.end,
-      width: 176,
-      children: [
-        DDropdownMenuLabel(child: Text(menuLabel)),
-        const DDropdownMenuSeparator(),
-        for (final column in columns.where((column) => column.hideable))
-          DDropdownMenuCheckboxItem(
-            checked: !hiddenColumnIds.contains(column.id),
-            onChanged: onChanged == null
-                ? null
-                : (visible) {
-                    final hidden = Set<String>.of(hiddenColumnIds);
-                    visible ? hidden.remove(column.id) : hidden.add(column.id);
-                    onChanged!(Set.unmodifiable(hidden));
-                  },
-            child: Text(column.label),
-          ),
-      ],
-    ),
-    child: DDropdownMenuTrigger(
-      builder: (context, trigger) => DButton(
-        label: Text(label),
-        icon: size == DControlSize.filter
-            ? null
-            : DIcon(
-                DControlStyle.isApplicationSize(size)
-                    ? DNativeIcons.filterChevron
-                    : DIcons.chevronDown,
-                size: DControlStyle.chevronDimension(size),
+  Widget _item(DTokens tokens, DDataTableColumn<T> column, int shown) {
+    final visible = !hiddenColumnIds.contains(column.id);
+    final change = onChanged;
+    return DDropdownMenuCheckboxItem(
+      checked: visible,
+      // The last column shown stays, or the table has nothing.
+      onChanged: change == null || (visible && shown == 1)
+          ? null
+          : (show) => change(
+              Set.unmodifiable(
+                show
+                    ? ({...hiddenColumnIds}..remove(column.id))
+                    : {...hiddenColumnIds, column.id},
               ),
-        iconPosition: DButtonIconPosition.end,
-        variant: size == DControlSize.filter
-            ? DButtonVariant.quiet
-            : DButtonVariant.outline,
-        size: size,
-        hasPopup: true,
-        expanded: trigger.open,
-        focusNode: trigger.focusNode,
-        onPressed: onChanged == null ? null : trigger.toggle,
+            ),
+      child: Text(
+        column.label,
+        style: TextStyle(
+          color: visible
+              ? tokens.foreground
+              : Color.lerp(tokens.background, tokens.foreground, .62),
+        ),
       ),
-    ),
-  );
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tokens = DTokens.of(context);
+    final hideable = [
+      for (final column in columns)
+        if (column.hideable) column,
+    ];
+    final shown = hideable
+        .where((column) => !hiddenColumnIds.contains(column.id))
+        .length;
+    return DDropdownMenu(
+      content: DDropdownMenuContent(
+        semanticLabel: menuLabel,
+        align: DPopoverAlign.end,
+        width: 200,
+        children: [
+          DDropdownMenuLabel(child: Text(menuLabel)),
+          for (final column in hideable) _item(tokens, column, shown),
+        ],
+      ),
+      child: DDropdownMenuTrigger(
+        builder: (context, trigger) => DButton(
+          label: Text(label),
+          icon: size == DControlSize.filter
+              ? null
+              : DIcon(
+                  DControlStyle.isApplicationSize(size)
+                      ? DNativeIcons.filterChevron
+                      : DIcons.chevronDown,
+                  size: DControlStyle.chevronDimension(size),
+                ),
+          iconPosition: DButtonIconPosition.end,
+          variant: size == DControlSize.filter
+              ? DButtonVariant.quiet
+              : DButtonVariant.outline,
+          size: size,
+          hasPopup: true,
+          expanded: trigger.open,
+          focusNode: trigger.focusNode,
+          onPressed: onChanged == null ? null : trigger.toggle,
+        ),
+      ),
+    );
+  }
 }
 
 /// The documented compact text filter composition.

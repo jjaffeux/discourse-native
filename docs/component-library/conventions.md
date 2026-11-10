@@ -58,8 +58,6 @@ For a bounded table or calendar, use `child`.
 For a directory with a keyboard fallback, use `adaptiveBodyBuilder`.
 Its boolean argument selects a bounded lazy list or content with its natural height.
 The kit measures the heading before it selects the layout.
-For an indexed directory, set `foldTitleAtTop: true`.
-This option keeps the title hidden away from the top, including during programmatic jumps.
 
 Use the lower-level `header` slots only for specialized topic and conversation readers.
 Do not use them to create another route-heading layout.

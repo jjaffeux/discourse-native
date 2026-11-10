@@ -1554,6 +1554,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
     );
   }
 
+  /// A quiet pill's label inset: the reference chip's padding and its clear
+  /// one-pixel edge, wider under a fingertip as `DButton`'s quiet pill is.
+  static double _quietInset(BuildContext context) =>
+      DControlStyle.usesTouchGeometry(context) ? 13 : 11;
+
   Widget _trigger(DPopoverTriggerState trigger, double popupWidth) {
     final tokens = DTokens.of(context);
     final invalid = widget.invalid || widget.errorText != null;
@@ -1610,9 +1615,11 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
       height: visualHeight,
       width: popupWidth,
       padding: EdgeInsetsDirectional.only(
-        start: quiet ? 11 : DControlStyle.horizontalInset(controlSize),
+        start: quiet
+            ? _quietInset(context)
+            : DControlStyle.horizontalInset(controlSize),
         end: quiet
-            ? 11
+            ? _quietInset(context)
             : DControlStyle.isApplicationSize(controlSize)
             ? DControlStyle.horizontalInset(controlSize)
             : 8,
@@ -1763,7 +1770,9 @@ class _DSelectBodyState<T> extends State<_DSelectBody<T>> {
           )..layout();
           popupWidth = math.min(
             popupWidth,
-            painter.width.ceilToDouble() + 22 + (widget.icon == null ? 0 : 16),
+            painter.width.ceilToDouble() +
+                2 * _quietInset(context) +
+                (widget.icon == null ? 0 : 16),
           );
           painter.dispose();
         }

@@ -209,6 +209,12 @@ void main() {
                       ),
                     )
                     .reduce((a, b) => a.expandToInclude(b))
+              // The directory's rows span the lane, and its grid insets their
+              // content 16 at either end, the edges Topics keeps.
+              : name == 'Users'
+              ? const EdgeInsets.symmetric(
+                  horizontal: 16,
+                ).deflateRect(tester.getRect(edges))
               : tester.getRect(edges);
           expect(
             tester.getTopLeft(find.text(name).first).dx,

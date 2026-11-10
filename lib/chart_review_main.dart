@@ -2,7 +2,6 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import 'discourse_ui.dart';
-import 'src/data/user_directory_column_width_store.dart';
 import 'src/macos_launch_screen.dart';
 import 'src/models/user_directory.dart';
 import 'src/plugins/poll/poll.dart';
@@ -36,9 +35,6 @@ class ChartReviewFixture extends StatefulWidget {
 }
 
 class _ChartReviewFixtureState extends State<ChartReviewFixture> {
-  final _widthStore = UserDirectoryColumnWidthStore(
-    persistence: _MemoryWidths(),
-  );
   var _directoryState = 'ready';
   var _dark = false;
   var _rtl = false;
@@ -111,7 +107,6 @@ class _ChartReviewFixtureState extends State<ChartReviewFixture> {
                   height: 450,
                   child: UsersPage(
                     siteUrl: 'https://chart-review.invalid',
-                    columnWidthStore: _widthStore,
                     data: UsersPageData(
                       loaded: _directoryState != 'loading',
                       loading: _directoryState == 'loading',
@@ -252,19 +247,4 @@ class _ChartReviewFixtureState extends State<ChartReviewFixture> {
       ),
     ),
   );
-}
-
-class _MemoryWidths implements UserDirectoryColumnWidthPersistence {
-  final _values = <String, String>{};
-  @override
-  Future<String?> readWidths({required String siteUrl}) async =>
-      _values[siteUrl];
-  @override
-  Future<bool> writeWidths({
-    required String siteUrl,
-    required String encoded,
-  }) async {
-    _values[siteUrl] = encoded;
-    return true;
-  }
 }

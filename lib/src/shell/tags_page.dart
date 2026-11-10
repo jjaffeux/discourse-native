@@ -68,7 +68,6 @@ class _TagsPageState extends State<TagsPage> {
   Widget build(BuildContext context) => DPageSurface.headed(
     identity: widget.siteUrl,
     title: Text(context.l10n.tags),
-    foldTitleAtTop: true,
     child: ShellSelector<_TagPageSnapshot>(
       select: (controller) => (
         controller.lifecycle.capture(widget.siteUrl).session,
