@@ -701,6 +701,44 @@ void main() {
     }, variant: _platforms);
   }
 
+  testWidgets(
+    'the folded bar opens away from a channel\'s end and Chat returns to the '
+    'inbox',
+    (tester) async {
+      tester.view.padding = const FakeViewPadding(top: 44, bottom: 34);
+      tester.view.viewPadding = const FakeViewPadding(top: 44, bottom: 34);
+      final shell = await _fixture(tester);
+      final chat = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+      final reveal = find.byKey(const ValueKey('mobile-dock-reveal'));
+      await tester.tap(chat);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Support').first);
+      await tester.pumpAndSettle();
+      expect(find.byType(ChatChannelView), findsOneWidget);
+      await tester.drag(
+        find.byType(DMessageScrollerViewport),
+        const Offset(0, 300),
+      );
+      await tester.pumpAndSettle();
+      expect(chat.hitTestable(), findsNothing);
+
+      await tester.tap(reveal.hitTestable());
+      await tester.pumpAndSettle();
+      expect(reveal.hitTestable(), findsNothing);
+      await tester.tap(chat.hitTestable());
+      await tester.pumpAndSettle();
+
+      expect(shell.mobileNavigation.atRoot, isTrue);
+      expect(find.byType(ChatChannelView).hitTestable(), findsNothing);
+      expect(
+        find.byKey(const ValueKey('chat-inbox-sort-filter')).hitTestable(),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+    variant: _platforms,
+  );
+
   for (final thread in [false, true]) {
     testWidgets(
       'chat reading sheet extends behind keyboard and keeps its content above it (thread: $thread)',
