@@ -309,6 +309,47 @@ void main() {
     variant: TargetPlatformVariant.only(TargetPlatform.iOS),
   );
 
+  // A fixed sheet's lower height cannot grow with its heading and actions,
+  // which large text can make taller than it; a sheet sized to its content
+  // rests there with them in view.
+  for (final fill in [true, false]) {
+    testWidgets(
+      'under large text a ${fill ? 'fixed' : 'content-sized'} phone sheet '
+      'with actions opens at its ${fill ? 'full' : 'lower'} height',
+      (tester) async {
+        tester.view.physicalSize = const Size(320, 740);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pumpSurface(
+          tester,
+          dialog: true,
+          platform: TargetPlatform.iOS,
+          textScaler: const TextScaler.linear(2),
+          fillAvailableHeight: fill,
+          builder: (_) => const SizedBox(
+            key: ValueKey('content'),
+            width: double.infinity,
+            height: 2000,
+          ),
+          footerBuilder: (context) => ShellSheetActions(
+            children: [
+              for (final label in ['Unassign', 'Cancel', 'Save changes'])
+                DButton(label: Text(label), onPressed: () {}),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        expect(
+          tester.getRect(find.byType(DSheetContent)).top,
+          fill ? lessThan(40) : closeTo(740 * .45, 1),
+        );
+        expect(tester.takeException(), isNull);
+      },
+      variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+    );
+  }
+
   testWidgets('a phone sheet is put away by its grabber', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -721,6 +762,7 @@ Future<FocusNode> _pumpSurface(
   ValueChanged<String?>? onResult,
   ValueNotifier<double>? keyboard,
   TextScaler textScaler = TextScaler.noScaling,
+  bool fillAvailableHeight = false,
   BoxConstraints constraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
@@ -766,6 +808,7 @@ Future<FocusNode> _pumpSurface(
                   title: _title,
                   dialogOnDesktop: dialog,
                   enableDrag: enableDrag,
+                  fillAvailableHeight: fillAvailableHeight,
                   desktopDialogConstraints: constraints,
                   builder: builder ?? (_) => const Text('Body'),
                   footerBuilder: footerBuilder,

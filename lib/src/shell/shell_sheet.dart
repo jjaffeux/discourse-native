@@ -98,6 +98,12 @@ Future<T?> showShellSheet<T>({
     variant: variant,
     sizeToContent: sizeToContent,
     keepFootInView: sizeToContent && pinnedFooter,
+    // Past the kit's large-text threshold, a fixed sheet's heading and actions
+    // can take its whole lower height, so it opens at its full height instead.
+    initiallyExpanded:
+        !sizeToContent &&
+        pinnedFooter &&
+        MediaQuery.textScalerOf(context).scale(1) > 1.5,
     dismissOnSwipe: enableDrag,
     canDismiss: canDismiss,
     initialFocusNode: initialFocusNode,

@@ -85,7 +85,9 @@ rests: the sheet lays out only what is in view (`keepFootInView`), so a
 short form sits right above its actions. Its title row has no close
 button; a nested sheet keeps its back button. `fillAvailableHeight`
 there reserves the fixed opening height and takes the room above a
-visible keyboard. A form whose body and actions the sheet builds apart
+visible keyboard; with actions, past the kit's large-text threshold, it
+opens at its full height, since its heading and actions alone can fill
+the lower one. A form whose body and actions the sheet builds apart
 shares its state through `ShellSheetForm`, and closes with `DDialogClose`
 so the same form serves the desktop dialog. Desktop keeps every dialog.
 Both hold the title, what the sheet holds and its actions on one inset
