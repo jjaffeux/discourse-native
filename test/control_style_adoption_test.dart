@@ -77,8 +77,10 @@ void main() {
           'interactiveBackgroundColor': 1,
         },
         // Header notification capsules use a circular/pill shape and core color.
+        // On desktop, the bell with unread notifications is a pill that sets
+        // its count beside the glyph.
         'lib/src/shell/header_notification_button.dart': {
-          'shape': 2,
+          'shape': 3,
           'foregroundColor': 1,
         },
         // The schedule's full-width save action keeps the pill of the
@@ -191,11 +193,13 @@ void main() {
         // Window/sidebar destinations and their search/close actions are pills.
         'lib/src/shell/title_bar.dart': {'shape': 1},
         // A search filter is a pill; a phone result pill takes its category's
-        // tint, or the quiet control surface when it has no category.
+        // tint, or the quiet control surface when it has no category. A past
+        // search's remove action is a muted pill, and Clear history is muted
+        // text.
         'lib/src/shell/global_search_panel.dart': {
-          'shape': 1,
+          'shape': 2,
           'backgroundColor': 1,
-          'foregroundColor': 1,
+          'foregroundColor': 3,
           'borderColor': 1,
           'interactiveBackgroundColor': 1,
         },
