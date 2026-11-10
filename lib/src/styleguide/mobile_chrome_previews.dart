@@ -159,7 +159,7 @@ class _MobileChromePreviewState extends State<MobileChromeExample> {
                       collapsed: true,
                       onPressed: () {
                         setState(() => _initialFold = false);
-                        DScrollChrome.maybeOf(context)?.reveal();
+                        DScrollChrome.maybeOf(context)?.revealNavigation();
                       },
                     ),
                     action: DMobileDockAction(

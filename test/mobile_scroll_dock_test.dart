@@ -179,6 +179,30 @@ void main() {
     },
   );
 
+  testWidgets(
+    'an explicit reveal keeps end-only chrome open until the reader scrolls',
+    (tester) async {
+      final controller = ScrollController(initialScrollOffset: 2000);
+      addTearDown(controller.dispose);
+      // An inline dock shrinks the viewport as it opens, as a growing
+      // composer does in a chat transcript.
+      await _mount(tester, controller: controller, revealOnlyAtEnd: true);
+      final chrome = DScrollChrome.maybeOf(tester.element(find.byKey(_body)))!;
+      expect(chrome.hiddenFraction, 1);
+      final folded = tester.getSize(find.byKey(_body)).height;
+
+      chrome.revealNavigation();
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byKey(_body)).height, lessThan(folded));
+      expect(chrome.hiddenFraction, 0);
+
+      await tester.drag(find.byKey(_body), const Offset(0, 120));
+      await tester.pumpAndSettle();
+      expect(chrome.hiddenFraction, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('interactive footer travel is immediate and keeps the viewport', (
     tester,
   ) async {

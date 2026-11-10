@@ -229,6 +229,16 @@ class DScrollChromeController extends ChangeNotifier
   /// Opens coupled page headers and the dock without changing the destination.
   void reveal() => _animation.reveal(fresh: true);
 
+  /// Opens the chrome for a control whose purpose is to show the navigation,
+  /// and keeps it open until the reader next scrolls the page: opening it can
+  /// resize an end-only page, which must not count as leaving its end.
+  void revealNavigation() {
+    _revealHeld = true;
+    reveal();
+  }
+
+  bool _revealHeld = false;
+
   /// The reduction is space released from the viewport's surrounding layout;
   /// floating headers report zero because their viewport does not change size.
   void registerHeader(
@@ -371,6 +381,7 @@ class _DScrollChromeState extends State<DScrollChrome>
         oldWidget.keepFooterVisible != widget.keepFooterVisible) {
       final folded = _startsFolded;
       _hidden = folded;
+      _controller._revealHeld = false;
       _intents = Expando();
       _activeSource = null;
       _shownFooterHeight = 0;
@@ -445,7 +456,12 @@ class _DScrollChromeState extends State<DScrollChrome>
   bool _gone = false;
 
   void _setHidden(bool hidden) {
-    if (hidden && (_footerFocus.hasFocus || _controller._hasFocus)) return;
+    if (hidden &&
+        (_footerFocus.hasFocus ||
+            _controller._hasFocus ||
+            _controller._revealHeld)) {
+      return;
+    }
     if (hidden) {
       _animation.hide();
     } else {
@@ -638,6 +654,7 @@ class _DScrollChromeState extends State<DScrollChrome>
     }
     if (notification is UserScrollNotification) {
       intent.userScrolling = notification.direction != ScrollDirection.idle;
+      if (intent.userScrolling) _controller._revealHeld = false;
       if (intent.userScrolling && intent.direction != notification.direction) {
         intent.direction = notification.direction;
       }
