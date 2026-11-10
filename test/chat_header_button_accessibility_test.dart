@@ -214,7 +214,7 @@ void main() {
     }
   }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 
-  testWidgets('bell overlays its count and fills only while its menu is open', (
+  testWidgets('bell sets its count beside it and fills only while open', (
     tester,
   ) async {
     await _pump(tester, bellCount: 3);
@@ -225,6 +225,11 @@ void main() {
       find.descendant(of: badge, matching: find.text('3')),
       findsOneWidget,
     );
+    final glyph = tester.getRect(
+      find.descendant(of: button, matching: find.byType(DIcon)),
+    );
+    expect(tester.getRect(badge).left - glyph.right, 5);
+    expect(tester.getRect(badge).center.dy, closeTo(glyph.center.dy, .5));
     expect(tester.widget<DButton>(button).variant, DButtonVariant.ghost);
     expect(
       find.descendant(of: button, matching: find.byType(DSeparator)),

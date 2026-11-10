@@ -109,6 +109,10 @@ enum DButtonDensity {
   /// as a flat fill.
   header,
 
+  /// [header] with a [DBadgeSize.headerCount] pill as its label: 9px
+  /// horizontal insets and a 5px gap between the glyph and the pill.
+  headerCount,
+
   /// A 36px circular profile trigger with a 2px border against its avatar.
   /// Use an icon-only button with a borderless DAvatar. The image fills the
   /// interior; artwork and hit bounds grow with text.
@@ -553,7 +557,8 @@ class DButton extends StatelessWidget {
     final primaryChrome = chrome && variant == DButtonVariant.primary;
     final expandedChrome =
         primaryChrome && expanded && onPressed != null && !loading;
-    final header = density == DButtonDensity.header;
+    final headerCount = density == DButtonDensity.headerCount;
+    final header = density == DButtonDensity.header || headerCount;
     // The mockup keeps its rail, sidebar and list together from 53 + 240 +
     // 420px. Use the window width, independent of the bar's available space.
     final wideHeader =
@@ -642,7 +647,7 @@ class DButton extends StatelessWidget {
         : postReaction
         ? DPostReactionStyle.gap
         : header
-        ? 8.0
+        ? (headerCount ? 5.0 : 8.0)
         : dashedTile
         ? 12.0
         : chrome
@@ -1042,7 +1047,10 @@ class DButton extends StatelessWidget {
             : header
             ? (_iconOnly
                   ? EdgeInsets.zero
-                  : const EdgeInsets.symmetric(horizontal: 10, vertical: 1))
+                  : EdgeInsets.symmetric(
+                      horizontal: headerCount ? 9 : 10,
+                      vertical: 1,
+                    ))
             : postReaction
             ? (_iconOnly
                   ? EdgeInsets.zero

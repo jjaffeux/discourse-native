@@ -21,7 +21,7 @@ DButton headerNotificationButton(
   FocusNode? focusNode,
   bool hasPopup = false,
   bool expanded = false,
-  bool overlayCount = false,
+  bool pillCount = false,
   DButtonSize size = DButtonSize.regular,
 }) {
   final theme = Theme.of(context);
@@ -40,42 +40,44 @@ DButton headerNotificationButton(
           ],
         );
   final variant = expanded ? DButtonVariant.primary : DButtonVariant.ghost;
-  if (overlayCount) {
+  if (pillCount && (count == 0 || expanded)) {
+    // Open, the bell's own fill takes the pill's colour, so it drops the count.
     return DButton.iconOnly(
       key: key,
-      icon: ExcludeSemantics(
-        child: Stack(
-          clipBehavior: Clip.none,
-          children: [
-            icon,
-            if (count > 0 && !expanded)
-              PositionedDirectional(
-                // Anchor the badge's lower edge; its Native size can grow
-                // without covering more of the bell at larger text scales.
-                top: 6,
-                end: -3,
-                child: FractionalTranslation(
-                  translation: const Offset(0, -1),
-                  child: DBadge.overlay(
-                    key: countKey,
-                    backgroundColor: primary.background,
-                    foregroundColor: primary.foreground,
-                    ringColor: surface,
-                    child: Text(
-                      count > 99 ? '99+' : '$count',
-                      textDirection: TextDirection.ltr,
-                    ),
-                  ),
-                ),
-              ),
-          ],
+      icon: ExcludeSemantics(child: icon),
+      variant: variant,
+      size: size,
+      density: context.isTouch
+          ? DButtonDensity.standard
+          : DButtonDensity.header,
+      shape: DButtonShape.pill,
+      tooltip: tooltip,
+      semanticLabel: semanticLabel,
+      focusNode: focusNode,
+      hasPopup: hasPopup,
+      expanded: expanded,
+      onPressed: onPressed,
+    );
+  }
+  if (pillCount) {
+    return DButton(
+      key: key,
+      icon: icon,
+      label: DBadge(
+        key: countKey,
+        size: DBadgeSize.headerCount,
+        backgroundColor: primary.background,
+        foregroundColor: primary.foreground,
+        child: Text(
+          count > 99 ? '99+' : '$count',
+          textDirection: TextDirection.ltr,
         ),
       ),
       variant: variant,
       size: size,
       density: context.isTouch
           ? DButtonDensity.standard
-          : DButtonDensity.header,
+          : DButtonDensity.headerCount,
       shape: DButtonShape.pill,
       tooltip: tooltip,
       semanticLabel: semanticLabel,
