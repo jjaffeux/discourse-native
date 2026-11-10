@@ -49,6 +49,54 @@ double shareFor(
   return high;
 }
 
+/// The surfaces the reference sets text on above the page, as its
+/// `themeMixes` derives them: the panel, a raised surface and a hover over
+/// it, and the accent's tint over the panel. The raised surface starts a
+/// tenth of the way to the text and the tint 12% of the way to the accent;
+/// each steps back only as far as the text still reads on it.
+final class ReferenceSurfaces {
+  factory ReferenceSurfaces({
+    required Color text,
+    required Color ground,
+    required Color accent,
+  }) {
+    bool reads(Color under) =>
+        contrastRatio(text, under) >= textContrast + contrastMargin;
+    Color raisedAt(double share) => mixInto(ground, text, share);
+    var raised = .10;
+    while (raised > 0 &&
+        !(reads(raisedAt(raised)) &&
+            reads(mixInto(raisedAt(raised), text, _hover)))) {
+      raised = math.max(0, raised - .005);
+    }
+    final panel = mixInto(ground, text, .03);
+    var tint = .12;
+    while (tint > 0 && !reads(mixInto(panel, accent, tint))) {
+      tint = math.max(0, tint - .005);
+    }
+    final surface = raisedAt(raised);
+    return ReferenceSurfaces._(surface, tint, [
+      panel,
+      surface,
+      mixInto(surface, text, _hover),
+      mixInto(panel, accent, tint),
+    ]);
+  }
+
+  const ReferenceSurfaces._(this.raised, this.tintShare, this.grounds);
+
+  /// How far a hover steps what is under it toward the text.
+  static const _hover = .08;
+
+  final Color raised;
+
+  /// How much of the accent the tint over the panel takes.
+  final double tintShare;
+
+  /// What every level of text is measured against: all four surfaces.
+  final List<Color> grounds;
+}
+
 /// [color] moved toward black or white, whichever leaves it standing out
 /// from [against] the more, only as far as it takes to read on it.
 Color standOut(Color color, Color against) {

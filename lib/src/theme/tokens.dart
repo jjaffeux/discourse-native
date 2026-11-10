@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'dart:ui' show lerpDouble;
 
 import 'package:flutter/material.dart';
@@ -13,7 +12,7 @@ class DTokens extends ThemeExtension<DTokens> {
   static final _controlThemes = Expando<DControlTheme>();
   static final _buttonThemes = Expando<DControlTheme>();
   static final _readTitleColors = Expando<Color>();
-  static final _selectionTints = Expando<Color>();
+  static final _referenceSurfaces = Expando<ReferenceSurfaces>();
 
   const DTokens({
     required this.colors,
@@ -81,52 +80,34 @@ class DTokens extends ThemeExtension<DTokens> {
   /// An Item selection wash that preserves the palette's text contrast.
   ///
   /// Matches the mockup's `--accent-tint`, reduced only when needed.
-  Color get selectionTint => _selectionTints[this] ??= _resolveSelectionTint();
+  Color get selectionTint => primary.withValues(alpha: _reference.tintShare);
 
-  Color _resolveSelectionTint() {
-    var share = .12;
-    while (share > 0 &&
-        contrastRatio(foreground, mixInto(panelBackground, primary, share)) <
-            textContrast + contrastMargin) {
-      share = math.max(0, share - .005);
-    }
-    return primary.withValues(alpha: share);
-  }
+  ReferenceSurfaces get _reference => _referenceSurfaces[this] ??=
+      ReferenceSurfaces(text: foreground, ground: background, accent: primary);
 
-  Color _resolveTitleRead() {
-    Color at(double share) => mixInto(background, foreground, share);
-    bool reads(Color under) =>
-        contrastRatio(foreground, under) >= textContrast + contrastMargin;
-    var raised = .10;
-    while (raised > 0 &&
-        !(reads(at(raised)) && reads(mixInto(at(raised), foreground, .08)))) {
-      raised = math.max(0, raised - .005);
-    }
-    return at(
-      shareFor(
-        foreground,
-        background,
-        [
-          panelBackground,
-          at(raised),
-          mixInto(at(raised), foreground, .08),
-          Color.alphaBlend(selectionTint, panelBackground),
-          // Native hosts can supply additional surfaces, including translucent
-          // selection fills. The title must also read on those actual grounds.
-          for (final under in [
-            background,
-            surface,
-            muted,
-            selected,
-            selectionTint,
-          ])
-            Color.alphaBlend(under, background),
-        ],
-        textContrast + contrastMargin,
-        .30,
-      ),
-    );
-  }
+  Color _resolveTitleRead() => mixInto(
+    background,
+    foreground,
+    shareFor(
+      foreground,
+      background,
+      [
+        ..._reference.grounds,
+        // Native hosts can supply additional surfaces, including translucent
+        // selection fills. The title must also read on those actual grounds.
+        for (final under in [
+          background,
+          surface,
+          muted,
+          selected,
+          selectionTint,
+        ])
+          Color.alphaBlend(under, background),
+      ],
+      textContrast + contrastMargin,
+      .30,
+    ),
+  );
 
   /// The ground a phone's chrome stands on: the background one step down its
   /// own lightness in Oklch, keeping its chroma and hue, as the mockup's
@@ -159,16 +140,9 @@ class DTokens extends ThemeExtension<DTokens> {
   );
 
   /// One step from the page toward its text, the reference's raised surface:
-  /// a tenth of the text, less where the text would no longer read on it.
-  Color get raisedBackground {
-    Color at(double share) => Color.lerp(background, foreground, share)!;
-    var share = .10;
-    while (share > 0 &&
-        contrastRatio(foreground, at(share)) < textContrast + contrastMargin) {
-      share = math.max(0, share - .005);
-    }
-    return at(share);
-  }
+  /// a tenth of the text, less where the text would no longer read on it or
+  /// on a hover over it.
+  Color get raisedBackground => _reference.raised;
 
   /// Desktop footer surface and hairline from the HTML reference palette.
   Color get footerBackground => Color.lerp(background, foreground, .05)!;

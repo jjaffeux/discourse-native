@@ -281,7 +281,17 @@ class _CategoriesPageState extends State<CategoriesPage> {
                       _resetScroll();
                     },
                   ),
-                  if (wrap) path else DControlExpanded(child: path),
+                  if (wrap)
+                    path
+                  else
+                    // The rest of the row is the path's budget, not its size.
+                    DControlExpanded(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        heightFactor: 1,
+                        child: path,
+                      ),
+                    ),
                 ],
               );
             },

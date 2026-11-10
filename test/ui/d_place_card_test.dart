@@ -1,6 +1,7 @@
 import 'dart:ui' show Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/src/models/forum_theme_presets.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -12,13 +13,14 @@ Widget _card({
   VoidCallback? onPressed,
   FocusNode? focus,
   bool selected = false,
+  bool strong = true,
 }) => DPlaceCard(
   leading: const DPlaceCardMark(color: Colors.blue, child: Icon(Icons.tag)),
   title: const Text('Support'),
   description: const Text('Questions and answers from the community.'),
   footer: const Text('42 topics · 2h'),
   unreadCount: '3',
-  strong: true,
+  strong: strong,
   selected: selected,
   focusNode: focus,
   onPressed: onPressed,
@@ -30,10 +32,11 @@ Future<void> _mount(
   double scale = 1,
   bool reduced = false,
   bool highContrast = false,
+  ThemeData? theme,
 }) async {
   await tester.pumpWidget(
     MaterialApp(
-      theme: AppTheme.light,
+      theme: theme ?? AppTheme.light,
       home: MediaQuery(
         data: MediaQueryData(
           textScaler: TextScaler.linear(scale),
@@ -90,6 +93,13 @@ void main() {
     expect(mark.left - rect.left, 12);
     expect(mark.top - rect.top, 11);
     expect(tester.getRect(find.text('3')).top - rect.top, 13);
+    final count = find
+        .ancestor(of: find.text('3'), matching: find.byType(DecoratedBox))
+        .first;
+    expect(
+      tester.getRect(count).left - tester.getRect(find.text('Support')).right,
+      9,
+    );
     final data = tester.getSemantics(card).getSemanticsData();
     expect(data.label, contains('Support'));
     expect(data.label, contains('42 topics'));
@@ -104,6 +114,29 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.space);
     expect(presses, 3);
     semantics.dispose();
+  });
+
+  testWidgets('quiet text reads in the palette muted tone, unread in body', (
+    tester,
+  ) async {
+    final theme = AppTheme.fromPalette(
+      forumThemePresets
+          .firstWhere((theme) => theme.id == 'dracula')
+          .resolve(Brightness.dark),
+    );
+    final palette = theme.discourse;
+    Color? colorOf(String text) =>
+        DefaultTextStyle.of(tester.element(find.text(text))).style.color;
+    const description = 'Questions and answers from the community.';
+    const footer = '42 topics · 2h';
+
+    await _mount(tester, _card(onPressed: () {}), theme: theme);
+    expect(colorOf(description), palette.primaryVeryHigh);
+    expect(colorOf(footer), palette.whisper);
+
+    await _mount(tester, _card(onPressed: () {}, strong: false), theme: theme);
+    expect(colorOf(description), palette.whisper);
+    expect(colorOf(footer), palette.whisper);
   });
 
   testWidgets('card controls keep their own targets and the footer yields', (

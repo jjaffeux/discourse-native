@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../../theme/discourse_colors.dart';
 import '../../theme/discourse_typography.dart';
 import '../../theme/tokens.dart';
 import '../foundation/surface_depth.dart';
@@ -78,13 +79,14 @@ class _DPlaceCardState extends State<DPlaceCard> {
         ? tokens.primary
         : Colors.transparent;
     final text = widget.muted ? tokens.mutedForeground : tokens.foreground;
+    final palette = Theme.of(context).extension<DiscourseColors>()!;
     final footer = DefaultTextStyle.merge(
       maxLines: 1,
       overflow: TextOverflow.ellipsis,
       style: TextStyle(
         fontSize: DiscourseTypography.xs,
         height: 1.5,
-        color: Color.lerp(tokens.background, tokens.foreground, .4),
+        color: palette.whisper,
         fontWeight: FontWeight.w400,
       ),
       child: widget.footer,
@@ -137,7 +139,7 @@ class _DPlaceCardState extends State<DPlaceCard> {
                   if (widget.unreadCount case final count?)
                     Padding(
                       padding: const EdgeInsetsDirectional.only(
-                        start: 4,
+                        start: 9,
                         top: 2,
                       ),
                       child: DecoratedBox(
@@ -183,11 +185,9 @@ class _DPlaceCardState extends State<DPlaceCard> {
                 style: TextStyle(
                   fontSize: DiscourseTypography.preview,
                   height: 1.38,
-                  color: Color.lerp(
-                    tokens.background,
-                    tokens.foreground,
-                    widget.strong && !widget.muted ? .9 : .5,
-                  ),
+                  color: widget.strong && !widget.muted
+                      ? palette.primaryVeryHigh
+                      : palette.whisper,
                   fontFamily: Theme.of(context).textTheme.bodyLarge?.fontFamily,
                   fontFamilyFallback: Theme.of(
                     context,
