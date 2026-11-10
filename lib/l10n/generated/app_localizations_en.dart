@@ -15998,16 +15998,4 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get voiceLayoutTiled => 'Tiled';
-
-  @override
-  String get zendeskCreateTicket => 'Create Zendesk ticket';
-
-  @override
-  String get zendeskViewTicket => 'View Zendesk ticket';
-
-  @override
-  String get zendeskTicketCreated => 'Zendesk ticket created';
-
-  @override
-  String get zendeskTicketFailed => 'Could not create the Zendesk ticket';
 }

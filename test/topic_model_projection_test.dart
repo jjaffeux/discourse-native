@@ -463,21 +463,9 @@ Map<String, dynamic> _listPayload({required bool large}) => {
   'topic_list': {
     'topics': [
       for (var i = 1; i <= 100; i++)
-        {
-          'id': i,
-          'title': 'Topic $i',
-          ..._topicFields(),
-          // On every row these fields would carry the small list past the
-          // background decode threshold.
-          if (i == 1) ..._zendeskTicketFields,
-        },
+        {'id': i, 'title': 'Topic $i', ..._topicFields()},
     ],
   },
-};
-
-const _zendeskTicketFields = <String, Object?>{
-  'discourse_zendesk_plugin_has_ticket': true,
-  'discourse_zendesk_plugin_zendesk_url': 'https://support.example/tickets/42',
 };
 
 Map<String, dynamic> _topicPayload({required bool large}) => {
@@ -485,7 +473,6 @@ Map<String, dynamic> _topicPayload({required bool large}) => {
   'id': 7,
   'title': 'café',
   ..._topicFields(),
-  ..._zendeskTicketFields,
   'related_topics': [
     {'id': 99, 'title': 'Related'},
   ],

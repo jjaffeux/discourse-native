@@ -25,7 +25,6 @@ import 'solved/solved_module.dart';
 import 'topic_voting/topic_voting_module.dart';
 import 'user_notes/user_notes_module.dart';
 import 'voice/voice_module.dart';
-import 'zendesk/zendesk_module.dart';
 
 final PluginManifest bundledPluginManifest = PluginManifest([
   cookingModule,
@@ -54,5 +53,4 @@ final PluginManifest bundledPluginManifest = PluginManifest([
   chatModule,
   voiceModule,
   userNotesModule,
-  zendeskModule,
 ]);
