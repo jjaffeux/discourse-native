@@ -526,6 +526,28 @@ void main() {
 
       expect(cancelled, isTrue);
     });
+
+    test('resends a dropped connection, but not forever', () async {
+      var sent = 0;
+      final cache = _TestByteCache(
+        client: MockClient((request) async {
+          sent++;
+          throw http.ClientException(
+            'Connection closed before full header was received',
+            request.url,
+          );
+        }),
+      );
+
+      expect(await cache.load('https://site.test/image.png'), isNull);
+      expect(
+        sent,
+        inInclusiveRange(
+          2,
+          MediaRequestCoordinator.defaultMaxConcurrentPerOrigin + 1,
+        ),
+      );
+    });
   });
 
   group('memory retention and shared coordination', () {

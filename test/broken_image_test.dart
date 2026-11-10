@@ -234,6 +234,50 @@ void main() {
       expect(find.byType(BrokenImage), findsNothing);
     });
 
+    testWidgets('draws a picture whose kept connection was dead', (
+      tester,
+    ) async {
+      final lifecycle = SiteLifecycle();
+      var sent = 0;
+      final repository = SiteImageRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: lifecycle,
+        client: MockClient((request) async {
+          // iOS reclaims a suspended app's sockets, so the connection the
+          // client kept idle fails on reuse, before any response.
+          if (sent++ == 0) {
+            throw http.ClientException(
+              'Connection closed before full header was received',
+              request.url,
+            );
+          }
+          return http.Response.bytes(blankPng(width: 8, height: 8), 200);
+        }),
+      );
+      addTearDown(repository.dispose);
+      await pumpCookedInShell(
+        tester,
+        '',
+        lifecycle: lifecycle,
+        siteImages: repository,
+        child: CookedHtml(
+          html: _lightbox('one'),
+          siteUrl: _site,
+          buildAsync: false,
+        ),
+      );
+      await _settle(tester);
+
+      expect(find.byType(BrokenImage), findsNothing);
+      expect(
+        find.descendant(
+          of: find.byType(SiteImage),
+          matching: find.byType(Image),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('squares off inside a grid of lightbox images', (tester) async {
       final grid =
           '<div class="d-image-grid">'
