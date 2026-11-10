@@ -5,23 +5,11 @@ import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/icons/d_native_icons.dart';
 import '../models/destination_bookmark.dart';
+import 'bookmark_tile.dart';
 import 'open_link.dart';
 import 'shell_scope.dart';
-
-String destinationBookmarkTypeLabel(DestinationBookmarkKind kind) =>
-    switch (kind) {
-      DestinationBookmarkKind.page => appL10n.destinationBookmarkPageType,
-      DestinationBookmarkKind.category => appL10n.category,
-      DestinationBookmarkKind.chat => appL10n.chat,
-    };
-
-DIconData destinationBookmarkIcon(DestinationBookmarkKind kind) =>
-    switch (kind) {
-      DestinationBookmarkKind.page => DIcons.farFileLines,
-      DestinationBookmarkKind.category => DIcons.tag,
-      DestinationBookmarkKind.chat => DIcons.comment,
-    };
 
 class DestinationBookmarkRow extends StatelessWidget {
   const DestinationBookmarkRow({
@@ -34,6 +22,8 @@ class DestinationBookmarkRow extends StatelessWidget {
   final String siteUrl;
   final DestinationBookmark bookmark;
   final VoidCallback? onOpened;
+
+  /// The user menu's inset; the Bookmarks page keeps the tile's own.
   final EdgeInsetsGeometry? padding;
 
   @override
@@ -41,21 +31,35 @@ class DestinationBookmarkRow extends StatelessWidget {
     final shell = ShellScope.of(context);
     final lease = shell.lifecycle.capture(siteUrl);
     final account = shell.currentAccountIdentity;
-    final label = destinationBookmarkTypeLabel(bookmark.kind);
-    final forum =
-        shell.instances
-            .where((site) => site.url == siteUrl)
-            .firstOrNull
-            ?.title ??
-        siteUrl;
+    final title = bookmark.route.title;
+    final (kind, icon) = switch (bookmark.kind) {
+      DestinationBookmarkKind.page => (
+        context.l10n.destinationBookmarkPageType,
+        DNativeIcons.windowMaximize,
+      ),
+      DestinationBookmarkKind.category => (context.l10n.category, DIcons.tag),
+      DestinationBookmarkKind.chat => (context.l10n.chat, DIcons.comment),
+    };
+    // A chat is placed by its channel, as a chat message's bookmark is; a
+    // page or category belongs to the forum as a whole.
+    final where = bookmark.kind == DestinationBookmarkKind.chat
+        ? title
+        : shell.instances
+                  .where((site) => site.url == siteUrl)
+                  .firstOrNull
+                  ?.title ??
+              siteUrl;
     return LinkTarget.content(
       content: bookmark.route,
       siteUrl: siteUrl,
-      child: DItem(
+      child: BookmarkTile(
         key: ValueKey('destination-bookmark-row-${bookmark.identity}'),
         padding: padding,
-        shape: DItemShape.fullWidth,
-        semanticLabel: '${bookmark.route.title}, $label, $forum',
+        icon: icon,
+        color: bookmark.route.color,
+        title: title,
+        details: '$kind · $where',
+        semanticLabel: '$title, $kind, $where',
         onPressed: () => unawaited(() async {
           if (!lease.isCurrent || shell.currentAccountIdentity != account) {
             return;
@@ -72,40 +76,6 @@ class DestinationBookmarkRow extends StatelessWidget {
             DToast.show(context, context.l10n.destinationBookmarkUnavailable);
           }
         }()),
-        children: [
-          DItemMedia(
-            child: DAvatar(
-              decorative: true,
-              fallback: DAvatarFallback(
-                backgroundColor:
-                    (bookmark.route.color ??
-                            DTokens.of(context).mutedForeground)
-                        .withValues(alpha: .2),
-                foregroundColor:
-                    bookmark.route.color ?? DTokens.of(context).mutedForeground,
-                child: DIcon(destinationBookmarkIcon(bookmark.kind)),
-              ),
-            ),
-          ),
-          DItemContent(
-            children: [
-              ExcludeSemantics(
-                child: Text(
-                  bookmark.route.title,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              ExcludeSemantics(
-                child: Text(
-                  '$label · $forum',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: DTokens.of(context).mutedForeground,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

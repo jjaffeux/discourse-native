@@ -12812,10 +12812,6 @@
   "@addADiscourseSite": {
     "description": "English UI message used by shell/instance_rail.dart. Keep placeholders intact."
   },
-  "otherBookmarks": "Other bookmarks",
-  "@otherBookmarks": {
-    "description": "English UI message used by shell/bookmark_list.dart. Keep placeholders intact."
-  },
   "loadingBookmarks": "Loading bookmarks",
   "@loadingBookmarks": {
     "description": "English UI message used by shell/bookmark_list.dart. Keep placeholders intact."
@@ -12824,9 +12820,9 @@
   "@nothingBookmarkedYet": {
     "description": "English UI message used by shell/bookmark_list.dart. Keep placeholders intact."
   },
-  "noBookmarksInThisFilter": "No bookmarks in this filter.",
-  "@noBookmarksInThisFilter": {
-    "description": "English UI message used by shell/bookmark_list.dart. Keep placeholders intact."
+  "nothingBookmarkedHere": "Nothing bookmarked here.",
+  "@nothingBookmarkedHere": {
+    "description": "Shown on the Bookmarks page when the chosen reminder scope holds no bookmarks."
   },
   "loadingMoreBookmarks": "Loading more bookmarks",
   "@loadingMoreBookmarks": {
@@ -18206,14 +18202,6 @@
   "bookmarkReminders": "Reminders",
   "@bookmarkReminders": {
     "description": "Bookmark list scope including all bookmarks with a reminder date."
-  },
-  "filterBookmarkType": "Filter bookmark type",
-  "@filterBookmarkType": {
-    "description": "Accessible label for the bookmark target type selector."
-  },
-  "allBookmarkTypes": "All types",
-  "@allBookmarkTypes": {
-    "description": "Unfiltered bookmark target type selector option."
   },
   "bookmarkReminderExpired": "Reminder expired",
   "@bookmarkReminderExpired": {

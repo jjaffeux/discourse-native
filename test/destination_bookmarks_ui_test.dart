@@ -372,8 +372,11 @@ void main() {
         final server = find.byKey(const ValueKey('bookmark-row-73'));
         expect(tester.getTopLeft(local).dy, greaterThanOrEqualTo(47));
         final item = tester.widget<DItem>(
-          find.byKey(
-            const ValueKey('destination-bookmark-row-page:preferences'),
+          find.descendant(
+            of: find.byKey(
+              const ValueKey('destination-bookmark-row-page:preferences'),
+            ),
+            matching: find.byType(DItem),
           ),
         );
         expect(item.semanticLabel, contains('Page'));
@@ -392,7 +395,7 @@ void main() {
         expect(item.semanticLabel, contains('Community forum'));
         expect(find.text('Page · Community forum'), findsOneWidget);
         expect(find.text('Category · Community forum'), findsOneWidget);
-        expect(find.text('Chat · Community forum'), findsOneWidget);
+        expect(find.text('Chat · Travel conversation'), findsOneWidget);
         expect(tester.takeException(), isNull);
         await _capture(tester, '${size.width.toInt()}-${scale}x-bookmarks');
         if (server.evaluate().isEmpty) {
@@ -411,14 +414,23 @@ void main() {
           tester.getTopLeft(local).dy,
           lessThan(tester.getTopLeft(server).dy),
         );
-        await tester.tap(find.byType(DSelect<String>));
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('Page').last);
-        await tester.pumpAndSettle();
-        expect(find.byType(DestinationBookmarkRow), findsOneWidget);
-        expect(find.byType(BookmarkRow), findsNothing);
-        expect(find.text('Nothing bookmarked yet'), findsNothing);
-        expect(find.text('No bookmarks in this filter.'), findsNothing);
+        Size disc(Finder row) => tester.getSize(
+          find.descendant(of: row, matching: find.byType(DItemMedia)),
+        );
+        expect(disc(local), disc(server));
+        final rules = [
+          for (final rule in find.byType(DSeparator).evaluate())
+            (rule.renderObject! as RenderBox).localToGlobal(Offset.zero).dy,
+        ];
+        expect(
+          rules.where(
+            (y) =>
+                y >= tester.getBottomLeft(local).dy &&
+                y < tester.getTopLeft(server).dy,
+          ),
+          hasLength(3),
+          reason: 'a rule under each place, the last one over the server row',
+        );
         await tester.tap(find.byType(DSelect<BookmarkReminderFilter>));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Reminders').last);

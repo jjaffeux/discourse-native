@@ -297,7 +297,6 @@ final class BookmarkPresentation {
   const BookmarkPresentation({
     required this.title,
     required this.typeLabel,
-    required this.filterLabel,
     required this.icon,
     this.contextLabel,
     this.color,
@@ -305,7 +304,6 @@ final class BookmarkPresentation {
 
   final String title;
   final String typeLabel;
-  final String filterLabel;
   final DIconData icon;
   final String? contextLabel;
   final Color? color;
@@ -317,19 +315,16 @@ final class BookmarkPresentation {
       other is BookmarkPresentation &&
       other.title == title &&
       other.typeLabel == typeLabel &&
-      other.filterLabel == filterLabel &&
       other.icon == icon &&
       other.contextLabel == contextLabel &&
       other.color == color;
 
   @override
-  int get hashCode =>
-      Object.hash(title, typeLabel, filterLabel, icon, contextLabel, color);
+  int get hashCode => Object.hash(title, typeLabel, icon, contextLabel, color);
 }
 
 abstract interface class PluginBookmarkPresenter
     implements PluginSessionCapability {
-  String get bookmarkFilterLabel;
   BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark);
 }
 

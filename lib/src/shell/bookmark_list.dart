@@ -13,10 +13,12 @@ import '../models/bookmark_feed.dart';
 import '../models/destination_bookmark.dart';
 import '../models/notification.dart';
 import '../plugin_api/shell_extensions.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'account_activity_loader.dart';
 import 'account_activity_paging_skeleton.dart';
 import 'account_feed_viewport.dart';
+import 'bookmark_tile.dart';
 import 'desktop_header_menu.dart';
 import 'destination_bookmark_ui.dart';
 import 'directory_skeleton.dart';
@@ -86,7 +88,6 @@ class _BookmarkSectionView extends StatefulWidget {
 enum BookmarkReminderFilter { all, reminders, expired }
 
 class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
-  String? _filter;
   BookmarkReminderFilter _reminderFilter = BookmarkReminderFilter.all;
   Timer? _expiryTimer;
   ScrollController? _scrollController;
@@ -106,7 +107,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.siteUrl != widget.siteUrl ||
         oldWidget.controller != widget.controller) {
-      _filter = null;
       _reminderFilter = BookmarkReminderFilter.all;
       _automaticPages = 0;
       _expiryTimer?.cancel();
@@ -134,11 +134,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           : type == BookmarkTargetType.topic
           ? appL10n.topic
           : appL10n.bookmark,
-      filterLabel: type == BookmarkTargetType.post
-          ? appL10n.posts
-          : type == BookmarkTargetType.topic
-          ? appL10n.topics
-          : appL10n.otherBookmarks,
       contextLabel: category?.name,
       icon: type == BookmarkTargetType.post
           ? DIcons.reply
@@ -355,12 +350,9 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       controller.lifecycle.capture(siteUrl).session,
       ...controller.accountDestinationBookmarks.entriesFor(siteUrl),
       for (final bookmark in bookmarks) bookmark.reminderExpiredAt(now),
-      if (menu == null) ...[
-        for (final bookmark in bookmarks) _present(bookmark),
-        for (final presenter
-            in controller.pluginSession.capabilities<PluginBookmarkPresenter>())
-          presenter.bookmarkFilterLabel,
-      ] else
+      if (menu == null)
+        for (final bookmark in bookmarks) _present(bookmark)
+      else
         for (final reminder in menu.reminders)
           controller.pluginSession.resolveNotification(
             controller.plugins.registry,
@@ -384,6 +376,7 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           DestinationBookmarkRow(
             siteUrl: widget.siteUrl,
             bookmark: bookmark,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             onOpened: widget.onOpened,
           ),
         if (!widget.controller.bookmarksFor(widget.siteUrl).loaded ||
@@ -454,7 +447,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final session = controller.lifecycle.capture(widget.siteUrl).session;
     if (_pageSession != session) {
       _pageSession = session;
-      _filter = null;
       _reminderFilter = BookmarkReminderFilter.all;
       _automaticPages = 0;
     }
@@ -466,17 +458,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final localEntries = controller.accountDestinationBookmarks.entriesFor(
       widget.siteUrl,
     );
-    final filters = <String>{
-      for (final entry in localEntries)
-        destinationBookmarkTypeLabel(entry.kind),
-      context.l10n.posts,
-      context.l10n.topics,
-      for (final presenter
-          in controller.pluginSession.capabilities<PluginBookmarkPresenter>())
-        presenter.bookmarkFilterLabel,
-      for (final entry in entries) entry.presentation.filterLabel,
-      ?_filter,
-    };
     final now = DateTime.now();
     _expiryTimer?.cancel();
     final upcoming =
@@ -493,25 +474,19 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     }
     final visibleEntries = entries
         .where(
-          (entry) =>
-              (_filter == null || entry.presentation.filterLabel == _filter) &&
-              switch (_reminderFilter) {
-                BookmarkReminderFilter.all => true,
-                BookmarkReminderFilter.reminders =>
-                  entry.bookmark.reminderAt != null,
-                BookmarkReminderFilter.expired =>
-                  entry.bookmark.reminderExpiredAt(now),
-              },
+          (entry) => switch (_reminderFilter) {
+            BookmarkReminderFilter.all => true,
+            BookmarkReminderFilter.reminders =>
+              entry.bookmark.reminderAt != null,
+            BookmarkReminderFilter.expired => entry.bookmark.reminderExpiredAt(
+              now,
+            ),
+          },
         )
         .toList();
-    final visibleLocalEntries = localEntries
-        .where(
-          (entry) =>
-              _reminderFilter == BookmarkReminderFilter.all &&
-              (_filter == null ||
-                  _filter == destinationBookmarkTypeLabel(entry.kind)),
-        )
-        .toList();
+    final visibleLocalEntries = _reminderFilter == BookmarkReminderFilter.all
+        ? localEntries
+        : const <DestinationBookmark>[];
     _scheduleVisibleEndCheck(feed);
 
     Widget? state;
@@ -529,10 +504,16 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           !feed.hasMore &&
           !feed.hasPrevious) {
         state = SliverToBoxAdapter(
-          child: UserMenuMessage(
-            text: feed.isEmpty && localEntries.isEmpty
-                ? context.l10n.nothingBookmarkedYet
-                : context.l10n.noBookmarksInThisFilter,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Text(
+              context.l10n.nothingBookmarkedHere,
+              style: TextStyle(
+                fontSize: DiscourseTypography.compact,
+                height: DiscourseTypography.lineHeightSmall,
+                color: DTokens.of(context).mutedForeground,
+              ),
+            ),
           ),
         );
       }
@@ -541,14 +522,13 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     final content = DPageSurface.headed(
       identity: widget.siteUrl,
       title: Text(context.l10n.bookmarks),
-      controls: DReferenceTextScale(child: _heading(context, filters)),
+      controls: DReferenceTextScale(child: _heading(context)),
       bodyBuilder: (context, header) => DPageReadingLane(
         builder: (context, lane) => AccountFeedViewport(
           identity: (
             widget.controller,
             widget.siteUrl,
             session,
-            _filter,
             _reminderFilter,
           ),
           rows: [for (final entry in visibleEntries) entry.bookmark.id],
@@ -605,15 +585,17 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
     visibleEntries,
     required List<DestinationBookmark> visibleLocalEntries,
   }) => [
-    SliverList.builder(
+    SliverList.separated(
       itemCount: visibleLocalEntries.length,
+      separatorBuilder: (context, index) => const DSeparator(),
       itemBuilder: (context, index) => DestinationBookmarkRow(
         siteUrl: widget.siteUrl,
         bookmark: visibleLocalEntries[index],
-        padding: const EdgeInsets.symmetric(vertical: 12),
         onOpened: widget.onOpened,
       ),
     ),
+    if (visibleLocalEntries.isNotEmpty && visibleEntries.isNotEmpty)
+      const SliverToBoxAdapter(child: DSeparator()),
     if (feed.hasPrevious)
       SliverToBoxAdapter(
         child: Center(
@@ -640,7 +622,6 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
               bookmark: entry.bookmark,
               siteUrl: widget.siteUrl,
               presentation: entry.presentation,
-              padding: const EdgeInsets.symmetric(vertical: 12),
               onTap: () => _openBookmark(entry.bookmark),
             ),
           );
@@ -668,11 +649,16 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
       ),
   ];
 
-  Widget _heading(BuildContext context, Set<String> filters) => Wrap(
-    spacing: DSpacing.sm,
-    runSpacing: DSpacing.sm,
-    children: [
-      DSelect<BookmarkReminderFilter>.controlled(
+  Widget _heading(BuildContext context) {
+    String label(BookmarkReminderFilter filter) => switch (filter) {
+      BookmarkReminderFilter.all => context.l10n.allBookmarks,
+      BookmarkReminderFilter.reminders => context.l10n.bookmarkReminders,
+      BookmarkReminderFilter.expired => context.l10n.expired,
+    };
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      heightFactor: 1,
+      child: DSelect<BookmarkReminderFilter>.controlled(
         size: DControlSize.filter,
         semanticLabel: context.l10n.filterBookmarks,
         value: _reminderFilter,
@@ -680,41 +666,16 @@ class _BookmarkSectionViewState extends State<_BookmarkSectionView> {
           for (final filter in BookmarkReminderFilter.values)
             DSelectOption(
               value: filter,
-              child: Text(switch (filter) {
-                BookmarkReminderFilter.all => context.l10n.allBookmarks,
-                BookmarkReminderFilter.reminders =>
-                  context.l10n.bookmarkReminders,
-                BookmarkReminderFilter.expired => context.l10n.expired,
-              }),
-              label: switch (filter) {
-                BookmarkReminderFilter.all => context.l10n.allBookmarks,
-                BookmarkReminderFilter.reminders =>
-                  context.l10n.bookmarkReminders,
-                BookmarkReminderFilter.expired => context.l10n.expired,
-              },
+              label: label(filter),
+              child: Text(label(filter)),
             ),
         ],
         onChanged: (value) => _changedFilter(
           () => _reminderFilter = value ?? BookmarkReminderFilter.all,
         ),
       ),
-      DSelect<String>.controlled(
-        size: DControlSize.filter,
-        semanticLabel: context.l10n.filterBookmarkType,
-        value: _filter,
-        entries: [
-          DSelectOption(
-            value: null,
-            label: context.l10n.allBookmarkTypes,
-            child: Text(context.l10n.allBookmarkTypes),
-          ),
-          for (final filter in filters)
-            DSelectOption(value: filter, label: filter, child: Text(filter)),
-        ],
-        onChanged: (value) => _changedFilter(() => _filter = value),
-      ),
-    ],
-  );
+    );
+  }
 }
 
 @immutable
@@ -738,38 +699,63 @@ class BookmarkRow extends StatelessWidget {
     this.siteUrl,
     required this.onTap,
     this.presentation,
-    this.padding,
   });
 
   final Bookmark bookmark;
   final String? siteUrl;
   final VoidCallback onTap;
+
+  /// Present on the Bookmarks page, which draws a [BookmarkTile]; the user
+  /// menu's tab draws its compact row without one.
   final BookmarkPresentation? presentation;
-  final EdgeInsetsGeometry? padding;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = DTokens.of(context);
     final details = presentation;
     final expired = bookmark.reminderExpiredAt(DateTime.now());
+    final name = bookmark.name;
     final label = [
       if (expired) context.l10n.bookmarkReminderExpired,
       if (details == null) ?bookmark.author,
       details?.title ??
           (bookmark.title.isEmpty ? context.l10n.bookmark : bookmark.title),
       if (details != null) details.subtitle,
-      if (bookmark.name case final name?)
-        context.l10n.noteBookmarklist((name).toString()),
+      if (name != null) context.l10n.noteBookmarklist(name),
     ].join(', ');
-    final color = details?.color ?? tokens.mutedForeground;
-    final meta = theme.textTheme.labelMedium?.copyWith(
-      color: tokens.mutedForeground,
-    );
+    final row = details == null
+        ? _menuRow(context, label: label, expired: expired)
+        : BookmarkTile(
+            key: ValueKey('bookmark-row-${bookmark.id}'),
+            icon: details.icon,
+            color: details.color,
+            title: details.title,
+            details: [
+              if (name != null && name.isNotEmpty) name,
+              details.subtitle,
+            ].join(' · '),
+            semanticLabel: label,
+            expired: expired,
+            onPressed: onTap,
+          );
+    final path = bookmark.path;
+    return path == null
+        ? row
+        : LinkTarget(
+            url: path,
+            siteUrl: siteUrl,
+            targetBookmark: bookmark,
+            child: row,
+          );
+  }
+
+  Widget _menuRow(
+    BuildContext context, {
+    required String label,
+    required bool expired,
+  }) {
+    final tokens = DTokens.of(context);
     final row = DItem(
       key: ValueKey('bookmark-row-${bookmark.id}'),
-      padding: padding,
-      shape: details == null ? DItemShape.standard : DItemShape.fullWidth,
       selectionStyle: DItemSelectionStyle.leadingAccent,
       selected: expired,
       showSelectionIndicator: false,
@@ -778,86 +764,40 @@ class BookmarkRow extends StatelessWidget {
       children: [
         DItemMedia(
           child: ExcludeSemantics(
-            child: details == null
-                ? DIcon(
-                    bookmark.reminderAt == null
-                        ? DIcons.bookmark
-                        : DIcons.discourseBookmarkClock,
-                    size: 16,
-                    color: tokens.mutedForeground,
-                  )
-                : DAvatar(
-                    decorative: true,
-                    fallback: DAvatarFallback(
-                      backgroundColor: color.withValues(alpha: .2),
-                      foregroundColor: Color.lerp(
-                        color,
-                        tokens.foreground,
-                        .35,
-                      ),
-                      child: DIcon(details.icon),
-                    ),
-                  ),
-          ),
-        ),
-        if (details == null)
-          DItemContent(
-            spacing: DSpacing.xs,
-            children: [
-              ExcludeSemantics(
-                child: Text(
-                  [?bookmark.author, bookmark.title].join(' '),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          )
-        else
-          ExcludeSemantics(
-            child: DItemContent(
-              children: [
-                DItemTitle(maxLines: null, child: Text(details.title)),
-                if (bookmark.name case final name? when name.isNotEmpty)
-                  DItemDescription(child: Text(name)),
-                Wrap(
-                  spacing: DSpacing.sm,
-                  runSpacing: DSpacing.xs,
-                  children: [
-                    Text(details.subtitle, style: meta),
-                    if (expired)
-                      Text(
-                        context.l10n.bookmarkReminderExpired,
-                        style: meta?.copyWith(color: tokens.primary),
-                      ),
-                  ],
-                ),
-              ],
+            child: DIcon(
+              bookmark.reminderAt == null
+                  ? DIcons.bookmark
+                  : DIcons.discourseBookmarkClock,
+              size: 16,
+              color: tokens.mutedForeground,
             ),
           ),
+        ),
+        DItemContent(
+          spacing: DSpacing.xs,
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                [?bookmark.author, bookmark.title].join(' '),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
       ],
     );
-
     final name = bookmark.name;
-    final presented = name == null || details != null
+    return name == null
         ? row
         : DTooltip(
             message: name,
             excludeFromSemantics: true,
             hoverDelay: const Duration(milliseconds: 400),
             child: row,
-          );
-    final path = bookmark.path;
-    return path == null
-        ? presented
-        : LinkTarget(
-            url: path,
-            siteUrl: siteUrl,
-            targetBookmark: bookmark,
-            child: presented,
           );
   }
 }

@@ -7,6 +7,7 @@ import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:discourse_native/src/ui/foundation/control_style.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -82,6 +83,42 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('a phone page filter is as wide as its whole label', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.dark.copyWith(platform: TargetPlatform.iOS),
+        home: Scaffold(
+          body: Center(
+            child: DSelect<String>.controlled(
+              key: const Key('header-select'),
+              size: DControlSize.filter,
+              value: 'mine',
+              entries: const [
+                DSelectOption(
+                  value: 'mine',
+                  label: 'Mine',
+                  child: Text('Mine'),
+                ),
+              ],
+              onChanged: _noopString,
+            ),
+          ),
+        ),
+      ),
+    );
+    final label = find.text('Mine');
+    expect(
+      tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
+      isFalse,
+    );
+    expect(
+      tester.getSize(find.byKey(const Key('header-select'))).width,
+      tester.getSize(label).width.ceilToDouble() + 22,
+    );
+  });
 
   test('Select registers implemented styleguide examples', () {
     expect(componentExamples['select'], same(selectExamples));
