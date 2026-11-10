@@ -26,7 +26,7 @@ void main() {
     testWidgets(
       'edit footer stays at the visible foot through partial detents and keyboard on $platform',
       (tester) async {
-        const footerPadding = 16 * 17 / 13;
+        const footerPadding = 14 * 17 / 13;
         tester.view.physicalSize = const Size(390, 844);
         tester.view.devicePixelRatio = 1;
         tester.view.padding = const FakeViewPadding(top: 47, bottom: 34);
@@ -263,6 +263,77 @@ void main() {
     expect(surface.width, 640);
     expect(surface.left, 180);
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  // Measured on the mockup's Insert link sheet: a phone's at 390 wide, a
+  // desktop dialog's at its own size, which a desktop sheet shares. The gap
+  // is read at the end of what scrolls, where the actions are held.
+  for (final (presentation, platform, dialog, side, gap, foot) in [
+    ('phone sheet', TargetPlatform.iOS, true, 19.46, 36.62, 18.46),
+    ('desktop dialog', TargetPlatform.macOS, true, 17.0, 16.0, 17.0),
+    ('desktop sheet', TargetPlatform.macOS, false, 17.0, 16.0, 17.0),
+  ]) {
+    testWidgets(
+      'a $presentation lines its heading, content and actions up as the '
+      'mockup does',
+      (tester) async {
+        tester.view.physicalSize = platform == TargetPlatform.iOS
+            ? const Size(390, 844)
+            : const Size(1000, 800);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        await _pumpSurface(
+          tester,
+          dialog: dialog,
+          platform: platform,
+          builder: (_) => const SizedBox(
+            key: ValueKey('content'),
+            width: double.infinity,
+            height: 2000,
+          ),
+          footerBuilder: (context) => ShellSheetActions(
+            children: [
+              DButton(
+                key: const ValueKey('action'),
+                label: const Text('Insert link'),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        );
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+        final scroll = tester
+            .state<ScrollableState>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('content')),
+                    matching: find.byType(Scrollable),
+                  )
+                  .first,
+            )
+            .position;
+        scroll.jumpTo(scroll.maxScrollExtent);
+        await tester.pumpAndSettle();
+        final surface = tester.getRect(
+          find.byType(
+            dialog && platform == TargetPlatform.macOS
+                ? DDialogContent
+                : DSheetContent,
+          ),
+        );
+        final title = tester.getRect(find.text(_title));
+        final content = tester.getRect(find.byKey(const ValueKey('content')));
+        final action = tester.getRect(find.byKey(const ValueKey('action')));
+        expect(title.left - surface.left, closeTo(side, 0.2));
+        expect(content.left - surface.left, closeTo(side, 0.2));
+        expect(surface.right - content.right, closeTo(side, 0.2));
+        expect(surface.right - action.right, closeTo(side, 0.2));
+        expect(action.top - content.bottom, closeTo(gap, 0.2));
+        expect(surface.bottom - action.bottom, closeTo(foot, 0.2));
+      },
+      variant: TargetPlatformVariant.only(platform),
+    );
+  }
 
   for (final dialog in [false, true]) {
     testWidgets(

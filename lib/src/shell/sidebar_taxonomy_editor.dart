@@ -37,7 +37,6 @@ Future<void> showSidebarTaxonomyEditor({
     fillAvailableHeight: true,
     showHeaderDivider: false,
     padding: const EdgeInsets.symmetric(horizontal: 15),
-    footerPadding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
     surfaceBuilder: (_, sheet) => SidebarTaxonomyEditor(
       controller: controller,
       siteUrl: siteUrl,

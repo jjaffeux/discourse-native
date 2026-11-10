@@ -21,11 +21,10 @@ Future<T?> showShellSheet<T>({
     maxWidth: 480,
     maxHeight: 560,
   ),
-  EdgeInsetsGeometry padding = const EdgeInsets.symmetric(
-    horizontal: 24,
-    vertical: 16,
-  ),
-  EdgeInsetsGeometry footerPadding = const EdgeInsets.fromLTRB(24, 12, 24, 16),
+
+  /// Default to the mockup's insets for where the sheet is shown.
+  EdgeInsetsGeometry? padding,
+  EdgeInsetsGeometry? footerPadding,
   bool enableDrag = true,
   bool Function()? canDismiss,
   FocusNode? initialFocusNode,
@@ -43,6 +42,7 @@ Future<T?> showShellSheet<T>({
   Widget surface(BuildContext context, Widget child) =>
       surfaceBuilder?.call(context, child) ?? child;
   if (dialogOnDesktop && !context.isTouch) {
+    const insets = _pointerInsets;
     return showDDialog<T>(
       context: context,
       useRootNavigator: true,
@@ -69,8 +69,9 @@ Future<T?> showShellSheet<T>({
                   nested: nested,
                   scrollBody: scrollBody,
                   showHeaderDivider: showHeaderDivider,
-                  padding: padding,
-                  footerPadding: footerPadding,
+                  headingInset: insets.heading,
+                  padding: padding ?? insets.body,
+                  footerPadding: footerPadding ?? insets.footer,
                 ),
               ),
             ],
@@ -87,6 +88,7 @@ Future<T?> showShellSheet<T>({
       ? DSheetVariant.adaptiveMenu
       : DSheetVariant.menu;
   final adaptive = variant == DSheetVariant.adaptiveMenu;
+  final insets = context.isTouch ? _phoneInsets : _pointerInsets;
   final pinnedFooter = adaptive && footerBuilder != null;
   final sizeToContent = !(adaptive && (fillAvailableHeight || pinnedFooter));
   return showDSheet<T>(
@@ -130,8 +132,9 @@ Future<T?> showShellSheet<T>({
                     expandBody: pinnedFooter,
                     scrollBody: scrollBody,
                     showHeaderDivider: showHeaderDivider,
-                    padding: padding,
-                    footerPadding: footerPadding,
+                    headingInset: insets.heading,
+                    padding: padding ?? insets.body,
+                    footerPadding: footerPadding ?? insets.footer,
                   ),
                 ),
               ],
@@ -143,6 +146,28 @@ Future<T?> showShellSheet<T>({
   );
 }
 
+/// Where a sheet's heading, content and actions sit, from the mockup's
+/// sheets. The heading's is added to the sheet header's own inset.
+typedef _SheetInsets = ({double heading, EdgeInsets body, EdgeInsets footer});
+
+/// A phone's, in the zoomed units its content is laid out in: one inset from
+/// the sides for all three, its actions 28 under what it holds, and either
+/// 14 above its foot.
+const _SheetInsets _phoneInsets = (
+  // The header's own inset is not zoomed.
+  heading: 15 - DSpacing.md * 13 / 17,
+  body: EdgeInsets.fromLTRB(15, 16, 15, 14),
+  footer: EdgeInsets.fromLTRB(15, 14, 15, 14),
+);
+
+/// A desktop dialog's: 16 inside its 1px rim, with its actions 16 under what
+/// it holds.
+const _SheetInsets _pointerInsets = (
+  heading: 17 - DSpacing.md,
+  body: EdgeInsets.fromLTRB(17, 16, 17, 16),
+  footer: EdgeInsets.fromLTRB(17, 0, 17, 17),
+);
+
 class _SheetBody extends StatelessWidget {
   const _SheetBody({
     required this.title,
@@ -153,6 +178,7 @@ class _SheetBody extends StatelessWidget {
     this.expandBody = false,
     required this.scrollBody,
     required this.showHeaderDivider,
+    required this.headingInset,
     required this.padding,
     required this.footerPadding,
   });
@@ -167,6 +193,7 @@ class _SheetBody extends StatelessWidget {
   final bool expandBody;
   final bool scrollBody;
   final bool showHeaderDivider;
+  final double headingInset;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
 
@@ -178,11 +205,7 @@ class _SheetBody extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          // The mockup insets a phone sheet's heading 15px before its 17/13
-          // zoom. This padding is zoomed; the header's own inset is not.
-          padding: EdgeInsets.symmetric(
-            horizontal: grabbed ? 15 - DSpacing.md * 13 / 17 : 0,
-          ),
+          padding: EdgeInsets.symmetric(horizontal: headingInset),
           child: DSheetHeader(
             leading: nested
                 ? DSheetHeaderAction(

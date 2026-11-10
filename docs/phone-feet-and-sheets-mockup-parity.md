@@ -84,8 +84,11 @@ close button; a nested sheet keeps its back button. `fillAvailableHeight`
 there reserves the fixed opening height and takes the room above a
 visible keyboard. A form whose body and actions the sheet builds apart
 shares its state through `ShellSheetForm`, and closes with `DDialogClose`
-so the same form serves the desktop dialog. Desktop keeps every dialog as
-it was.
+so the same form serves the desktop dialog. Desktop keeps every dialog.
+Both hold the title, what the sheet holds and its actions on one inset
+from the sides, as the mockup does: 15 inside a phone's 17/13 zoom,
+19.5pt on a 390pt phone, with the actions 14 above the foot, and 17 in a
+desktop dialog, 16 inside its rim, with the actions 16 under what it holds.
 
 Fixed actions use `DSheetFooter`. At a partial detent, Native reserves the
 bottom safe area below the actions, inside the sheet. With the keyboard

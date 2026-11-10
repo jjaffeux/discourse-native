@@ -583,7 +583,7 @@ void main() {
           .map((button) => (button.label as Text).data),
       ['Reset to default', 'Save'],
     );
-    expect(save.right, closeTo(390 - 20.9, 1));
+    expect(save.right, closeTo(390 - 19.5, 0.5));
     expect(save.height, closeTo(45.8, 1.5));
     expect(reset.height, closeTo(45.8, 1.5));
     semantics.dispose();
