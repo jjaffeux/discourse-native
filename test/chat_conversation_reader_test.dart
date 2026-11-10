@@ -690,6 +690,67 @@ void main() {
       expect(second.stream.messageIds.where((id) => id == 101), hasLength(1));
     },
   );
+
+  // The site publishes a send to the channel stream and to its new-messages
+  // stream before it answers the POST, so either echo can reach an open reader
+  // while the bubble does not yet know its server id.
+  for (final echo in ['/chat/9', '/chat/9/new-messages']) {
+    test('a send whose $echo echo beats the POST shows once in an open '
+        'reader', () async {
+      final gate = Completer<void>();
+      final subject = fixtures.build(
+        currentUser: const DiscourseUser(id: 7, username: 'reader'),
+        channels: {
+          fixtures.site: ChatChannels(
+            direct: [fixtures.channel(9, kind: ChatChannelKind.directMessage)],
+            newMessageBusLastIds: const {9: 70},
+          ),
+        },
+        messages: {
+          '9': fixtures.page([fixtures.message(100)]),
+        },
+        sendGate: gate,
+        sentMessageId: 101,
+      );
+      addTearDown(subject.chat.dispose);
+      final tracker = fixtures.attachTracker(subject.chat);
+      await subject.chat.loadChannels(fixtures.site);
+      final reader = subject.chat.acquireReader(
+        fixtures.site,
+        const ChatChannelTarget(9),
+        readerId: 'phone',
+      );
+      addTearDown(reader.dispose);
+      reader.beginViewing();
+      await reader.open();
+      final send = subject.chat.sendMessage(
+        fixtures.site,
+        9,
+        OutgoingChatMessage.text('hello chat'),
+      )!;
+      await Future<void>.delayed(Duration.zero);
+
+      tracker.deliverPluginMessage(
+        echo,
+        echo == '/chat/9'
+            ? fixtures.sentEvent(stagedId: send.stagedId, serverId: 101)
+            : fixtures.newMessageEvent(
+                channelId: 9,
+                messageId: 101,
+                authorId: 7,
+                authorUsername: 'reader',
+                createdAt: '2026-05-05T10:01:00.000Z',
+              ),
+      );
+      gate.complete();
+      expect(await send.settled, ChatSendResult.sent);
+
+      expect(reader.stream.messageIds, [100, 101]);
+      expect(reader.stream.localMessageIds, isEmpty);
+      expect(reader.messages.map((message) => message.id), [100, 101]);
+    });
+  }
+
   test(
     'a scoped page confirms a send before POST without moving historical readers',
     () async {

@@ -814,7 +814,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             icon: DIcon(active?.icon ?? DIcons.ellipsisVertical),
             label:
                 '${active?.label ?? context.l10n.more}, ${context.l10n.openNavigation}',
-            onPressed: () => DScrollChrome.maybeOf(context)?.reveal(),
+            onPressed: () => DScrollChrome.maybeOf(context)?.revealNavigation(),
           ),
           places: [for (final name in order) places[name]!],
           notifications: _notificationsPlace(

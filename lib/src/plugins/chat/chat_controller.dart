@@ -3293,10 +3293,8 @@ class ChatController extends FrameSafeNotifier {
         serverId: serverId,
       ),
     );
-    if (serverId != null &&
-        localId != null &&
-        streamFor(siteUrl, target).messageIds.contains(serverId)) {
-      _removeLocalMessage(siteUrl, target, localId);
+    if (serverId != null && localId != null) {
+      _retireConfirmedLocal(siteUrl, target, localId, serverId);
     }
   }
 
@@ -3345,15 +3343,23 @@ class ChatController extends FrameSafeNotifier {
     return null;
   }
 
-  void _removeLocalMessage(
+  /// Each reader holds its own window, and an echo can reach a reader before
+  /// the shared window, so whether [canonicalId] is already shown is asked of
+  /// each window. One still waiting for that row keeps the bubble until its
+  /// own page or arrival matches the server id.
+  void _retireConfirmedLocal(
     String siteUrl,
     ChatStreamTarget target,
     int localId,
+    int canonicalId,
   ) {
-    _cancelMessageCooking(siteUrl, localId);
     for (final owner in _windowsFor(siteUrl, target)) {
       final window = owner.snapshot;
-      if (!window.localMessageIds.contains(localId)) continue;
+      if (!window.localMessageIds.contains(localId) ||
+          !window.messageIds.contains(canonicalId)) {
+        continue;
+      }
+      _cancelMessageCooking(siteUrl, localId);
       owner.publish(
         window.copyWith(
           localMessageIds: List.unmodifiable(
@@ -3428,11 +3434,8 @@ class ChatController extends FrameSafeNotifier {
         _publishNotificationChange(siteUrl, heldChannel, updated);
         notifySafely();
       }
-      if (window.messageIds.contains(canonical.id)) {
-        _removeLocalMessage(siteUrl, target, id);
-      } else {
-        _store.put(siteUrl, local!.withCanonical(canonical));
-      }
+      _store.put(siteUrl, local!.withCanonical(canonical));
+      _retireConfirmedLocal(siteUrl, target, id, canonical.id);
       return;
     }
   }
