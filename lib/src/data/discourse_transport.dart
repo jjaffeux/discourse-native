@@ -571,27 +571,8 @@ final class DiscourseTransport {
     AccountRequestRetiredException() => true,
     // TLS is negotiated before the first byte of the request is written.
     HandshakeException() => true,
-    // Dart's own words, unlike an OS error's text, so no locale changes them.
-    SocketException(:final message)
-        when message.startsWith('Failed host lookup') =>
-      true,
-    SocketException(osError: OSError(:final errorCode)) =>
-      _connectionNeverOpened.contains(errorCode),
-    _ => false,
+    _ => connectionNeverOpened(error),
   };
-
-  /// ECONNREFUSED answers only a connection attempt: a peer resetting an open
-  /// connection reports ECONNRESET. Both kernels hold ENETUNREACH,
-  /// EHOSTUNREACH and ENETDOWN on an open connection as soft errors, reported
-  /// only when retransmission gives up, minutes after any write here has
-  /// timed out. The numbers differ per kernel, and Darwin's EPROTO is Linux's
-  /// ENETDOWN, so only the running kernel's own are recognised.
-  static final Set<int> _connectionNeverOpened =
-      switch (Platform.operatingSystem) {
-        'macos' || 'ios' => const {61, 51, 65, 50},
-        'linux' || 'android' => const {111, 101, 113, 100},
-        _ => const {},
-      };
 
   /// Error bodies can be HTML or empty. A failed decode is response metadata,
   /// not another transport failure, so writes fall back to an empty object.
