@@ -909,6 +909,7 @@ void main() {
           DBadgeSize.count => 20,
           DBadgeSize.menuCount => 18,
           DBadgeSize.unreadChip => 20,
+          DBadgeSize.headerCount => 17,
         },
       );
       await tester.tapAt(bounds.topCenter + const Offset(0, 2));

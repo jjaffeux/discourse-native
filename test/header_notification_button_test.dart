@@ -8,7 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  testWidgets('large overlay counts keep the bell visible at 200% text', (
+  testWidgets('large pill counts stay beside the bell at 200% text', (
     tester,
   ) async {
     tester.platformDispatcher.textScaleFactorTestValue = 2;
@@ -30,7 +30,7 @@ void main() {
                 tooltip: 'Notifications',
                 semanticLabel: 'Notifications, 128 unread',
                 onPressed: () {},
-                overlayCount: true,
+                pillCount: true,
               ),
             ),
           ),
@@ -38,18 +38,21 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    final bounds = tester.getRect(find.byKey(const ValueKey('bell')));
     final glyph = tester.getRect(find.byType(DIcon));
     final badge = tester.getRect(find.byKey(const ValueKey('badge')));
-    expect(badge.bottom - glyph.top, closeTo(6, .01));
-    expect(glyph.bottom - badge.bottom, greaterThan(10));
+    expect(badge.left, greaterThanOrEqualTo(glyph.right));
+    expect(badge.center.dy, closeTo(glyph.center.dy, .5));
+    expect(bounds.contains(badge.topLeft), isTrue);
+    expect(bounds.contains(badge.bottomRight), isTrue);
     expect(find.text('99+'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
   for (final dark in [false, true]) {
     for (final expanded in [false, true]) {
-      for (final overlay in [false, true]) {
+      for (final pill in [false, true]) {
         testWidgets(
-          'notification state dark=$dark open=$expanded overlay=$overlay',
+          'notification state dark=$dark open=$expanded pillCount=$pill',
           (tester) async {
             final theme = (dark ? AppTheme.dark : AppTheme.light).copyWith(
               platform: TargetPlatform.macOS,
@@ -68,8 +71,8 @@ void main() {
                             key: const ValueKey('button'),
                             countKey: const ValueKey('count'),
                             icon: DIcon(
-                              overlay ? DIcons.bell : DIcons.comment,
-                              size: overlay ? 17 : 16,
+                              pill ? DIcons.inbox : DIcons.comment,
+                              size: pill ? 17 : 16,
                             ),
                             count: 3,
                             color: theme.discourse.success,
@@ -79,7 +82,7 @@ void main() {
                             onPressed: () {},
                             hasPopup: true,
                             expanded: expanded,
-                            overlayCount: overlay,
+                            pillCount: pill,
                           ),
                         );
                       },
@@ -97,11 +100,8 @@ void main() {
               );
               expect(control.backgroundColor, isNull);
               expect(control.shape, DButtonShape.pill);
-              expect(
-                count,
-                overlay && expanded ? findsNothing : findsOneWidget,
-              );
-              if (overlay && !expanded) {
+              expect(count, pill && expanded ? findsNothing : findsOneWidget);
+              if (pill && !expanded) {
                 expect(tester.widget(count), isA<DBadge>());
                 final badge = tester.widget<DBadge>(count);
                 final primary = DTokens.of(
@@ -109,20 +109,31 @@ void main() {
                 ).buttonTheme.primary;
                 expect(badge.backgroundColor, primary.background);
                 expect(badge.foregroundColor, primary.foreground);
-                final glyph = find.descendant(
-                  of: button,
-                  matching: find.byType(DIcon),
+                // The mockup's `.bar-bell` with `.bell-count`: 9px insets, a
+                // 17px glyph, a 5px gap and an accent pill at least 17px
+                // across with 4px insets.
+                final bounds = tester.getRect(button);
+                final glyph = tester.getRect(
+                  find.descendant(of: button, matching: find.byType(DIcon)),
                 );
-                expect(
-                  tester.getRect(count).center.dy,
-                  lessThan(tester.getRect(glyph).top),
+                final pillRect = tester.getRect(count);
+                final digits = tester.getRect(
+                  find.descendant(of: count, matching: find.text('3')),
                 );
+                expect(bounds.height, 36);
+                expect(glyph.left - bounds.left, 9);
+                expect(pillRect.left - glyph.right, 5);
+                expect(bounds.right - pillRect.right, 9);
+                expect(pillRect.height, 17);
+                expect(pillRect.width, math.max(17, digits.width + 8));
+                expect(digits.center.dx, closeTo(pillRect.center.dx, .5));
+                expect(pillRect.center.dy, closeTo(glyph.center.dy, .5));
               }
               expect(
                 find.descendant(of: button, matching: find.byType(DSeparator)),
-                overlay ? findsNothing : findsOneWidget,
+                pill ? findsNothing : findsOneWidget,
               );
-              if (!overlay) {
+              if (!pill) {
                 final bounds = tester.getRect(button);
                 final glyph = tester.getRect(
                   find.descendant(of: button, matching: find.byType(DIcon)),
@@ -139,7 +150,7 @@ void main() {
                 expect(separator.left - glyph.right, 8);
                 expect(text.left - separator.right, 8);
                 expect(bounds.right - text.right, 10);
-              } else {
+              } else if (expanded) {
                 expect(tester.getSize(button), const Size.square(36));
               }
               expect(

@@ -76,9 +76,9 @@ DNotificationDot(
     StyleguideExample(
       title: 'Combined count buttons',
       description:
-          'The approved application header composition uses success for '
-          'urgent chat and the ordinary notification accent for the bell, '
-          'with the Native button’s 8px control radius. '
+          'The approved application header composition: chat colours its '
+          'glyph and a separated count with success, and the bell sets its '
+          'count beside it in an accent pill. '
           'Counts cap at 99+ and keep their exact accessible label.',
       states: const [
         'Urgent chat',
@@ -123,6 +123,7 @@ headerNotificationButton(
               surface: Theme.of(context).shell.content,
               tooltip: '$name, $count unread items',
               semanticLabel: '$name, $count unread items',
+              pillCount: name == 'Notifications',
               onPressed: () =>
                   DToast.show(context, '$name: $count unread items'),
             ),

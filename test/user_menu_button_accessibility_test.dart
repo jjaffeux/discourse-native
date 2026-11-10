@@ -196,7 +196,11 @@ void main() {
 
       final button = find.byKey(UserMenuButton.bellKey);
       expect(tester.getSize(button).height, 36);
-      expect(tester.getSize(button).width, 36);
+      expect(
+        tester.getRect(button).right -
+            tester.getRect(find.byKey(UserMenuButton.unreadDotKey)).right,
+        9,
+      );
       expect(
         tester.getRect(button).right,
         lessThanOrEqualTo(

@@ -33,6 +33,11 @@ enum DBadgeSize {
   /// What is unread in a place, as [DBadge.unreadChip] draws it.
   unreadChip,
 
+  /// A header button's count beside its glyph: at least 17 wide and 17 tall,
+  /// 4px insets, 11/700 tabular figures on a 17px line on every platform.
+  /// The caller supplies the fill it shares with the button's open state.
+  headerCount,
+
   /// Matches the mockup taxonomy chips: 30px with 12.5px labels and the
   /// button corner radius, so they sit beside buttons as one control row.
   control,
@@ -310,6 +315,7 @@ class _DBadgeState extends State<DBadge> {
         widget.size == DBadgeSize.count && DControlStyle.isTouch(context);
     final chip = widget.size == DBadgeSize.unreadChip;
     final touchChip = chip && DControlStyle.isTouch(context);
+    final headerCount = widget.size == DBadgeSize.headerCount;
     final overlay = widget._overlay;
     final control = widget.size == DBadgeSize.control;
     final fontSize = inline != null
@@ -322,7 +328,7 @@ class _DBadgeState extends State<DBadge> {
         ? (touchCount ? 12.5 : 11.5)
         : chip
         ? (touchChip ? 12.5 : DiscourseTypography.micro)
-        : (unread)
+        : unread || headerCount
         ? DiscourseTypography.micro
         : DiscourseTypography.xs;
     final lineHeight = inline != null
@@ -336,6 +342,8 @@ class _DBadgeState extends State<DBadge> {
         ? (touchCount ? 18 : 16) / fontSize
         : chip
         ? (touchChip ? 20 : 16) / fontSize
+        : headerCount
+        ? 17 / fontSize
         : compact
         ? 14 / DiscourseTypography.xs
         : DiscourseTypography.lineHeightCaption;
@@ -450,8 +458,10 @@ class _DBadgeState extends State<DBadge> {
               ? 20
               : chip
               ? (touchChip ? 20 : 17)
+              : headerCount
+              ? 17
               : (overlay ? 14 : (unread ? 18 : 0)),
-          minHeight: inline != null || chip
+          minHeight: inline != null || chip || headerCount
               ? 0
               : featured
               ? 26 + (MediaQuery.textScalerOf(context).scale(12) - 12) * 1.5
@@ -469,7 +479,13 @@ class _DBadgeState extends State<DBadge> {
         ),
         decoration: BoxDecoration(
           color: background,
-          border: overlay || unread || count || chip || inline != null
+          border:
+              overlay ||
+                  unread ||
+                  count ||
+                  chip ||
+                  headerCount ||
+                  inline != null
               ? null
               : Border.all(color: border),
           borderRadius: radius,
@@ -502,6 +518,8 @@ class _DBadgeState extends State<DBadge> {
             ? const EdgeInsets.symmetric(horizontal: 7, vertical: 1)
             : chip
             ? EdgeInsets.symmetric(horizontal: touchChip ? 7 : 4)
+            : headerCount
+            ? const EdgeInsets.symmetric(horizontal: 4)
             : (unread
                   ? const EdgeInsets.symmetric(horizontal: 6, vertical: 1)
                   : EdgeInsetsDirectional.fromSTEB(
@@ -547,10 +565,10 @@ class _DBadgeState extends State<DBadge> {
                           ? FontWeight.w400
                           : overlay || count || touchChip
                           ? FontWeight.w600
-                          : unread || chip
+                          : unread || chip || headerCount
                           ? FontWeight.w700
                           : (control ? FontWeight.w400 : FontWeight.w500),
-                      fontFeatures: overlay || count || chip
+                      fontFeatures: overlay || count || chip || headerCount
                           ? const [FontFeature.tabularFigures()]
                           : null,
                       letterSpacing: inline == null
@@ -567,7 +585,7 @@ class _DBadgeState extends State<DBadge> {
                     ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: overlay || count || chip
+              mainAxisAlignment: overlay || count || chip || headerCount
                   ? MainAxisAlignment.center
                   : MainAxisAlignment.start,
               children: [

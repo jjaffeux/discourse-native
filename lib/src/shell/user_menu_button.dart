@@ -655,7 +655,7 @@ class _AccountMenuPopover extends StatelessWidget {
           focusNode: trigger.focusNode,
           hasPopup: true,
           expanded: trigger.open,
-          overlayCount: true,
+          pillCount: true,
           size: compact ? DButtonSize.regular : DButtonSize.large,
           onPressed: () => activate(context, trigger),
         );
