@@ -12,6 +12,7 @@ import 'package:discourse_native/src/shell/content_reading_lane.dart';
 import 'package:discourse_native/src/shell/search_words.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
+import 'package:discourse_native/src/shell/topic_category_path_selector.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
@@ -80,6 +81,27 @@ void main() {
           expect(
             find.byKey(const ValueKey('categories-category-filter')),
             findsOneWidget,
+          );
+          final path = find.byType(TopicCategoryPathSelector);
+          expect(
+            tester
+                    .getRect(
+                      find.descendant(
+                        of: path,
+                        matching: find.byType(DButtonGroup),
+                      ),
+                    )
+                    .right -
+                tester
+                    .getRect(
+                      find.descendant(
+                        of: path,
+                        matching: find.text('Categories'),
+                      ),
+                    )
+                    .right,
+            lessThan(16),
+            reason: 'the path pill ends at its label',
           );
           expect(tester.takeException(), isNull);
           await _export(

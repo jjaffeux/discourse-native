@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../foundation/icons/d_icons.dart';
 import '../models/site_config.dart';
 import '../models/topic.dart';
+import '../theme/app_theme.dart';
 import 'category_icon.dart';
 import 'topic_category_path.dart';
 import 'topic_category_selector.dart';
@@ -231,11 +232,7 @@ class TopicCategoryPathSelector extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: category == null && level > 0
                             ? TextStyle(
-                                color: Color.lerp(
-                                  DTokens.of(context).background,
-                                  DTokens.of(context).foreground,
-                                  .40,
-                                ),
+                                color: Theme.of(context).discourse.whisper,
                               )
                             : null,
                       ),

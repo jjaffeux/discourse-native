@@ -5,6 +5,7 @@ import 'package:discourse_native/src/shell/topic_category_path_selector.dart';
 import 'package:discourse_native/src/shell/topic_category_selector.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -189,6 +190,17 @@ void main() {
       },
     );
   }
+
+  testWidgets('the level still to choose reads in the palette muted tone', (
+    tester,
+  ) async {
+    await _pump(tester, selected: 1);
+    final label = find.text('Subcategory');
+    expect(
+      tester.renderObject<RenderParagraph>(label).text.style?.color,
+      Theme.of(tester.element(label)).discourse.whisper,
+    );
+  });
 
   for (final exact in [false, true]) {
     testWidgets(
