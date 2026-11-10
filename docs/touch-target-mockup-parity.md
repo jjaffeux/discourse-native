@@ -32,7 +32,7 @@ Measured in the running mockup at 390 by 844 with `data-touch` set:
 | `::after` on every control | `DTouchTarget` round the press root of each kit control: `DButton` (and with it every kit part built on it, such as pagination, alert dialog and dropdown triggers), `DSwitch`, `DCheckbox`, `DRadioGroupItem`, `DToggle` (and `DToggleGroup`), `DTabTrigger`, `DBreadcrumbLink`, `DBadge.action`, `DItem`, `DCollapsibleTrigger` (and `DAccordion`), `DCommandItem`, `DNavigationMenu` links, `DMenubar` triggers, `DDropdownMenuItem`, `DSelect` trigger, options and scroll arrows, `DCombobox` options, and the sidebar menu buttons. |
 | The layer's place in paint order | `DTouchTargets`, installed in `MaterialApp.builder` above the navigator, routes and toasts. A press that lands on no control is given to the control whose area holds it. The decision follows the mockup. The area lies at the control's place in paint order, so what paints over the control also covers its area (a sheet, a route, a later sibling). The area paints over what is under the control. An ancestor's clip hides it. A control that nothing can press, because it is ignored, offstage or under a barrier, has no area. |
 | No layer on a holder | A `DTouchTarget` with another inside it has no area. |
-| `.page-controls` fields at 44 | `DPageSurface.headed` wraps its controls in `DTouchFields`, and `DInput` is drawn at least 44 tall under it on a phone. Desktop keeps the 35.5 search field. |
+| `.page-controls` fields at 44 | `DPageSurface.headed` wraps its controls in `DTouchFields`, and `DInput` and `DInputGroup` are drawn at least 44 tall under it on a phone. A quiet `DInputGroup` is the mockup's `.find-field`, which the rule excludes, and keeps its 36-point pill. The phone's search screen wraps its field in `DTouchFields` too, matching `.phone-search`'s 44. Desktop keeps the 35.5 search field. |
 
 Nothing about layout or painting changes. `DTouchTarget` is a pass-through
 render box that registers with the scope, and the scope does work only on a
@@ -54,6 +54,9 @@ coordinates, as the CSS layer is, so a scaled control's area scales with it.
 - **Only text fields take the 44.** The mockup's page controls hold no
   `<select>`: its pickers there are `FilterPill` buttons, 30 tall with the
   invisible area. The app's `DSelect` pickers in the same place keep their 30.
+  A `DCombobox` is a picker drawn as a field, so it wraps its field in
+  `DTouchFields.picker` and keeps the height of the pickers beside it, as
+  Users' group filter does.
 - **Links inside text** (cooked posts, sentences) keep the bounds of their
   words. In Flutter they are text spans, not boxes, and the mockup's own audit
   exempts them too.

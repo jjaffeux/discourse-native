@@ -75,4 +75,5 @@ GlobalSearchScope _freezeScope(GlobalSearchScope scope) => scope.isCore
         showAvatar: scope.showAvatar,
         singletonFilters: scope.singletonFilters,
         displayProperties: Set.unmodifiable(scope.displayProperties),
+        layout: scope.layout,
       );

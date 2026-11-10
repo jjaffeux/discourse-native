@@ -86,10 +86,10 @@ void main() {
   testWidgets('a phone draws the fields under a page title 44 tall', (
     tester,
   ) async {
-    for (final (platform, height) in [
-      (TargetPlatform.iOS, kDTouchTargetExtent),
-      (TargetPlatform.android, kDTouchTargetExtent),
-      (TargetPlatform.macOS, 35.5),
+    for (final (platform, height, searchHeight, findHeight) in [
+      (TargetPlatform.iOS, kDTouchTargetExtent, kDTouchTargetExtent, 36.0),
+      (TargetPlatform.android, kDTouchTargetExtent, kDTouchTargetExtent, 36.0),
+      (TargetPlatform.macOS, 35.5, 36.0, 30.0),
     ]) {
       await tester.pumpWidget(
         MaterialApp(
@@ -110,10 +110,27 @@ void main() {
                 Expanded(
                   child: DPageSurface.headed(
                     title: const Text('Users'),
-                    controls: DInput(
-                      key: const ValueKey('page-field'),
-                      size: DControlSize.field,
-                      hintText: 'Filter users',
+                    controls: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        DInput(
+                          key: const ValueKey('page-field'),
+                          size: DControlSize.field,
+                          hintText: 'Filter users',
+                        ),
+                        DInputGroup(
+                          key: const ValueKey('page-search'),
+                          size: DControlSize.field,
+                          variant: DInputGroupVariant.search,
+                          children: [DInputGroupInput(hintText: 'Search')],
+                        ),
+                        DInputGroup(
+                          key: const ValueKey('page-find'),
+                          size: DControlSize.filter,
+                          variant: DInputGroupVariant.quiet,
+                          children: [DInputGroupInput(hintText: 'Find')],
+                        ),
+                      ],
                     ),
                     child: const SizedBox.expand(),
                   ),
@@ -130,6 +147,16 @@ void main() {
         tester.getSize(find.byKey(const ValueKey('page-field'))).height,
         height,
         reason: '$platform',
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('page-search'))).height,
+        searchHeight,
+        reason: '$platform',
+      );
+      expect(
+        tester.getSize(find.byKey(const ValueKey('page-find'))).height,
+        findHeight,
+        reason: 'a field that narrows a list keeps its pill on $platform',
       );
       expect(
         tester.getSize(find.byKey(const ValueKey('elsewhere'))).height,

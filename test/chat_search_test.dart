@@ -35,6 +35,26 @@ Future<GlobalSearchPage> globalPage(Map<String, dynamic> body) =>
     );
 
 void main() {
+  test('a message is placed by its channel, or as a direct message', () async {
+    final page = await globalPage({
+      'messages': [
+        result(1),
+        {
+          ...result(2, channelId: 12),
+          'channel': {
+            'id': 12,
+            'title': 'sam, alex',
+            'chatable_type': 'DirectMessage',
+          },
+        },
+      ],
+    });
+    expect(page.sections.single.results.map((row) => row.contextLabel), [
+      '#Bugs',
+      'Direct message',
+    ]);
+  });
+
   test('regression: chat search counts every raw pagination slot', () async {
     final body = <String, dynamic>{
       'messages': [result(1), null, result(2)],
@@ -260,10 +280,10 @@ void main() {
         '',
       ]);
       expect(results.map((r) => r.contextLabel), [
-        '# Title',
-        '# Channel name',
-        '# slug',
-        '# ',
+        '#Title',
+        '#Channel name',
+        '#slug',
+        '#',
       ]);
       expect(results.map((r) => r.excerpt), [
         'Excerpt',

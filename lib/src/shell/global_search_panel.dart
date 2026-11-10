@@ -88,9 +88,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
           String id,
           VoidCallback open,
           VoidCallback? into,
+          VoidCallback? back,
           GlobalSearchResult? result,
         })
       >[];
+  bool _filtersOpen = false;
   String? _selected;
   bool _initialSectionPending = true;
   Object? _selectedNavigationIdentity;
@@ -130,6 +132,17 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   bool handleKey(LogicalKeyboardKey key, {bool reverse = false}) {
     _checkSelectionTarget();
+    final current = _actions.indexWhere((action) => action.id == _selected);
+    final action = current >= 0 ? _actions[current] : _actions.firstOrNull;
+    // A row's own way sideways comes before switching search types.
+    if (key == LogicalKeyboardKey.arrowRight && action?.into != null) {
+      action!.into!();
+      return true;
+    }
+    if (key == LogicalKeyboardKey.arrowLeft && action?.back != null) {
+      action!.back!();
+      return true;
+    }
     if (key == LogicalKeyboardKey.tab ||
         (widget.controller.query.isEmpty &&
             (key == LogicalKeyboardKey.arrowLeft ||
@@ -151,14 +164,6 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       return true;
     }
     // Unselected results must leave Enter available to apply the search.
-    final current = _actions.indexWhere((action) => action.id == _selected);
-    final into = current >= 0
-        ? _actions[current].into
-        : _actions.firstOrNull?.into;
-    if (key == LogicalKeyboardKey.arrowRight && into != null) {
-      into();
-      return true;
-    }
     if (key == LogicalKeyboardKey.arrowDown ||
         key == LogicalKeyboardKey.arrowUp) {
       if (_actions.isEmpty) return true;
@@ -283,8 +288,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     VoidCallback open,
     Widget child, {
     VoidCallback? into,
+    VoidCallback? back,
   }) {
-    _actions.add((id: id, open: open, into: into, result: null));
+    _actions.add((id: id, open: open, into: into, back: back, result: null));
     return KeyedSubtree(
       key: _resultKeys.putIfAbsent(id, GlobalKey.new),
       child: child,
@@ -297,7 +303,115 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     widget.onRefocus?.call();
   }
 
-  List<Widget> _filterRows(BuildContext context) {
+  /// A label over a list, at the height of the rows under it: its mark in
+  /// their mark column, so its words start where theirs do.
+  Widget _heading(
+    BuildContext context,
+    DIconData icon,
+    String label, {
+    Key? key,
+    Widget? trailing,
+  }) {
+    final muted = DTokens.of(context).mutedForeground;
+    return ConstrainedBox(
+      key: key,
+      constraints: const BoxConstraints(minHeight: 32),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 9),
+        child: Row(
+          spacing: 10,
+          children: [
+            SizedBox(width: 30, child: DIcon(icon, size: 16, color: muted)),
+            Expanded(
+              // Large text moves the trailing action under the label rather
+              // than squeezing either.
+              child: Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  Text(
+                    label,
+                    style: TextStyle(
+                      fontSize: DiscourseTypography.control,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                      color: muted,
+                    ),
+                  ),
+                  ?trailing,
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// The filters under an empty field wait folded, as a sidebar section
+  /// does, so past searches are what is in sight.
+  Widget _filtersFold(BuildContext context) {
+    const id = 'fold:filters';
+    final muted = DTokens.of(context).mutedForeground;
+    void turn(bool open) => setState(() => _filtersOpen = open);
+    return _action(
+      id,
+      () => turn(!_filtersOpen),
+      into: _filtersOpen ? null : () => turn(true),
+      back: _filtersOpen ? () => turn(false) : null,
+      DItem(
+        key: const ValueKey('global-search-filters-fold'),
+        size: DItemSize.artwork,
+        shape: DItemShape.menu,
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        selected: _selected == id,
+        selectionStyle: DItemSelectionStyle.strongNeutral,
+        showSelectionIndicator: false,
+        onPressed: () => turn(!_filtersOpen),
+        children: [
+          DItemContent(
+            children: [
+              Semantics(
+                expanded: _filtersOpen,
+                child: Row(
+                  spacing: 10,
+                  children: [
+                    SizedBox(
+                      width: 30,
+                      child: DIcon(DIcons.filter, size: 16, color: muted),
+                    ),
+                    Expanded(
+                      child: Text(
+                        context.l10n.filters,
+                        style: TextStyle(
+                          fontSize: DiscourseTypography.control,
+                          height: 1.35,
+                          fontWeight: FontWeight.w600,
+                          color: muted,
+                        ),
+                      ),
+                    ),
+                    AnimatedRotation(
+                      turns: _filtersOpen ? 0 : -.25,
+                      duration: DMotion.duration(
+                        context,
+                        const Duration(milliseconds: 150),
+                      ),
+                      child: DIcon(DIcons.chevronDown, size: 11, color: muted),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _filterRows(BuildContext context, {bool folded = false}) {
     final controller = widget.controller;
     final tail = controller.query.endsWith(' ')
         ? ''
@@ -320,37 +434,27 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
       );
     }
+    final tokens = DTokens.of(context);
+    if (filters.isEmpty) return const [];
+    if (folded && !_filtersOpen) return [_filtersFold(context)];
     // Keep each filter as a sliver child: a Column mounts and lays out the
     // entire catalogue even when only its first few rows are visible.
     return [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
-        child: Row(
-          spacing: 10,
-          children: [
-            DIcon(
-              DIcons.filter,
-              size: 16,
-              color: DTokens.of(context).mutedForeground,
-            ),
-            Text(
-              context.l10n.filters,
-              style: TextStyle(
-                fontSize: DiscourseTypography.control,
-                fontWeight: FontWeight.w600,
-                color: DTokens.of(context).mutedForeground,
-              ),
-            ),
-          ],
-        ),
-      ),
+      if (folded)
+        _filtersFold(context)
+      else
+        _heading(context, DIcons.filter, context.l10n.filters),
       for (final group in groups.entries) ...[
         if (group.key.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+            padding: const EdgeInsetsDirectional.fromSTEB(49, 10, 9, 4),
             child: Text(
               group.key,
-              style: TextStyle(color: DTokens.of(context).mutedForeground),
+              style: TextStyle(
+                fontSize: DiscourseTypography.metadata,
+                fontWeight: FontWeight.w600,
+                color: tokens.mutedForeground,
+              ),
             ),
           ),
         for (final filter in group.value)
@@ -361,32 +465,62 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               key: ValueKey('global-search-offered-${filter.id}'),
               size: DItemSize.artwork,
               shape: DItemShape.menu,
-              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
               selected:
                   _selected == 'filter:${filter.id}' ||
                   (_selected == null && _actions.isEmpty),
+              selectionStyle: DItemSelectionStyle.strongNeutral,
               showSelectionIndicator: false,
               onPressed: () => _stage(filter),
               children: [
-                DItemMedia(
-                  child: SizedBox(
-                    width: 40,
-                    child: Align(
-                      alignment: AlignmentDirectional.centerStart,
-                      child: DIcon(_filterIcon(context, filter.icon), size: 16),
-                    ),
-                  ),
-                ),
                 DItemContent(
                   children: [
-                    DItemTitle(
-                      child: Text(
-                        filter.label,
-                        style: const TextStyle(
-                          fontSize: DiscourseTypography.control,
-                          height: 1.35,
+                    Row(
+                      spacing: 10,
+                      children: [
+                        SizedBox.square(
+                          dimension: 30,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: tokens.raisedBackground,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: DIcon(
+                                _filterIcon(context, filter.icon),
+                                size: 12,
+                                color: tokens.mutedForeground,
+                              ),
+                            ),
+                          ),
                         ),
-                      ),
+                        Expanded(
+                          child: DItemTitle(
+                            child: Text.rich(
+                              TextSpan(
+                                text: filter.label,
+                                children: [
+                                  if (filter.help.isNotEmpty) ...[
+                                    const WidgetSpan(child: SizedBox(width: 8)),
+                                    TextSpan(
+                                      text: filter.help,
+                                      style: TextStyle(
+                                        fontSize: DiscourseTypography.metadata,
+                                        color: tokens.mutedForeground,
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                              style: const TextStyle(
+                                fontSize: DiscourseTypography.control,
+                                height: 1.35,
+                                fontWeight: FontWeight.w400,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -903,10 +1037,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     if (scope != GlobalSearchScope.all &&
                         _scopeCount(scope) > 0)
                       Text(
-                        '${_scopeCount(scope)}',
+                        _scopeCount(scope) > 99
+                            ? '99+'
+                            : '${_scopeCount(scope)}',
                         style: const TextStyle(
                           fontSize: DiscourseTypography.micro,
                           fontWeight: FontWeight.w700,
+                          fontFeatures: [FontFeature.tabularFigures()],
                         ),
                       ),
                   ],
@@ -1344,8 +1481,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                   SizedBox(
                     width: 30,
                     child: DIcon(
-                      section.topicId != null ||
-                              section.scope == GlobalSearchScope.forum
+                      section.topicId != null
+                          ? DIcons.comment
+                          : section.scope == GlobalSearchScope.forum
                           ? DIcons.comments
                           : section.scope == GlobalSearchScope.messages
                           ? DIcons.envelope
@@ -1361,10 +1499,26 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     ),
                   ),
                   Expanded(
-                    child: Text(
+                    child: Text.rich(
                       section.topicId != null
-                          ? '${context.l10n.inThisTopicSearch} · ${section.topicTitle ?? ""}'
-                          : section.scope.label,
+                          ? TextSpan(
+                              text: context.l10n.inThisTopicSearch,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w600,
+                                color: DTokens.of(context).foreground,
+                              ),
+                              children: [
+                                // Which topic, for two open side by side.
+                                TextSpan(
+                                  text: '  ${section.topicTitle ?? ''}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w400,
+                                    color: DTokens.of(context).mutedForeground,
+                                  ),
+                                ),
+                              ],
+                            )
+                          : TextSpan(text: section.scope.label),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
@@ -1375,7 +1529,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                       ),
                     ),
                   ),
-                  if (widget.controller.scope == GlobalSearchScope.all &&
+                  if (section.topicId != null && section.results.isNotEmpty)
+                    const DNavigationPill()
+                  else if (widget.controller.scope == GlobalSearchScope.all &&
                       !_inLine(context, section) &&
                       section.results.length > _sectionLimit(section))
                     ExcludeSemantics(
@@ -1408,11 +1564,21 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
 
   Widget _history(BuildContext context) {
     final controller = widget.controller;
+    // The word still being typed narrows past searches; while there is one,
+    // the filters it could start stand open.
+    final needle = controller.query.endsWith(' ')
+        ? ''
+        : controller.query.split(_whitespace).last.toLowerCase();
+    final recents = needle.isEmpty
+        ? controller.recentSearches
+        : controller.recentSearches
+              .where((query) => query.toLowerCase().contains(needle))
+              .toList();
     return DScrollBar(
       controller: _scroll,
       child: ListView(
         controller: _scroll,
-        padding: const EdgeInsets.all(8),
+        padding: const EdgeInsets.all(6),
         children: [
           if (widget.showClearFilters)
             _action(
@@ -1436,85 +1602,76 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
               ),
             ),
 
-          if (controller.recentSearches.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-              child: Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: DSpacing.sm,
-                runSpacing: DSpacing.sm,
-                children: [
-                  Text(
-                    context.l10n.recentSearches,
-                    style: TextStyle(
-                      color: DTokens.of(context).mutedForeground,
+          if (recents.isNotEmpty) ...[
+            _heading(
+              context,
+              DIcons.farClock,
+              context.l10n.recentSearches,
+              key: const ValueKey('global-search-recent-heading'),
+              trailing: needle.isNotEmpty
+                  ? null
+                  : DButton(
+                      key: const ValueKey('global-search-clear-history'),
+                      label: Text(
+                        context.l10n.clearHistory,
+                        softWrap: true,
+                        maxLines: 2,
+                      ),
+                      variant: DButtonVariant.inline,
+                      density: DButtonDensity.inlineMetadata,
+                      foregroundColor: DTokens.of(context).mutedForeground,
+                      onPressed: controller.clearHistory,
                     ),
-                  ),
-                  DButton(
-                    key: const ValueKey('global-search-clear-history'),
-                    label: Text(
-                      context.l10n.clearHistory,
-                      softWrap: true,
-                      maxLines: 2,
-                    ),
-                    variant: DButtonVariant.ghost,
-                    size: DButtonSize.small,
-                    onPressed: controller.clearHistory,
-                  ),
-                ],
-              ),
             ),
-          for (final query in controller.recentSearches)
-            _action(
-              'recent:$query',
-              () {
-                controller.useRecentSearch(query);
-                widget.onRefocus?.call();
-              },
-              DItem(
-                size: DItemSize.xs,
-                shape: DItemShape.menu,
-                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
-                selected: _selected == 'recent:$query',
-                selectionStyle: DItemSelectionStyle.strongNeutral,
-                showSelectionIndicator: false,
-                onPressed: () {
+            for (final query in recents)
+              _action(
+                'recent:$query',
+                () {
                   controller.useRecentSearch(query);
                   widget.onRefocus?.call();
                 },
-                children: [
-                  const DItemMedia(
-                    child: SizedBox(
-                      width: 30,
-                      child: DIcon(DIcons.farClock, size: 16),
-                    ),
-                  ),
-                  DItemContent(
-                    children: [
-                      DefaultTextStyle.merge(
-                        style: const TextStyle(
-                          fontSize: DiscourseTypography.control,
-                          height: 1.35,
+                DItem(
+                  size: DItemSize.xs,
+                  shape: DItemShape.menu,
+                  // Under the heading's own mark: the words start where its
+                  // label does.
+                  padding: const EdgeInsetsDirectional.fromSTEB(49, 4, 6, 4),
+                  selected: _selected == 'recent:$query',
+                  selectionStyle: DItemSelectionStyle.strongNeutral,
+                  showSelectionIndicator: false,
+                  onPressed: () {
+                    controller.useRecentSearch(query);
+                    widget.onRefocus?.call();
+                  },
+                  children: [
+                    DItemContent(
+                      children: [
+                        DefaultTextStyle.merge(
+                          style: const TextStyle(
+                            fontSize: DiscourseTypography.control,
+                            height: 1.35,
+                          ),
+                          child: _RecentQuery(controller, query),
                         ),
-                        child: _RecentQuery(controller, query),
-                      ),
-                    ],
-                  ),
-                  DItemActions(
-                    children: [
-                      DButton.iconOnly(
-                        icon: const DIcon(DIcons.xmark),
-                        tooltip: context.l10n.remove(query),
-                        variant: DButtonVariant.ghost,
-                        size: DButtonSize.small,
-                        onPressed: () => controller.removeRecentSearch(query),
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    DItemActions(
+                      children: [
+                        DButton.iconOnly(
+                          icon: const DIcon(DIcons.xmark, size: 11),
+                          tooltip: context.l10n.remove(query),
+                          variant: DButtonVariant.ghost,
+                          shape: DButtonShape.pill,
+                          size: DButtonSize.chip,
+                          foregroundColor: DTokens.of(context).mutedForeground,
+                          onPressed: () => controller.removeRecentSearch(query),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+          ],
           if (controller.error != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -1526,7 +1683,9 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                 ),
               ),
             ),
-          ..._filterRows(context),
+          if (recents.isNotEmpty && controller.availableFilters.isNotEmpty)
+            SizedBox(height: DControlStyle.isTouch(context) ? 16 : 8),
+          ..._filterRows(context, folded: needle.isEmpty),
         ],
       ),
     );
@@ -1597,7 +1756,13 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
       _preparedResults[result] = row;
     }
-    _actions.add((id: result.id, open: row.open, into: null, result: result));
+    _actions.add((
+      id: result.id,
+      open: row.open,
+      into: null,
+      back: null,
+      result: result,
+    ));
     return row;
   }
 
@@ -1761,6 +1926,11 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
       );
     }
     final inTopic = result.id.startsWith('in-topic:');
+    final largeText = MediaQuery.textScalerOf(context).scale(13) > 19.5;
+    // When it was said stands beside a message, unless large text would
+    // leave the message too little of the row.
+    final message = result.scope.layout == GlobalSearchResultLayout.message;
+    final timeAside = message && !largeText;
     final individualPost =
         inTopic ||
         source is SearchPostHit &&
@@ -1807,14 +1977,14 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         Text(countLabel(replies, CountNoun.reply)),
       if (result.memberCount case final members?)
         Text(countLabel(members, CountNoun.member)),
-      if (result.createdAt != null) Text(_searchDate(result.createdAt!)),
+      if (result.createdAt != null && !timeAside)
+        Text(_searchDate(result.createdAt!)),
     ];
-    final largeText = MediaQuery.textScalerOf(context).scale(13) > 19.5;
     return DItem(
       key: ValueKey('global-search-result-${result.id}'),
       size: DItemSize.artwork,
       shape: DItemShape.menu,
-      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
+      padding: EdgeInsets.symmetric(horizontal: 9, vertical: message ? 11 : 8),
       onPressed: () {
         widget.onSelect?.call(result.id);
         widget.onOpen(result);
@@ -1827,23 +1997,32 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
         DItemContent(
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              // A post in the open topic has one line under its author, so
+              // its smaller face centres beside both.
+              crossAxisAlignment: inTopic
+                  ? CrossAxisAlignment.center
+                  : CrossAxisAlignment.start,
               spacing: 10,
               children: [
                 if (result.scope.showAvatar || individualPost)
-                  DAvatar(
-                    dimension: 30,
-                    border: false,
-                    decorative: true,
-                    child: AvatarImage(
-                      url: result.avatarUrl,
-                      size: 30,
-                      fallback: DAvatarFallback(
-                        child: Text(
-                          (result.username ?? result.title).characters
-                              .take(1)
-                              .toString()
-                              .toUpperCase(),
+                  SizedBox(
+                    width: 30,
+                    child: Center(
+                      child: DAvatar(
+                        dimension: inTopic ? 22 : 30,
+                        border: false,
+                        decorative: true,
+                        child: AvatarImage(
+                          url: result.avatarUrl,
+                          size: inTopic ? 22 : 30,
+                          fallback: DAvatarFallback(
+                            child: Text(
+                              (result.username ?? result.title).characters
+                                  .take(1)
+                                  .toString()
+                                  .toUpperCase(),
+                            ),
+                          ),
                         ),
                       ),
                     ),
@@ -1895,7 +2074,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                           ) &&
                           result.excerpt.isNotEmpty)
                         DItemDescription(
-                          maxLines: 1,
+                          maxLines: message ? 2 : 1,
                           child: _SearchHighlight(
                             siteUrl: controller.siteUrl!,
                             text: searchSnippet(
@@ -1948,7 +2127,23 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                                               i < metadata.length;
                                               i++
                                             ) ...[
-                                              if (i > 0) const Text('·'),
+                                              if (i > 0)
+                                                ExcludeSemantics(
+                                                  child: Text(
+                                                    '·',
+                                                    style: TextStyle(
+                                                      color: tokens
+                                                          .mutedForeground
+                                                          .withValues(
+                                                            alpha:
+                                                                tokens
+                                                                    .mutedForeground
+                                                                    .a *
+                                                                .5,
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ),
                                               metadata[i],
                                             ],
                                           ],
@@ -1961,6 +2156,18 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                     ],
                   ),
                 ),
+                if (timeAside && result.createdAt != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _searchDate(result.createdAt!),
+                      style: TextStyle(
+                        fontSize: DiscourseTypography.micro,
+                        height: 1.35,
+                        color: tokens.mutedForeground,
+                      ),
+                    ),
+                  ),
               ],
             ),
           ],

@@ -539,16 +539,20 @@ void main() {
                   'global-search-offered-',
                 ),
           );
+          final state = tester.state<GlobalSearchPanelState>(
+            find.byType(GlobalSearchPanel),
+          );
+          expect(offered, findsNothing);
+          expect(state.handleKey(LogicalKeyboardKey.arrowRight), isTrue);
+          await tester.pumpAndSettle();
           final mounted = offered.evaluate().length;
           debugPrint(
             'Search opening: $mounted/${controller.availableFilters.length} filter rows mounted',
           );
           expect(find.byType(ListView), findsOneWidget);
+          expect(mounted, greaterThan(0));
           expect(mounted, lessThan(controller.availableFilters.length));
 
-          final state = tester.state<GlobalSearchPanelState>(
-            find.byType(GlobalSearchPanel),
-          );
           expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
           await tester.pumpAndSettle();
           final selected = find.byWidgetPredicate(
@@ -556,7 +560,7 @@ void main() {
           );
           expect(selected.hitTestable(), findsOneWidget);
           final lastKey = tester.widget<DItem>(selected).key;
-          expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+          expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
           await tester.pumpAndSettle();
           expect(selected.hitTestable(), findsOneWidget);
           expect(tester.widget<DItem>(selected).key, isNot(lastKey));
@@ -1468,6 +1472,149 @@ void main() {
     expect(chip, findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+  testWidgets('filters wait folded under an empty field and open in place', (
+    tester,
+  ) async {
+    final controller = await _pump(tester, height: 700);
+    controller.setQuery('design');
+    controller.rememberSearch();
+    controller.setQuery('');
+    await tester.pumpAndSettle();
+    final state = tester.state<GlobalSearchPanelState>(
+      find.byType(GlobalSearchPanel),
+    );
+    final fold = _key('global-search-filters-fold');
+    final category = _key('global-search-offered-category');
+    final heading = _key('global-search-recent-heading');
+    expect(heading, findsOneWidget);
+    expect(fold, findsOneWidget);
+    expect(category, findsNothing);
+    expect(tester.getSemantics(fold), isSemantics(isExpanded: false));
+
+    final label = find.descendant(
+      of: heading,
+      matching: find.text('Recent searches'),
+    );
+    final recent = find.text('design', findRichText: true);
+    expect(
+      tester.getTopLeft(recent).dx,
+      closeTo(tester.getTopLeft(label).dx, .01),
+      reason: 'A past search starts under its heading label.',
+    );
+    expect(tester.getSize(heading).height, 32);
+
+    await tester.tap(fold);
+    await tester.pumpAndSettle();
+    expect(tester.getSemantics(fold), isSemantics(isExpanded: true));
+    expect(tester.getSize(category).height, 38);
+    final help = controller.availableFilters
+        .singleWhere((filter) => filter.id == 'category')
+        .help;
+    expect(
+      find.descendant(
+        of: category,
+        matching: find.textContaining(help, findRichText: true),
+      ),
+      findsOneWidget,
+    );
+
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    expect(state.handleKey(LogicalKeyboardKey.arrowDown), isTrue);
+    await tester.pumpAndSettle();
+    expect(tester.widget<DItem>(fold).selected, isTrue);
+    expect(state.handleKey(LogicalKeyboardKey.arrowLeft), isTrue);
+    await tester.pumpAndSettle();
+    expect(category, findsNothing);
+    expect(controller.scope, GlobalSearchScope.all);
+    expect(state.handleKey(LogicalKeyboardKey.arrowRight), isTrue);
+    await tester.pumpAndSettle();
+    expect(category, findsOneWidget);
+    expect(tester.widget<DItem>(fold).selected, isTrue);
+
+    expect(state.handleKey(LogicalKeyboardKey.arrowUp), isTrue);
+    expect(state.handleKey(LogicalKeyboardKey.arrowRight), isTrue);
+    await tester.pumpAndSettle();
+    expect(
+      controller.scope,
+      isNot(GlobalSearchScope.all),
+      reason: 'A row with no way sideways leaves the arrows to the types.',
+    );
+    controller.setScope(GlobalSearchScope.all);
+
+    controller.setQuery('ca');
+    await tester.pumpAndSettle();
+    expect(fold, findsNothing);
+    expect(find.text('Filters'), findsOneWidget);
+    expect(category, findsOneWidget);
+    expect(heading, findsNothing, reason: 'No past search contains "ca".');
+    controller.setQuery('cats');
+    controller.rememberSearch();
+    controller.setQuery('ca');
+    await tester.pumpAndSettle();
+    expect(heading, findsOneWidget);
+    expect(find.text('cats', findRichText: true), findsOneWidget);
+    expect(recent, findsNothing);
+    expect(_key('global-search-clear-history'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the open topic, chat messages and large counts read as drawn', (
+    tester,
+  ) async {
+    final controller = await _pump(
+      tester,
+      api: _ParityPanelApi(),
+      width: 600,
+      height: 1500,
+      viewport: const Size(1000, 1600),
+      showConditions: false,
+    );
+    controller.setQuery('design');
+    await tester.pumpAndSettle();
+
+    final topic = _key('section:forum:5');
+    expect(
+      find.descendant(of: topic, matching: find.byType(DNavigationPill)),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: topic, matching: find.text('See all')),
+      findsNothing,
+    );
+    final post = _key('global-search-result-in-topic:0');
+    final face = find.descendant(of: post, matching: find.byType(DAvatar));
+    expect(tester.getSize(face), const Size(22, 22));
+    expect(tester.getCenter(face).dy, closeTo(tester.getCenter(post).dy, .5));
+
+    final chat = _key('global-search-result-chat:0');
+    final said = tester.renderObject<RenderParagraph>(
+      find
+          .descendant(
+            of: chat,
+            matching: find.textContaining('keyboard', findRichText: true),
+          )
+          .first,
+    );
+    expect(said.maxLines, 2);
+    final when = find.descendant(of: chat, matching: find.text('25 Aug 2026'));
+    final where = find.descendant(of: chat, matching: find.text('#general'));
+    expect(when, findsOneWidget);
+    expect(where, findsOneWidget);
+    expect(
+      tester.getTopLeft(when).dx,
+      greaterThan(tester.getTopRight(where).dx),
+    );
+    expect(tester.getTopLeft(when).dy, lessThan(tester.getTopLeft(where).dy));
+
+    expect(
+      find.descendant(
+        of: _scopeToggle(GlobalSearchScope.forum),
+        matching: find.text('99+'),
+      ),
+      findsOneWidget,
+    );
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Finder _key(String key) => find.byKey(ValueKey(key));
@@ -1746,6 +1893,75 @@ class _PagedPanelApi extends _PanelApi {
     ],
     hasMore: request.offset + 30 < pages * 30,
     consumedCount: 30,
+  );
+}
+
+class _ParityPanelApi extends _PanelApi {
+  @override
+  Future<GlobalSearchPage> search({
+    required String siteUrl,
+    required String? apiKey,
+    String? clientId,
+    required GlobalSearchRequest request,
+    Future<void>? abortTrigger,
+    void Function(List<GlobalSearchSection> sections)? onProgress,
+  }) async => GlobalSearchPage(
+    sections: [
+      GlobalSearchSection(
+        scope: GlobalSearchScope.forum,
+        topicId: 5,
+        topicTitle: 'Current topic',
+        results: [
+          for (var i = 0; i < 2; i++)
+            GlobalSearchResult(
+              id: 'in-topic:$i',
+              scope: GlobalSearchScope.forum,
+              title: 'Current topic',
+              path: '/t/current/5/${i + 2}',
+              excerpt: 'A design reply',
+              username: 'sam',
+              source: SearchPostHit(
+                postId: 50 + i,
+                topicId: 5,
+                postNumber: i + 2,
+                topicTitle: 'Current topic',
+                topicSlug: 'current',
+                username: 'sam',
+                excerpt: const SearchExcerpt([]),
+              ),
+            ),
+        ],
+      ),
+      GlobalSearchSection(
+        scope: GlobalSearchScope.forum,
+        results: [
+          for (var i = 0; i < 120; i++)
+            GlobalSearchResult(
+              id: 'forum:$i',
+              scope: GlobalSearchScope.forum,
+              title: 'Design topic $i',
+              path: '/t/design/${100 + i}',
+            ),
+        ],
+      ),
+      GlobalSearchSection(
+        scope: chatSearchScope,
+        results: [
+          GlobalSearchResult(
+            id: 'chat:0',
+            scope: chatSearchScope,
+            title: 'Sam',
+            path: '/chat/c/general/3/9',
+            username: 'sam',
+            excerpt:
+                'The design keyboard ${'goes on and on about it ' * 12}'
+                'until the end',
+            createdAt: DateTime(2026, 8, 25, 10),
+            contextLabel: '#general',
+          ),
+        ],
+      ),
+    ],
   );
 }
 

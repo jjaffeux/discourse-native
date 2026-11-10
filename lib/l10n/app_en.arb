@@ -23,6 +23,8 @@
   },
   "nextSearchType": "Next type",
   "@nextSearchType": {"description": "Keyboard hint for cycling through global search result types."},
+  "intoACategory": "Into a category",
+  "@intoACategory": {"description": "Keyboard hint in global search for moving into and out of subcategories with the arrow keys."},
   "categoriesAndTags": "Categories & tags",
   "@categoriesAndTags": {"description": "Combined global search result type for categories and tags."},
   "chatTranscript": "Transcript",

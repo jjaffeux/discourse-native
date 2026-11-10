@@ -28,6 +28,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get nextSearchType => 'Next type';
 
   @override
+  String get intoACategory => 'Into a category';
+
+  @override
   String get categoriesAndTags => 'Categories & tags';
 
   @override

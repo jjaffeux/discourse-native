@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' show SemanticsValidationResult;
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../foundation/control_style.dart';
 import '../foundation/focus_highlight.dart';
 import '../foundation/input_group_scope.dart';
 import '../foundation/joined_control.dart';
+import '../foundation/touch_target.dart';
 import 'd_button.dart';
 import 'd_composer_dock.dart';
 import 'd_input.dart';
@@ -408,16 +410,19 @@ class _DInputGroupState extends State<DInputGroup> {
                             ? MediaQuery.textScalerOf(context).scale(48)
                             : multiline
                             ? 64
-                            : DControlStyle.scaledHeight(
-                                    widget.size,
-                                    MediaQuery.textScalerOf(context),
-                                    context: context,
-                                  ) +
-                                  (search &&
-                                          !quiet &&
-                                          widget.size == DControlSize.field
-                                      ? .5
-                                      : 0)),
+                            : math.max(
+                                DControlStyle.scaledHeight(
+                                      widget.size,
+                                      MediaQuery.textScalerOf(context),
+                                      context: context,
+                                    ) +
+                                    (search &&
+                                            !quiet &&
+                                            widget.size == DControlSize.field
+                                        ? .5
+                                        : 0),
+                                DTouchFields.minHeightOf(context),
+                              )),
                   ),
                   decoration: quiet && !widget.borderless
                       ? BoxDecoration(

@@ -1148,32 +1148,34 @@ class DComboboxInput<T> extends StatelessWidget {
       canRequestFocus: false,
       skipTraversal: true,
       onKeyEvent: root._handleKey,
-      child: DInputGroup(
-        size: size,
-        enabled: root.enabled,
-        invalid: isInvalid,
-        children: [
-          DInputGroupControl(
-            focusNode: root.focusNode,
-            enabled: root.enabled,
-            invalid: isInvalid,
-            builder: (context, focusNode) => _ComboboxTextEditor<T>(
-              size: size,
-              focusNode: focusNode,
-              placeholder: placeholder,
-              autofocus: autofocus,
-              semanticLabel: semanticLabel,
-              onSubmitted: onSubmitted,
+      child: DTouchFields.picker(
+        child: DInputGroup(
+          size: size,
+          enabled: root.enabled,
+          invalid: isInvalid,
+          children: [
+            DInputGroupControl(
+              focusNode: root.focusNode,
+              enabled: root.enabled,
               invalid: isInvalid,
+              builder: (context, focusNode) => _ComboboxTextEditor<T>(
+                size: size,
+                focusNode: focusNode,
+                placeholder: placeholder,
+                autofocus: autofocus,
+                semanticLabel: semanticLabel,
+                onSubmitted: onSubmitted,
+                invalid: isInvalid,
+              ),
             ),
-          ),
-          ...addons,
-          if (action != null)
-            DInputGroupAddon(
-              alignment: DInputGroupAddonAlignment.inlineEnd,
-              child: action,
-            ),
-        ],
+            ...addons,
+            if (action != null)
+              DInputGroupAddon(
+                alignment: DInputGroupAddonAlignment.inlineEnd,
+                child: action,
+              ),
+          ],
+        ),
       ),
     );
     if (!registerAsAnchor || root.combobox.content.isInline) return input;
