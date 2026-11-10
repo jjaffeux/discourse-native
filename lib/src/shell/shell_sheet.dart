@@ -223,13 +223,11 @@ class _SheetBody extends StatelessWidget {
                 )
               : Padding(padding: padding, child: builder(context)),
         ),
-        if (footerBuilder case final footerBuilder?) ...[
-          DSeparator(color: theme.shell.divider, space: 1),
+        if (footerBuilder case final footerBuilder?)
           DSheetFooter(
             padding: footerPadding,
             children: [footerBuilder(context)],
           ),
-        ],
       ],
     );
   }
