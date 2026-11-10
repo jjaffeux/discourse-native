@@ -610,15 +610,18 @@ class DTableHead extends DTableCell {
 
     super.alignment,
     super.padding = const EdgeInsets.symmetric(horizontal: 8),
+    this.minHeight = 40,
 
     super.onTap,
     super.mouseCursor,
     super.contextMenu,
   });
 
+  final double minHeight;
+
   @override
   Widget build(BuildContext context) => ConstrainedBox(
-    constraints: const BoxConstraints(minHeight: 40),
+    constraints: BoxConstraints(minHeight: minHeight),
     child: DefaultTextStyle.merge(
       style: const TextStyle(fontWeight: FontWeight.w500),
       child: super.build(context),

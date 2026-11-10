@@ -114,9 +114,10 @@ void main() {
       tester.renderObject<RenderParagraph>(label).didExceedMaxLines,
       isFalse,
     );
+    // The reference's touch pills: 12 of padding and a clear 1px edge a side.
     expect(
       tester.getSize(find.byKey(const Key('header-select'))).width,
-      tester.getSize(label).width.ceilToDouble() + 22,
+      tester.getSize(label).width.ceilToDouble() + 2 * 13,
     );
   });
 

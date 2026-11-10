@@ -6,11 +6,11 @@ import 'package:discourse_native/src/data/forum_settings_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
 import 'package:discourse_native/src/data/recent_destinations_store.dart';
 import 'package:discourse_native/src/data/recent_search_store.dart';
+import 'package:discourse_native/src/data/retired_user_directory_column_widths.dart';
 import 'package:discourse_native/src/data/sidebar_section_store.dart';
 import 'package:discourse_native/src/data/site_preference_keys.dart';
 import 'package:discourse_native/src/data/topic_recommendations_tab_store.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
-import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 import 'package:discourse_native/src/models/app_settings.dart';
 import 'package:discourse_native/src/models/content_route.dart';
 import 'package:discourse_native/src/models/discourse_instance.dart';
@@ -634,9 +634,10 @@ Future<void> _keepSitePreferences(ShellController shell, String siteUrl) async {
     siteUrl: siteUrl,
     sourceId: coreSuggestedTopicRecommendationSourceId,
   );
-  await const UserDirectoryColumnWidthStore().write(
-    siteUrl: siteUrl,
-    widths: UserDirectoryColumnWidths(const {'likes_received': 120}),
+  // Left by an earlier version, when the Users columns could be resized.
+  await (await SharedPreferences.getInstance()).setString(
+    RetiredUserDirectoryColumnWidths.keys.of(siteUrl),
+    '{"version":1,"widths":{"likes_received":120}}',
   );
   const voice = SharedPreferencesVoicePreferences();
   await voice.writeCameraEnabled(siteUrl, 7, true);

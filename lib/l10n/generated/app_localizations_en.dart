@@ -6133,6 +6133,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get typeAtLeastTwoCharacters => 'Type at least two characters.';
 
   @override
+  String get noUsersMatchFilter => 'No users match that filter.';
+
+  @override
+  String searchWordsInUsers(String words) {
+    return '“$words” in users';
+  }
+
+  @override
   String get noMatchingUsers => 'No matching users.';
 
   @override

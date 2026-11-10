@@ -115,6 +115,16 @@ final dataTableExamples = ComponentExamples(
       builder: (_) => const _EditableCellExample(),
       states: const ['focus', 'editing', 'pointer'],
     ),
+    StyleguideExample(
+      title: 'Directory grid',
+      description:
+          'The reference directory: 16 between columns and at either end, a subtle hairline over each row, and a header only as tall as its labels. A fixed width is the content width.',
+      code: 'DDataTable(variant: DDataTableVariant.directory, ...)',
+      builder: (_) => const DataTableSoftHeaderExample(
+        variant: DDataTableVariant.directory,
+      ),
+      states: const ['sorting', 'horizontal overflow'],
+    ),
   ],
 );
 

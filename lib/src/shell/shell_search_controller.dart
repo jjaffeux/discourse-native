@@ -33,6 +33,11 @@ class ShellSearchController extends ChangeNotifier {
   final Map<({String siteUrl, String tabId}), UserDirectoryQuery>
   _usersQueries = {};
 
+  /// The Users filter a search opened the page on. The directory takes one
+  /// name filter, so these words are that filter until anything else
+  /// replaces it.
+  final Map<({String siteUrl, String tabId}), String> _usersWords = {};
+
   UserDirectoryQuery usersQueryFor(String siteUrl, String? tabId) =>
       _usersQueries[(siteUrl: siteUrl, tabId: tabId ?? '')] ??
       const UserDirectoryQuery();
@@ -45,14 +50,16 @@ class ShellSearchController extends ChangeNotifier {
     if (_disposed) return false;
     final normalized = query.normalized();
     if (usersQueryFor(siteUrl, tabId) == normalized) return false;
-    _usersQueries[(siteUrl: siteUrl, tabId: tabId ?? '')] = normalized;
+    final key = (siteUrl: siteUrl, tabId: tabId ?? '');
+    _usersQueries[key] = normalized;
+    if (_usersWords[key] != normalized.search) _usersWords.remove(key);
     _notify();
     return true;
   }
 
   String wordsFor(String siteUrl, String? tabId, String routeId) =>
       routeId == 'users'
-      ? usersQueryFor(siteUrl, tabId).search
+      ? _usersWords[(siteUrl: siteUrl, tabId: tabId ?? '')] ?? ''
       : _pageWords[(siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId)] ??
             '';
 
@@ -63,11 +70,17 @@ class ShellSearchController extends ChangeNotifier {
     String query,
   ) {
     if (routeId == 'users') {
+      if (_disposed) return;
       replaceUsersQuery(
         siteUrl,
         tabId,
         usersQueryFor(siteUrl, tabId).copyWith(search: query),
       );
+      final key = (siteUrl: siteUrl, tabId: tabId ?? '');
+      final words = usersQueryFor(siteUrl, tabId).search;
+      if ((_usersWords[key] ?? '') == words) return;
+      words.isEmpty ? _usersWords.remove(key) : _usersWords[key] = words;
+      _notify();
       return;
     }
     final key = (siteUrl: siteUrl, tabId: tabId ?? '', routeId: routeId);
@@ -97,6 +110,7 @@ class ShellSearchController extends ChangeNotifier {
           !retainedTabs.contains((siteUrl: key.siteUrl, tabId: key.tabId)),
     );
     _usersQueries.removeWhere((key, _) => !retainedTabs.contains(key));
+    _usersWords.removeWhere((key, _) => !retainedTabs.contains(key));
   }
 
   bool ownsPanel(Object field) => identical(_activeField, field);
@@ -158,6 +172,7 @@ class ShellSearchController extends ChangeNotifier {
     _anonymousSearchDenied.remove(siteUrl);
     _pageWords.removeWhere((key, _) => key.siteUrl == siteUrl);
     _usersQueries.removeWhere((key, _) => key.siteUrl == siteUrl);
+    _usersWords.removeWhere((key, _) => key.siteUrl == siteUrl);
     if (_siteUrl != siteUrl) return;
     history.forget(siteUrl);
     clear();
@@ -218,6 +233,7 @@ class ShellSearchController extends ChangeNotifier {
     _disposed = true;
     _panelOpen = false;
     _usersQueries.clear();
+    _usersWords.clear();
     if (_siteUrl case final site?) history.forget(site);
     _focusFields.clear();
     _activeField = null;

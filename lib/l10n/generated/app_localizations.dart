@@ -10437,6 +10437,18 @@ abstract class AppLocalizations {
   /// **'Type at least two characters.'**
   String get typeAtLeastTwoCharacters;
 
+  /// English UI message used by shell/users_page.dart when the directory filters leave no users.
+  ///
+  /// In en, this message translates to:
+  /// **'No users match that filter.'**
+  String get noUsersMatchFilter;
+
+  /// Users directory title when a search opened it narrowed to words. Keep placeholders intact.
+  ///
+  /// In en, this message translates to:
+  /// **'“{words}” in users'**
+  String searchWordsInUsers(String words);
+
   /// English UI message used by shell/group/group_members_view.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:

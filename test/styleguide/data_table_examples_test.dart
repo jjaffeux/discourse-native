@@ -22,6 +22,7 @@ void main() {
       'Dynamic data',
       'RTL',
       'Editable cell surface',
+      'Directory grid',
     ]);
     for (final example in dataTableExamples.examples) {
       for (final theme in StyleguideTheme.values) {

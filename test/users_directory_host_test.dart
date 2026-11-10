@@ -150,8 +150,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 400));
     await tester.pumpAndSettle();
     expect(shell.activeTabId, secondaryId);
-    expect(shell.search.wordsFor(_site, mainId, 'users'), 'sam');
-    expect(shell.search.wordsFor(_site, secondaryId, 'users'), isEmpty);
+    expect(shell.search.usersQueryFor(_site, mainId).search, 'sam');
+    expect(shell.search.usersQueryFor(_site, secondaryId).search, isEmpty);
     final pages = tester.widgetList<UsersPage>(find.byType(UsersPage)).toList();
     expect(pages[0].data.query.search, 'sam');
     expect(pages[1].data.query.search, isEmpty);
@@ -219,7 +219,7 @@ void main() {
     visible.onSearchChanged!('retired');
     visible.onPeriodChanged!(UserDirectoryPeriod.daily);
     await tester.pumpAndSettle();
-    expect(shell.search.wordsFor(_site, mainId, 'users'), 'sam');
+    expect(shell.search.usersQueryFor(_site, mainId).search, 'sam');
     expect(api.pluginReadPaths.length, requests);
     expect(shell.reopenClosedTab(mainId), isTrue);
     await tester.pumpAndSettle();
@@ -233,7 +233,7 @@ void main() {
     );
     shell.pushContent(ContentRoute.allCategories());
     retiredRoute.onSearchChanged!('wrong route');
-    expect(shell.search.wordsFor(_site, mainId, 'users'), 'sam');
+    expect(shell.search.usersQueryFor(_site, mainId).search, 'sam');
     shell.lifecycle.invalidate(_site);
     retiredRoute.onSortChanged!('likes_received', false);
     expect(tester.takeException(), isNull);

@@ -72,7 +72,7 @@ enum UserDirectoryPeriod {
     quarterly => appL10n.quarter,
     monthly => appL10n.month,
     weekly => appL10n.week,
-    daily => appL10n.todayDcalendarevents,
+    daily => appL10n.day,
   };
 }
 

@@ -178,6 +178,7 @@ final class ContentPageContract {
             searchScope: GlobalSearchScope.users,
             title: _PageTitle.page,
             header: _ShellHeader.desktopHidden,
+            showSearchWords: false,
             allowsTopicCreation: false,
           ),
           CorePage.drafts => const ContentPageContract._(

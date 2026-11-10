@@ -7934,6 +7934,19 @@
   "@typeAtLeastTwoCharacters": {
     "description": "English UI message used by shell/group/group_members_view.dart. Keep placeholders intact."
   },
+  "noUsersMatchFilter": "No users match that filter.",
+  "@noUsersMatchFilter": {
+    "description": "English UI message used by shell/users_page.dart when the directory filters leave no users."
+  },
+  "searchWordsInUsers": "“{words}” in users",
+  "@searchWordsInUsers": {
+    "description": "Users directory title when a search opened it narrowed to words. Keep placeholders intact.",
+    "placeholders": {
+      "words": {
+        "type": "String"
+      }
+    }
+  },
   "noMatchingUsers": "No matching users.",
   "@noMatchingUsers": {
     "description": "English UI message used by shell/group/group_members_view.dart. Keep placeholders intact."

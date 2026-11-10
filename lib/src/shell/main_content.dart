@@ -221,13 +221,6 @@ class _MainContentState extends State<MainContent> {
                           variant: DButtonVariant.ghost,
                           size: DButtonSize.small,
                           onPressed: () {
-                            if (route?.isUsers == true) {
-                              if (document.isCurrent &&
-                                  identical(document.currentContent, route)) {
-                                document.setUsersSearch('');
-                              }
-                              return;
-                            }
                             shell.search.setPageWords(
                               state.siteUrl!,
                               state.activeTabId,

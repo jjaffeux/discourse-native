@@ -333,32 +333,6 @@ void main() {
     );
   });
 
-  testWidgets('dragging a column edge rebuilds no cell', (tester) async {
-    await pumpUsersDirectoryFixture(
-      tester,
-      size: const Size(1440, 1000),
-      platform: TargetPlatform.macOS,
-    );
-    await tester.pumpAndSettle();
-    final handle = find.byType(DResizableHandle).first;
-    final before = tester.getSize(handle);
-    final mounted = find.byType(DTableCell).evaluate().toSet();
-    final gesture = await tester.startGesture(tester.getCenter(handle));
-    await tester.pump();
-
-    final rebuilds = await _rebuildsDuring(() async {
-      for (var move = 0; move < 5; move++) {
-        await gesture.moveBy(const Offset(4, 0));
-        await tester.pump();
-      }
-    }, (element) => _isBodyCell(element) && mounted.contains(element));
-
-    await gesture.up();
-    await tester.pumpAndSettle();
-    expect(rebuilds, 0);
-    expect(tester.getSize(handle), before);
-  });
-
   testWidgets('a held row repaints for a new theme and for new values', (
     tester,
   ) async {

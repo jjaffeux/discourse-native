@@ -1,8 +1,6 @@
-import 'dart:async';
 import 'dart:collection';
 
 import 'package:discourse_native/discourse_ui.dart';
-import 'package:discourse_native/src/data/user_directory_column_width_store.dart';
 
 import 'package:discourse_native/src/models/json.dart';
 import 'package:discourse_native/src/models/user_directory.dart';
@@ -106,7 +104,7 @@ void main() {
           tester
               .getSize(find.byKey(const ValueKey('users-group-filter')))
               .width,
-          126 * appScale * platformScale,
+          lessThanOrEqualTo(96 * appScale * platformScale),
         );
         final context = tester.element(label);
         expect(
@@ -253,9 +251,13 @@ void main() {
 
         expect(tester.takeException(), isNull);
         expect(find.text('$value'), findsNWidgets(columns.length));
-        for (final text in tester.widgetList<Text>(find.text('$value'))) {
-          expect(text.style, isNull);
-        }
+        expect(
+          find.descendant(
+            of: _metrics('invalid'),
+            matching: find.byType(DChartBar),
+          ),
+          findsNothing,
+        );
       },
     );
   }
@@ -526,19 +528,13 @@ void main() {
 
     final filter = find.byKey(const ValueKey('users-group-filter'));
     expect(filter, findsOneWidget);
-    final input = find.descendant(
-      of: filter,
-      matching: find.byType(EditableText),
+    expect(
+      find.descendant(of: filter, matching: find.text('design')),
+      findsOneWidget,
     );
-    expect(tester.widget<EditableText>(input).controller.text, 'design');
-    await tester.tap(input);
+    await tester.tap(filter);
     await tester.pumpAndSettle();
-    await tester.tap(
-      find.descendant(
-        of: find.byType(DComboboxList<String>),
-        matching: find.text('All groups'),
-      ),
-    );
+    await tester.tap(find.text('All groups'));
     await tester.pumpAndSettle();
 
     expect(query.group, isNull);
@@ -567,31 +563,22 @@ void main() {
         ),
       );
 
-      final input = find.descendant(
-        of: find.byKey(const ValueKey('users-group-filter')),
-        matching: find.byType(EditableText),
-      );
-      Finder option(String label) => find.descendant(
-        of: find.byType(DComboboxList<String>),
-        matching: find.text(label),
-      );
+      final filter = find.byKey(const ValueKey('users-group-filter'));
+      // The open menu is drawn over the page, after the pill's own label.
+      Finder option(String label) => find.text(label).last;
 
-      await tester.tap(input);
+      await tester.tap(filter);
       await tester.pumpAndSettle();
-      expect(option('design'), findsOneWidget);
-      expect(option('support'), findsOneWidget);
+      expect(find.text('design'), findsOneWidget);
+      expect(find.text('support'), findsOneWidget);
       await tester.tap(option('design'));
       await tester.pumpAndSettle();
       expect(query.group, 'design');
 
-      await tester.tap(input);
+      await tester.tap(filter);
       await tester.pumpAndSettle();
-      expect(option('All groups'), findsOneWidget);
-      expect(option('support'), findsOneWidget);
-      await tester.enterText(input, 'sup');
-      await tester.pumpAndSettle();
-      expect(option('design'), findsNothing);
-      expect(option('support'), findsOneWidget);
+      expect(find.text('All groups'), findsOneWidget);
+      expect(find.text('support'), findsOneWidget);
       await tester.tap(option('support'));
       await tester.pumpAndSettle();
       expect(query.group, 'support');
@@ -633,9 +620,10 @@ void main() {
         find.byKey(const ValueKey('users-table')),
       );
       expect(pageRect, const Rect.fromLTWH(0, 0, 1100, 820));
-      expect(tableRect.left, 16);
-      expect(tableRect.right, 1100 - 16);
+      expect(tableRect.left, 0);
+      expect(tableRect.right, 1100);
       expect(tableRect.bottom, 820);
+      expect(find.byType(DResizableHandle), findsNothing);
 
       expect(find.byType(DDataTableFilterField), findsOneWidget);
       expect(
@@ -650,7 +638,7 @@ void main() {
       );
       expect(avatar, findsOneWidget);
       expect(tester.widget<DAvatar>(avatar).decorative, isTrue);
-      expect(tester.getSize(avatar), const Size.square(24));
+      expect(tester.getSize(avatar), const Size.square(22));
       expect(
         find.descendant(of: identity, matching: find.text('sam')),
         findsOneWidget,
@@ -685,23 +673,30 @@ void main() {
       await tester.tap(find.text('Month'));
       await tester.pumpAndSettle();
       expect(period, UserDirectoryPeriod.monthly);
-      final groupInput = find.descendant(
-        of: find.byKey(const ValueKey('users-group-filter')),
-        matching: find.byType(EditableText),
-      );
-      await tester.enterText(groupInput, 'des');
+      await tester.tap(find.byKey(const ValueKey('users-group-filter')));
       await tester.pumpAndSettle();
-      expect(find.text('staff'), findsNothing);
+      expect(find.text('staff'), findsOneWidget);
       await tester.tap(find.text('design'));
       await tester.pumpAndSettle();
       expect(group, 'design');
 
+      // A header orders the directory itself: the column it is ordered by
+      // turns around, a count starts at its largest and a name at A.
       expect(find.text('Likes received'), findsOneWidget);
       await tester.tap(find.text('Likes received'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Sort ascending'));
-      await tester.pumpAndSettle();
+      await tester.pump();
       expect(sort, ('likes_received', true));
+      await tester.tap(find.text('Replies posted'));
+      await tester.pump();
+      expect(sort, ('post_count', false));
+      await tester.tap(find.text('User'));
+      await tester.pump();
+      expect(sort, ('username', true));
+      sort = null;
+      await tester.tap(find.text('Name'));
+      await tester.pump();
+      expect(sort, isNull);
+      expect(find.text('Sort ascending'), findsNothing);
 
       await tester.tap(find.byKey(const ValueKey('users-columns')));
       await tester.pumpAndSettle();
@@ -969,127 +964,6 @@ void main() {
     );
   }
 
-  testWidgets('every column resizes and restores its forum-specific width', (
-    tester,
-  ) async {
-    final persistence = _ColumnWidthMemoryPersistence();
-    final store = UserDirectoryColumnWidthStore(persistence: persistence);
-
-    UsersPage page(String siteUrl) => UsersPage(
-      siteUrl: siteUrl,
-      columnWidthStore: store,
-      data: const UsersPageData(
-        items: [_sam, _hawk],
-        columns: [_likes, _replies, _days],
-        loaded: true,
-      ),
-    );
-
-    await _pump(
-      tester,
-      page('https://example.com'),
-      size: const Size(1100, 820),
-    );
-    await tester.pumpAndSettle();
-
-    expect(_resize('User'), findsOneWidget);
-    for (final column in const [_likes, _replies, _days]) {
-      expect(_resize(column.label), findsOneWidget);
-    }
-
-    final identityColumn = _resize('User');
-    final firstMetric = _resize('Likes received');
-    final initialIdentityWidth = tester
-        .widget<DResizableHandle>(identityColumn)
-        .value;
-
-    await _resizeBy(tester, 'User', 42);
-    await tester.pumpAndSettle();
-    final resizedIdentityWidth = tester
-        .widget<DResizableHandle>(identityColumn)
-        .value;
-    expect(resizedIdentityWidth, closeTo(initialIdentityWidth + 42, .01));
-
-    await tester.drag(_resize('Likes received'), const Offset(-1000, 0));
-    await tester.pumpAndSettle();
-    expect(tester.widget<DResizableHandle>(firstMetric).value, 88);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    await _pump(
-      tester,
-      page('https://example.com'),
-      size: const Size(1100, 820),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.widget<DResizableHandle>(identityColumn).value,
-      resizedIdentityWidth,
-    );
-    expect(tester.widget<DResizableHandle>(firstMetric).value, 88);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pumpAndSettle();
-    await _pump(
-      tester,
-      page('https://another.example'),
-      size: const Size(1100, 820),
-    );
-    await tester.pumpAndSettle();
-
-    expect(
-      tester.widget<DResizableHandle>(identityColumn).value,
-      initialIdentityWidth,
-    );
-    expect(tester.widget<DResizableHandle>(firstMetric).value, greaterThan(88));
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('a resize wins over a delayed width restoration', (tester) async {
-    final persistence = _DelayedColumnWidthPersistence(
-      UserDirectoryColumnWidths(const {
-        'identity': 420,
-        'metric.automatic.1': 200,
-      }).encode(),
-    );
-    final store = UserDirectoryColumnWidthStore(persistence: persistence);
-    await _pump(
-      tester,
-      UsersPage(
-        siteUrl: 'https://example.com',
-        columnWidthStore: store,
-        data: const UsersPageData(
-          items: [_sam, _hawk],
-          columns: [_likes, _replies, _days],
-          loaded: true,
-        ),
-      ),
-      size: const Size(1100, 820),
-    );
-
-    final identityColumn = _resize('User');
-    final initialWidth = tester.widget<DResizableHandle>(identityColumn).value;
-    await _resizeBy(tester, 'User', 32);
-    await tester.pumpAndSettle();
-    final resizedWidth = tester.widget<DResizableHandle>(identityColumn).value;
-    expect(resizedWidth, initialWidth + 32);
-
-    persistence.completeRead();
-    await tester.pumpAndSettle();
-
-    expect(tester.widget<DResizableHandle>(identityColumn).value, resizedWidth);
-    expect(
-      tester.widget<DResizableHandle>(_resize('Likes received')).value,
-      200,
-    );
-    expect(UserDirectoryColumnWidths.decode(persistence.writes.last).widths, {
-      'identity': resizedWidth,
-      'metric.automatic.1': 200,
-    });
-    expect(tester.takeException(), isNull);
-  });
-
   for (final platform in [
     TargetPlatform.iOS,
     TargetPlatform.android,
@@ -1120,7 +994,7 @@ void main() {
             find.descendant(of: search, matching: find.byType(EditableText)),
           )
           .focusNode;
-      final periodMenu = find.text('Today');
+      final periodMenu = find.text('Day');
       final columnsMenu = find.byType(DDropdownMenuCheckboxItem);
       for (final (control, surface, height, opened) in [
         (
@@ -1225,49 +1099,72 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  for (final width in [320.0, 390.0]) {
-    testWidgets('mobile directory keeps dropdowns together at width $width', (
-      tester,
-    ) async {
-      await (FontLoader(
-        'Roboto',
-      )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
-      await _pump(
-        tester,
-        const UsersPage(
-          siteUrl: 'https://example.com',
-          data: UsersPageData(
-            items: [_sam, _hawk],
-            columns: [_likes, _replies, _days],
-            groupNames: ['design'],
-            totalRows: 2,
-            loaded: true,
+  for (final width in [320.0, 390.0, 430.0]) {
+    testWidgets(
+      'phone directory wraps its filters like the reference at width $width',
+      (tester) async {
+        await (FontLoader(
+          'Roboto',
+        )..addFont(rootBundle.load('assets/fonts/Lato-Regular.ttf'))).load();
+        await _pump(
+          tester,
+          DPageHeaderHost(
+            identity: 'users',
+            titlesInBar: true,
+            builder: (context, header, child) => child,
+            child: const UsersPage(
+              siteUrl: 'https://example.com',
+              data: UsersPageData(
+                items: [_sam, _hawk],
+                columns: [_likes, _replies, _days],
+                groupNames: ['design'],
+                totalRows: 2,
+                loaded: true,
+              ),
+            ),
           ),
-        ),
-        size: Size(width, 680),
-        theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
-      );
+          size: Size(width, 680),
+          theme: AppTheme.light.copyWith(platform: TargetPlatform.iOS),
+        );
 
-      final search = tester.getRect(find.byKey(const ValueKey('users-search')));
-      final period = tester.getRect(
-        find.byKey(const ValueKey('users-period-filter')),
-      );
-      final group = tester.getRect(
-        find.byKey(const ValueKey('users-group-filter')),
-      );
-      final columns = tester.getRect(
-        find.byKey(const ValueKey('users-columns')),
-      );
-      expect(search.bottom, lessThan(period.top));
-      expect(period.center.dy, closeTo(group.center.dy, 1));
-      expect(columns.center.dy, closeTo(group.center.dy, 1));
-      expect(columns.right, closeTo(search.right, 1));
-      expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('users-columns')));
-      await tester.pumpAndSettle();
-      expect(find.byType(DDropdownMenuCheckboxItem), findsNWidgets(4));
-      expect(tester.takeException(), isNull);
-    });
+        final search = tester.getRect(
+          find.byKey(const ValueKey('users-search')),
+        );
+        final period = tester.getRect(
+          find.byKey(const ValueKey('users-period-filter')),
+        );
+        final group = tester.getRect(
+          find.byKey(const ValueKey('users-group-filter')),
+        );
+        final columns = tester.getRect(
+          find.byKey(const ValueKey('users-columns')),
+        );
+        // Columns is not a filter: it stays beside them, level with the first
+        // line, while the filters wrap among themselves.
+        expect(columns.top, search.top);
+        expect(columns.right, width - 16);
+        // The field keeps 220 before a pill joins its line, then grows into
+        // whatever its line has left.
+        final room = columns.left - 8 - search.left;
+        if (room >= 220 + 8 + period.width) {
+          expect(period.top, search.top);
+          expect(period.right, columns.left - 8);
+          expect(group.top, greaterThan(search.bottom));
+          expect(group.left, search.left);
+        } else {
+          expect(search.right, columns.left - 8);
+          expect(period.top, greaterThan(search.bottom));
+          expect(period.left, search.left);
+          expect(group.top, period.top);
+          expect(group.left, period.right + 8);
+        }
+        expect(find.byKey(const ValueKey('user-row-sam')), findsOneWidget);
+        await tester.tap(find.byKey(const ValueKey('users-columns')));
+        await tester.pumpAndSettle();
+        expect(find.byType(DDropdownMenuCheckboxItem), findsNWidgets(4));
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final width in [390.0, 1100.0]) {
@@ -1302,6 +1199,129 @@ void main() {
     });
   }
 
+  testWidgets('the directory title retracts on scroll like the reference', (
+    tester,
+  ) async {
+    await _pump(
+      tester,
+      UsersPage(
+        siteUrl: 'https://example.com',
+        data: UsersPageData(
+          items: [
+            for (var i = 0; i < 200; i++)
+              UserDirectoryItem(
+                id: i + 1,
+                user: UserDirectoryUser(id: i + 1, username: 'user$i'),
+                values: {'likes_received': 1000 - i},
+              ),
+          ],
+          columns: const [_likes],
+          totalRows: 200,
+          loaded: true,
+        ),
+      ),
+      size: const Size(1100, 800),
+      theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
+    );
+    final title = find.text('Users').hitTestable();
+    final search = find.byKey(const ValueKey('users-search')).hitTestable();
+    final rows = Scrollable.of(
+      tester.element(find.byKey(const ValueKey('user-row-user0'))),
+      axis: Axis.vertical,
+    ).position;
+    Future<void> wheel(double amount) async {
+      await tester.sendEventToBinding(
+        PointerScrollEvent(
+          position: tester.getCenter(find.byKey(const ValueKey('users-table'))),
+          scrollDelta: Offset(0, amount),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    expect(title, findsOneWidget);
+    await wheel(600);
+    expect(title, findsNothing);
+    expect(search, findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 500));
+    await wheel(-160);
+    expect(rows.pixels, greaterThan(200));
+    expect(title, findsOneWidget);
+    rows.jumpTo(0);
+    await tester.pumpAndSettle();
+    expect(title, findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('words a search opened the directory on show as its pill', (
+    tester,
+  ) async {
+    var cleared = 0;
+    var data = const UsersPageData(
+      items: [_sam],
+      columns: [_likes],
+      loaded: true,
+      query: UserDirectoryQuery(search: 'sam'),
+      words: 'sam',
+    );
+    late StateSetter update;
+    await _pump(
+      tester,
+      StatefulBuilder(
+        builder: (context, setState) {
+          update = setState;
+          return UsersPage(
+            siteUrl: 'https://example.com',
+            data: data,
+            onWordsCleared: () => cleared++,
+          );
+        },
+      ),
+    );
+
+    final pill = find.byKey(const ValueKey('users-search-words'));
+    expect(find.text('“sam” in users'), findsOneWidget);
+    expect(
+      find.descendant(of: pill, matching: find.text('“sam”')),
+      findsOneWidget,
+    );
+    expect(
+      tester.getRect(pill).right,
+      lessThan(tester.getRect(find.byKey(const ValueKey('users-search'))).left),
+    );
+    expect(
+      tester
+          .widget<DDataTableFilterField>(
+            find.byKey(const ValueKey('users-search')),
+          )
+          .value,
+      isEmpty,
+    );
+    await tester.tap(pill);
+    expect(cleared, 1);
+
+    update(
+      () => data = const UsersPageData(
+        items: [_sam],
+        columns: [_likes],
+        loaded: true,
+        query: UserDirectoryQuery(search: 'sa'),
+      ),
+    );
+    await tester.pump();
+    expect(pill, findsNothing);
+    expect(find.text('Users'), findsOneWidget);
+    expect(
+      tester
+          .widget<DDataTableFilterField>(
+            find.byKey(const ValueKey('users-search')),
+          )
+          .value,
+      'sa',
+    );
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('directory exposes stable loading, empty, and error states', (
     tester,
   ) async {
@@ -1321,6 +1341,7 @@ void main() {
     update(() => data = const UsersPageData(loaded: true));
     await tester.pump();
     expect(find.byKey(const ValueKey('users-empty')), findsOneWidget);
+    expect(find.text('No users match that filter.'), findsOneWidget);
     expect(find.byType(DSkeletonRegion), findsNothing);
     update(
       () => data = const UsersPageData(
@@ -1377,7 +1398,7 @@ void main() {
   });
 
   testWidgets(
-    'reference-width directory keeps filters on one line above the full-width table',
+    'reference-width directory lines its filters and columns up with the title',
     (tester) async {
       await (FontLoader(
         'Roboto',
@@ -1395,28 +1416,76 @@ void main() {
           onPeriodChanged: (_) {},
           onGroupChanged: (_) {},
         ),
-        size: const Size(488, 850),
+        size: const Size(810, 850),
         theme: AppTheme.dark.copyWith(platform: TargetPlatform.macOS),
       );
+      final title = tester.getRect(find.text('Users'));
       final search = tester.getRect(find.byKey(const ValueKey('users-search')));
-      for (final key in [
-        'users-period-filter',
-        'users-group-filter',
-        'users-columns',
-      ]) {
-        expect(
-          tester.getRect(find.byKey(ValueKey(key))).center.dy,
-          closeTo(search.center.dy, 1),
-        );
+      final period = tester.getRect(
+        find.byKey(const ValueKey('users-period-filter')),
+      );
+      final group = tester.getRect(
+        find.byKey(const ValueKey('users-group-filter')),
+      );
+      final columns = tester.getRect(
+        find.byKey(const ValueKey('users-columns')),
+      );
+      expect(title.bottom, lessThan(search.top));
+      expect(search.left, title.left);
+      expect(search.width, 220);
+      expect(period.left, search.right + 8);
+      expect(group.left, period.right + 8);
+      expect(columns.right, 810 - 16);
+      for (final pill in [period, group, columns]) {
+        expect(pill.top, search.top);
+        expect(pill.height, 30);
       }
-      expect(tester.getRect(find.text('Users')).bottom, lessThan(search.top));
+
       final table = tester.getRect(find.byKey(const ValueKey('users-table')));
-      expect(table.left, search.left);
-      expect(table.right, 488 - 16);
+      expect(table.left, search.left - 16);
+      final header = tester.getRect(find.text('User'));
+      final avatar = tester.getRect(
+        find.descendant(
+          of: find.byKey(const ValueKey('user-row-sam')),
+          matching: find.byType(DAvatar),
+        ),
+      );
+      expect(header.left, search.left);
+      expect(avatar.left, search.left);
+      expect(
+        tester.getRect(find.text('Name')).left,
+        search.left + _referenceText + 16,
+      );
+      // A count's label stands over its numbers, at the column's end.
+      final likes = tester.getRect(
+        find.byKey(ValueKey('user-metric-sam-${_likes.id}')),
+      );
+      expect(likes.left, search.left + 2 * (_referenceText + 16));
+      expect(likes.width, 132);
+      expect(
+        tester
+            .getRect(
+              find
+                  .ancestor(
+                    of: find.text('Likes received'),
+                    matching: find.byType(Row),
+                  )
+                  .first,
+            )
+            .right,
+        likes.right,
+      );
+      final rows = [
+        for (final user in ['sam', 'hawk'])
+          tester.getRect(find.byKey(ValueKey('user-row-$user'))),
+      ];
+      expect(rows[1].center.dy - rows[0].center.dy, 39);
       expect(tester.takeException(), isNull);
     },
   );
 }
+
+const double _referenceText = 170;
 
 final _countedColumns = [
   for (var index = 0; index < 5; index++)
@@ -1446,15 +1515,6 @@ Finder _metrics(String username) => find.byWidgetPredicate(
       (widget.key! as ValueKey<String>).value.startsWith(
         'user-metric-$username-',
       ),
-);
-
-Future<void> _resizeBy(WidgetTester tester, String label, double delta) =>
-    tester.drag(_resize(label), Offset(delta, 0));
-
-Finder _resize(String label) => find.byWidgetPredicate(
-  (widget) =>
-      widget is DResizableHandle &&
-      widget.semanticLabel == 'Resize $label column',
 );
 
 final class _CountingValues extends MapBase<String, Object?> {
@@ -1505,45 +1565,4 @@ Future<void> _pump(
     ),
   );
   await tester.pump();
-}
-
-final class _ColumnWidthMemoryPersistence
-    implements UserDirectoryColumnWidthPersistence {
-  final Map<String, String> _values = {};
-
-  @override
-  Future<String?> readWidths({required String siteUrl}) async =>
-      _values[siteUrl];
-
-  @override
-  Future<bool> writeWidths({
-    required String siteUrl,
-    required String encoded,
-  }) async {
-    _values[siteUrl] = encoded;
-    return true;
-  }
-}
-
-final class _DelayedColumnWidthPersistence
-    implements UserDirectoryColumnWidthPersistence {
-  _DelayedColumnWidthPersistence(this._initialValue);
-
-  final String _initialValue;
-  final Completer<String?> _read = Completer<String?>();
-  final List<String> writes = [];
-
-  void completeRead() => _read.complete(_initialValue);
-
-  @override
-  Future<String?> readWidths({required String siteUrl}) => _read.future;
-
-  @override
-  Future<bool> writeWidths({
-    required String siteUrl,
-    required String encoded,
-  }) async {
-    writes.add(encoded);
-    return true;
-  }
 }

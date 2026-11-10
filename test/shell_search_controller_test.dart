@@ -162,16 +162,30 @@ void main() {
       );
       expect(search.replaceUsersQuery(site, 'main', query), isTrue);
       expect(search.replaceUsersQuery(site, 'main', query), isFalse);
+      // A filter typed on the page is not words a search opened it on.
+      expect(search.wordsFor(site, 'main', 'users'), '');
+      search.setPageWords(site, 'main', 'users', 'sam');
       expect(search.wordsFor(site, 'main', 'users'), 'sam');
-      search.setPageWords(site, 'main', 'users', 'hawk');
+      search.setPageWords(site, 'main', 'users', ' hawk ');
       expect(
         search.usersQueryFor(site, 'main'),
         query.normalized().copyWith(search: 'hawk'),
       );
+      expect(search.wordsFor(site, 'main', 'users'), 'hawk');
+      search.replaceUsersQuery(
+        site,
+        'main',
+        search
+            .usersQueryFor(site, 'main')
+            .copyWith(period: UserDirectoryPeriod.yearly),
+      );
+      expect(search.wordsFor(site, 'main', 'users'), 'hawk');
       search.setPageWords(site, 'secondary', 'users', 'reader');
       search.setPageWords('https://other.example', 'main', 'users', 'other');
       search.retainTabs({(siteUrl: site, tabId: 'main')});
       expect(search.usersQueryFor(site, 'main').search, 'hawk');
+      expect(search.wordsFor(site, 'main', 'users'), 'hawk');
+      expect(search.wordsFor(site, 'secondary', 'users'), '');
       expect(
         search.usersQueryFor(site, 'secondary'),
         const UserDirectoryQuery(),
@@ -180,12 +194,25 @@ void main() {
         search.usersQueryFor('https://other.example', 'main'),
         const UserDirectoryQuery(),
       );
+      search.replaceUsersQuery(
+        site,
+        'main',
+        search.usersQueryFor(site, 'main').copyWith(search: 'haw'),
+      );
+      expect(search.wordsFor(site, 'main', 'users'), '');
+      search.setPageWords(site, 'main', 'users', 'hawk');
       search.setPageWords(site, 'main', 'users', '');
       expect(
         search.usersQueryFor(site, 'main'),
-        query.normalized().copyWith(search: ''),
+        query.normalized().copyWith(
+          search: '',
+          period: UserDirectoryPeriod.yearly,
+        ),
       );
+      expect(search.wordsFor(site, 'main', 'users'), '');
+      search.setPageWords(site, 'main', 'users', 'hawk');
       search.forget(site);
+      expect(search.wordsFor(site, 'main', 'users'), '');
       expect(search.usersQueryFor(site, 'main'), const UserDirectoryQuery());
     },
   );
