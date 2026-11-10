@@ -25424,30 +25424,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tiled'**
   String get voiceLayoutTiled;
-
-  /// Create Zendesk ticket
-  ///
-  /// In en, this message translates to:
-  /// **'Create Zendesk ticket'**
-  String get zendeskCreateTicket;
-
-  /// View Zendesk ticket
-  ///
-  /// In en, this message translates to:
-  /// **'View Zendesk ticket'**
-  String get zendeskViewTicket;
-
-  /// Zendesk ticket created
-  ///
-  /// In en, this message translates to:
-  /// **'Zendesk ticket created'**
-  String get zendeskTicketCreated;
-
-  /// Could not create the Zendesk ticket
-  ///
-  /// In en, this message translates to:
-  /// **'Could not create the Zendesk ticket'**
-  String get zendeskTicketFailed;
 }
 
 class _AppLocalizationsDelegate
