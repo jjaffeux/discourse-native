@@ -265,8 +265,10 @@ void main() {
   }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
 
   // Measured on the mockup's Insert link sheet: a phone's at 390 wide, a
-  // desktop dialog's at its own size, which a desktop sheet shares. The gap
-  // is read at the end of what scrolls, where the actions are held.
+  // desktop dialog's at its own size, which a desktop sheet shares. What the
+  // sheet holds starts right under its heading, with no rule between. The
+  // gap to the actions is read at the end of what scrolls, where they are
+  // held.
   for (final (presentation, platform, dialog, side, gap, foot) in [
     ('phone sheet', TargetPlatform.iOS, true, 19.46, 36.62, 18.46),
     ('desktop dialog', TargetPlatform.macOS, true, 17.0, 16.0, 17.0),
@@ -302,6 +304,19 @@ void main() {
         );
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
+        final sheet = find.byType(
+          dialog && platform == TargetPlatform.macOS
+              ? DDialogContent
+              : DSheetContent,
+        );
+        expect(
+          tester.getRect(find.byKey(const ValueKey('content'))).top,
+          closeTo(tester.getRect(find.byType(DSheetHeader)).bottom, 0.2),
+        );
+        expect(
+          find.descendant(of: sheet, matching: find.byType(DSeparator)),
+          findsNothing,
+        );
         final scroll = tester
             .state<ScrollableState>(
               find
@@ -314,13 +329,7 @@ void main() {
             .position;
         scroll.jumpTo(scroll.maxScrollExtent);
         await tester.pumpAndSettle();
-        final surface = tester.getRect(
-          find.byType(
-            dialog && platform == TargetPlatform.macOS
-                ? DDialogContent
-                : DSheetContent,
-          ),
-        );
+        final surface = tester.getRect(sheet);
         final title = tester.getRect(find.text(_title));
         final content = tester.getRect(find.byKey(const ValueKey('content')));
         final action = tester.getRect(find.byKey(const ValueKey('action')));

@@ -16,7 +16,6 @@ Future<T?> showShellSheet<T>({
   bool nested = false,
   bool scrollBody = true,
   bool dialogOnDesktop = false,
-  bool showHeaderDivider = true,
   BoxConstraints desktopDialogConstraints = const BoxConstraints(
     maxWidth: 480,
     maxHeight: 560,
@@ -68,7 +67,6 @@ Future<T?> showShellSheet<T>({
                   footerBuilder: footerBuilder,
                   nested: nested,
                   scrollBody: scrollBody,
-                  showHeaderDivider: showHeaderDivider,
                   headingInset: insets.heading,
                   padding: padding ?? insets.body,
                   footerPadding: footerPadding ?? insets.footer,
@@ -131,7 +129,6 @@ Future<T?> showShellSheet<T>({
                     grabbed: adaptive,
                     expandBody: pinnedFooter,
                     scrollBody: scrollBody,
-                    showHeaderDivider: showHeaderDivider,
                     headingInset: insets.heading,
                     padding: padding ?? insets.body,
                     footerPadding: footerPadding ?? insets.footer,
@@ -147,7 +144,8 @@ Future<T?> showShellSheet<T>({
 }
 
 /// Where a sheet's heading, content and actions sit, from the mockup's
-/// sheets. The heading's is added to the sheet header's own inset.
+/// sheets. The heading's is added to the sheet header's own inset, and what
+/// the sheet holds starts right under it, with no rule between.
 typedef _SheetInsets = ({double heading, EdgeInsets body, EdgeInsets footer});
 
 /// A phone's, in the zoomed units its content is laid out in: one inset from
@@ -156,7 +154,7 @@ typedef _SheetInsets = ({double heading, EdgeInsets body, EdgeInsets footer});
 const _SheetInsets _phoneInsets = (
   // The header's own inset is not zoomed.
   heading: 15 - DSpacing.md * 13 / 17,
-  body: EdgeInsets.fromLTRB(15, 16, 15, 14),
+  body: EdgeInsets.fromLTRB(15, 0, 15, 14),
   footer: EdgeInsets.fromLTRB(15, 14, 15, 14),
 );
 
@@ -164,7 +162,7 @@ const _SheetInsets _phoneInsets = (
 /// it holds.
 const _SheetInsets _pointerInsets = (
   heading: 17 - DSpacing.md,
-  body: EdgeInsets.fromLTRB(17, 16, 17, 16),
+  body: EdgeInsets.fromLTRB(17, 0, 17, 16),
   footer: EdgeInsets.fromLTRB(17, 0, 17, 17),
 );
 
@@ -177,7 +175,6 @@ class _SheetBody extends StatelessWidget {
     this.grabbed = false,
     this.expandBody = false,
     required this.scrollBody,
-    required this.showHeaderDivider,
     required this.headingInset,
     required this.padding,
     required this.footerPadding,
@@ -192,14 +189,12 @@ class _SheetBody extends StatelessWidget {
   final bool grabbed;
   final bool expandBody;
   final bool scrollBody;
-  final bool showHeaderDivider;
   final double headingInset;
   final EdgeInsetsGeometry padding;
   final EdgeInsetsGeometry footerPadding;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -237,7 +232,6 @@ class _SheetBody extends StatelessWidget {
             ],
           ),
         ),
-        if (showHeaderDivider) DSeparator(color: theme.shell.divider, space: 1),
         Flexible(
           fit: expandBody ? FlexFit.tight : FlexFit.loose,
           child: scrollBody

@@ -99,8 +99,9 @@ body's scrollable region.
 On touch the backdrop and the grabber dismiss, where the dialogs refused
 a barrier tap; `canDismiss` still refuses while a write is in flight. The
 touch sheet keeps the generic "Dismiss sheet" barrier label, so Assign's
-own label is not carried over. The divider under the title stays, though
-the mockup's phone sheet has none.
+own label is not carried over. No rule is drawn under the title or above
+the actions, as the mockup draws none; what the sheet holds starts right
+under its title.
 
 The poll, date, event, emoji, GIF and status sheets keep their standard
 inset sheet rather than the menu sheet; moving them is not part of this

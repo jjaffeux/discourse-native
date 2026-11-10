@@ -35,8 +35,6 @@ Future<void> showSidebarTaxonomyEditor({
     ),
     scrollBody: context.isTouch,
     fillAvailableHeight: true,
-    showHeaderDivider: false,
-    padding: const EdgeInsets.symmetric(horizontal: 15),
     surfaceBuilder: (_, sheet) => SidebarTaxonomyEditor(
       controller: controller,
       siteUrl: siteUrl,

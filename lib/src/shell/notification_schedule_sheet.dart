@@ -50,7 +50,6 @@ Future<void> showNotificationScheduleSheet({
     title: context.l10n.notificationSchedule,
     nested: true,
     dialogOnDesktop: true,
-    padding: const EdgeInsets.fromLTRB(18, 16, 18, 18),
     desktopDialogConstraints: const BoxConstraints(
       maxWidth: 420,
       maxHeight: 640,
