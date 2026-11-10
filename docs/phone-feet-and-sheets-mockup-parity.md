@@ -77,10 +77,13 @@ as a 15pt heading, no close button. Every use of it, and what opens here:
 | Poll, Date in post, Event, Emoji, GIFs | Already touch bottom sheets. |
 | Upload | The upload choice's `DDropdownMenu` opens its adaptive sheet on a phone. |
 
-`showShellSheet` on touch is the adaptive menu, as every phone menu is: a
-tall sheet opens at its lower height and is pulled up for the rest,
-including a pinned footer, as the mockup's does. Its title row has no
-close button; a nested sheet keeps its back button. `fillAvailableHeight`
+`showShellSheet` on touch is the adaptive menu, as every phone menu is,
+and as tall as what it holds, as the mockup's sheet is. A tall one opens
+at its lower height, 55% of the screen, and is pulled up for the rest, no
+taller than what it holds. Its actions stay in view at whatever height it
+rests: the sheet lays out only what is in view (`keepFootInView`), so a
+short form sits right above its actions. Its title row has no close
+button; a nested sheet keeps its back button. `fillAvailableHeight`
 there reserves the fixed opening height and takes the room above a
 visible keyboard. A form whose body and actions the sheet builds apart
 shares its state through `ShellSheetForm`, and closes with `DDialogClose`

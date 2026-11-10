@@ -87,13 +87,17 @@ Future<T?> showShellSheet<T>({
       : DSheetVariant.menu;
   final adaptive = variant == DSheetVariant.adaptiveMenu;
   final insets = context.isTouch ? _phoneInsets : _pointerInsets;
+  // As tall as what it holds, a tall one resting at its lower height with its
+  // actions held in view, as the mockup's sheets are. One that fills the room
+  // keeps that height, so arriving results cannot resize it.
+  final sizeToContent = !(adaptive && fillAvailableHeight);
   final pinnedFooter = adaptive && footerBuilder != null;
-  final sizeToContent = !(adaptive && (fillAvailableHeight || pinnedFooter));
   return showDSheet<T>(
     context: context,
     side: DSheetSide.bottom,
     variant: variant,
     sizeToContent: sizeToContent,
+    keepFootInView: sizeToContent && pinnedFooter,
     dismissOnSwipe: enableDrag,
     canDismiss: canDismiss,
     initialFocusNode: initialFocusNode,
@@ -109,7 +113,12 @@ Future<T?> showShellSheet<T>({
                 : 0,
           ),
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 640),
+            // A phone sheet with actions rises as far as the screen lets it,
+            // as it did at its fixed height. A cap here would also count a
+            // raised keyboard against it.
+            constraints: BoxConstraints(
+              maxHeight: pinnedFooter ? double.infinity : 640,
+            ),
             child: DSheetContent(
               side: DSheetSide.bottom,
               variant: variant,
@@ -127,7 +136,7 @@ Future<T?> showShellSheet<T>({
                     footerBuilder: footerBuilder,
                     nested: nested,
                     grabbed: adaptive,
-                    expandBody: pinnedFooter,
+                    expandBody: !sizeToContent && pinnedFooter,
                     scrollBody: scrollBody,
                     headingInset: insets.heading,
                     padding: padding ?? insets.body,

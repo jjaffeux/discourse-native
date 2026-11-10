@@ -237,6 +237,78 @@ void main() {
     );
   }
 
+  // The mockup's sheet is as tall as what it holds, a tall one resting at
+  // 55% of the screen with its actions held where they are seen; they sit
+  // 28 of its zoom under what it holds, and 14 above its foot.
+  Future<({Rect surface, Rect content, Rect action})> openPhoneEditor(
+    WidgetTester tester, {
+    required double contentHeight,
+  }) async {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await _pumpSurface(
+      tester,
+      dialog: true,
+      platform: TargetPlatform.iOS,
+      builder: (_) => SizedBox(
+        key: const ValueKey('content'),
+        width: double.infinity,
+        height: contentHeight,
+      ),
+      footerBuilder: (context) => ShellSheetActions(
+        children: [
+          DButton(
+            key: const ValueKey('action'),
+            label: const Text('Insert link'),
+            onPressed: () {},
+          ),
+        ],
+      ),
+    );
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    return _phoneEditorRects(tester);
+  }
+
+  testWidgets('a short phone sheet with actions is as tall as what it holds', (
+    tester,
+  ) async {
+    final rest = await openPhoneEditor(tester, contentHeight: 120);
+    expect(rest.surface.bottom, 844);
+    expect(rest.surface.height, lessThan(844 * .55));
+    expect(rest.action.top - rest.content.bottom, closeTo(28 * 17 / 13, 0.2));
+    expect(
+      rest.surface.bottom - rest.action.bottom,
+      closeTo(14 * 17 / 13, 0.2),
+    );
+  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+
+  testWidgets(
+    'a tall phone sheet with actions rests with them in view and rises only '
+    'as tall as what it holds',
+    (tester) async {
+      final rest = await openPhoneEditor(tester, contentHeight: 330);
+      expect(rest.surface.height, closeTo(844 * .55, 0.5));
+      expect(
+        rest.surface.bottom - rest.action.bottom,
+        closeTo(14 * 17 / 13, 0.2),
+      );
+      await tester.drag(
+        find.byKey(const ValueKey('sheet-drag-handle')),
+        const Offset(0, -500),
+      );
+      await tester.pumpAndSettle();
+      final risen = _phoneEditorRects(tester);
+      expect(risen.surface.height, greaterThan(rest.surface.height));
+      expect(
+        risen.action.top - risen.content.bottom,
+        closeTo(28 * 17 / 13, 0.2),
+      );
+    },
+    variant: TargetPlatformVariant.only(TargetPlatform.iOS),
+  );
+
   testWidgets('a phone sheet is put away by its grabber', (tester) async {
     tester.view.physicalSize = const Size(390, 844);
     tester.view.devicePixelRatio = 1;
@@ -524,6 +596,14 @@ void main() {
     );
   }
 }
+
+({Rect surface, Rect content, Rect action}) _phoneEditorRects(
+  WidgetTester tester,
+) => (
+  surface: tester.getRect(find.byType(DSheetContent)),
+  content: tester.getRect(find.byKey(const ValueKey('content'))),
+  action: tester.getRect(find.byKey(const ValueKey('action'))),
+);
 
 Future<FocusNode> _pumpMenu(
   WidgetTester tester, {

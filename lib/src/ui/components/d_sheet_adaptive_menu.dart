@@ -274,6 +274,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
     required this.onDismiss,
     required this.retained,
     required this.sizeToContent,
+    required this.keepFootInView,
     required this.initiallyExpanded,
     required this.contentLoading,
     this.restAt,
@@ -284,6 +285,7 @@ class _DSheetAdaptiveMenu extends StatefulWidget {
   final VoidCallback? onDismiss;
   final bool retained;
   final bool sizeToContent;
+  final bool keepFootInView;
   final bool initiallyExpanded;
   final bool contentLoading;
   final GlobalKey? restAt;
@@ -372,6 +374,12 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
 
   double _low = 0;
   double _fixedLow = 0;
+
+  // A sheet that keeps its foot in view is laid out no taller than what is in
+  // view. Its full height is read whenever a layout was not cut short of it.
+  double _fullHeight = 0;
+  double _laidHeightOffset = 0;
+  double _laidCap = double.infinity;
   double _room = 0;
   double _keyboard = 0;
   bool _measured = false;
@@ -436,7 +444,11 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                             _exit.geometry!.animationOrigin)
                     .clamp(0.0, 1.0);
 
-  double get _heightOffset => _fullyExpanded ? 0 : math.min(_offset, _fixedLow);
+  double get _heightOffset => _heightOffsetAt(_offset);
+
+  double _heightOffsetAt(double offset) => _fullyExpanded
+      ? 0
+      : math.min(offset, widget.keepFootInView ? _low : _fixedLow);
 
   @override
   void initState() {
@@ -477,7 +489,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
       curve: _curve.transform(widget.presentation.animation.value),
       keyboard: _keyboardInset,
       safeBottom: _safeBottom,
-      heightOffset: _fullyExpanded ? 0.0 : math.min(_travel.value, _fixedLow),
+      heightOffset: _heightOffsetAt(_travel.value),
     );
     return _DSheetDismissSimulation(
       math.max(1, _room - _travel.value),
@@ -664,13 +676,15 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
     final box = _surface.currentContext?.findRenderObject();
     if (box is! RenderBox || !box.hasSize) return;
     final tall = box.size.height;
+    if (_laidHeightOffset <= 0 || tall < _laidCap - .5) _fullHeight = tall;
+    final full = widget.keepFootInView ? _fullHeight : tall;
     final half = _room * .55;
     var low = _fullyExpanded || _keyboard > 0
         ? 0.0
         : !widget.sizeToContent
         ? _fixedLow
-        : tall > half + 60
-        ? tall - half
+        : full > half + 60
+        ? full - half
         : 0.0;
     final rest = widget.restAt?.currentContext;
     final restBox = rest?.findRenderObject();
@@ -1053,13 +1067,20 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                 (1 - math.max(0, _offset - _low) / math.max(1, _room - _low))
                     .clamp(0.0, 1.0);
             // Fixed menus lay out their actual visible viewport, so arriving
-            // results cannot resize the surface. Below the lower detent, keep
-            // that height and translate the whole sheet with the finger.
-            final heightOffset = widget.sizeToContent
+            // results cannot resize the surface, and a sheet that keeps its foot
+            // in view lays out no more than is in view. Below the lower detent,
+            // keep that height and translate the whole sheet with the finger.
+            final heightOffset = widget.sizeToContent && !widget.keepFootInView
                 ? 0.0
                 : _exit.geometry?.heightOffset ??
                       _retainedExitHeightOffset ??
                       _heightOffset;
+            _laidHeightOffset = heightOffset;
+            _laidCap =
+                (heightOffset > 0 && widget.keepFootInView
+                    ? math.max(0.0, _fullHeight - heightOffset)
+                    : maximum) +
+                keyboard;
             return Stack(
               clipBehavior: Clip.hardEdge,
               children: [
@@ -1084,7 +1105,7 @@ class _DSheetAdaptiveMenuState extends State<_DSheetAdaptiveMenu>
                       child: ConstrainedBox(
                         key: _surface,
                         constraints: widget.sizeToContent
-                            ? BoxConstraints(maxHeight: maximum + keyboard)
+                            ? BoxConstraints(maxHeight: _laidCap)
                             : BoxConstraints.tightFor(
                                 height:
                                     math.max(0, maximum - heightOffset) +

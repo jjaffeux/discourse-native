@@ -1397,6 +1397,60 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  for (final keepFootInView in [true, false]) {
+    testWidgets('a tall menu sized to its content rests with its foot '
+        '${keepFootInView ? 'in view' : 'below the screen'}', (tester) async {
+      tester.view.physicalSize = const Size(390, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Builder(
+              builder: (context) => DButton(
+                label: const Text('Open'),
+                onPressed: () => showDSheet<void>(
+                  context: context,
+                  side: DSheetSide.bottom,
+                  variant: DSheetVariant.adaptiveMenu,
+                  keepFootInView: keepFootInView,
+                  builder: (_, _) => DSheetContent(
+                    side: DSheetSide.bottom,
+                    variant: DSheetVariant.adaptiveMenu,
+                    showCloseButton: false,
+                    children: [
+                      Flexible(
+                        child: ListView(
+                          shrinkWrap: true,
+                          children: [
+                            for (var row = 0; row < 40; row++)
+                              SizedBox(height: 40, child: Text('Row $row')),
+                          ],
+                        ),
+                      ),
+                      const DSheetFooter(children: [Text('Foot')]),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      expect(
+        tester.getRect(find.byType(DSheetContent)).top,
+        closeTo(844 * .45, 1),
+      );
+      expect(
+        tester.getRect(find.text('Foot')).bottom,
+        keepFootInView ? lessThan(844) : greaterThan(844),
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
   for (final sizeToContent in [true, false]) {
     testWidgets(
       'a controlled adaptive menu restores repeated declined swipes (content: $sizeToContent)',
