@@ -742,7 +742,9 @@ void main() {
     () {
       final wcag = forumThemePresets.firstWhere((t) => t.id == 'wcag');
       expect(wcag.resolve(Brightness.light).tertiary, const Color(0xff0033cc));
-      expect(wcag.resolve(Brightness.dark).tertiary, const Color(0xff759aff));
+      // The authored #759aff, a step toward the text: as authored it reads
+      // at 4.52:1 on a hover over the raised surface.
+      expect(wcag.resolve(Brightness.dark).tertiary, const Color(0xff769bff));
       expect(wcag.resolve(Brightness.dark).secondary, const Color(0xff0c0c0c));
       final solarized = forumThemePresets.firstWhere(
         (t) => t.id == 'solarized',

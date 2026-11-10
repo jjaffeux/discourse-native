@@ -295,6 +295,11 @@ final class ForumTheme {
       selected,
       codeBlock,
       inlineCode,
+      ...ReferenceSurfaces(
+        text: foreground,
+        ground: background,
+        accent: tertiary,
+      ).grounds,
     ];
     // A level of text: as much of the text as it takes by default, more
     // where that does not reach [need] on every surface.

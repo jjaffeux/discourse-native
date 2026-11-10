@@ -130,6 +130,22 @@ void main() {
     expect(palette.tertiary, wcag.tertiary);
   });
 
+  test('levels read on a hover over the raised surface, as the mockup sets '
+      'them', () {
+    // The mockup's Dracula dark resolves --mix-muted to 76.9%, --mix-body to
+    // 100% and --mix-accent to 58.2%, each held by that hovered surface.
+    final dracula = forumThemePresets.firstWhere((t) => t.id == 'dracula');
+    final palette = dracula.resolve(Brightness.dark);
+    const text = Color(0xfff2f2f2);
+    const ground = Color(0xff2d303e);
+    const accent = Color(0xffbd93f9);
+    Color mix(Color color, double share, Color into) =>
+        Color(Color.lerp(into, color, share)!.toARGB32());
+    expect(palette.primaryMedium, mix(text, .769, ground));
+    expect(palette.primaryVeryHigh, text);
+    expect(palette.tertiary, mix(accent, .582, text));
+  });
+
   test('a palette published for one mode gets a readable other half', () {
     for (final preset in forumThemePresets.where((t) => t.alternate == null)) {
       final target = preset.brightness == Brightness.dark
