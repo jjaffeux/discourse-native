@@ -770,27 +770,6 @@ class _TopicViewState extends State<TopicView>
         _moreTopicsCovered.value && scroll!.position.extentAfter > .5;
   }
 
-  void _showMoreTopics() {
-    final bounds = _morePanelBounds();
-    final scroll = _scroll;
-    if (bounds == null || scroll == null || !scroll.hasClients) return;
-    final target = (scroll.offset + bounds.top)
-        .clamp(scroll.position.minScrollExtent, scroll.position.maxScrollExtent)
-        .toDouble();
-    if (MediaQuery.disableAnimationsOf(context)) {
-      scroll.jumpTo(target);
-    } else {
-      // Flutter's driven scroll yields immediately to a drag or wheel input.
-      unawaited(
-        scroll.animateTo(
-          target,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOutCubic,
-        ),
-      );
-    }
-  }
-
   void _syncFloatingDay(TopicViewportSnapshot snapshot) {
     final list = _list;
     final scroll = _scroll;
@@ -1998,15 +1977,7 @@ class _TopicViewState extends State<TopicView>
                   selected: _recommendationsSourceId,
                   showTitle: true,
                   topPadding: 0,
-                  onSelected: (source) {
-                    _setRecommendationsSource(source);
-                    final identity = _topicIdentity;
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted && identity == _topicIdentity) {
-                        _showMoreTopics();
-                      }
-                    });
-                  },
+                  onSelected: _setRecommendationsSource,
                 ),
               ),
             ),
@@ -3707,32 +3678,40 @@ class _MoreTopics extends StatelessWidget {
                       ),
                     ),
             ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var index = 0; index < selection.topics.length; index++) ...[
-                TopicListRow(
-                  topic: selection.topics[index],
-                  nextTopic: index + 1 < selection.topics.length
-                      ? selection.topics[index + 1]
-                      : null,
-                  closedRuleAbove: index > 0,
-                  closedRuleBelow: index + 1 < selection.topics.length,
-                  siteUrl: siteUrl,
-                  onTap: inbox
-                      ? () => ShellScope.read(
-                          context,
-                        ).openTopicFromList(selection.topics[index])
-                      : null,
-                ),
-                if (index < selection.topics.length - 1)
-                  TopicListSeparator(
+          // Switching to a shorter source must not shrink the scroll extent
+          // under a reader parked at the end, which would pull the content.
+          _GrowOnlyHeight(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                for (
+                  var index = 0;
+                  index < selection.topics.length;
+                  index++
+                ) ...[
+                  TopicListRow(
                     topic: selection.topics[index],
-                    nextTopic: selection.topics[index + 1],
+                    nextTopic: index + 1 < selection.topics.length
+                        ? selection.topics[index + 1]
+                        : null,
+                    closedRuleAbove: index > 0,
+                    closedRuleBelow: index + 1 < selection.topics.length,
                     siteUrl: siteUrl,
+                    onTap: inbox
+                        ? () => ShellScope.read(
+                            context,
+                          ).openTopicFromList(selection.topics[index])
+                        : null,
                   ),
+                  if (index < selection.topics.length - 1)
+                    TopicListSeparator(
+                      topic: selection.topics[index],
+                      nextTopic: selection.topics[index + 1],
+                      siteUrl: siteUrl,
+                    ),
+                ],
               ],
-            ],
+            ),
           ),
         ],
       ),
@@ -5371,6 +5350,33 @@ class _TopicReadTime extends StatelessWidget {
         ),
       ],
     );
+  }
+}
+
+/// Never lays out shorter than the tallest child seen at the current width.
+class _GrowOnlyHeight extends SingleChildRenderObjectWidget {
+  const _GrowOnlyHeight({required super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderGrowOnlyHeight();
+}
+
+class _RenderGrowOnlyHeight extends RenderProxyBox {
+  double _width = double.nan;
+  double _height = 0;
+
+  @override
+  void performLayout() {
+    final child = this.child!;
+    child.layout(constraints.copyWith(minHeight: 0), parentUsesSize: true);
+    final childSize = child.size;
+    if (childSize.width != _width) {
+      _width = childSize.width;
+      _height = 0;
+    }
+    _height = math.max(_height, childSize.height);
+    size = constraints.constrain(Size(childSize.width, _height));
   }
 }
 
