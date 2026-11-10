@@ -16599,12 +16599,6 @@ abstract class AppLocalizations {
   /// English UI message used by shell/bookmark_list.dart. Keep placeholders intact.
   ///
   /// In en, this message translates to:
-  /// **'Other bookmarks'**
-  String get otherBookmarks;
-
-  /// English UI message used by shell/bookmark_list.dart. Keep placeholders intact.
-  ///
-  /// In en, this message translates to:
   /// **'Loading bookmarks'**
   String get loadingBookmarks;
 
@@ -16614,11 +16608,11 @@ abstract class AppLocalizations {
   /// **'Nothing bookmarked yet.'**
   String get nothingBookmarkedYet;
 
-  /// English UI message used by shell/bookmark_list.dart. Keep placeholders intact.
+  /// Shown on the Bookmarks page when the chosen reminder scope holds no bookmarks.
   ///
   /// In en, this message translates to:
-  /// **'No bookmarks in this filter.'**
-  String get noBookmarksInThisFilter;
+  /// **'Nothing bookmarked here.'**
+  String get nothingBookmarkedHere;
 
   /// English UI message used by shell/bookmark_list.dart. Keep placeholders intact.
   ///
@@ -21824,18 +21818,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reminders'**
   String get bookmarkReminders;
-
-  /// Accessible label for the bookmark target type selector.
-  ///
-  /// In en, this message translates to:
-  /// **'Filter bookmark type'**
-  String get filterBookmarkType;
-
-  /// Unfiltered bookmark target type selector option.
-  ///
-  /// In en, this message translates to:
-  /// **'All types'**
-  String get allBookmarkTypes;
 
   /// Accessible status for a bookmark whose reminder time has arrived.
   ///

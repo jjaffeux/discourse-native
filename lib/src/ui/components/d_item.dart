@@ -98,6 +98,7 @@ class DItem extends StatefulWidget {
 
     this.semanticLabel,
     this.padding,
+    this.gap,
     this.cornerAction,
     this.dragData,
     this.dragFeedback,
@@ -135,6 +136,7 @@ class DItem extends StatefulWidget {
        mouseCursor = null,
        clipBehavior = Clip.none,
        padding = const EdgeInsets.fromLTRB(12, 20, 12, 22),
+       gap = null,
        cornerAction = null,
        dragData = null,
        dragFeedback = null;
@@ -224,6 +226,10 @@ class DItem extends StatefulWidget {
 
   /// Explicit composition override, e.g. zero inside a menu-owned hit target.
   final EdgeInsetsGeometry? padding;
+
+  /// Space between media and content, and between the body and its header or
+  /// footer, for a reference that sets a row tighter or looser than [size].
+  final double? gap;
 
   /// An independent control in the top trailing corner, usually a small Button.
   /// Hover or focus within the item reveals it immediately. Touch platforms and
@@ -442,13 +448,15 @@ class _DItemState extends State<DItem> with DHighlightModeTracking {
         DSidebarRowScope.drawerOf(context);
     final xs = widget.size == DItemSize.xs;
     final artwork = widget.size == DItemSize.artwork;
-    final gap = drawer
-        ? 8.0
-        : artwork
-        ? 0.0
-        : xs
-        ? 8.0
-        : 12.0;
+    final gap =
+        widget.gap ??
+        (drawer
+            ? 8.0
+            : artwork
+            ? 0.0
+            : xs
+            ? 8.0
+            : 12.0);
     final described = children.any(
       (child) =>
           child is DItemContent &&

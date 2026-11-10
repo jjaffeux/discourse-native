@@ -9684,16 +9684,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get addADiscourseSite => 'Add a Discourse site';
 
   @override
-  String get otherBookmarks => 'Other bookmarks';
-
-  @override
   String get loadingBookmarks => 'Loading bookmarks';
 
   @override
   String get nothingBookmarkedYet => 'Nothing bookmarked yet.';
 
   @override
-  String get noBookmarksInThisFilter => 'No bookmarks in this filter.';
+  String get nothingBookmarkedHere => 'Nothing bookmarked here.';
 
   @override
   String get loadingMoreBookmarks => 'Loading more bookmarks';
@@ -13873,12 +13870,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get bookmarkReminders => 'Reminders';
-
-  @override
-  String get filterBookmarkType => 'Filter bookmark type';
-
-  @override
-  String get allBookmarkTypes => 'All types';
 
   @override
   String get bookmarkReminderExpired => 'Reminder expired';

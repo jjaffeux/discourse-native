@@ -88,7 +88,7 @@ const _bookmarks = [
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('reminder scopes compose with types and accent expired rows', (
+  testWidgets('reminder scopes narrow the rows and accent expired ones', (
     tester,
   ) async {
     final now = DateTime.now();
@@ -106,27 +106,17 @@ void main() {
     );
     addTearDown(shell.dispose);
     await _pumpPage(tester, shell, size: const Size(320, 844), scale: 1.5);
-    final expired = tester.widget<DItem>(
-      find.byKey(const ValueKey('bookmark-row-1')),
-    );
+    final expired = _pageItem(tester, 'bookmark-row-1');
     expect(expired.selected, isTrue);
     expect(expired.selectionStyle, DItemSelectionStyle.leadingAccent);
     expect(expired.showSelectionIndicator, isFalse);
     expect(expired.semanticLabel, contains('Reminder expired'));
-    expect(
-      tester
-          .widget<DItem>(find.byKey(const ValueKey('bookmark-row-2')))
-          .selected,
-      isFalse,
-    );
+    expect(_pageItem(tester, 'bookmark-row-2').selected, isFalse);
     await _reminderFilter(tester, 'Reminders');
     expect(find.byType(BookmarkRow), findsNWidgets(3));
     await _reminderFilter(tester, 'Expired');
     expect(find.byType(BookmarkRow), findsNWidgets(2));
-    await _filter(tester, 'Posts');
-    expect(find.byType(BookmarkRow), findsOneWidget);
-    await _filter(tester, 'Chat');
-    expect(find.text('No bookmarks in this filter.'), findsOneWidget);
+    expect(find.text('flourpower in #travel'), findsNothing);
     await _reminderFilter(tester, 'All bookmarks');
     expect(find.text('flourpower in #travel'), findsOneWidget);
     expect(tester.takeException(), isNull);
@@ -157,7 +147,7 @@ void main() {
       await _reminderFilter(tester, 'Expired');
       final count = api.bookmarkListRequests.length;
       expect(count, lessThanOrEqualTo(4));
-      expect(find.text('No bookmarks in this filter.'), findsNothing);
+      expect(find.text('Nothing bookmarked here.'), findsNothing);
       expect(find.text('Load more').hitTestable(), findsOneWidget);
       await tester.pumpAndSettle();
       expect(api.bookmarkListRequests, hasLength(count));
@@ -205,7 +195,7 @@ void main() {
       );
       expect(find.bySemanticsLabel('Loading bookmarks'), findsOneWidget);
       expect(find.text('Bookmarks'), findsOneWidget);
-      expect(find.byType(DSelect<String>), findsOneWidget);
+      expect(find.byType(DSelect<BookmarkReminderFilter>), findsOneWidget);
 
       api.bookmarksGate.complete();
       await tester.pumpAndSettle();
@@ -217,60 +207,49 @@ void main() {
   }
 
   for (final size in [const Size(390, 844), const Size(1080, 810)]) {
-    testWidgets('bookmark page wraps and filters at ${size.width}px', (
-      tester,
-    ) async {
-      final shell = await _shell();
-      addTearDown(shell.dispose);
-      await _pumpPage(
-        tester,
-        shell,
-        size: size,
-        scale: size.width < 600 ? 1.2 : 1,
-      );
+    testWidgets(
+      'bookmark page heads its rows with one scope at ${size.width}px',
+      (tester) async {
+        final shell = await _shell();
+        addTearDown(shell.dispose);
+        await _pumpPage(
+          tester,
+          shell,
+          size: size,
+          scale: size.width < 600 ? 1.2 : 1,
+        );
 
-      expect(find.text('Bookmarks'), findsOneWidget);
-      expect(find.text('Post #2 · plants'), findsOneWidget);
-      expect(find.text('Post #4 · pkm'), findsOneWidget);
-      expect(find.text('flourpower in #travel'), findsOneWidget);
-      expect(find.text('Chat · travel'), findsOneWidget);
-      expect(find.text('you in #general'), findsOneWidget);
-      expect(find.byType(BookmarkRow), findsNWidgets(5));
-      final paragraph = tester.renderObject<RenderParagraph>(
-        find.text(_longTitle),
-      );
-      expect(paragraph.didExceedMaxLines, isFalse);
-      if (size.width < 600) {
-        expect(paragraph.size.height, greaterThan(30));
-      }
-      final titleRect = tester.getRect(find.text('Bookmarks'));
-      final selectRect = tester.getRect(find.byType(DSelect<String>));
-      expect(titleRect.bottom, lessThan(selectRect.top));
-      expect(
-        tester
-            .getRect(find.byKey(const Key('d-select-trigger-visual')).first)
-            .left,
-        titleRect.left,
-      );
-      expect(
-        selectRect.bottom,
-        lessThan(tester.getRect(find.byType(BookmarkRow).first).top),
-      );
+        expect(find.text('Bookmarks'), findsOneWidget);
+        expect(find.text('Post #2 · plants'), findsOneWidget);
+        expect(find.text('Post #4 · pkm'), findsOneWidget);
+        expect(find.text('flourpower in #travel'), findsOneWidget);
+        expect(find.text('Chat · travel'), findsOneWidget);
+        expect(find.text('you in #general'), findsOneWidget);
+        expect(find.byType(BookmarkRow), findsNWidgets(5));
+        expect(find.byWidgetPredicate((widget) => widget is DSelect), findsOne);
+        final titleRect = tester.getRect(find.text('Bookmarks'));
+        final selectRect = tester.getRect(
+          find.byType(DSelect<BookmarkReminderFilter>),
+        );
+        expect(titleRect.bottom, lessThan(selectRect.top));
+        expect(selectRect.width, lessThan(size.width / 2));
+        expect(
+          tester
+              .getRect(find.byKey(const Key('d-select-trigger-visual')).first)
+              .left,
+          titleRect.left,
+        );
+        expect(
+          selectRect.bottom,
+          lessThan(tester.getRect(find.byType(BookmarkRow).first).top),
+        );
 
-      await _filter(tester, 'Posts');
-      expect(find.byType(BookmarkRow), findsNWidgets(2));
-      expect(find.text('flourpower in #travel'), findsNothing);
-      await _filter(tester, 'Topics');
-      expect(find.byType(BookmarkRow), findsOneWidget);
-      await _filter(tester, 'Chat');
-      expect(find.byType(BookmarkRow), findsNWidgets(2));
-      await _filter(tester, 'All types');
-      expect(find.byType(BookmarkRow), findsNWidgets(5));
-      await tester.tap(find.byKey(const ValueKey('bookmark-row-1')));
-      await tester.pumpAndSettle();
-      expect(shell.currentContent?.topicId, 7);
-      expect(tester.takeException(), isNull);
-    });
+        await tester.tap(find.byKey(const ValueKey('bookmark-row-1')));
+        await tester.pumpAndSettle();
+        expect(shell.currentContent?.topicId, 7);
+        expect(tester.takeException(), isNull);
+      },
+    );
   }
 
   for (final limited in [true, false]) {
@@ -298,14 +277,17 @@ void main() {
       final media = tester.getRect(
         find.descendant(
           of: find.byKey(const ValueKey('bookmark-row-1')),
-          matching: find.byType(DAvatar),
+          matching: find.byType(DItemMedia),
         ),
       );
       expect(row.width, (limited ? DPageReadingLane.maxWidth : 1440) - 32);
       expect(row.center.dx, 720);
-      expect(media.left, title.left);
-      expect(find.text('Try this with the weekly meal plan'), findsOneWidget);
-      expect(find.text('Reminder expired'), findsOneWidget);
+      expect(row.left, title.left);
+      expect(media.left, row.left + 3);
+      expect(
+        find.text('Try this with the weekly meal plan · Post #4 · pkm'),
+        findsOneWidget,
+      );
       expect(find.byType(DTooltip), findsNothing);
       expect(tester.takeException(), isNull);
     });
@@ -356,15 +338,77 @@ void main() {
     expect(paragraph.size.width, lessThanOrEqualTo(320));
   });
 
-  testWidgets('empty filters retain the selector and can return to all', (
+  testWidgets('a phone row sets its disc beside a title of two lines', (
+    tester,
+  ) async {
+    final shell = await _shell(
+      bookmarks: [
+        _bookmarks[1].copyWith(
+          name: 'Plan',
+          reminderAt: DateTime.now().subtract(const Duration(days: 1)),
+        ),
+      ],
+    );
+    addTearDown(shell.dispose);
+    await _pumpPage(tester, shell, size: const Size(390, 844));
+
+    final row = find.byKey(const ValueKey('bookmark-row-2'));
+    final rowRect = tester.getRect(row);
+    final disc = tester.getRect(
+      find.descendant(of: row, matching: find.byType(DItemMedia)),
+    );
+    final glyph = tester.getRect(
+      find.descendant(of: row, matching: find.byType(DIcon)),
+    );
+    final title = tester.getRect(find.text(_longTitle));
+    final details = find.text('Plan · Post #4 · pkm');
+    final detailsRect = tester.getRect(details);
+
+    expect(disc.size, const Size.square(34));
+    expect(glyph.size, const Size.square(14));
+    expect(glyph.center, disc.center);
+    expect(disc.left, rowRect.left + 3);
+    expect(title.left, disc.right + 10);
+    expect(title.top, rowRect.top + 12);
+    expect(
+      tester.renderObject<RenderParagraph>(find.text(_longTitle)).maxLines,
+      2,
+    );
+    // The test engine sets each line on a whole pixel.
+    expect(title.height, moreOrLessEquals(2 * 14.5 * 1.35, epsilon: 1));
+    expect(detailsRect.top, title.bottom);
+    expect(detailsRect.height, moreOrLessEquals(12.5 * 1.5, epsilon: 1));
+    expect(rowRect.bottom, moreOrLessEquals(detailsRect.bottom + 14));
+    expect(
+      disc.center.dy,
+      moreOrLessEquals(title.top / 2 + detailsRect.bottom / 2),
+    );
+    expect(find.text('Reminder expired'), findsNothing);
+    expect(
+      _pageItem(tester, 'bookmark-row-2').semanticLabel,
+      contains('Reminder expired'),
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a scope with nothing in it says so and can return to all', (
     tester,
   ) async {
     final shell = await _shell(bookmarks: [_bookmarks.first]);
     addTearDown(shell.dispose);
-    await _pumpPage(tester, shell);
-    await _filter(tester, 'Topics');
-    expect(find.text('No bookmarks in this filter.'), findsOneWidget);
-    await _filter(tester, 'All types');
+    await _pumpPage(tester, shell, size: const Size(390, 844));
+    final heading = tester.getRect(find.text('Bookmarks'));
+    await _reminderFilter(tester, 'Reminders');
+
+    final message = find.text('Nothing bookmarked here.');
+    final paragraph = tester.renderObject<RenderParagraph>(message);
+    expect(tester.getRect(message).left, heading.left);
+    expect(paragraph.text.style?.fontSize, 13.5);
+    expect(
+      tester.getRect(message).height,
+      moreOrLessEquals(13.5 * 1.5, epsilon: 1),
+    );
+    await _reminderFilter(tester, 'All bookmarks');
     expect(find.byType(BookmarkRow), findsOneWidget);
   });
 
@@ -375,9 +419,9 @@ void main() {
       final shell = await _shell(bookmarks: bookmarks);
       await _pumpPage(tester, shell);
       expect(find.text('Bookmarks'), findsOneWidget);
-      expect(find.byType(DSelect<String>), findsOneWidget);
+      expect(find.byType(DSelect<BookmarkReminderFilter>), findsOneWidget);
       expect(
-        find.text(bookmarks == null ? 'Retry' : 'Nothing bookmarked yet.'),
+        find.text(bookmarks == null ? 'Retry' : 'Nothing bookmarked here.'),
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
@@ -420,21 +464,21 @@ void main() {
   ) async {
     final api = FakeDiscourseApi(
       user: _user,
-      bookmarkList: _numbered(45, topics: {41, 42, 43, 44, 45}),
+      bookmarkList: _numbered(45, reminders: {41, 42, 43, 44, 45}),
     );
     final shell = await _shell(api: api);
     addTearDown(shell.dispose);
     await _pumpPage(tester, shell);
     expect(api.bookmarkListRequests.map((request) => request.page), [0]);
 
-    await _filter(tester, 'Topics');
+    await _reminderFilter(tester, 'Reminders');
 
-    expect(find.text('No bookmarks in this filter.'), findsNothing);
+    expect(find.text('Nothing bookmarked here.'), findsNothing);
     expect(find.byType(BookmarkRow), findsNWidgets(5));
     expect(find.byKey(const ValueKey('bookmark-row-41')), findsOneWidget);
     expect(api.bookmarkListRequests.map((request) => request.page), [0, 1, 2]);
 
-    await _filter(tester, 'Posts');
+    await _reminderFilter(tester, 'All bookmarks');
     await tester.scrollUntilVisible(
       find.byKey(const ValueKey('bookmark-row-40')),
       400,
@@ -599,8 +643,8 @@ void main() {
       final shell = await _shell(api: api);
       addTearDown(shell.dispose);
       await _pumpPage(tester, shell);
-      await _filter(tester, 'Chat');
-      expect(find.byType(BookmarkRow), findsNWidgets(2));
+      await _reminderFilter(tester, 'Reminders');
+      expect(find.byType(BookmarkRow), findsNothing);
       expect(api.bookmarkListRequests, hasLength(1));
 
       shell.lifecycle.invalidate(_site);
@@ -745,13 +789,6 @@ void main() {
   });
 }
 
-Future<void> _filter(WidgetTester tester, String label) async {
-  await tester.tap(find.byType(DSelect<String>));
-  await tester.pumpAndSettle();
-  await tester.tap(find.text(label).last);
-  await tester.pumpAndSettle();
-}
-
 final _pageScrollable = find.descendant(
   of: find.byType(CustomScrollView),
   matching: find.byType(Scrollable),
@@ -799,15 +836,16 @@ final class _ReminderStrategy
 }
 
 /// Post bookmarks, except for the [topics] ids.
-List<Bookmark> _numbered(int count, {Set<int> topics = const {}}) => [
+List<Bookmark> _numbered(int count, {Set<int> reminders = const {}}) => [
   for (var id = 1; id <= count; id++)
     Bookmark(
       id: id,
-      bookmarkableType: topics.contains(id) ? 'Topic' : 'Post',
-      postNumber: topics.contains(id) ? null : 2,
+      bookmarkableType: 'Post',
+      postNumber: 2,
       categoryId: 1,
       title: 'Bookmark $id',
       path: '/t/bookmark-$id/$id',
+      reminderAt: reminders.contains(id) ? DateTime.utc(2100) : null,
     ),
 ];
 
@@ -980,6 +1018,11 @@ Future<void> _pumpTab(WidgetTester tester, ShellController shell) async {
   );
   await tester.pumpAndSettle();
 }
+
+/// The item a Bookmarks page row draws, which carries its accent and label.
+DItem _pageItem(WidgetTester tester, String key) => tester.widget<DItem>(
+  find.descendant(of: find.byKey(ValueKey(key)), matching: find.byType(DItem)),
+);
 
 Future<void> _reminderFilter(WidgetTester tester, String label) async {
   await tester.tap(find.byType(DSelect<BookmarkReminderFilter>));

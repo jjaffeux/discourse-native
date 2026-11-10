@@ -507,9 +507,6 @@ final class ChatShellService
   BookmarkTargetType get pluginBookmarkTarget => chatMessageBookmarkTarget;
 
   @override
-  String get bookmarkFilterLabel => appL10n.chat;
-
-  @override
   BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark) {
     if (bookmark.bookmarkableType != chatMessageBookmarkTarget.wireName &&
         bookmark.bookmarkableType != chatMessagePolymorphicWireType) {
@@ -541,7 +538,6 @@ final class ChatShellService
               (channelLabel).toString(),
             ),
       typeLabel: appL10n.chat,
-      filterLabel: bookmarkFilterLabel,
       contextLabel: title.isEmpty ? null : title,
       icon: DIcons.comment,
       color: channel?.categoryColor,
