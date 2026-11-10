@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/discourse_api_contracts.dart';
+import 'package:discourse_native/src/foundation/icons/d_icons.dart';
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/sidebar_tag.dart';
 import 'package:discourse_native/src/models/site_config.dart';
@@ -465,23 +466,28 @@ void main() {
       await tester.tap(_edit(true));
       await tester.pumpAndSettle();
       final actions = find.byKey(const ValueKey('sidebar-taxonomy-actions'));
-      final list = find.byKey(const ValueKey('sidebar-taxonomy-choices'));
       final footerBefore = tester.getRect(actions);
       final firstBefore = tester.getTopLeft(_choice(1));
+      final searchBefore = tester.getTopLeft(find.byType(TextField));
       await captureNativeUi(tester, 'phone-category-footer-partial');
       expect(find.text('Reset to default').hitTestable(), findsOneWidget);
       expect(find.text('Save').hitTestable(), findsOneWidget);
       expect(footerBefore.bottom, lessThanOrEqualTo(844 - 34));
       await tester.sendEventToBinding(
         PointerScrollEvent(
-          position: tester.getCenter(list),
+          position: tester.getCenter(_choice(1)),
           scrollDelta: const Offset(0, 180),
         ),
       );
       await tester.pumpAndSettle();
       expect(tester.getRect(actions), footerBefore);
       expect(tester.getTopLeft(_choice(1)).dy, lessThan(firstBefore.dy));
+      expect(
+        tester.getTopLeft(find.byType(TextField)).dy,
+        lessThan(searchBefore.dy),
+      );
       await captureNativeUi(tester, 'phone-category-footer-scrolled');
+      await tester.ensureVisible(find.byType(TextField));
       await tester.tap(find.byType(TextField));
       tester.view.viewInsets = const FakeViewPadding(bottom: 300);
       tester.view.padding = const FakeViewPadding(top: 47);
@@ -492,7 +498,7 @@ void main() {
       expect(footerWithKeyboard.bottom, lessThanOrEqualTo(544));
       expect(find.text('Reset to default').hitTestable(), findsOneWidget);
       expect(find.text('Save').hitTestable(), findsOneWidget);
-      await tester.drag(list, const Offset(0, -180));
+      await tester.drag(_choice(1), const Offset(0, -180));
       await tester.pumpAndSettle();
       expect(tester.getRect(actions), footerWithKeyboard);
       await captureNativeUi(tester, 'phone-category-footer-keyboard');
@@ -500,6 +506,148 @@ void main() {
       expect((await store.load()).single.user!.sidebarCategoryIds, [1, 2, 4]);
       expect(shell.currentUserFor(_site), isNotNull);
       expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('phone editor lays out as the mockup draws its sheet', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _fixture(tester, phone: true);
+    await tester.ensureVisible(_edit(true));
+    await tester.tap(_edit(true));
+    await tester.pumpAndSettle();
+    expect(find.text('Edit your categories'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('Edit your categories')).dx,
+      closeTo(19.5, 1),
+    );
+    expect(find.byType(DSheetHeaderAction), findsNothing);
+    expect(find.byTooltip('Back'), findsNothing);
+
+    final search = find.byKey(const ValueKey('sidebar-taxonomy-search'));
+    expect(tester.getRect(search).height, closeTo(49.4, 1.5));
+    expect(tester.getRect(search).width, closeTo(351, 1.5));
+    expect(
+      find.descendant(of: search, matching: find.byType(DIcon)),
+      findsNothing,
+    );
+
+    Finder filter(String name) =>
+        find.byKey(ValueKey('sidebar-taxonomy-filter-$name'));
+    final chips = [
+      for (final label in ['All', 'Selected', 'Unselected'])
+        find.widgetWithText(DButton, label),
+    ];
+    for (final chip in chips) {
+      expect(tester.getRect(chip).height, closeTo(39.2, 1));
+    }
+    expect(
+      tester.getRect(chips[1]).left - tester.getRect(chips[0]).right,
+      closeTo(7.8, 1),
+    );
+    expect(tester.getSemantics(filter('all')), isSemantics(isSelected: true));
+    expect(
+      tester.getSemantics(filter('selected')),
+      isSemantics(isSelected: false),
+    );
+    await tester.tap(chips[1]);
+    await tester.pumpAndSettle();
+    expect(
+      tester.getSemantics(filter('selected')),
+      isSemantics(isSelected: true),
+    );
+    expect(tester.getSemantics(filter('all')), isSemantics(isSelected: false));
+    await tester.tap(chips[0]);
+    await tester.pumpAndSettle();
+
+    final row = tester.getRect(_choice(1));
+    expect(row.height, closeTo(44.8, 1));
+    expect(tester.widget<DCheckbox>(_choice(1)).value, isTrue);
+    await tester.tapAt(Offset(row.right - 20, row.center.dy));
+    await tester.pumpAndSettle();
+    expect(tester.widget<DCheckbox>(_choice(1)).value, isFalse);
+
+    final reset = tester.getRect(
+      find.widgetWithText(DButton, 'Reset to default'),
+    );
+    final save = tester.getRect(find.widgetWithText(DButton, 'Save'));
+    expect(
+      tester
+          .widgetList<DButton>(
+            find.descendant(
+              of: find.byKey(const ValueKey('sidebar-taxonomy-actions')),
+              matching: find.byType(DButton),
+            ),
+          )
+          .map((button) => (button.label as Text).data),
+      ['Reset to default', 'Save'],
+    );
+    expect(save.right, closeTo(390 - 20.9, 1));
+    expect(save.height, closeTo(45.8, 1.5));
+    expect(reset.height, closeTo(45.8, 1.5));
+    semantics.dispose();
+  });
+
+  testWidgets('empty results name what was searched for', (tester) async {
+    await _fixture(tester);
+    await tester.tap(_edit(true));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.text('No categories match.'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(_edit(false));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'zzz');
+    await tester.pumpAndSettle();
+    expect(find.text('No tags match.'), findsOneWidget);
+  });
+
+  testWidgets('tag rows lead with a tag glyph and category rows do not', (
+    tester,
+  ) async {
+    await _fixture(tester);
+    Finder glyph(Finder row) => find.descendant(
+      of: row,
+      matching: find.byWidgetPredicate(
+        (widget) => widget is DIcon && widget.icon == DIcons.tag,
+      ),
+    );
+    await tester.tap(_edit(false));
+    await tester.pumpAndSettle();
+    expect(glyph(_choice(10, tag: true)), findsOneWidget);
+    expect(glyph(_choice(11, tag: true)), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.tap(_edit(true));
+    await tester.pumpAndSettle();
+    expect(glyph(_choice(1)), findsNothing);
+  });
+
+  testWidgets(
+    'desktop editor closes with an X, not a back arrow, and keeps its actions at the end',
+    (tester) async {
+      await _fixture(tester);
+      await tester.tap(_edit(true));
+      await tester.pumpAndSettle();
+      expect(find.text('Edit your categories'), findsOneWidget);
+      final actions = find.byType(DSheetHeaderAction);
+      expect(actions, findsOneWidget);
+      expect(find.byTooltip('Back'), findsNothing);
+      final reset = tester.getRect(
+        find.widgetWithText(DButton, 'Reset to default'),
+      );
+      final save = tester.getRect(find.widgetWithText(DButton, 'Save'));
+      expect(reset.right, lessThan(save.left));
+      expect(
+        tester.getRect(find.byType(DDialogContent)).right - save.right,
+        lessThan(30),
+      );
+      await tester.tap(actions);
+      await tester.pumpAndSettle();
+      expect(find.byType(SidebarTaxonomyEditor), findsNothing);
     },
   );
 

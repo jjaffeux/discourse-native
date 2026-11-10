@@ -23532,13 +23532,13 @@ abstract class AppLocalizations {
   /// Category and tag sidebar preference editor.
   ///
   /// In en, this message translates to:
-  /// **'Edit categories'**
+  /// **'Edit your categories'**
   String get sidebarEditCategories;
 
   /// Category and tag sidebar preference editor.
   ///
   /// In en, this message translates to:
-  /// **'Edit tags'**
+  /// **'Edit your tags'**
   String get sidebarEditTags;
 
   /// Category and tag sidebar preference editor.
@@ -23550,8 +23550,14 @@ abstract class AppLocalizations {
   /// Category and tag sidebar preference editor.
   ///
   /// In en, this message translates to:
-  /// **'No matches.'**
-  String get sidebarNoMatches;
+  /// **'No categories match.'**
+  String get sidebarNoCategoriesMatch;
+
+  /// Category and tag sidebar preference editor.
+  ///
+  /// In en, this message translates to:
+  /// **'No tags match.'**
+  String get sidebarNoTagsMatch;
 
   /// Accessible action for the visible mobile page title.
   ///
