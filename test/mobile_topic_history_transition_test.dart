@@ -284,4 +284,44 @@ void main() {
       }),
     );
   }
+
+  testWidgets(
+    'pulling a topic down to its list leaves the live list usable at once',
+    (tester) async {
+      final shell = await pumpMobileShellFixture(tester);
+      await tester.tap(find.byKey(const ValueKey('topic-card-7')));
+      await tester.pumpAndSettle();
+      expect(shell.currentContent?.topicId, 7);
+
+      final drag = await tester.startGesture(
+        tester.getCenter(find.byKey(const ValueKey('sheet-drag-handle'))),
+      );
+      for (var step = 1; step <= 20; step++) {
+        await drag.moveBy(
+          const Offset(0, 10),
+          timeStamp: Duration(milliseconds: step * 20),
+        );
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+      await drag.up();
+      final card = find.byKey(const ValueKey('topic-card-7'));
+      var returned = false;
+      for (var frame = 0; frame < 30; frame++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        if (shell.currentContent?.isTopicList != true) continue;
+        returned = true;
+        expect(
+          card.hitTestable(),
+          findsOneWidget,
+          reason: 'frame $frame must not cover the live list with its image',
+        );
+      }
+      expect(returned, isTrue);
+      expect(tester.takeException(), isNull);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 }

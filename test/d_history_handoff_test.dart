@@ -104,6 +104,49 @@ void main() {
     );
   }
 
+  for (final loads in [true, false]) {
+    testWidgets(
+      'Back without a swipe covers the page only while it loads (loads: $loads)',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(400, 600));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+        final key = GlobalKey<_HarnessState>();
+        await tester.pumpWidget(MaterialApp(home: _Harness(key: key)));
+        final state = key.currentState!;
+        state.visit(1);
+        await tester.pumpAndSettle();
+        state
+          ..firstPageLoads = loads
+          ..ready.clear()
+          ..visit(0);
+        await tester.pump();
+
+        final page = find.widgetWithText(DButton, 'Page 0');
+        for (final y in [200, 590]) {
+          expect(
+            await _pixelAt(tester, 20, y),
+            [0, 0, 255],
+            reason: loads
+                ? 'the cached page must cover the loading page at y=$y'
+                : 'the ready page must show at y=$y',
+          );
+        }
+        expect(page.hitTestable(), loads ? findsNothing : findsNWidgets(2));
+        if (loads) {
+          await tester.pump(const Duration(seconds: 1));
+          expect(await _pixelAt(tester, 20, 200), [0, 0, 255]);
+          state
+            ..finish(0)
+            ..finish(1);
+        }
+        await tester.pumpAndSettle();
+        expect(find.byKey(_handoff), findsNothing);
+        expect(page.hitTestable(), findsNWidgets(2));
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
   for (final change in [
     'owner',
     'navigation',
@@ -191,6 +234,19 @@ void main() {
   }
 }
 
+Future<List<int>> _pixelAt(WidgetTester tester, int x, int y) async {
+  final boundary = tester.renderObject<RenderRepaintBoundary>(
+    find.byKey(_capture),
+  );
+  final image = boundary.toImageSync(pixelRatio: 1);
+  final pixels = await tester.runAsync(
+    () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+  );
+  final offset = (y * image.width + x) * 4;
+  image.dispose();
+  return List.generate(3, (channel) => pixels!.getUint8(offset + channel));
+}
+
 class _Harness extends StatefulWidget {
   const _Harness({super.key});
   @override
@@ -201,6 +257,7 @@ class _HarnessState extends State<_Harness> {
   int entry = 0;
   Object owner = Object();
   final ready = {0, 1};
+  bool firstPageLoads = false;
   void visit(int value) => setState(() => entry = value);
   void finish(int part) => setState(() => ready.add(part));
   void beginRestore() => setState(ready.clear);
@@ -228,7 +285,7 @@ class _HarnessState extends State<_Harness> {
             Expanded(
               child: _ReadyPage(
                 key: ValueKey((entry, part)),
-                ready: entry == 0 || ready.contains(part),
+                ready: entry == 0 && !firstPageLoads || ready.contains(part),
                 entry: entry,
               ),
             ),

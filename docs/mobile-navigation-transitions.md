@@ -80,6 +80,8 @@ Android keeps its stable source viewport and separate reader key; the other path
 These guards prevent an old animation from navigating a newer visit.
 
 A committed page swipe keeps its incoming image over the single live renderer while that renderer restores.
+Any other return to the previous visit, such as a pulled-down sheet or Back, prepares the same image but shows it only if the restored page defers its reveal while laying out its first frame.
+A topic pulled down to the topic it was opened from therefore never shows that topic loading, and a page that is ready at once, such as a retained list, never shows a stale image.
 `DHistoryTransition.deferPageRevealOf(context)` returns a release callback during this handoff.
 The topic reader holds it while its initial skeleton covers the viewport, including asynchronous HTML and image layout at the saved post.
 After all holders release and the ready frame has laid out, Native fades the image away over 100 milliseconds.
@@ -95,6 +97,6 @@ A failed topic load releases the image so its error and retry control remain acc
 - [Search presentation](../test/search_presentation_test.dart) and [global search presentation](../test/global_search_presentation_test.dart) cover search state and activation.
 - [Mobile topic sheets](../test/mobile_topic_sheet_test.dart), [mobile chat sheets](../test/mobile_chat_sheet_test.dart), and [board sheets](../test/plugins/boards/boards_sheet_test.dart) cover child presentation and dismissal.
 - [History transitions](../test/d_history_transition_test.dart) covers gesture completion, cancellation, and history changes.
-- [History handoff](../test/d_history_handoff_test.dart) checks image continuity, readiness holders, reduced motion and cancellation.
-- [Topic history transitions](../test/mobile_topic_history_transition_test.dart) checks title previews and saved reading positions with synchronous and asynchronous post bodies on iOS and Android.
+- [History handoff](../test/d_history_handoff_test.dart) checks image continuity, readiness holders, reduced motion and cancellation, and that Back without a swipe covers only a loading page.
+- [Topic history transitions](../test/mobile_topic_history_transition_test.dart) checks title previews and saved reading positions with synchronous and asynchronous post bodies on iOS and Android, and that dismissing a topic opened from another topic never shows the earlier one loading.
 - [Voice navigation](../test/voice_navigation_test.dart) covers room links and repeated room activation.
