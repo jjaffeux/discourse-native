@@ -216,6 +216,28 @@ void main() {
       );
     });
 
+    test('says whether a row sorts before every row of a page', () {
+      final page = [message(4, minute: 3), message(2, minute: 1)];
+      bool precedes(ChatMessage row) => ChatMessageTimeline.precedesAll(
+        page,
+        createdAt: row.createdAt,
+        id: row.id,
+      );
+
+      expect(precedes(message(1)), isTrue);
+      expect(precedes(message(1, minute: 1)), isTrue);
+      expect(precedes(message(3, minute: 1)), isFalse);
+      expect(precedes(message(3, minute: 2)), isFalse);
+      expect(
+        ChatMessageTimeline.precedesAll(
+          const [],
+          createdAt: message(1).createdAt,
+          id: 1,
+        ),
+        isFalse,
+      );
+    });
+
     test('appends an ordinary arrival after reading only the newest row', () {
       final reads = <int>[];
       final ids = ChatMessageTimeline.admitLive(

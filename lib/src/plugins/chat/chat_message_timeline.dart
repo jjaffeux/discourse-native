@@ -102,6 +102,22 @@ abstract final class ChatMessageTimeline {
         : ChatTimelinePlacement.beforeHeld;
   }
 
+  /// Whether a row ordered by [createdAt] and [id] sorts before each of
+  /// [rows], so a page of them was cut after it.
+  static bool precedesAll(
+    Iterable<ChatMessage> rows, {
+    required DateTime? createdAt,
+    required int id,
+  }) {
+    final at = createdAt ?? _wireEpoch;
+    var compared = false;
+    for (final row in rows) {
+      if (!_sortsAfter(row, at: at, id: id)) return false;
+      compared = true;
+    }
+    return compared;
+  }
+
   /// Appends normal live arrivals; an earlier `client_created_at` re-derives
   /// the full order.
   static List<int> admitLive({

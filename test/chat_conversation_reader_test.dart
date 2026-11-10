@@ -751,6 +751,78 @@ void main() {
     });
   }
 
+  // A phone pages only its reader, so the shared window the send went through
+  // keeps the confirmed bubble, and a reader opened later starts from it.
+  test('a reader whose page was cut after a confirmed send does not show it '
+      'below later messages', () async {
+    final pages = {
+      '9': fixtures.page([fixtures.message(100)]),
+    };
+    final subject = fixtures.build(
+      currentUser: fixtures.currentUser,
+      channels: {
+        fixtures.site: ChatChannels(
+          direct: [fixtures.channel(9, kind: ChatChannelKind.directMessage)],
+          newMessageBusLastIds: const {9: 70},
+        ),
+      },
+      messages: pages,
+      sentMessageId: 101,
+    );
+    addTearDown(subject.chat.dispose);
+    final tracker = fixtures.attachTracker(subject.chat);
+    await subject.chat.loadChannels(fixtures.site);
+    const target = ChatChannelTarget(9);
+    final phone = subject.chat.acquireReader(
+      fixtures.site,
+      target,
+      readerId: 'phone',
+    );
+    phone.beginViewing();
+    await phone.open();
+    final send = subject.chat.sendMessage(
+      fixtures.site,
+      9,
+      OutgoingChatMessage.text('hello chat'),
+    )!;
+    expect(await send.settled, ChatSendResult.sent);
+    tracker.deliverPluginMessage(
+      '/chat/9',
+      fixtures.sentEvent(stagedId: send.stagedId, serverId: 101),
+    );
+    tracker.deliverPluginMessage(
+      '/chat/9/new-messages',
+      fixtures.newMessageEvent(
+        channelId: 9,
+        messageId: 101,
+        authorId: fixtures.currentUser.id!,
+        authorUsername: fixtures.currentUser.username,
+        createdAt: '2026-05-05T10:01:00.000Z',
+      ),
+    );
+    expect(phone.messages.map((message) => message.id), [100, 101]);
+    phone.dispose();
+
+    final later = [for (var id = 200; id < 210; id++) id];
+    pages['9'] = fixtures.page([
+      for (final id in later) fixtures.message(id, minute: 30),
+    ], canLoadMorePast: true);
+    final tablet = subject.chat.acquireReader(
+      fixtures.site,
+      target,
+      readerId: 'tablet',
+    );
+    addTearDown(tablet.dispose);
+    tablet.beginViewing();
+    await tablet.open();
+
+    expect(tablet.messages.map((message) => message.id), later);
+    expect(
+      subject.chat.streamFor(fixtures.site, target).localMessageIds,
+      isEmpty,
+    );
+  });
+
   test(
     'a scoped page confirms a send before POST without moving historical readers',
     () async {

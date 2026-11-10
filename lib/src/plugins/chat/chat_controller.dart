@@ -3035,7 +3035,24 @@ class ChatController extends FrameSafeNotifier {
       ChatStreamState(localMessageIds: locals.toList()),
       canonical,
     );
-    if (matches.isEmpty) return;
+    // A bubble whose server row sorts before the whole page belongs to history
+    // the page was cut after; kept, it would stand below rows sent after it.
+    final passed = <int>{
+      for (final id in locals)
+        if (!matches.containsKey(id))
+          if (_store.read<ChatMessage>(siteUrl, id)
+              case ChatMessage(:final serverId?, :final createdAt)
+              when ChatMessageTimeline.precedesAll(
+                canonical,
+                createdAt: createdAt,
+                id: serverId,
+              ))
+            id,
+    };
+    if (matches.isEmpty && passed.isEmpty) return;
+    for (final id in passed) {
+      _cancelMessageCooking(siteUrl, id);
+    }
     for (final entry in matches.entries) {
       _cancelMessageCooking(siteUrl, entry.key);
       final local = _store.read<ChatMessage>(siteUrl, entry.key);
@@ -3050,6 +3067,11 @@ class ChatController extends FrameSafeNotifier {
       final window = owner.snapshot;
       final remaining = window.localMessageIds
           .where((id) {
+            // Another reader's own rows can still lie before that history.
+            if (passed.contains(id)) {
+              return !identical(owner, reader) &&
+                  owner.key != _targetKey(siteUrl, target);
+            }
             final canonical = matches[id];
             if (canonical == null) return true;
             // A historical reader keeps its confirmed bubble until its own page
