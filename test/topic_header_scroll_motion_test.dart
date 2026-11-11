@@ -94,7 +94,7 @@ void main({Size? shortTopicViewport}) {
         );
         await tester.pumpAndSettle();
         expect(position.pixels, isNot(before));
-        expect(header.visibleExtent, header.naturalExtent);
+        _expectFullyVisibleHeader(tester, header);
       }
       expect(tester.takeException(), isNull);
     }, variant: TargetPlatformVariant.all());
@@ -165,10 +165,27 @@ void main({Size? shortTopicViewport}) {
             );
           }
           await tester.pumpAndSettle();
-          expect(header.visibleExtent, revealing ? header.naturalExtent : 0);
+          if (revealing) {
+            if (inbox) expect(_compactHead, findsOneWidget);
+            _expectFullyVisibleHeader(tester, header);
+          } else {
+            expect(header.visibleExtent, 0);
+          }
           expect(tester.takeException(), isNull);
         },
       );
     }
   }
+}
+
+final _compactHead = find.byKey(const ValueKey('topic-compact-head'));
+
+void _expectFullyVisibleHeader(
+  WidgetTester tester,
+  DPageHeaderGeometry header,
+) {
+  final height = _compactHead.evaluate().isEmpty
+      ? header.naturalExtent
+      : tester.getSize(_compactHead).height;
+  expect(header.visibleExtent, height);
 }

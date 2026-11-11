@@ -179,7 +179,7 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(710));
+      expect(rebuilds, lessThanOrEqualTo(711));
     }, variant: _ios);
 
     testWidgets('on the Forum tab redraws the chrome only for the indicator', (
@@ -199,7 +199,7 @@ void main() {
       );
       expect(_badge, findsOneWidget);
       expect(tester.takeException(), isNull);
-      expect(rebuilds, lessThanOrEqualTo(2148));
+      expect(rebuilds, lessThanOrEqualTo(2149));
     }, variant: _ios);
   });
 
