@@ -65,6 +65,8 @@ class _MobileForumRootState extends State<MobileForumRoot> {
   final _navigationFocus = FocusNode(debugLabel: 'Mobile navigation');
   bool _navigationWasOpen = false;
   final _panelRoots = <(Object, String), Widget>{};
+  final _composerDockFolds = <(Object, Object, Object), bool>{};
+  (Object, Object, Object)? _dockPullVisit;
   List<MobileTab> _tabOrder = const [];
   ({Object owner, Object entry, DPageHeader header})? _navigationHeader;
 
@@ -282,6 +284,29 @@ class _MobileForumRootState extends State<MobileForumRoot> {
         final pageSheetOpen = presentation.pageSheetOpen;
         final hideDock = presentation.hideDock;
         final preservePageChrome = presentation.preservePageChrome;
+        final entry = shell.mobileNavigation.entryId;
+        final previousEntry = shell.mobileNavigation.previousEntryId;
+        final composerVisit =
+            pageSheetOpen &&
+                !hideDock &&
+                route != null &&
+                registry.ownsMobileComposer(context, route)
+            ? (owner, entry, route.destination.identity)
+            : null;
+        final previous =
+            shell.mobileNavigation.previousLocation?.contentStack.last;
+        final previousComposerFold =
+            composerVisit != null &&
+                previousEntry != null &&
+                previous != null &&
+                presentation.usesSheet(previous) &&
+                registry.ownsMobileComposer(context, previous)
+            ? _composerDockFolds[(
+                owner,
+                previousEntry,
+                previous.destination.identity,
+              )]
+            : null;
         final source = shell.topicListContent;
         final showReply =
             !widget.boundary &&
@@ -526,7 +551,7 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             // Retain both dock presentations while navigation moves them.
             // Progress changes the wrapper, not the controls inside it.
             final docks = <bool, Widget>{};
-            Widget dockBuilder(bool hidden) => docks.putIfAbsent(hidden, () {
+            Widget dockFor(bool hidden) => docks.putIfAbsent(hidden, () {
               if (route?.isGlobalSearch == true && !sidebarOpen) {
                 return const SizedBox.shrink();
               }
@@ -567,13 +592,19 @@ class _MobileForumRootState extends State<MobileForumRoot> {
             return Builder(
               builder: (context) {
                 final hidden = DHistoryTransition.navigationProgressOf(context);
+                final pull =
+                    previousComposerFold != null &&
+                        !sidebarOpen &&
+                        hidden == 0 &&
+                        !MediaQuery.disableAnimationsOf(context) &&
+                        MediaQuery.viewInsetsOf(context).bottom == 0
+                    ? DSheetDragScope.dismissProgressOf(context)
+                    : null;
                 final dock = MobileScrollDock(
                   identity: (
                     owner,
                     selected,
-                    preservePageChrome
-                        ? shell.mobileNavigation.previousEntryId
-                        : shell.mobileNavigation.entryId,
+                    preservePageChrome ? previousEntry : entry,
                     widget.boundary,
                   ),
                   visible: hidden < 1,
@@ -581,14 +612,45 @@ class _MobileForumRootState extends State<MobileForumRoot> {
                   hideOnScroll: !hideDock || preservePageChrome,
                   keepActionVisible: _footerAction.action != null,
                   startFolded:
-                      !panelRoot &&
-                      route != null &&
-                      registry.startsMobileChromeFolded(context, route),
+                      _composerDockFolds[composerVisit] ??
+                      (!panelRoot &&
+                          route != null &&
+                          registry.startsMobileChromeFolded(context, route)),
                   body: NotificationListener<ScrollNotification>(
                     onNotification: (_) => preservePageChrome,
                     child: content!,
                   ),
-                  dockBuilder: dockBuilder,
+                  dockBuilder: (folded) {
+                    if (composerVisit != null && !sidebarOpen && hidden == 0) {
+                      _composerDockFolds
+                        ..remove(composerVisit)
+                        ..[composerVisit] = folded;
+                      if (_composerDockFolds.length >
+                          MobileNavigation.maximumPages) {
+                        _composerDockFolds.remove(
+                          _composerDockFolds.keys.first,
+                        );
+                      }
+                    }
+                    return ValueListenableBuilder<double>(
+                      valueListenable:
+                          pull ?? const AlwaysStoppedAnimation(0.0),
+                      builder: (context, progress, _) {
+                        // The drag scope clears the departing sheet's progress
+                        // after the new visit has built its first frame.
+                        if (progress == 0) {
+                          _dockPullVisit = null;
+                        } else {
+                          _dockPullVisit ??= composerVisit;
+                        }
+                        return dockFor(
+                          progress >= .3 && _dockPullVisit == composerVisit
+                              ? previousComposerFold ?? folded
+                              : folded,
+                        );
+                      },
+                    );
+                  },
                 );
                 return DHeaderMotionSettings(
                   tuning: route?.isTopicListFilter == true
