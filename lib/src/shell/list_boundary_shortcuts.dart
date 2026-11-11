@@ -170,9 +170,14 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
 
   bool get _fallbackCanHandle => navigationShortcutsAllowed(context);
 
-  void _claimFocus(PointerEvent _) {
+  /// A [ListBoundaryFocusExempt] below sees each press before this wrapper.
+  int? _exemptPointer;
+
+  void _claimFocus(PointerDownEvent event) {
     _active = this;
-    _focusNode.requestFocus();
+    final exempt = event.pointer == _exemptPointer;
+    _exemptPointer = null;
+    if (!exempt) _focusNode.requestFocus();
   }
 
   void _activate(PointerEvent _) => _active = this;
@@ -191,5 +196,27 @@ class _ListBoundaryShortcutsState extends State<ListBoundaryShortcuts> {
       onPointerSignal: _activate,
       child: widget.child,
     ),
+  );
+}
+
+/// Leaves focus where it is when a press lands on [child] inside a
+/// [ListBoundaryShortcuts], which still becomes the keyboard owner.
+///
+/// Wrap a control whose action focuses an editor, such as chat's Reply. The
+/// list's claim would blur an already focused editor for a frame, and on iOS
+/// that gap starts the keyboard's dismissal before the editor takes focus back.
+class ListBoundaryFocusExempt extends StatelessWidget {
+  const ListBoundaryFocusExempt({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Listener(
+    onPointerDown: (event) =>
+        context
+                .findAncestorStateOfType<_ListBoundaryShortcutsState>()
+                ?._exemptPointer =
+            event.pointer,
+    child: child,
   );
 }
