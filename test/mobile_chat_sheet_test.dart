@@ -26,6 +26,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'mobile_shell_test.dart' show pumpMobileShellFixture;
 import 'support/chat_shell.dart';
 import 'support/dock_corner.dart';
+import 'support/fakes.dart';
 import 'support/keyboard_test_harness.dart';
 
 const _site = 'https://meta.discourse.org';
@@ -42,6 +43,8 @@ Future<ShellController> _fixture(
   WidgetTester tester, {
   Size size = const Size(390, 844),
   bool direct = false,
+  bool browse = false,
+  void Function(FakeDiscourseApi)? onApi,
 }) async {
   final channel = ChatChannel(
     id: 10,
@@ -54,6 +57,8 @@ Future<ShellController> _fixture(
   final shell = await pumpMobileShellFixture(
     tester,
     size: size,
+    chatBrowsePage: browse ? ChatChannelBrowsePage(channels: [channel]) : null,
+    onApi: onApi,
     conversations: ChatChannels(
       hasThreads: true,
       public: direct ? const [] : [channel],
@@ -422,6 +427,49 @@ void main() {
     expect(shell.currentContent?.id, ChatRoute.channelsRouteId);
     expect(_sheet, findsNothing);
     expect(tester.takeException(), isNull);
+  }, variant: _platforms);
+
+  testWidgets('dismissing a channel preserves Browse channels results', (
+    tester,
+  ) async {
+    late FakeDiscourseApi api;
+    final shell = await _fixture(
+      tester,
+      browse: true,
+      onApi: (value) => api = value,
+    );
+    shell.pluginSession.require(chatShellService).openBrowseChannels();
+    await tester.pumpAndSettle();
+    final filter = find.byKey(const ValueKey('chat-browse-filter'));
+    final card = find.byKey(const ValueKey('chat-browse-channel-10'));
+    api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey(
+          filter: 'Support',
+        )] =
+        api.chatBrowsePagesByKey[FakeDiscourseApi.chatBrowseKey()]!;
+    await tester.enterText(filter, 'Support');
+    await tester.pump(const Duration(milliseconds: 350));
+    await tester.pumpAndSettle();
+    expect(card.hitTestable(), findsOneWidget);
+    api.chatBrowseRequested.clear();
+
+    await tester.tap(card);
+    await tester.pumpAndSettle();
+    expect(_sheet, findsOneWidget);
+    await _dismiss(tester);
+
+    expect(_sheet, findsNothing);
+    expect(shell.currentContent?.id, ChatRoute.browseRouteId);
+    expect(api.chatBrowseRequested, isEmpty);
+    expect(
+      tester
+          .widget<EditableText>(
+            find.descendant(of: filter, matching: find.byType(EditableText)),
+          )
+          .controller
+          .text,
+      'Support',
+    );
+    expect(card.hitTestable(), findsOneWidget);
   }, variant: _platforms);
 
   for (final origin in [
