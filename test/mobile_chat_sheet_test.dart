@@ -467,6 +467,66 @@ void main() {
     expect(channelOffset(), closeTo(before, 1));
   }, variant: _platforms);
 
+  testWidgets('a thread swipe transitions to the channel folded dock', (
+    tester,
+  ) async {
+    final shell = await _fixture(tester);
+    final reveal = find.byKey(const ValueKey('mobile-dock-reveal'));
+    final tab = find.byKey(const ValueKey('mobile-mode-panel/chat'));
+    final dock = find.byKey(const ValueKey('mobile-dock-surface'));
+    final composer = find.byKey(const ValueKey('chat-composer'));
+    Future<TestGesture> pullThread() async {
+      final drag = await tester.startGesture(tester.getCenter(_handle));
+      await drag.moveBy(const Offset(0, 20));
+      await drag.moveBy(const Offset(0, 180));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 32));
+      return drag;
+    }
+
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    await tester.drag(
+      find.byType(DMessageScrollerViewport),
+      const Offset(0, 300),
+    );
+    await tester.pumpAndSettle();
+    expect(reveal.hitTestable(), findsOneWidget);
+    final foldedWidth = tester.getSize(dock).width;
+    final channelComposer = tester.getRect(composer);
+
+    shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+    await tester.pumpAndSettle();
+    expect(tab.hitTestable(), findsOneWidget);
+    final expandedWidth = tester.getSize(dock).width;
+    final drag = await pullThread();
+    expect(
+      tester.getSize(dock).width,
+      inExclusiveRange(foldedWidth, expandedWidth),
+    );
+    await drag.cancel();
+    await tester.pumpAndSettle();
+    expect(tester.getSize(dock).width, closeTo(expandedWidth, 1));
+    expect(tab.hitTestable(), findsOneWidget);
+
+    final committed = await pullThread();
+    final thread = find.byType(ChatThreadView);
+    var width = tester.getSize(dock).width;
+    await committed.up();
+    for (var frame = 0; frame < 60 && thread.evaluate().isNotEmpty; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+      final next = tester.getSize(dock).width;
+      expect(next, lessThanOrEqualTo(width + 1));
+      width = next;
+    }
+    expect(thread, findsNothing);
+    expect(find.byType(ChatChannelView), findsOneWidget);
+    expect(tester.getRect(composer), rectMoreOrLessEquals(channelComposer));
+    await tester.pumpAndSettle();
+    expect(reveal.hitTestable(), findsOneWidget);
+    expect(tester.getSize(dock).width, closeTo(foldedWidth, 1));
+  }, variant: _platforms);
+
   testWidgets('dismissing a channel preserves Browse channels results', (
     tester,
   ) async {
