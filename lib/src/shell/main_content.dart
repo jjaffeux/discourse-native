@@ -113,6 +113,7 @@ class _MainContentState extends State<MainContent> {
     return _MobileContentHost(
       owner: owner,
       state: state,
+      registry: registry,
       builder: (snapshot, key, underlay) => _MainContentBody(
         key: key,
         layout: widget.layout,
@@ -472,18 +473,6 @@ class _MainContentBody extends StatelessWidget {
         ShellScope.read(context).mobileNavigationEnabled) {
       final controller = ShellScope.read(context);
       final entry = controller.mobileNavigation.entryId;
-      final previous = presentation != null
-          ? presentation.previousOf(route)
-          : state.previousRoute;
-      // A plugin page that draws its own chrome renders live, as it will once
-      // the sheet is dismissed.
-      final livePrevious =
-          sheetUnderlay == null &&
-          previous != null &&
-          (presentation?.ownsChrome(previous) ??
-              registry.ownsContentChrome(context, previous)) &&
-          !(presentation?.usesSheet(previous) ??
-              registry.usesMobilePageSheet(context, previous));
       return _MobilePageSheet(
         route: route,
         entry: entry,
@@ -492,29 +481,8 @@ class _MainContentBody extends StatelessWidget {
           entry,
         )),
         reader: page,
-        underlay: livePrevious
-            ? DPageSurface(
-                border: false,
-                borderRadius: DSheetViewport.pageBorderRadius(context),
-                backgroundColor: ForumWindowBackground.panelColor(context),
-                depth: DSurfaceDepth.panel,
-                child: _MainContentBody(
-                  layout: layout,
-                  state: _MainContentSnapshot.forRoute(
-                    controller,
-                    controller.tabContext(state.activeTabId),
-                    previous,
-                    previousRoute: presentation?.previousOf(previous),
-                  ),
-                  registry: registry,
-                  groupPages: groupPages,
-                  groupPagesPort: groupPagesPort,
-                  aboutPageKey: aboutPageKey,
-                  dashboardPageKey: dashboardPageKey,
-                ),
-              )
-            : sheetUnderlay ??
-                  DHistoryTransition.previousPageUnderlayOf(context),
+        underlay:
+            sheetUnderlay ?? DHistoryTransition.previousPageUnderlayOf(context),
       );
     }
     if (!route.isTopic || sourceRoute == null) return page;

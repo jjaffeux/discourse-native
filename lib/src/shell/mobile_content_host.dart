@@ -52,11 +52,13 @@ class _MobileContentHost extends StatefulWidget {
   const _MobileContentHost({
     required this.owner,
     required this.state,
+    required this.registry,
     required this.builder,
   });
 
   final Object owner;
   final _MainContentSnapshot state;
+  final PluginRegistry registry;
   final Widget Function(_MainContentSnapshot, Key?, Widget?) builder;
 
   @override
@@ -77,8 +79,9 @@ class _MobileContentHostState extends State<_MobileContentHost> {
   Widget build(BuildContext context) {
     final shell = ShellScope.read(context);
     final tab = shell.tabContext(widget.state.activeTabId);
+    final mobilePresentation = MobilePresentationScope.maybeOf(context);
     final presentation = ForumTabScope.panelOf(context) == null
-        ? MobilePresentationScope.maybeOf(context)
+        ? mobilePresentation
         : null;
     final stack = tab.contentStack;
     final searchIndex = stack.lastIndexWhere((route) => route.isGlobalSearch);
@@ -108,6 +111,49 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         widget.state.route != null &&
         presentation!.usesSheet(widget.state.route!) &&
         stack.any(source.sameDestinationAs);
+    final previous = mobilePresentation != null
+        ? mobilePresentation.previousOf(route)
+        : widget.state.previousRoute;
+    final livePrevious =
+        !searchOpen &&
+        !searchBehindSheet &&
+        route != null &&
+        widget.state.sourceRoute == null &&
+        shell.mobileNavigationEnabled &&
+        (mobilePresentation?.usesSheet(route) ??
+            (route.isTopic ||
+                widget.registry.usesMobilePageSheet(context, route))) &&
+        previous != null &&
+        (mobilePresentation?.ownsChrome(previous) ??
+            widget.registry.ownsContentChrome(context, previous)) &&
+        !(mobilePresentation?.usesSheet(previous) ??
+            widget.registry.usesMobilePageSheet(context, previous));
+    final Widget? sheetUnderlay;
+    if (searchBehindSheet) {
+      sheetUnderlay = searchPage;
+    } else if (livePrevious) {
+      final previousBody = widget.builder(
+        _MainContentSnapshot.forRoute(
+          shell,
+          tab,
+          previous,
+          previousRoute: mobilePresentation?.previousOf(previous),
+        ),
+        covered ? null : _sourceBodyKey,
+        null,
+      );
+      sheetUnderlay = Builder(
+        builder: (context) => DPageSurface(
+          border: false,
+          borderRadius: DSheetViewport.pageBorderRadius(context),
+          backgroundColor: ForumWindowBackground.panelColor(context),
+          depth: DSurfaceDepth.panel,
+          child: previousBody,
+        ),
+      );
+    } else {
+      sheetUnderlay = null;
+    }
     final primary = widget.builder(
       covered || searchOpen
           ? _MainContentSnapshot.forRoute(
@@ -119,8 +165,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
               ),
             )
           : widget.state,
-      _sourceBodyKey,
-      searchBehindSheet ? searchPage : null,
+      livePrevious && !covered ? null : _sourceBodyKey,
+      covered ? null : sheetUnderlay,
     );
     final hidden = covered || searchOpen;
     return Stack(
@@ -148,7 +194,8 @@ class _MobileContentHostState extends State<_MobileContentHost> {
             ),
           ),
         ),
-        if (covered && !searchOpen) widget.builder(widget.state, null, null),
+        if (covered && !searchOpen)
+          widget.builder(widget.state, null, sheetUnderlay),
         if (searchPage != null && !searchBehindSheet)
           Offstage(
             offstage: !searchOpen,
