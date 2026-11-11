@@ -79,7 +79,7 @@ void main() {
     ('list display', r'- $$\frac{a}{b}$$', r'\frac{a}{b}', true, false),
   ]) {
     testWidgets(
-      'production $name pencil applies source with a real native math view',
+      'clicking rendered $name math opens the editor in a native view',
       (tester) async {
         final state = ComposerPluginState(
           siteSettings: PluginData.none.withValue(
@@ -144,9 +144,13 @@ void main() {
         );
         if (card) {
           expect(find.text('Math expression'), findsNothing);
-          expect(find.byTooltip('Copy source'), findsOneWidget);
+          expect(find.byTooltip('Copy source'), findsNothing);
           expect(find.byTooltip('More options'), findsNothing);
         }
+        final webView = tester.widget<WebViewWidget>(
+          find.byType(WebViewWidget),
+        );
+        final webController = webView.platform.params.controller;
         if (dark) {
           final surface = card
               ? tester
@@ -161,14 +165,14 @@ void main() {
               : const Color(0xff20242a);
           final canvasColor =
               'rgb(${(surface.r * 255).round()}, ${(surface.g * 255).round()}, ${(surface.b * 255).round()})';
-          final view = tester.widget<WebViewWidget>(find.byType(WebViewWidget));
-          final result = await view.platform.params.controller
-              .runJavaScriptReturningResult('''JSON.stringify({
+          final result = await webController.runJavaScriptReturningResult(
+            '''JSON.stringify({
                 width:document.getElementById('math').getBoundingClientRect().width,
                 height:document.getElementById('math').getBoundingClientRect().height,
                 background:getComputedStyle(document.body).backgroundColor,
                 foreground:getComputedStyle(document.getElementById('math')).color
-              })''');
+              })''',
+          );
           final canvas = jsonDecode(result as String) as Map<String, dynamic>;
           expect(canvas['width'], greaterThan(card ? 100 : 60));
           final math = tester.widget<DMath>(find.byType(DMath));
@@ -180,7 +184,9 @@ void main() {
           expect(canvas['background'], canvasColor);
           expect(canvas['foreground'], isNot(canvas['background']));
         }
-        await tester.tap(find.byTooltip('Edit math'));
+        await webController.runJavaScript(
+          "document.getElementById('math').click()",
+        );
         await tester.pumpAndSettle();
         final input = find.descendant(
           of: find.byType(DTextarea),
