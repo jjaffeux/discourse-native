@@ -690,15 +690,18 @@ class _ChatMessageActionsState extends State<_ChatMessageActions> {
 
   Widget _messageReply() => ListenableBuilder(
     listenable: _interaction,
-    child: DButton.iconOnly(
-      key: ValueKey('chat-message-reply-action-${widget.message.id}'),
-      tooltip: appL10n.reply,
-      icon: const DIcon(DIcons.reply),
-      size: DButtonSize.regular,
-      density: DButtonDensity.chatMessageAction,
-      variant: DButtonVariant.ghost,
-      interactiveBackgroundColor: Colors.transparent,
-      onPressed: _reply,
+    // Reply focuses the composer, which may already hold the keyboard.
+    child: ListBoundaryFocusExempt(
+      child: DButton.iconOnly(
+        key: ValueKey('chat-message-reply-action-${widget.message.id}'),
+        tooltip: appL10n.reply,
+        icon: const DIcon(DIcons.reply),
+        size: DButtonSize.regular,
+        density: DButtonDensity.chatMessageAction,
+        variant: DButtonVariant.ghost,
+        interactiveBackgroundColor: Colors.transparent,
+        onPressed: _reply,
+      ),
     ),
     builder: (context, child) {
       final visible =
