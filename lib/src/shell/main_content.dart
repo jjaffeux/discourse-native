@@ -114,7 +114,7 @@ class _MainContentState extends State<MainContent> {
       owner: owner,
       state: state,
       registry: registry,
-      builder: (snapshot, key, underlay) => _MainContentBody(
+      builder: (snapshot, key, underlay, sheetEntry) => _MainContentBody(
         key: key,
         layout: widget.layout,
         state: snapshot,
@@ -124,6 +124,7 @@ class _MainContentState extends State<MainContent> {
         aboutPageKey: _aboutPageKey,
         dashboardPageKey: _dashboardPageKey,
         sheetUnderlay: underlay,
+        sheetEntry: sheetEntry,
       ),
     );
   }
@@ -271,6 +272,7 @@ class _MainContentBody extends StatelessWidget {
     required this.aboutPageKey,
     required this.dashboardPageKey,
     this.sheetUnderlay,
+    this.sheetEntry,
   });
 
   final ShellLayout layout;
@@ -281,6 +283,7 @@ class _MainContentBody extends StatelessWidget {
   final GlobalKey<ForumAboutPageState> aboutPageKey;
   final GlobalKey<DashboardHostState> dashboardPageKey;
   final Widget? sheetUnderlay;
+  final Object? sheetEntry;
 
   @override
   Widget build(BuildContext context) => DPageHeaderHost.exclude(
@@ -472,7 +475,8 @@ class _MainContentBody extends StatelessWidget {
         sourceRoute == null &&
         ShellScope.read(context).mobileNavigationEnabled) {
       final controller = ShellScope.read(context);
-      final entry = controller.mobileNavigation.entryId;
+      final currentEntry = controller.mobileNavigation.entryId;
+      final entry = sheetEntry ?? currentEntry;
       return _MobilePageSheet(
         route: route,
         entry: entry,
@@ -482,7 +486,10 @@ class _MainContentBody extends StatelessWidget {
         )),
         reader: page,
         underlay:
-            sheetUnderlay ?? DHistoryTransition.previousPageUnderlayOf(context),
+            sheetUnderlay ??
+            (entry == currentEntry
+                ? DHistoryTransition.previousPageUnderlayOf(context)
+                : null),
       );
     }
     if (!route.isTopic || sourceRoute == null) return page;

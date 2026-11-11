@@ -59,7 +59,7 @@ class _MobileContentHost extends StatefulWidget {
   final Object owner;
   final _MainContentSnapshot state;
   final PluginRegistry registry;
-  final Widget Function(_MainContentSnapshot, Key?, Widget?) builder;
+  final Widget Function(_MainContentSnapshot, Key?, Widget?, Object?) builder;
 
   @override
   State<_MobileContentHost> createState() => _MobileContentHostState();
@@ -85,7 +85,28 @@ class _MobileContentHostState extends State<_MobileContentHost> {
         : null;
     final stack = tab.contentStack;
     final searchIndex = stack.lastIndexWhere((route) => route.isGlobalSearch);
-    final route = widget.state.route;
+    final current = widget.state;
+    final previousSheetEntry = shell.mobileNavigation.previousEntryId;
+    final previousSheet = current.previousRoute;
+    final currentRoute = current.route;
+    final retainPreviousSheet =
+        shell.mobileNavigationEnabled &&
+        mobilePresentation != null &&
+        previousSheetEntry != null &&
+        currentRoute?.destination is ExtensionDestination &&
+        previousSheet?.destination is ExtensionDestination &&
+        mobilePresentation.usesSheet(currentRoute!) &&
+        mobilePresentation.usesSheet(previousSheet!);
+    final base = retainPreviousSheet
+        ? _MainContentSnapshot.forRoute(
+            shell,
+            tab,
+            previousSheet,
+            previousRoute: mobilePresentation.previousOf(previousSheet),
+          )
+        : current;
+    final baseEntry = retainPreviousSheet ? previousSheetEntry : null;
+    final route = base.route;
     final searchOpen = route?.isGlobalSearch == true;
     final searchPage =
         (presentation != null
@@ -96,7 +117,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
     final searchBehindSheet =
         searchPage != null &&
         !searchOpen &&
-        widget.state.previousRoute?.isGlobalSearch == true &&
+        base.previousRoute?.isGlobalSearch == true &&
         route != null &&
         (presentation?.usesSheet(route) ?? route.isTopic);
     final searchSource = presentation != null
@@ -107,18 +128,18 @@ class _MobileContentHostState extends State<_MobileContentHost> {
     final source = presentation?.retainedListRoute;
     final covered =
         source != null &&
-        widget.state.sourceRoute == null &&
-        widget.state.route != null &&
-        presentation!.usesSheet(widget.state.route!) &&
+        base.sourceRoute == null &&
+        route != null &&
+        presentation!.usesSheet(route) &&
         stack.any(source.sameDestinationAs);
     final previous = mobilePresentation != null
         ? mobilePresentation.previousOf(route)
-        : widget.state.previousRoute;
+        : base.previousRoute;
     final livePrevious =
         !searchOpen &&
         !searchBehindSheet &&
         route != null &&
-        widget.state.sourceRoute == null &&
+        base.sourceRoute == null &&
         shell.mobileNavigationEnabled &&
         (mobilePresentation?.usesSheet(route) ??
             (route.isTopic ||
@@ -140,6 +161,7 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           previousRoute: mobilePresentation?.previousOf(previous),
         ),
         covered ? null : _sourceBodyKey,
+        null,
         null,
       );
       sheetUnderlay = Builder(
@@ -164,12 +186,13 @@ class _MobileContentHostState extends State<_MobileContentHost> {
                 covered ? source : searchSource,
               ),
             )
-          : widget.state,
+          : base,
       livePrevious && !covered ? null : _sourceBodyKey,
       covered ? null : sheetUnderlay,
+      covered || searchOpen ? null : baseEntry,
     );
     final hidden = covered || searchOpen;
-    return Stack(
+    final basePages = Stack(
       fit: StackFit.expand,
       children: [
         Offstage(
@@ -195,12 +218,31 @@ class _MobileContentHostState extends State<_MobileContentHost> {
           ),
         ),
         if (covered && !searchOpen)
-          widget.builder(widget.state, null, sheetUnderlay),
+          widget.builder(base, null, sheetUnderlay, baseEntry),
         if (searchPage != null && !searchBehindSheet)
           Offstage(
             offstage: !searchOpen,
             child: ExcludeFocus(excluding: !searchOpen, child: searchPage),
           ),
+      ],
+    );
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        Offstage(
+          offstage: retainPreviousSheet,
+          child: TickerMode(
+            enabled: !retainPreviousSheet,
+            child: ExcludeFocus(
+              excluding: retainPreviousSheet,
+              child: DPageHeaderHost.exclude(
+                excluding: retainPreviousSheet,
+                child: basePages,
+              ),
+            ),
+          ),
+        ),
+        if (retainPreviousSheet) widget.builder(current, null, null, null),
       ],
     );
   }

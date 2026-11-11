@@ -451,9 +451,18 @@ void main() {
     shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
     await tester.pumpAndSettle();
     expect(find.byType(ChatThreadView), findsOneWidget);
-    await _dismiss(tester);
+    final drag = await tester.startGesture(tester.getCenter(_handle));
+    await drag.moveBy(const Offset(0, 20));
+    await drag.moveBy(const Offset(0, 180));
+    await tester.pump();
+    await drag.up();
+    for (var frame = 0; frame < 60 && transcript.evaluate().isEmpty; frame++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
 
     expect(find.byType(ChatThreadView), findsNothing);
+    expect(channelOffset(), closeTo(before, 1));
+    await tester.pumpAndSettle();
     expect(channelOffset(), closeTo(before, 1));
   }, variant: _platforms);
 
