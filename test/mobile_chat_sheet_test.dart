@@ -429,6 +429,34 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: _platforms);
 
+  testWidgets('swiping down a thread preserves the channel scroll position', (
+    tester,
+  ) async {
+    final shell = await _fixture(tester);
+    shell.openChatChannel(10);
+    await tester.pumpAndSettle();
+    final transcript = find
+        .descendant(
+          of: find.byType(ChatChannelView),
+          matching: find.byType(Scrollable),
+        )
+        .first;
+    double channelOffset() =>
+        tester.state<ScrollableState>(transcript).position.pixels;
+    await tester.drag(transcript, const Offset(0, 360));
+    await tester.pumpAndSettle();
+    final before = channelOffset();
+    expect(before, greaterThan(100));
+
+    shell.openChatThread(siteUrl: _site, channelId: 10, threadId: 3);
+    await tester.pumpAndSettle();
+    expect(find.byType(ChatThreadView), findsOneWidget);
+    await _dismiss(tester);
+
+    expect(find.byType(ChatThreadView), findsNothing);
+    expect(channelOffset(), closeTo(before, 1));
+  }, variant: _platforms);
+
   testWidgets('dismissing a channel preserves Browse channels results', (
     tester,
   ) async {
