@@ -2,7 +2,7 @@ import 'dart:ui' show SemanticsAction, Tristate;
 
 import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/styleguide/examples/card_examples.dart';
-import 'package:discourse_native/src/theme/discourse_typography.dart';
+import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,6 +60,7 @@ void main() {
     for (final example in cardExamples.examples) {
       await tester.pumpWidget(
         MaterialApp(
+          theme: AppTheme.light,
           home: Scaffold(
             body: MediaQuery(
               data: const MediaQueryData(

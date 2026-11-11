@@ -10,6 +10,7 @@ import '../models/category_sidebar.dart';
 import '../models/sidebar_tag.dart';
 import '../models/topic.dart';
 import '../models/user_preferences.dart';
+import '../theme/discourse_typography.dart';
 import 'category_icon.dart';
 import 'platform.dart';
 import 'shell_controller.dart';
@@ -276,7 +277,10 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
               Expanded(
                 child: Text(
                   name,
-                  style: const TextStyle(fontSize: 13.5, height: 1.5),
+                  style: const TextStyle(
+                    fontSize: DiscourseTypography.compact,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ],
@@ -323,7 +327,7 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
                       ? context.l10n.sidebarNoCategoriesMatch
                       : context.l10n.sidebarNoTagsMatch,
                   style: TextStyle(
-                    fontSize: 12.5,
+                    fontSize: DiscourseTypography.preview,
                     height: 1.5,
                     color: tokens.mutedForeground,
                   ),
@@ -360,7 +364,10 @@ class _SidebarTaxonomyEditorState extends State<SidebarTaxonomyEditor> {
             borderless: true,
             semanticLabel: label,
             hintText: label,
-            style: const TextStyle(fontSize: 15, height: 1.4),
+            style: const TextStyle(
+              fontSize: DiscourseTypography.sheetSearch,
+              height: 1.4,
+            ),
             onChanged: (value) => setState(() => _query = value),
           ),
         ),

@@ -21,6 +21,7 @@ abstract final class DiscourseTypography {
   static const double base = sm;
   static const double mobileBase = 17;
   static const double rowTitle = 14.5;
+  static const double sheetSearch = 15;
 
   /// A phone sheet's heading: the mockups' 15px title, enlarged by the phone
   /// zoom of 17/13 that its body is drawn at. Its header is not scaled itself.

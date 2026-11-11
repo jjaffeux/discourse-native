@@ -233,24 +233,21 @@ void main() {
       enabled.value = true;
       await tester.pump();
       await sample('tickerReentry', playing: true);
-      for (final toggle
-          in find
-              .byKey(const ValueKey('gif-playback-toggle'))
-              .evaluate()
-              .toList()) {
-        await tester.tap(find.byWidget(toggle.widget));
+      final toggles = find.byKey(const ValueKey('gif-playback-toggle'));
+      expect(toggles, findsNWidgets(elements.length));
+      for (var index = 0; index < elements.length; index++) {
+        await tester.tap(toggles.at(index));
+        await tester.pump();
       }
+      expect(find.byTooltip('Play GIF'), findsNWidgets(elements.length));
       await sample('manualPause', playing: false);
       scroll.jumpTo(hiddenOffset);
       await _tick(tester);
       scroll.jumpTo(0);
       await sample('manualPauseReentry', playing: false);
-      for (final toggle
-          in find
-              .byKey(const ValueKey('gif-playback-toggle'))
-              .evaluate()
-              .toList()) {
-        await tester.tap(find.byWidget(toggle.widget));
+      for (var index = 0; index < elements.length; index++) {
+        await tester.tap(toggles.at(index));
+        await tester.pump();
       }
       reducedMotion.value = true;
       await tester.pump();

@@ -12,6 +12,7 @@ import '../foundation/icons/d_native_icons.dart';
 import '../foundation/short_number.dart';
 import '../models/user_directory.dart';
 import '../plugin_api/plugin_scope.dart';
+import '../theme/discourse_typography.dart';
 import '../utils/pagination.dart';
 import 'avatar_image.dart';
 import 'directory_skeleton.dart';
@@ -389,7 +390,7 @@ class _UsersPageState extends State<UsersPage> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 13.5,
+          fontSize: DiscourseTypography.compact,
           color: Color.lerp(
             tokens.background,
             tokens.foreground,
@@ -424,7 +425,7 @@ class _UsersPageState extends State<UsersPage> {
               child: Text(
                 _formatValue(value, column, numeric),
                 style: TextStyle(
-                  fontSize: 13,
+                  fontSize: DiscourseTypography.control,
                   color: Color.lerp(tokens.background, tokens.foreground, .9),
                 ),
               ),
@@ -507,7 +508,7 @@ class _UsersPageState extends State<UsersPage> {
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 13.5,
+                fontSize: DiscourseTypography.compact,
                 color: DTokens.of(context).foreground,
               ),
             ),
@@ -533,7 +534,7 @@ class _UsersPageState extends State<UsersPage> {
         maxLines: 1,
         overflow: TextOverflow.ellipsis,
         style: TextStyle(
-          fontSize: 13.5,
+          fontSize: DiscourseTypography.compact,
           color: Color.lerp(tokens.background, tokens.foreground, .9),
         ),
       ),
@@ -771,7 +772,7 @@ class _UsersPageState extends State<UsersPage> {
                       context.l10n.noUsersMatchFilter,
                       key: const ValueKey('users-empty'),
                       style: TextStyle(
-                        fontSize: 13.5,
+                        fontSize: DiscourseTypography.compact,
                         color: Color.lerp(
                           tokens.background,
                           tokens.foreground,
@@ -832,7 +833,7 @@ class _SortHeader extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              fontSize: 12.5,
+              fontSize: DiscourseTypography.preview,
               fontWeight: FontWeight.w600,
               color: color,
             ),

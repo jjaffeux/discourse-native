@@ -1274,20 +1274,19 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
     final reads = <Object?>[context.l10n, showAvatar, fill];
     if (_builtSkeleton == null || !listEquals(reads, _skeletonReads)) {
       _skeletonReads = reads;
-      _builtSkeleton = _buildLoadingResults(context, showAvatar, fill);
+      _builtSkeleton = _buildLoadingResults(context, showAvatar: showAvatar);
     }
     return _builtSkeleton!;
   }
 
   Widget _buildLoadingResults(
-    BuildContext context,
-    bool showAvatar,
-    Color fill,
-  ) => SingleChildScrollView(
+    BuildContext context, {
+    required bool showAvatar,
+  }) => SingleChildScrollView(
     padding: const EdgeInsets.all(6),
     child: DSkeletonRegion(
       semanticsLabel: context.l10n.loading,
-      color: fill,
+      color: skeletonFill(context, on: SkeletonSurface.floating),
       child: Column(
         children: [
           for (var index = 0; index < 8; index++)
@@ -1541,7 +1540,7 @@ class GlobalSearchPanelState extends State<GlobalSearchPanel> {
                           Text(
                             context.l10n.seeAllSearchResults,
                             style: TextStyle(
-                              fontSize: 12,
+                              fontSize: DiscourseTypography.xs,
                               color: DTokens.of(context).mutedForeground,
                             ),
                           ),

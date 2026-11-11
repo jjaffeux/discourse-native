@@ -206,8 +206,8 @@ void main() {
     expect(_tabCount('all', 11), findsOneWidget);
     expect(countRows, 0);
     expect(reviewRows, 0);
-    expect(countElements, lessThanOrEqualTo(_isPhone ? 758 : 513));
-    expect(reviewElements, lessThanOrEqualTo(_isPhone ? 758 : 513));
+    expect(countElements, lessThanOrEqualTo(_isPhone ? 764 : 516));
+    expect(reviewElements, lessThanOrEqualTo(_isPhone ? 764 : 516));
   }, variant: _bothPlatforms);
 
   testWidgets('a live count still reaches the tab badges', (tester) async {

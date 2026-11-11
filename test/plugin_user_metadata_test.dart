@@ -127,7 +127,7 @@ void main() {
   testWidgets(
     'directory renders contributor label while retaining server column sort key',
     (tester) async {
-      String? sorted;
+      (String, bool)? sorted;
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
@@ -154,7 +154,7 @@ void main() {
                     ),
                   ],
                 ),
-                onSortChanged: (key, direction) => sorted = key,
+                onSortChanged: (key, ascending) => sorted = (key, ascending),
               ),
             ),
           ),
@@ -165,9 +165,7 @@ void main() {
       expect(find.text('42'), findsOneWidget);
       await tester.tap(find.text('Community metric'));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Sort ascending'));
-      await tester.pumpAndSettle();
-      expect(sorted, 'custom_metric');
+      expect(sorted, ('custom_metric', false));
     },
   );
 }
