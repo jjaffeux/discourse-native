@@ -899,6 +899,64 @@ void main() {
       );
     }
 
+    testWidgets(
+      'touch Reply keeps the focused composer and its keyboard session',
+      (tester) async {
+        final fixture = await _fixture(
+          pages: {
+            FakeDiscourseApi.chatMessagesKey(9): (
+              messages: [_message(7)],
+              canLoadMorePast: false,
+              canLoadMoreFuture: false,
+              targetMessageId: null,
+            ),
+          },
+          threadingEnabled: false,
+        );
+        addTearDown(fixture.shell.dispose);
+        await tester.pumpWidget(_TestView(shell: fixture.shell));
+        await tester.pumpAndSettle();
+        await tester.enterText(_composerField(), 'Already writing');
+        await tester.pump();
+        final focus = _field(tester).focusNode!;
+        var focusLost = false;
+        void observeFocus() {
+          if (!focus.hasFocus) focusLost = true;
+        }
+
+        focus.addListener(observeFocus);
+        addTearDown(() => focus.removeListener(observeFocus));
+        tester.testTextInput.log.clear();
+
+        await tester.tap(
+          find.byKey(const ValueKey('chat-message-reply-action-7')),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Replying to @sam'), findsOneWidget);
+        expect(focusLost, isFalse);
+        // On iOS, closing or replacing the client starts the keyboard's
+        // dismissal even when focus returns on the next frame.
+        expect(
+          tester.testTextInput.log.map((call) => call.method),
+          everyElement(
+            isNot(
+              isIn([
+                'TextInput.clearClient',
+                'TextInput.hide',
+                'TextInput.setClient',
+              ]),
+            ),
+          ),
+        );
+        expect(_text(tester), 'Already writing');
+      },
+      variant: const TargetPlatformVariant({
+        TargetPlatform.iOS,
+        TargetPlatform.android,
+      }),
+    );
+
     testWidgets('changing and cancelling Reply keeps the written draft', (
       tester,
     ) async {
