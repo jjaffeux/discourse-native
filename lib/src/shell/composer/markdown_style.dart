@@ -1,9 +1,9 @@
+import 'package:discourse_native/discourse_ui.dart' show monospaceTextStyle;
 import 'package:flutter/material.dart';
 
 import '../../theme/app_theme.dart';
 import '../../theme/code_colors.dart';
 import '../../theme/tokens.dart';
-import '../../ui/foundation/code_typography.dart';
 import 'markdown_highlight.dart';
 
 TextStyle markdownStyle(
