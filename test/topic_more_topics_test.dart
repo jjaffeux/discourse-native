@@ -236,6 +236,40 @@ void main() {
     expect(tester.takeException(), isNull);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 
+  for (final atEnd in [false, true]) {
+    testWidgets('choosing a source keeps the reader in place (atEnd: $atEnd)', (
+      tester,
+    ) async {
+      await _pump(tester, relatedCount: 2);
+      final scroll = topicPostList(tester).controller!;
+      final switcher = find.byKey(
+        const ValueKey('topic-recommendations-switch'),
+      );
+      scroll.jumpTo(scroll.position.maxScrollExtent);
+      await tester.pumpAndSettle();
+      if (!atEnd) {
+        final extent = scroll.position.viewportDimension;
+        final switchTop =
+            tester.getTopLeft(switcher).dy -
+            tester.getTopLeft(topicPostListFinder()).dy;
+        scroll.jumpTo(scroll.offset + switchTop - extent * .7);
+        await tester.pumpAndSettle();
+      }
+      final offset = scroll.offset;
+      final switchTop = tester.getTopLeft(switcher).dy;
+      for (final source in ['discourse-ai/related', 'core/suggested']) {
+        await tester.tap(
+          find.byKey(ValueKey('topic-recommendations-tab-$source')),
+        );
+        await tester.pumpAndSettle();
+        expect(scroll.offset, offset, reason: source);
+        expect(tester.getTopLeft(switcher).dy, switchTop, reason: source);
+      }
+      expect(find.text('Suggested discussion 1'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+  }
+
   testWidgets('no panel before the real final post window', (tester) async {
     await _pump(tester, hasMore: true);
     expect(_panel, findsNothing);
@@ -254,6 +288,7 @@ Future<void> _pump(
   bool reduced = false,
   bool hasMore = false,
   bool limited = false,
+  int relatedCount = 6,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = size;
@@ -315,7 +350,7 @@ Future<void> _pump(
             TopicRecommendationSource(
               definition: discourseAiRelatedTopicRecommendationSource,
               topics: [
-                for (var id = 1; id <= 6; id++)
+                for (var id = 1; id <= relatedCount; id++)
                   Topic(
                     id: 200 + id,
                     title: 'Related discussion $id',

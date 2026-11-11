@@ -82,7 +82,8 @@ export 'src/shell/lightbox.dart'
         LightboxImage,
         RemoteLightboxImage,
         showLightboxGallery;
-export 'src/shell/list_boundary_shortcuts.dart' show ListBoundaryShortcuts;
+export 'src/shell/list_boundary_shortcuts.dart'
+    show ListBoundaryFocusExempt, ListBoundaryShortcuts;
 export 'src/shell/mobile_footer_action.dart'
     show
         MobileFooterAction,
