@@ -190,6 +190,7 @@ void main() {
     final joined = lifecycle.capture('https://forum.example');
     final firstSession = first.session;
 
+    expect(joined, same(first));
     expect(joined.session, same(firstSession));
 
     lifecycle.invalidate('https://forum.example');

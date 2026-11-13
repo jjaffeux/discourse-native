@@ -3,30 +3,31 @@ import 'dart:async';
 typedef SiteMutation = void Function();
 
 final class SiteLifecycle {
-  final Map<String, _SiteSession> _sessions = {};
+  final Map<String, SiteLease> _sessions = {};
 
-  SiteLease capture(String siteUrl) {
-    final session = _sessions.putIfAbsent(siteUrl, _SiteSession.new);
-    return SiteLease._(session, () => _sessions[siteUrl]);
-  }
+  SiteLease capture(String siteUrl) =>
+      _sessions.putIfAbsent(siteUrl, SiteLease._);
 
   bool owns(String siteUrl, SiteLease lease) =>
-      identical(_sessions[siteUrl], lease._session);
+      identical(_sessions[siteUrl], lease);
 
-  /// Runs every attached retirement observer, then rethrows the first failure with its
-  /// original stack. A broken observer cannot skip another owner's cleanup.
+  /// Runs every attached retirement observer, then rethrows the first failure
+  /// with its original stack.
   void invalidate(String siteUrl) {
     final session = _sessions.remove(siteUrl);
-    session?.retire();
+    session?._retire();
   }
 }
 
-final class _SiteSession {
-  final Set<void Function()> _observers = {};
-  bool retired = false;
+final class SiteLease {
+  SiteLease._();
 
-  void retire() {
-    retired = true;
+  final Object session = Object();
+  final Set<void Function()> _observers = {};
+  bool _retired = false;
+
+  void _retire() {
+    _retired = true;
     final observers = _observers.toList();
     (Object, StackTrace)? firstFailure;
     for (final observer in observers) {
@@ -41,28 +42,18 @@ final class _SiteSession {
       Error.throwWithStackTrace(failure.$1, failure.$2);
     }
   }
-}
 
-final class SiteLease {
-  const SiteLease._(this._session, this._currentSession);
-
-  final _SiteSession _session;
-  final _SiteSession? Function() _currentSession;
-
-  /// Stable identity for this account session, including after retirement.
-  Object get session => _session;
-
-  bool get isCurrent => identical(_session, _currentSession());
+  bool get isCurrent => !_retired;
 
   /// Observe retirement until the returned removal callback is called.
   void Function() onRetire(void Function() observer) {
-    if (_session.retired) {
+    if (_retired) {
       observer();
       return () {};
     }
     void registration() => observer();
-    _session._observers.add(registration);
-    return () => _session._observers.remove(registration);
+    _observers.add(registration);
+    return () => _observers.remove(registration);
   }
 
   /// Bounds an in-flight wait by the lease lifetime and an optional timeout.
