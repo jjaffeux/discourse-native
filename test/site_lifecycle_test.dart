@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +18,21 @@ void main() {
       ),
       throwsA(same(error)),
     );
+  });
+
+  test('retirement invalidates a result completed in the same turn', () async {
+    const site = 'https://meta.discourse.org';
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture(site);
+    final error = StateError('retired');
+    final operation = Completer<int>.sync();
+    unawaited(operation.future.then((_) => lifecycle.invalidate(site)));
+    final pending = lease.waitWhileCurrent(operation.future, error);
+    final rejected = expectLater(pending, throwsA(same(error)));
+
+    operation.complete(42);
+
+    await rejected;
   });
 
   test('only the current session can commit state for a site', () {

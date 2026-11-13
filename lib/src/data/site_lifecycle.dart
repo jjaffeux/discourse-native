@@ -79,7 +79,11 @@ final class SiteLease {
     final detach = onRetire(() => retired.completeError(retirementError));
     try {
       final pending = Future.any<T>([retired.future, operation]);
-      return await (timeout == null ? pending : pending.timeout(timeout));
+      final value = await (timeout == null
+          ? pending
+          : pending.timeout(timeout));
+      if (!isCurrent) throw retirementError;
+      return value;
     } finally {
       detach();
     }
