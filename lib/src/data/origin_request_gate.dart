@@ -115,7 +115,7 @@ final class OriginRequestGate {
     final entry = _waiting.remove(pending);
     if (entry == null) return;
     _waitingRevision++;
-    entry.state.waiting--;
+    entry.state.waiting.remove(pending);
     pending.reject(error, stackTrace);
     _forgetIdle(entry.origin, entry.state);
   }
@@ -153,7 +153,7 @@ final class OriginRequestGate {
         return;
       }
     }
-    if (state.waiting >= maxQueuedPerOrigin) {
+    if (state.waiting.length >= maxQueuedPerOrigin) {
       pending.reject(
         OriginRequestGateOverloadException(origin, maxQueuedPerOrigin),
         StackTrace.current,
@@ -161,7 +161,7 @@ final class OriginRequestGate {
       return;
     }
 
-    state.waiting++;
+    state.waiting.add(pending);
     _waiting[pending] = _QueuedAdmission(
       origin,
       state,
@@ -260,7 +260,7 @@ final class OriginRequestGate {
       } else {
         _interactiveOvertakes = overtook ? _interactiveOvertakes + 1 : 0;
       }
-      queued.state.waiting--;
+      queued.state.waiting.remove(queued.pending);
       queued.state.active++;
       _active++;
       queued.pending.grant(
@@ -311,20 +311,18 @@ final class OriginRequestGate {
   ) {
     final error = OriginRequestGateCooldownException(origin, remaining);
     final stackTrace = StackTrace.current;
-    final rejected = _waiting.values
-        .where((queued) => identical(queued.state, state))
-        .toList();
-    for (final queued in rejected.reversed) {
-      _waiting.remove(queued.pending);
+    final rejected = state.waiting.toList(growable: false);
+    state.waiting.clear();
+    for (final pending in rejected.reversed) {
+      _waiting.remove(pending);
       _waitingRevision++;
-      state.waiting--;
-      queued.pending.reject(error, stackTrace);
+      pending.reject(error, stackTrace);
     }
   }
 
   void _forgetIdle(String origin, _OriginState state) {
     if (state.active == 0 &&
-        state.waiting == 0 &&
+        state.waiting.isEmpty &&
         state.cooldown.remaining == null &&
         identical(_origins[origin], state)) {
       _origins.remove(origin);
@@ -434,7 +432,7 @@ final class _OriginState {
   _OriginState(this.cooldown);
 
   final OriginCooldown cooldown;
-  int waiting = 0;
+  final waiting = <_PendingAdmission>{};
   int active = 0;
   int interactiveOvertakes = 0;
 }
