@@ -194,13 +194,14 @@ final class SiteVideoSourceResolver {
   Future<T> _guard<T>(
     Future<T> operation,
     Stopwatch elapsed, {
-    SiteLease? lease,
+    required SiteLease lease,
   }) async {
     // Even an already-expired deadline must observe a failure from work the
     // caller has started. Successful work detaches its shutdown callback so
     // this long-lived resolver does not retain every completed probe.
     operation.ignore();
     final remaining = _remaining(elapsed);
+    _requireCurrent(lease);
     final cancelled = Completer<T>();
     void onClose() {
       if (!cancelled.isCompleted) {
@@ -208,7 +209,7 @@ final class SiteVideoSourceResolver {
       }
     }
 
-    final removeRetirement = lease?.onRetire(() {
+    final removeRetirement = lease.onRetire(() {
       if (!cancelled.isCompleted) {
         cancelled.completeError(
           StateError('Video source belongs to an expired account session.'),
@@ -224,10 +225,12 @@ final class SiteVideoSourceResolver {
       }
     });
     try {
-      return await Future.any<T>([operation, cancelled.future]);
+      final value = await Future.any<T>([operation, cancelled.future]);
+      _requireCurrent(lease);
+      return value;
     } finally {
       timer.cancel();
-      removeRetirement?.call();
+      removeRetirement();
       _closeCallbacks.remove(onClose);
     }
   }
