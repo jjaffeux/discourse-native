@@ -6,11 +6,12 @@ import 'package:flutter_test/flutter_test.dart';
 /// why each is not user-facing state.
 const _exceptions = {
   'lib/src/data/authenticator.dart': (
-    hits: 2,
-    reason:
-        'wraps a platform failure into a UserApiAuthException that names its '
-        'own failure category; the text is the exception cause, not a '
-        'sentence a screen shows',
+    hits: 1,
+    reason: 'preserves an unexpected browser launcher error as diagnostics',
+  ),
+  'lib/src/data/platform_web_auth.dart': (
+    hits: 1,
+    reason: 'preserves platform diagnostics in a typed authorization failure',
   ),
 };
 

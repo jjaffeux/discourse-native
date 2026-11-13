@@ -9,6 +9,7 @@ import '../data/discourse_api.dart';
 import '../data/draft_store.dart';
 import '../data/forum_tab_store.dart';
 import '../data/instance_store.dart';
+import '../data/platform_web_auth.dart';
 import '../data/private_storage.dart';
 import '../data/secure_store.dart';
 import '../data/site_message_bus_bootstrap.dart';
@@ -228,7 +229,10 @@ final class _PluginHostDependencies {
         await secureStore.writeApiKey(siteBaseUrl(site.url), apiKey);
       }
     }
-    final authenticator = Authenticator(store: secureStore);
+    final authenticator = Authenticator(
+      store: secureStore,
+      launcher: launchPlatformWebAuth,
+    );
     final api = _PluginHostApi(
       transport: transport,
       sites: coreSites,

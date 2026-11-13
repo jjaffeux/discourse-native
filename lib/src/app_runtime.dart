@@ -11,6 +11,7 @@ import 'data/forum_tab_store.dart';
 import 'data/http_basic_auth.dart';
 import 'data/instance_store.dart';
 import 'data/platform_push_registration.dart';
+import 'data/platform_web_auth.dart';
 import 'data/recent_destinations_store.dart';
 import 'data/site_tracker.dart';
 import 'data/update_store.dart';
@@ -97,7 +98,10 @@ final class AppRuntime {
         DiscourseApi(models: _plugins.models, activeUse: activeUse);
     _authenticator =
         dependencies.authenticator ??
-        Authenticator(pushRegistrations: PlatformPushRegistrationProvider());
+        Authenticator(
+          launcher: launchPlatformWebAuth,
+          pushRegistrations: PlatformPushRegistrationProvider(),
+        );
     _appSettingsStore = dependencies.appSettingsStore ?? AppSettingsStore();
     _forumSettingsStore =
         dependencies.forumSettingsStore ?? ForumSettingsStore();
@@ -239,6 +243,7 @@ final class AppRuntime {
         _authenticator =
             _dependencies.authenticator ??
             Authenticator(
+              launcher: launchPlatformWebAuth,
               pushRegistrations: PlatformPushRegistrationProvider(),
             );
       }

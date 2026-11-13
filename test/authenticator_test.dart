@@ -4,6 +4,7 @@ import 'package:discourse_native/src/data/authenticator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/platform_push_registration.dart';
+import 'package:discourse_native/src/data/platform_web_auth.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/push_registration.dart';
 import 'package:discourse_native/src/data/secure_store.dart';
@@ -13,6 +14,20 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+
+const _webAuthChannel = MethodChannel('flutter_web_auth_2');
+
+void _mockBrowserFailure(PlatformException error) {
+  final messenger =
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+  messenger.setMockMethodCallHandler(_webAuthChannel, (call) async {
+    expect(call.method, 'authenticate');
+    final arguments = call.arguments as Map<Object?, Object?>;
+    expect(arguments['callbackUrlScheme'], UserApiKeyProtocol.redirectScheme);
+    throw error;
+  });
+  addTearDown(() => messenger.setMockMethodCallHandler(_webAuthChannel, null));
+}
 
 const _site = 'https://meta.discourse.org';
 const _pair = AuthKeyPair(publicPem: 'public-pem', privatePem: 'private-pem');
@@ -463,11 +478,13 @@ void main() {
 
     test('reports browser cancellation without persisting a key', () async {
       final store = _FakeSecureStore();
+      _mockBrowserFailure(
+        PlatformException(code: 'CANCELED', message: 'dismissed'),
+      );
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
-        launcher: (_, _) async =>
-            throw PlatformException(code: 'CANCELED', message: 'dismissed'),
+        launcher: launchPlatformWebAuth,
       );
 
       await expectLater(
@@ -489,10 +506,11 @@ void main() {
         code: 'UNAVAILABLE',
         message: 'no browser',
       );
+      _mockBrowserFailure(platformError);
       final authenticator = Authenticator(
         store: store,
         protocol: _FakeProtocol(),
-        launcher: (_, _) async => throw platformError,
+        launcher: launchPlatformWebAuth,
       );
 
       await expectLater(
@@ -509,7 +527,15 @@ void main() {
                 'detail',
                 contains('UNAVAILABLE'),
               )
-              .having((error) => error.cause, 'cause', same(platformError))
+              .having(
+                (error) => error.cause,
+                'cause',
+                isA<PlatformException>().having(
+                  (error) => error.code,
+                  'code',
+                  platformError.code,
+                ),
+              )
               .having(
                 (error) => error.causeStackTrace,
                 'cause stack',

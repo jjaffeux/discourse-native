@@ -1,7 +1,5 @@
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter_web_auth_2/flutter_web_auth_2.dart';
 
 import 'api_credentials.dart';
 import 'push_registration.dart';
@@ -14,9 +12,6 @@ typedef WebAuthLauncher =
 
 typedef AuthKeyPairGenerator = Future<AuthKeyPair> Function();
 
-Future<String> _launchWebAuth(String url, String callbackScheme) =>
-    FlutterWebAuth2.authenticate(url: url, callbackUrlScheme: callbackScheme);
-
 class Authenticator implements ApiCredentialReader {
   Authenticator({
     SecureStore? store,
@@ -27,7 +22,7 @@ class Authenticator implements ApiCredentialReader {
     this.protocol = const UserApiKeyProtocol(),
     this._applicationName,
   }) : store = store ?? SecureStore(),
-       _launch = launcher ?? _launchWebAuth,
+       _launch = launcher,
        _generateKeyPair = keyPairGenerator ?? _generateAuthKeyPair,
        _generateNonce = nonceGenerator ?? SecureStore.randomToken;
 
@@ -35,7 +30,7 @@ class Authenticator implements ApiCredentialReader {
   final UserApiKeyProtocol protocol;
   final String? _applicationName;
   String get applicationName => _applicationName ?? appL10n.discourseNative;
-  final WebAuthLauncher _launch;
+  final WebAuthLauncher? _launch;
   final AuthKeyPairGenerator _generateKeyPair;
   final String Function() _generateNonce;
   final PushRegistrationProvider? _pushRegistrations;
@@ -88,28 +83,14 @@ class Authenticator implements ApiCredentialReader {
 
       final String callback;
       try {
-        callback = await _launch(
+        final launch = _launch;
+        if (launch == null) throw StateError('No web auth launcher configured');
+        callback = await launch(
           url.toString(),
           UserApiKeyProtocol.redirectScheme,
         );
       } on UserApiAuthException {
         rethrow;
-      } on PlatformException catch (e, stackTrace) {
-        // Every platform reports `CANCELED` only for browser dismissal. Other
-        // codes mean the browser failed to launch and must not be treated as a
-        // silent user cancellation.
-        final failure = e.code == 'CANCELED'
-            ? UserApiAuthFailure.cancelled
-            : UserApiAuthFailure.launchFailed;
-        if (failure == UserApiAuthFailure.cancelled) {
-          throw UserApiAuthException(failure, '${e.code}: ${e.message}');
-        }
-        throw UserApiAuthException.caused(
-          failure,
-          '${e.code}: ${e.message}',
-          e,
-          stackTrace,
-        );
       } catch (e, stackTrace) {
         throw UserApiAuthException.caused(
           UserApiAuthFailure.launchFailed,
