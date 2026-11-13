@@ -16,7 +16,7 @@ void main() {
     );
     file = File('${directory.path}/values.json');
     now = DateTime.utc(2026, 9, 13);
-    store = PlaceholderStore(file: file, now: () => now);
+    store = PlaceholderStore(file: () => file, now: () => now);
   });
   tearDown(() => directory.delete(recursive: true));
 
@@ -26,7 +26,7 @@ void main() {
       await store.write(post, 'HOST', 'secret-host');
       expect((await file.stat()).mode & 0x1ff, 0x180);
       now = now.add(const Duration(days: 6));
-      final restarted = PlaceholderStore(file: file, now: () => now);
+      final restarted = PlaceholderStore(file: () => file, now: () => now);
       expect(await restarted.read(post), {'HOST': 'secret-host'});
       now = now.add(const Duration(days: 6));
       expect(await restarted.read(post), {'HOST': 'secret-host'});
@@ -100,7 +100,7 @@ void main() {
   });
 
   test('storage failure degrades to empty values', () async {
-    final broken = PlaceholderStore(file: File('${file.path}/child'));
+    final broken = PlaceholderStore(file: () => File('${file.path}/child'));
     await file.writeAsString('not a directory');
     expect(await broken.read(post), isEmpty);
     await broken.write(post, 'X', 'value');

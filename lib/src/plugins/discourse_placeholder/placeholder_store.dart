@@ -1,8 +1,8 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_contracts.dart';
-import 'package:path_provider/path_provider.dart';
 
 typedef PlaceholderPostId = ({
   String siteUrl,
@@ -18,19 +18,14 @@ abstract interface class PlaceholderPersistence {
 }
 
 final class PlaceholderStore implements PlaceholderPersistence {
-  PlaceholderStore({File? file, DateTime Function()? now})
-    : _providedFile = file,
-      _now = now ?? DateTime.now;
+  PlaceholderStore({required this._file, DateTime Function()? now})
+    : _now = now ?? DateTime.now;
 
   static const retention = Duration(days: 7);
-  final File? _providedFile;
+  final FutureOr<File> Function() _file;
   final DateTime Function() _now;
   late final _document = PrivateFileDocument<Map<String, _SavedValue>>(
-    target: () async =>
-        _providedFile ??
-        File(
-          '${(await getApplicationSupportDirectory()).path}/plugins/discourse-placeholder/values-v1.json',
-        ),
+    target: _file,
     empty: () => {},
     decode: _decode,
     setAsideUndecodable: (_) {},

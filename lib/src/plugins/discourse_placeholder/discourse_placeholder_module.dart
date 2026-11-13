@@ -1,4 +1,8 @@
+import 'dart:io';
+
 import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:path_provider/path_provider.dart';
+
 import 'discourse_placeholder_plugin.dart';
 import 'placeholder_session.dart';
 import 'placeholder_store.dart';
@@ -18,7 +22,16 @@ final class DiscoursePlaceholderModule implements PluginModule {
     registrar.addCapability(const DiscoursePlaceholderPlugin());
     registrar.addSession((bindings, _) {
       final session = PlaceholderSession(
-        persistence: persistence ?? PlaceholderStore(),
+        persistence:
+            persistence ??
+            PlaceholderStore(
+              file: () async {
+                final support = await getApplicationSupportDirectory();
+                return File(
+                  '${support.path}/plugins/discourse-placeholder/values-v1.json',
+                );
+              },
+            ),
         currentUser: bindings.require(corePluginUserPort),
       );
       return PluginSessionContribution(
