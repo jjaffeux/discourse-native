@@ -127,15 +127,20 @@ final class SolvedController {
                 true)
               id,
         };
-        for (final id in refreshIds) {
+        final ids = refreshIds.toList();
+        for (var start = 0; start < ids.length; start += 4) {
           if (!current()) return const SolvedChangeResult.acceptedRetired();
-          await posts.refreshPost(
-            siteUrl: siteUrl,
-            topicId: topic.id,
-            postId: id,
-            apiKey: credential.credentials!.apiKey,
-            lease: lease,
-          );
+          await Future.wait([
+            for (final id in ids.skip(start).take(4))
+              if (current())
+                posts.refreshPost(
+                  siteUrl: siteUrl,
+                  topicId: topic.id,
+                  postId: id,
+                  apiKey: credential.credentials!.apiKey,
+                  lease: lease,
+                ),
+          ]);
         }
         if (!current()) return const SolvedChangeResult.acceptedRetired();
         await topics.reloadTopic(siteUrl, topic.id);

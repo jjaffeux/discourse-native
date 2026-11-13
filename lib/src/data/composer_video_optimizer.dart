@@ -57,11 +57,16 @@ class ComposerVideoOptimizer {
       if (length == null || length < minimumBytes || length > maximumBytes) {
         return original;
       }
-      final available = await Future.any<bool>([
+      final availability = Future.any<bool>([
         native.isAvailable().timeout(ioTimeout),
         aborted.then((_) => false),
       ]);
-      if (!available || cancelled) return original;
+      final directoryLookup = Future.any<Directory?>([
+        Future.sync(_temporaryDirectory).timeout(ioTimeout),
+        aborted.then((_) => null),
+      ]);
+      directoryLookup.ignore();
+      if (!await availability || cancelled) return original;
 
       return await _lane.run(
         aborted: aborted,
@@ -74,8 +79,8 @@ class ComposerVideoOptimizer {
           try {
             if (cancelled) return original;
 
-            final root = await _temporaryDirectory();
-            if (cancelled) return original;
+            final root = await directoryLookup;
+            if (root == null || cancelled) return original;
             directory = await root.createTemp('composer-video-');
             final input = File('${directory.path}/source');
             final output = File('${directory.path}/optimized.mp4');

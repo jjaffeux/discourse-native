@@ -38,6 +38,11 @@ FIVE_MS_DRIVERS = (
     "benchmark_appearance_five_ms.dart",
     "benchmark_five_ms_feed.dart",
     "benchmark_five_ms_shell_feed.dart",
+    "benchmark_media_operation_latency.dart",
+    "benchmark_solution_operation_latency.dart",
+    "benchmark_nested_reload_latency.dart",
+    "benchmark_nested_admin_latency.dart",
+    "benchmark_feed_latency_followup.dart",
 )
 
 

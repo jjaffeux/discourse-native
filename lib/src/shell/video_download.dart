@@ -77,6 +77,11 @@ final class NativeVideoDownloader implements VideoDownloader {
     }
     _requireCurrent(lease);
 
+    final stagingDirectory = _waitWhileCurrent(
+      _environment.temporaryDirectory(),
+      lease,
+    );
+    stagingDirectory.ignore();
     final account =
         siteUrl != null && credentials != null && url.origin == site?.origin
         ? await SiteAssetAccount.open(
@@ -88,10 +93,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           )
         : null;
 
-    final temporary = await _waitWhileCurrent(
-      _environment.temporaryDirectory(),
-      lease,
-    );
+    final temporary = await stagingDirectory;
     _requireCurrent(lease);
     return withPrivateStagingPath(
       temporary,

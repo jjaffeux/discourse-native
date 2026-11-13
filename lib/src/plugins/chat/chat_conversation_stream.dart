@@ -390,6 +390,7 @@ final class _ChatConversationStream {
     required bool fromLastRead,
     int? targetMessageId,
     bool anchorAtEnd = false,
+    Future<ChatThread?>? threadDetail,
   }) async {
     if (!isCurrent) return _ChatWindowFetchResult.cancelled;
     _loading = true;
@@ -429,8 +430,8 @@ final class _ChatConversationStream {
 
       final bookmarkVersion = _controller._bookmarkVersion(siteUrl);
       read = _controller._messageWritesFor(siteUrl).beginRead(target.channelId);
-      final response = target.threadId == null
-          ? await requestCredentials.run(
+      final responseRequest = target.threadId == null
+          ? requestCredentials.run(
               () => _controller.api.chatMessages(
                 siteUrl: siteUrl,
                 channelId: target.channelId,
@@ -441,7 +442,7 @@ final class _ChatConversationStream {
                 clientId: clientId,
               ),
             )
-          : await requestCredentials.run(
+          : requestCredentials.run(
               () => _controller.api.chatThreadMessages(
                 siteUrl: siteUrl,
                 channelId: target.channelId,
@@ -452,6 +453,12 @@ final class _ChatConversationStream {
                 clientId: clientId,
               ),
             );
+      responseRequest.ignore();
+      if (threadDetail != null && await threadDetail == null) {
+        return _ChatWindowFetchResult.cancelled;
+      }
+      if (!ownsRequest()) return _ChatWindowFetchResult.cancelled;
+      final response = await responseRequest;
       if (!_controller._requestIsCurrent(lease, ownsRequest)) {
         return _ChatWindowFetchResult.cancelled;
       }

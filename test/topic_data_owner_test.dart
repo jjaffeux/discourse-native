@@ -1595,15 +1595,13 @@ void main() {
         'captured-write-key',
         data.lease,
       );
-      await f.api.waitPosts(1);
-      f.api.postReads[0].result.complete([
-        for (final id in ids.take(20)) _post(id, 'fresh'),
-      ]);
-      await f.api.waitPosts(2);
+      await f.api.waitPosts(3);
       f.api.postReads[1].result.complete([
         for (final id in ids.skip(20).take(20)) _post(id, 'fresh'),
       ]);
-      await f.api.waitPosts(3);
+      f.api.postReads[0].result.complete([
+        for (final id in ids.take(20)) _post(id, 'fresh'),
+      ]);
       expect(f.api.postReads.map((read) => read.ids.length), [20, 20, 1]);
       expect(
         f.api.postReads.map((read) => read.apiKey),

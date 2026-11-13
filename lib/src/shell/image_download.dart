@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
@@ -69,8 +71,17 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
     }
     final absoluteUrl = resolveSiteUrl(url, siteUrl);
     final request = repository.request(siteUrl: siteUrl, url: absoluteUrl);
+    Future<Directory>? stagingDirectory;
     final SiteImageBytes? image;
     try {
+      stagingDirectory = destination == null
+          ? lease.waitWhileCurrent(
+              Future.sync(_environment.temporaryDirectory),
+              const ImageDownloadException(),
+              timeout: requestTimeout,
+            )
+          : null;
+      stagingDirectory?.ignore();
       image = await request.result.timeout(requestTimeout);
     } finally {
       request.release();
@@ -97,11 +108,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         windows: _platform == TargetPlatform.windows,
       );
     }
-    final temporary = await lease.waitWhileCurrent(
-      _environment.temporaryDirectory(),
-      const ImageDownloadException(),
-      timeout: requestTimeout,
-    );
+    final temporary = await stagingDirectory!;
     if (!lease.isCurrent) throw const ImageDownloadException();
     final outcome = await withStagedPrivateFile(
       temporary,

@@ -1657,16 +1657,16 @@ class ChatController extends FrameSafeNotifier {
     }
     final lease = _requests.capture(siteUrl);
     final version = _bookmarkVersion(siteUrl);
-    await ensureChannel(siteUrl, link.route.channelId);
     final credentials = await _requests.credentialsFor(siteUrl);
     if (!lease.isCurrent || isDisposed || credentials.apiKey == null) {
       return null;
     }
     final read = _messageWritesFor(siteUrl).beginRead(link.route.channelId);
     try {
+      final channelRequest = ensureChannel(siteUrl, link.route.channelId);
       final threadId = link.route.threadId;
-      final page = threadId == null
-          ? await credentials.run(
+      final pageRequest = threadId == null
+          ? credentials.run(
               () => api.chatMessages(
                 siteUrl: siteUrl,
                 channelId: link.route.channelId,
@@ -1675,7 +1675,7 @@ class ChatController extends FrameSafeNotifier {
                 clientId: credentials.clientId,
               ),
             )
-          : await credentials.run(
+          : credentials.run(
               () => api.chatThreadMessages(
                 siteUrl: siteUrl,
                 channelId: link.route.channelId,
@@ -1685,6 +1685,10 @@ class ChatController extends FrameSafeNotifier {
                 clientId: credentials.clientId,
               ),
             );
+      pageRequest.ignore();
+      await channelRequest;
+      if (!lease.isCurrent || isDisposed) return null;
+      final page = await pageRequest;
       if (!lease.isCurrent ||
           isDisposed ||
           version != _bookmarkVersion(siteUrl)) {
@@ -3671,12 +3675,17 @@ class ChatController extends FrameSafeNotifier {
     }
     if (!backed) _discardStaleCanonicalWindow(siteUrl, target, held);
     final conversation = _conversationFor(siteUrl, target);
-    final detail = await refreshThreadDetail(siteUrl, target);
-    if (detail == null || !conversation.isCurrent) return;
-    _liveSync.ensureThreadSubscription(siteUrl, target);
+    final detail = refreshThreadDetail(siteUrl, target).then((detail) {
+      if (detail != null && conversation.isCurrent) {
+        _liveSync.ensureThreadSubscription(siteUrl, target);
+      }
+      return detail;
+    });
+    detail.ignore();
     final result = await conversation.fetchWindow(
       fromLastRead: false,
       targetMessageId: targetMessageId,
+      threadDetail: detail,
     );
     if (result == _ChatWindowFetchResult.missingTarget &&
         targetMessageId != null) {

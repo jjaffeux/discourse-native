@@ -836,27 +836,44 @@ final class NestedRepliesController extends ChangeNotifier {
       if (refreshed.hasMoreRoots) refreshed._retainTrailingRoots(saved);
       final pages = saved.childPages.entries.toList()
         ..sort((a, b) => a.key.$2.compareTo(b.key.$2));
-      for (final entry in pages) {
-        if (!_accepts(generation)) return;
-        final expectedPage = entry.value.page;
-        if (expectedPage == null ||
-            refreshed.postNumber(entry.key.$1) == null) {
-          continue;
+      Future<void> restoreBranch(
+        int parent,
+        int depth,
+        int expectedPage,
+      ) async {
+        if (!_accepts(generation) || refreshed.postNumber(parent) == null) {
+          return;
         }
-        refreshed._children[entry.key.$1] = [];
+        refreshed._children[parent] = [];
         for (var page = 0; page <= expectedPage; page++) {
-          final state = refreshed.childrenState(
-            entry.key.$1,
-            depth: entry.key.$2,
-          );
+          final state = refreshed.childrenState(parent, depth: depth);
           if (!state.hasMore) break;
-          await refreshed.loadChildren(entry.key.$1, depth: entry.key.$2);
+          await refreshed.loadChildren(parent, depth: depth);
           if (!_accepts(generation)) return;
-          if (refreshed.childrenState(entry.key.$1, depth: entry.key.$2).error
+          if (refreshed.childrenState(parent, depth: depth).error
               case final failure?) {
             throw failure;
           }
         }
+      }
+
+      // An earlier depth may discover parents for the next depth. Distinct
+      // parents at the same depth can restore their pages independently.
+      for (var start = 0; start < pages.length;) {
+        if (!_accepts(generation)) return;
+        final depth = pages[start].key.$2;
+        final batch = <Future<void>>[];
+        final parents = <int>{};
+        while (start < pages.length && batch.length < 4) {
+          final entry = pages[start];
+          final (parent, entryDepth) = entry.key;
+          if (entryDepth != depth || !parents.add(parent)) break;
+          start++;
+          if (entry.value.page case final expectedPage?) {
+            batch.add(restoreBranch(parent, depth, expectedPage));
+          }
+        }
+        await Future.wait(batch);
       }
       if (!_accepts(generation)) return;
       beforeApply?.call();

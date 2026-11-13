@@ -796,6 +796,8 @@ final class _TaxonomyDirectoryController
           ? await requestSession.credentials(_shell.credentials)
           : requestSession.anonymousCredentials();
       if (!isCurrent()) return;
+      final config = _shell._presentation.ensureConfig(instance.url);
+      config.ignore();
       final result = await credential.run(
         () => _shell.api.categories.loadCategories(
           siteUrl: instance.url,
@@ -804,7 +806,7 @@ final class _TaxonomyDirectoryController
         ),
       );
       if (!isCurrent()) return;
-      await _shell._presentation.ensureConfig(instance.url);
+      await config;
       if (!isCurrent()) return;
       session.commit(() {
         mergeCategories(
