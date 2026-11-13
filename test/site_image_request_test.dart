@@ -54,10 +54,10 @@ void main() {
         ..setVisible(true);
       abandoned.release();
       expect(await abandoned.result, isNull);
-      credentials.keys.single.complete('key');
-      await _pump();
-      expect(client.sent, isEmpty);
       final revisit = repository.request(siteUrl: site, url: url);
+      expect(credentials.keys, hasLength(2));
+      credentials.keys.first.completeError(StateError('abandoned lookup'));
+      credentials.keys.last.complete('key');
       await _pump();
       expect(client.sent, hasLength(1));
       client.sent.single.complete([2]);

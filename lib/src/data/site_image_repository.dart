@@ -112,7 +112,7 @@ final class SiteImageRepository {
   ) async {
     try {
       final siteUrl = request._siteUrl;
-      final session = await _session(siteUrl);
+      final session = await _session(request, account);
       if (request._done) return;
       if (_disposed ||
           !account.isCurrent ||
@@ -182,20 +182,34 @@ final class SiteImageRepository {
     }
   }
 
-  Future<_SiteImageSession?> _session(String siteUrl) {
+  Future<_SiteImageSession?> _session(
+    SiteImageRequest request,
+    SiteLease lease,
+  ) {
+    final siteUrl = request._siteUrl;
     final existing = _use(siteUrl);
     if (existing != null) return SynchronousFuture(existing);
 
     // A lifecycle change can replace an account without an explicit forget.
     _sessions.remove(siteUrl)?.retire();
 
-    final pending = _opening[siteUrl];
-    if (pending != null && pending.lease.isCurrent) return pending.result;
-
-    pending?.retire();
-    final opening = _SiteImageOpening(lifecycle.capture(siteUrl));
-    _opening[siteUrl] = opening;
-    return opening.result = _open(siteUrl, opening);
+    var opening = _opening[siteUrl];
+    final needsOpening = opening == null || !opening.lease.isCurrent;
+    if (needsOpening) {
+      opening?.retire();
+      opening = _SiteImageOpening(lease);
+      _opening[siteUrl] = opening;
+    }
+    final joined = opening;
+    joined.consumers++;
+    request._leaveOpening = () {
+      if (--joined.consumers == 0 && identical(_opening[siteUrl], joined)) {
+        _opening.remove(siteUrl);
+        joined.retire();
+      }
+    };
+    if (needsOpening) joined.complete(_open(siteUrl, joined));
+    return joined.result;
   }
 
   bool _isCurrentOpening(String siteUrl, _SiteImageOpening opening) =>
@@ -282,6 +296,7 @@ final class SiteImageRequest {
   final Completer<SiteImageBytes?> _result = Completer<SiteImageBytes?>();
   ByteCacheRequest<SiteImageBytes>? _owner;
   void Function()? _removeRetirement;
+  void Function()? _leaveOpening;
   bool _visible = false;
   bool _done = false;
 
@@ -301,6 +316,8 @@ final class SiteImageRequest {
     _done = true;
     _removeRetirement?.call();
     _removeRetirement = null;
+    _leaveOpening?.call();
+    _leaveOpening = null;
     _owner?.release();
     _owner = null;
     _onDone();
@@ -325,7 +342,10 @@ final class _SiteImageOpening {
   }
 
   final SiteLease lease;
-  late final Future<_SiteImageSession?> result;
+  final _result = Completer<_SiteImageSession?>();
+  Future<_SiteImageSession?> get result => _result.future;
+  void complete(Future<_SiteImageSession?> result) => _result.complete(result);
+  int consumers = 0;
   final _retired = Completer<void>();
   void Function()? _detach;
 
