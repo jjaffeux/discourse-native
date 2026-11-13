@@ -41,6 +41,30 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test('disabling tagging releases a pending directory load', () async {
+    final configs = <String, SiteConfig>{};
+    final api = _RefreshingTaxonomyApi(siteConfigs: configs);
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    addTearDown(api.releaseOldRefreshes);
+    api.holdOldRefreshes();
+    var finished = false;
+    final pending = shell.loadTags(_site, force: true).then((_) {
+      finished = true;
+    });
+    await api.oldTagsRequested.future;
+    configs[_site] = const SiteConfig(taggingEnabled: false);
+    await shell.sitePresentation.refreshConfig(_site);
+    expect(shell.siteConfigFor(_site).taggingEnabled, isFalse);
+    await shell.loadTags(_site);
+    await pumpEventQueue();
+    final finishedBeforeResponse = finished;
+    api.releaseOldRefreshes();
+    await pending;
+    expect(shell.tagDirectoryFeedFor(_site).tags, isEmpty);
+    expect(finishedBeforeResponse, isTrue);
+  });
+
   test('concurrent category page callers wait for the shared result', () async {
     final api = _RefreshingTaxonomyApi();
     final shell = await _loadShell(api);
@@ -735,7 +759,7 @@ final class _LookupApi extends FakeDiscourseApi {
 }
 
 final class _RefreshingTaxonomyApi extends FakeDiscourseApi {
-  _RefreshingTaxonomyApi()
+  _RefreshingTaxonomyApi({super.siteConfigs})
     : super(
         feeds: const {'/latest.json': []},
         categoryList: const [_oldRoot],

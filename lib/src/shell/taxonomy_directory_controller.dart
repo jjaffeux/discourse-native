@@ -42,7 +42,8 @@ final class _TaxonomySite {
   categoryNotificationAuthorities = {};
   Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
-  RequestIntentOperation<void>? tagDirectoryRequest;
+  ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
+  tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
   List<SidebarTag> anonymousDefaultTags = const [];
   _CategorySidebarCache? categorySidebarCache;
@@ -560,20 +561,16 @@ final class _TaxonomyDirectoryController
       return;
     }
     if (!_shell.siteConfigFor(siteUrl).taggingEnabled) {
-      final held = site.tagDirectoryFeed;
-      if (!held.loaded || held.tags.isNotEmpty || held.error != null) {
-        site.tagDirectoryFeed = const TagDirectoryFeed(loaded: true);
-        _shell._notify();
-      }
+      _clearDisabledTagDirectory(site);
       return;
     }
     final held = site.tagDirectoryFeed;
     final active = site.tagDirectoryRequest;
-    if (active != null) return active.join();
+    if (active != null) return active.operation.join();
     if (!force && held.loaded) return;
     final request = RequestIntentOperation<void>();
-    site.tagDirectoryRequest = request;
     final retired = Completer<void>();
+    site.tagDirectoryRequest = (operation: request, cancellation: retired);
     site.directoryWaiters.add(retired);
 
     site.tagDirectoryFeed = held.refreshing();
@@ -584,6 +581,22 @@ final class _TaxonomyDirectoryController
     );
     _shell._notify();
     return request.future;
+  }
+
+  void _clearDisabledTagDirectory(_TaxonomySite site) {
+    final pending = site.tagDirectoryRequest;
+    site.tagDirectoryRequest = null;
+    if (pending != null && site.directoryWaiters.remove(pending.cancellation)) {
+      pending.cancellation.complete();
+    }
+    final held = site.tagDirectoryFeed;
+    if (!held.loaded ||
+        held.loading ||
+        held.tags.isNotEmpty ||
+        held.error != null) {
+      site.tagDirectoryFeed = const TagDirectoryFeed(loaded: true);
+      _shell._notify();
+    }
   }
 
   Future<void> _loadTagDirectory(
@@ -612,7 +625,11 @@ final class _TaxonomyDirectoryController
         ),
         retired.future.then<List<SidebarTag>?>((_) => null),
       ]);
-      if (tags == null || retired.isCompleted) return;
+      if (tags == null || retired.isCompleted || !lease.isCurrent) return;
+      if (!_shell.siteConfigFor(siteUrl).taggingEnabled) {
+        _clearDisabledTagDirectory(site);
+        return;
+      }
       final visibleTags = instance.user == null
           ? tags.where((tag) => !tag.pmOnly)
           : tags;
@@ -626,6 +643,10 @@ final class _TaxonomyDirectoryController
           retired.isCompleted) {
         return;
       }
+      if (!_shell.siteConfigFor(siteUrl).taggingEnabled) {
+        _clearDisabledTagDirectory(site);
+        return;
+      }
 
       lease.commit(() {
         site.tagDirectoryFeed = held.withError(
@@ -635,7 +656,7 @@ final class _TaxonomyDirectoryController
       });
     } finally {
       site.directoryWaiters.remove(retired);
-      if (identical(site.tagDirectoryRequest, request)) {
+      if (identical(site.tagDirectoryRequest?.operation, request)) {
         site.tagDirectoryRequest = null;
       }
     }
