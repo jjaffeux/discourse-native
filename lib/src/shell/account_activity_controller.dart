@@ -439,13 +439,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     final active = _pluginNotificationDismissTasks[key];
     if (active != null) return active;
 
-    late final Future<void> task;
-    task = _dismissPluginNotifications(instance, source).whenComplete(() {
-      if (identical(_pluginNotificationDismissTasks[key], task)) {
-        final _ = _pluginNotificationDismissTasks.remove(key);
-      }
-    });
+    final completion = Completer<void>();
+    final task = completion.future;
     _pluginNotificationDismissTasks[key] = task;
+    completion.complete(
+      _dismissPluginNotifications(instance, source).whenComplete(() {
+        if (identical(_pluginNotificationDismissTasks[key], task)) {
+          final _ = _pluginNotificationDismissTasks.remove(key);
+        }
+      }),
+    );
     return task;
   }
 

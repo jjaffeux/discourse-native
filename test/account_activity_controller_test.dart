@@ -2570,6 +2570,41 @@ void main() {
     );
 
     test(
+      'a dismissal requested during reconciliation joins the write',
+      () async {
+        final api = _AccountApi();
+        final credentials = FakeApiCredentialReader()..keys[_siteUrl] = 'key';
+        final connected = _connectedInstance();
+        Future<void>? joined;
+        var requested = false;
+        late final AccountActivityController controller;
+        controller = _controller(
+          api,
+          credentials,
+          onGroupedUnreadAuthorityAdvanced: (_) {
+            if (requested) return;
+            requested = true;
+            joined = controller.dismissPluginNotifications(
+              connected,
+              _dismissibleChatFeed,
+            );
+          },
+        );
+        addTearDown(controller.dispose);
+
+        final dismissing = controller.dismissPluginNotifications(
+          connected,
+          _dismissibleChatFeed,
+        );
+        await dismissing;
+        await joined;
+
+        expect(api.markedTypesRead, hasLength(1));
+        expect(joined, same(dismissing));
+      },
+    );
+
+    test(
       'typed dismissal does not pin a row received during the write as read',
       () async {
         final api = _GatedBulkDismissApi();
