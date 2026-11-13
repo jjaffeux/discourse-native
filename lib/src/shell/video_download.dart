@@ -44,15 +44,6 @@ final class NativeVideoDownloader implements VideoDownloader {
   final http.Client? _client;
   final Duration requestTimeout;
 
-  bool get _usesSaveDialog => switch (_platform) {
-    TargetPlatform.linux ||
-    TargetPlatform.macOS ||
-    TargetPlatform.windows => true,
-    TargetPlatform.android ||
-    TargetPlatform.iOS ||
-    TargetPlatform.fuchsia => false,
-  };
-
   @override
   Future<MediaDownloadResult> download({
     required Uri url,
@@ -68,10 +59,10 @@ final class NativeVideoDownloader implements VideoDownloader {
         : requireSafeHttpUrl(Uri.parse(siteUrl));
     final lease = siteUrl == null ? null : lifecycle?.capture(siteUrl);
     final filename = videoDownloadFilename(title: title, url: url);
-    final destination = _usesSaveDialog
+    final destination = usesMediaSaveDialog(_platform)
         ? await _environment.chooseSavePath(suggestedName: filename)
         : null;
-    if (_usesSaveDialog && destination == null) {
+    if (usesMediaSaveDialog(_platform) && destination == null) {
       return const MediaDownloadCancelled();
     }
     _requireCurrent(lease);

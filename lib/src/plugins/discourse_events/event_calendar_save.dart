@@ -18,12 +18,7 @@ Future<void> saveEventCalendar(
   if (!isCurrent()) return;
   const environment = NativeMediaDownloadEnvironment();
   final bytes = Uint8List.fromList(utf8.encode(calendar));
-  if (!kIsWeb &&
-      {
-        TargetPlatform.macOS,
-        TargetPlatform.windows,
-        TargetPlatform.linux,
-      }.contains(defaultTargetPlatform)) {
+  if (!kIsWeb && usesMediaSaveDialog(defaultTargetPlatform)) {
     final path = await environment.chooseSavePath(
       suggestedName: filename,
       fileType: (label: appL10n.calendar, extension: 'ics'),

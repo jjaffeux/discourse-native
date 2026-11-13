@@ -3,10 +3,20 @@ import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
 import 'package:file_selector/file_selector.dart' as selector;
+import 'package:flutter/foundation.dart' show TargetPlatform;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart' as sharing;
 
 import 'media_download_environment.dart';
+
+bool usesMediaSaveDialog(TargetPlatform platform) => switch (platform) {
+  TargetPlatform.linux ||
+  TargetPlatform.macOS ||
+  TargetPlatform.windows => true,
+  TargetPlatform.android ||
+  TargetPlatform.iOS ||
+  TargetPlatform.fuchsia => false,
+};
 
 final class NativeMediaDownloadEnvironment implements MediaDownloadEnvironment {
   const NativeMediaDownloadEnvironment();

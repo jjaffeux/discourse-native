@@ -30,15 +30,6 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
   final TargetPlatform _platform;
   final MediaDownloadEnvironment _environment;
 
-  bool get _usesSaveDialog => switch (_platform) {
-    TargetPlatform.linux ||
-    TargetPlatform.macOS ||
-    TargetPlatform.windows => true,
-    TargetPlatform.android ||
-    TargetPlatform.iOS ||
-    TargetPlatform.fuchsia => false,
-  };
-
   @override
   Future<MediaDownloadResult> download({
     required String url,
@@ -51,10 +42,10 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         ? null
         : repository?.lifecycle.capture(siteUrl);
     final suggestedName = imageDownloadFilename(title: title, url: url);
-    final destination = _usesSaveDialog
+    final destination = usesMediaSaveDialog(_platform)
         ? await _environment.chooseSavePath(suggestedName: suggestedName)
         : null;
-    if (_usesSaveDialog && destination == null) {
+    if (usesMediaSaveDialog(_platform) && destination == null) {
       return const MediaDownloadCancelled();
     }
 
