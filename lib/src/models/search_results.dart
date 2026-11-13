@@ -489,6 +489,21 @@ class SearchExcerpt {
   factory SearchExcerpt.fromHtml(String source) {
     if (source.isEmpty) return const SearchExcerpt([]);
     source = _boundedHtmlSource(source);
+    if (!source.contains('<') &&
+        !source.contains('&') &&
+        !source.contains('\r') &&
+        !source.contains('\u0000')) {
+      final text = source.replaceAll(_whitespace, ' ');
+      final start = text.startsWith(' ') ? 1 : 0;
+      final end = text.endsWith(' ') ? text.length - 1 : text.length;
+      return SearchExcerpt(
+        start >= end
+            ? const []
+            : List.unmodifiable([
+                SearchExcerptSegment(text.substring(start, end)),
+              ]),
+      );
+    }
 
     final raw = <({StringBuffer text, bool highlighted})>[];
     void append(String text, bool highlighted) {

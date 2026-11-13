@@ -77,6 +77,7 @@ class PostChecklistDocument {
     return boxes;
   }
 
+  static final _checkboxMarker = RegExp(r'\[[ xX]?\]');
   static final _sourcePattern = RegExp(r'^\d+:\d+$');
 
   late final List<PostChecklistTarget> targets = List.unmodifiable([
@@ -146,19 +147,19 @@ class PostChecklistDocument {
     final lines = raw.split(RegExp(r'\r\n?|\n'));
     for (final entry in sources.entries) {
       if (entry.key >= lines.length) return null;
-      final markers = RegExp(
-        r'\[[ xX]?\]',
-      ).allMatches(lines[entry.key]).toList();
-      for (final ordinal in entry.value) {
-        if (ordinal >= markers.length || markers[ordinal][0] == '[X]') {
-          return null;
-        }
-      }
       var ordinal = 0;
-      lines[entry.key] = lines[entry.key].replaceAllMapped(
-        RegExp(r'\[[ xX]?\]'),
-        (match) => entry.value.contains(ordinal++) ? '[ ]' : match[0]!,
-      );
+      var found = 0;
+      var invalid = false;
+      lines[entry.key] = lines[entry.key].replaceAllMapped(_checkboxMarker, (
+        match,
+      ) {
+        final marker = match[0]!;
+        if (!entry.value.contains(ordinal++)) return marker;
+        found++;
+        if (marker == '[X]') invalid = true;
+        return '[ ]';
+      });
+      if (invalid || found != entry.value.length) return null;
     }
     return lines.join('\n');
   }

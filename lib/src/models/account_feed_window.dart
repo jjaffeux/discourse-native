@@ -36,8 +36,10 @@ class AccountFeedWindow<T> {
 
   int get start => packets.firstOrNull?.start ?? 0;
   int get end => packets.lastOrNull?.end ?? 0;
-  List<T> get items =>
-      List.unmodifiable([for (final packet in packets) ...packet.items]);
+  List<T> get items {
+    if (packets.length == 1) return packets.first.items;
+    return List.unmodifiable([for (final packet in packets) ...packet.items]);
+  }
 
   int estimatedBytes(int Function(T) estimate) => packets.fold(
     0,

@@ -17,19 +17,8 @@ Duration? parseRetryAfter(
   final value = header?.trim();
   if (value == null || value.isEmpty) return null;
 
-  if (RegExp(r'^[0-9]+$').hasMatch(value)) {
-    // Compare before converting: a valid delta-seconds value can exceed the
-    // machine integer range. It still means the configured maximum, not a
-    // missing header. Keep subsecond precision when applying that maximum.
-    final digits = value.replaceFirst(RegExp(r'^0+'), '');
-    if (digits.isEmpty) return Duration.zero;
-    final limit = maximum.inSeconds.toString();
-    if (digits.length > limit.length ||
-        (digits.length == limit.length && digits.compareTo(limit) > 0)) {
-      return maximum;
-    }
-    return Duration(seconds: int.parse(digits));
-  }
+  final delta = _parseDelta(value, maximum);
+  if (delta != null) return delta;
 
   final date = _tryParseHttpDate(value);
   if (date == null) return null;
@@ -37,6 +26,38 @@ Duration? parseRetryAfter(
   final delay = date.difference(reference);
   if (delay <= Duration.zero) return Duration.zero;
   return delay > maximum ? maximum : delay;
+}
+
+final _decimalDigits = RegExp(r'^[0-9]+$');
+final _leadingZeros = RegExp(r'^0+');
+
+Duration? _parseDelta(String value, Duration maximum) {
+  final limit = maximum.inSeconds;
+  if (maximum.isNegative) {
+    if (!_decimalDigits.hasMatch(value)) return null;
+    final digits = value.replaceFirst(_leadingZeros, '');
+    if (digits.isEmpty) return Duration.zero;
+    final oldLimit = limit.toString();
+    if (digits.length > oldLimit.length ||
+        (digits.length == oldLimit.length && digits.compareTo(oldLimit) > 0)) {
+      return maximum;
+    }
+    return Duration(seconds: int.parse(digits));
+  }
+
+  var seconds = 0;
+  var capped = false;
+  for (var index = 0; index < value.length; index++) {
+    final digit = value.codeUnitAt(index) - 0x30;
+    if (digit < 0 || digit > 9) return null;
+    if (capped) continue;
+    if (digit > limit || seconds > (limit - digit) ~/ 10) {
+      capped = true;
+    } else {
+      seconds = seconds * 10 + digit;
+    }
+  }
+  return capped ? maximum : Duration(seconds: seconds);
 }
 
 DateTime? _tryParseHttpDate(String? value) {

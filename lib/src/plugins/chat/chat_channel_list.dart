@@ -21,17 +21,13 @@ List<ChatChannel> projectChatChannelList(
     channel,
     () => (unreadCountFor ?? _unread)(channel),
   );
-  final priorities = Map<ChatChannel, int>.identity();
-  int priority(ChatChannel channel) => priorities.putIfAbsent(
-    channel,
-    () => channel.membership.muted
-        ? 2
-        : _urgent(channel) > 0
-        ? 0
-        : unread(channel) > 0
-        ? 1
-        : 2,
-  );
+  int priority(ChatChannel channel) => channel.membership.muted
+      ? 2
+      : _urgent(channel) > 0
+      ? 0
+      : unread(channel) > 0
+      ? 1
+      : 2;
   final cutoff = now.subtract(const Duration(days: 30));
   var result = channels.where((channel) {
     if (channel.id == activeChannelId) return true;
@@ -69,18 +65,39 @@ List<ChatChannel> projectChatChannelList(
               : a.channel.id.compareTo(b.channel.id);
         });
     result = [for (final entry in ranked) entry.channel];
-  } else {
+  } else if (sort == ChatChannelListSort.recentActivity) {
     result.sort((a, b) {
-      if (sort == ChatChannelListSort.priority) {
-        final compared = priority(a).compareTo(priority(b));
-        if (compared != 0) return compared;
-        if (section != ChatChannelListSection.directMessages) {
-          return _alphabetical(a, b);
-        }
-      }
       final recent = _recency(a, b);
       return recent != 0 ? recent : _alphabetical(a, b);
     });
+  } else if (result.length > 1) {
+    final byActivity = section == ChatChannelListSection.directMessages;
+    final ranked =
+        [
+          for (final channel in result)
+            (
+              channel: channel,
+              priority: priority(channel),
+              activity: byActivity ? _activityAt(channel) : null,
+              name:
+                  (channel.isDirectMessage ? channel.title : channel.slug ?? '')
+                      .toLowerCase(),
+            ),
+        ]..sort((a, b) {
+          final compared = a.priority.compareTo(b.priority);
+          if (compared != 0) return compared;
+          final aTime = a.activity;
+          final bTime = b.activity;
+          final recent = aTime == null
+              ? (bTime == null ? 0 : 1)
+              : bTime == null
+              ? -1
+              : bTime.compareTo(aTime);
+          if (recent != 0) return recent;
+          final name = a.name.compareTo(b.name);
+          return name != 0 ? name : a.channel.id.compareTo(b.channel.id);
+        });
+    result = [for (final entry in ranked) entry.channel];
   }
   if (limit == null || result.length <= limit) return List.unmodifiable(result);
   final limited = result.take(limit).toList();
@@ -120,3 +137,8 @@ int _recency(ChatChannel a, ChatChannel b) {
   if (aHasActivity != bHasActivity) return aHasActivity ? -1 : 1;
   return aHasActivity ? b.lastMessageAt!.compareTo(a.lastMessageAt!) : 0;
 }
+
+DateTime? _activityAt(ChatChannel channel) =>
+    channel.lastMessageId != null && channel.lastMessageId != 0
+    ? channel.lastMessageAt
+    : null;

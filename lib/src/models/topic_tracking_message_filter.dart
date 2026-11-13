@@ -70,18 +70,21 @@ final class TopicTrackingMessageFilter {
     if (!config.taggingEnabled || mutedTags == null || mutedTags.isEmpty) {
       return true;
     }
-    final tagIds = [
-      for (final tag in jsonArray(jsonObject(value['payload'])['tags']))
-        ?liveRefreshId(jsonObject(tag)['id']),
-    ];
-    // Like the server's topic query, an untagged topic is not tag-muted.
-    // Older reports that omit tags cannot establish a tag mute either.
-    if (tagIds.isEmpty) return true;
-    return switch (config.removeMutedTagsFromLatest) {
-      'always' => !tagIds.any(mutedTags.contains),
-      'only_muted' => !tagIds.every(mutedTags.contains),
-      _ => true,
-    };
+    final mode = config.removeMutedTagsFromLatest;
+    if (mode != 'always' && mode != 'only_muted') return true;
+    final rejectOnMutedTag = mode == 'always';
+    var hasTag = false;
+    final tags = jsonArray(jsonObject(value['payload'])['tags']);
+    for (final tag in tags) {
+      final id = liveRefreshId(jsonObject(tag)['id']);
+      if (id == null) continue;
+      hasTag = true;
+      if (mutedTags.contains(id) == rejectOnMutedTag) {
+        return !rejectOnMutedTag;
+      }
+    }
+    // Untagged and older reports without tags cannot establish a tag mute.
+    return rejectOnMutedTag || !hasTag;
   }
 
   void _recordHint(Object? type, int? topicId) {

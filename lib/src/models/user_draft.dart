@@ -72,7 +72,10 @@ class UserDraft {
   final String? _excerpt;
 
   static const int _maximumExcerptCodeUnits = 512;
-  static final RegExp _excerptTokens = RegExp(r'(\S)|\s+', unicode: true);
+  static final RegExp _excerptTokens = RegExp(
+    r'([!-~]{2,128}|\S)|\s+',
+    unicode: true,
+  );
 
   int? get displayCategoryId => categoryId ?? data?.categoryId;
 
@@ -123,7 +126,12 @@ class UserDraft {
       }
       excerpt.write(pendingWhitespace);
       pendingWhitespace.clear();
-      excerpt.write(scalar);
+      final available = _maximumExcerptCodeUnits + 1 - excerpt.length;
+      if (available > 0 && scalar.length > available && scalar.length > 2) {
+        excerpt.write(scalar.substring(0, available));
+      } else {
+        excerpt.write(scalar);
+      }
       if (excerpt.length > _maximumExcerptCodeUnits) break;
     }
     final normalized = excerpt.toString();
