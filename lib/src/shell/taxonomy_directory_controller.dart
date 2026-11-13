@@ -681,9 +681,12 @@ final class _TaxonomyDirectoryController
       if (retired.isCompleted) return;
       final session = AccountRequestSession(siteUrl, lease);
       final credential = instance.isConnected
-          ? await session.credentials(_shell.credentials)
+          ? await Future.any<AccountRequestCredentials?>([
+              retired.future.then((_) => null),
+              session.credentials(_shell.credentials),
+            ])
           : session.anonymousCredentials();
-      if (!lease.isCurrent || retired.isCompleted) return;
+      if (credential == null || !lease.isCurrent || retired.isCompleted) return;
       final tags = await Future.any<List<SidebarTag>?>([
         credential.run(
           () => _shell.api.tags.tags(

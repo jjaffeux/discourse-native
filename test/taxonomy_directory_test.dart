@@ -42,6 +42,34 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   test(
+    'disabling tagging releases a directory waiting for credentials',
+    () async {
+      final configs = <String, SiteConfig>{};
+      final api = _RefreshingTaxonomyApi(siteConfigs: configs);
+      final authenticator = _PageAuthenticator();
+      final shell = await _loadShell(api, authenticator: authenticator);
+      addTearDown(shell.dispose);
+      final key = Completer<String?>();
+      authenticator.nextKey = key.future;
+      var finished = false;
+      final pending = shell.loadTags(_site, force: true).then((_) {
+        finished = true;
+      });
+      await pumpEventQueue();
+      expect(authenticator.nextKey, isNull);
+      final requests = api.tagRequests.length;
+      configs[_site] = const SiteConfig(taggingEnabled: false);
+      await shell.sitePresentation.refreshConfig(_site);
+      await pumpEventQueue();
+      final finishedBeforeKey = finished;
+      key.complete('api-key');
+      await pending;
+      expect(finishedBeforeKey, isTrue);
+      expect(api.tagRequests, hasLength(requests));
+    },
+  );
+
+  test(
     'superseded category pagination releases a pending credential read',
     () async {
       final api = _RefreshingTaxonomyApi();
