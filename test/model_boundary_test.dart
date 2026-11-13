@@ -655,6 +655,23 @@ void main() {
     });
   });
 
+  test('a likes response cannot render a blank or duplicate profile', () {
+    final likers = PostLikers.parse(
+      const {
+        'post_action_users': [
+          {'id': 8, 'username': 'sam'},
+          {'id': 9, 'username': '  '},
+          {'id': 8, 'username': 'sam'},
+          {'username': 'missing-id'},
+          {'id': 10, 'username': 'chris'},
+        ],
+      },
+      postId: 7,
+      siteUrl: siteUrl,
+    );
+    expect(likers.likers.map((liker) => liker.username), ['sam', 'chris']);
+  });
+
   test('bounds a nonconforming likes response to one requested page', () {
     final likers = PostLikers.parse(
       {

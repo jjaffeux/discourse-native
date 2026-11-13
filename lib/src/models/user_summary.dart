@@ -57,11 +57,12 @@ final class UserSummary {
     final replies = <UserSummaryReply>[];
     for (final value in jsonObjects(summary['replies']).take(maximumResults)) {
       final topic = topicById[jsonInt(value['topic_id'])];
-      if (topic == null) continue;
+      final postNumber = jsonInt(value['post_number']);
+      if (topic == null || postNumber <= 0) continue;
       replies.add(
         UserSummaryReply(
           topic: topic,
-          postNumber: jsonInt(value['post_number']),
+          postNumber: postNumber,
           likeCount: jsonInt(value['like_count']),
           createdAt: jsonDate(value['created_at']),
         ),

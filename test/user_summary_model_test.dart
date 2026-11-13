@@ -85,6 +85,22 @@ Map<String, dynamic> _payload() => {
 };
 
 void main() {
+  test('summary replies without a post number do not open the topic start', () {
+    final summary = UserSummary.fromJson(const {
+      'topics': [
+        {'id': 11, 'title': 'Topic', 'slug': 'topic'},
+      ],
+      'user_summary': {
+        'replies': [
+          {'topic_id': 11},
+          {'topic_id': 11, 'post_number': 0},
+          {'topic_id': 11, 'post_number': 4},
+        ],
+      },
+    }, _siteUrl);
+    expect(summary.replies.map((reply) => reply.postNumber), [4]);
+  });
+
   test('summary construction owns all published collection snapshots', () {
     final parsed = UserSummary.fromJson(_payload(), _siteUrl);
     final topics = [...parsed.topics];

@@ -70,6 +70,16 @@ void main() {
     },
   );
 
+  test('a required report filter does not offer a catch-all choice', () {
+    final filter = ReportFilter({
+      'id': 'event_type',
+      'type': 'list',
+      'allow_any': false,
+      'choices': ['success', 'failure'],
+    }, const {});
+    expect(filter.allowAny, isFalse);
+  });
+
   test('regression: Top Uploads exposes string-valued extension choices', () {
     final details = ReportDetails.fromJson({
       'data': {

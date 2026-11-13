@@ -7,7 +7,8 @@ final class ReportFilter {
       type = jsonString(json['type']),
       value = json['default'],
       disabled = json['disabled'] == true,
-      allowAny = json['auto_insert_none_item'] != false,
+      allowAny =
+          json['allow_any'] != false && json['auto_insert_none_item'] != false,
       choices = Map.unmodifiable({
         for (final choice in jsonArray(switch (json['type']) {
           'category' || 'category_list' => site['categories'],

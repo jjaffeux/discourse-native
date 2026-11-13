@@ -53,15 +53,22 @@ class PostLikers with Storable<PostLikers> {
     Map<String, dynamic> json, {
     required int postId,
     required String siteUrl,
-  }) => PostLikers(
-    postId: postId,
-    likers: List.unmodifiable([
-      for (final entry in jsonObjects(
-        json['post_action_users'],
-      ).take(maximumPageSize))
-        PostLiker.fromJson(entry, siteUrl),
-    ]),
-  );
+  }) {
+    final seen = <int>{};
+    return PostLikers(
+      postId: postId,
+      likers: List.unmodifiable([
+        for (final entry in jsonObjects(
+          json['post_action_users'],
+        ).take(maximumPageSize))
+          if (PostLiker.fromJson(entry, siteUrl) case final liker
+              when liker.id > 0 &&
+                  liker.username.trim().isNotEmpty &&
+                  seen.add(liker.id))
+            liker,
+      ]),
+    );
+  }
 
   final int postId;
   final List<PostLiker> likers;
