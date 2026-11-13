@@ -44,18 +44,23 @@ final class OriginCooldown {
     }
 
     _until = proposedUntil;
-    void wake() {
+    _scheduleWake(delay, onExpired);
+    return delay;
+  }
+
+  void _scheduleWake(Duration delay, void Function() onExpired) {
+    late final Timer timer;
+    timer = _timerFactory(delay, () {
+      if (!identical(_wake, timer)) return;
       _wake = null;
       final stillBlocked = remaining;
       if (stillBlocked != null) {
-        _wake = _timerFactory(stillBlocked, wake);
-        return;
+        _scheduleWake(stillBlocked, onExpired);
+      } else {
+        onExpired();
       }
-      onExpired();
-    }
-
-    _wake = _timerFactory(delay, wake);
-    return delay;
+    });
+    _wake = timer;
   }
 
   void cancel() {

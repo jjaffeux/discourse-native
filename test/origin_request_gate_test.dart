@@ -7,6 +7,35 @@ import 'package:flutter_test/flutter_test.dart';
 import 'support/manual_scheduler.dart';
 
 void main() {
+  test('a replaced cooldown wake leaves its replacement in charge', () async {
+    final scheduler = ManualScheduler();
+    final callbacks = <void Function()>[];
+    final gate = OriginRequestGate(
+      maxConcurrentPerOrigin: 1,
+      maxQueuedPerOrigin: 1,
+      cooldownPolicy: OriginRequestCooldownPolicy.wait,
+      cooldownFactory: () => OriginCooldown(
+        clock: scheduler.now,
+        timerFactory: (delay, callback) {
+          callbacks.add(callback);
+          return scheduler.createTimer(delay, callback);
+        },
+      ),
+    );
+    addTearDown(gate.close);
+    final origin = Uri.parse('https://forum.example');
+    gate.extendCooldown(origin, const Duration(seconds: 1));
+    final result = gate.run(origin, (_) async => 7);
+    result.ignore();
+    gate.extendCooldown(origin, const Duration(seconds: 2));
+
+    callbacks.first();
+    expect(scheduler.activeTimerCount, 1);
+    scheduler.advance(const Duration(seconds: 2));
+    expect(await result, 7);
+    expect(scheduler.activeTimerCount, 0);
+  });
+
   test('a priority callback can cool down an earlier candidate', () async {
     final scheduler = ManualScheduler();
     final gate = OriginRequestGate(
