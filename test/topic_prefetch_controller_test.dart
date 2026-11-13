@@ -128,10 +128,11 @@ void main() {
         return response.future;
       }
 
+      var predictionCurrent = true;
       final releasePrediction = controller.hover(
         key(1),
         load: load,
-        isCurrent: () => true,
+        isCurrent: () => predictionCurrent,
         intent: TopicPrefetchIntent.trajectory,
       );
       await tester.pump();
@@ -141,7 +142,9 @@ void main() {
         load: load,
         isCurrent: () => true,
       );
+      predictionCurrent = false;
       releasePrediction();
+      controller.validate();
       final adopted = controller.take(key(1));
       releaseHover();
       expect(cancellation.isCancelled, isFalse);

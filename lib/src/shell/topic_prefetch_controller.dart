@@ -85,10 +85,14 @@ final class TopicPrefetchController {
           _drain();
         });
       }
-    } else if (!held.ready && intent == TopicPrefetchIntent.trajectory) {
-      _timer?.cancel();
-      _timer = null;
-      held.ready = true;
+    } else {
+      held.isCurrent = isCurrent;
+      if (!held.started) held.load = load;
+      if (!held.ready && intent == TopicPrefetchIntent.trajectory) {
+        _timer?.cancel();
+        _timer = null;
+        held.ready = true;
+      }
     }
     _hoverOwner = owner;
     _drain();
@@ -213,8 +217,8 @@ final class _Prefetch {
 
   final requestIntent = RequestIntent.background();
   final TopicPrefetchKey key;
-  final TopicPrefetchLoader load;
-  final bool Function() isCurrent;
+  TopicPrefetchLoader load;
+  bool Function() isCurrent;
   final cancellation = TopicPrefetchCancellation();
   final result = Completer<PrefetchedTopic?>();
   bool ready = false;
