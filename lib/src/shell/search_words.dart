@@ -32,7 +32,10 @@ List<String> searchWords(String query) =>
         .toList()
       ..sort((a, b) => b.length.compareTo(a.length));
 
-final _searchOperator = RegExp(r'^-?[a-z_][a-z0-9_-]*:', caseSensitive: false);
+final _searchOperator = RegExp(
+  r'^-?[a-z_][a-z0-9_-]*:(?!//)',
+  caseSensitive: false,
+);
 
 RegExp? searchWordPattern(String query) {
   final words = searchWords(query);

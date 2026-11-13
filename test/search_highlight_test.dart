@@ -26,6 +26,16 @@ void main() {
     },
   );
 
+  test('absolute URL search terms are highlighted as text', () {
+    const url = 'https://example.test/docs';
+    const query = '$url category:support';
+    expect(searchWords(query), [url]);
+    final fragment = html_parser.parseFragment(
+      highlightSearchHtml('<p>See $url</p>', query),
+    );
+    expect(fragment.querySelector('mark.native-search-hit')?.text, url);
+  });
+
   test('regression: search snippets start at a whole grapheme', () {
     for (final grapheme in ['😀', 'e\u0301', '👩‍💻']) {
       final text = '${'x' * 65}$grapheme${' ' * 39}needle';
