@@ -153,6 +153,31 @@ void main() {
   );
 
   test(
+    'releases an extraction returned after synchronous retirement',
+    () async {
+      final lifecycle = SiteLifecycle();
+      final lateResult = Completer<Uint8List?>();
+      var releases = 0;
+      final repository = SiteVideoThumbnailRepository(
+        credentials: FakeApiCredentialReader(),
+        lifecycle: lifecycle,
+        generator: (_) {
+          lifecycle.invalidate(_site);
+          return ThumbnailRequest(lateResult.future, () => releases++);
+        },
+      );
+      addTearDown(repository.dispose);
+
+      final request = repository.acquire(siteUrl: _site, url: _source);
+      expect(await request.result, isNull);
+      expect(releases, 1);
+      lateResult.completeError(StateError('cancelled native extraction'));
+      await _flush();
+      expect(releases, 1);
+    },
+  );
+
+  test(
     'retirement releases active and queued jobs without explicit forget',
     () async {
       final harness = _Harness(maxConcurrent: 1);

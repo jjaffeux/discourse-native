@@ -123,6 +123,12 @@ class SiteThumbnailRepository {
       if (!_current(job)) return;
       final extraction = generator!(source.url);
       job.extraction = extraction;
+      // The generator can synchronously retire this job before returning its
+      // handle. Observe its result and let finally release the late handle.
+      if (!_current(job)) {
+        extraction.result.ignore();
+        return;
+      }
       bytes = await Future.any([extraction.result, job.result.future]);
       if (bytes != null) {
         bytes = bytes.isEmpty || bytes.length > 2 * 1024 * 1024
