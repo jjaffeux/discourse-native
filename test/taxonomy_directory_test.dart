@@ -42,6 +42,28 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   test(
+    'category searches discard results after same-lease taxonomy cleanup',
+    () async {
+      final api = _EditorCategorySearchApi(true);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final response = Completer<List<TopicCategory>>();
+      api.pendingSearch = response.future;
+      final pending = shell.searchTopicCategoriesForEditor(
+        siteUrl: _site,
+        term: 'Directory',
+      );
+      await pumpEventQueue();
+      expect(api.includeUncategorizedRequests, [true]);
+      final lease = shell.lifecycle.capture(_site);
+      shell.clearAccountSessionState(_site);
+      expect(lease.isCurrent, isTrue);
+      response.complete([_directoryRoot]);
+      expect(await pending, isEmpty);
+    },
+  );
+
+  test(
     'tag search drops results across a disable and re-enable cycle',
     () async {
       final configs = <String, SiteConfig>{};
@@ -701,6 +723,7 @@ final class _EditorCategorySearchApi extends FakeDiscourseApi {
       );
 
   final includeUncategorizedRequests = <bool>[];
+  Future<List<TopicCategory>>? pendingSearch;
 
   @override
   Future<List<TopicCategory>> searchCategories({
@@ -712,6 +735,7 @@ final class _EditorCategorySearchApi extends FakeDiscourseApi {
     String? clientId,
   }) {
     includeUncategorizedRequests.add(includeUncategorized);
+    if (pendingSearch case final pending?) return pending;
     return super.searchCategories(
       siteUrl: siteUrl,
       term: term,

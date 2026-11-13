@@ -395,11 +395,15 @@ final class _TaxonomyDirectoryController
     final site = _site(siteUrl);
     final lease = site.lease;
     final notificationRead = _CategoryRead(site);
-    if (!lease.isCurrent) return const [];
+    bool isCurrent() =>
+        lease.isCurrent &&
+        identical(_sites[siteUrl], site) &&
+        !_shell.accountSessionDisposed;
+    if (!isCurrent()) return const [];
     final categories = await _shell.topicFilterLookups.run(
       siteUrl,
 
-      (apiKey, clientId) => apiKey == null
+      (apiKey, clientId) => apiKey == null || !isCurrent()
           ? Future.value(const <TopicCategory>[])
           : _shell.api.categories.searchCategories(
               siteUrl: siteUrl,
@@ -409,13 +413,13 @@ final class _TaxonomyDirectoryController
               clientId: clientId,
             ),
     );
-    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    if (!isCurrent()) return const [];
     if (categories.isNotEmpty) {
       final previous = categoriesFor(siteUrl);
       mergeCategories(siteUrl, categories, notificationRead: notificationRead);
       if (!listEquals(previous, categoriesFor(siteUrl))) _shell._notify();
     }
-    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    if (!isCurrent()) return const [];
     final canonical = {
       for (final category in site.categories ?? const <TopicCategory>[])
         category.id: category,
@@ -545,9 +549,13 @@ final class _TaxonomyDirectoryController
     final site = _site(siteUrl);
     final lease = site.lease;
     final notificationRead = _CategoryRead(site);
-    if (!lease.isCurrent) return const [];
+    bool isCurrent() =>
+        lease.isCurrent &&
+        identical(_sites[siteUrl], site) &&
+        !_shell.accountSessionDisposed;
+    if (!isCurrent()) return const [];
     final held = await _shell._credentialForWrite(siteUrl, lease: lease);
-    if (!lease.isCurrent) return const [];
+    if (!isCurrent()) return const [];
     if (held.failure case final failure?) throw failure;
 
     final categories = await held.request!.run(
@@ -560,12 +568,12 @@ final class _TaxonomyDirectoryController
             .allowUncategorizedTopics,
       ),
     );
-    if (!lease.isCurrent) return const [];
+    if (!isCurrent()) return const [];
     lease.commit(() {
       mergeCategories(siteUrl, categories, notificationRead: notificationRead);
       _shell._notify();
     });
-    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    if (!isCurrent()) return const [];
     final canonical = {
       for (final category in site.categories ?? const <TopicCategory>[])
         category.id: category,
