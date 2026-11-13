@@ -29,31 +29,38 @@ Future<T> withStagedPrivateFile<T>(
     parent,
     prefix: prefix,
     filename: filename,
+    createFile: true,
     use: (file) async {
-      await ensurePrivateFile(file);
       await file.writeAsBytes(snapshot, flush: true);
       return use(file);
     },
   );
 }
 
-/// Runs [use] with a not-yet-created file named [filename] in a fresh
+/// Runs [use] with a path named [filename] in a fresh
 /// owner-only directory under [parent], then deletes that directory whether
 /// [use] completes or fails.
 ///
 /// This is [withStagedPrivateFile] for content too large to hold in memory:
-/// [use] writes the file itself, owner-only, before handing it to the share
-/// sheet. The basename rules and deletion timing are the same.
+/// With [createFile], the helper creates an empty owner-only file before
+/// invoking [use]. By default, the path is reserved and the consumer creates
+/// the file. The basename rules and deletion timing are the same.
 Future<T> withPrivateStagingPath<T>(
   Directory parent, {
   required String prefix,
   required String filename,
+  bool createFile = false,
   required Future<T> Function(File file) use,
 }) async {
   final directory = await parent.createTemp(prefix);
   try {
-    await ensurePrivateDirectory(directory);
-    return await use(File('${directory.path}/${_pathComponent(filename)}'));
+    final file = File('${directory.path}/${_pathComponent(filename)}');
+    if (createFile) {
+      await ensurePrivateFile(file);
+    } else {
+      await ensurePrivateDirectory(directory);
+    }
+    return await use(file);
   } finally {
     await removeStagingDirectory(directory);
   }

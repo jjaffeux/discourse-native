@@ -14,7 +14,6 @@ import '../data/site_asset_account.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/media_download_environment.dart';
 import '../foundation/native_media_download_environment.dart';
-import '../foundation/private_file_permissions.dart';
 import '../foundation/private_file_staging.dart';
 import 'download_filename.dart';
 import 'media_download_result.dart';
@@ -84,10 +83,10 @@ final class NativeVideoDownloader implements VideoDownloader {
       await _environment.temporaryDirectory(),
       prefix: 'video-download-',
       filename: filename,
+      createFile: true,
       use: (file) async {
         final client = _client ?? SafeHttpClient.create();
         try {
-          await ensurePrivateFile(file);
           final mediaType = await _fetch(
             client,
             url: url,

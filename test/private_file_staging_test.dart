@@ -85,6 +85,26 @@ void main() {
     }
   });
 
+  test(
+    'can open an empty private file before calling its stream writer',
+    () async {
+      await withPrivateStagingPath(
+        parent,
+        prefix: 'staging-',
+        filename: 'video.mp4',
+        createFile: true,
+        use: (file) async {
+          expect(await file.length(), 0);
+          if (Platform.isMacOS || Platform.isLinux) {
+            expect((await file.stat()).mode & 0x1ff, 0x180);
+            expect((await file.parent.stat()).mode & 0x1ff, 0x1c0);
+          }
+        },
+      );
+      expect(parent.listSync(), isEmpty);
+    },
+  );
+
   test('reduces a display name to one path component', () async {
     expect(await stagedName(r'a/b\c.txt'), 'a_b_c.txt');
     expect(await stagedName('../x.txt'), '.._x.txt');
