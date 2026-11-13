@@ -75,17 +75,8 @@ final class DestinationBookmarksStore {
     String accountIdentity,
   ) => List.unmodifiable(_entries[(siteUrl, accountIdentity)] ?? const []);
 
-  Future<void> load() {
-    if (_owner.pendingLoad case final pending?) return pending;
-    late final Future<void> load;
-    load = _operations
-        .run(owner: _owner, key: storageKey, operation: _load)
-        .whenComplete(() {
-          if (identical(_owner.pendingLoad, load)) _owner.pendingLoad = null;
-        });
-    _owner.pendingLoad = load;
-    return load;
-  }
+  Future<void> load() =>
+      _operations.readShared(owner: _owner, key: storageKey, operation: _load);
 
   Future<void> _load() async {
     _readable = false;
@@ -140,7 +131,7 @@ final class DestinationBookmarksStore {
     DestinationBookmark bookmark, {
     required bool bookmarked,
     bool Function()? isCurrent,
-  }) => _mutate(() async {
+  }) => _enqueue(() async {
     if (!_readable) {
       throw StateError('Destination bookmarks could not be loaded.');
     }
@@ -165,7 +156,7 @@ final class DestinationBookmarksStore {
     return true;
   });
 
-  Future<void> forgetSite(String siteUrl) => _mutate(() async {
+  Future<void> forgetSite(String siteUrl) => _enqueue(() async {
     if (!_readable) {
       throw StateError('Destination bookmarks could not be loaded.');
     }
@@ -177,17 +168,10 @@ final class DestinationBookmarksStore {
       ..addAll(next);
   });
 
-  Future<T> _mutate<T>(Future<T> Function() operation) {
-    _owner.pendingLoad = null;
-    return _operations.run(
-      owner: _owner,
-      key: storageKey,
-      operation: operation,
-    );
-  }
+  Future<T> _enqueue<T>(Future<T> Function() operation) =>
+      _operations.run(owner: _owner, key: storageKey, operation: operation);
 
-  Future<void> flush() =>
-      _operations.run(owner: _owner, key: storageKey, operation: () async {});
+  Future<void> flush() => _enqueue(() async {});
 
   String _encode(Map<(String, String), List<DestinationBookmark>> entries) =>
       jsonEncode({
@@ -220,6 +204,5 @@ final class _DestinationBookmarksOwner {
   final operations = SerialOperationQueue();
   final Map<(String, String), List<DestinationBookmark>> entries = {};
   bool readable = false;
-  Future<void>? pendingLoad;
   final CoalescingSnapshotWriter<String> snapshots;
 }
