@@ -6,6 +6,7 @@ import 'package:discourse_native/discourse_plugin_test.dart'
     show PluginTestRequestHost, RecordingPluginLiveChannels;
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/live_channels.dart';
+import 'package:discourse_native/src/models/post_flag.dart';
 import 'package:discourse_native/src/plugin_api/core_plugin_host.dart';
 import 'package:discourse_native/src/plugins/chat/chat_contract.dart';
 import 'package:discourse_native/src/plugins/chat/chat_message.dart';
@@ -540,6 +541,7 @@ void main() {
     VoiceCapabilityResolver? capabilityEnabledFor,
     VoiceTrackerLookup? trackerLookup,
     VoiceUserIdLookup? userIdFor,
+    PluginPostFlagCatalogReader? postFlagCatalog,
     int Function(String)? videoMaxPublishersFor,
     FakeChatConversationCapability? conversations,
     Duration heartbeatInterval = const Duration(days: 1),
@@ -555,6 +557,7 @@ void main() {
       api: VoiceApi(transport, namespaceFor: namespaceFor),
       chatConversations: chatConversations,
       requests: requests,
+      postFlagCatalog: postFlagCatalog,
       trackerFor:
           trackerLookup ??
           (siteUrl) => siteUrl == firstSite
@@ -3820,15 +3823,56 @@ void main() {
   });
 
   group('call commands', () {
-    Future<_ControlledVoiceTransport> joinCommands() async {
+    Future<_ControlledVoiceTransport> joinCommands({
+      PluginPostFlagCatalogReader? postFlagCatalog,
+    }) async {
       final controlled = privilegedTransport();
-      useTransport(controlled);
+      useTransport(controlled, postFlagCatalog: postFlagCatalog);
       await controller.join(
         siteUrl: firstSite,
         siteName: 'One',
         room: VoiceRoom.fromJson(fixture('room')),
       );
       return controlled;
+    }
+
+    for (final enabled in [true, false]) {
+      test('reports with an enabled cached moderator flag: $enabled', () async {
+        final controlled = await joinCommands(
+          postFlagCatalog: (site) {
+            expect(site, firstSite);
+            return [
+              PostFlagType(
+                id: 7,
+                nameKey: 'notify_moderators',
+                name: 'Something Else',
+                description: 'Notify the moderators',
+                enabled: enabled,
+              ),
+            ];
+          },
+        );
+        final priorReads = controlled.reads.length;
+
+        expect(await controller.flagParticipant(2, 'Please review'), isTrue);
+
+        expect(
+          controlled.reads
+              .skip(priorReads)
+              .where((read) => read.path == '/site.json'),
+          hasLength(enabled ? 0 : 1),
+        );
+        expect(
+          controlled.writes
+              .singleWhere((w) => w.path.endsWith('/flag.json'))
+              .body,
+          {
+            'user_id': 2,
+            'flag_type_id': enabled ? 7 : 3,
+            'message': 'Please review',
+          },
+        );
+      });
     }
 
     test(

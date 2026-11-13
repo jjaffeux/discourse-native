@@ -43,6 +43,7 @@ typedef _FeedLoad = ({
   String destinationId,
   String path,
   IncomingTopics? incoming,
+  Future<void>? publishAfter,
 });
 
 typedef _RowRange = ({int first, int last});
@@ -519,6 +520,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   final Set<int> Function(String siteUrl, String destinationId)? readerTopics;
 
   final Map<_FeedKey, _FeedSession> _sessions = {};
+  final _retainedRefreshes = <(String, Object), Future<bool>>{};
   final Map<String, String> _filterQueries = {};
   int _incomingFilterOrder = 0;
 
@@ -759,6 +761,23 @@ final class TopicFeedController extends FrameSafeNotifier {
     required IncomingTopics? incoming,
     bool force = false,
   }) {
+    return _load(
+      instance: instance,
+      destinationId: destinationId,
+      path: path,
+      incoming: incoming,
+      force: force,
+    );
+  }
+
+  Future<void> _load({
+    required DiscourseInstance instance,
+    required String destinationId,
+    required String path,
+    required IncomingTopics? incoming,
+    required bool force,
+    Future<void>? publishAfter,
+  }) {
     if (isDisposed) return Future.value();
     final key = (instance.url, destinationId);
     final session = _session(key);
@@ -767,6 +786,7 @@ final class TopicFeedController extends FrameSafeNotifier {
       destinationId: destinationId,
       path: path,
       incoming: incoming,
+      publishAfter: publishAfter,
     );
     session.requestedPath = path;
     final active = session.loadRequest;
@@ -798,7 +818,43 @@ final class TopicFeedController extends FrameSafeNotifier {
     required SiteLease lease,
     IncomingTopics? incoming,
     bool Function(String path)? wherePath,
-  }) async {
+  }) {
+    if (isDisposed || !lifecycle.owns(instance.url, lease) || !lease.isCurrent) {
+      return Future.value(false);
+    }
+    final key = (instance.url, lease.session);
+    final previous = _retainedRefreshes[key];
+    final completion = Completer<bool>();
+    final request = completion.future;
+    _retainedRefreshes[key] = request;
+    completion.complete(
+      _refreshRetained(
+        instance,
+        lease,
+        incoming,
+        wherePath,
+        previous,
+      ).whenComplete(() {
+        if (identical(_retainedRefreshes[key], request)) {
+          final _ = _retainedRefreshes.remove(key);
+        }
+      }),
+    );
+    return request;
+  }
+
+  Future<bool> _refreshRetained(
+    DiscourseInstance instance,
+    SiteLease lease,
+    IncomingTopics? incoming,
+    bool Function(String path)? wherePath,
+    Future<bool>? previous,
+  ) async {
+    if (previous != null) {
+      try {
+        await previous;
+      } catch (_) {}
+    }
     if (isDisposed || !lease.isCurrent) return false;
     final retained = [
       for (final session in _sessions.values)
@@ -807,16 +863,29 @@ final class TopicFeedController extends FrameSafeNotifier {
             (wherePath == null || wherePath(session.requestedPath!)))
           (session: session, path: session.requestedPath!),
     ];
-    for (final entry in retained) {
+    const parallelFeeds = 3;
+    for (var start = 0; start < retained.length; start += parallelFeeds) {
       if (!lease.isCurrent || isDisposed) return false;
-      if (!identical(_sessions[entry.session.key], entry.session)) continue;
-      await load(
-        instance: instance,
-        destinationId: entry.session.key.$2,
-        path: entry.path,
-        incoming: incoming,
-        force: true,
-      );
+      final requests = <Future<void>>[];
+      Future<void>? previous;
+      for (final entry in retained.skip(start).take(parallelFeeds)) {
+        if (!lease.isCurrent || isDisposed) break;
+        if (!identical(_sessions[entry.session.key], entry.session)) continue;
+        final request = _load(
+          instance: instance,
+          destinationId: entry.session.key.$2,
+          path: entry.path,
+          incoming: incoming,
+          force: true,
+          publishAfter: previous,
+        );
+        requests.add(request);
+        previous = request.then<void>(
+          (_) {},
+          onError: (Object _, StackTrace _) {},
+        );
+      }
+      await Future.wait(requests);
     }
     return lease.isCurrent &&
         !isDisposed &&
@@ -845,7 +914,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   Future<void> _performLoad(_FeedSession session, _FeedLoad load) async {
-    final (:instance, :destinationId, :path, :incoming) = load;
+    final (:instance, :destinationId, :path, :incoming, :publishAfter) = load;
     final existing = session.feed;
 
     final lease = lifecycle.capture(instance.url);
@@ -873,6 +942,10 @@ final class TopicFeedController extends FrameSafeNotifier {
       final list = await auth.run(
         () => api.topicList(siteUrl: instance.url, path: path, apiKey: apiKey),
       );
+      if (!requestIsCurrent()) return;
+      // Retained feeds can hold different snapshots of the same topic.
+      // Keep their previous publication order after releasing network slots.
+      if (publishAfter != null) await publishAfter;
       if (!requestIsCurrent()) return;
       markStartup('feed received');
       await prepareFeed?.call(
@@ -939,6 +1012,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         }
       });
     } on SiteLookupException catch (error) {
+      if (publishAfter != null) await publishAfter;
       if (!requestIsCurrent()) return;
 
       _commit(lease, () {
@@ -953,6 +1027,7 @@ final class TopicFeedController extends FrameSafeNotifier {
         notifySafely();
       });
     } catch (error) {
+      if (publishAfter != null) await publishAfter;
       if (!requestIsCurrent()) return;
 
       _commit(lease, () {
@@ -1686,6 +1761,7 @@ final class TopicFeedController extends FrameSafeNotifier {
   }
 
   void forget(String siteUrl) {
+    _retainedRefreshes.removeWhere((key, _) => key.$1 == siteUrl);
     final sessions = _sessions.values
         .where((session) => session.key.$1 == siteUrl)
         .toList();
@@ -1726,6 +1802,7 @@ final class TopicFeedController extends FrameSafeNotifier {
 
   @override
   void dispose() {
+    _retainedRefreshes.clear();
     final sessions = _sessions.values.toList();
     _sessions.clear();
     for (final session in sessions) {

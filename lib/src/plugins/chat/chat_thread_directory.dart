@@ -130,19 +130,32 @@ final class ChatThreadDirectory extends FrameSafeNotifier {
         if (page == null) return;
         _offset += page.rowCount;
         _moreChannels = page.hasMore && page.rowCount > 0;
-        for (final channel in page.channels) {
-          if (!isCurrent) return;
-          if (!channel.threadingEnabled) continue;
+        final channels = [
+          for (final channel in page.channels)
+            if (channel.threadingEnabled) channel,
+        ];
+        for (final channel in channels) {
           _channels[channel.id] = channel;
-          // A list held from an earlier visit misses threads started since,
-          // so reaching a channel revalidates it, as opening its list does.
-          await chat.loadChannelThreads(
-            siteUrl,
-            channel.id,
-            force: reset,
-            revalidate: true,
-            directoryChannel: channel,
-          );
+        }
+        const concurrentChannelLoads = 4;
+        for (
+          var start = 0;
+          start < channels.length && isCurrent;
+          start += concurrentChannelLoads
+        ) {
+          await Future.wait([
+            // Revalidate first pages so retained lists include new threads.
+            for (final channel
+                in channels.skip(start).take(concurrentChannelLoads))
+              if (isCurrent)
+                chat.loadChannelThreads(
+                  siteUrl,
+                  channel.id,
+                  force: reset,
+                  revalidate: true,
+                  directoryChannel: channel,
+                ),
+          ]);
         }
       } else {
         final pending = [

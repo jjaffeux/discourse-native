@@ -467,6 +467,16 @@ final class AccountActivityController extends FrameSafeNotifier {
     types: source.dismissal!.notificationTypes,
   );
 
+  Future<void> _refreshNotificationsAfterDismiss(
+    DiscourseInstance instance,
+    SiteLease lease,
+  ) async {
+    final active = _notificationLoads[instance.url];
+    if (active != null) await active.future;
+    if (isDisposed || !lease.isCurrent) return;
+    await loadNotifications(instance);
+  }
+
   Future<void> _dismissNotificationTypes(
     DiscourseInstance instance, {
     PluginNotificationFeedSource? source,
@@ -515,24 +525,15 @@ final class AccountActivityController extends FrameSafeNotifier {
       // list authoritatively after the write. Only the pre-write cache snapshot
       // is locally pinned read, so a newer row received during the write stays
       // unread while this fetch resolves the final list.
-      if (source != null) {
-        await Future.wait([
-          _refreshLoadedPluginNotifications(instance, source, lease),
-          refresh(instance, force: true),
-        ]);
-        return;
-      } else {
-        final active = _notificationLoads[siteUrl];
-        if (active != null) await active.future;
-        if (isDisposed || !lease.isCurrent) return;
-        await loadNotifications(instance);
-      }
-
-      // `/notifications/totals.json` does not currently return grouped type
-      // counts. It is still useful for the aggregate unread total, while the
-      // guarded mutation above reconciles the plugin badge without replacing
-      // any newer live grouped-count snapshot.
-      await refresh(instance, force: true);
+      // Totals and rows are independent after the write. Preserve the
+      // guarded row reload after any older load of the same feed.
+      await Future.wait([
+        if (source != null)
+          _refreshLoadedPluginNotifications(instance, source, lease)
+        else
+          _refreshNotificationsAfterDismiss(instance, lease),
+        refresh(instance, force: true),
+      ]);
     } catch (error, stackTrace) {
       if (isDisposed || !lease.isCurrent) return;
 

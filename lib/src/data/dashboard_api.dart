@@ -71,13 +71,28 @@ final class DiscourseDashboardApi implements DashboardApi {
     required List<DashboardReport> items,
   }) async {
     if (items.isEmpty) return const {};
-    final current = await _reports(
+    Future<Map<String, DashboardReportResult>> read(
+      DashboardRange period,
+      List<DashboardReport> requested,
+    ) => _reports(
       siteUrl: siteUrl,
       apiKey: apiKey,
       clientId: clientId,
-      range: range,
-      items: items,
+      range: period,
+      items: requested,
     );
+    final currentLoad = read(range, items);
+    // Core's overview cards are date series. Plugin reports can be arbitrary
+    // queries and should earn a comparison request from their current result.
+    final coreOverview = items.every(
+      (item) =>
+          item.source == DashboardReportSources.coreSource &&
+          (item.identifier == 'daily_engaged_users' ||
+              item.identifier == 'time_to_first_response'),
+    );
+    final previousLoad = coreOverview ? read(range.previous, items) : null;
+    previousLoad?.ignore();
+    final current = await currentLoad;
     final comparable = items.where((item) {
       final result = current[item.key];
       return result != null &&
@@ -90,18 +105,14 @@ final class DiscourseDashboardApi implements DashboardApi {
     }).toList();
     if (comparable.isEmpty) return current;
     try {
-      final previous = await _reports(
-        siteUrl: siteUrl,
-        apiKey: apiKey,
-        clientId: clientId,
-        range: range.previous,
-        items: comparable,
-      );
+      final previous = await (previousLoad ?? read(range.previous, comparable));
+      final comparableKeys = comparable.map((item) => item.key).toSet();
       return Map.unmodifiable({
         for (final entry in current.entries)
-          entry.key: previous[entry.key] == null
-              ? entry.value
-              : entry.value.withPrevious(previous[entry.key]!),
+          entry.key:
+              comparableKeys.contains(entry.key) && previous[entry.key] != null
+              ? entry.value.withPrevious(previous[entry.key]!)
+              : entry.value,
       });
     } catch (_) {
       return current;

@@ -47,6 +47,11 @@ FIVE_MS_DRIVERS = (
     "benchmark_image_and_event_latency.dart",
     "benchmark_chat_feed_operation_latency.dart",
     "benchmark_voice_device_restore_latency.dart",
+    "benchmark_group_membership_latency.dart",
+    "benchmark_notification_dismiss_latency.dart",
+    "benchmark_topic_feed_and_category_latency.dart",
+    "benchmark_plugin_mutation_latency.dart",
+    "benchmark_dashboard_and_authorization.dart",
 )
 
 

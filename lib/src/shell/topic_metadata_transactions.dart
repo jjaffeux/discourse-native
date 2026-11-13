@@ -214,27 +214,29 @@ final class TopicMetadataTransactions {
   }) async {
     if (selected.isEmpty) return selected;
     final kept = <TopicTag>[];
-    for (final tag in selected) {
+    const parallelTags = 3;
+    for (var start = 0; start < selected.length; start += parallelTags) {
       try {
-        final result = await credential.run(
-          () => _composerQueries.searchTopicTags(
-            siteUrl: siteUrl,
-            apiKey: credential.apiKey!,
-            term: tag.name,
-            categoryId: categoryId,
-            selectedTagIds: selected
-                .map((item) => item.id)
-                .whereType<int>()
-                .where((id) => id != tag.id),
-            limit: _maxTagSearchResults(
-              siteUrl,
-            ).clamp(1, TopicTagSearch.maximumResults),
-          ),
-        );
-        final match = result.allowedMatch(tag);
-        if (match != null) {
-          kept.add(match);
-        }
+        final matches = await Future.wait([
+          for (final tag in selected.skip(start).take(parallelTags))
+            credential.run(() async {
+              final result = await _composerQueries.searchTopicTags(
+                siteUrl: siteUrl,
+                apiKey: credential.apiKey!,
+                term: tag.name,
+                categoryId: categoryId,
+                selectedTagIds: selected
+                    .map((item) => item.id)
+                    .whereType<int>()
+                    .where((id) => id != tag.id),
+                limit: _maxTagSearchResults(
+                  siteUrl,
+                ).clamp(1, TopicTagSearch.maximumResults),
+              );
+              return result.allowedMatch(tag);
+            }),
+        ]);
+        kept.addAll(matches.nonNulls);
       } catch (_) {
         return selected;
       }

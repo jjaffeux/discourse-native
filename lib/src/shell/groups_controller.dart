@@ -1247,37 +1247,23 @@ final class GroupsController extends FrameSafeNotifier {
     String filter = '',
     String? order,
     bool ascending = true,
-  }) async {
-    final result = await _mutate(
-      instance,
-      group,
-      (apiKey, clientId) => api.addMembers(
-        siteUrl: instance.url,
-        apiKey: apiKey,
-        clientId: clientId,
-        groupId: group.id,
-        usernames: command.usernames,
-        emails: command.emails,
-      ),
-    );
-    if (!result.canApplyLocally) return result;
-    final membersRefreshed = await _refreshMemberLists(
+  }) => _mutate(
+    instance,
+    group,
+    (apiKey, clientId) => api.addMembers(
+      siteUrl: instance.url,
+      apiKey: apiKey,
+      clientId: clientId,
+      groupId: group.id,
+      usernames: command.usernames,
+      emails: command.emails,
+    ),
+    refreshRelated: () => _refreshMemberLists(
       instance,
       group,
       shown: _memberListKey(instance.url, group.name, filter, order, ascending),
-    );
-    final accepted =
-        result as GroupWriteAccepted<GroupMembershipMutationResult>;
-    return accepted.withProjection(
-      (isDisposed || !accepted.isCurrent)
-          ? GroupProjectionFreshness.retired
-          : membersRefreshed &&
-                accepted.projection == GroupProjectionFreshness.refreshed
-          ? GroupProjectionFreshness.refreshed
-          : GroupProjectionFreshness.stale,
-      current: !isDisposed && accepted.isCurrent,
-    );
-  }
+    ),
+  );
 
   Future<GroupWriteOutcome<GroupInvite>> createInvite(
     DiscourseInstance instance,
@@ -1782,6 +1768,7 @@ final class GroupsController extends FrameSafeNotifier {
     Group group,
     Future<T> Function(String apiKey, String clientId) write, {
     bool refreshDetail = true,
+    Future<bool> Function()? refreshRelated,
     Future<({T value, GroupProjectionFreshness freshness})> Function(
       T value,
       AccountRequestCredentials auth,
@@ -1847,12 +1834,11 @@ final class GroupsController extends FrameSafeNotifier {
           );
           if (refreshDetail) {
             _requests.remove(key);
-            final refreshed = await loadDetail(
-              instance,
-              group.name,
-              refresh: true,
-            );
-            projection = refreshed
+            final refreshed = await Future.wait([
+              loadDetail(instance, group.name, refresh: true),
+              if (refreshRelated != null && current()) refreshRelated(),
+            ]);
+            projection = refreshed.every((ok) => ok)
                 ? GroupProjectionFreshness.refreshed
                 : GroupProjectionFreshness.stale;
           }

@@ -781,6 +781,8 @@ void main() {
       composer.setTags(const [
         TopicTag(id: 1, name: 'first'),
         TopicTag(id: 2, name: 'second'),
+        TopicTag(id: 3, name: 'third'),
+        TopicTag(id: 4, name: 'fourth'),
       ]);
       harness.tagGate = Completer<void>();
       final change = harness.owner.changeCategory(composer, 6);
@@ -789,8 +791,13 @@ void main() {
       harness.tagGate!.complete();
       await change;
 
-      expect(harness.searchedTags, ['first']);
-      expect(composer.tags.map((tag) => tag.name), ['first', 'second']);
+      expect(harness.searchedTags, ['first', 'second', 'third']);
+      expect(composer.tags.map((tag) => tag.name), [
+        'first',
+        'second',
+        'third',
+        'fourth',
+      ]);
     },
   );
 }

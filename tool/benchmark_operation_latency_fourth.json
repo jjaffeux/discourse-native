@@ -1,0 +1,167 @@
+{
+  "baseline": "7c62c3e6c2c0f66be2883ca8d6fbb72a907ba402",
+  "platform": "macOS-26.6.2-arm64-arm-64bit",
+  "unit": "microseconds per operation",
+  "runs": {
+    "add_group_member_and_refresh": {
+      "before": [
+        96452,
+        96197,
+        96144,
+        96456,
+        96152
+      ],
+      "after": [
+        64321,
+        64108,
+        64243,
+        64114,
+        64241
+      ]
+    },
+    "dismiss_all_notification_rows_and_totals": {
+      "before": [
+        96307,
+        96208,
+        96262,
+        96366,
+        96349
+      ],
+      "after": [
+        64221,
+        64148,
+        64281,
+        64268,
+        64273
+      ]
+    },
+    "authorize_with_push_registration": {
+      "before": [
+        190173,
+        119037,
+        145399,
+        133458,
+        165581
+      ],
+      "after": [
+        106299,
+        64972,
+        69827,
+        81775,
+        141538
+      ]
+    },
+    "refresh_dashboard_period_comparison": {
+      "before": [
+        96052,
+        96616,
+        96609,
+        96760,
+        96485
+      ],
+      "after": [
+        64400,
+        64382,
+        64700,
+        64768,
+        64511
+      ]
+    },
+    "save_gamification_leaderboard": {
+      "before": [
+        96104,
+        95595,
+        96298,
+        96245,
+        96267
+      ],
+      "after": [
+        64222,
+        64218,
+        64222,
+        64188,
+        64272
+      ]
+    },
+    "browse_all_chat_threads": {
+      "before": [
+        159859,
+        160411,
+        159581,
+        160365,
+        160538
+      ],
+      "after": [
+        64182,
+        64206,
+        64180,
+        64196,
+        64253
+      ]
+    },
+    "report_voice_participant": {
+      "before": [
+        64174,
+        64174,
+        64190,
+        64158,
+        64224
+      ],
+      "after": [
+        32086,
+        32066,
+        32066,
+        32073,
+        32090
+      ]
+    },
+    "refresh_three_retained_filtered_feeds": {
+      "before": [
+        96199.0,
+        96173.0,
+        96277.0,
+        96185.0,
+        96139.0
+      ],
+      "after": [
+        32146.0,
+        32154.0,
+        32114.0,
+        32109.0,
+        32186.0
+      ]
+    },
+    "change_draft_category_and_validate_three_tags": {
+      "before": [
+        96135.0,
+        96126.0,
+        96307.0,
+        96150.0,
+        96133.0
+      ],
+      "after": [
+        32065.0,
+        32083.0,
+        32063.0,
+        32072.0,
+        32069.0
+      ]
+    },
+    "save_topic_category_after_three_tag_checks": {
+      "before": [
+        128289.0,
+        128191.0,
+        127999.0,
+        128209.0,
+        128205.0
+      ],
+      "after": [
+        64127.0,
+        64125.0,
+        64135.0,
+        64147.0,
+        64137.0
+      ]
+    }
+  }
+}

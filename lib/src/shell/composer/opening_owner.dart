@@ -565,22 +565,29 @@ final class ComposerOpeningOwner {
       final selectedTags = composer.tags;
       if (selectedTags.isEmpty) return;
       final kept = <TopicTag>[];
-      for (final selected in selectedTags) {
+      const parallelTags = 3;
+      for (var start = 0; start < selectedTags.length; start += parallelTags) {
+        final batch = selectedTags.skip(start).take(parallelTags);
+        final List<TopicTagSearch> results;
         try {
-          final result = await _metadata.searchTags(composer, selected.name);
-          if (!_presentation.owns(composer) ||
-              composer.categoryId != categoryId) {
-            return;
-          }
-          if (!identical(composer.tags, selectedTags)) {
-            continue validateSelection;
-          }
-          final match = result.allowedMatch(selected);
-          if (match != null) {
-            kept.add(match);
-          }
+          results = await Future.wait([
+            for (final selected in batch)
+              _metadata.searchTags(composer, selected.name),
+          ]);
         } catch (_) {
           return;
+        }
+        if (!_presentation.owns(composer) ||
+            composer.categoryId != categoryId) {
+          return;
+        }
+        if (!identical(composer.tags, selectedTags)) {
+          continue validateSelection;
+        }
+        for (final (index, selected) in batch.indexed) {
+          if (results[index].allowedMatch(selected) case final match?) {
+            kept.add(match);
+          }
         }
       }
       if (kept.length != selectedTags.length) {
