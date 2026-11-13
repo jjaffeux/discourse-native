@@ -811,9 +811,14 @@ void main() {
     'an account change while choosing a save path cancels the fetch',
     () async {
       environment.savePath = '${directory.path}/expired.mp4';
-      environment.onChoose = () => lifecycle.invalidate(siteUrl);
+      final picker = Completer<String?>();
+      final choosing = Completer<void>();
+      environment.onChoose = () {
+        choosing.complete();
+        return picker.future;
+      };
       var requests = 0;
-      await expectLater(
+      final rejected = expectLater(
         download(
           MockClient((_) async {
             requests++;
@@ -822,6 +827,13 @@ void main() {
         ),
         throwsA(isA<VideoDownloadException>()),
       );
+      await choosing.future;
+      lifecycle.invalidate(siteUrl);
+      try {
+        await rejected.timeout(const Duration(seconds: 1));
+      } finally {
+        picker.complete(environment.savePath);
+      }
       expect(requests, 0);
       expect(directory.listSync(), isEmpty);
     },
@@ -1035,7 +1047,7 @@ class _Environment implements MediaDownloadEnvironment {
   final Directory directory;
   String? savePath;
   String? suggestedName;
-  VoidCallback? onChoose;
+  FutureOr<String?> Function()? onChoose;
   Future<Directory> Function()? onTemporaryDirectory;
   List<int>? sharedBytes;
   String? sharedName;
@@ -1049,8 +1061,8 @@ class _Environment implements MediaDownloadEnvironment {
     ({String label, String extension})? fileType,
   }) async {
     this.suggestedName = suggestedName;
-    onChoose?.call();
-    return savePath;
+    final choose = onChoose;
+    return choose == null ? savePath : choose();
   }
 
   @override

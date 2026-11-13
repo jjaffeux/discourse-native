@@ -65,11 +65,11 @@ final class SiteLease {
     return () => _session._observers.remove(registration);
   }
 
-  /// Bounds an in-flight wait by the lease lifetime and the given timeout.
+  /// Bounds an in-flight wait by the lease lifetime and an optional timeout.
   Future<T> waitWhileCurrent<T>(
     Future<T> operation,
     Object retirementError, {
-    required Duration timeout,
+    Duration? timeout,
   }) async {
     if (!isCurrent) {
       operation.ignore();
@@ -78,7 +78,8 @@ final class SiteLease {
     final retired = Completer<Never>();
     final detach = onRetire(() => retired.completeError(retirementError));
     try {
-      return await Future.any<T>([retired.future, operation]).timeout(timeout);
+      final pending = Future.any<T>([retired.future, operation]);
+      return await (timeout == null ? pending : pending.timeout(timeout));
     } finally {
       detach();
     }

@@ -43,9 +43,18 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
         : repository?.lifecycle.capture(siteUrl);
     final suggestedName = imageDownloadFilename(title: title, url: url);
     final usesSaveDialog = usesMediaSaveDialog(_platform);
-    final destination = usesSaveDialog
-        ? await _environment.chooseSavePath(suggestedName: suggestedName)
-        : null;
+    final String? destination;
+    if (usesSaveDialog) {
+      final choice = _environment.chooseSavePath(suggestedName: suggestedName);
+      destination =
+          await (lease?.waitWhileCurrent(
+                choice,
+                const ImageDownloadException(),
+              ) ??
+              choice);
+    } else {
+      destination = null;
+    }
     if (usesSaveDialog && destination == null) {
       return const MediaDownloadCancelled();
     }

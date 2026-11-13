@@ -60,9 +60,18 @@ final class NativeVideoDownloader implements VideoDownloader {
     final lease = siteUrl == null ? null : lifecycle?.capture(siteUrl);
     final filename = videoDownloadFilename(title: title, url: url);
     final usesSaveDialog = usesMediaSaveDialog(_platform);
-    final destination = usesSaveDialog
-        ? await _environment.chooseSavePath(suggestedName: filename)
-        : null;
+    final String? destination;
+    if (usesSaveDialog) {
+      final choice = _environment.chooseSavePath(suggestedName: filename);
+      destination =
+          await (lease?.waitWhileCurrent(
+                choice,
+                const VideoDownloadException(),
+              ) ??
+              choice);
+    } else {
+      destination = null;
+    }
     if (usesSaveDialog && destination == null) {
       return const MediaDownloadCancelled();
     }
@@ -100,10 +109,10 @@ final class NativeVideoDownloader implements VideoDownloader {
             file: file,
           );
           _requireCurrent(lease);
-          if (destination != null) {
-            await _environment.saveFile(file, destination);
+          if (destination case final String path) {
+            await _environment.saveFile(file, path);
             return MediaDownloadResult.savedTo(
-              destination,
+              path,
               windows: _platform == TargetPlatform.windows,
             );
           }
