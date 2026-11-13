@@ -191,7 +191,11 @@ final class FileByteCacheStore implements ByteCacheStore {
     _writesSincePrune++;
     if (_writesSincePrune >= _pruneWriteInterval) {
       _writesSincePrune = 0;
-      await _prune();
+      try {
+        await _prune();
+      } catch (_) {
+        // The entry is already committed. Pruning records its own retry.
+      }
     }
   }
 
