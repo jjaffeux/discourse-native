@@ -972,6 +972,43 @@ void main() {
     expect(directory.listSync(), isEmpty);
   });
 
+  test('retirement stops waiting for a redirect body to cancel', () async {
+    environment.savePath = '${directory.path}/retired.mp4';
+    final cancelling = Completer<void>();
+    final release = Completer<void>();
+    final body = StreamController<List<int>>(
+      onCancel: () {
+        cancelling.complete();
+        return release.future;
+      },
+    );
+    addTearDown(body.close);
+    var sends = 0;
+    final pending = download(
+      MockClient.streaming((_, _) async {
+        sends++;
+        return http.StreamedResponse(
+          body.stream,
+          302,
+          headers: {'location': 'https://cdn.example/video.mp4'},
+        );
+      }),
+    );
+    final rejected = expectLater(
+      pending,
+      throwsA(isA<VideoDownloadException>()),
+    );
+    await cancelling.future;
+    lifecycle.invalidate(siteUrl);
+    try {
+      await rejected.timeout(const Duration(seconds: 1));
+      expect(directory.listSync(), isEmpty);
+    } finally {
+      release.complete();
+    }
+    expect(sends, 1);
+  });
+
   test('a stalled body times out and removes its partial file', () async {
     environment.savePath = '${directory.path}/stalled.mp4';
     final body = StreamController<List<int>>();

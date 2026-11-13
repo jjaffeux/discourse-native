@@ -193,7 +193,7 @@ final class NativeVideoDownloader implements VideoDownloader {
           rethrow;
         }
         if (isHttpRedirectStatus(response.statusCode)) {
-          await cancelUnreadHttpBody(response.stream);
+          await _waitWhileCurrent(cancelUnreadHttpBody(response.stream), lease);
           final location = response.headers['location'];
           if (location == null || redirects >= 5) {
             throw const VideoDownloadException();
@@ -208,7 +208,7 @@ final class NativeVideoDownloader implements VideoDownloader {
                     .trim()
                     .toLowerCase() ==
                 'text/html') {
-          await cancelUnreadHttpBody(response.stream);
+          await _waitWhileCurrent(cancelUnreadHttpBody(response.stream), lease);
           throw const VideoDownloadException();
         }
 
