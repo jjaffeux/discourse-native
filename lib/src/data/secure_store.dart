@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'platform_private_storage.dart';
 import 'preference_storage_scope.dart';
 import 'private_storage.dart';
 import 'serial_operation_queue.dart';

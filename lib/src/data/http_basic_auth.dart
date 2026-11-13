@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'http_url_safety.dart';
+import 'platform_private_storage.dart';
 import 'private_storage.dart';
 
 final class HttpBasicAuthentication {

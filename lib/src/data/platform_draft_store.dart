@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 
 import 'draft_store.dart';
-import 'private_storage.dart';
+import 'platform_private_storage.dart';
 
 DraftStore createPlatformDraftStore() =>
     DraftStore(persistence: _platformDraftPersistence);

@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/linux_preferences_store.dart';
 import 'package:discourse_native/src/data/platform_draft_store.dart';
-import 'package:discourse_native/src/data/private_storage.dart';
+import 'package:discourse_native/src/data/platform_private_storage.dart';
 
 import 'package:flutter_test/flutter_test.dart';
 // ignore: depend_on_referenced_packages

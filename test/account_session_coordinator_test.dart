@@ -7,6 +7,7 @@ import 'package:discourse_native/src/data/account_session_coordinator.dart';
 import 'package:discourse_native/src/data/discourse_api.dart';
 import 'package:discourse_native/src/data/draft_store.dart';
 import 'package:discourse_native/src/data/instance_store.dart';
+import 'package:discourse_native/src/data/platform_private_storage.dart';
 import 'package:discourse_native/src/data/private_storage.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/user_api_key.dart';
