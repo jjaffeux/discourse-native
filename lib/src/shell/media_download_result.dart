@@ -15,5 +15,3 @@ final class MediaDownloadShared extends MediaDownloadResult {
 final class MediaDownloadCancelled extends MediaDownloadResult {
   const MediaDownloadCancelled();
 }
-
-enum MediaShareOutcome { shared, cancelled }

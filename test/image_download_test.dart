@@ -4,8 +4,8 @@ import 'dart:io';
 
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
+import 'package:discourse_native/src/foundation/media_download_environment.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
-import 'package:discourse_native/src/shell/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -649,7 +649,10 @@ final class _FakeImageDownloadEnvironment implements MediaDownloadEnvironment {
   int shareCalls = 0;
 
   @override
-  Future<String?> chooseSavePath({required String suggestedName}) async {
+  Future<String?> chooseSavePath({
+    required String suggestedName,
+    ({String label, String extension})? fileType,
+  }) async {
     this.suggestedName = suggestedName;
     return saveChoice == null ? savePath : await saveChoice;
   }

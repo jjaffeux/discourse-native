@@ -168,6 +168,7 @@ void main() {
         isCurrent: () => true,
       );
       expect(selector.filenames, ['event-42.ics']);
+      expect(selector.typeGroups.single!.single.extensions, ['ics']);
       expect(await file.readAsString(), content);
     });
 

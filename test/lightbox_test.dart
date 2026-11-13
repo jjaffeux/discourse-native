@@ -6,13 +6,13 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/data/site_image_repository.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/foundation/icons/d_icons.dart';
+import 'package:discourse_native/src/foundation/media_download_environment.dart';
 import 'package:discourse_native/src/plugin_api/plugin_registry.dart';
 import 'package:discourse_native/src/plugins/discourse_events/discourse_events_plugin.dart';
 import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/image_decode.dart';
 import 'package:discourse_native/src/shell/image_download.dart';
 import 'package:discourse_native/src/shell/lightbox.dart';
-import 'package:discourse_native/src/shell/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:discourse_native/src/shell/shell_scope.dart';
@@ -2086,8 +2086,10 @@ final class _RenamedImageDownloadEnvironment
   String? savedPath;
 
   @override
-  Future<String?> chooseSavePath({required String suggestedName}) async =>
-      destination;
+  Future<String?> chooseSavePath({
+    required String suggestedName,
+    ({String label, String extension})? fileType,
+  }) async => destination;
 
   @override
   Future<void> saveBytes(

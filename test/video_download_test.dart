@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'package:discourse_native/src/data/api_credentials.dart';
 import 'package:discourse_native/src/data/http_url_safety.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
-import 'package:discourse_native/src/shell/media_download_environment.dart';
+import 'package:discourse_native/src/foundation/media_download_environment.dart';
 import 'package:discourse_native/src/shell/media_download_result.dart';
 import 'package:discourse_native/src/shell/video_download.dart';
 import 'package:flutter/widgets.dart';
@@ -972,7 +972,10 @@ class _Environment implements MediaDownloadEnvironment {
   Rect? shareOrigin;
 
   @override
-  Future<String?> chooseSavePath({required String suggestedName}) async {
+  Future<String?> chooseSavePath({
+    required String suggestedName,
+    ({String label, String extension})? fileType,
+  }) async {
     this.suggestedName = suggestedName;
     onChoose?.call();
     return savePath;
