@@ -28,6 +28,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   static const _magic = [0x44, 0x4e, 0x42, 0x31]; // DNB1
   static const _headerBytes = 12;
   static const _staleTemporaryAge = Duration(hours: 1);
+  static const _pruneWriteInterval = 64;
   // An entry's mtime is its last-used time, and pruning only reaches an entry
   // once the limits have turned over: thousands of images, far more than a day
   // of reading. Recording use more finely buys no better eviction and costs a
@@ -188,9 +189,16 @@ final class FileByteCacheStore implements ByteCacheStore {
     }
 
     _writesSincePrune++;
-    if (_writesSincePrune >= 64) {
+    if (_writesSincePrune >= _pruneWriteInterval) {
       _writesSincePrune = 0;
-      await _prune();
+      try {
+        await _prune();
+      } catch (_) {
+        if (_writesSincePrune < _pruneWriteInterval) {
+          _writesSincePrune = _pruneWriteInterval;
+        }
+        rethrow;
+      }
     }
   }
 

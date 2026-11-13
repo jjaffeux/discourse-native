@@ -37,6 +37,30 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('the next write retries failed scheduled pruning', () async {
+      var clockCalls = 0;
+      final store = FileByteCacheStore(
+        directory,
+        maxEntries: 1,
+        clock: () {
+          if (++clockCalls == 65) throw StateError('prune clock unavailable');
+          return now;
+        },
+      );
+      Future<void> write(int index) => store.write(
+        _url('prune-$index'),
+        Uint8List.fromList([index]),
+        expiresAt: expiresAt,
+      );
+      for (var index = 0; index < 63; index++) {
+        await write(index);
+      }
+      await expectLater(write(63), throwsStateError);
+      await write(64);
+
+      expect(await directory.list().length, 1);
+    });
+
     test('overlapping writes share directory creation', () async {
       final counted = _CountedCacheDirectory(directory);
       final store = FileByteCacheStore(counted, clock: () => now);
