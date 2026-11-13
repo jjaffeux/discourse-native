@@ -42,6 +42,30 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   test(
+    'superseded category pagination releases a pending credential read',
+    () async {
+      final api = _RefreshingTaxonomyApi();
+      final authenticator = _PageAuthenticator();
+      final shell = await _loadShell(api, authenticator: authenticator);
+      addTearDown(shell.dispose);
+      await shell.loadCategories(_site);
+      final key = Completer<String?>();
+      authenticator.nextKey = key.future;
+      var finished = false;
+      final page = shell.loadMoreCategories(_site).then((_) {
+        finished = true;
+      });
+      expect(authenticator.nextKey, isNull);
+      await shell.loadCategories(_site, force: true);
+      final finishedBeforeKey = finished;
+      key.complete('api-key');
+      await page;
+      expect(finishedBeforeKey, isTrue);
+      expect(api.categoryPagesRequested, isNot(contains(2)));
+    },
+  );
+
+  test(
     'category searches discard results after same-lease taxonomy cleanup',
     () async {
       final api = _EditorCategorySearchApi(true);
@@ -698,6 +722,7 @@ void main() {
 Future<ShellController> _loadShell(
   FakeDiscourseApi api, {
   DiscourseUser user = const DiscourseUser(id: 7, username: 'reader'),
+  FakeAuthenticator? authenticator,
 }) async {
   api.accounts['api-key'] = user;
   final shell = ShellController(
@@ -705,7 +730,8 @@ Future<ShellController> _loadShell(
       instance('meta.discourse.org').copyWith(user: user),
     ]),
     api: api,
-    authenticator: FakeAuthenticator()..keys[_site] = 'api-key',
+    authenticator: (authenticator ?? FakeAuthenticator())
+      ..keys[_site] = 'api-key',
     drafts: FakeDraftStore(),
     forumTabs: FakeForumTabStore(),
     trackers: FakeSiteTracker.reset(),
@@ -714,6 +740,17 @@ Future<ShellController> _loadShell(
   await shell.load();
   await pumpEventQueue();
   return shell;
+}
+
+final class _PageAuthenticator extends FakeAuthenticator {
+  Future<String?>? nextKey;
+
+  @override
+  Future<String?> apiKeyFor(String siteUrl) {
+    final pending = nextKey;
+    nextKey = null;
+    return pending ?? super.apiKeyFor(siteUrl);
+  }
 }
 
 final class _EditorCategorySearchApi extends FakeDiscourseApi {

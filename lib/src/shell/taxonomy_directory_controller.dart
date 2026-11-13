@@ -1137,9 +1137,12 @@ final class _TaxonomyDirectoryController
     try {
       final session = AccountRequestSession(siteUrl, lease);
       final credential = instance.isConnected
-          ? await session.credentials(_shell.credentials)
+          ? await Future.any<AccountRequestCredentials?>([
+              request.future.then((_) => null),
+              session.credentials(_shell.credentials),
+            ])
           : session.anonymousCredentials();
-      if (!requestIsCurrent()) return;
+      if (credential == null || !requestIsCurrent()) return;
 
       final result = await Future.any<CategoryLoadResult?>([
         credential.run(
