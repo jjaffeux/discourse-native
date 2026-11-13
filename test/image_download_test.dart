@@ -24,6 +24,38 @@ void main() {
   });
   tearDown(() => temporary.delete(recursive: true));
 
+  test('a stalled download releases its image request on timeout', () async {
+    final cancelled = Completer<void>();
+    final body = StreamController<List<int>>(onCancel: cancelled.complete);
+    addTearDown(body.close);
+    final repository = SiteImageRepository(
+      credentials: FakeApiCredentialReader(),
+      lifecycle: SiteLifecycle(),
+      client: MockClient.streaming(
+        (_, _) async => http.StreamedResponse(body.stream, 200),
+      ),
+    );
+    addTearDown(repository.dispose);
+    final environment = _FakeImageDownloadEnvironment(temporary);
+
+    await expectLater(
+      NativeLightboxImageDownloader(
+        platform: TargetPlatform.iOS,
+        environment: environment,
+        requestTimeout: const Duration(milliseconds: 100),
+      ).download(
+        url: '/image.png',
+        title: null,
+        siteUrl: siteUrl,
+        repository: repository,
+      ),
+      throwsA(isA<TimeoutException>()),
+    );
+    await cancelled.future.timeout(const Duration(seconds: 1));
+    expect(environment.shareCalls, 0);
+    expect(temporary.listSync(), isEmpty);
+  });
+
   test('an extensionless image retains its PNG share type', () async {
     final repository = _repository(
       (_) async => http.Response.bytes(

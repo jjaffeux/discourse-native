@@ -24,11 +24,13 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
   NativeLightboxImageDownloader({
     TargetPlatform? platform,
     MediaDownloadEnvironment? environment,
+    this.requestTimeout = const Duration(seconds: 30),
   }) : _platform = platform ?? defaultTargetPlatform,
        _environment = environment ?? const NativeMediaDownloadEnvironment();
 
   final TargetPlatform _platform;
   final MediaDownloadEnvironment _environment;
+  final Duration requestTimeout;
 
   @override
   Future<MediaDownloadResult> download({
@@ -66,7 +68,13 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
       throw const ImageDownloadException();
     }
     final absoluteUrl = resolveSiteUrl(url, siteUrl);
-    final image = await repository.load(siteUrl: siteUrl, url: absoluteUrl);
+    final request = repository.request(siteUrl: siteUrl, url: absoluteUrl);
+    final SiteImageBytes? image;
+    try {
+      image = await request.result.timeout(requestTimeout);
+    } finally {
+      request.release();
+    }
     if (image == null || image.bytes.isEmpty || !lease.isCurrent) {
       throw const ImageDownloadException();
     }
@@ -92,7 +100,7 @@ final class NativeLightboxImageDownloader implements LightboxImageDownloader {
     final temporary = await lease.waitWhileCurrent(
       _environment.temporaryDirectory(),
       const ImageDownloadException(),
-      timeout: const Duration(seconds: 30),
+      timeout: requestTimeout,
     );
     if (!lease.isCurrent) throw const ImageDownloadException();
     final outcome = await withStagedPrivateFile(
