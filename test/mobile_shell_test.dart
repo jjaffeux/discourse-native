@@ -5818,15 +5818,13 @@ void main() {
             'sidebar-surface-${mode.name}-$tab-midway'.replaceAll('/', '-'),
           );
           if (tab == 'panel/chat' && mode == AppThemeMode.dark) {
-            // The area above the incoming page corner still shows the
-            // sidebar on both sides of the page's moving left edge.
-            final left = await pixelAt(const Offset(186, 34));
-            final right = await pixelAt(const Offset(191, 34));
+            final sidebarBeforePageEdge = await pixelAt(const Offset(186, 34));
+            final sidebarAbovePageCorner = await pixelAt(const Offset(191, 34));
             for (var channel = 0; channel < 3; channel++) {
               expect(
-                right[channel],
-                closeTo(left[channel], 2),
-                reason: 'A vertical seam above the incoming chat corner',
+                sidebarAbovePageCorner[channel],
+                closeTo(sidebarBeforePageEdge[channel], 2),
+                reason: 'The sidebar is continuous above the incoming corner',
               );
             }
           }

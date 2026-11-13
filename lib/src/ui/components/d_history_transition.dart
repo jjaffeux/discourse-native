@@ -821,46 +821,35 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
         : returning
         ? .40 * p
         : 0.0;
-    final clipper = returning
-        ? _HistorySidebarClipper(
-            progress: p,
-            scale: _previewScale + (1 - _previewScale) * p,
-            rtl: _rtl,
-          )
-        : null;
-    return ClipRect(
-      clipBehavior: clipper == null ? Clip.none : Clip.hardEdge,
-      clipper: clipper,
-      child: Transform.translate(
-        key: navigation
-            ? const ValueKey('history-live-navigation-frame')
-            : const ValueKey('history-navigation-frame'),
-        offset: Offset(translation, 0),
-        child: Transform.scale(
-          scale: scale,
-          child: ColorFiltered(
-            colorFilter: ColorFilter.mode(
-              DTokens.of(context).colors.scrim.withValues(alpha: dimming),
-              BlendMode.srcATop,
-            ),
-            child: ExcludeSemantics(
-              excluding: revealing,
-              child: IgnorePointer(
-                ignoring:
-                    revealing ||
-                    _navigationTransition &&
-                        (_dragging || _settling || switching),
-                child: ExcludeFocus(
-                  excluding: revealing,
-                  child: Opacity(
-                    key: navigation
-                        ? const ValueKey('history-live-sidebar-opacity')
-                        : const ValueKey('history-sidebar-opacity'),
-                    opacity: navigation || _navigationOpen
-                        ? math.pow(_navigationProgress, 2).toDouble()
-                        : 1,
-                    child: child,
-                  ),
+    return Transform.translate(
+      key: navigation
+          ? const ValueKey('history-live-navigation-frame')
+          : const ValueKey('history-navigation-frame'),
+      offset: Offset(translation, 0),
+      child: Transform.scale(
+        scale: scale,
+        child: ColorFiltered(
+          colorFilter: ColorFilter.mode(
+            DTokens.of(context).colors.scrim.withValues(alpha: dimming),
+            BlendMode.srcATop,
+          ),
+          child: ExcludeSemantics(
+            excluding: revealing,
+            child: IgnorePointer(
+              ignoring:
+                  revealing ||
+                  _navigationTransition &&
+                      (_dragging || _settling || switching),
+              child: ExcludeFocus(
+                excluding: revealing,
+                child: Opacity(
+                  key: navigation
+                      ? const ValueKey('history-live-sidebar-opacity')
+                      : const ValueKey('history-sidebar-opacity'),
+                  opacity: navigation || _navigationOpen
+                      ? math.pow(_navigationProgress, 2).toDouble()
+                      : 1,
+                  child: child,
                 ),
               ),
             ),
@@ -954,7 +943,6 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         ),
                       ),
                     ),
-                  if (active && _navigationOpen) preview(snapshot),
                   if (navigationSurface != null)
                     Offstage(
                       key: const ValueKey('history-live-navigation'),
@@ -966,6 +954,7 @@ class _DHistoryTransitionState extends State<DHistoryTransition>
                         navigation: true,
                       ),
                     ),
+                  if (active && _navigationOpen) preview(snapshot),
                   child!,
                 ],
               ),
@@ -1188,26 +1177,6 @@ class _HistorySwipeScope extends InheritedWidget {
   bool updateShouldNotify(_HistorySwipeScope oldWidget) =>
       swipe != oldWidget.swipe ||
       navigationProgress != oldWidget.navigationProgress;
-}
-
-class _HistorySidebarClipper extends CustomClipper<Rect> {
-  const _HistorySidebarClipper({
-    required this.progress,
-    required this.scale,
-    required this.rtl,
-  });
-  final double progress, scale;
-  final bool rtl;
-
-  @override
-  Rect getClip(Size size) {
-    final width = size.width * (1 - progress + (1 - scale) / 2);
-    return Rect.fromLTWH(rtl ? size.width - width : 0, 0, width, size.height);
-  }
-
-  @override
-  bool shouldReclip(_HistorySidebarClipper old) =>
-      progress != old.progress || scale != old.scale || rtl != old.rtl;
 }
 
 class _HistoryFrameSnapshot {

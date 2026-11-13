@@ -69,7 +69,7 @@ Future<TestGesture> _drag(
 
 void main() {
   testWidgets(
-    'retained navigation owns input and stays above its return page',
+    'retained navigation owns input and stays visible during a return swipe',
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(400, 600));
       addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -150,7 +150,6 @@ void main() {
       );
       image.dispose();
       const leftPixel = (350 * 400 + 80) * 4;
-      // The fading red navigation must remain in front of the blue return page.
       expect(pixels!.getUint8(leftPixel), greaterThan(50));
       expect(pixels.getUint8(leftPixel + 2), lessThan(230));
       await gesture.cancel();
