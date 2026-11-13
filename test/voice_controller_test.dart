@@ -756,6 +756,7 @@ final class _AwaitableSubscriptionTracker extends RecordingPluginLiveChannels {
   final Completer<void> firstCancellationStarted = Completer<void>();
   final Completer<void> cancellationGate = Completer<void>();
   int cancellationsStarted = 0;
+  void Function()? onCancel;
 
   @override
   PluginLiveChannelSubscription subscribe(
@@ -768,6 +769,9 @@ final class _AwaitableSubscriptionTracker extends RecordingPluginLiveChannels {
     PluginLiveChannelSubscription subscription,
   ) => _AwaitableVoiceSubscription(subscription, () async {
     cancellationsStarted++;
+    final callback = onCancel;
+    onCancel = null;
+    callback?.call();
     if (!firstCancellationStarted.isCompleted) {
       firstCancellationStarted.complete();
     }
@@ -6907,6 +6911,23 @@ void main() {
         expect(callPublished, isFalse);
       });
     }
+
+    test('a subscription callback joins voice shutdown', () async {
+      final tracker = _AwaitableSubscriptionTracker();
+      firstTracker = tracker;
+      useTransport(transport);
+      await controller.ensureLoaded(firstSite);
+      Future<void>? joined;
+      tracker.onCancel = () => joined = controller.close();
+
+      final closing = controller.close();
+      tracker.cancellationGate.complete();
+      await closing;
+      await joined;
+
+      expect(joined, same(closing));
+      expect(tracker.channels, isEmpty);
+    });
 
     test(
       'awaits leave, media, subscriptions, and CallKit during session close',

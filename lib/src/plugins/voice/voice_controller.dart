@@ -1401,6 +1401,8 @@ final class VoiceController extends ChangeNotifier {
   Future<void> close() {
     final active = _closeOperation;
     if (active != null) return active;
+    final completion = Completer<void>();
+    _closeOperation = completion.future;
 
     _disposed = true;
     _clearReactions();
@@ -1417,17 +1419,15 @@ final class VoiceController extends ChangeNotifier {
     final subscriptionCancellation = _cancelSubscriptions();
 
     final systemActionsCancellation = _runHandled(_systemActions.cancel);
-    final operation = _finishClose(
-      systemActionsCancellation,
-      subscriptionCancellation,
+    completion.complete(
+      _finishClose(systemActionsCancellation, subscriptionCancellation),
     );
-    _closeOperation = operation;
 
     // Detach UI listeners synchronously, matching ChangeNotifier's disposal
     // contract even when the caller intentionally does not await [close].
     _roomListChanges.dispose();
     super.dispose();
-    return operation;
+    return completion.future;
   }
 
   Future<void> _cancelSubscriptions() {
