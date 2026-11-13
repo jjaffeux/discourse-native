@@ -63,7 +63,7 @@ void main() {
       ]);
       final samples = <Map<String, int>>[];
       for (var round = 0; round < 6; round++) {
-        final owner = TopicReaderProjections(store);
+        final owner = TopicReaderProjections(store, lifecycle);
         final reader = owner.forTab(site, 'tab', lease)!;
         store.reads = 0;
         final clock = Stopwatch()..start();
@@ -118,7 +118,7 @@ void main() {
       const site = 'https://many-tabs.example';
       final store = _CountingStore();
       final lifecycle = SiteLifecycle();
-      final owner = TopicReaderProjections(store);
+      final owner = TopicReaderProjections(store, lifecycle);
       final stream = List.generate(16000, (i) => i + 1);
       store.putAll(site, [
         for (var id = 15801; id <= 16000; id++)

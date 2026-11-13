@@ -3983,7 +3983,7 @@ class ShellController extends FrameSafeNotifier
   bool topicContainsPost(String siteUrl, int topicId, int postId) =>
       _topicData.forSite(siteUrl).containsPost(topicId, postId);
 
-  late final _readerProjections = TopicReaderProjections(store);
+  late final _readerProjections = TopicReaderProjections(store, lifecycle);
 
   /// Whether the stream continues past the loaded window.
   ///

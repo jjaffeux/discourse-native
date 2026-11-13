@@ -67,12 +67,23 @@ void main() {
   setUp(() {
     store = _CountingStore();
     lifecycle = SiteLifecycle();
-    owner = TopicReaderProjections(store);
+    owner = TopicReaderProjections(store, lifecycle);
   });
   tearDown(() => owner.dispose());
 
   TopicReaderProjection reader(String id) =>
       owner.forTab(_site, id, lifecycle.capture(_site))!;
+
+  test('foreign leases cannot replace a live tab projection', () {
+    final current = reader('a');
+    expect(owner.forTab(_site, 'a', SiteLifecycle().capture(_site)), isNull);
+    expect(
+      owner.forTab(_site, 'a', lifecycle.capture('https://other.example')),
+      isNull,
+    );
+    expect(current.isCurrent, isTrue);
+    expect(reader('a'), same(current));
+  });
 
   test('headless projections preserve anchored runs and structural keys', () {
     final tab = reader('a');
@@ -156,7 +167,7 @@ void main() {
 
   test('unrelated insertion invalidates a window when it evicts its post', () {
     final bounded = Store(maxEntries: 2);
-    final projections = TopicReaderProjections(bounded);
+    final projections = TopicReaderProjections(bounded, lifecycle);
     addTearDown(projections.dispose);
     final tab = projections.forTab(_site, 'a', lifecycle.capture(_site))!;
     final stream = [1, 2];
@@ -264,7 +275,7 @@ void main() {
 
   test('sparse projection invalidates after eviction and site forget', () {
     final bounded = Store(maxEntries: 2);
-    final projections = TopicReaderProjections(bounded);
+    final projections = TopicReaderProjections(bounded, lifecycle);
     addTearDown(projections.dispose);
     final tab = projections.forTab(_site, 'a', lifecycle.capture(_site))!;
     final stream = [for (var id = 1; id <= 100; id++) id];

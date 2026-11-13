@@ -10,14 +10,15 @@ typedef TopicReaderWindow = ({
 
 /// Derived reader data, bounded to one window and saved target per live tab.
 final class TopicReaderProjections {
-  TopicReaderProjections(this._store);
+  TopicReaderProjections(this._store, this._lifecycle);
 
   final Store _store;
+  final SiteLifecycle _lifecycle;
   final _tabs = <(String, String), TopicReaderProjection>{};
   bool _disposed = false;
 
   TopicReaderProjection? forTab(String siteUrl, String tabId, SiteLease lease) {
-    if (_disposed || !lease.isCurrent) return null;
+    if (_disposed || !_lifecycle.owns(siteUrl, lease)) return null;
     final key = (siteUrl, tabId);
     final held = _tabs[key];
     if (held != null && identical(held._lease.session, lease.session)) {
@@ -34,7 +35,7 @@ final class TopicReaderProjections {
   }
 
   void retainTabs(String siteUrl, SiteLease lease, Set<String> liveTabIds) {
-    if (_disposed || !lease.isCurrent) return;
+    if (_disposed || !_lifecycle.owns(siteUrl, lease)) return;
     _tabs.removeWhere((key, reader) {
       if (key.$1 != siteUrl ||
           !identical(reader._lease.session, lease.session) ||
