@@ -12,24 +12,30 @@ final class SerialOperationQueue {
   final _reads =
       <
         _SerialOperationKey,
-        ({Type type, Zone errorZone, Future<Object?> result})
+        ({Type type, Zone errorZone, Object? scope, Future<Object?> result})
       >{};
 
   /// Shares consecutive pending reads of the same result type and error zone.
-  /// Readers for a given owner, key, and type must be equivalent.
+  /// Readers for a given owner, key, scope, and type must be equivalent.
   /// A regular [run] starts a new group.
   Future<T> readShared<T>({
     required Object owner,
     required Object key,
     required Future<T> Function() operation,
+    Object? scope,
   }) {
     final queueKey = _SerialOperationKey(owner, key);
     final errorZone = Zone.current.errorZone;
-    if (_reads[queueKey] case (
-      :final type,
-      errorZone: final activeZone,
-      result: final Future<T> active,
-    ) when type == T && identical(activeZone, errorZone)) {
+    if (_reads[queueKey]
+        case (
+          :final type,
+          scope: final activeScope,
+          errorZone: final activeZone,
+          result: final Future<T> active,
+        )
+        when type == T &&
+            identical(activeScope, scope) &&
+            identical(activeZone, errorZone)) {
       return active;
     }
     late final Future<T> read;
@@ -38,7 +44,12 @@ final class SerialOperationQueue {
         final _ = _reads.remove(queueKey);
       }
     });
-    _reads[queueKey] = (type: T, errorZone: errorZone, result: read);
+    _reads[queueKey] = (
+      type: T,
+      errorZone: errorZone,
+      scope: scope,
+      result: read,
+    );
     return read;
   }
 

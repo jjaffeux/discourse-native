@@ -77,11 +77,9 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     final canonicalSiteUrl = _canonicalSiteUrl(siteUrl);
     if (_hasLoaded(canonicalSiteUrl)) return;
 
-    final existing = _state.loads[canonicalSiteUrl];
-    if (existing != null) return existing;
-
     final owner = _ownerFor(canonicalSiteUrl);
-    final loading = _operations.run<void>(
+    return _operations.readShared<void>(
+      scope: owner,
       owner: _persistence,
       key: canonicalSiteUrl,
       operation: () async {
@@ -93,14 +91,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
         _state.preferences[canonicalSiteUrl] = loaded;
       },
     );
-    _state.loads[canonicalSiteUrl] = loading;
-    try {
-      await loading;
-    } finally {
-      if (identical(_state.loads[canonicalSiteUrl], loading)) {
-        final _ = _state.loads.remove(canonicalSiteUrl);
-      }
-    }
   }
 
   EmojiSkinTone skinToneFor({required String siteUrl}) =>
@@ -207,7 +197,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
     // Pending reads and queued picks belong to the removed forum. A later
     // re-add starts a new owner while keeping the same persistence queue.
     _state.siteOwners.removeWhere((site, _) => forgotten(site));
-    _state.loads.removeWhere((site, _) => forgotten(site));
     _state.preferences.removeWhere((site, _) => forgotten(site));
     _state.unreadable.removeWhere(forgotten);
   }
@@ -274,7 +263,6 @@ final class EmojiPickerStore implements EmojiPreferenceStore {
 
 final class _EmojiPickerState {
   final Map<String, _EmojiPickerPreferences> preferences = {};
-  final Map<String, Future<void>> loads = {};
   final Map<String, Object> siteOwners = {};
   final Set<String> unreadable = {};
 }

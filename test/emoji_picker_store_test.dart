@@ -21,6 +21,24 @@ void main() {
   });
 
   group('loading and forum persistence', () {
+    test('replacement hydration reads again after forum retirement', () async {
+      final persistence = _HeldReadPersistence()
+        ..values[meta] = '{"version":2,"tone":"t5"}';
+      final first = EmojiPickerStore(persistence: persistence);
+      final replacement = EmojiPickerStore(persistence: persistence);
+      final old = first.ensureLoaded(siteUrl: meta);
+      await persistence.readStarted.future;
+      final joined = replacement.ensureLoaded(siteUrl: '$meta/');
+      first.forgetSites(ForgottenSites.removed(meta, keeping: const []));
+      persistence.values[meta] = '{"version":2,"tone":"t6"}';
+      final fresh = replacement.ensureLoaded(siteUrl: meta);
+      persistence.gate.complete();
+      await Future.wait([old, joined, fresh]);
+
+      expect(persistence.readCount, 2);
+      expect(first.skinToneFor(siteUrl: meta), EmojiSkinTone.t6);
+    });
+
     test(
       'hydrated default stores compose edits to one preference document',
       () async {
@@ -755,10 +773,12 @@ final class _HeldReadPersistence extends _MemoryPersistence {
   final gate = Completer<void>();
   final readStarted = Completer<void>();
   int writeCount = 0;
+  int readCount = 0;
   bool _held = false;
 
   @override
   Future<String?> readPreferences({required String siteUrl}) async {
+    readCount++;
     final value = values[siteUrl];
     if (!_held) {
       _held = true;
