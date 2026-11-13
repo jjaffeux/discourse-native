@@ -422,23 +422,30 @@ final class _TaxonomyDirectoryController
     int? categoryId,
   }) async {
     final lease = _site(siteUrl).lease;
-    if (!lease.isCurrent) return const [];
-    final remote = await _shell.topicFilterLookups.run(
+    bool canSearch() =>
+        !_shell.accountSessionDisposed &&
+        lease.isCurrent &&
+        _shell.siteConfigFor(siteUrl).taggingEnabled;
+    if (!canSearch()) return const [];
+    final remote = await _shell.topicFilterLookups.run<TopicFilterLookupValue>(
       siteUrl,
 
-      (apiKey, clientId) => _shell.api.lookups.searchFilterTags(
-        siteUrl: siteUrl,
-        term: term,
-        categoryId: categoryId,
-        limit: _shell
-            .siteConfigFor(siteUrl)
-            .maxTagSearchResults
-            .clamp(1, TopicTagSearch.maximumResults),
-        apiKey: apiKey,
-        clientId: clientId,
-      ),
+      (apiKey, clientId) {
+        if (!canSearch()) return Future.value(const <TopicFilterLookupValue>[]);
+        return _shell.api.lookups.searchFilterTags(
+          siteUrl: siteUrl,
+          term: term,
+          categoryId: categoryId,
+          limit: _shell
+              .siteConfigFor(siteUrl)
+              .maxTagSearchResults
+              .clamp(1, TopicTagSearch.maximumResults),
+          apiKey: apiKey,
+          clientId: clientId,
+        );
+      },
     );
-    if (_shell.accountSessionDisposed || !lease.isCurrent) return const [];
+    if (!canSearch()) return const [];
     final byName = <String, _TagSearchEntry>{};
     for (final tag in remote) {
       final name = tag.name.toLowerCase();

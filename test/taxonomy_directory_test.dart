@@ -41,6 +41,31 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test(
+    'tag search drops results when tagging is disabled mid-request',
+    () async {
+      final configs = <String, SiteConfig>{};
+      final api = _TagSearchApi(siteConfigs: configs);
+      final shell = await _loadShell(api);
+      addTearDown(shell.dispose);
+      final response = Completer<List<TopicFilterLookupValue>>();
+      api.lookupResponse = response;
+      final pending = shell.searchFilterTags(siteUrl: _site, term: 'tag');
+      await pumpEventQueue();
+      expect(api.filterTagRequests, isNotEmpty);
+      configs[_site] = const SiteConfig(taggingEnabled: false);
+      await shell.sitePresentation.refreshConfig(_site);
+      response.complete(const [TopicFilterLookupValue(name: 'tag')]);
+      expect(await pending, isEmpty);
+      final requests = api.filterTagRequests.length;
+      expect(
+        await shell.searchFilterTags(siteUrl: _site, term: 'tag'),
+        isEmpty,
+      );
+      expect(api.filterTagRequests, hasLength(requests));
+    },
+  );
+
   test('disabling tagging releases a pending directory load', () async {
     final configs = <String, SiteConfig>{};
     final api = _RefreshingTaxonomyApi(siteConfigs: configs);
@@ -847,7 +872,7 @@ final class _RefreshingTaxonomyApi extends FakeDiscourseApi {
 }
 
 final class _TagSearchApi extends FakeDiscourseApi {
-  _TagSearchApi() : super(feeds: const {'/latest.json': []});
+  _TagSearchApi({super.siteConfigs}) : super(feeds: const {'/latest.json': []});
 
   List<SidebarTag> directory = const [];
   List<SidebarTag> top = const [];
