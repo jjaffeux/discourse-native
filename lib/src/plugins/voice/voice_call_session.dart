@@ -1004,14 +1004,17 @@ final class _VoiceCallSession {
       return active ?? Future<void>.value();
     }
 
-    late final Future<void> operation;
-    operation = _drainStateSync().whenComplete(() {
-      if (identical(_stateSync, operation)) _stateSync = null;
-      if (_stateSyncPending && _stateRetry == null && !controller._disposed) {
-        unawaited(_requestStateSync());
-      }
-    });
+    final completion = Completer<void>();
+    final operation = completion.future;
     _stateSync = operation;
+    completion.complete(
+      _drainStateSync().whenComplete(() {
+        if (identical(_stateSync, operation)) _stateSync = null;
+        if (_stateSyncPending && _stateRetry == null && !controller._disposed) {
+          unawaited(_requestStateSync());
+        }
+      }),
+    );
     return operation;
   }
 

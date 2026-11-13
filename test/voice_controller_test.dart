@@ -476,9 +476,15 @@ abstract class _RequestHostBase implements PluginRequestHost {
 }
 
 final class _StaticRequestHost extends _RequestHostBase {
+  Future<void> Function()? onRead;
+
   @override
-  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async =>
-      const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+  Future<PluginRequestCredentials> credentialsFor(String siteUrl) async {
+    final callback = onRead;
+    onRead = null;
+    if (callback != null) await callback();
+    return const PluginRequestCredentials(apiKey: 'key', clientId: 'client');
+  }
 }
 
 final class _ScopedRequestHost extends _RequestHostBase {
@@ -3590,6 +3596,38 @@ void main() {
         await pumpEventQueue();
         expect(media.audioPublishingAllowed, isFalse);
         expect(media.muted, isTrue);
+      },
+    );
+
+    test(
+      'a watch change during credential lookup waits for the state drain',
+      () async {
+        await controller.ensureLoaded(firstSite);
+        await controller.join(
+          siteUrl: firstSite,
+          siteName: 'One',
+          room: controller.room(firstSite, 7)!,
+        );
+        await pumpEventQueue();
+        int stateWrites() => transport.writes
+            .where((write) => write.path.endsWith('/state.json'))
+            .length;
+        final initialWrites = stateWrites();
+        final gate = Completer<void>();
+        (requests as _StaticRequestHost).onRead = () {
+          controller.stopWatchingRoomVideo(siteUrl: firstSite, roomId: 7);
+          return gate.future;
+        };
+
+        controller.watchRoomVideo(siteUrl: firstSite, roomId: 7);
+        await pumpEventQueue();
+        final writesWhileBlocked = stateWrites();
+        gate.complete();
+        await pumpEventQueue();
+
+        expect(writesWhileBlocked, initialWrites);
+        expect(stateWrites(), initialWrites + 2);
+        expect(transport.writes.last.body['watching'], isFalse);
       },
     );
 
