@@ -706,27 +706,22 @@ abstract class ByteCache<T extends Object> {
 
   void _release() {
     if (maxConcurrent == null) return;
+    if (_waiting.isEmpty) {
+      _active--;
+      _interactiveOvertakes = 0;
+      return;
+    }
+    // Retirement removes its waiter, and clear drains the old generation.
     var normal = -1;
     var interactive = -1;
-    for (var index = 0; index < _waiting.length;) {
-      final waiter = _waiting[index];
-      if (waiter.transfer.cancelled ||
-          !identical(waiter.transfer.generation, _generation)) {
-        _waiting.removeAt(index).result.complete(false);
-        continue;
-      }
-      switch (waiter.transfer.priority) {
+    for (var index = 0; index < _waiting.length; index++) {
+      switch (_waiting[index].transfer.priority) {
         case MediaRequestPriority.normal:
           if (normal < 0) normal = index;
         case MediaRequestPriority.interactive:
           if (interactive < 0) interactive = index;
       }
-      index++;
-    }
-    if (_waiting.isEmpty) {
-      _active--;
-      _interactiveOvertakes = 0;
-      return;
+      if (normal >= 0 && interactive >= 0) break;
     }
     final index = normal >= 0 && (interactive < 0 || _interactiveOvertakes >= 3)
         ? normal
@@ -743,9 +738,10 @@ abstract class ByteCache<T extends Object> {
     _cachedBytes = 0;
     _inFlight.clear();
     _transientFailures.clear();
-    while (_waiting.isNotEmpty) {
-      _waiting.removeAt(0).result.complete(false);
+    for (final waiter in _waiting) {
+      waiter.result.complete(false);
     }
+    _waiting.clear();
   }
 
   void close() {
