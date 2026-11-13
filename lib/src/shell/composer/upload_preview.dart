@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 
 import '../../data/composer_media_preparation.dart';
+import '../../data/native_thumbnail_generator.dart';
 import '../../data/site_video_thumbnail_repository.dart';
 import '../../models/composer_upload.dart';
 import '../../models/site_config.dart';

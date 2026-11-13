@@ -1,6 +1,3 @@
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
 import 'site_thumbnail_repository.dart';
 
 export 'site_thumbnail_repository.dart' show ThumbnailRequest;
@@ -8,37 +5,15 @@ export 'site_thumbnail_repository.dart' show ThumbnailRequest;
 typedef VideoThumbnailRequest = ThumbnailRequest;
 typedef VideoThumbnailGenerator = ThumbnailGenerator;
 
-const _channel = MethodChannel('org.discourse.native/video_thumbnails');
-int _nextRequestId = 0;
-
-VideoThumbnailRequest generateNativeVideoThumbnail(Uri source) {
-  final id = _nextRequestId++;
-  return VideoThumbnailRequest(
-    _channel.invokeMethod<Uint8List>('generate', {
-      'id': id,
-      'url': source.toString(),
-    }),
-    () => _channel.invokeMethod<void>('cancel', {'id': id}).ignore(),
-  );
-}
-
 final class SiteVideoThumbnailRepository extends SiteThumbnailRepository {
   SiteVideoThumbnailRepository({
     required super.credentials,
     required super.lifecycle,
-    VideoThumbnailGenerator? generator,
+    super.generator,
     super.clock,
     super.maxConcurrent,
     super.maxPending,
     super.maxEntries,
     super.maxCachedBytes,
-  }) : super(
-         generator:
-             generator ??
-             (!kIsWeb &&
-                     (defaultTargetPlatform == TargetPlatform.macOS ||
-                         defaultTargetPlatform == TargetPlatform.iOS)
-                 ? generateNativeVideoThumbnail
-                 : null),
-       );
+  });
 }

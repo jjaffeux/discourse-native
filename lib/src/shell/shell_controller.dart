@@ -39,6 +39,7 @@ import '../data/groups_api.dart';
 import '../data/http_basic_auth.dart';
 import '../data/http_url_safety.dart';
 import '../data/instance_store.dart';
+import '../data/native_thumbnail_generator.dart';
 import '../data/recent_destinations_store.dart';
 import '../data/request_intent.dart';
 import '../data/shell_api_ports.dart';
@@ -442,6 +443,9 @@ class ShellController extends FrameSafeNotifier
       SiteVideoThumbnailRepository(
         credentials: credentials,
         lifecycle: lifecycle,
+        generator: nativeThumbnailsSupported
+            ? generateNativeVideoThumbnail
+            : null,
       );
 
   late final SitePdfThumbnailRepository pdfThumbnails =
@@ -449,6 +453,9 @@ class ShellController extends FrameSafeNotifier
       SitePdfThumbnailRepository(
         credentials: credentials,
         lifecycle: lifecycle,
+        generator: nativeThumbnailsSupported
+            ? generateNativePdfThumbnail
+            : null,
       );
 
   final Map<PluginId, _ShellTopicReaderHost> _pluginReaderHosts = {};

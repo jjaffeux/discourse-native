@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:discourse_native/src/data/api_credentials.dart';
+import 'package:discourse_native/src/data/native_thumbnail_generator.dart';
 import 'package:discourse_native/src/data/site_lifecycle.dart';
 import 'package:discourse_native/src/data/site_video_thumbnail_repository.dart';
 import 'package:flutter/services.dart';
