@@ -42,7 +42,7 @@ const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
   test(
-    'tag search drops results when tagging is disabled mid-request',
+    'tag search drops results across a disable and re-enable cycle',
     () async {
       final configs = <String, SiteConfig>{};
       final api = _TagSearchApi(siteConfigs: configs);
@@ -55,14 +55,21 @@ void main() {
       expect(api.filterTagRequests, isNotEmpty);
       configs[_site] = const SiteConfig(taggingEnabled: false);
       await shell.sitePresentation.refreshConfig(_site);
-      response.complete(const [TopicFilterLookupValue(name: 'tag')]);
-      expect(await pending, isEmpty);
       final requests = api.filterTagRequests.length;
       expect(
         await shell.searchFilterTags(siteUrl: _site, term: 'tag'),
         isEmpty,
       );
       expect(api.filterTagRequests, hasLength(requests));
+      configs[_site] = const SiteConfig();
+      await shell.sitePresentation.refreshConfig(_site);
+      expect(shell.siteConfigFor(_site).taggingEnabled, isTrue);
+      response.complete(const [TopicFilterLookupValue(name: 'tag')]);
+      expect(await pending, isEmpty);
+      expect(
+        await shell.searchFilterTags(siteUrl: _site, term: 'tag'),
+        isNotEmpty,
+      );
     },
   );
 

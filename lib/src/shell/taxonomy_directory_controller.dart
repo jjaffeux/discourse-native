@@ -43,6 +43,7 @@ final class _TaxonomySite {
   Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
   bool tagDirectoryDisabled = false;
+  int tagSearchRevision = 0;
   ({RequestIntentOperation<void> operation, Completer<void> cancellation})?
   tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
@@ -421,10 +422,13 @@ final class _TaxonomyDirectoryController
     required String term,
     int? categoryId,
   }) async {
-    final lease = _site(siteUrl).lease;
+    final site = _site(siteUrl);
+    final revision = site.tagSearchRevision;
     bool canSearch() =>
         !_shell.accountSessionDisposed &&
-        lease.isCurrent &&
+        site.lease.isCurrent &&
+        identical(_sites[siteUrl], site) &&
+        site.tagSearchRevision == revision &&
         _shell.siteConfigFor(siteUrl).taggingEnabled;
     if (!canSearch()) return const [];
     final remote = await _shell.topicFilterLookups.run<TopicFilterLookupValue>(
@@ -595,6 +599,7 @@ final class _TaxonomyDirectoryController
   }
 
   void _clearDisabledTagDirectory(_TaxonomySite site) {
+    site.tagSearchRevision++;
     site.tagDirectoryDisabled = true;
     final pending = site.tagDirectoryRequest;
     site.tagDirectoryRequest = null;
