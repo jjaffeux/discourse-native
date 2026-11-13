@@ -26,6 +26,23 @@ const _feed = PluginNotificationFeedSource(
 const _serverType = NotificationWireType(901, 'custom_alert');
 
 void main() {
+  test('foreign leases cannot advance notification authority', () {
+    final h = _Harness();
+    addTearDown(h.dispose);
+    const state = {
+      'grouped_unread_notifications': {'custom_alert': 1},
+    };
+    h.owner.acceptLiveState(
+      _site,
+      state,
+      h.lifecycle.capture('https://other.example'),
+    );
+    h.owner.acceptLiveState(_site, state, SiteLifecycle().capture(_site));
+    expect(h.authorityCalls, 0);
+    h.owner.acceptLiveState(_site, state, h.lifecycle.capture(_site));
+    expect(h.authorityCalls, 1);
+  });
+
   test(
     'Other and mark-all share one catalog and retain transport scope',
     () async {

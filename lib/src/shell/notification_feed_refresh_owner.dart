@@ -53,7 +53,9 @@ final class NotificationFeedRefreshOwner {
   bool _disposed = false;
 
   _NotificationFeedAccount? _account(String siteUrl, {SiteLease? lease}) {
-    if (_disposed) return null;
+    if (_disposed || (lease != null && !lifecycle.owns(siteUrl, lease))) {
+      return null;
+    }
     final currentLease = lease ?? lifecycle.capture(siteUrl);
     if (!currentLease.isCurrent) return null;
     final held = _accounts[siteUrl];
