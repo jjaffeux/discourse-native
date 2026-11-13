@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:discourse_video_optimizer/discourse_video_optimizer.dart';
+import 'package:discourse_video_optimizer/encoder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path_provider/path_provider.dart';
 
@@ -12,7 +12,7 @@ import 'composer_media_preparation.dart';
 class ComposerVideoOptimizer {
   ComposerVideoOptimizer({
     Future<Directory> Function()? temporaryDirectory,
-    this.native = const NativeVideoOptimizer(),
+    required this.native,
     this.minimumBytes = 1024 * 1024,
     this.maximumBytes = 2 * 1024 * 1024 * 1024,
     this.ioTimeout = const Duration(seconds: 30),
@@ -20,7 +20,7 @@ class ComposerVideoOptimizer {
   }) : _temporaryDirectory = temporaryDirectory ?? getTemporaryDirectory;
 
   final Future<Directory> Function() _temporaryDirectory;
-  final NativeVideoOptimizer native;
+  final VideoEncoder native;
   final int minimumBytes;
   final int maximumBytes;
   final Duration ioTimeout;

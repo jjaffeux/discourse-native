@@ -6,6 +6,7 @@ import 'package:discourse_native/src/data/composer_video_optimizer.dart';
 import 'package:discourse_native/src/models/composer_upload.dart';
 import 'package:discourse_native/src/models/site_config.dart';
 import 'package:discourse_video_optimizer/discourse_video_optimizer.dart';
+import 'package:discourse_video_optimizer/encoder.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +150,7 @@ void main() {
 
   test('missing plugin uploads the original without staging it', () async {
     optimizer = ComposerVideoOptimizer(
+      native: const NativeVideoOptimizer(),
       minimumBytes: 1,
       temporaryDirectory: () async => temporary,
     );
@@ -351,7 +353,7 @@ ComposerUploadFile _file({String name = 'movie.MOV', int size = 10}) =>
       openRead: () => Stream.value(List.filled(size, 1)),
     );
 
-class _Encoder extends NativeVideoOptimizer {
+class _Encoder implements VideoEncoder {
   bool available = true;
   int availabilityChecks = 0;
   int starts = 0;

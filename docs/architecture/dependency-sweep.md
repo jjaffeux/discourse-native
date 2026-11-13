@@ -92,3 +92,10 @@ consumers and plugin contracts use that entry point, while runtime composition
 uses the existing full package. A Dart-to-JavaScript compile of a contract
 consumer succeeds. The same probe through the full package reaches native
 FFI and fails on that target. The full plugin SDK retains its cooking exports.
+
+Composer video preparation now receives a file-to-file encoder interface.
+The media optimizer supplies the native method-channel adapter, and the
+preparation tests supply a fake that implements the interface directly.
+A standalone Dart-to-JavaScript compile can load the encoder interface
+without Flutter services. The focused video suites verify preparation,
+cancellation, cleanup, and composer rendering.
