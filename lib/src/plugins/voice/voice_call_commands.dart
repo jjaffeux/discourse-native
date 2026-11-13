@@ -90,14 +90,22 @@ final class _VoiceCallCommands {
   Future<bool> flagParticipant(int userId, String message) async {
     final text = message.trim();
     if (text.isEmpty) return false;
-    final flagTypeId = await _dispatch<int?>(
-      (credentials) => controller.api.notifyModeratorsFlagType(
-        siteUrl: call.siteUrl,
-        apiKey: credentials.apiKey!,
-        clientId: credentials.clientId,
-      ),
-      keyOnly: false,
-    );
+    final flagTypeId =
+        controller._postFlagCatalog
+            ?.call(call.siteUrl)
+            .where(
+              (type) => type.enabled && type.nameKey == 'notify_moderators',
+            )
+            .firstOrNull
+            ?.id ??
+        await _dispatch<int?>(
+          (credentials) => controller.api.notifyModeratorsFlagType(
+            siteUrl: call.siteUrl,
+            apiKey: credentials.apiKey!,
+            clientId: credentials.clientId,
+          ),
+          keyOnly: false,
+        );
     if (flagTypeId == null || !_isCurrent) return false;
     return await _dispatch<bool>((credentials) async {
           await controller.api.flag(

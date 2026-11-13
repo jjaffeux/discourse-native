@@ -126,6 +126,56 @@ void main() {
   );
 
   test(
+    'core report comparison overlaps and ignores a non-comparable card',
+    () async {
+      final current = Completer<http.Response>();
+      final previous = Completer<http.Response>();
+      final previousRequested = Completer<void>();
+      final range = DashboardPeriod.last7Days.rangeAt(DateTime(2026, 10, 25));
+      final raw = DiscourseApi(
+        client: MockClient((request) {
+          final body = jsonObject(jsonDecode(request.body));
+          if (jsonObject(body['filters'])['start_date'] ==
+              range.previous.query['start_date']) {
+            previousRequested.complete();
+            return previous.future;
+          }
+          return current.future;
+        }),
+      );
+      addTearDown(raw.close);
+      final report = DiscourseDashboardApi(raw).reports(
+        siteUrl: site,
+        apiKey: 'key',
+        clientId: '',
+        range: range,
+        items: snapshot.sections.whereType<DashboardReports>().single.items,
+      );
+      await previousRequested.future.timeout(const Duration(seconds: 2));
+      previous.complete(
+        http.Response(jsonEncode(dashboardReportsFixture), 200),
+      );
+      current.complete(
+        http.Response(
+          jsonEncode({
+            'items': [
+              (dashboardReportsFixture['items'] as List).first,
+              {'key': 'core_report:time_to_first_response', 'error': true},
+            ],
+          }),
+          200,
+        ),
+      );
+      final result = await report;
+      expect(result['core_report:daily_engaged_users']!.previousValue, 180);
+      expect(
+        result['core_report:time_to_first_response']!.previousValue,
+        isNull,
+      );
+    },
+  );
+
+  test(
     'comparison ranges cover the preceding equal number of calendar days',
     () {
       final previous = DashboardRange(

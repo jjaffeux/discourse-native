@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/notification.dart';
+import 'package:discourse_native/src/models/notification_totals.dart';
 import 'package:discourse_native/src/shell/shell_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -39,6 +40,31 @@ void main() {
         api.markedTypesRead.single,
         contains(const NotificationTypeName('custom_server_type')),
       );
+      expect(
+        shell.notificationsFor(_site).notifications.single.isUnread,
+        isFalse,
+      );
+    },
+  );
+
+  test(
+    'bulk read starts totals refresh while the new rows are pending',
+    () async {
+      final gate = Completer<List<DiscourseNotification>>();
+      final api = _BulkApi()..secondFeedGate = gate;
+      final shell = await _shell(api);
+      addTearDown(shell.dispose);
+      await shell.loadNotifications(_site);
+      final reading = shell.markAllNotificationsRead(_site);
+      try {
+        await api.secondFeedEntered.future;
+        await api.postWriteTotalsEntered.future.timeout(
+          const Duration(seconds: 2),
+        );
+      } finally {
+        gate.complete(api.rows);
+        await reading;
+      }
       expect(
         shell.notificationsFor(_site).notifications.single.isUnread,
         isFalse,
@@ -167,6 +193,25 @@ class _BulkApi extends FakeDiscourseApi {
   Completer<List<DiscourseNotification>>? initialFeedGate;
   final initialFeedEntered = Completer<void>();
   var notificationReads = 0;
+  Completer<List<DiscourseNotification>>? secondFeedGate;
+  final secondFeedEntered = Completer<void>();
+  final postWriteTotalsEntered = Completer<void>();
+
+  @override
+  Future<NotificationTotals> notificationTotals({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  }) {
+    if (bulkFinished.isCompleted && !postWriteTotalsEntered.isCompleted) {
+      postWriteTotalsEntered.complete();
+    }
+    return super.notificationTotals(
+      siteUrl: siteUrl,
+      apiKey: apiKey,
+      clientId: clientId,
+    );
+  }
 
   @override
   Future<List<DiscourseNotification>> notifications({
@@ -182,6 +227,10 @@ class _BulkApi extends FakeDiscourseApi {
     if (notificationReads == 1 && gate != null) {
       initialFeedEntered.complete();
       return gate.future;
+    }
+    if (secondFeedGate case final second? when notificationReads == 2) {
+      secondFeedEntered.complete();
+      return second.future;
     }
     return rows;
   }

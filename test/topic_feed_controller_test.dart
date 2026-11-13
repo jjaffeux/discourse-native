@@ -160,6 +160,126 @@ void main() {
     );
   }
 
+  test('retained refresh publishes shared topics in feed order', () async {
+    final lifecycle = SiteLifecycle();
+    controller.dispose();
+    controller = TopicFeedController(
+      api: api,
+      credentials: credentials,
+      lifecycle: lifecycle,
+      store: store,
+    );
+    final site = instance('one.example');
+    for (final id in ['first', 'second']) {
+      final loading = controller.load(
+        instance: site,
+        destinationId: id,
+        path: '/$id.json',
+        incoming: null,
+      );
+      await pumpEventQueue();
+      api.requests.last.response.complete(_page(7));
+      await loading;
+    }
+    api.requests.clear();
+    final refreshing = controller.refreshRetained(
+      instance: site,
+      lease: lifecycle.capture(site.url),
+    );
+    await pumpEventQueue();
+    expect(api.requests.map((request) => request.path), [
+      '/first.json',
+      '/second.json',
+    ]);
+
+    TopicList response(String title) => TopicList(
+      topics: [Topic(id: 7, title: title, slug: 'topic-7')],
+    );
+    api.requests.last.response.complete(response('Second feed'));
+    await pumpEventQueue();
+    expect(store.read<Topic>(site.url, 7)?.title, 'Topic 7');
+
+    api.requests.first.response.complete(response('First feed'));
+    expect(await refreshing, isTrue);
+    expect(store.read<Topic>(site.url, 7)?.title, 'Second feed');
+    expect(controller.feedFor(site.url, 'first')?.topicIds, [7]);
+    expect(controller.feedFor(site.url, 'second')?.topicIds, [7]);
+  });
+
+  test('overlapping retained refreshes settle each feed batch', () async {
+    final lifecycle = SiteLifecycle();
+    controller.dispose();
+    controller = TopicFeedController(
+      api: api,
+      credentials: credentials,
+      lifecycle: lifecycle,
+      store: store,
+    );
+    final site = instance('one.example');
+    for (final id in ['first', 'second']) {
+      final loading = controller.load(
+        instance: site,
+        destinationId: id,
+        path: '/$id.json',
+        incoming: null,
+      );
+      await pumpEventQueue();
+      api.requests.last.response.complete(_page(7));
+      await loading;
+    }
+    api.requests.clear();
+    Future<bool> refresh() => controller.refreshRetained(
+      instance: site,
+      lease: lifecycle.capture(site.url),
+    );
+
+    final first = refresh();
+    final second = refresh();
+    await pumpEventQueue();
+    expect(api.requests, hasLength(2));
+    api.requests.last.response.complete(_page(8));
+    api.requests.first.response.complete(_page(8));
+    expect(await first, isTrue);
+
+    await pumpEventQueue();
+    expect(api.requests, hasLength(4));
+    api.requests.last.response.complete(_page(9));
+    api.requests[2].response.complete(_page(9));
+    expect(await second, isTrue);
+    expect(controller.feedFor(site.url, 'first')?.topicIds, [9]);
+    expect(controller.feedFor(site.url, 'second')?.topicIds, [9]);
+  });
+
+  test('retained refresh refuses a lease issued for another forum', () async {
+    final lifecycle = SiteLifecycle();
+    controller.dispose();
+    controller = TopicFeedController(
+      api: api,
+      credentials: credentials,
+      lifecycle: lifecycle,
+      store: store,
+    );
+    final site = instance('one.example');
+    final loading = controller.load(
+      instance: site,
+      destinationId: 'latest',
+      path: '/latest.json',
+      incoming: null,
+    );
+    await pumpEventQueue();
+    api.requests.single.response.complete(_page(7));
+    await loading;
+
+    expect(
+      await controller.refreshRetained(
+        instance: site,
+        lease: lifecycle.capture('https://two.example'),
+      ),
+      isFalse,
+    );
+    expect(api.requests, hasLength(1));
+  });
+
   test('external feed refresh keeps the original account lease', () async {
     final lifecycle = SiteLifecycle();
     controller.dispose();

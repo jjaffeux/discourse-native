@@ -1012,10 +1012,19 @@ final class GamificationAdminHandle extends FrameSafeNotifier {
   ) => _mutate('board', (auth, current) async {
     await owner.api.updateBoard(site, auth, id, draft);
     if (!current()) return;
-    await owner.api.readAdminBoard(site, auth, id);
-    if (!current()) return;
-    final value = await owner.api.readAdminIndex(site, auth);
-    if (current()) index = value;
+    try {
+      final (_, value) = await (
+        owner.api.readAdminBoard(site, auth, id),
+        owner.api.readAdminIndex(site, auth),
+      ).wait;
+      if (current()) index = value;
+    } on ParallelWaitError<
+      (GamificationAdminBoard?, GamificationAdminIndex?),
+      (AsyncError?, AsyncError?)
+    > catch (failure) {
+      final error = failure.errors.$1 ?? failure.errors.$2!;
+      Error.throwWithStackTrace(error.error, error.stackTrace);
+    }
   });
   Future<GamificationMutation> deleteBoard(int id) =>
       _mutate('delete', (auth, current) async {

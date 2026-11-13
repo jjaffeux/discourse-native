@@ -64,6 +64,7 @@ final class VoiceModule implements PluginModule {
           ),
           chatConversations: dependencies.require(chatConversationService),
           requests: bindings.require(corePluginRequestPort),
+          postFlagCatalog: bindings.require(corePluginPostFlagCatalogPort),
           trackerFor: bindings.require(corePluginTrackerPort),
           userIdFor: bindings.require(corePluginUserPort),
           capabilityEnabledFor: (siteUrl) async => (await bindings.require(
@@ -137,6 +138,7 @@ final class VoiceModule implements PluginModule {
         corePluginTransportPort,
         corePluginEmojiPort,
         corePluginRequestPort,
+        corePluginPostFlagCatalogPort,
         corePluginTrackerPort,
         corePluginUserPort,
         corePluginPresentationPort,

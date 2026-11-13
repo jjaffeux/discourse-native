@@ -206,9 +206,11 @@ final class VoiceController extends ChangeNotifier {
     VoiceSiteNameLookup? siteNameFor,
     VoiceSiteFlagReader? meshPrivacyWarningEnabledFor,
     VoiceIncomingCallAnswered? onIncomingCallAnswered,
+    PluginPostFlagCatalogReader? postFlagCatalog,
     this.heartbeatInterval = const Duration(seconds: 10),
     this.signalBatchDelay = const Duration(milliseconds: 200),
   }) : _requests = requests,
+       _postFlagCatalog = postFlagCatalog,
        _idleThresholdsFor = idleThresholdsFor ?? _defaultIdleThresholds,
        _videoMaxPublishersFor =
            videoMaxPublishersFor ?? _defaultVideoMaxPublishers,
@@ -238,6 +240,7 @@ final class VoiceController extends ChangeNotifier {
   final VoiceApi api;
   final ChatConversationCapability chatConversations;
   final PluginRequestHost _requests;
+  final PluginPostFlagCatalogReader? _postFlagCatalog;
   final VoiceTrackerLookup trackerFor;
   final VoiceUserIdLookup _userIdFor;
   final VoiceCapabilityResolver _capabilityEnabledFor;

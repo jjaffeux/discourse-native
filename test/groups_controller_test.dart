@@ -2645,18 +2645,21 @@ void main() {
   );
 
   test(
-    'an expired group mutation does not refresh the new account members',
+    'overlapping group and member refreshes cannot publish after retirement',
     () async {
       final detailStarted = Completer<void>();
+      final membersStarted = Completer<void>();
       final detail = Completer<Map<String, dynamic>>();
+      final members = Completer<Map<String, dynamic>>();
       final transport = _ControlledGroupTransport()
         ..onGet = (path) {
-          if (path == '/groups/support.json') detailStarted.complete();
+          if (path == '/groups/support.json') {
+            detailStarted.complete();
+          } else if (path.startsWith('/groups/support/members.json?')) {
+            membersStarted.complete();
+          }
         }
-        ..objects.addAll([
-          detail,
-          _completed({'members': <Object?>[]}),
-        ]);
+        ..objects.addAll([detail, members]);
       final lifecycle = SiteLifecycle();
       final credentials = FakeApiCredentialReader(
         clientIdValue: 'native-client',
@@ -2673,26 +2676,30 @@ void main() {
         const Group(id: 7, name: 'support'),
         GroupAddMembersCommand(usernames: const ['lee']),
       );
-      await detailStarted.future;
+      await Future.wait([
+        detailStarted.future,
+        membersStarted.future,
+      ]).timeout(const Duration(seconds: 2));
       expect(transport.writes, hasLength(1));
-      expect(transport.gets.map((request) => request.path), [
-        '/groups/support.json',
-      ]);
       lifecycle.invalidate(_site);
       controller.forget(_site);
       credentials.keys[_site] = 'new-secret';
       detail.complete({
         'group': {'id': 7, 'name': 'support'},
       });
+      members.complete({
+        'members': [
+          {'id': 2, 'username': 'lee'},
+        ],
+      });
 
       expect((await mutation).canApplyLocally, isFalse);
-      expect(transport.gets, [
-        (
-          path: '/groups/support.json',
-          apiKey: 'old-secret',
-          clientId: 'native-client',
-        ),
+      expect(transport.gets, hasLength(2));
+      expect(transport.gets.map((request) => request.apiKey), [
+        'old-secret',
+        'old-secret',
       ]);
+      expect(controller.detailState(_site, 'support').loaded, isFalse);
       expect(controller.membersState(_site, 'support').loaded, isFalse);
     },
   );

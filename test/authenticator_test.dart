@@ -183,9 +183,9 @@ void main() {
         expect(launchedUrl, 'https://authorize.invalid');
         expect(launchedScheme, UserApiKeyProtocol.redirectScheme);
         expect(events, [
+          'generate-key-pair',
           'read-push-client-id',
           'read-client-id',
-          'generate-key-pair',
           'auth-url',
           'launch',
           'callback-payload',
@@ -257,8 +257,8 @@ void main() {
       expect(await authenticator.clientId(), isEmpty);
       expect(events, [
         'read-push-registration',
-        'write-push-client-id:macos-apns-token',
         'generate-key-pair',
+        'write-push-client-id:macos-apns-token',
         'auth-url',
         'launch',
         'callback-payload',
@@ -377,6 +377,7 @@ void main() {
         expect(await clientId, isEmpty);
         expect(store.apiKeyWrites, [(_site, _credentials.key)]);
         expect(events, [
+          'generate-key-pair',
           'generate-key-pair',
           'auth-url',
           'launch',
