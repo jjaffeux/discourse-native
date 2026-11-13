@@ -2,10 +2,10 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../cooked_html.dart';
 import '../image_decode.dart';
 import '../site_image.dart';
 import 'audio.dart';
+import 'body_builder.dart';
 import 'discourse/category/block.dart';
 import 'discourse/topic/block.dart';
 import 'discourse/user/block.dart';
@@ -16,13 +16,16 @@ import 'reddit.dart';
 import 'twitter.dart';
 
 final List<OneboxEngine> _engines = [
-  twitterBlock,
   discourseTopicBlock,
   discourseUserBlock,
   discourseCategoryBlock,
 ];
 
-Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
+Widget? oneboxWidgetBuilder(
+  dom.Element element, {
+  required OneboxBodyBuilder renderBody,
+  String? siteUrl,
+}) {
   final theme = forumThemeOneboxWidgetBuilder(element, siteUrl: siteUrl);
   if (theme != null) return theme;
   final audio = audioOneboxWidgetBuilder(element, siteUrl: siteUrl);
@@ -40,26 +43,54 @@ Widget? oneboxWidgetBuilder(dom.Element element, {String? siteUrl}) {
   if (!element.classes.contains('onebox')) return null;
 
   final envelope = OneboxData.from(element);
+  if (element.classes.contains('twitterstatus')) {
+    final data = TwitterOneboxData.from(element, envelope);
+    if (data != null) {
+      return TwitterOnebox(
+        data: data,
+        siteUrl: siteUrl,
+        renderBody: renderBody,
+      );
+    }
+    return genericOneboxCard(
+      envelope,
+      siteUrl: siteUrl,
+      renderBody: renderBody,
+    );
+  }
   for (final engine in _engines) {
     if (engine.matches(element)) {
       return engine.build(element, envelope, siteUrl);
     }
   }
-  return genericOneboxCard(envelope, siteUrl: siteUrl);
+  return genericOneboxCard(envelope, siteUrl: siteUrl, renderBody: renderBody);
 }
 
 /// A card for a site with no engine of its own: the envelope's thumbnail,
 /// title, and cooked excerpt, read as one link to the whole card.
-OneboxCard genericOneboxCard(OneboxData data, {String? siteUrl}) => OneboxCard(
+OneboxCard genericOneboxCard(
+  OneboxData data, {
+  required OneboxBodyBuilder renderBody,
+  String? siteUrl,
+}) => OneboxCard(
   data: data,
   siteUrl: siteUrl,
   readsAsOneLink: true,
-  child: _GenericOneboxBody(data: data, siteUrl: siteUrl),
+  child: _GenericOneboxBody(
+    data: data,
+    siteUrl: siteUrl,
+    renderBody: renderBody,
+  ),
 );
 
 class _GenericOneboxBody extends StatelessWidget {
-  const _GenericOneboxBody({required this.data, required this.siteUrl});
+  const _GenericOneboxBody({
+    required this.data,
+    required this.siteUrl,
+    required this.renderBody,
+  });
 
+  final OneboxBodyBuilder renderBody;
   final OneboxData data;
   final String? siteUrl;
 
@@ -104,7 +135,7 @@ class _GenericOneboxBody extends StatelessWidget {
         if (title != null && data.bodyHtml.isNotEmpty)
           const SizedBox(height: 4),
         if (data.bodyHtml.isNotEmpty)
-          CookedHtml(
+          renderBody(
             html: data.bodyHtml,
             textStyle: theme.textTheme.bodyLarge?.copyWith(
               height: theme.textTheme.bodyMedium?.height,

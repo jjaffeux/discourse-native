@@ -111,7 +111,9 @@ void main() {
         MaterialApp(
           theme: AppTheme.light,
           home: Scaffold(
-            body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
+            body: SingleChildScrollView(
+              child: oneboxWidgetBuilder(aside, renderBody: CookedHtml.new)!,
+            ),
           ),
         ),
       );

@@ -1,4 +1,5 @@
 import 'package:discourse_native/discourse_ui.dart' show DAvatar;
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/category/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/topic/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
@@ -263,14 +264,26 @@ void main() {
           html.parse(source).querySelector('body')!.children.first;
 
       expect(
-        oneboxWidgetBuilder(element('<aside class="onebox"></aside>')),
+        oneboxWidgetBuilder(
+          element('<aside class="onebox"></aside>'),
+          renderBody: CookedHtml.new,
+        ),
         isA<OneboxCard>(),
       );
       expect(
-        oneboxWidgetBuilder(element('<aside class="quote"></aside>')),
+        oneboxWidgetBuilder(
+          element('<aside class="quote"></aside>'),
+          renderBody: CookedHtml.new,
+        ),
         isNull,
       );
-      expect(oneboxWidgetBuilder(element('<p>hello</p>')), isNull);
+      expect(
+        oneboxWidgetBuilder(
+          element('<p>hello</p>'),
+          renderBody: CookedHtml.new,
+        ),
+        isNull,
+      );
       // Discourse leaves a link it could not expand as `a.onebox`.
       expect(
         oneboxWidgetBuilder(
@@ -278,6 +291,7 @@ void main() {
             '<a class="onebox" href="https://www.discourse.org">'
             'https://www.discourse.org</a>',
           ),
+          renderBody: CookedHtml.new,
         ),
         isNull,
       );
@@ -287,25 +301,40 @@ void main() {
       Widget body(Widget widget) => (widget as OneboxCard).child;
 
       expect(
-        body(oneboxWidgetBuilder(aside(discourseTopicOnebox))!),
+        body(
+          oneboxWidgetBuilder(
+            aside(discourseTopicOnebox),
+            renderBody: CookedHtml.new,
+          )!,
+        ),
         isA<DiscourseTopicOnebox>(),
       );
       expect(
-        body(oneboxWidgetBuilder(aside(userOnebox))!),
+        body(
+          oneboxWidgetBuilder(aside(userOnebox), renderBody: CookedHtml.new)!,
+        ),
         isA<DiscourseUserOnebox>(),
       );
       expect(
-        body(oneboxWidgetBuilder(aside(categoryOnebox))!),
+        body(
+          oneboxWidgetBuilder(
+            aside(categoryOnebox),
+            renderBody: CookedHtml.new,
+          )!,
+        ),
         isA<DiscourseCategoryOnebox>(),
       );
       expect(
-        (oneboxWidgetBuilder(aside(genericOnebox))! as OneboxCard)
+        (oneboxWidgetBuilder(aside(genericOnebox), renderBody: CookedHtml.new)!
+                as OneboxCard)
             .readsAsOneLink,
         isTrue,
       );
       for (final source in [prOnebox, issueOnebox, commitOnebox]) {
         expect(
-          (oneboxWidgetBuilder(aside(source))! as OneboxCard).readsAsOneLink,
+          (oneboxWidgetBuilder(aside(source), renderBody: CookedHtml.new)!
+                  as OneboxCard)
+              .readsAsOneLink,
           isTrue,
         );
       }
@@ -324,7 +353,10 @@ void main() {
                 alignment: Alignment.topLeft,
                 child: SizedBox(
                   width: 280,
-                  child: genericOneboxCard(parse(twitterOnebox)),
+                  child: genericOneboxCard(
+                    parse(twitterOnebox),
+                    renderBody: CookedHtml.new,
+                  ),
                 ),
               ),
             ),
@@ -344,7 +376,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(body: genericOneboxCard(parse(genericOnebox))),
+          home: Scaffold(
+            body: genericOneboxCard(
+              parse(genericOnebox),
+              renderBody: CookedHtml.new,
+            ),
+          ),
         ),
       );
       await tester.pump();
@@ -375,7 +412,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.light,
-          home: Scaffold(body: genericOneboxCard(parse(genericOnebox))),
+          home: Scaffold(
+            body: genericOneboxCard(
+              parse(genericOnebox),
+              renderBody: CookedHtml.new,
+            ),
+          ),
         ),
       );
 
@@ -423,7 +465,9 @@ void main() {
         await tester.pumpWidget(
           MaterialApp(
             theme: AppTheme.light.copyWith(platform: TargetPlatform.macOS),
-            home: Scaffold(body: genericOneboxCard(data)),
+            home: Scaffold(
+              body: genericOneboxCard(data, renderBody: CookedHtml.new),
+            ),
           ),
         );
         await tester.pump();

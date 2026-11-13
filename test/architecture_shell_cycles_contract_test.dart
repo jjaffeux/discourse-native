@@ -19,21 +19,16 @@ const _adaptiveShell = 'lib/src/shell/adaptive_shell.dart';
 const _desktopPanels = 'lib/src/shell/desktop_panels.dart';
 const _mainContent = 'lib/src/shell/main_content.dart';
 
-/// Oneboxes still instantiate the cooked renderer directly.
-const _cookedRecursion = [
-  _cookedHtml,
-  'lib/src/shell/oneboxes/onebox.dart',
-  'lib/src/shell/oneboxes/twitter.dart',
-];
-
 void main() {
   final graph = LibraryGraph.load();
 
   group('shell widget cycles', () {
-    test('cooked rendering is the only widget cycle in the shell', () {
+    test('shell libraries participate in no import cycle', () {
       expect(
-        graph.cycles().where((cycle) => !cycle.contains(_composerController)),
-        [_cookedRecursion],
+        graph.cycles().where(
+          (cycle) => cycle.any((path) => path.startsWith('lib/src/shell/')),
+        ),
+        isEmpty,
       );
     });
 

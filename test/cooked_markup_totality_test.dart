@@ -32,7 +32,6 @@ import 'package:discourse_native/src/shell/oneboxes/forum_theme.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox_card.dart';
 import 'package:discourse_native/src/shell/oneboxes/reddit.dart';
-import 'package:discourse_native/src/shell/oneboxes/twitter.dart';
 import 'package:discourse_native/src/shell/pdf_attachment.dart';
 import 'package:discourse_native/src/shell/quote.dart';
 import 'package:discourse_native/src/shell/youtube_video.dart';
@@ -429,7 +428,6 @@ const _builders = [
 /// The engines behind the onebox dispatcher and the GitHub plugin, by the
 /// name each file declares them under.
 final _oneboxEngines = {
-  'twitterBlock': twitterBlock,
   'discourseTopicBlock': discourseTopicBlock,
   'discourseUserBlock': discourseUserBlock,
   'discourseCategoryBlock': discourseCategoryBlock,
@@ -546,7 +544,11 @@ void main() {
           );
           probe(
             'onebox',
-            () => oneboxWidgetBuilder(element, siteUrl: site),
+            () => oneboxWidgetBuilder(
+              element,
+              renderBody: CookedHtml.new,
+              siteUrl: site,
+            ),
             element,
           );
           probe(

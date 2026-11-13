@@ -43,7 +43,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _importCycles = [3];
+const _importCycles = <int>[];
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
@@ -62,15 +62,18 @@ void main() {
   group('layer contract', () {
     test('only API composition directly imports the aggregate contract', () {
       const aggregate = 'lib/src/data/discourse_api_contracts.dart';
-      expect({
-        for (final entry in graph.edges.entries)
-          if (entry.value.contains(aggregate)) entry.key,
-      }, {
-        'lib/src/data/discourse_api.dart',
-        'lib/src/data/shell_api_ports.dart',
-        'lib/src/plugin_testing/plugin_test_ports.dart',
-        'lib/src/shell/shell_controller.dart',
-      });
+      expect(
+        {
+          for (final entry in graph.edges.entries)
+            if (entry.value.contains(aggregate)) entry.key,
+        },
+        {
+          'lib/src/data/discourse_api.dart',
+          'lib/src/data/shell_api_ports.dart',
+          'lib/src/plugin_testing/plugin_test_ports.dart',
+          'lib/src/shell/shell_controller.dart',
+        },
+      );
     });
 
     for (final entry in _allowedUpwardEdges.entries) {

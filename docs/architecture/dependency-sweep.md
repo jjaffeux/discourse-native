@@ -78,3 +78,10 @@ Nested quotes, quote layout, and cooked fragments passed focused tests.
 Image grids now receive the cooked body renderer for non-image tiles from
 composition. Their dependency reach fell from 620 to 584 app libraries and
 from 181 to 156 widget libraries. The remaining cycle contains three libraries.
+
+Generic and Twitter oneboxes now receive the cooked body renderer from
+composition. Generic onebox dispatch reaches 587 app libraries, down from
+620, and the Twitter renderer reaches 573, also down from 620. The app
+library graph now has zero import cycles. The onebox and cooked markup
+tests exercise rendering through the dispatcher, including quoted posts
+and generic fallbacks.

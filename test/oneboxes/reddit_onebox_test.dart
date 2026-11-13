@@ -135,7 +135,7 @@ void main() {
   test('declines unrelated and malformed markup without mutating the DOM', () {
     final element = html.parseFragment(redditPostOnebox).children.single;
     final original = element.outerHtml;
-    expect(oneboxWidgetBuilder(element), isNotNull);
+    expect(oneboxWidgetBuilder(element, renderBody: CookedHtml.new), isNotNull);
     expect(element.outerHtml, original);
     for (final source in [
       '<p>Reddit</p>',

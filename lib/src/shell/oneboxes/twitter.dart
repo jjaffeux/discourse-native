@@ -9,11 +9,10 @@ import '../../foundation/icons/d_icons.dart';
 import '../../foundation/icons/d_native_icons.dart';
 import '../../theme/discourse_typography.dart';
 import '../cooked_dom.dart';
-import '../cooked_html.dart';
 import '../open_link.dart';
 import '../site_image.dart';
+import 'body_builder.dart';
 import 'markup.dart';
-import 'onebox.dart';
 import 'onebox_card.dart';
 
 /// The fields actually supplied by Discourse's twitterstatus template.
@@ -127,19 +126,15 @@ class TwitterOneboxData {
   }
 }
 
-final twitterBlock = OneboxEngine(
-  matches: (aside) => aside.classes.contains('twitterstatus'),
-  build: (aside, envelope, siteUrl) {
-    final data = TwitterOneboxData.from(aside, envelope);
-    return data == null
-        ? genericOneboxCard(envelope, siteUrl: siteUrl)
-        : TwitterOnebox(data: data, siteUrl: siteUrl);
-  },
-);
-
 class TwitterOnebox extends StatelessWidget {
-  const TwitterOnebox({super.key, required this.data, this.siteUrl});
+  const TwitterOnebox({
+    super.key,
+    required this.data,
+    required this.renderBody,
+    this.siteUrl,
+  });
 
+  final OneboxBodyBuilder renderBody;
   final TwitterOneboxData data;
   final String? siteUrl;
 
@@ -172,10 +167,18 @@ class TwitterOnebox extends StatelessWidget {
                         ),
                         const SizedBox(height: DSpacing.xs),
                       ],
-                      _PostBody(data: data, siteUrl: siteUrl),
+                      _PostBody(
+                        renderBody: renderBody,
+                        data: data,
+                        siteUrl: siteUrl,
+                      ),
                       if (data.quote case final quote?) ...[
                         const SizedBox(height: DSpacing.md),
-                        _QuotedPost(data: quote, siteUrl: siteUrl),
+                        _QuotedPost(
+                          renderBody: renderBody,
+                          data: quote,
+                          siteUrl: siteUrl,
+                        ),
                       ],
                       if (data.timestamp case final timestamp?) ...[
                         const SizedBox(height: DSpacing.sm),
@@ -346,15 +349,17 @@ class _Author extends StatelessWidget {
 class _PostBody extends StatelessWidget {
   const _PostBody({
     required this.data,
+    required this.renderBody,
     required this.siteUrl,
     this.quoted = false,
   });
+  final OneboxBodyBuilder renderBody;
   final TwitterOneboxData data;
   final String? siteUrl;
   final bool quoted;
 
   @override
-  Widget build(BuildContext context) => CookedHtml(
+  Widget build(BuildContext context) => renderBody(
     html: data.bodyHtml,
     siteUrl: siteUrl,
     compactParagraphs: true,
@@ -368,7 +373,12 @@ class _PostBody extends StatelessWidget {
 }
 
 class _QuotedPost extends StatelessWidget {
-  const _QuotedPost({required this.data, required this.siteUrl});
+  const _QuotedPost({
+    required this.data,
+    required this.renderBody,
+    required this.siteUrl,
+  });
+  final OneboxBodyBuilder renderBody;
   final TwitterOneboxData data;
   final String? siteUrl;
 
@@ -415,7 +425,12 @@ class _QuotedPost extends StatelessWidget {
               ),
             ),
             const SizedBox(height: DSpacing.xs),
-            _PostBody(data: data, siteUrl: siteUrl, quoted: true),
+            _PostBody(
+              renderBody: renderBody,
+              data: data,
+              siteUrl: siteUrl,
+              quoted: true,
+            ),
           ],
         ),
       ),

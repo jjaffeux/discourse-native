@@ -119,7 +119,10 @@ void main() {
 </aside>''')
         .children
         .single;
-    expect(oneboxWidgetBuilder(element), isA<OneboxCard>());
+    expect(
+      oneboxWidgetBuilder(element, renderBody: CookedHtml.new),
+      isA<OneboxCard>(),
+    );
     expect(OneboxData.from(element).bodyHtml, contains('An older post body'));
   });
 

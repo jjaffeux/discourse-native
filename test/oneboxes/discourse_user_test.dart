@@ -1,3 +1,4 @@
+import 'package:discourse_native/src/shell/cooked_html.dart';
 import 'package:discourse_native/src/shell/oneboxes/discourse/user/block.dart';
 import 'package:discourse_native/src/shell/oneboxes/onebox.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
@@ -77,7 +78,9 @@ void main() {
         MaterialApp(
           theme: AppTheme.light,
           home: Scaffold(
-            body: SingleChildScrollView(child: oneboxWidgetBuilder(aside)!),
+            body: SingleChildScrollView(
+              child: oneboxWidgetBuilder(aside, renderBody: CookedHtml.new)!,
+            ),
           ),
         ),
       );
