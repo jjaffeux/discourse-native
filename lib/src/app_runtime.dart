@@ -305,7 +305,7 @@ final class AppRuntime {
     try {
       await controller.load();
       if (!_isCurrent(controller)) return;
-      _notificationIngress.ready(controller.openNotificationUrl);
+      _notificationIngress.ready(controller);
       if (pluginsStarted) {
         await plugins.startPhase(
           PluginStartupPhase.appReady,

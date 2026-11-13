@@ -47,10 +47,11 @@ final class _NotificationIngress {
     previous?.retire();
   }
 
-  void ready(Future<bool> Function(String) navigate) {
+  void ready(ShellController controller) {
     if (_disposed) return;
     final previous = _destination;
-    _destination = _NotificationDestination(navigate);
+    if (identical(previous?.controller, controller)) return;
+    _destination = _NotificationDestination(controller);
     previous?.retire();
     _drain();
   }
@@ -90,9 +91,9 @@ final class _NotificationIngress {
 }
 
 final class _NotificationDestination {
-  _NotificationDestination(this._navigate);
+  _NotificationDestination(this.controller);
 
-  final Future<bool> Function(String) _navigate;
+  final ShellController controller;
   Completer<void>? _delivery;
 
   Future<void> deliver(String url) {
@@ -109,7 +110,7 @@ final class _NotificationDestination {
     }
 
     unawaited(
-      Future<bool>.sync(() => _navigate(url)).then<void>(
+      Future<bool>.sync(() => controller.openNotificationUrl(url)).then<void>(
         (_) => finish(),
         onError: (Object error, StackTrace stackTrace) =>
             finish(error, stackTrace),

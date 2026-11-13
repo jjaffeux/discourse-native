@@ -398,6 +398,11 @@ void main() {
           urls.add(first);
           await _turn();
           expect(opened, [(1, first)]);
+          await runtime.start(runtime.controller);
+          await _turn();
+          expect(opened, [
+            (1, first),
+          ], reason: 'same controller keeps its delivery');
           runtime.replace(
             fixture.dependencies(
               store: FakeInstanceStore([connected]),
