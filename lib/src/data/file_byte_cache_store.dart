@@ -103,7 +103,7 @@ final class FileByteCacheStore implements ByteCacheStore {
       return null;
     }
     if (stat.type != FileSystemEntityType.file ||
-        stat.size < _headerBytes ||
+        stat.size <= _headerBytes ||
         stat.size > maxEncodedBytes) {
       await _delete(file);
       return null;
@@ -127,7 +127,7 @@ final class FileByteCacheStore implements ByteCacheStore {
       return null;
     }
 
-    if (encoded.length < _headerBytes || !_hasMagic(encoded)) {
+    if (encoded.length <= _headerBytes || !_hasMagic(encoded)) {
       await _delete(file);
       return null;
     }

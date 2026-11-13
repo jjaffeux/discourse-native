@@ -37,6 +37,18 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('a header-only entry is a miss and can be replaced', () async {
+      final entry = await seed('empty-body', [1], now);
+      final bytes = await entry.readAsBytes();
+      await entry.writeAsBytes(bytes.sublist(0, 12));
+      final store = FileByteCacheStore(directory, clock: () => now);
+      final url = _url('empty-body');
+
+      expect(await store.read(url), isNull);
+      await store.write(url, Uint8List.fromList([2]), expiresAt: expiresAt);
+      expect(await store.read(url), [2]);
+    });
+
     test('a write leaves a temporary file it cannot claim intact', () async {
       final occupied = File('${directory.path}/occupied.tmp');
       await occupied.writeAsBytes([7]);
