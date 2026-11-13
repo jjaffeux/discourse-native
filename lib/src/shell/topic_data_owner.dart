@@ -1473,7 +1473,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     _changed();
     try {
       final credential = await _requests.keyCredentials(_owner.credentials);
-      if (!isCurrent) return;
+      if (!_readIsCurrent(stamp)) return;
       final posts = await credential.run(
         () => _owner.content.postsFromNumber(
           siteUrl: siteUrl,
@@ -1539,7 +1539,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     final stamp = _stamp(topicId);
     try {
       final credential = await _requests.keyCredentials(_owner.credentials);
-      if (!isCurrent) return;
+      if (!_readIsCurrent(stamp)) return;
       final posts = await credential.run(
         () => _owner.content.posts(
           siteUrl: siteUrl,
@@ -1600,7 +1600,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     _changed();
     try {
       final credential = await _requests.credentials(_owner.credentials);
-      if (!isCurrent) return true;
+      if (!_readIsCurrent(stamp)) return true;
       final response = await credential.run(
         () => _owner.content.topic(
           siteUrl: siteUrl,

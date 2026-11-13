@@ -297,7 +297,14 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
-  for (final operation in ['open', 'refresh', 'page']) {
+  for (final operation in [
+    'open',
+    'refresh',
+    'page',
+    'mega page',
+    'gap',
+    'summary',
+  ]) {
     test(
       'retired tracking skips $operation requests after credential lookup',
       () async {
@@ -305,6 +312,14 @@ void main() {
         final key = Completer<String?>();
         f.credentials.pendingKey = key.future;
         final data = f.data;
+        final detail = f.store
+            .read<TopicDetail>(_site, 7)!
+            .copyWith(
+              gapsAfter: const {
+                1: [42],
+              },
+            );
+        f.store.put(_site, detail);
         final pending = switch (operation) {
           'open' => data.open(
             7,
@@ -313,6 +328,9 @@ void main() {
             opening: f.opening,
           ),
           'refresh' => data.refresh(7),
+          'mega page' => data.pageMega(detail, _post(1, 'edge'), newer: true),
+          'gap' => data.expandGap(7, anchorPostId: 1, before: false),
+          'summary' => data.toggleSummary(7, slug: 'topic'),
           _ => data.pageIds(7, ids: [42], newer: false),
         };
         await pumpEventQueue();
