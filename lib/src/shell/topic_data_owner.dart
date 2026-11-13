@@ -1633,20 +1633,24 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     int postId, {
     required bool Function() isInterested,
   }) async {
-    final held = await ensurePosts(topicId, [
-      postId,
-    ], isInterested: isInterested);
+    final held = await ensurePosts(
+      topicId,
+      [postId],
+      shouldFetch: isInterested,
+      shouldPublish: isInterested,
+    );
     return held ? _store.read<Post>(siteUrl, postId) : null;
   }
 
-  /// Answers whether every post in [postIds] is held, fetching those that are
-  /// not. Nothing is published once [isInterested] answers false.
+  /// Ensures [postIds] are cached. [shouldFetch] gates the request, and
+  /// [shouldPublish] gates the cache update after the response.
   Future<bool> ensurePosts(
     int topicId,
     List<int> postIds, {
-    required bool Function() isInterested,
+    required bool Function() shouldFetch,
+    required bool Function() shouldPublish,
   }) async {
-    if (!isCurrent || !isInterested()) return false;
+    if (!isCurrent || !shouldFetch()) return false;
     final missing = [
       for (final id in postIds)
         if (!_store.containsRecord<Post>(siteUrl, id)) id,
@@ -1654,7 +1658,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     if (missing.isEmpty) return true;
     final stamp = _stamp(topicId);
     final credential = await _requests.keyCredentials(_owner.credentials);
-    if (!isCurrent || !isInterested()) return false;
+    if (!isCurrent || !shouldFetch()) return false;
     final fetched = await credential.run(
       () => _owner.content.posts(
         siteUrl: siteUrl,
@@ -1663,7 +1667,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         apiKey: credential.apiKey,
       ),
     );
-    if (!isCurrent || !isInterested()) return false;
+    if (!isCurrent || !shouldPublish()) return false;
     if (!_publishPosts(topicId, fetched, stamp)) return false;
     return postIds.every((id) => _store.containsRecord<Post>(siteUrl, id));
   }

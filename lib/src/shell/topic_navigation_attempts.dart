@@ -189,7 +189,8 @@ final class TopicNavigationAttempts {
         final held = await data.ensurePosts(
           topic.id,
           stream.sublist(math.max(0, end - _scrubChunk), end),
-          isInterested: () => _isCurrent(attempt),
+          shouldFetch: wanted,
+          shouldPublish: () => _isCurrent(attempt),
         );
         if (!held) return false;
         postNumber = _store.read<Post>(siteUrl, stream[target])?.postNumber;

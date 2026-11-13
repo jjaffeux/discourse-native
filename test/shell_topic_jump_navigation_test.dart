@@ -659,6 +659,22 @@ void main() {
       expect(api.topicPostNumbersOpened, isEmpty);
     });
 
+    test(
+      'an abandoned drag skips its post fetch after credentials arrive',
+      () async {
+        final (:shell, :api, :authenticator) = await _fixture();
+        final credential = authenticator.gateNextApiKey();
+        var wanted = true;
+        final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => wanted);
+        await credential.started.future;
+        wanted = false;
+        credential.release.complete();
+
+        expect(await moved, isFalse);
+        expect(api.postFetches, isEmpty);
+      },
+    );
+
     test('a load the drag moved on from applies nothing', () async {
       final (:shell, :api, authenticator: _) = await _fixture();
       var newest = 3;
