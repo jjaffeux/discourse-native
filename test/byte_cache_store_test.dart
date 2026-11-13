@@ -36,6 +36,25 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('bounds the read when an entry grows after its stat', () async {
+      final entry = await seed('growing', [1, 2, 3, 4], now);
+      final growing = _GrowingCacheFile(entry);
+      final store = FileByteCacheStore(
+        directory,
+        maxEntryBytes: 4,
+        clock: () => now,
+      );
+
+      final bytes = await IOOverrides.runZoned(
+        () => store.read(_url('growing')),
+        createFile: (_) => growing,
+      );
+
+      expect(bytes, isNull);
+      expect(growing.requestedBytes, 17);
+      expect(await entry.exists(), isFalse);
+    });
+
     test(
       'reads fresh bytes until exact expiry then removes the expired file',
       () async {
@@ -522,3 +541,55 @@ Future<void> _pollUntil(bool Function() done, Duration limit) async {
 }
 
 String _url(String key) => 'https://cdn.test/$key.png';
+
+final class _GrowingCacheFile implements File {
+  _GrowingCacheFile(this.file);
+
+  final File file;
+  int? requestedBytes;
+
+  @override
+  Future<FileStat> stat() async {
+    final original = await file.stat();
+    await file.writeAsBytes(List.filled(128, 9), mode: FileMode.append);
+    return original;
+  }
+
+  @override
+  Future<Uint8List> readAsBytes() => file.readAsBytes();
+
+  @override
+  Future<RandomAccessFile> open({FileMode mode = FileMode.read}) async =>
+      _RecordedCacheRead(await file.open(mode: mode), (count) {
+        requestedBytes = count;
+      });
+
+  @override
+  Future<FileSystemEntity> delete({bool recursive = false}) =>
+      file.delete(recursive: recursive);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _RecordedCacheRead implements RandomAccessFile {
+  _RecordedCacheRead(this.file, this.onRead);
+
+  final RandomAccessFile file;
+  final void Function(int) onRead;
+
+  @override
+  Future<int> length() => file.length();
+
+  @override
+  Future<Uint8List> read(int bytes) {
+    onRead(bytes);
+    return file.read(bytes);
+  }
+
+  @override
+  Future<void> close() => file.close();
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}

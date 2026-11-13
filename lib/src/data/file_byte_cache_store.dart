@@ -62,6 +62,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   @override
   Future<Uint8List?> read(String url) async {
     final file = File(_pathFor(url));
+    final maxEncodedBytes = _headerBytes + maxEntryBytes;
     FileStat stat;
     try {
       stat = await file.stat();
@@ -70,14 +71,25 @@ final class FileByteCacheStore implements ByteCacheStore {
     }
     if (stat.type != FileSystemEntityType.file ||
         stat.size < _headerBytes ||
-        stat.size > _headerBytes + maxEntryBytes) {
+        stat.size > maxEncodedBytes) {
       await _delete(file);
       return null;
     }
 
     Uint8List encoded;
     try {
-      encoded = await file.readAsBytes();
+      final handle = await file.open();
+      try {
+        final length = await handle.length();
+        // Allow one extra byte to detect growth after measuring the open file.
+        final readLimit = length < maxEncodedBytes ? length : maxEncodedBytes;
+        encoded = await handle.read(readLimit + 1);
+        if (encoded.length > readLimit && readLimit < maxEncodedBytes) {
+          return null;
+        }
+      } finally {
+        await handle.close();
+      }
     } on FileSystemException {
       return null;
     }
