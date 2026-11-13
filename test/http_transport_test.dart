@@ -362,6 +362,40 @@ void main() {
       expect(cancelled, isTrue);
     });
 
+    test('caller cancellation releases a response that arrives late', () async {
+      final abort = Completer<void>();
+      final headers = Completer<http.StreamedResponse>();
+      final bodyCancelled = Completer<void>();
+      final body = StreamController<List<int>>(
+        onCancel: bodyCancelled.complete,
+      );
+      addTearDown(body.close);
+      final timers = <_ManualTimer>[];
+      final result = _withManualTimers(
+        timers,
+        () => sendBoundedHttpRequest(
+          _Client((_) => headers.future),
+          http.AbortableRequest(
+            'GET',
+            Uri.https('forum.example', '/data'),
+            abortTrigger: abort.future,
+          ),
+          timeout: const Duration(seconds: 1),
+          maxBodyBytes: 10,
+        ),
+      );
+      final failure = expectLater(
+        result,
+        throwsA(isA<http.RequestAbortedException>()),
+      );
+      abort.complete();
+      await Future<void>.delayed(Duration.zero);
+      if (timers.single.isActive) timers.single.fire();
+      headers.complete(http.StreamedResponse(body.stream, 200));
+      await failure;
+      await _expectSignal(bodyCancelled, reason: 'late body was not cancelled');
+    });
+
     test(
       'caller cancellation stops a body even if the client ignores it',
       () async {

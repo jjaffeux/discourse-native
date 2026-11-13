@@ -128,14 +128,24 @@ Future<http.Response> sendBoundedHttpRequest(
         ? timeoutAbort.future
         : Future.any<void>([callerAbort, timeoutAbort.future]),
   );
+  final abortError = callerAbort?.then(
+    (_) => http.RequestAbortedException(request.url),
+  );
   final elapsed = Stopwatch()..start();
   final response = client.send(sentRequest);
   late http.StreamedResponse streamed;
   try {
-    streamed = await response.timeout(timeout);
+    streamed = await Future.any<http.StreamedResponse>([
+      response,
+      if (abortError != null)
+        abortError.then<http.StreamedResponse>((error) => throw error),
+    ]).timeout(timeout);
   } on TimeoutException {
     timeoutAbort.complete();
     cancelLateHttpResponse(response);
+    rethrow;
+  } on Object {
+    if (abortError != null) cancelLateHttpResponse(response);
     rethrow;
   }
   final contentLength = streamed.contentLength;
@@ -159,9 +169,7 @@ Future<http.Response> sendBoundedHttpRequest(
           streamed.stream,
           maxBytes: maxBodyBytes,
           timeout: remaining,
-          abortError: callerAbort?.then(
-            (_) => http.RequestAbortedException(request.url),
-          ),
+          abortError: abortError,
           timeoutError: TimeoutException(
             appL10n.timedOutReadingResponseFrom(request.url.toString()),
             remaining,
