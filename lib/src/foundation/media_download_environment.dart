@@ -73,6 +73,20 @@ final class NativeMediaDownloadEnvironment implements MediaDownloadEnvironment {
   @override
   Future<Directory> temporaryDirectory() => getTemporaryDirectory();
 
+  Future<void> shareText(
+    String text, {
+    required String subject,
+    Rect? sharePositionOrigin,
+  }) async {
+    await sharing.SharePlus.instance.share(
+      sharing.ShareParams(
+        text: text,
+        subject: subject,
+        sharePositionOrigin: sharePositionOrigin,
+      ),
+    );
+  }
+
   @override
   Future<MediaShareOutcome> shareFile(
     File file, {

@@ -4,9 +4,9 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:share_plus/share_plus.dart' as sharing;
 
 import '../foundation/icons/d_icons.dart';
+import '../foundation/media_download_environment.dart';
 import '../models/discourse_instance.dart';
 import '../models/site_config.dart';
 import '../theme/app_theme.dart';
@@ -185,12 +185,10 @@ Future<bool> _copyUrl(String url) async {
 /// Whether the system share sheet could be opened for [subject].
 Future<bool> _shareSystem(_ShareSubject subject, Rect? origin) async {
   try {
-    await sharing.SharePlus.instance.share(
-      sharing.ShareParams(
-        text: subject.url,
-        subject: subject.title,
-        sharePositionOrigin: origin,
-      ),
+    await const NativeMediaDownloadEnvironment().shareText(
+      subject.url,
+      subject: subject.title,
+      sharePositionOrigin: origin,
     );
     return true;
   } catch (_) {

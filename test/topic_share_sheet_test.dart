@@ -1,11 +1,13 @@
 import 'dart:async';
 
 import 'package:discourse_native/discourse_ui.dart';
+import 'package:discourse_native/l10n/strings.dart';
 import 'package:discourse_native/src/shell/topic_share.dart';
 import 'package:discourse_native/src/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:share_plus_platform_interface/share_plus_platform_interface.dart';
 
 const _title = 'Weekly engineering manager meeting notes';
 const _url =
@@ -18,6 +20,27 @@ const _cardKey = ValueKey('topic-share-url');
 const _anchor = Rect.fromLTWH(300, 100, 36, 32);
 
 void main() {
+  testWidgets('shares the topic URL, subject and button origin', (
+    tester,
+  ) async {
+    final previous = SharePlatform.instance;
+    final sharing = _RecordingSharePlatform();
+    SharePlatform.instance = sharing;
+    addTearDown(() => SharePlatform.instance = previous);
+
+    await _openShare(tester);
+    final shareButton = find.byKey(_shareKey);
+    final origin = tester.getRect(shareButton);
+    await tester.tap(shareButton);
+    await tester.pumpAndSettle();
+
+    final request = sharing.requests.single;
+    expect(request.text, _url);
+    expect(request.subject, _title);
+    expect(request.sharePositionOrigin, origin);
+    expect(find.text(appL10n.couldnTOpenSharing), findsNothing);
+  });
+
   testWidgets('copies the link and resets inline feedback', (tester) async {
     final copied = <String>[];
     _mockClipboard(tester, (call) async {
@@ -528,4 +551,14 @@ Future<void> _openShare(
   );
   await tester.tap(find.text('Open share'));
   await tester.pumpAndSettle();
+}
+
+final class _RecordingSharePlatform extends SharePlatform {
+  final requests = <ShareParams>[];
+
+  @override
+  Future<ShareResult> share(ShareParams params) async {
+    requests.add(params);
+    return const ShareResult('', ShareResultStatus.dismissed);
+  }
 }
