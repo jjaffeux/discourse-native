@@ -48,6 +48,17 @@ final class _TaxonomySite {
   _TopicListFilterTagsCache? topicListFilterTagsCache;
   _TagSearchEntriesCache? tagSearchEntriesCache;
   _KnownTagIndex? knownTagIndex;
+
+  void retire() {
+    detach?.call();
+    detach = null;
+    for (final request in categoryIdRequests.values.toSet()) {
+      if (!request.completion.isCompleted) {
+        request.completion.complete(const []);
+      }
+    }
+    categoryIdRequests.clear();
+  }
 }
 
 final class _TaxonomyDirectoryController
@@ -61,13 +72,13 @@ final class _TaxonomyDirectoryController
     final lease = _shell.lifecycle.capture(siteUrl);
     final held = _sites[siteUrl];
     if (held != null && identical(held.lease, lease)) return held;
-    held?.detach?.call();
+    held?.retire();
     final site = _TaxonomySite(lease);
     if (!lease.isCurrent) return site;
     _sites[siteUrl] = site;
     site.detach = lease.onRetire(() {
       if (identical(_sites[siteUrl], site)) _sites.remove(siteUrl);
-      site.detach = null;
+      site.retire();
     });
     return site;
   }
@@ -77,12 +88,12 @@ final class _TaxonomyDirectoryController
   }
 
   void forget(String siteUrl) {
-    _sites.remove(siteUrl)?.detach?.call();
+    _sites.remove(siteUrl)?.retire();
   }
 
   void dispose() {
     for (final site in _sites.values) {
-      site.detach?.call();
+      site.retire();
     }
     _sites.clear();
   }
@@ -662,6 +673,7 @@ final class _TaxonomyDirectoryController
                 return;
               }
               final credential = await readCredentials();
+              if (request.completion.isCompleted) return;
               final found = await credential.run(
                 () => _shell.api.categories.findCategories(
                   siteUrl: instance.url,
@@ -670,9 +682,13 @@ final class _TaxonomyDirectoryController
                   clientId: credential.clientId,
                 ),
               );
-              request.completion.complete(found);
+              if (!request.completion.isCompleted) {
+                request.completion.complete(found);
+              }
             } catch (error, stackTrace) {
-              request.completion.completeError(error, stackTrace);
+              if (!request.completion.isCompleted) {
+                request.completion.completeError(error, stackTrace);
+              }
             }
           }());
         }

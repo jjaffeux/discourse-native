@@ -41,6 +41,22 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test('retirement releases a topic waiting for category metadata', () async {
+    final api = _LookupApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    var finished = false;
+    final loading = shell.loadTopic(41, 'first').then((_) => finished = true);
+    await api.lookupStarted(10);
+    shell.lifecycle.invalidate(_site);
+    await pumpEventQueue();
+    final finishedBeforeResponse = finished;
+    api.answer(10, [_child]);
+    await loading;
+    expect(finishedBeforeResponse, isTrue);
+    expect(shell.categoryFor(10, siteUrl: _site), isNull);
+  });
+
   test('retiring a site lease clears its taxonomy feeds immediately', () async {
     final api = _TagSearchApi()..directory = const [_oldTag];
     final shell = await _loadShell(api);
