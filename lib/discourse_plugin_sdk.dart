@@ -3,6 +3,7 @@ library;
 
 export 'discourse_plugin_composer.dart';
 export 'discourse_plugin_contracts.dart';
+export 'discourse_plugin_preferences.dart';
 export 'discourse_plugin_reader.dart';
 export 'discourse_ui.dart'
     show
@@ -92,7 +93,6 @@ export 'src/shell/plugin_topic_reader.dart'
     show PluginTopicPost, PluginTopicHeader;
 export 'src/shell/post_action_leading.dart' show PostActionLeading;
 export 'src/shell/post_flag_editor.dart' show PostFlagEditor, showFlagEditor;
-export 'src/shell/preference_fields.dart' show PreferenceCard, PreferenceSelect;
 export 'src/shell/quote_panel.dart' show QuotePanel;
 export 'src/shell/reaction_presentation.dart'
     show ReactionPill, ReactionPills, ReactionUsersList, ReactionUsersPanel;

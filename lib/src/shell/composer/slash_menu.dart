@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart';
 
-import 'controller.dart';
+import 'slash_menu_host.dart';
 import 'slash_query.dart';
 
 /// A composer action uses the same callback and availability as its toolbar.
@@ -42,7 +42,7 @@ class ComposerSlashMenu extends StatefulWidget {
     this.hintStyle,
   });
 
-  final ComposerController composer;
+  final ComposerSlashMenuHost composer;
   final ComposerSlashActions actions;
   final RenderEditable? Function() renderEditable;
   final Listenable scroll;

@@ -102,7 +102,7 @@ void main() {
         'lib',
         'test',
       ]).applicationLibrariesReachedBy('test/support/fakes.dart');
-      expect(reached.length, 240);
+      expect(reached.length, 243);
     });
   });
 

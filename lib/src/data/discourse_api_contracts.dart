@@ -1,15 +1,11 @@
 import 'package:discourse_native/l10n/strings.dart';
 
-import '../models/bookmark.dart';
 import '../models/composer_draft.dart';
 import '../models/composer_upload.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_model_codec.dart';
 import '../models/forum_about.dart';
-import '../models/found_hashtag.dart';
-import '../models/found_user.dart';
 import '../models/notification.dart';
-import '../models/notification_totals.dart';
 import '../models/pending_post.dart';
 import '../models/post.dart';
 import '../models/post_checklist.dart';
@@ -23,10 +19,9 @@ import '../models/site_config.dart';
 import '../models/site_emoji.dart';
 import '../models/tag_notification.dart';
 import '../models/topic.dart';
-import '../models/topic_filter.dart';
 import '../models/topic_tracking_state.dart';
-import '../models/user_activity.dart';
 import '../models/user_card.dart';
+import 'account_activity_api.dart';
 import 'account_session_api.dart';
 import 'bookmarks_write_api.dart';
 import 'category_load_result.dart';
@@ -36,22 +31,27 @@ import 'drafts_api.dart';
 import 'dsa_notice_contracts.dart';
 import 'http_basic_auth.dart';
 import 'plugin_transport.dart';
+import 'shell_lookup_api.dart';
 import 'sidebar_sections_api.dart';
 import 'site_lookup_failure.dart';
 import 'site_message_bus_bootstrap.dart';
+import 'topic_composer_queries_api.dart';
 import 'topic_feeds_api.dart';
 import 'topic_reads_api.dart';
 import 'user_preferences_api.dart';
 import 'user_summaries_api.dart';
 import 'write_failure.dart';
 
+export 'account_activity_api.dart';
 export 'bookmarks_write_api.dart';
 export 'category_load_result.dart';
 export 'discourse_search_contract.dart';
 export 'do_not_disturb_api.dart';
 export 'drafts_api.dart';
 export 'dsa_notice_contracts.dart';
+export 'shell_lookup_api.dart';
 export 'site_lookup_failure.dart';
+export 'topic_composer_queries_api.dart';
 export 'topic_feeds_api.dart';
 export 'topic_reads_api.dart';
 export 'user_preferences_api.dart';
@@ -298,76 +298,6 @@ abstract interface class TagQueriesApi {
   Future<List<SidebarTag>> tags({
     required String siteUrl,
     String? apiKey,
-    String? clientId,
-  });
-}
-
-abstract interface class ShellLookupApi {
-  Future<List<FoundUser>> searchUsers({
-    required String siteUrl,
-    required String term,
-    int? topicId,
-    int limit = 10,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<TopicFilterLookupValue>> searchFilterTags({
-    required String siteUrl,
-    required String term,
-    int? categoryId,
-    int limit = 5,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<TopicFilterLookupValue>> searchFilterTagGroups({
-    required String siteUrl,
-    required String term,
-    int limit = 10,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<TopicFilterLookupValue>> searchFilterGroups({
-    required String siteUrl,
-    required String term,
-    int limit = 10,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<List<FoundHashtag>> lookupHashtags({
-    required String siteUrl,
-    required Iterable<String> refs,
-    List<String> order = defaultDiscourseHashtagOrder,
-    String? apiKey,
-    String? clientId,
-  });
-
-  Future<Set<String>> checkMentions({
-    required String siteUrl,
-    required Iterable<String> names,
-    int? topicId,
-    String? apiKey,
-    String? clientId,
-  });
-}
-
-abstract interface class TopicComposerQueriesApi {
-  Future<TopicComposerCapabilities> topicComposerCapabilities({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-
-  Future<TopicTagSearch> searchTopicTags({
-    required String siteUrl,
-    required String apiKey,
-    required String term,
-    int? categoryId,
-    Iterable<int> selectedTagIds = const [],
-    int limit = SiteConfig.defaultMaxTagSearchResults,
     String? clientId,
   });
 }
@@ -743,62 +673,6 @@ abstract interface class ComposerPersistenceApi {
     required String siteUrl,
     required String apiKey,
     required String username,
-    String? clientId,
-  });
-}
-
-abstract interface class AccountActivityApi {
-  Future<NotificationTotals> notificationTotals({
-    required String siteUrl,
-    required String apiKey,
-    String? clientId,
-  });
-
-  /// A [background] read is one nobody is looking at.
-  Future<List<DiscourseNotification>> notifications({
-    required String siteUrl,
-    required String apiKey,
-    int limit = 30,
-    List<NotificationTypeName> filterByTypes = const [],
-    bool background = false,
-    String? clientId,
-  });
-
-  Future<BookmarkPayload> bookmarks({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
-    String? clientId,
-  });
-
-  Future<BookmarkListPage> bookmarkListPage({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
-    int page = 0,
-    String? clientId,
-  });
-
-  Future<UserActivityPage> userActivity({
-    required String siteUrl,
-    required String apiKey,
-    required String username,
-    int offset = 0,
-    int limit = 30,
-    String? clientId,
-  });
-
-  Future<void> markNotificationRead({
-    required String siteUrl,
-    required String apiKey,
-    required int id,
-    String? clientId,
-  });
-
-  Future<void> markNotificationsRead({
-    required String siteUrl,
-    required String apiKey,
-    required List<NotificationTypeName> types,
     String? clientId,
   });
 }

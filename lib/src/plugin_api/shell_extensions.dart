@@ -15,14 +15,14 @@ import '../models/forum_workspace.dart' show ForumPanel;
 import '../models/notification_totals.dart';
 import '../models/sidebar.dart';
 import '../models/user_preferences.dart';
-import 'bookmark_host.dart';
 import 'composer_syntax.dart';
 import 'global_search.dart';
 import 'plugin_manifest.dart';
 
 export '../data/live_channels.dart';
 export 'background_retention.dart';
-export 'bookmark_host.dart' show PluginBookmarkTargetStrategy;
+export 'bookmark_host.dart'
+    show PluginBookmarkLinkResolver, PluginBookmarkTargetStrategy;
 
 /// Unlike [DiscourseInstance], this carries no account record, site settings,
 /// or appearance data. A plugin with route-only authority can identify and
@@ -319,10 +319,4 @@ final class BookmarkPresentation {
 abstract interface class PluginBookmarkPresenter
     implements PluginSessionCapability {
   BookmarkPresentation? presentBookmark(String siteUrl, Bookmark bookmark);
-}
-
-/// Resolves only server-backed targets owned by the plugin, without opening them.
-abstract interface class PluginBookmarkLinkResolver
-    implements PluginSessionCapability {
-  Future<BookmarkLinkAction?> resolveBookmarkLink(String siteUrl, String url);
 }

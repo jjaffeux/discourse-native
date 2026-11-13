@@ -1,9 +1,9 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 
-import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
+
+export '../github_onebox_data.dart' show GithubPullRequestData;
 
 class GithubPullRequestOnebox extends StatelessWidget {
   const GithubPullRequestOnebox({super.key, required this.data, this.siteUrl});
@@ -132,132 +132,6 @@ class _Info extends StatelessWidget {
             siteUrl: siteUrl,
           ),
       ],
-    );
-  }
-}
-
-class GithubPullRequestData {
-  const GithubPullRequestData({
-    required this.title,
-    required this.titleUrl,
-    required this.status,
-    required this.iconVariant,
-    required this.baseLabel,
-    required this.headLabel,
-    required this.dateVerb,
-    required this.date,
-    required this.userLogin,
-    required this.userAvatarUrl,
-    required this.userUrl,
-    required this.additions,
-    required this.deletions,
-    required this.infoText,
-    required this.body,
-  });
-
-  final String title;
-  final String? titleUrl;
-
-  final GithubPrStatus? status;
-
-  final String? iconVariant;
-
-  final String? baseLabel;
-  final String? headLabel;
-
-  final String? dateVerb;
-  final DateTime? date;
-
-  final String? userLogin;
-  final String? userAvatarUrl;
-  final String? userUrl;
-
-  final int? additions;
-  final int? deletions;
-
-  final String? infoText;
-
-  final String? body;
-
-  DIconData get icon {
-    final status = this.status;
-    if (status != null) return status.icon;
-    return switch (iconVariant) {
-      'Commit' => githubCommitIcon,
-      'Comment' => githubCommentIcon,
-      'Discussion' => githubDiscussionIcon,
-      _ => githubPullRequestIcon,
-    };
-  }
-
-  static GithubPullRequestData from(
-    dom.Element aside, {
-    required CookedTimeParser? cookedTimeParser,
-  }) {
-    final article =
-        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
-        aside;
-    final row =
-        childWhere(article, (e) => e.classes.contains('github-row')) ?? article;
-
-    final titleHeading = descendantWhere(row, (e) => e.localName == 'h4');
-    final titleLink = titleHeading == null
-        ? null
-        : childWhere(titleHeading, (e) => e.localName == 'a');
-
-    final iconContainer = descendantWhere(
-      row,
-      (e) => e.classes.contains('github-icon-container'),
-    );
-    final branches = descendantWhere(
-      row,
-      (e) => e.classes.contains('branches'),
-    );
-    final codes = branches == null
-        ? <dom.Element>[]
-        : childrenWhere(branches, (e) => e.localName == 'code');
-
-    final info = descendantWhere(row, (e) => e.classes.contains('github-info'));
-    final dateEl = info == null
-        ? null
-        : descendantWhere(info, (e) => e.classes.contains('date'));
-    final userEl = info == null
-        ? null
-        : descendantWhere(info, (e) => e.classes.contains('user'));
-    final userLink = userEl == null
-        ? null
-        : descendantWhere(userEl, (e) => e.localName == 'a');
-    final linesEl = info == null
-        ? null
-        : descendantWhere(info, (e) => e.classes.contains('lines'));
-    final cookedTime = dateEl == null
-        ? null
-        : cookedTimeParser?.parseDescendant(dateEl);
-
-    final hasCells = dateEl != null || userEl != null || linesEl != null;
-    final infoText = info != null && !hasCells ? oneLineText(info) : null;
-
-    return GithubPullRequestData(
-      title: (titleLink?.text ?? row.text).trim(),
-      titleUrl: titleLink?.attributes['href'],
-      status: GithubPrStatus.fromClasses(row.classes),
-      iconVariant: iconContainer?.attributes['title'],
-      baseLabel: codes.isNotEmpty ? codes[0].text.trim() : null,
-      headLabel: codes.length > 1 ? codes[1].text.trim() : null,
-      dateVerb: dateEl == null ? null : githubDateVerb(dateEl),
-      date: cookedTime,
-      userLogin: userLink?.text.trim(),
-      userAvatarUrl: userLink == null
-          ? null
-          : descendantWhere(
-              userLink,
-              (e) => e.classes.contains('onebox-avatar-inline'),
-            )?.attributes['src'],
-      userUrl: userLink?.attributes['href'],
-      additions: githubLineCount(linesEl, 'added'),
-      deletions: githubLineCount(linesEl, 'removed'),
-      infoText: infoText,
-      body: githubBody(article),
     );
   }
 }

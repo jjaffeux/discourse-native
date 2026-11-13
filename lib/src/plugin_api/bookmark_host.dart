@@ -189,3 +189,9 @@ abstract interface class PluginBookmarkTargetStrategy
   void removePluginBookmark(String siteUrl, int targetId);
   FutureOr<void> reconcilePluginBookmark(String siteUrl, int targetId);
 }
+
+/// Resolves only server-backed targets owned by the plugin, without opening them.
+abstract interface class PluginBookmarkLinkResolver
+    implements PluginSessionCapability {
+  Future<BookmarkLinkAction?> resolveBookmarkLink(String siteUrl, String url);
+}

@@ -1,10 +1,10 @@
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
-import 'package:html/dom.dart' as dom;
 
-import '../../../local_dates/local_dates_contract.dart';
 import '../github.dart';
+
+export '../github_onebox_data.dart' show GithubIssueData;
 
 class GithubIssueOnebox extends StatelessWidget {
   const GithubIssueOnebox({super.key, required this.data, this.siteUrl});
@@ -130,104 +130,6 @@ class _Label extends StatelessWidget {
           color: theme.colorScheme.onSurfaceVariant,
         ),
       ),
-    );
-  }
-}
-
-class GithubIssueData {
-  const GithubIssueData({
-    required this.title,
-    required this.titleUrl,
-    required this.openedVerb,
-    required this.openedAt,
-    required this.closedVerb,
-    required this.closedAt,
-    required this.userLogin,
-    required this.userAvatarUrl,
-    required this.userUrl,
-    required this.labels,
-    required this.body,
-  });
-
-  final String title;
-  final String? titleUrl;
-
-  final String? openedVerb;
-  final DateTime? openedAt;
-  final String? closedVerb;
-  final DateTime? closedAt;
-
-  final String? userLogin;
-  final String? userAvatarUrl;
-  final String? userUrl;
-
-  final List<String> labels;
-
-  final String? body;
-
-  static GithubIssueData from(
-    dom.Element aside, {
-    required CookedTimeParser? cookedTimeParser,
-  }) {
-    final article =
-        descendantWhere(aside, (e) => e.classes.contains('onebox-body')) ??
-        aside;
-    final row = childWhere(article, (e) => e.classes.contains('github-row'));
-    final scope = row ?? article;
-
-    final titleHeading = descendantWhere(scope, (e) => e.localName == 'h4');
-    final titleLink = titleHeading == null
-        ? null
-        : childWhere(titleHeading, (e) => e.localName == 'a');
-
-    final info = descendantWhere(
-      scope,
-      (e) => e.classes.contains('github-info'),
-    );
-    final dates = info == null
-        ? <dom.Element>[]
-        : descendantsWhere(info, (e) => e.classes.contains('date'));
-    final userEl = info == null
-        ? null
-        : descendantWhere(info, (e) => e.classes.contains('user'));
-    final userLink = userEl == null
-        ? null
-        : descendantWhere(userEl, (e) => e.localName == 'a');
-    final openedTime = dates.isEmpty
-        ? null
-        : cookedTimeParser?.parseDescendant(dates[0]);
-    final closedTime = dates.length < 2
-        ? null
-        : cookedTimeParser?.parseDescendant(dates[1]);
-
-    final labelsEl = descendantWhere(
-      scope,
-      (e) => e.classes.contains('labels'),
-    );
-    final labels = labelsEl == null
-        ? <String>[]
-        : childrenWhere(
-            labelsEl,
-            (e) => e.localName == 'span',
-          ).map((e) => e.text.trim()).where((text) => text.isNotEmpty).toList();
-
-    return GithubIssueData(
-      title: (titleLink?.text ?? scope.text).trim(),
-      titleUrl: titleLink?.attributes['href'],
-      openedVerb: dates.isNotEmpty ? githubDateVerb(dates[0]) : null,
-      openedAt: openedTime,
-      closedVerb: dates.length > 1 ? githubDateVerb(dates[1]) : null,
-      closedAt: closedTime,
-      userLogin: userLink?.text.trim(),
-      userAvatarUrl: userLink == null
-          ? null
-          : descendantWhere(
-              userLink,
-              (e) => e.classes.contains('onebox-avatar-inline'),
-            )?.attributes['src'],
-      userUrl: userLink?.attributes['href'],
-      labels: labels,
-      body: githubBody(article),
     );
   }
 }

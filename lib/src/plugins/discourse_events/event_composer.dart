@@ -10,18 +10,16 @@ import 'package:timezone/timezone.dart' as tz;
 import 'event_composer_parser.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
+import 'event_submit_preparer.dart';
 import 'event_time.dart';
 
-ComposerSyntaxKind get eventSyntaxKind => ComposerSyntaxKind(
-  owner: eventsPluginId,
-  name: 'event',
-  label: appL10n.event,
-);
+export 'event_submit_preparer.dart' show EventSubmitPreparer, eventSyntaxKind;
 
-final class EventSyntaxPolicy implements ComposerSyntaxPolicy {
+final class EventSyntaxPolicy implements EventAuthoringPolicy {
   const EventSyntaxPolicy(this.context);
   final ComposerSyntaxPolicyContext context;
   ComposerPluginState get state => context.readState();
+  @override
   bool get firstPost =>
       !context.isPluginTarget &&
       (state.createsTopic || state.editingPostNumber == 1);
@@ -792,24 +790,4 @@ class _EventDateTimePickerState extends State<_EventDateTimePicker> {
       ),
     ],
   );
-}
-
-final class EventSubmitPreparer implements PluginComposerSubmitPreparer {
-  const EventSubmitPreparer();
-  @override
-  PluginComposerSubmitPreparation prepareComposerSubmit(
-    ComposerEditorHost composer,
-  ) {
-    final policy = composer.syntaxPolicy<EventSyntaxPolicy>(eventSyntaxKind);
-    final blocks = parseEventBlocks(composer.value.text);
-    if (blocks.isNotEmpty && (blocks.length > 1 || policy?.firstPost != true)) {
-      return PluginComposerSubmitPreparation.failed(
-        WriteException(
-          WriteFailure.validation,
-          errors: [appL10n.anEventMustBeTheOnlyEventInTheFirstPost],
-        ),
-      );
-    }
-    return const PluginComposerSubmitPreparation.proceed();
-  }
 }

@@ -9,7 +9,6 @@ import 'package:discourse_native/src/models/discourse_user.dart';
 import 'package:discourse_native/src/models/post.dart';
 import 'package:discourse_native/src/models/topic.dart';
 import 'package:discourse_native/src/plugin_api/bookmark_host.dart';
-import 'package:discourse_native/src/plugin_api/shell_extensions.dart';
 import 'package:discourse_native/src/shell/bookmark_link_resolver.dart';
 import 'package:discourse_native/src/shell/bookmark_transactions.dart';
 import 'package:flutter/foundation.dart';
@@ -122,7 +121,7 @@ final class _Fixture {
     resolver = BookmarkLinkResolver(
       bookmarks: bookmarks,
       store: store,
-      api: this.api,
+      loadTopic: this.api.topic,
       credentials: credentials,
       servingForum: (_) => forum,
       pluginResolvers: () => plugins,

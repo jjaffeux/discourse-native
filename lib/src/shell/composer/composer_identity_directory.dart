@@ -5,7 +5,8 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/discourse_search_contract.dart';
+import '../../data/shell_lookup_api.dart';
 import '../../data/site_lifecycle.dart';
 import '../../foundation/bounded_lru_cache.dart';
 import '../../foundation/elapsed_time.dart';

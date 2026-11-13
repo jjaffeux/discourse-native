@@ -1,7 +1,7 @@
 import 'dart:async';
 
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../data/topic_composer_queries_api.dart';
 import '../data/write_credential.dart';
 import '../models/post_flag.dart';
 import '../models/topic.dart';

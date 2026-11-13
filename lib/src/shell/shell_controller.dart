@@ -2508,10 +2508,16 @@ class ShellController extends FrameSafeNotifier
       _notificationFeeds.loadOtherNotifications(siteUrl);
 
   late final _notificationFeeds = NotificationFeedRefreshOwner(
-    api: api.site,
+    siteNotificationTypes: api.site.siteNotificationTypes,
     credentials: credentials,
     lifecycle: lifecycle,
-    activity: accountActivity,
+    loadOther: accountActivity.loadOtherNotifications,
+    markAllRead: accountActivity.markAllNotificationsRead,
+    applyLiveState: accountActivity.applyLiveNotificationState,
+    hasTrackedPluginNotifications:
+        accountActivity.hasTrackedPluginNotifications,
+    refreshLoadedPluginNotifications:
+        accountActivity.refreshLoadedPluginNotifications,
     instanceFor: _instanceAt,
     claimedTypes: userMenuNotifications.claimedTypesFor,
     groupedAuthorityAdvanced: _onGroupedUnreadAuthorityAdvanced,
@@ -3789,7 +3795,7 @@ class ShellController extends FrameSafeNotifier
   late final BookmarkLinkResolver _bookmarkLinks = BookmarkLinkResolver(
     bookmarks: _bookmarks,
     store: store,
-    api: api.topicContent,
+    loadTopic: api.topicContent.topic,
     credentials: credentials,
     servingForum: (target) => mostSpecificServingForum(
       _instances,
@@ -6802,10 +6808,14 @@ class ShellController extends FrameSafeNotifier
 
   late final FlagTransactions _flags = FlagTransactions(
     store: store,
-    api: api.postMutations,
+    createPostFlag: api.postMutations.createPostFlag,
+    createTopicFlag: api.postMutations.createTopicFlag,
     credentials: credentials,
     lifecycle: lifecycle,
-    topicData: _topicData,
+    beginPostWrite: (siteUrl, lease, postId) =>
+        _topicData.forLease(siteUrl, lease)?.beginPostWrite(postId),
+    acceptPostAction: (siteUrl, lease, post) =>
+        _topicData.forLease(siteUrl, lease)?.acceptPostAction(post),
     siteContextFor: (siteUrl) => FlagSiteContext(
       connected: _instanceAt(siteUrl)?.isConnected == true,
       catalog: _siteCapabilities.postActions(siteUrl),

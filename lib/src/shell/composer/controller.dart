@@ -43,6 +43,7 @@ import 'marks.dart';
 import 'pills.dart';
 import 'recipient_target.dart';
 import 'selection_formatting_host.dart';
+import 'slash_menu_host.dart';
 import 'triggers.dart';
 import 'upload_preview.dart';
 
@@ -171,7 +172,8 @@ class ComposerController extends ChangeNotifier
         ComposerEditorHost,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget,
-        ComposerSelectionFormattingHost {
+        ComposerSelectionFormattingHost,
+        ComposerSlashMenuHost {
   ComposerController(
     this._target, {
     this.onSaveDraft,

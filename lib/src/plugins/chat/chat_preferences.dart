@@ -1,4 +1,6 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_plugin_preferences.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 

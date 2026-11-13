@@ -295,10 +295,15 @@ final class _Harness {
       lifecycle: lifecycle,
     );
     owner = NotificationFeedRefreshOwner(
-      api: api,
+      siteNotificationTypes: api.siteNotificationTypes,
       credentials: this.credentials,
       lifecycle: lifecycle,
-      activity: activity,
+      loadOther: activity.loadOtherNotifications,
+      markAllRead: activity.markAllNotificationsRead,
+      applyLiveState: activity.applyLiveNotificationState,
+      hasTrackedPluginNotifications: activity.hasTrackedPluginNotifications,
+      refreshLoadedPluginNotifications:
+          activity.refreshLoadedPluginNotifications,
       instanceFor: (_) => current,
       claimedTypes: (_) => {const NotificationTypeName('replied')},
       groupedAuthorityAdvanced: (_) {

@@ -2,12 +2,11 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/write_failure.dart';
 import '../models/post.dart';
 import '../models/post_flag.dart';
-import 'topic_data_owner.dart';
 
 final class FlagSiteContext {
   const FlagSiteContext({
@@ -24,19 +23,39 @@ final class FlagSiteContext {
 final class FlagTransactions {
   FlagTransactions({
     required this.store,
-    required this.api,
+    required this.createPostFlag,
+    required this.createTopicFlag,
     required this.credentials,
     required this.lifecycle,
-    required this.topicData,
+    required this.beginPostWrite,
+    required this.acceptPostAction,
     required this.siteContextFor,
     required this.changed,
   });
 
   final Store store;
-  final PostMutationsApi api;
+  final Future<Post> Function({
+    required String siteUrl,
+    required String apiKey,
+    required int postId,
+    required int postActionTypeId,
+    String? message,
+  })
+  createPostFlag;
+  final Future<void> Function({
+    required String siteUrl,
+    required String apiKey,
+    required int topicId,
+    required int postActionTypeId,
+    String? message,
+  })
+  createTopicFlag;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
-  final TopicDataOwner topicData;
+  final void Function()? Function(String siteUrl, SiteLease lease, int postId)
+  beginPostWrite;
+  final void Function(String siteUrl, SiteLease lease, Post post)
+  acceptPostAction;
   final FlagSiteContext Function(String siteUrl) siteContextFor;
   final void Function() changed;
   final Map<String, _FlagAccount> _accounts = {};
@@ -133,9 +152,7 @@ final class FlagTransactions {
 
     final account = _session(siteUrl);
     final lease = account.lease;
-    final releasePost = topicData
-        .forLease(siteUrl, lease)
-        ?.beginPostWrite(held.id);
+    final releasePost = beginPostWrite(siteUrl, lease, held.id);
     if (releasePost == null) {
       return appL10n.anotherActionOnThisPostIsStillBeingSaved;
     }
@@ -149,7 +166,7 @@ final class FlagTransactions {
       try {
         final flagActionTypeId = currentType.id;
         final fresh = await credential.request!.run(
-          () => api.createPostFlag(
+          () => createPostFlag(
             siteUrl: siteUrl,
             apiKey: credential.request!.apiKey!,
             postId: held.id,
@@ -161,7 +178,7 @@ final class FlagTransactions {
           return _obsolete;
         }
         lease.commit(() {
-          topicData.forLease(siteUrl, lease)?.acceptPostAction(fresh);
+          acceptPostAction(siteUrl, lease, fresh);
           if (account.isCurrent) changed();
         });
         return null;
@@ -234,7 +251,7 @@ final class FlagTransactions {
 
       try {
         await credential.request!.run(
-          () => api.createTopicFlag(
+          () => createTopicFlag(
             siteUrl: siteUrl,
             apiKey: credential.request!.apiKey!,
             topicId: held.id,

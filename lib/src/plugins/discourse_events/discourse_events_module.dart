@@ -2,10 +2,10 @@ import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'discourse_event_api.dart';
 import 'discourse_events_cooking.dart';
 import 'discourse_events_plugin.dart';
-import 'event_composer.dart';
 import 'event_controller.dart';
 import 'event_data.dart';
 import 'event_navigation.dart';
+import 'event_submit_preparer.dart';
 import 'topic_calendar_plugin.dart';
 
 const discourseEventsModule = DiscourseEventsModule();

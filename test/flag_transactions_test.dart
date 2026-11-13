@@ -134,10 +134,14 @@ final class _Fixture {
     );
     flags = FlagTransactions(
       store: store,
-      api: api,
+      createPostFlag: api.createPostFlag,
+      createTopicFlag: api.createTopicFlag,
       credentials: credentials,
       lifecycle: lifecycle,
-      topicData: data,
+      beginPostWrite: (siteUrl, lease, postId) =>
+          data.forLease(siteUrl, lease)?.beginPostWrite(postId),
+      acceptPostAction: (siteUrl, lease, post) =>
+          data.forLease(siteUrl, lease)?.acceptPostAction(post),
       siteContextFor: (_) => context,
       changed: () => onChange?.call(),
     );

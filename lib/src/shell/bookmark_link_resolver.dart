@@ -2,7 +2,6 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/store.dart';
 import '../models/bookmark.dart';
 import '../models/discourse_instance.dart';
@@ -10,14 +9,13 @@ import '../models/post.dart';
 import '../models/topic.dart';
 import '../models/topic_link.dart';
 import '../plugin_api/bookmark_host.dart';
-import '../plugin_api/shell_extensions.dart';
 import 'bookmark_transactions.dart';
 
 final class BookmarkLinkResolver {
   BookmarkLinkResolver({
     required this.bookmarks,
     required this.store,
-    required this.api,
+    required this.loadTopic,
     required this.credentials,
     required this.servingForum,
     required this.pluginResolvers,
@@ -25,7 +23,14 @@ final class BookmarkLinkResolver {
 
   final BookmarkTransactions bookmarks;
   final Store store;
-  final TopicContentApi api;
+  final Future<TopicPayload> Function({
+    required String siteUrl,
+    required String slug,
+    required int id,
+    int? postNumber,
+    String? apiKey,
+  })
+  loadTopic;
   final SiteApiKeyReader credentials;
   final DiscourseInstance? Function(Uri) servingForum;
   final Iterable<PluginBookmarkLinkResolver> Function() pluginResolvers;
@@ -149,7 +154,7 @@ final class BookmarkLinkResolver {
       ).keyCredentials(credentials);
       if (credential.apiKey == null || !lease.isCurrent) return null;
       final payload = await credential.run(
-        () => api.topic(
+        () => loadTopic(
           siteUrl: siteUrl,
           slug: link.slug,
           id: link.topicId,

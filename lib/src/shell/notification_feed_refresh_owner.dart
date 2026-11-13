@@ -2,29 +2,48 @@ import 'dart:async';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
 import '../models/discourse_instance.dart';
 import '../models/notification.dart';
 import '../models/notification_type_counts.dart';
-import 'account_activity_controller.dart';
 
 final class NotificationFeedRefreshOwner {
   NotificationFeedRefreshOwner({
-    required this.api,
+    required this.siteNotificationTypes,
     required this.credentials,
     required this.lifecycle,
-    required this.activity,
+    required this.loadOther,
+    required this.markAllRead,
+    required this.applyLiveState,
+    required this.hasTrackedPluginNotifications,
+    required this.refreshLoadedPluginNotifications,
     required this.instanceFor,
     required this.claimedTypes,
     required this.groupedAuthorityAdvanced,
     required this.refreshDebounce,
   }) : assert(refreshDebounce >= Duration.zero);
 
-  final ShellSiteApi api;
+  final Future<List<NotificationWireType>> Function({
+    required String siteUrl,
+    required String apiKey,
+  })
+  siteNotificationTypes;
   final SiteApiKeyReader credentials;
   final SiteLifecycle lifecycle;
-  final AccountActivityController activity;
+  final Future<void> Function(
+    DiscourseInstance instance,
+    Future<List<NotificationTypeName>> Function(String apiKey) resolveTypes,
+  )
+  loadOther;
+  final Future<void> Function(
+    DiscourseInstance instance,
+    List<NotificationWireType> types,
+  )
+  markAllRead;
+  final void Function(String siteUrl, Object? data) applyLiveState;
+  final bool Function(String siteUrl) hasTrackedPluginNotifications;
+  final Future<void> Function(DiscourseInstance instance)
+  refreshLoadedPluginNotifications;
   final DiscourseInstance? Function(String siteUrl) instanceFor;
   final Set<NotificationTypeName> Function(DiscourseInstance instance)
   claimedTypes;
@@ -63,7 +82,7 @@ final class NotificationFeedRefreshOwner {
     if (instance == null) return;
     final account = _account(siteUrl);
     if (account == null) return;
-    await activity.loadOtherNotifications(instance, (_) async {
+    await loadOther(instance, (_) async {
       if (!_owns(account)) return const [];
       final types = await _siteTypes(account);
       if (!_owns(account)) return const [];
@@ -90,7 +109,7 @@ final class NotificationFeedRefreshOwner {
     if (!_owns(account) || credential.apiKey == null) return;
     final types = await _siteTypes(account, credential: credential);
     if (!_owns(account)) return;
-    await activity.markAllNotificationsRead(instance, types);
+    await markAllRead(instance, types);
   }
 
   Future<List<NotificationWireType>> _siteTypes(
@@ -127,7 +146,7 @@ final class NotificationFeedRefreshOwner {
           ).keyCredentials(credentials);
       if (!_owns(account)) throw const AccountRequestRetiredException();
       final types = await auth.run(
-        () => api.siteNotificationTypes(
+        () => siteNotificationTypes(
           siteUrl: account.siteUrl,
           apiKey: auth.apiKey!,
         ),
@@ -160,8 +179,8 @@ final class NotificationFeedRefreshOwner {
         : NotificationTypeCounts.unavailable;
     if (grouped.isAvailable) groupedAuthorityAdvanced(siteUrl);
     if (!_owns(account)) return;
-    activity.applyLiveNotificationState(siteUrl, data);
-    if (!_owns(account) || !activity.hasTrackedPluginNotifications(siteUrl)) {
+    applyLiveState(siteUrl, data);
+    if (!_owns(account) || !hasTrackedPluginNotifications(siteUrl)) {
       return;
     }
     account.timer?.cancel();
@@ -171,7 +190,7 @@ final class NotificationFeedRefreshOwner {
       account.timer = null;
       final instance = instanceFor(siteUrl);
       if (instance?.isConnected != true) return;
-      activity.refreshLoadedPluginNotifications(instance!).ignore();
+      refreshLoadedPluginNotifications(instance!).ignore();
     });
     account.timer = timer;
   }
