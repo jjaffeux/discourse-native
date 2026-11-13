@@ -1,12 +1,10 @@
 import 'dart:io';
 
-import 'package:file_selector/file_selector.dart' as selector;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import '../../models/composer_upload.dart';
-import 'upload_picker.dart';
 
 typedef ComposerClipboardFileReader =
     Future<List<ComposerUploadFile>> Function();
@@ -23,11 +21,11 @@ Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
     // Paste starts uploading at once, so each path must still name a regular
     // file. When none does (a copied folder, a file moved since), paste falls
     // through to text rather than to the pixels, which are only Finder's icon.
-    final files = [
+    return List.unmodifiable([
       for (final path in paths)
-        if (await FileSystemEntity.isFile(path)) selector.XFile(path),
-    ];
-    return composerUploadFilesFromSelection(files);
+        if (await FileSystemEntity.isFile(path))
+          _uploadFromLocalFile(File(path)),
+    ]);
   }
 
   // Excel, Numbers and Word publish PDF or TIFF renderings beside the copied
@@ -51,6 +49,12 @@ Future<List<ComposerUploadFile>> readComposerClipboardFiles() async {
     ),
   ]);
 }
+
+ComposerUploadFile _uploadFromLocalFile(File file) => ComposerUploadFile(
+  name: file.path.split(Platform.pathSeparator).last,
+  length: file.length,
+  openRead: file.openRead,
+);
 
 Future<List<String>> _copiedFilePaths() async {
   // On macOS the plugin reduces every URL to its path, so a copied web link

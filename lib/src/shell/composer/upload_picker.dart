@@ -13,7 +13,7 @@ Future<List<ComposerUploadFile>> pickComposerFiles() async {
   // Let the site/user validator decide which files are allowed. Native type
   // filters cannot describe every extension an instance may authorize.
   final files = await selector.openFiles(confirmButtonText: appL10n.upload);
-  return composerUploadFilesFromSelection(files);
+  return _uploadsFromSelection(files);
 }
 
 /// Picks only photos for image galleries.
@@ -54,7 +54,7 @@ Future<List<ComposerUploadFile>> _pickComposerLibrary({
     limit: limit != null && limit > 0 ? limit : null,
     requestFullMetadata: false,
   );
-  return composerUploadFilesFromSelection(
+  return _uploadsFromSelection(
     files,
     photosAlreadyEncoded:
         defaultTargetPlatform == TargetPlatform.iOS ||
@@ -62,7 +62,7 @@ Future<List<ComposerUploadFile>> _pickComposerLibrary({
   );
 }
 
-List<ComposerUploadFile> composerUploadFilesFromSelection(
+List<ComposerUploadFile> _uploadsFromSelection(
   Iterable<selector.XFile> files, {
   bool photosAlreadyEncoded = false,
 }) {

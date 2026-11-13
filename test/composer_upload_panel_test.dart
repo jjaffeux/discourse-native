@@ -337,6 +337,12 @@ void main() {
 
       expect(files!.single.name, 'copied.pdf');
       expect(await tester.runAsync(files.single.length), 3);
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final bytes = await tester.runAsync(
+          () => files.single.openRead().expand((chunk) => chunk).toList(),
+        );
+        expect(bytes, [4, 5, 6]);
+      }
       expect(fileUrlCalls, ['fileURLPaths']);
       expect(pluginCalls, isEmpty);
     }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
