@@ -1054,10 +1054,15 @@ void main() {
           ]),
         );
 
-        await expectLater(
+        final bootstrap = expectLater(
           installed.startPhase(PluginStartupPhase.bootstrap),
           throwsA(isA<PluginLifecycleException>()),
         );
+        final queued = expectLater(
+          installed.startPhase(PluginStartupPhase.appReady),
+          throwsStateError,
+        );
+        await Future.wait([bootstrap, queued]);
         expect(events, [
           'first:start:bootstrap',
           'second:start:bootstrap',
