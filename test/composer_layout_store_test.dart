@@ -5,6 +5,24 @@ import 'package:discourse_native/src/data/composer_layout_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('overlapping layout reads share a snapshot until a write', () async {
+    final persistence = _HeldLayoutPersistence();
+    final first = ComposerLayoutStore(persistence: persistence);
+    final second = ComposerLayoutStore(persistence: persistence);
+
+    final before = first.read();
+    final joined = second.read();
+    final saving = second.write(const ComposerLayoutPreference(sideWidth: 500));
+    final after = first.read();
+    persistence.release.complete();
+
+    expect((await before).sideWidth, 420);
+    expect(await joined, same(await before));
+    await saving;
+    expect((await after).sideWidth, 500);
+    expect(persistence.reads, 2);
+  });
+
   test(
     'a layout burst writes only its active and newest pending snapshot',
     () async {
@@ -30,9 +48,13 @@ final class _HeldLayoutPersistence implements ComposerLayoutPersistence {
   final release = Completer<void>();
   final widths = <num>[];
   String? value;
+  int reads = 0;
 
   @override
-  Future<String?> readLayout() async => value;
+  Future<String?> readLayout() async {
+    reads++;
+    return value;
+  }
 
   @override
   Future<bool> writeLayout(String encoded) async {
