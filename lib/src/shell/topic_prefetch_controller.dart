@@ -122,6 +122,14 @@ final class TopicPrefetchController {
     if (entry != null && !_usable(entry)) _discardCandidate();
   }
 
+  void retireSession(Object session) {
+    if (identical(_candidate?.key.session, session)) _discardCandidate();
+    final active = _active;
+    if (active != null && identical(active.key.session, session)) {
+      _cancelActive(active);
+    }
+  }
+
   bool _usable(_Prefetch entry) {
     try {
       return !entry.cancellation.isCancelled &&
@@ -187,7 +195,10 @@ final class TopicPrefetchController {
   void clear() {
     _discardCandidate();
     final active = _active;
-    if (active == null) return;
+    if (active != null) _cancelActive(active);
+  }
+
+  void _cancelActive(_Prefetch active) {
     active.cancellation.cancel();
     if (!active.result.isCompleted) active.result.complete(null);
   }

@@ -297,6 +297,34 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test(
+    'retiring the account aborts a prefetch adopted by navigation',
+    () async {
+      final f = _Fixture();
+      final data = f.data;
+      addTearDown(
+        data.prefetch(
+          const Topic(id: 7, title: 'Topic', slug: 'topic'),
+          postNumber: 90,
+          intent: TopicPrefetchIntent.trajectory,
+          isInterested: () => true,
+        ),
+      );
+      await f.api.waitTopics(1);
+      var finished = false;
+      final opening = data
+          .open(7, slug: 'topic', postNumber: 90, opening: f.opening)
+          .then((_) => finished = true);
+      f.lifecycle.invalidate(_site);
+      await pumpEventQueue();
+      final finishedBeforeResponse = finished;
+      f.api.topicReads.single.result.complete(_payload([]));
+      await opening;
+      expect(finishedBeforeResponse, isTrue);
+      expect(f.api.topicReads, hasLength(1));
+    },
+  );
+
   test('hovering again replaces a prefetch from retired tracking', () async {
     final f = _Fixture();
     void hover() => addTearDown(

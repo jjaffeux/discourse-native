@@ -128,7 +128,7 @@ final class TopicDataOwner {
     account._detach = account.lease.onRetire(() {
       account._retire();
       if (identical(_accounts[siteUrl], account)) _accounts.remove(siteUrl);
-      _prefetch.validate();
+      _prefetch.retireSession(account.lease.session);
     });
     return account;
   }
