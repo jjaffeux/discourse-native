@@ -85,6 +85,29 @@ void main() {
     expect(firstSite.commit(() {}), isFalse);
     expect(secondSite.commit(() {}), isTrue);
   });
+
+  test('bulk retirement fences the batch before callbacks run', () {
+    const firstSite = 'https://first.example';
+    const secondSite = 'https://second.example';
+    final lifecycle = SiteLifecycle();
+    final first = lifecycle.capture(firstSite);
+    final second = lifecycle.capture(secondSite);
+    final unrelated = lifecycle.capture('https://unrelated.example');
+    late final SiteLease successor;
+    late final bool secondWasCurrent;
+    first.onRetire(() {
+      secondWasCurrent = second.isCurrent;
+      successor = lifecycle.capture(secondSite);
+    });
+
+    lifecycle.invalidateSites([firstSite, secondSite, secondSite]);
+
+    expect(secondWasCurrent, isFalse);
+    expect(second.isCurrent, isFalse);
+    expect(successor, isNot(same(second)));
+    expect(successor.isCurrent, isTrue);
+    expect(unrelated.isCurrent, isTrue);
+  });
   test('retirement observers see a stale lease and can detach', () {
     final lifecycle = SiteLifecycle();
     final lease = lifecycle.capture('https://forum.example');

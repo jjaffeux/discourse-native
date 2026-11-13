@@ -24,18 +24,18 @@ final class SiteLifecycle {
     _closedLease = SiteLease._().._retire();
     final leases = _sessions.values.toList();
     _sessions.clear();
-    // Fence every lease before invoking observers on any site.
-    for (final lease in leases) {
-      lease._retired = true;
-    }
     _retireAll(leases);
   }
 
   void invalidateSites(Iterable<String> siteUrls) {
-    _retireAll(siteUrls.toList().map(_sessions.remove).nonNulls);
+    _retireAll(siteUrls.toList().map(_sessions.remove).nonNulls.toList());
   }
 
-  void _retireAll(Iterable<SiteLease> leases) {
+  void _retireAll(List<SiteLease> leases) {
+    // Fence every lease before invoking observers on any site.
+    for (final lease in leases) {
+      lease._retired = true;
+    }
     (Object, StackTrace)? firstFailure;
     for (final lease in leases) {
       try {
