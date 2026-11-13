@@ -1327,6 +1327,12 @@ void main() {
             foreground: false,
           );
           await hookStarted.future;
+          final queuedStartup = reentrant
+              ? null
+              : expectLater(
+                  installed.startPhase(PluginStartupPhase.appReady),
+                  throwsStateError,
+                );
           final closing = reentrantClose ?? installed.close();
           await Future<void>.delayed(Duration.zero);
 
@@ -1336,6 +1342,7 @@ void main() {
 
           releaseHook.complete();
           await observing;
+          await queuedStartup;
           await closing;
           expect(events, ['observe:start', 'observe:end', 'close']);
         },
@@ -2599,6 +2606,11 @@ final class _GatedAppLifecycle extends PluginAppLifecycle {
   final Completer<void> hookStarted;
   final Completer<void> releaseHook;
   final void Function()? onObserve;
+
+  @override
+  void startPhase(PluginStartupPhase phase, PluginHostBindings bindings) {
+    events.add('start:${phase.name}');
+  }
 
   @override
   Future<void> observeAppState(String state, {required bool foreground}) async {

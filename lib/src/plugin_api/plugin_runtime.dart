@@ -413,7 +413,7 @@ final class InstalledPlugins {
     PluginStartupPhase phase, {
     PluginHostBindings? bindings,
   }) async {
-    if (_closed) throw StateError('Installed plugins are closed.');
+    if (_closing || _closed) throw StateError('Installed plugins are closed.');
     if (bindings != null) _appBindings = bindings;
     try {
       for (final registration in _registrations) {
