@@ -150,9 +150,7 @@ Future<http.Response> sendBoundedHttpRequest(
     if (abortError != null) cancelLateHttpResponse(response);
     rethrow;
   }
-  final contentLength = streamed.contentLength;
-  if (contentLength != null && contentLength > maxBodyBytes) {
-    cancelUnreadHttpBody(streamed.stream).ignore();
+  if (rejectOversizedHttpBody(streamed, maxBodyBytes)) {
     throw HttpResponseTooLargeException(request.url, maxBodyBytes);
   }
 
@@ -306,4 +304,12 @@ void cancelLateHttpResponse(Future<http.StreamedResponse> pending) {
   pending
       .then<void>((response) => cancelUnreadHttpBody(response.stream))
       .ignore();
+}
+
+/// Releases the unread body when its declared size exceeds [maxBytes].
+bool rejectOversizedHttpBody(http.StreamedResponse response, int maxBytes) {
+  final length = response.contentLength;
+  if (length == null || length <= maxBytes) return false;
+  cancelUnreadHttpBody(response.stream).ignore();
+  return true;
 }

@@ -496,9 +496,7 @@ abstract class ByteCache<T extends Object> {
           continue;
         }
 
-        final contentLength = streamed.contentLength;
-        if (contentLength != null && contentLength > maxResponseBytes) {
-          cancelUnreadHttpBody(streamed.stream).ignore();
+        if (rejectOversizedHttpBody(streamed, maxResponseBytes)) {
           return (
             response: _response(streamed, Uint8List(0)),
             oversized: true,
