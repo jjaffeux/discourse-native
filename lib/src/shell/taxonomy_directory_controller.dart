@@ -30,6 +30,7 @@ final class _TaxonomySite {
   _TaxonomySite(this.lease);
 
   final SiteLease lease;
+  void Function()? detach;
   bool categorised = false;
   RequestIntentOperation<void>? categoryRequest;
   List<TopicCategory>? categories;
@@ -56,20 +57,35 @@ final class _TaxonomyDirectoryController
   final ShellController _shell;
   final Map<String, _TaxonomySite> _sites = {};
 
-  _TaxonomySite _site(String siteUrl) => _sites.putIfAbsent(
-    siteUrl,
-    () => _TaxonomySite(_shell.lifecycle.capture(siteUrl)),
-  );
+  _TaxonomySite _site(String siteUrl) {
+    final lease = _shell.lifecycle.capture(siteUrl);
+    final held = _sites[siteUrl];
+    if (held != null && identical(held.lease, lease)) return held;
+    held?.detach?.call();
+    final site = _TaxonomySite(lease);
+    if (!lease.isCurrent) return site;
+    _sites[siteUrl] = site;
+    site.detach = lease.onRetire(() {
+      if (identical(_sites[siteUrl], site)) _sites.remove(siteUrl);
+      site.detach = null;
+    });
+    return site;
+  }
 
   void bind(String siteUrl) {
     _site(siteUrl);
   }
 
   void forget(String siteUrl) {
-    _sites.remove(siteUrl);
+    _sites.remove(siteUrl)?.detach?.call();
   }
 
-  void dispose() => _sites.clear();
+  void dispose() {
+    for (final site in _sites.values) {
+      site.detach?.call();
+    }
+    _sites.clear();
+  }
 
   bool needsCategoryLoad(String siteUrl) =>
       !(_sites[siteUrl]?.categorised ?? false);

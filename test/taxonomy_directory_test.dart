@@ -41,6 +41,20 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test('retiring a site lease clears its taxonomy feeds immediately', () async {
+    final api = _TagSearchApi()..directory = const [_oldTag];
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    await shell.loadTags(_site);
+    expect(shell.tagDirectoryFeedFor(_site).tags, [_oldTag]);
+
+    shell.lifecycle.invalidate(_site);
+    expect(shell.tagDirectoryFeedFor(_site).tags, isEmpty);
+
+    api.directory = const [_newTag];
+    await shell.loadTags(_site);
+    expect(shell.tagDirectoryFeedFor(_site).tags, [_newTag]);
+  });
   TestWidgetsFlutterBinding.ensureInitialized();
 
   for (final allowUncategorized in [false, true]) {
