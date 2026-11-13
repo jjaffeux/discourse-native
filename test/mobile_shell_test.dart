@@ -5761,7 +5761,7 @@ void main() {
   });
 
   _mobileTest(
-    'sidebar return keeps page and hamburger colors through the final frame',
+    'sidebar return preserves the rounded page edge and final colors',
     (tester) async {
       final shell = await pumpMobileShellFixture(tester);
       final sample = Offset(phone.width - 40, phone.height - 180);
@@ -5809,7 +5809,27 @@ void main() {
             Offset(phone.width - 1, 400),
           );
           await gesture.moveBy(
-            Offset(-phone.width * .999, 0),
+            Offset(-phone.width * .53, 0),
+            timeStamp: const Duration(milliseconds: 200),
+          );
+          await tester.pump();
+          await _captureChrome(
+            tester,
+            'sidebar-surface-${mode.name}-$tab-midway'.replaceAll('/', '-'),
+          );
+          if (tab == 'panel/chat' && mode == AppThemeMode.dark) {
+            final sidebarBeforePageEdge = await pixelAt(const Offset(186, 34));
+            final sidebarAbovePageCorner = await pixelAt(const Offset(191, 34));
+            for (var channel = 0; channel < 3; channel++) {
+              expect(
+                sidebarAbovePageCorner[channel],
+                closeTo(sidebarBeforePageEdge[channel], 2),
+                reason: 'The sidebar is continuous above the incoming corner',
+              );
+            }
+          }
+          await gesture.moveBy(
+            Offset(-phone.width * .469, 0),
             timeStamp: const Duration(milliseconds: 400),
           );
           await tester.pump();
