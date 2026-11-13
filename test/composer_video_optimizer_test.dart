@@ -61,13 +61,13 @@ void main() {
         1,
         2,
       ]);
-      expect(
-        await temporary
-            .list(recursive: true)
-            .where((entry) => entry is File)
-            .length,
-        1,
-      );
+      final output = await temporary
+          .list(recursive: true)
+          .where((entry) => entry is File)
+          .single;
+      if (Platform.isMacOS || Platform.isLinux) {
+        expect((await output.stat()).mode & 0x1ff, 0x180);
+      }
       await result.dispose();
       await result.dispose();
       expect(await temporary.list().length, 0);

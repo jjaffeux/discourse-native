@@ -4,6 +4,7 @@ import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
 
+import '../foundation/private_file_permissions.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_image_codec.dart';
@@ -110,6 +111,7 @@ class ComposerImageOptimizer {
             await input.delete();
             if (cancelled) return original;
             final ownedDirectory = directory;
+            restrictPrivateFile(output);
             retained = true;
             return PreparedComposerUpload(
               ComposerUploadFile(

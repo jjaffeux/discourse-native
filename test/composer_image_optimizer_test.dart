@@ -65,6 +65,13 @@ void main() {
         bytes,
         reason: 'retry streams are repeatable',
       );
+      if (Platform.isMacOS || Platform.isLinux) {
+        final output = await temporary
+            .list(recursive: true)
+            .where((entry) => entry is File)
+            .single;
+        expect((await output.stat()).mode & 0x1ff, 0x180);
+      }
       expect(await temporary.list().length, 1);
       await result.dispose();
       await result.dispose();
