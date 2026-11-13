@@ -15,6 +15,13 @@ void main() {
         text: 'Alpha words\n\nBeta',
       ),
       (
+        name: 'table columns with an empty middle cell',
+        cooked:
+            '<table><tr><th>Name</th>\n<th>Note</th><th>Count</th></tr>'
+            '<tr><td>Ada</td>\n<td></td>\n<td>4</td></tr></table>',
+        text: 'Name\tNote\tCount\n\nAda\t\t4',
+      ),
+      (
         name: 'list and nested list boundaries',
         cooked:
             '<ol><li>First<ul><li>Nested</li></ul></li>'

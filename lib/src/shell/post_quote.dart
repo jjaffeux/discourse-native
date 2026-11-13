@@ -148,13 +148,18 @@ class _CookedSelectionCharacter {
 }
 
 class _CookedSelectionSource {
-  _CookedSelectionSource(this.characters, this.breaks, this.explicitBreaks)
-    : plainText = characters.map((character) => character.value).join();
+  _CookedSelectionSource(
+    this.characters,
+    this.breaks,
+    this.explicitBreaks,
+    this.cellSeparators,
+  ) : plainText = characters.map((character) => character.value).join();
 
   factory _CookedSelectionSource.fromHtml(String cooked) {
     final characters = <_CookedSelectionCharacter>[];
     final breaks = <int, int>{};
     final explicitBreaks = <int, int>{};
+    final cellSeparators = <int, int>{};
 
     void addBreak(int lines) {
       if (characters.isEmpty) return;
@@ -196,6 +201,9 @@ class _CookedSelectionSource {
       final frame = pending.removeLast();
       final node = frame.node;
       if (node is dom.Text) {
+        if (node.parent?.localName == 'tr' && node.data.trim().isEmpty) {
+          continue;
+        }
         // Markdown cooks whitespace between and inside blocks — `<p>a</p>\n`
         // — that the renderer never draws as written. Collapse it the way CSS
         // does so the index holds the character stream a selection reports.
@@ -239,6 +247,12 @@ class _CookedSelectionSource {
         if (block) addBreak(2);
         continue;
       }
+      if (const {'td', 'th'}.contains(node.localName) &&
+          node.parent?.localName == 'tr' &&
+          const {'td', 'th'}.contains(node.previousElementSibling?.localName)) {
+        final offset = characters.length;
+        cellSeparators[offset] = (cellSeparators[offset] ?? 0) + 1;
+      }
       if (node.localName == 'br') {
         final offset = characters.length;
         explicitBreaks[offset] = (explicitBreaks[offset] ?? 0) + 1;
@@ -267,23 +281,34 @@ class _CookedSelectionSource {
       ));
       pushNodes(node.nodes, childMarks, fastEditBlocked, code);
     }
-    return _CookedSelectionSource._trimmed(characters, breaks, explicitBreaks);
+    return _CookedSelectionSource._trimmed(
+      characters,
+      breaks,
+      explicitBreaks,
+      cellSeparators,
+    );
   }
 
   factory _CookedSelectionSource._trimmed(
     List<_CookedSelectionCharacter> characters,
     Map<int, int> breaks,
     Map<int, int> explicitBreaks,
+    Map<int, int> cellSeparators,
   ) {
     final kept = <_CookedSelectionCharacter>[];
     final keptBreaks = <int, int>{};
     final keptExplicitBreaks = <int, int>{};
+    final keptCellSeparators = <int, int>{};
 
     for (var offset = 0; offset <= characters.length; offset++) {
       final explicit = explicitBreaks[offset];
       if (explicit != null) {
         keptExplicitBreaks[kept.length] =
             (keptExplicitBreaks[kept.length] ?? 0) + explicit;
+      }
+      if (cellSeparators[offset] case final tabs?) {
+        keptCellSeparators[kept.length] =
+            (keptCellSeparators[kept.length] ?? 0) + tabs;
       }
       if (offset == characters.length) break;
       final lines = breaks[offset];
@@ -303,12 +328,18 @@ class _CookedSelectionSource {
       }
       kept.add(character);
     }
-    return _CookedSelectionSource(kept, keptBreaks, keptExplicitBreaks);
+    return _CookedSelectionSource(
+      kept,
+      keptBreaks,
+      keptExplicitBreaks,
+      keptCellSeparators,
+    );
   }
 
   final List<_CookedSelectionCharacter> characters;
   final Map<int, int> breaks;
   final Map<int, int> explicitBreaks;
+  final Map<int, int> cellSeparators;
   final String plainText;
   late final String foldedPlainText = plainText.toLowerCase();
 
@@ -335,6 +366,10 @@ class _CookedSelectionSource {
       for (var line = 0; line < inserted; line++) {
         out.write('\n');
         trailingNewlines++;
+      }
+      if (cellSeparators[offset] case final tabs?) {
+        out.write('\t' * tabs);
+        trailingNewlines = 0;
       }
       if (offset == characters.length) break;
       final value = characters[offset].value;
