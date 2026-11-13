@@ -31,7 +31,7 @@ import 'block_surface_host.dart';
 import 'component_artwork.dart';
 import 'component_editing_host.dart';
 import 'components/core.dart';
-import 'components/document_body_controller.dart';
+import 'components/document_body_range.dart';
 import 'components/gallery_source.dart';
 import 'components/image_source.dart';
 import 'components/list_source.dart';

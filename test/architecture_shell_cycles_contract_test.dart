@@ -34,8 +34,6 @@ const _cookedRecursion = [
 const _composerControllerCycle = [
   'lib/src/shell/composer/component_artwork.dart',
   'lib/src/shell/composer/components/core.dart',
-  'lib/src/shell/composer/components/document_body_controller.dart',
-  'lib/src/shell/composer/components/list.dart',
   _composerController,
 ];
 

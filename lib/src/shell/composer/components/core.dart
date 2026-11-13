@@ -2,7 +2,7 @@ import '../../../plugin_api/composer_syntax.dart';
 import '../controller.dart';
 import 'code.dart';
 import 'details.dart';
-import 'list.dart';
+import 'list_policy.dart';
 import 'table.dart';
 import 'upload.dart';
 import 'video.dart';
@@ -58,6 +58,16 @@ List<ComposerSyntaxPolicy> coreComposerSyntaxPolicies(
         highlighted: context.highlighted,
       ),
     ),
-    ComposerListPolicy(composer),
+    ComposerListPolicy(
+      composer,
+      embeddedInList: composer.singleNewlineParagraphs,
+      render: (context, item) => composer.artwork.listItem(
+        key: context.pillKey,
+        composer: composer,
+        item: item,
+        highlighted: context.highlighted,
+        scrollController: context.scrollController,
+      ),
+    ),
   ],
 ];

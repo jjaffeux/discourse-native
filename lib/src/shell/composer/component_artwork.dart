@@ -3,7 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'artwork.dart';
 import 'components/code_source.dart';
 import 'components/details_source.dart';
-import 'components/document_body_controller.dart';
+import 'components/document_body_range.dart';
 import 'components/list_source.dart';
 import 'components/table_source.dart';
 import 'controller.dart';

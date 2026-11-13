@@ -43,7 +43,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _importCycles = [5, 5];
+const _importCycles = [5, 3];
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.

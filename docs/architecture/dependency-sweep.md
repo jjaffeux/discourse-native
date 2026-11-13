@@ -56,3 +56,10 @@ They use the editor interface for insertion, selection, and focus. Each
 policy reaches 262 app libraries, down from 300. The composer cycle now
 contains five libraries. Focused code block, details, source analysis, and
 architecture tests cover the change.
+
+List projection now takes its renderer from composer setup. Its policy
+reaches 261 app libraries, compared with 301 for the library that previously
+owned it. The embedded document range is a standalone value type that reaches
+one app library. These changes remove the list and embedded document
+controllers from the composer cycle, leaving three libraries. The focused
+tests cover nested lists, task editing, embedded documents, and the cycle guard.
