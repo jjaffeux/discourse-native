@@ -37,7 +37,8 @@ final class CoalescingSnapshotWriter<T> {
   Future<void> save(T value) {
     _lane.sharedReads.clear();
     final submitter = Zone.current;
-    _lane.pendingWrite = () {
+    final result = _lane.pending?.result ?? Completer<void>();
+    Future<void> write() {
       final completion = Completer<void>();
       unawaited(
         submitter.run(
@@ -47,8 +48,9 @@ final class CoalescingSnapshotWriter<T> {
         ),
       );
       return completion.future;
-    };
-    final result = _lane.pendingResult ??= Completer<void>();
+    }
+
+    _lane.pending = (write: write, result: result);
     _lane.latestResult = result.future;
     if (!_lane.saving) {
       _lane.saving = true;
@@ -98,11 +100,11 @@ final class CoalescingSnapshotWriter<T> {
       // One synchronous transaction can save several times; waiting out its
       // turn leaves one write, of the state it ended with.
       await Future<void>.value();
-      while (_lane.pendingWrite != null) {
-        final write = _lane.pendingWrite!;
-        final result = _lane.pendingResult!;
-        _lane.pendingWrite = null;
-        _lane.pendingResult = null;
+      while (true) {
+        final pending = _lane.pending;
+        if (pending == null) break;
+        final (:write, :result) = pending;
+        _lane.pending = null;
 
         try {
           await _operations.run<void>(
@@ -118,7 +120,7 @@ final class CoalescingSnapshotWriter<T> {
       }
     } finally {
       _lane.saving = false;
-      if (_lane.pendingWrite != null) {
+      if (_lane.pending != null) {
         _lane.saving = true;
         unawaited(_drain());
       }
@@ -139,8 +141,7 @@ final class CoalescingSnapshotWriter<T> {
 
 final class _SnapshotLane {
   final sharedReads = <(Type, Object?), Future<Object?>>{};
-  Future<void> Function()? pendingWrite;
-  Completer<void>? pendingResult;
+  ({Future<void> Function() write, Completer<void> result})? pending;
   bool saving = false;
   Future<void>? latestResult;
 }
