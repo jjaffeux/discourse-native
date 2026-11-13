@@ -264,13 +264,12 @@ Future<Uint8List?> readBoundedHttpBody(
   );
   if (cancelOnListen) subscription.cancel().ignore();
 
-  return result.future.timeout(
-    timeout,
-    onTimeout: () {
-      cancel();
-      throw timeoutError();
-    },
-  );
+  final deadline = Timer(timeout, () {
+    if (result.isCompleted) return;
+    result.completeError(timeoutError());
+    cancel();
+  });
+  return result.future.whenComplete(deadline.cancel);
 }
 
 Duration _remaining(Duration timeout, Stopwatch elapsed) {
