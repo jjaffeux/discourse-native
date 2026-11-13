@@ -42,7 +42,7 @@ final class _TaxonomySite {
   categoryNotificationAuthorities = {};
   Completer<void>? categoryPageRequest;
   TagDirectoryFeed tagDirectoryFeed = const TagDirectoryFeed();
-  Object? tagDirectoryRequest;
+  RequestIntentOperation<void>? tagDirectoryRequest;
   List<SidebarTag> siteTopTags = const [];
   List<SidebarTag> anonymousDefaultTags = const [];
   _CategorySidebarCache? categorySidebarCache;
@@ -568,17 +568,35 @@ final class _TaxonomyDirectoryController
       return;
     }
     final held = site.tagDirectoryFeed;
+    final active = site.tagDirectoryRequest;
+    if (active != null) return active.join();
     if (!force && held.loaded) return;
-    if (site.tagDirectoryRequest != null) return;
-    final request = Object();
+    final request = RequestIntentOperation<void>();
     site.tagDirectoryRequest = request;
     final retired = Completer<void>();
     site.directoryWaiters.add(retired);
 
-    final lease = site.lease;
     site.tagDirectoryFeed = held.refreshing();
+    request.start(
+      () => Future<void>.microtask(
+        () => _loadTagDirectory(instance, site, held, request, retired),
+      ),
+    );
     _shell._notify();
+    return request.future;
+  }
+
+  Future<void> _loadTagDirectory(
+    DiscourseInstance instance,
+    _TaxonomySite site,
+    TagDirectoryFeed held,
+    RequestIntentOperation<void> request,
+    Completer<void> retired,
+  ) async {
+    final siteUrl = instance.url;
+    final lease = site.lease;
     try {
+      if (retired.isCompleted) return;
       final session = AccountRequestSession(siteUrl, lease);
       final credential = instance.isConnected
           ? await session.credentials(_shell.credentials)
