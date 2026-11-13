@@ -1050,10 +1050,14 @@ class _ComposerBottom extends StatelessWidget {
         : 0.0;
     final keyboard = MediaQuery.viewInsetsOf(context).bottom;
     final foot = MediaQuery.paddingOf(context).bottom;
-    final lift =
-        defaultTargetPlatform == TargetPlatform.android && keyboard == 0
-        ? foot + DMobileDockGeometry.inset
-        : DMobileDockGeometry(foot: keyboard > 0 ? 0 : foot).endLift;
+    final restingGeometry = DMobileDockGeometry.restingOf(context);
+    final restingClearance = defaultTargetPlatform == TargetPlatform.android
+        ? restingGeometry.foot + DMobileDockGeometry.inset
+        : restingGeometry.endLift;
+    final bottomClearance = math.max(
+      restingClearance,
+      keyboard + DMobileDockGeometry.inset,
+    );
     return Stack(
       children: [
         Positioned.fill(
@@ -1065,7 +1069,7 @@ class _ComposerBottom extends StatelessWidget {
           ),
         ),
         Padding(
-          padding: EdgeInsets.only(bottom: keyboard + lift),
+          padding: EdgeInsets.only(bottom: bottomClearance),
           child: content,
         ),
       ],

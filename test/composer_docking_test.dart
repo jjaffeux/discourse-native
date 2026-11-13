@@ -310,32 +310,52 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Android composer tools clear navigation and keyboard insets', (
-    tester,
-  ) async {
-    await _Harness.create(
+  for (final (platform, foot, restingClearance) in [
+    (TargetPlatform.iOS, 34.0, 23.0),
+    (TargetPlatform.android, 48.0, 54.0),
+  ]) {
+    testWidgets('$platform composer toolbar descends without a jump', (
       tester,
-      mobile: true,
-      platform: TargetPlatform.android,
-      size: const Size(390, 800),
-    );
-    addTearDown(tester.view.reset);
-    final ratio = tester.view.devicePixelRatio;
-    tester.view.viewPadding = FakeViewPadding(bottom: 48 * ratio);
-    for (final keyboard in [0.0, 330.0, 0.0]) {
-      tester.view.padding = FakeViewPadding(
-        bottom: keyboard == 0 ? 48 * ratio : 0,
+    ) async {
+      final harness = await _Harness.create(
+        tester,
+        mobile: true,
+        platform: platform,
+        size: const Size(390, 800),
       );
-      tester.view.viewInsets = FakeViewPadding(bottom: keyboard * ratio);
-      await tester.pumpAndSettle();
+      addTearDown(tester.view.reset);
+      final ratio = tester.view.devicePixelRatio;
+      tester.view.viewPadding = FakeViewPadding(bottom: foot * ratio);
       final toolbar = find.byKey(const ValueKey('composer-toolbar-bar'));
-      expect(
-        tester.getRect(toolbar).bottom,
-        lessThanOrEqualTo(800 - (keyboard > 0 ? keyboard : 48) - 6),
-      );
-    }
-    expect(tester.takeException(), isNull);
-  }, variant: const TargetPlatformVariant({TargetPlatform.android}));
+      Future<double> toolbarBottomAt(double keyboard) async {
+        tester.view.viewInsets = FakeViewPadding(bottom: keyboard * ratio);
+        tester.view.padding = FakeViewPadding(
+          bottom: (foot - keyboard).clamp(0.0, foot) * ratio,
+        );
+        await tester.pump(const Duration(milliseconds: 16));
+        return tester.getRect(toolbar).bottom;
+      }
+
+      final composer = harness.shell.visibleComposer!;
+      expect(composer.focus.hasFocus, isTrue);
+      var previousBottom = await toolbarBottomAt(330);
+      expect(previousBottom, 800 - 330 - 6);
+
+      composer.focus.unfocus();
+      for (final keyboard in [180.0, 60.0, 36.0, 18.0, 8.0, 1.0, 0.0]) {
+        final bottom = await toolbarBottomAt(keyboard);
+        expect(
+          bottom,
+          greaterThanOrEqualTo(previousBottom),
+          reason: 'toolbar moved back up with a $keyboard-point keyboard inset',
+        );
+        expect(bottom, lessThanOrEqualTo(800 - keyboard - 6));
+        previousBottom = bottom;
+      }
+      expect(previousBottom, 800 - restingClearance);
+      expect(tester.takeException(), isNull);
+    }, variant: TargetPlatformVariant({platform}));
+  }
 
   testWidgets('mobile keyboard motion retains composer controls', (
     tester,
