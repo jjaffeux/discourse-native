@@ -768,7 +768,7 @@ typedef ByteCacheDownload = ({
 /// owner closes the whole pool together, so one cache cannot cancel a transfer
 /// which a longer-lived peer still expects to complete.
 final class ByteCacheRequestPool {
-  final Map<Object, Future<ByteCacheDownload>> _inFlight = {};
+  final _inFlight = <(Object, Zone), Future<ByteCacheDownload>>{};
   bool _closed = false;
 
   Future<ByteCacheDownload> run(
@@ -778,23 +778,24 @@ final class ByteCacheRequestPool {
     if (_closed) {
       return Future.error(StateError('Byte cache request pool is closed.'));
     }
-    final pending = _inFlight[url];
+    final key = (url, Zone.current.errorZone);
+    final pending = _inFlight[key];
     if (pending != null) return pending;
 
     final result = Completer<ByteCacheDownload>();
     final request = result.future;
-    _inFlight[url] = request;
+    _inFlight[key] = request;
     unawaited(
       Future<ByteCacheDownload>.sync(download).then<void>(
         (value) {
-          if (identical(_inFlight[url], request)) {
-            final _ = _inFlight.remove(url);
+          if (identical(_inFlight[key], request)) {
+            final _ = _inFlight.remove(key);
           }
           result.complete(value);
         },
         onError: (Object error, StackTrace stackTrace) {
-          if (identical(_inFlight[url], request)) {
-            final _ = _inFlight.remove(url);
+          if (identical(_inFlight[key], request)) {
+            final _ = _inFlight.remove(key);
           }
           result.completeError(error, stackTrace);
         },
