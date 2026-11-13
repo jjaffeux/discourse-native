@@ -86,14 +86,26 @@ final class _ControllerChatConversation extends ChangeNotifier
     _operationError = null;
     notifyListeners();
     try {
-      final channel = await _chat.ensureChannel(siteUrl, channelId);
+      final checkingChannel = _chat.ensureChannel(siteUrl, channelId);
+      final admitted = checkingChannel.then(
+        (channel) =>
+            channel != null &&
+            !_closed &&
+            identical(_refreshGeneration, generation),
+        onError: (Object _, StackTrace _) => false,
+      );
+      await _chat.openThread(
+        siteUrl,
+        _target,
+        force: force,
+        admitWindow: admitted,
+      );
       if (_closed || !identical(_refreshGeneration, generation)) return;
-      if (channel == null) {
+      if (!await admitted) {
+        if (_closed || !identical(_refreshGeneration, generation)) return;
         _operationError = appL10n.couldNotLoadThisConversation;
         return;
       }
-      await _chat.openThread(siteUrl, _target, force: force);
-      if (_closed || !identical(_refreshGeneration, generation)) return;
       _markNewestRead();
     } catch (_) {
       if (!_closed && identical(_refreshGeneration, generation)) {

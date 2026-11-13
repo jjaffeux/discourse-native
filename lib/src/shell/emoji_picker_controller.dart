@@ -109,8 +109,14 @@ final class EmojiPickerController extends ChangeNotifier {
     }
     _notify();
 
+    if (hasQuery && !_aliasesAttempted) unawaited(_loadAliases());
     try {
-      final catalog = await loadCatalog(refresh: refresh);
+      final catalogRequest = loadCatalog(refresh: refresh);
+      final toneRequest = Future.sync(
+        () => store.readSkinTone(siteUrl: siteUrl),
+      );
+      toneRequest.ignore();
+      final catalog = await catalogRequest;
       if (!_catalogIsCurrent(request)) return;
       if (catalog == null) {
         _error = loadError;
@@ -120,7 +126,7 @@ final class EmojiPickerController extends ChangeNotifier {
 
       var tone = EmojiSkinTone.neutral;
       try {
-        tone = await store.readSkinTone(siteUrl: siteUrl);
+        tone = await toneRequest;
       } catch (_) {}
       if (!_catalogIsCurrent(request)) return;
       // Preference reads may finish after a choice made in this picker.

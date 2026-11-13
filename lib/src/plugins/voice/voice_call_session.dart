@@ -386,30 +386,39 @@ final class _VoiceCallSession {
       await media.connect();
 
       if (!isCurrent()) return;
+      Future<void>? inputSelection;
       if (controller._audioInputDeviceId case final deviceId?) {
-        await controller._selectSavedAudioDevice(
+        inputSelection = controller._selectSavedAudioDevice(
           media: media,
           preference: VoiceDevicePreference.audioInput,
           choice: controller._devicePreferences.audioInput,
           deviceId: deviceId,
-
           selectDevice: media.selectAudioInput,
           isCurrent: isCurrent,
         );
-        if (!isCurrent()) return;
       }
-      if (controller._audioOutputDeviceId case final deviceId?) {
-        await controller._selectSavedAudioDevice(
-          media: media,
-          preference: VoiceDevicePreference.audioOutput,
-          choice: controller._devicePreferences.audioOutput,
-          deviceId: deviceId,
 
-          selectDevice: media.selectAudioOutput,
-          isCurrent: isCurrent,
-        );
+      // macOS has independent input and output devices. Mobile audio routing
+      // can change both together, so keep its existing selection order.
+      if (!Platform.isMacOS && inputSelection != null) {
+        await inputSelection;
+        inputSelection = null;
         if (!isCurrent()) return;
       }
+
+      await Future.wait<void>([
+        ?inputSelection,
+        if (controller._audioOutputDeviceId case final deviceId?)
+          controller._selectSavedAudioDevice(
+            media: media,
+            preference: VoiceDevicePreference.audioOutput,
+            choice: controller._devicePreferences.audioOutput,
+            deviceId: deviceId,
+            selectDevice: media.selectAudioOutput,
+            isCurrent: isCurrent,
+          ),
+      ]);
+      if (!isCurrent()) return;
       _call = _call?.copyWith(
         status: VoiceCallStatus.connected,
         clearError: true,

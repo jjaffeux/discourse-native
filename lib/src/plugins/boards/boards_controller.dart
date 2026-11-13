@@ -598,15 +598,16 @@ final class BoardHandle extends ChangeNotifier {
     if (!enabled || !lease.isCurrent) {
       return const BoardWriteResult(BoardWriteState.cancelled);
     }
-    await refresh();
-    if (saved || result?.state == BoardWriteState.unknown) {
-      var refreshFailed = false;
+    final boardRefresh = refresh();
+    boardRefresh.ignore();
+    final repairsTopics = saved || result?.state == BoardWriteState.unknown;
+    var refreshFailed = false;
+    if (repairsTopics) {
+      final repair = owner.topics.refreshAfterMutation;
+      // Topic repair can also refresh shared feed state, so keep it ordered.
       for (final affectedId in topicIds.toSet()) {
-        if (!enabled || !lease.isCurrent) {
-          return const BoardWriteResult(BoardWriteState.cancelled);
-        }
+        if (!enabled || !lease.isCurrent) break;
         try {
-          final repair = owner.topics.refreshAfterMutation;
           if (repair != null) {
             final refreshed = await repair(
               siteUrl: site,
@@ -621,12 +622,13 @@ final class BoardHandle extends ChangeNotifier {
           refreshFailed = true;
         }
       }
-      if (!enabled || !lease.isCurrent) {
-        return const BoardWriteResult(BoardWriteState.cancelled);
-      }
-      if (refreshFailed && saved) {
-        return const BoardWriteResult(BoardWriteState.refreshNeeded);
-      }
+    }
+    await boardRefresh;
+    if (repairsTopics && (!enabled || !lease.isCurrent)) {
+      return const BoardWriteResult(BoardWriteState.cancelled);
+    }
+    if (refreshFailed && saved) {
+      return const BoardWriteResult(BoardWriteState.refreshNeeded);
     }
     return result ??
         BoardWriteResult(
