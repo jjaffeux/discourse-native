@@ -297,6 +297,31 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test('hovering again replaces a prefetch from retired tracking', () async {
+    final f = _Fixture();
+    void hover() => addTearDown(
+      f.data.prefetch(
+        const Topic(id: 7, title: 'Topic', slug: 'topic'),
+        postNumber: 90,
+        intent: TopicPrefetchIntent.trajectory,
+        isInterested: () => true,
+      ),
+    );
+    hover();
+    await f.api.waitTopics(1);
+    f.api.topicReads.single.result.complete(_payload([]));
+    await pumpEventQueue();
+    f.tracking.retire();
+    f.tracking = TopicTrackingReconciler();
+
+    hover();
+    await pumpEventQueue();
+    if (f.api.topicReads.length == 2) {
+      f.api.topicReads.last.result.complete(_payload([]));
+    }
+    expect(f.api.topicReads, hasLength(2));
+  });
+
   test('opening replaces a completed prefetch from retired tracking', () async {
     final f = _Fixture();
     final data = f.data;

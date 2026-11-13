@@ -125,6 +125,7 @@ final class TopicPrefetchController {
   bool _usable(_Prefetch entry) {
     try {
       return !entry.cancellation.isCancelled &&
+          entry.notificationRead?.isCurrent != false &&
           entry.isCurrent() &&
           (entry.completedAt == null ||
               elapsedSince(entry.completedAt!, now: _clock()) < lifetime);
@@ -173,6 +174,7 @@ final class TopicPrefetchController {
       } catch (_) {
         result = null;
       }
+      entry.notificationRead = result?.notificationRead;
       entry.result.complete(result);
       if (result == null && identical(_candidate, entry)) _discardCandidate();
       _active = null;
@@ -200,5 +202,6 @@ final class _Prefetch {
   bool ready = false;
   bool started = false;
   bool adopted = false;
+  TopicNotificationRead? notificationRead;
   DateTime? completedAt;
 }
