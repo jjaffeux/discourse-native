@@ -33,9 +33,7 @@ const _cookedRecursion = [
 /// the artwork that draws it are written against that controller.
 const _composerControllerCycle = [
   'lib/src/shell/composer/component_artwork.dart',
-  'lib/src/shell/composer/components/code.dart',
   'lib/src/shell/composer/components/core.dart',
-  'lib/src/shell/composer/components/details.dart',
   'lib/src/shell/composer/components/document_body_controller.dart',
   'lib/src/shell/composer/components/list.dart',
   _composerController,
@@ -158,13 +156,25 @@ void main() {
       },
     );
 
-    test('independent syntax policies compile without the composer controller', () {
-      for (final name in const ['table', 'upload', 'video']) {
-        final library = 'lib/src/shell/composer/components/$name.dart';
-        expect(graph.edges, contains(library));
-        expect(graph.closureOf(library), isNot(contains(_composerController)));
-      }
-    });
+    test(
+      'independent syntax policies compile without the composer controller',
+      () {
+        for (final name in const [
+          'code',
+          'details',
+          'table',
+          'upload',
+          'video',
+        ]) {
+          final library = 'lib/src/shell/composer/components/$name.dart';
+          expect(graph.edges, contains(library));
+          expect(
+            graph.closureOf(library),
+            isNot(contains(_composerController)),
+          );
+        }
+      },
+    );
 
     test('the cycle holds only the controller and its core policies', () {
       expect(

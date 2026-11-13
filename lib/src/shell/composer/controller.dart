@@ -29,6 +29,7 @@ import 'autocomplete.dart';
 import 'block_controller.dart';
 import 'block_surface_host.dart';
 import 'component_artwork.dart';
+import 'component_editing_host.dart';
 import 'components/core.dart';
 import 'components/document_body_controller.dart';
 import 'components/gallery_source.dart';
@@ -169,7 +170,7 @@ class ComposerController extends ChangeNotifier
     implements
         ComposerBlockSurfaceHost,
         ComposerDraftEditor,
-        ComposerEditorHost,
+        ComposerComponentEditingHost,
         ComposerMetadataEditorHost,
         ComposerRecipientTarget,
         ComposerSelectionFormattingHost,
@@ -1202,6 +1203,9 @@ class ComposerController extends ChangeNotifier
     });
     return admitted;
   }
+
+  @override
+  void dismissAutocomplete() => autocomplete.dismiss();
 
   void toggleMark(ComposerMark mark) {
     if (!isEditing ||

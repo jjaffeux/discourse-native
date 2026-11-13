@@ -4,8 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../component_artwork.dart';
-import '../controller.dart';
+import '../component_editing_host.dart';
+import '../component_editor.dart';
 import 'details_source.dart';
 
 ComposerSyntaxKind get composerDetailsSyntaxKind => ComposerSyntaxKind(
@@ -14,8 +14,8 @@ ComposerSyntaxKind get composerDetailsSyntaxKind => ComposerSyntaxKind(
   label: appL10n.details,
 );
 
-void insertComposerDetails(ComposerController composer) {
-  if (!composer.isCurrent || !composer.isEditing || composer.target.isPlugin) {
+void insertComposerDetails(ComposerComponentEditingHost composer) {
+  if (!composer.isCurrent || !composer.isEditing || composer.isPluginTarget) {
     return;
   }
   final value = composer.value;
@@ -45,8 +45,10 @@ void insertComposerDetails(ComposerController composer) {
 }
 
 final class ComposerDetailsPolicy implements ComposerSyntaxPolicy {
-  const ComposerDetailsPolicy(this.composer);
-  final ComposerController composer;
+  const ComposerDetailsPolicy(this.composer, this.render);
+  final Widget Function(ComposerSyntaxRenderContext, ComposerDetailsBlock)
+  render;
+  final ComposerComponentEditingHost composer;
   @override
   ComposerSyntaxKind get kind => composerDetailsSyntaxKind;
   @override
@@ -57,7 +59,7 @@ final class ComposerDetailsPolicy implements ComposerSyntaxPolicy {
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
     for (final block in parseComposerDetails(source))
-      _DetailsProjection(composer, block),
+      _DetailsProjection(composer, block, render),
   ];
 }
 
@@ -65,8 +67,10 @@ final class _DetailsProjection
     implements
         ComposerInteractiveSyntaxProjection,
         ComposerBlockSyntaxProjection {
-  _DetailsProjection(this.composer, this.block);
-  final ComposerController composer;
+  _DetailsProjection(this.composer, this.block, this.render);
+  final Widget Function(ComposerSyntaxRenderContext, ComposerDetailsBlock)
+  render;
+  final ComposerComponentEditingHost composer;
   final ComposerDetailsBlock block;
   GlobalKey? _editorKey;
   @override
@@ -107,12 +111,7 @@ final class _DetailsProjection
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: composer.artwork.details(
-          key: context.pillKey,
-          composer: composer,
-          block: block,
-          highlighted: context.highlighted,
-        ),
+        child: render(context, block),
       ),
       TextSpan(
         text: '\n',

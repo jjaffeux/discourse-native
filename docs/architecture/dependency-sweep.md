@@ -50,3 +50,9 @@ existing editor interface for insertion. Its reachable app libraries fell
 from 299 to 31, and widget libraries fell from 136 to one. The composer cycle
 now contains seven libraries. The focused table suite exercises insertion,
 editing, focus, and source projection through the normal editor.
+
+Code and details policies now receive their renderers from composer setup.
+They use the editor interface for insertion, selection, and focus. Each
+policy reaches 262 app libraries, down from 300. The composer cycle now
+contains five libraries. Focused code block, details, source analysis, and
+architecture tests cover the change.

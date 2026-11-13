@@ -76,7 +76,12 @@ void main() {
   test('same-source syntax invalidation updates structures and spacing', () {
     final host = ComposerController(_target);
     addTearDown(host.dispose);
-    final policy = _SwitchablePolicy(ComposerDetailsPolicy(host));
+    final policy = _SwitchablePolicy(
+      ComposerDetailsPolicy(
+        host,
+        (_, _) => throw StateError('Unexpected rendering'),
+      ),
+    );
     const source = 'Before\n\n[details]\nBody\n[/details]\n\nAfter';
     final controller = MarkdownEditingController(
       text: source,

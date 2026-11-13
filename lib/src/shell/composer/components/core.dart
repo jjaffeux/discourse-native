@@ -39,8 +39,25 @@ List<ComposerSyntaxPolicy> coreComposerSyntaxPolicies(
         highlighted: context.highlighted,
       ),
     ),
-    ComposerCodePolicy(composer),
-    ComposerDetailsPolicy(composer),
+    ComposerCodePolicy(
+      composer,
+      (context, block, onSelect) => composer.artwork.codeBlock(
+        key: context.pillKey,
+        composer: composer,
+        block: block,
+        highlighted: context.highlighted,
+        onSelect: onSelect,
+      ),
+    ),
+    ComposerDetailsPolicy(
+      composer,
+      (context, block) => composer.artwork.details(
+        key: context.pillKey,
+        composer: composer,
+        block: block,
+        highlighted: context.highlighted,
+      ),
+    ),
     ComposerListPolicy(composer),
   ],
 ];

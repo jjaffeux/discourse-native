@@ -195,7 +195,8 @@ class _ComposerCodeBlockEditorState extends State<ComposerCodeBlockEditor>
       return;
     }
     text.releaseSyntaxPointerEdit(occurrence);
-    final projection = ComposerCodeProjection(widget.composer, _block);
+    final projection = occurrence.projection;
+    if (projection is! ComposerCodeProjection) return;
     widget.composer.commitText(
       expectedText: widget.composer.value.text,
       value: projection.moveCaretAfter(widget.composer.value),

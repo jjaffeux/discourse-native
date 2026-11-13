@@ -4,13 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../component_artwork.dart';
-import '../controller.dart';
+import '../component_editing_host.dart';
+import '../component_editor.dart';
 import '../projected_component_input.dart';
 import 'code_source.dart';
 
-void insertComposerCodeBlock(ComposerController composer) {
-  if (!composer.isCurrent || !composer.isEditing || composer.target.isPlugin) {
+void insertComposerCodeBlock(ComposerComponentEditingHost composer) {
+  if (!composer.isCurrent || !composer.isEditing || composer.isPluginTarget) {
     return;
   }
   final value = composer.value;
@@ -46,8 +46,14 @@ void insertComposerCodeBlock(ComposerController composer) {
 }
 
 final class ComposerCodePolicy implements ComposerSyntaxPolicy {
-  const ComposerCodePolicy(this.composer);
-  final ComposerController composer;
+  const ComposerCodePolicy(this.composer, this.render);
+  final Widget Function(
+    ComposerSyntaxRenderContext,
+    ComposerCodeBlock,
+    VoidCallback?,
+  )
+  render;
+  final ComposerComponentEditingHost composer;
   @override
   ComposerSyntaxKind get kind => ComposerSyntaxKind(
     owner: const PluginId('core'),
@@ -63,14 +69,20 @@ final class ComposerCodePolicy implements ComposerSyntaxPolicy {
     for (final block in parseComposerCodeBlocks(source))
       // Mermaid's existing diagram component owns these fences.
       if (block.language.toLowerCase() != 'mermaid')
-        ComposerCodeProjection(composer, block),
+        ComposerCodeProjection(composer, block, render),
   ];
 }
 
 final class ComposerCodeProjection
     implements ComposerAtomicSelectionProjection {
-  ComposerCodeProjection(this.composer, this.block);
-  final ComposerController composer;
+  ComposerCodeProjection(this.composer, this.block, this.render);
+  final Widget Function(
+    ComposerSyntaxRenderContext,
+    ComposerCodeBlock,
+    VoidCallback?,
+  )
+  render;
+  final ComposerComponentEditingHost composer;
   final ComposerCodeBlock block;
   GlobalKey? _editorKey;
   @override
@@ -116,13 +128,7 @@ final class ComposerCodeProjection
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: composer.artwork.codeBlock(
-          key: context.pillKey,
-          composer: composer,
-          block: block,
-          highlighted: context.highlighted,
-          onSelect: composer.isEditing ? select : null,
-        ),
+        child: render(context, block, composer.isEditing ? select : null),
       ),
       TextSpan(
         text: source.substring(1, hiddenEnd),
@@ -154,7 +160,7 @@ final class ComposerCodeProjection
     final occurrence = text.syntaxAtOffset(start);
     if (occurrence == null || occurrence.source != source) return;
     text.releaseSyntaxPointerEdit(occurrence);
-    composer.autocomplete.dismiss();
+    composer.dismissAutocomplete();
     text.clearKeyboardPillSelection();
     text.selection = TextSelection(baseOffset: start, extentOffset: end);
     text.selectPillForKeyboard(ComposerSyntaxInput(occurrence));
