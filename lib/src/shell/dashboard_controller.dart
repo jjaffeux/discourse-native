@@ -1,6 +1,9 @@
+import 'package:flutter/foundation.dart';
+
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/dashboard_api.dart';
+import '../data/dashboard_report_source.dart';
 import '../data/site_lifecycle.dart';
 import '../foundation/frame_safe_notifier.dart';
 import '../models/dashboard.dart';
@@ -114,7 +117,7 @@ final class DashboardController extends FrameSafeNotifier {
     try {
       final auth = await _auth();
       if (!owns()) return;
-      var snapshot = await auth.run(
+      final snapshotLoad = auth.run(
         () => api.load(
           siteUrl: siteUrl,
           apiKey: auth.apiKey!,
@@ -122,22 +125,37 @@ final class DashboardController extends FrameSafeNotifier {
           range: range,
         ),
       );
+      Future<Map<String, DashboardReportResult>> loadReports(
+        List<DashboardReport> items,
+      ) => auth.run(
+        () => api.reports(
+          siteUrl: siteUrl,
+          apiKey: auth.apiKey!,
+          clientId: auth.clientId,
+          range: range,
+          items: items,
+        ),
+      );
+
+      final heldItems = _reportItems(held.snapshot);
+      final warmReports =
+          !held.mutating &&
+              heldItems.isNotEmpty &&
+              heldItems.every(
+                (item) => item.source == DashboardReportSources.coreSource,
+              )
+          ? loadReports(heldItems)
+          : null;
+      warmReports?.ignore();
+      var snapshot = await snapshotLoad;
       if (!owns()) return;
-      final items = snapshot.sections
-          .whereType<DashboardReports>()
-          .expand((section) => section.items)
-          .toList();
+      final items = _reportItems(snapshot);
       Map<String, DashboardReportResult> reports;
       try {
-        reports = await auth.run(
-          () => api.reports(
-            siteUrl: siteUrl,
-            apiKey: auth.apiKey!,
-            clientId: auth.clientId,
-            range: range,
-            items: items,
-          ),
-        );
+        reports =
+            await (warmReports != null && _sameReportRequests(heldItems, items)
+                ? warmReports
+                : loadReports(items));
       } catch (_) {
         reports = {
           for (final item in items)
@@ -169,6 +187,23 @@ final class DashboardController extends FrameSafeNotifier {
         );
       }
     }
+  }
+
+  List<DashboardReport> _reportItems(DashboardSnapshot? snapshot) =>
+      snapshot?.sections
+          .whereType<DashboardReports>()
+          .expand((section) => section.items)
+          .toList() ??
+      const [];
+
+  bool _sameReportRequests(
+    List<DashboardReport> previous,
+    List<DashboardReport> current,
+  ) {
+    if (previous.length != current.length) return false;
+    return previous.indexed.every(
+      (entry) => mapEquals(entry.$2.toJson(), current[entry.$1].toJson()),
+    );
   }
 
   Future<void> configure(List<DashboardConfiguration> sections) {

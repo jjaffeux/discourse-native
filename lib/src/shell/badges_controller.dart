@@ -179,15 +179,29 @@ final class BadgesController extends FrameSafeNotifier {
         if (!current()) return;
         account.states[route] = BadgesState(catalog: catalog, loaded: true);
       } else {
-        if (!more) {
-          final badge = await auth.run(
-            () => api.badge(
-              siteUrl: instance.url,
-              id: route.badgeId!,
-              apiKey: apiKey,
-              clientId: clientId,
-            ),
-          );
+        final badgeLoad = more
+            ? null
+            : auth.run(
+                () => api.badge(
+                  siteUrl: instance.url,
+                  id: route.badgeId!,
+                  apiKey: apiKey,
+                  clientId: clientId,
+                ),
+              );
+        final offset = more ? held.nextOffset : 0;
+        final grants = auth.run(
+          () => api.grants(
+            siteUrl: instance.url,
+            route: route,
+            offset: offset,
+            apiKey: apiKey,
+            clientId: clientId,
+          ),
+        );
+        grants.ignore();
+        if (badgeLoad != null) {
+          final badge = await badgeLoad;
           if (!current()) return;
           account.states[route] = BadgesState(
             badge: badge,
@@ -198,16 +212,7 @@ final class BadgesController extends FrameSafeNotifier {
           if (!current()) return;
         }
         fetchingRecipients = true;
-        final offset = more ? held.nextOffset : 0;
-        final page = await auth.run(
-          () => api.grants(
-            siteUrl: instance.url,
-            route: route,
-            offset: offset,
-            apiKey: apiKey,
-            clientId: clientId,
-          ),
-        );
+        final page = await grants;
         if (!current()) return;
         final rows = more ? [...held.grants] : <BadgeGrant>[];
         final seen = {for (final row in rows) row.id};

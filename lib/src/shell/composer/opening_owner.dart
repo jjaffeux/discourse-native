@@ -440,8 +440,7 @@ final class ComposerOpeningOwner {
     final placeholderCategory = plan.placeholderCategory;
     bool isCurrent() => !_disposed && session.isCurrent(_presentation);
 
-    await _metadata.ensureForOpening(siteUrl);
-    if (!isCurrent()) return;
+    final preparing = _metadata.ensureForOpening(siteUrl);
 
     AccountRequestCredentials? requestCredentials;
     var credentialsRead = false;
@@ -466,24 +465,43 @@ final class ComposerOpeningOwner {
         identical(loadedCategory, placeholderCategory);
     if (categoryId != null && (loadedCategory == null || stillHasPlaceholder)) {
       final publishCategories = _metadata.captureCategoryRead(siteUrl);
-      final credential = await readCredentials();
-      if (!isCurrent()) return;
-      if (credential != null) {
-        try {
-          final found = await credential.run(
-            () => _categories.findCategories(
-              siteUrl: siteUrl,
-              ids: [categoryId],
-              apiKey: credential.apiKey!,
-            ),
-          );
-          if (!isCurrent()) return;
-          if (found.isNotEmpty) {
-            publishCategories(found);
-            _presentation.publishOpening();
-          }
-        } catch (_) {}
+      Future<List<TopicCategory>> findCategory() async {
+        final credential = await readCredentials();
+        if (credential == null || !isCurrent()) return const [];
+        final category = _metadata.categoryFor(siteUrl, categoryId);
+        if (category != null && !identical(category, placeholderCategory)) {
+          return const [];
+        }
+        return credential.run(
+          () => _categories.findCategories(
+            siteUrl: siteUrl,
+            ids: [categoryId],
+            apiKey: credential.apiKey!,
+          ),
+        );
       }
+
+      final finding = findCategory();
+      finding.ignore();
+      await preparing;
+      if (!isCurrent()) return;
+      final category = _metadata.categoryFor(siteUrl, categoryId);
+      try {
+        final found =
+            category == null || identical(category, placeholderCategory)
+            ? await finding
+            : const <TopicCategory>[];
+        if (!isCurrent()) return;
+        final currentCategory = _metadata.categoryFor(siteUrl, categoryId);
+        if (found.isNotEmpty &&
+            (currentCategory == null ||
+                identical(currentCategory, placeholderCategory))) {
+          publishCategories(found);
+          _presentation.publishOpening();
+        }
+      } catch (_) {}
+    } else {
+      await preparing;
     }
     if (!isCurrent()) return;
 

@@ -2101,46 +2101,88 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     Set<int>? heldPostIds,
   }) async {
     if (!isCurrent) return PostProjectionFreshness.retired;
-    TopicPayload? payload;
-    final stamp = _stamp(recovery.topicId);
+    final topicId = recovery.topicId;
+    final stamp = _stamp(topicId);
+    final removals = _topic(topicId).removals;
+    final held = heldPostIds ?? recovery.postIds.toSet();
+    final ids = <int>{
+      ...recovery.postIds,
+      if (recovery.wholeTopic)
+        ...?_store.read<TopicDetail>(siteUrl, topicId)?.stream,
+    };
     final additionalReleases = <void Function()>[];
+    bool reserve(Set<int> additional) {
+      if (additional.any(postWriting)) return false;
+      for (final id in additional) {
+        additionalReleases.add(holdPostWrite(id, notifyOnRelease: false));
+      }
+      return true;
+    }
+
     try {
+      if (!reserve(ids.difference(held))) return PostProjectionFreshness.stale;
+      TopicPayload? payload;
+      Map<int, Post>? fresh;
       if (recovery.wholeTopic) {
+        final credential = await _requests.keyCredentials(
+          _CapturedKey(recovery.apiKey),
+        );
+        if (!isCurrent) return PostProjectionFreshness.retired;
+        final detail = credential.run(
+          () => _owner.content.topic(
+            siteUrl: siteUrl,
+            slug: '',
+            id: topicId,
+            apiKey: credential.apiKey,
+          ),
+        );
+        final known = _readRepairPosts(
+          topicId,
+          ids.toList(),
+          recovery.apiKey,
+          lease,
+        );
+        known.ignore();
         try {
-          final credential = await _requests.keyCredentials(
-            _CapturedKey(recovery.apiKey),
-          );
-          payload = await credential.run(
-            () => _owner.content.topic(
-              siteUrl: siteUrl,
-              slug: '',
-              id: recovery.topicId,
-              apiKey: credential.apiKey,
-            ),
-          );
-          if (!isCurrent) return PostProjectionFreshness.retired;
-        } catch (error) {
+          payload = await detail;
+        } catch (_) {
           return isCurrent
               ? PostProjectionFreshness.stale
               : PostProjectionFreshness.retired;
         }
+        if (!isCurrent) return PostProjectionFreshness.retired;
+        final discovered = {
+          ...?_store.read<TopicDetail>(siteUrl, topicId)?.stream,
+          ...payload.detail.stream,
+        }.difference(ids);
+        if (!reserve(discovered)) return PostProjectionFreshness.stale;
+        fresh = await known;
+        if (fresh == null) return PostProjectionFreshness.retired;
+        if (discovered.isNotEmpty) {
+          final extra = await _readRepairPosts(
+            topicId,
+            discovered.toList(),
+            recovery.apiKey,
+            lease,
+          );
+          if (extra == null) return PostProjectionFreshness.retired;
+          fresh.addAll(extra);
+          ids.addAll(discovered);
+        }
+      } else {
+        fresh = await _readRepairPosts(
+          topicId,
+          ids.toList(),
+          recovery.apiKey,
+          lease,
+        );
+        if (fresh == null) return PostProjectionFreshness.retired;
       }
-      final ids = <int>{
-        ...recovery.postIds,
-        if (recovery.wholeTopic)
-          ...?_store.read<TopicDetail>(siteUrl, recovery.topicId)?.stream,
-        if (payload != null) ...payload.detail.stream,
-      };
-      final held = heldPostIds ?? recovery.postIds.toSet();
-      final additional = ids.difference(held);
-      if (additional.any(postWriting)) return PostProjectionFreshness.stale;
-      for (final id in additional) {
-        additionalReleases.add(holdPostWrite(id, notifyOnRelease: false));
-      }
-      final projection = await _repair(
-        recovery.topicId,
-        ids.toList(),
-        recovery.apiKey,
+      final projection = _publishRepairPosts(
+        topicId,
+        ids,
+        fresh,
+        removals,
         lease,
       );
       if (projection != PostProjectionFreshness.fresh) return projection;
@@ -2153,6 +2195,11 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
       _changed();
       return isCurrent
           ? PostProjectionFreshness.fresh
+          : PostProjectionFreshness.retired;
+    } catch (error) {
+      if (isCurrent) _topic(topicId).stale = true;
+      return isCurrent
+          ? PostProjectionFreshness.stale
           : PostProjectionFreshness.retired;
     } finally {
       for (final release in additionalReleases) {
@@ -2183,50 +2230,70 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
   ) async {
     if (!_ownsLease(original)) return PostProjectionFreshness.retired;
     final removals = _topic(topicId).removals;
-    final fresh = <int, Post>{};
     try {
-      final credential = await _requests.keyCredentials(_CapturedKey(apiKey));
-      const pageSize = TopicDetail.maximumInitialPosts;
-      const concurrentPages = 3;
-      for (
-        var start = 0;
-        start < postIds.length;
-        start += pageSize * concurrentPages
-      ) {
-        if (!_ownsLease(original)) return PostProjectionFreshness.retired;
-        final pages = await Future.wait([
-          for (
-            var offset = start;
-            offset < postIds.length &&
-                offset < start + pageSize * concurrentPages;
-            offset += pageSize
-          )
-            credential.run(
-              () => _owner.content.posts(
-                siteUrl: siteUrl,
-                topicId: topicId,
-                ids: postIds.sublist(
-                  offset,
-                  math.min(offset + pageSize, postIds.length),
-                ),
-                apiKey: credential.apiKey,
-              ),
-            ),
-        ]);
-        if (!_ownsLease(original)) return PostProjectionFreshness.retired;
-        for (final posts in pages) {
-          for (final post in posts) {
-            if (postIds.contains(post.id)) fresh[post.id] = post;
-          }
-        }
-      }
+      final fresh = await _readRepairPosts(topicId, postIds, apiKey, original);
+      if (fresh == null) return PostProjectionFreshness.retired;
+      return _publishRepairPosts(topicId, postIds, fresh, removals, original);
     } catch (error) {
       if (isCurrent) _topic(topicId).stale = true;
-
       return isCurrent
           ? PostProjectionFreshness.stale
           : PostProjectionFreshness.retired;
     }
+  }
+
+  Future<Map<int, Post>?> _readRepairPosts(
+    int topicId,
+    List<int> postIds,
+    String? apiKey,
+    SiteLease original,
+  ) async {
+    final fresh = <int, Post>{};
+    final credential = await _requests.keyCredentials(_CapturedKey(apiKey));
+    const pageSize = TopicDetail.maximumInitialPosts;
+    const concurrentPages = 3;
+    for (
+      var start = 0;
+      start < postIds.length;
+      start += pageSize * concurrentPages
+    ) {
+      if (!_ownsLease(original)) return null;
+      final pages = await Future.wait([
+        for (
+          var offset = start;
+          offset < postIds.length &&
+              offset < start + pageSize * concurrentPages;
+          offset += pageSize
+        )
+          credential.run(
+            () => _owner.content.posts(
+              siteUrl: siteUrl,
+              topicId: topicId,
+              ids: postIds.sublist(
+                offset,
+                math.min(offset + pageSize, postIds.length),
+              ),
+              apiKey: credential.apiKey,
+            ),
+          ),
+      ]);
+      if (!_ownsLease(original)) return null;
+      for (final posts in pages) {
+        for (final post in posts) {
+          if (postIds.contains(post.id)) fresh[post.id] = post;
+        }
+      }
+    }
+    return fresh;
+  }
+
+  PostProjectionFreshness _publishRepairPosts(
+    int topicId,
+    Iterable<int> postIds,
+    Map<int, Post> fresh,
+    int removals,
+    SiteLease original,
+  ) {
     for (final id in postIds) {
       if (!_ownsLease(original)) return PostProjectionFreshness.retired;
       if (_removedAfter(topicId, id, removals)) continue;

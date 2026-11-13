@@ -330,7 +330,7 @@ void main() {
   );
 
   test(
-    'forgetting during detail publication prevents recipient loading',
+    'forgetting during detail publication prevents recipient publication',
     () async {
       transport.respond = (path) async =>
           path == '/badges/1.json' ? {'badge': badgeWire} : badgeGrantsWire();
@@ -346,26 +346,33 @@ void main() {
       expect(controller.stateFor(site.url, detail).badge, isNull);
       expect(transport.requests.map((request) => request.path), [
         '/badges/1.json',
+        '/user_badges.json?badge_id=1&offset=0',
       ]);
     },
   );
 
   test(
-    'forgetting a forum suppresses late details and recipient requests',
+    'forgetting a forum suppresses late detail and recipient responses',
     () async {
       final pending = Completer<Map<String, dynamic>>();
       final started = Completer<void>();
-      transport.respond = (_) {
-        started.complete();
-        return pending.future;
+      final grants = Completer<Map<String, dynamic>>();
+      transport.respond = (path) {
+        if (path == '/badges/1.json') {
+          started.complete();
+          return pending.future;
+        }
+        return grants.future;
       };
       final old = controller.load(site, detail);
       await started.future;
       controller.forget(site.url);
+      grants.complete(badgeGrantsWire());
       pending.complete({'badge': badgeWire});
       await old;
       expect(controller.stateFor(site.url, detail).badge, isNull);
-      expect(transport.requests.length, 1);
+      expect(controller.stateFor(site.url, detail).grants, isEmpty);
+      expect(transport.requests.length, 2);
     },
   );
 }

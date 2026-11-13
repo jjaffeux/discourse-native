@@ -29,9 +29,7 @@ final class ChatConversationReader {
     if (!force &&
         targetMessageId == null &&
         _owner.attemptedRecently &&
-        (_owner._openIntent != null ||
-            _owner._loading ||
-            held.fetchedOnce && backed)) {
+        (_owner._openIntent != null || held.fetchedOnce && backed)) {
       return;
     }
     final intent = Object();
@@ -49,20 +47,25 @@ final class ChatConversationReader {
           ),
         );
       }
+      Future<ChatThread?>? detail;
       if (target case final ChatThreadTarget thread) {
-        final detail = await _controller.refreshThreadDetail(siteUrl, thread);
-        if (detail == null ||
-            !isCurrent ||
-            !identical(_owner._openIntent, intent)) {
-          return;
-        }
-        _controller._liveSync.ensureThreadSubscription(siteUrl, thread);
+        detail = _controller.refreshThreadDetail(siteUrl, thread).then((
+          detail,
+        ) {
+          if (!isCurrent || !identical(_owner._openIntent, intent)) return null;
+          if (detail != null) {
+            _controller._liveSync.ensureThreadSubscription(siteUrl, thread);
+          }
+          return detail;
+        });
+        detail.ignore();
       } else {
         _controller._lastOpenedChannelIds[siteUrl] = target.channelId;
       }
       final result = await _owner.fetchWindow(
         fromLastRead: target is ChatChannelTarget && targetMessageId == null,
         targetMessageId: targetMessageId,
+        threadDetail: detail,
       );
       if (result == _ChatWindowFetchResult.missingTarget &&
           targetMessageId != null &&

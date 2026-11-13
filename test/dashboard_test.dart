@@ -628,6 +628,29 @@ void main() {
     expect(owner.state.snapshot!.sections.length, 6);
     expect(api.writes, 0);
   });
+  test(
+    'warm reports overlap refresh and are discarded if cards changed',
+    () async {
+      final api = FakeDashboardApi();
+      final owner = makeController(api, FakeCredentials());
+      addTearDown(owner.dispose);
+      await owner.refresh();
+      final original = api.reportRequests.single;
+      expect(original, isNotEmpty);
+
+      api.deferLoad = true;
+      final pending = owner.refresh();
+      await flush();
+      expect(api.reportRequests, [original, original]);
+      api.pendingLoads.single.complete(DashboardSnapshot(supported: true));
+      await pending;
+
+      expect(api.reportRequests.last, isEmpty);
+      expect(owner.state.snapshot!.sections, isEmpty);
+      expect(owner.state.reports, isEmpty);
+    },
+  );
+
   test('range races publish only the selected response', () async {
     final api = FakeDashboardApi()..deferLoad = true;
     final owner = makeController(api, FakeCredentials());
@@ -830,6 +853,7 @@ class FakeCredentials implements ApiCredentialReader {
 class FakeDashboardApi implements DashboardApi {
   final loads = <DashboardRange>[];
   final reportValues = <String, DashboardReportResult>{};
+  final reportRequests = <List<String>>[];
   final pendingLoads = <Completer<DashboardSnapshot>>[];
   bool deferLoad = false, failWrite = false;
   int writes = 0;
@@ -858,7 +882,11 @@ class FakeDashboardApi implements DashboardApi {
     required String clientId,
     required DashboardRange range,
     required List<DashboardReport> items,
-  }) async => reportValues;
+  }) async {
+    reportRequests.add(items.map((item) => item.key).toList());
+    return reportValues;
+  }
+
   Future<void> write() async {
     writes++;
     if (failWrite) throw StateError('failed');

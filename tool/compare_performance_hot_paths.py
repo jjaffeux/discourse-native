@@ -52,6 +52,11 @@ FIVE_MS_DRIVERS = (
     "benchmark_topic_feed_and_category_latency.dart",
     "benchmark_plugin_mutation_latency.dart",
     "benchmark_dashboard_and_authorization.dart",
+    "benchmark_dashboard_refresh_latency.dart",
+    "benchmark_badge_detail_latency.dart",
+    "benchmark_account_and_composer_latency.dart",
+    "benchmark_plugin_reader_latency.dart",
+    "benchmark_composer_moderation_latency.dart",
 )
 
 

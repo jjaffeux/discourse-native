@@ -8297,6 +8297,46 @@ void main() {
     });
 
     test(
+      'system unmute during join sync remains the final mute state',
+      () async {
+        transport.responses['POST /voice/rooms/7/join.json'] = fixture(
+          'join_mesh',
+        );
+        preferences.devices = const VoiceDevicePreferences(
+          pushToTalkEnabled: true,
+        );
+        useTransport(transport);
+        final stateStarted = Completer<void>();
+        final stateReply = Completer<void>();
+        transport.responders['POST /voice/rooms/7/state.json'] = (_) async {
+          if (!stateStarted.isCompleted) {
+            stateStarted.complete();
+            await stateReply.future;
+          }
+          return {};
+        };
+        final joining = joinOpenRoom();
+        await stateStarted.future;
+        expect(systemCall.systemMuted, isTrue);
+        systemCall.systemMuted = false;
+        systemCall.send(VoiceSystemCallAction.unmute);
+        await pumpEventQueue();
+        stateReply.complete();
+        await joining;
+
+        expect(controller.call!.muted, isFalse);
+        expect(systemCall.systemMuted, isFalse);
+        expect(mediaFactory.sessions.single.muted, isFalse);
+        expect(
+          transport.writes
+              .lastWhere((request) => request.path.endsWith('/state.json'))
+              .body['muted'],
+          isFalse,
+        );
+      },
+    );
+
+    test(
       'a join that starts before push-to-talk is restored still joins muted',
       () async {
         transport.responses['POST /voice/rooms/7/join.json'] = fixture(

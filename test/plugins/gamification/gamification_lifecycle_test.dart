@@ -1,12 +1,38 @@
 import 'dart:async';
 import 'package:discourse_native/discourse_plugin_sdk.dart';
-import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_controller.dart';
 import 'package:discourse_native/src/plugins/gamification/gamification_models.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'gamification_fixture.dart';
 
 void main() {
+  test('disabled settings keep an in-flight admin index unpublished', () async {
+    final f = GamificationFixture();
+    addTearDown(f.dispose);
+    final h = f.controller.acquireAdmin(gameSite);
+    addTearDown(h.release);
+    final indexStarted = Completer<void>();
+    final indexReply = Completer<Map<String, dynamic>>();
+    f.global['discourse_gamification_enabled'] = 'false';
+    f
+            .transport
+            .responders['GET /admin/plugins/discourse-gamification/leaderboards.json'] =
+        (_) {
+          indexStarted.complete();
+          return indexReply.future;
+        };
+    final refresh = h.refresh();
+    await indexStarted.future;
+    await refresh;
+
+    indexReply.complete(f.adminIndex);
+    await gameFlush();
+    expect(h.settings?.enabled, isFalse);
+    expect(h.index, isNull);
+    expect(h.error, isNull);
+    expect(h.loading, isFalse);
+  });
+
   test(
     'retired host leases prohibit cached reuse and stale refresh fallback before observer runs',
     () async {
