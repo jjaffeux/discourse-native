@@ -526,7 +526,9 @@ String _codeMarkdown(String text, {required bool block}) {
   final pad =
       text.startsWith('`') ||
       text.endsWith('`') ||
-      (text.startsWith(' ') && text.endsWith(' '));
+      (text.startsWith(' ') &&
+          text.endsWith(' ') &&
+          text.contains(RegExp(r'[^ ]')));
   return pad ? '$delimiter $text $delimiter' : '$delimiter$text$delimiter';
 }
 

@@ -524,7 +524,7 @@ void main() {
         'a  b': '`a  b`',
         'a\tb': '`a\tb`',
         ' ` ': '``  `  ``',
-        '   ': '`     `',
+        '   ': '`   `',
       };
       for (final entry in selections.entries) {
         expect(
@@ -538,6 +538,25 @@ void main() {
       }
     });
 
+    test(
+      'round trips an inline code selection made entirely of spaces',
+      () async {
+        final cooker = OfflineCookingService();
+        addTearDown(cooker.dispose);
+        final resolver = PostQuoteSelectionResolver('<p><code>   </code></p>');
+        final result = await cooker.cook(
+          CookingRequest(
+            raw: resolver.contentsFor('   '),
+            snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+          ),
+        );
+        expect(
+          html.parseFragment(result.html).querySelector('code')?.text,
+          '   ',
+        );
+      },
+    );
+
     test('chooses code delimiters from each partial selection', () {
       final resolver = PostQuoteSelectionResolver(
         '<p>Before <code>start a`b ``edge`` end</code> after.</p>',
@@ -549,7 +568,7 @@ void main() {
       expect(resolver.contentsFor('edge'), '`edge`');
       expect(
         postQuoteContentsFromSelection('<p><code>a   b</code></p>', ' '),
-        '`   `',
+        '` `',
       );
       expect(resolver.contentsFor('a`b'), '``a`b``');
       expect(resolver.resolve('a`b').supportsFastEdit, isFalse);
@@ -559,13 +578,13 @@ void main() {
       final leading = PostQuoteSelectionResolver(
         '<p><code>prefix </code>word</p>',
       ).resolve(' word');
-      expect(leading.markdown, '`   `word');
+      expect(leading.markdown, '` `word');
       expect(leading.supportsFastEdit, isFalse);
 
       final trailing = PostQuoteSelectionResolver(
         '<p>word<code> suffix</code></p>',
       ).resolve('word ');
-      expect(trailing.markdown, 'word`   `');
+      expect(trailing.markdown, 'word` `');
       expect(trailing.supportsFastEdit, isFalse);
     });
 
