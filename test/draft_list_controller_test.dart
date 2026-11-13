@@ -104,6 +104,33 @@ final class _GatedApiKeys implements SiteApiKeyReader {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('deleting a draft preserves a failed next page for retry', () async {
+    final api = _GatedDraftsApi();
+    final controller = DraftListController(
+      api: api,
+      credentials: _ReadyApiKeys(),
+      lifecycle: SiteLifecycle(),
+      limit: 2,
+    );
+    addTearDown(controller.dispose);
+    const other = UserDraft(key: 'topic_2', sequence: 1, data: null);
+    final loading = controller.load(_instance);
+    await pumpEventQueue();
+    api.pages.single.complete(const [_draft, other]);
+    await loading;
+
+    final paging = controller.load(_instance);
+    await pumpEventQueue();
+    api.pages.last.completeError(StateError('offline'));
+    await paging;
+    final failed = controller.feedFor(_siteUrl);
+    expect(failed.error, isNotNull);
+
+    expect(await controller.delete(_instance, _draft), isTrue);
+    expect(controller.feedFor(_siteUrl).drafts, [other]);
+    expect(controller.feedFor(_siteUrl).error, failed.error);
+  });
+
   test(
     'count reconciliation keeps rows explained by pending and completed deletions',
     () async {

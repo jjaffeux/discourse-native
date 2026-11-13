@@ -209,7 +209,7 @@ final class GifPickerController extends ChangeNotifier {
     if (!_isCurrent) return Future.value();
     final query = _activeQuery;
     if (query == null) return loadCategories();
-    if (_results.isNotEmpty && _nextPosition != null) return loadMore();
+    if (_nextPosition != null) return loadMore();
     return _searchFirstPage(
       query,
       request: _searchRequest,

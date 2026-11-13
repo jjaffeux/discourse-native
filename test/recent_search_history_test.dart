@@ -220,6 +220,18 @@ void main() {
     });
   }
 
+  test('clearing history also clears saved search requests', () async {
+    final rig = _Rig();
+    final request = _request('old', scope: GlobalSearchScope.users);
+    rig.history.remember(request);
+    expect(rig.history.savedRequest('old'), same(request));
+
+    expect(await rig.history.clear(), RecentSearchClearOutcome.cleared);
+
+    expect(rig.history.terms, isEmpty);
+    expect(rig.history.savedRequest('old'), isNull);
+  });
+
   test('a failed clear shows the server history again', () async {
     final rig = _Rig();
     rig.server.recent = ['server'];

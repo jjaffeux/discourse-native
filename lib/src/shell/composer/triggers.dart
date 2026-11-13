@@ -140,6 +140,12 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
     return null;
   }
 
+  if (kind == ComposerTriggerKind.emoji &&
+      caret < text.length &&
+      text[caret] == ':') {
+    return null;
+  }
+
   final query = text.substring(start, caret);
   for (final rune in query.runes) {
     if (!kind.accepts(String.fromCharCode(rune))) return null;

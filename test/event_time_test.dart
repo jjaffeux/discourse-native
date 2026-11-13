@@ -121,6 +121,26 @@ void main() {
     );
   });
 
+  test('an end before the start is omitted from event labels', () {
+    String label(Map<String, Object?> overrides) => eventDateLabel(
+      PostEvent.decode(eventJson(overrides: overrides))!,
+      ports.zones,
+      accountTimezone: 'Europe/Paris',
+      locale: 'en_US',
+      use24HourClock: true,
+    );
+
+    for (final fields in <Map<String, Object?>>[
+      {
+        'starts_at': '2026-09-08T10:00:00+02:00',
+        'ends_at': '2026-09-08T09:00:00+02:00',
+      },
+      {'all_day': true, 'starts_at': '2026-09-08', 'ends_at': '2026-09-07'},
+    ]) {
+      expect(label(fields), label({...fields, 'ends_at': null}));
+    }
+  });
+
   test('show_local_time labels name the event zone, not the reader zone', () {
     expect(
       eventDateLabel(

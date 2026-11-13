@@ -181,8 +181,9 @@ List<ComposerListItem> _composerListItems(
   String source, {
   required Set<String> referenceMarkers,
   bool recognizeTasks = true,
+  ComposerHtmlComments? htmlComments,
 }) {
-  final comments = ComposerHtmlComments(source);
+  final comments = htmlComments ?? ComposerHtmlComments(source);
   final references = referenceMarkers;
   final lines = <({int start, int end, String text})>[];
   var start = 0;
@@ -217,14 +218,14 @@ List<ComposerListItem> _composerListItems(
       i++;
       continue;
     }
-    final fence = _fence.firstMatch(line.text);
     if (outerFence != null) {
       if (_closesFence(line.text, outerFence)) outerFence = null;
       i++;
       continue;
     }
+    final fence = _openingFence(line.text);
     if (fence != null) {
-      outerFence = fence[1];
+      outerFence = fence;
       i++;
       continue;
     }
@@ -255,7 +256,7 @@ List<ComposerListItem> _composerListItems(
     // indented into its list. Keep each nested content column until a block
     // boundary returns ownership to an ancestor.
     final continuationIndents = <int>[contentIndent];
-    String? itemFence = _fence.firstMatch(remainder)?[1];
+    String? itemFence = _openingFence(remainder);
     // An enclosing block's closing tag ends its content as the end of the
     // document would.
     final limit = closings.lastOrNull ?? lines.length;
@@ -283,7 +284,7 @@ List<ComposerListItem> _composerListItems(
             !paragraph ||
             _listMarker.hasMatch(following.text) ||
             _interrupt.hasMatch(relative) ||
-            _fence.hasMatch(relative) ||
+            _openingFence(relative) != null ||
             _rule.hasMatch(relative) ||
             (closing != null && closing < limit)) {
           if (continuationIndents.length > 1) {
@@ -312,7 +313,7 @@ List<ComposerListItem> _composerListItems(
                 ? nested[1]!.length + nested[2]!.length + 1
                 : nested.end,
           );
-          itemFence = _fence.firstMatch(content)?[1];
+          itemFence = _openingFence(content);
           paragraph =
               content.isNotEmpty &&
               itemFence == null &&
@@ -321,8 +322,8 @@ List<ComposerListItem> _composerListItems(
               !_rule.hasMatch(content) &&
               !content.startsWith('    ');
         } else {
-          final opened = _fence.firstMatch(relative);
-          if (opened != null) itemFence = opened[1];
+          final opened = _openingFence(relative);
+          if (opened != null) itemFence = opened;
           paragraph =
               opened == null &&
               !_listMarker.hasMatch(relative) &&
@@ -414,10 +415,12 @@ Set<String> composerTaskReferences(
   void collect(String text) {
     // Checklist markers are inline syntax. Keep them in the body during this
     // block pass: "- [ ] [x]: url" is a paragraph, not a definition.
+    final comments = ComposerHtmlComments(text);
     final items = _composerListItems(
       text,
       referenceMarkers: const {},
       recognizeTasks: false,
+      htmlComments: comments,
     ).iterator;
     var hasItem = items.moveNext();
     var offset = 0;
@@ -439,9 +442,13 @@ Set<String> composerTaskReferences(
         if (_closesFence(content, fence)) fence = null;
         continue;
       }
-      final opening = _fence.firstMatch(content);
+      if (comments.containsBlock(start + _indentCharacters(content, 4))) {
+        paragraph = false;
+        continue;
+      }
+      final opening = _openingFence(content);
       if (opening != null) {
-        fence = opening[1];
+        fence = opening;
         paragraph = false;
         continue;
       }
@@ -483,6 +490,13 @@ String composerListContinuationAt(String source, int offset) {
   }
 
   return find(source, offset, 0);
+}
+
+String? _openingFence(String text) {
+  final match = _fence.firstMatch(text);
+  if (match == null) return null;
+  final marker = match[1]!;
+  return marker.startsWith('`') && match[2]!.contains('`') ? null : marker;
 }
 
 bool _closesFence(String text, String marker) => RegExp(

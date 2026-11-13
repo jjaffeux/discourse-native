@@ -113,6 +113,29 @@ void main() {
   });
 
   group('excerpt parsing', () {
+    test('retains emoji shortcodes from cooked excerpts', () {
+      final excerpt = SearchExcerpt.fromHtml(
+        '<span class="search-highlight"><img class="emoji" '
+        'alt=":wave:" src="/emoji/wave.png"></span>',
+      );
+
+      expect(excerpt.plainText, ':wave:');
+      expect(excerpt.segments.single.highlighted, isTrue);
+    });
+
+    test('separates text before and after cooked block elements', () {
+      final excerpt = SearchExcerpt.fromHtml(
+        'Before<blockquote><span class="search-highlight">quote</span>'
+        '</blockquote>after',
+      );
+
+      expect(excerpt.plainText, 'Before quote after');
+      expect(
+        excerpt.segments.singleWhere((part) => part.highlighted).text,
+        'quote',
+      );
+    });
+
     test(
       'collapses cooked whitespace while retaining highlight boundaries',
       () {

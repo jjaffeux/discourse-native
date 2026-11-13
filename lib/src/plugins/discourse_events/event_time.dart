@@ -95,7 +95,12 @@ String eventDateLabel(
     allDay: event.allDay,
     showLocalTime: event.showLocalTime,
   );
-  final end = eventDate(
+  if (start == null) {
+    return event.flag('is_expired')
+        ? appL10n.thisEventHasEndedEventtime
+        : appL10n.dateUnavailable;
+  }
+  final candidateEnd = eventDate(
     event.endsAt,
     zones: zones,
     timezone: event.timezone,
@@ -103,11 +108,9 @@ String eventDateLabel(
     allDay: event.allDay,
     showLocalTime: event.showLocalTime,
   );
-  if (start == null) {
-    return event.flag('is_expired')
-        ? appL10n.thisEventHasEndedEventtime
-        : appL10n.dateUnavailable;
-  }
+  final end = candidateEnd != null && !candidateEnd.isBefore(start)
+      ? candidateEnd
+      : null;
   final date = DateFormat.yMMMd(locale);
   final sameDay =
       end != null &&

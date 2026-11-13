@@ -131,7 +131,17 @@ class ComposerDraft {
     'action': action,
     'title': ?title,
     'categoryId': ?categoryId,
-    'tags': [for (final tag in tags) tag.toJson()],
+    'tags': [
+      for (final tag in tags)
+        {
+          ...tag.toJson(),
+          'slug': ?tag.slug,
+          if (tag.pmOnly) 'pm_only': true,
+          if (tag.count != 0) 'count': tag.count,
+          if (tag.disabled) 'disabled': true,
+          'title': ?tag.disabledReason,
+        },
+    ],
     'archetypeId': archetypeId,
     'recipients': ?recipients,
     'reply_to_post_number': replyToPostNumber,

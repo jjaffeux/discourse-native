@@ -255,12 +255,7 @@ class _GifPickerState extends State<GifPicker> {
                         child: DSkeleton(width: 96, height: 20),
                       ),
                     )
-                  : DButton(
-                      key: const ValueKey('gif-picker-load-more'),
-                      label: Text(context.l10n.loadMore),
-                      onPressed: controller.loadMore,
-                      variant: DButtonVariant.link,
-                    ),
+                  : _loadMoreButton(context),
             ),
         ],
       );
@@ -337,8 +332,16 @@ class _GifPickerState extends State<GifPicker> {
     return _PickerMessage(
       icon: DIcons.magnifyingGlass,
       message: context.l10n.noGIFsFound,
+      action: controller.canLoadMore ? _loadMoreButton(context) : null,
     );
   }
+
+  Widget _loadMoreButton(BuildContext context) => DButton(
+    key: const ValueKey('gif-picker-load-more'),
+    label: Text(context.l10n.loadMore),
+    onPressed: widget.controller.loadMore,
+    variant: DButtonVariant.link,
+  );
 }
 
 class _GifGridSkeleton extends StatelessWidget {

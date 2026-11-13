@@ -35,7 +35,7 @@ class RecentSearchHistory extends ChangeNotifier {
   bool _authenticated = true, _logSearchQueries = true, _disposed = false;
   int _generation = 0, _historyRevision = 0;
   List<String> _serverTerms = const [], _localTerms = const [];
-  final _states = <String, GlobalSearchRequest>{};
+  var _states = <String, GlobalSearchRequest>{};
   _RecentSearchRemovals _removals = _RecentSearchRemovals();
   final _pendingRemovalReads =
       <
@@ -253,8 +253,10 @@ class RecentSearchHistory extends ChangeNotifier {
     if (_disposed) return RecentSearchClearOutcome.superseded;
     final site = _siteUrl, lease = _lease, generation = _generation;
     final previous = _localTerms, wasCleared = _cleared;
+    final previousStates = _states;
     final revision = ++_historyRevision;
     _localTerms = const [];
+    _states = {};
     _cleared = true;
     _notify();
     if (site == null || lease == null || !_authenticated) {
@@ -283,6 +285,7 @@ class RecentSearchHistory extends ChangeNotifier {
     } catch (_) {
       if (!ownsEdit()) return RecentSearchClearOutcome.superseded;
       _localTerms = previous;
+      _states = previousStates;
       _cleared = wasCleared;
       _notify();
       return RecentSearchClearOutcome.failed;

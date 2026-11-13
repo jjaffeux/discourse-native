@@ -227,6 +227,14 @@ void main() {
       expect(triggerIn('see #a:b:c|'), '#a:b:c');
     });
 
+    test(
+      'a caret before a shortcode closing colon cannot complete it again',
+      () {
+        expect(triggerIn('a :smile|: and'), '-');
+        expect(triggerIn('a :smile| and'), ':smile');
+      },
+    );
+
     test('a shortcode is still a shortcode', () {
       expect(triggerIn('a :sm|'), ':sm');
       expect(triggerIn('a :smile:|'), '-');

@@ -521,10 +521,23 @@ class SearchExcerpt {
         continue;
       }
       if (node is! Element) continue;
+      final block = const {
+        'p',
+        'div',
+        'li',
+        'blockquote',
+        'h1',
+        'h2',
+        'h3',
+        'h4',
+        'h5',
+        'h6',
+        'tr',
+        'th',
+        'td',
+      }.contains(node.localName);
       if (frame.exiting) {
-        if (const {'p', 'div', 'li'}.contains(node.localName)) {
-          append(' ', frame.highlighted);
-        }
+        if (block) append(' ', frame.highlighted);
         continue;
       }
       if (node.localName == 'br') {
@@ -533,7 +546,15 @@ class SearchExcerpt {
       }
       final marked =
           frame.highlighted || node.classes.contains('search-highlight');
-      pending.add((node: node, highlighted: marked, exiting: true));
+      if (node.localName == 'img' && node.classes.contains('emoji')) {
+        final shortcode =
+            jsonText(node.attributes['alt']) ??
+            jsonText(node.attributes['title']);
+        if (shortcode != null) append(shortcode, marked);
+        continue;
+      }
+      if (block) append(' ', frame.highlighted);
+      pending.add((node: node, highlighted: frame.highlighted, exiting: true));
       pushNodes(node.nodes, marked);
     }
 

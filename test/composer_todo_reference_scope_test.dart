@@ -126,6 +126,16 @@ void main() {
     },
   );
 
+  test('definitions inside an HTML comment leave tasks checked', () async {
+    const source = '<!--\n\n[x]: /hidden\n\n-->\n\n- [x] Done';
+    await expectChecked(source, 1);
+  });
+
+  test('a line with backticks in fence info does not hide a task', () async {
+    const source = '```bad`info\n\n- [x] Done';
+    await expectChecked(source, 1);
+  });
+
   test('task text does not introduce a document-wide definition', () {
     const source = '- [ ] [x]: https://example.com\n  - [x] Child\n- [X] Done';
     expect(composerTaskReferences(source), isEmpty);

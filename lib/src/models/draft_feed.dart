@@ -15,6 +15,7 @@ class DraftFeed {
     this.nextOffset = 0,
     this.totalCount,
     this.error,
+    this.deletionError = false,
     this.retryPrevious = false,
     this.requiresRefresh = false,
     this.retainedAllRows = true,
@@ -34,6 +35,7 @@ class DraftFeed {
   final int nextOffset;
   final int? totalCount;
   final String? error;
+  final bool deletionError;
   final bool retryPrevious;
   final bool requiresRefresh;
   final bool retainedAllRows;
@@ -135,18 +137,20 @@ class DraftFeed {
       requiresRefresh:
           requiresRefresh || (knownToExist && !contained && hasPrevious),
       retainedAllRows: retainedAllRows,
+      error: deletionError ? null : error,
       retryPrevious: retryPrevious,
       window: updated,
     );
   }
 
-  DraftFeed withError(String message) => DraftFeed(
+  DraftFeed withError(String message, {bool deleting = false}) => DraftFeed(
     drafts: drafts,
     loaded: true,
     hasMore: hasMore,
     nextOffset: nextOffset,
     totalCount: totalCount,
     error: message,
+    deletionError: deleting,
     retryPrevious: loadingPrevious,
     requiresRefresh: requiresRefresh,
     retainedAllRows: retainedAllRows,
@@ -162,6 +166,7 @@ class DraftFeed {
     nextOffset: nextOffset,
     totalCount: totalCount,
     error: error,
+    deletionError: deletionError,
     retryPrevious: retryPrevious,
     requiresRefresh: true,
     retainedAllRows: retainedAllRows,
@@ -176,6 +181,7 @@ class DraftFeed {
     hasMore: hasMore,
     nextOffset: nextOffset,
     error: error,
+    deletionError: deletionError,
     retryPrevious: retryPrevious,
     requiresRefresh: requiresRefresh,
     retainedAllRows: retainedAllRows,

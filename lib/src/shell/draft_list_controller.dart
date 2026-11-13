@@ -285,6 +285,7 @@ final class DraftListController extends FrameSafeNotifier {
       if (_isCurrentDeletion(account, identity, request)) {
         account.feed = account.feed.withError(
           appL10n.couldnTRemoveThatDraftTryAgain,
+          deleting: true,
         );
       }
       return false;

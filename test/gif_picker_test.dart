@@ -150,6 +150,62 @@ void main() {
     });
   }
 
+  testWidgets('an empty GIF page still offers its continuation', (
+    tester,
+  ) async {
+    final api = _HeldGifsApi();
+    final controller = GifPickerController(
+      siteUrl: _siteUrl,
+      api: api,
+      requests: FakePluginRequestHost(
+        credentials: FakeAuthenticator()..keys[_siteUrl] = 'api-key',
+        lifecycle: SiteLifecycle(),
+      ),
+      fileDetail: 'preview',
+      searchDebounce: Duration.zero,
+    );
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: GifPicker(
+            siteUrl: _siteUrl,
+            controller: controller,
+            onPicked: (_) {},
+          ),
+        ),
+      ),
+    );
+    api.categoryResponse.complete(const []);
+    await tester.enterText(
+      find.byKey(const ValueKey('gif-picker-search')),
+      'cat',
+    );
+    await tester.pump();
+    api.searches.single.response.complete(
+      GifSearchPage(results: const [], nextPosition: 'next'),
+    );
+    await tester.pump();
+
+    final more = find.byKey(const ValueKey('gif-picker-load-more'));
+    expect(more, findsOneWidget);
+    await tester.tap(more);
+    await tester.pump();
+    expect(api.searches.last.position, 'next');
+    api.searches.last.response.completeError(StateError('offline'));
+    await tester.pump();
+
+    await tester.tap(find.text('Try again'));
+    await tester.pump();
+    expect(api.searches.last.position, 'next');
+    api.searches.last.response.complete(
+      GifSearchPage(results: const [_result]),
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('gif-result-0')), findsOneWidget);
+  });
+
   testWidgets('only a reopened picker can search with a replacement account', (
     tester,
   ) async {
