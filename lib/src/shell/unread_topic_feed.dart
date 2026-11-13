@@ -15,16 +15,23 @@ final class UnreadTopicFeed {
     required int? selectedTopicId,
     required bool Function(int topicId) isRead,
   }) {
-    final ids = [
-      for (final id in source.topicIds)
-        if (id == selectedTopicId || !isRead(id)) id,
-    ];
-    if (ids.length == source.topicIds.length) return source;
-    if (identical(source, _source) && listEquals(ids, _visible?.topicIds)) {
+    final topics = source.topicIds;
+    List<int>? visibleIds;
+    for (var index = 0; index < topics.length; index++) {
+      final id = topics[index];
+      if (id != selectedTopicId && isRead(id)) {
+        visibleIds ??= topics.sublist(0, index);
+      } else {
+        visibleIds?.add(id);
+      }
+    }
+    if (visibleIds == null) return source;
+    if (identical(source, _source) &&
+        listEquals(visibleIds, _visible?.topicIds)) {
       return _visible!;
     }
     _source = source;
-    return _visible = source.withVisibleTopics(ids);
+    return _visible = source.withVisibleTopics(visibleIds);
   }
 
   static bool isRead({

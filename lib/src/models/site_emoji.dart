@@ -20,6 +20,7 @@ final _emojiBackticks = RegExp(r'`+');
 
 Iterable<({int start, int end})> _emojiLiteralCodeRanges(String text) sync* {
   final runs = _emojiBackticks.allMatches(text).toList();
+  if (runs.length < 2) return;
   final next = List<int?>.filled(runs.length, null);
   final byWidth = <int, int>{};
   for (var index = runs.length - 1; index >= 0; index--) {
@@ -45,7 +46,7 @@ Iterable<({int start, int end})> _emojiLiteralCodeRanges(String text) sync* {
 /// and leave backtick-delimited code literal, including multiline fences.
 Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
   Iterator<({int start, int end})>? code;
-  var hasCode = false;
+  bool? hasCode;
   for (final match in siteEmojiShortcodePattern.allMatches(text)) {
     if (match.start > 0 &&
         _emojiWordEnd.hasMatch(
@@ -59,14 +60,14 @@ Iterable<RegExpMatch> siteEmojiShortcodeMatches(String text) sync* {
         )) {
       continue;
     }
-    if (code == null) {
-      code = _emojiLiteralCodeRanges(text).iterator;
+    if (hasCode == null) {
+      if (text.contains('`')) code = _emojiLiteralCodeRanges(text).iterator;
+      hasCode = code?.moveNext() ?? false;
+    }
+    while (hasCode! && code!.current.end <= match.start) {
       hasCode = code.moveNext();
     }
-    while (hasCode && code.current.end <= match.start) {
-      hasCode = code.moveNext();
-    }
-    if (hasCode && code.current.start < match.end) continue;
+    if (hasCode && code!.current.start < match.end) continue;
     yield match;
   }
 }

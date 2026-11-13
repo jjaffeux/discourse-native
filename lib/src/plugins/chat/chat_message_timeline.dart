@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'chat_message.dart';
 
 /// Must return a stable canonical record throughout one synchronous reduction.
@@ -133,7 +135,7 @@ abstract final class ChatMessageTimeline {
         )) {
       return _sortedUnion(held, [message]);
     }
-    return List.unmodifiable([...held.ids, message.id]);
+    return UnmodifiableListView([...held.ids, message.id]);
   }
 
   /// Admits only pending rows beyond the held cursor; older rows would falsely

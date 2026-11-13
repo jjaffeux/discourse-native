@@ -20,6 +20,12 @@ DRIVERS = (
 )
 
 
+ROUND_TWO_DRIVERS = (
+    "benchmark_model_paths_round_two.dart",
+    "benchmark_feed_paths_round_two.dart",
+)
+
+
 def baseline_packages(repo, baseline_dir, revision):
     archive = subprocess.check_output(["git", "archive", revision, "lib", "packages"])
     baseline_dir.mkdir()
@@ -68,7 +74,7 @@ def main():
     parser.add_argument("--baseline", default="ac4e51af7")
     parser.add_argument("--flutter-sdk", type=Path)
     parser.add_argument("--runs", default=5, type=int)
-    parser.add_argument("--driver", choices=DRIVERS, action="append")
+    parser.add_argument("--driver", choices=DRIVERS + ROUND_TWO_DRIVERS, action="append")
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if args.runs < 5:

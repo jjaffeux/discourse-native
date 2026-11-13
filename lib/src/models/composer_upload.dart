@@ -20,10 +20,12 @@ class ComposerUploadFile {
   final Stream<List<int>> Function() openRead;
   final bool imageOptimizationApplied;
 
-  bool get isVideo => RegExp(
+  static final _videoExtension = RegExp(
     r'\.(mp4|mov|m4v|webm|mkv|avi|3gp)$',
     caseSensitive: false,
-  ).hasMatch(name);
+  );
+
+  bool get isVideo => _videoExtension.hasMatch(name);
 }
 
 /// A prepared upload owns its temporary data until it succeeds or is removed.

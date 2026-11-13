@@ -5,13 +5,14 @@ import 'notification.dart';
 
 @immutable
 final class NotificationTypeCounts {
-  const NotificationTypeCounts._(this._counts);
+  const NotificationTypeCounts._(this._counts, this._total);
 
   final Map<NotificationTypeId, int>? _counts;
+  final int _total;
 
-  static const unavailable = NotificationTypeCounts._(null);
+  static const unavailable = NotificationTypeCounts._(null, 0);
 
-  static const empty = NotificationTypeCounts._(<NotificationTypeId, int>{});
+  static const empty = NotificationTypeCounts._(<NotificationTypeId, int>{}, 0);
 
   factory NotificationTypeCounts.fromWire(Object? value) {
     if (value is! Map) return unavailable;
@@ -27,6 +28,7 @@ final class NotificationTypeCounts {
         ? empty
         : NotificationTypeCounts._(
             Map<NotificationTypeId, int>.unmodifiable(counts),
+            counts.values.fold(0, (total, count) => total + count),
           );
   }
 
@@ -38,10 +40,13 @@ final class NotificationTypeCounts {
   int totalExcluding(Iterable<NotificationTypeId> excluded) {
     final counts = _counts;
     if (counts == null) return 0;
+    if (excluded.isEmpty) return _total;
     final omitted = excluded.toSet();
-    return counts.entries
-        .where((entry) => !omitted.contains(entry.key))
-        .fold(0, (total, entry) => total + entry.value);
+    var total = _total;
+    for (final id in omitted) {
+      total -= counts[id] ?? 0;
+    }
+    return total;
   }
 
   Map<String, int>? toJson() {

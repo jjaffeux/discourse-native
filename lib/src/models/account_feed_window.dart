@@ -54,17 +54,30 @@ class AccountFeedWindow<T> {
     required T Function(T? held, T incoming) merge,
     required int Function(T) estimate,
   }) {
-    final heldById = <Object, T>{
-      for (final packet in packets)
-        for (final row in packet.items) identity(row): row,
-    };
+    final keyedIncoming = [for (final row in incoming) (identity(row), row)];
+    final incomingIds = {for (final (key, _) in keyedIncoming) key};
+    final heldById = <Object, T>{};
+    final overlappingPackets = <int>{};
+    for (var index = 0; index < packets.length; index++) {
+      for (final row in packets[index].items) {
+        final key = identity(row);
+        if (incomingIds.contains(key)) {
+          heldById[key] = row;
+          overlappingPackets.add(index);
+        }
+      }
+    }
     final newById = <Object, T>{};
-    for (final row in incoming) {
-      final key = identity(row);
+    for (final (key, row) in keyedIncoming) {
       newById[key] = merge(newById[key] ?? heldById[key], row);
     }
     final retained = <AccountFeedPacket<T>>[];
-    for (final packet in packets) {
+    for (var packetIndex = 0; packetIndex < packets.length; packetIndex++) {
+      final packet = packets[packetIndex];
+      if (!overlappingPackets.contains(packetIndex)) {
+        retained.add(packet);
+        continue;
+      }
       List<T>? updated;
       for (var index = 0; index < packet.items.length; index++) {
         final row = packet.items[index];

@@ -86,23 +86,50 @@ String? jsonHtmlText(Object? value) {
     return jsonText(source.replaceAll(_htmlWhitespace, ' '));
   }
   final fragment = html.parseFragment(source);
-  for (final emoji in fragment.querySelectorAll('img.emoji')) {
-    final shortcode =
-        jsonText(emoji.attributes['alt']) ??
-        jsonText(emoji.attributes['title']);
-    emoji.replaceWith(dom.Text(shortcode ?? ''));
-  }
-  for (final element in fragment.querySelectorAll(
-    'br, p, div, li, blockquote, h1, h2, h3, h4, h5, h6, tr, th, td',
-  )) {
-    if (element.localName == 'br') {
-      element.replaceWith(dom.Text(' '));
-    } else {
-      element.nodes.insert(0, dom.Text(' '));
-      element.append(dom.Text(' '));
+  final text = StringBuffer();
+  _appendExcerptText(fragment, text);
+  return jsonText(text.toString().replaceAll(_htmlWhitespace, ' '));
+}
+
+void _appendExcerptText(dom.Node parent, StringBuffer text) {
+  for (final node in parent.nodes) {
+    if (node is dom.Text) {
+      text.write(node.data);
+    } else if (node is dom.Element) {
+      final name = node.localName;
+      if (name == 'br') {
+        text.write(' ');
+        continue;
+      }
+      if (name == 'img' && node.classes.contains('emoji')) {
+        text.write(
+          jsonText(node.attributes['alt']) ??
+              jsonText(node.attributes['title']) ??
+              '',
+        );
+        continue;
+      }
+      final separates = switch (name) {
+        'p' ||
+        'div' ||
+        'li' ||
+        'blockquote' ||
+        'h1' ||
+        'h2' ||
+        'h3' ||
+        'h4' ||
+        'h5' ||
+        'h6' ||
+        'tr' ||
+        'th' ||
+        'td' => true,
+        _ => false,
+      };
+      if (separates) text.write(' ');
+      _appendExcerptText(node, text);
+      if (separates) text.write(' ');
     }
   }
-  return jsonText(fragment.text?.replaceAll(_htmlWhitespace, ' '));
 }
 
 final _htmlWhitespace = RegExp(r'\s+');
@@ -141,6 +168,12 @@ String? jsonLocalizedTitle(Object? fancy, Object? localized) {
 String? _fancyTitleText(Object? fancy) {
   if (fancy case final String fancy when fancy.isNotEmpty) {
     final source = _boundedFancyTitleSource(fancy);
+    if (!source.contains('<') &&
+        !source.contains('&') &&
+        !source.contains('\r') &&
+        !source.contains('\u0000')) {
+      return source;
+    }
     return html.parseFragment(source).text ?? source;
   }
   return null;
@@ -171,13 +204,23 @@ int categoryColorValue(String color) =>
 /// [categoryColorValue]'s recognition, for a reader that draws its own
 /// fallback rather than Discourse's gray when the color is unrecognized.
 int? categoryColorValueOrNull(String color) {
-  var hex = color.trim();
-  if (hex.startsWith('#')) hex = hex.substring(1);
-  if (hex.length == 3) {
-    hex = [for (final digit in hex.split('')) '$digit$digit'].join();
+  final hex = color.trim();
+  final start = hex.startsWith('#') ? 1 : 0;
+  final length = hex.length - start;
+  if (length != 3 && length != 6) return null;
+  var rgb = 0;
+  for (var i = start; i < hex.length; i++) {
+    final code = hex.codeUnitAt(i);
+    final digit = switch (code) {
+      >= 0x30 && <= 0x39 => code - 0x30,
+      >= 0x41 && <= 0x46 => code - 0x41 + 10,
+      >= 0x61 && <= 0x66 => code - 0x61 + 10,
+      _ => -1,
+    };
+    if (digit < 0) return null;
+    rgb = length == 3 ? (rgb << 8) | digit * 17 : (rgb << 4) | digit;
   }
-  if (hex.length != 6) return null;
-  return int.tryParse('FF$hex', radix: 16);
+  return 0xff000000 | rgb;
 }
 
 /// Root-relative templates already include the forum's subfolder, while

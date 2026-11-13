@@ -682,8 +682,11 @@ class SiteConfig {
     return '$base/$emojiSet/${_toned(name)}.png';
   }
 
+  static final _emojiTonePattern = RegExp(r'^:?(.+?)(?::t([1-6]))?:?$');
+
   static String _toned(String name) {
-    final match = RegExp(r'^:?(.+?)(?::t([1-6]))?:?$').firstMatch(name);
+    if (!name.contains(':')) return name;
+    final match = _emojiTonePattern.firstMatch(name);
     if (match == null) return name;
     final tone = match.group(2);
     return tone == null ? match.group(1)! : '${match.group(1)}/$tone';
