@@ -760,9 +760,13 @@ void main() {
         pending,
         throwsA(isA<VideoDownloadException>()),
       );
-      headers.complete(http.StreamedResponse(body.stream, 200));
-
-      await rejected;
+      try {
+        await rejected.timeout(const Duration(seconds: 1));
+        expect(directory.listSync(), isEmpty);
+      } finally {
+        headers.complete(http.StreamedResponse(body.stream, 200));
+        await Future<void>.delayed(Duration.zero);
+      }
       expect(cancelled.isCompleted, isTrue);
       expect(directory.listSync(), isEmpty);
     },

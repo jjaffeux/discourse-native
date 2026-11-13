@@ -138,6 +138,12 @@ final class NativeVideoDownloader implements VideoDownloader {
   }) async {
     var current = url;
     final abort = Completer<void>();
+    final retired = Completer<http.StreamedResponse>();
+    retired.future.ignore();
+    final removeRetirement = lease?.onRetire(() {
+      retired.completeError(const VideoDownloadException());
+      if (!abort.isCompleted) abort.complete();
+    });
     try {
       for (var redirects = 0; ; redirects++) {
         _requireCurrent(lease);
@@ -150,8 +156,11 @@ final class NativeVideoDownloader implements VideoDownloader {
         final pending = client.send(request);
         late final http.StreamedResponse response;
         try {
-          response = await pending.timeout(requestTimeout);
-        } on TimeoutException {
+          response = await Future.any([
+            pending,
+            retired.future,
+          ]).timeout(requestTimeout);
+        } on Object {
           // A transport may complete despite the abort signal. Release any
           // late body instead of leaving its connection without a consumer.
           cancelLateHttpResponse(pending);
@@ -202,7 +211,8 @@ final class NativeVideoDownloader implements VideoDownloader {
         return _videoMediaType(prefix, response.headers['content-type']);
       }
     } finally {
-      abort.complete();
+      removeRetirement?.call();
+      if (!abort.isCompleted) abort.complete();
     }
   }
 }
