@@ -40,6 +40,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   final int maxEntryBytes;
   final DateTime Function() _clock;
   int _writesSincePrune = 0;
+  Future<void>? _initializing;
   Future<void>? _pruning;
 
   static Future<FileByteCacheStore> applicationCache(Directory root) async {
@@ -54,9 +55,21 @@ final class FileByteCacheStore implements ByteCacheStore {
     return store;
   }
 
-  Future<void> initialize() async {
-    await directory.create(recursive: true);
-    await _prune();
+  Future<void> initialize() {
+    if (_initializing case final active?) return active;
+    final completion = Completer<void>();
+    _initializing = completion.future;
+    completion.complete(_initialize());
+    return completion.future;
+  }
+
+  Future<void> _initialize() async {
+    try {
+      await directory.create(recursive: true);
+      await _prune();
+    } finally {
+      _initializing = null;
+    }
   }
 
   @override

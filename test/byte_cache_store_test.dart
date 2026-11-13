@@ -37,6 +37,25 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('overlapping initialization shares one maintenance pass', () async {
+      var scans = 0;
+      final store = FileByteCacheStore(
+        directory,
+        clock: () {
+          scans++;
+          return now;
+        },
+      );
+      final first = store.initialize();
+      final joined = store.initialize();
+      await Future.wait([first, joined]);
+
+      expect(joined, same(first));
+      expect(scans, 1);
+      await store.initialize();
+      expect(scans, 2);
+    });
+
     test('treats a short disk read as a cache miss', () async {
       final entry = await seed('short', [1, 2, 3, 4], now);
       final store = FileByteCacheStore(directory, clock: () => now);
