@@ -265,6 +265,16 @@ void main() {
     },
   );
 
+  test('calendar omits events with an invalid explicit end', () {
+    for (final fields in [
+      {'starts_at': '2026-09-08T09:00:00Z', 'ends_at': '2026-09-08T99:00:00Z'},
+      {'all_day': true, 'starts_at': '2026-09-08', 'ends_at': '2026-02-30'},
+    ]) {
+      expect(entry(fields), isNull, reason: '${fields['ends_at']}');
+      expect(entry({...fields, 'ends_at': null}), isNotNull);
+    }
+  });
+
   test('a midnight start with a timed end stays a timed event', () {
     final event = entry({
       'starts_at': '2026-09-08T00:00:00+02:00',

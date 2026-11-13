@@ -244,6 +244,12 @@ void main() {
       expect(triggerIn('Note:|'), '-');
     });
 
+    test('does not complete in the middle of a qualified hashtag', () {
+      expect(triggerIn('see #parent|:child'), '-');
+      expect(triggerIn('see #name|::tag'), '-');
+      expect(triggerIn('see #parent:child|'), '#parent:child');
+    });
+
     test('a hash inside a word is not a hashtag', () {
       expect(triggerIn('a#b|'), '-');
       expect(triggerIn('##foo|'), '-');

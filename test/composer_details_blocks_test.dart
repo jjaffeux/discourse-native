@@ -1,6 +1,8 @@
+import 'package:discourse_cooking/discourse_cooking.dart';
 import 'package:discourse_native/src/shell/composer/components/details_source.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:html/parser.dart' as html;
 
 void main() {
   test('recognizes default, quoted, legacy and smart-quoted summaries', () {
@@ -21,6 +23,36 @@ void main() {
       expect(block.withBody(block.body), block.source);
     }
   });
+
+  test(
+    'a whitespace-only open attribute opens details as the cooker does',
+    () async {
+      const source = '[details="Title" open="  "]\nBody\n[/details]';
+      final cooking = OfflineCookingService();
+      addTearDown(cooking.dispose);
+      final result = await cooking.cook(
+        CookingRequest(
+          raw: source,
+          configuration: CookingConfiguration(
+            modules: [
+              CookingModule(id: 'details', owner: 'cooking', version: '1'),
+            ],
+          ),
+          snapshot: CookingSnapshot(
+            siteId: 'test-site',
+            accountId: 'test-account',
+          ),
+        ),
+      );
+      expect(result.failure, isNull);
+      expect(
+        html.parseFragment(result.html).querySelector('details[open]'),
+        isNotNull,
+        reason: result.html,
+      );
+      expect(parseComposerDetails(source).single.open, isTrue);
+    },
+  );
 
   test('nested details belong to one outer block and siblings stay separate', () {
     const source =

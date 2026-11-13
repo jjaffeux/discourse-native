@@ -26,11 +26,17 @@ String clockTime(
   unawaited(_localeData);
   // A locale without date symbols falls back to the default one rather than
   // throwing from a label.
-  final known = Intl.verifiedLocale(
-    locale,
-    DateFormat.localeExists,
-    onFailure: (_) => null,
-  );
+  final known =
+      Intl.verifiedLocale(
+        locale,
+        DateFormat.localeExists,
+        onFailure: (_) => null,
+      ) ??
+      Intl.verifiedLocale(
+        Intl.getCurrentLocale(),
+        DateFormat.localeExists,
+        onFailure: (_) => 'en_US',
+      )!;
   final format = (_formats[(known, use24HourClock)] ??= use24HourClock
       ? DateFormat.Hm(known)
       : DateFormat.jm(known));
@@ -52,4 +58,4 @@ final _localeData = initializeDateFormatting();
 
 /// Keyed by verified locale, so a locale whose symbols arrive later is not
 /// held to the fallback it was first formatted with.
-final _formats = <(String?, bool), DateFormat>{};
+final _formats = <(String, bool), DateFormat>{};

@@ -218,7 +218,7 @@ _DetailsTag? _tagAt(String source, int start) {
       if (parsed == null) return null;
       value = parsed;
     }
-    if (attribute[0] == 'open') open = value.isEmpty;
+    if (attribute[0] == 'open') open = value.trim().isEmpty;
   }
   return null;
 }

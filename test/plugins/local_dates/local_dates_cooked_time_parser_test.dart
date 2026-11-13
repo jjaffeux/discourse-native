@@ -39,6 +39,18 @@ void main() {
     expect(parser.parseDescendant(scope), DateTime.utc(2026, 8, 1, 8, 24));
   });
 
+  test('finds the first usable date after a malformed Local Dates span', () {
+    final scope = html
+        .parseFragment(
+          '<div><span class="discourse-local-date" data-date="broken">fallback</span>'
+          '<span class="discourse-local-date" data-date="2026-08-01" '
+          'data-time="10:24:00" data-timezone="Europe/Paris">valid</span></div>',
+        )
+        .querySelector('div')!;
+
+    expect(parser.parseDescendant(scope), DateTime.utc(2026, 8, 1, 8, 24));
+  });
+
   test('declines cooked markup without a Local Dates descendant', () {
     final unrelated = html
         .parseFragment(

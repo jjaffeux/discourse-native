@@ -11,18 +11,19 @@ final class LocalDatesCookedTimeParser implements CookedTimeParser {
 
   @override
   DateTime? parseDescendant(dom.Element scope) {
-    final element = descendantWhere(
-      scope,
-      (candidate) =>
-          candidate.localName == 'span' &&
-          candidate.classes.contains('discourse-local-date'),
-    );
-    if (element == null) return null;
-
-    final spec = LocalDateSpec.fromDataAttributes(
-      element.attributes.map((key, value) => MapEntry('$key', value)),
-      fallbackText: element.text,
-    );
-    return formatter.resolveInstant(spec);
+    DateTime? instant;
+    descendantWhere(scope, (candidate) {
+      if (candidate.localName != 'span' ||
+          !candidate.classes.contains('discourse-local-date')) {
+        return false;
+      }
+      final spec = LocalDateSpec.fromDataAttributes(
+        candidate.attributes.map((key, value) => MapEntry('$key', value)),
+        fallbackText: candidate.text,
+      );
+      instant = formatter.resolveInstant(spec);
+      return instant != null;
+    });
+    return instant;
   }
 }

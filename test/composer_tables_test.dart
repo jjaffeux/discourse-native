@@ -86,6 +86,16 @@ void main() {
     },
   );
 
+  test('moving a final cell ending in a backslash preserves both columns', () {
+    const source =
+        'Name | Path\n--- | ---\n'
+        r'Example | path\';
+    final moved = parse(parse(source).moveColumn(1, 0));
+    expect(moved.columnCount, 2);
+    expect(moved.cell(1, 0), r'path\\');
+    expect(moved.cell(1, 1), 'Example');
+  });
+
   test(
     'inserts and moves rows without moving the header or changing cell source',
     () {

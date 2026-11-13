@@ -67,6 +67,24 @@ void main() {
     );
   });
 
+  test('one field can contain another field’s token as literal text', () {
+    final document = PlaceholderDocument.parse(
+      '<div class="d-wrap" data-wrap="placeholder" data-key="FIRST"></div>'
+      '<div class="d-wrap" data-wrap="placeholder" data-key="SECOND"></div>'
+      '<p><a href="https://example.com/=FIRST=/=SECOND=">'
+      '=FIRST= then =SECOND=</a></p>',
+    );
+    final rendered = html.parseFragment(
+      document.render({'FIRST': 'literal =SECOND=', 'SECOND': 'value'}),
+    );
+    final link = rendered.querySelector('a')!;
+    expect(link.text, 'literal =SECOND= then value');
+    expect(
+      link.attributes['href'],
+      'https://example.com/literal =SECOND=/value',
+    );
+  });
+
   test('values are literal text and attributes, never parsed as HTML', () {
     final document = PlaceholderDocument.parse(
       '<span class="d-wrap" data-wrap="placeholder" data-key="[X]"></span>'

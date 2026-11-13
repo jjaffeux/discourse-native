@@ -68,16 +68,19 @@ final class PlaceholderDocument {
   String render(Map<String, String> overrides) {
     if (definitions.isEmpty) return source;
     final fragment = _template.clone(true);
-    String replace(String source) {
-      var result = source;
-      for (final definition in definitions.values) {
-        final value = overrides[definition.key] ?? definition.defaultValue;
-        if (value != null && value.isNotEmpty && value != 'none') {
-          result = result.replaceAll(definition.token, value);
-        }
+    final replacements = <String, String>{};
+    for (final definition in definitions.values) {
+      final value = overrides[definition.key] ?? definition.defaultValue;
+      if (value != null && value.isNotEmpty && value != 'none') {
+        replacements[definition.token] = value;
       }
-      return result;
     }
+    final tokens = replacements.isEmpty
+        ? null
+        : RegExp(replacements.keys.map(RegExp.escape).join('|'));
+    String replace(String source) => tokens == null
+        ? source
+        : source.replaceAllMapped(tokens, (match) => replacements[match[0]]!);
 
     // Visit each text node once even when eligible ancestors overlap. Replacing
     // DOM text/attributes escapes values on serialization, preserving markup.

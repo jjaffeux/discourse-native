@@ -3,6 +3,7 @@ import 'package:discourse_native/src/foundation/timezone_environment.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:timezone/timezone.dart' as tz;
 
 void main() {
@@ -39,6 +40,16 @@ void main() {
         '3:45 PM',
       );
     });
+
+    test(
+      'an unsupported locale falls back to the current locale each time',
+      () {
+        String label() =>
+            clockTime(afternoon, use24HourClock: false, locale: 'xx_YY');
+        expect(Intl.withLocale('en_US', label), '3:45 PM');
+        expect(Intl.withLocale('de', label), '15:45');
+      },
+    );
 
     test('reads the wall time it is given, in whatever zone that is', () {
       final environment = TimezoneEnvironment.instance..ensureDatabase();

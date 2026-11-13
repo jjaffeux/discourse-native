@@ -140,10 +140,13 @@ ComposerTrigger? composerTriggerAt(TextEditingValue value) {
     return null;
   }
 
-  if (kind == ComposerTriggerKind.emoji &&
-      caret < text.length &&
-      text[caret] == ':') {
-    return null;
+  if (caret < text.length && text[caret] == ':') {
+    if (kind == ComposerTriggerKind.emoji) return null;
+    if (kind == ComposerTriggerKind.hashtag &&
+        caret + 1 < text.length &&
+        kind.accepts(_characterAt(text, caret + 1))) {
+      return null;
+    }
   }
 
   final query = text.substring(start, caret);

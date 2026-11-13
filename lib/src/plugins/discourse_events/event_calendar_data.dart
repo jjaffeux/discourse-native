@@ -153,7 +153,9 @@ final class EventCalendarEntry extends kalender.KalenderEvent {
 
     final start = parse(event.startsAt);
     if (start == null) return null;
-    var end = parse(event.endsAt);
+    final rawEnd = event.endsAt;
+    var end = parse(rawEnd);
+    if (rawEnd != null && end == null) return null;
     if (allDay) {
       end ??= start;
       end = tz.TZDateTime(location, end.year, end.month, end.day + 1);

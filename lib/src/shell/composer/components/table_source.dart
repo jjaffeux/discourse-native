@@ -111,7 +111,7 @@ class ComposerTableBlock {
   ];
 
   String _renderLine(_TableLine line, List<String> cells) =>
-      '${line.prefix}|${cells.join('|')}|${line.suffix}';
+      '${line.prefix}|${cells.map(_escapeTrailingBackslash).join('|')}|${line.suffix}';
 }
 
 /// Body rows may omit trailing cells or contain additional source cells.
@@ -259,9 +259,15 @@ String _encodeCell(String value) {
     output.write(char);
     slashes = char == '\\' ? slashes + 1 : 0;
   }
-  // An odd trailing slash must not escape the table's closing separator.
-  if (slashes.isOdd) output.write('\\');
-  return output.toString();
+  return _escapeTrailingBackslash(output.toString());
+}
+
+String _escapeTrailingBackslash(String cell) {
+  var end = cell.length;
+  while (end > 0 && cell[end - 1] == '\\') {
+    end--;
+  }
+  return (cell.length - end).isOdd ? '$cell\\' : cell;
 }
 
 /// Native text selection can cross the atom, but cannot partially edit it.
