@@ -416,8 +416,10 @@ final class InstalledPlugins {
     if (_closing || _closed) throw StateError('Installed plugins are closed.');
     if (bindings != null) _appBindings = bindings;
     try {
+      startup:
       for (final registration in _registrations) {
         for (final appLifecycle in registration.appLifecycles) {
+          if (_closing) break startup;
           final completed = _completedPhases[appLifecycle];
           if (completed?.contains(phase) ?? false) continue;
           final restrictedBindings = _appLifecycleBindings.putIfAbsent(
@@ -435,6 +437,7 @@ final class InstalledPlugins {
               );
             },
           );
+          if (_closing) break startup;
           await appLifecycle.lifecycle.startPhase(phase, restrictedBindings);
           _started.add(appLifecycle);
           (_completedPhases[appLifecycle] ??= {}).add(phase);
@@ -447,6 +450,7 @@ final class InstalledPlugins {
       _closed = true;
       throw PluginLifecycleException('startPhase(${phase.name})', failures);
     }
+    if (_closing) throw StateError('Installed plugins are closed.');
   }
 
   Future<void> observeAppState(String state, {required bool foreground}) {

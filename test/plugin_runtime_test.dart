@@ -1073,6 +1073,32 @@ void main() {
       },
     );
 
+    test('shutdown during startup skips subsequent plugin hooks', () async {
+      final events = <String>[];
+      late final InstalledPlugins installed;
+      late Future<void> closing;
+      installed = PluginInstaller.install(
+        PluginManifest([
+          _Module(
+            'first',
+            appLifecycle: _AppLifecycle(
+              'first',
+              events,
+              inspectBindings: (_) => closing = installed.close(),
+            ),
+          ),
+          _Module('second', appLifecycle: _AppLifecycle('second', events)),
+        ]),
+      );
+
+      await expectLater(
+        installed.startPhase(PluginStartupPhase.bootstrap),
+        throwsStateError,
+      );
+      await closing;
+      expect(events, ['first:start:bootstrap', 'first:close']);
+    });
+
     test('startup phases are idempotent and close once', () async {
       final events = <String>[];
       final installed = PluginInstaller.install(
