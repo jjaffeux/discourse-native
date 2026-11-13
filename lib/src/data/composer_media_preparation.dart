@@ -42,13 +42,11 @@ Future<bool> stageComposerMedia({
 }) async {
   if (length < 0 || length > maximumBytes) return false;
   final elapsed = Stopwatch()..start();
-  Duration remaining() {
-    final budget = timeout - elapsed.elapsed;
-    if (budget <= Duration.zero) {
-      throw TimeoutException('Media staging deadline exceeded', timeout);
-    }
-    return budget;
-  }
+  final deadlineError = TimeoutException(
+    'Media staging deadline exceeded',
+    timeout,
+  );
+  var timedOut = false;
 
   var cancelled = false;
   (Object, StackTrace)? abortFailure;
@@ -75,7 +73,7 @@ Future<bool> stageComposerMedia({
       Error.throwWithStackTrace(error, stack);
     }
     if (cancelled) return false;
-    final budget = remaining();
+    if (timedOut || elapsed.elapsed >= timeout) throw deadlineError;
     final step = Completer<bool>();
     waiting = step;
     unawaited(
@@ -89,7 +87,7 @@ Future<bool> stageComposerMedia({
       ),
     );
     try {
-      return await step.future.timeout(budget);
+      return await step.future;
     } finally {
       waiting = null;
     }
@@ -99,6 +97,11 @@ Future<bool> stageComposerMedia({
   RandomAccessFile? sink;
   Future<RandomAccessFile>? writing;
   var stagingFailed = false;
+  final deadline = Timer(timeout, () {
+    timedOut = true;
+    final step = waiting;
+    if (step != null && !step.isCompleted) step.completeError(deadlineError);
+  });
   try {
     await ensurePrivateFile(input);
     sink = await input.open(mode: FileMode.write);
@@ -117,11 +120,15 @@ Future<bool> stageComposerMedia({
         writing = null;
       }
     }
+    if (!cancelled && (timedOut || elapsed.elapsed >= timeout)) {
+      throw deadlineError;
+    }
     return !cancelled && copied == length;
   } on Object {
     stagingFailed = true;
     rethrow;
   } finally {
+    deadline.cancel();
     try {
       try {
         // A timeout cannot cancel a filesystem write. Keep ownership until it
