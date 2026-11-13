@@ -284,6 +284,31 @@ void main() {
     expect(estimates, {for (var id = 0; id <= 10; id++) id: 1});
   });
 
+  test('empty account feed pages advance without reading row identities', () {
+    final window = AccountFeedWindow<int>(
+      packets: [
+        for (var i = 0; i < 10; i++)
+          AccountFeedPacket(start: i, end: i + 1, items: [i]),
+      ],
+    );
+    var reads = 0;
+    final updated = window.withPage(
+      incoming: const [],
+      start: 10,
+      end: 13,
+      prepend: false,
+      identity: (id) {
+        reads++;
+        return id;
+      },
+      merge: (_, id) => id,
+      estimate: (_) => 1,
+    );
+    expect((updated.start, updated.end), (1, 13));
+    expect(updated.items, [for (var i = 1; i < 10; i++) i]);
+    expect(reads, 0);
+  });
+
   test('tag intersection visits the rarest bucket regardless of tag order', () {
     final reads = _SetReads();
     final tracking = TopicTrackingState([

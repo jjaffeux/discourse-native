@@ -65,7 +65,11 @@ class AccountFeedWindow<T> {
     final heldById = <Object, T>{};
     final overlappingPackets = <int>{};
     final packetKeys = <List<Object>>[];
-    for (var index = 0; index < packets.length; index++) {
+    for (
+      var index = 0;
+      incomingIds.isNotEmpty && index < packets.length;
+      index++
+    ) {
       final keys = <Object>[];
       packetKeys.add(keys);
       for (final row in packets[index].items) {
@@ -138,6 +142,11 @@ class AccountFeedWindow<T> {
         (bounded.length > maximumPackets ||
             rows > maximumRows ||
             bytes > maximumEstimatedBytes)) {
+      final removedIndex = prepend ? bounded.length - 1 : 0;
+      final removed = bounded.removeAt(removedIndex);
+      rows -= removed.items.length;
+      bytes -= packetBytes.removeAt(removedIndex);
+      if (newById.isEmpty) continue;
       if (retainedCounts == null) {
         retainedCounts = <Object, int>{};
         for (final keys in packetKeys) {
@@ -147,14 +156,10 @@ class AccountFeedWindow<T> {
         }
       }
       final counts = retainedCounts;
-      final removedIndex = prepend ? bounded.length - 1 : 0;
       final removedKeys = packetKeys.removeAt(prepend ? removedIndex - 1 : 0);
       for (final key in removedKeys) {
         counts.update(key, (count) => count - 1);
       }
-      final removed = bounded.removeAt(removedIndex);
-      rows -= removed.items.length;
-      bytes -= packetBytes.removeAt(removedIndex);
       final activeIndex = prepend ? 0 : bounded.length - 1;
       final active = bounded[activeIndex];
       final activeRows = <T>[];
