@@ -156,6 +156,17 @@ void main() {
       expect(writer.writes, isEmpty);
     });
 
+    test('an abort error during file setup is reported by staging', () async {
+      final abort = Completer<void>();
+      final error = StateError('abort failed during setup');
+      final pending = stage(Stream.value([1, 2, 3]), aborted: abort.future);
+      final rejected = expectLater(pending, throwsA(same(error)));
+
+      abort.completeError(error);
+
+      await rejected;
+    });
+
     test('source errors close the destination', () async {
       final writer = _Writer();
       await expectLater(

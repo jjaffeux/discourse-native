@@ -52,6 +52,8 @@ Future<bool> stageComposerMedia({
 
   var cancelled = false;
   final cancellation = aborted.then((_) => cancelled = true);
+  // The abort signal can fail while the destination is still opening.
+  cancellation.ignore();
   final iterator = StreamIterator(source);
   RandomAccessFile? sink;
   Future<RandomAccessFile>? writing;
