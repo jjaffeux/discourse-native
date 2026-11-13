@@ -999,7 +999,7 @@ final class _TaxonomyDirectoryController
         final roots = <int>{
           ...result.rootCategoryIds,
           if (!replace) ...held.categoryIds,
-        };
+        }.toList(growable: false);
         final nextPage =
             !replace && existingFeed.loaded && existingFeed.error == null
             ? held.nextPage
@@ -1007,7 +1007,9 @@ final class _TaxonomyDirectoryController
             ? 2
             : null;
         site.categoryFeed = CategoryFeed(
-          categoryIds: List.unmodifiable(roots),
+          categoryIds: listEquals(held.categoryIds, roots)
+              ? held.categoryIds
+              : List.unmodifiable(roots),
           loaded: true,
           nextPage: nextPage,
           canCreateTopic: result.canCreateTopic,

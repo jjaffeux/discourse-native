@@ -18,6 +18,21 @@ const _stale = TopicCategory(id: 4, name: 'Stale page', color: '444444');
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test('metadata-only refresh preserves the root ID snapshot', () async {
+    final api = _CategoryRefreshApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    final roots = shell.categoryFeedFor(_site).categoryIds;
+    api.pages[1] = const [
+      TopicCategory(id: 1, name: 'Renamed root', color: '111111'),
+    ];
+
+    await shell.loadCategories(_site, force: true);
+
+    expect(shell.categoryFor(1, siteUrl: _site)?.name, 'Renamed root');
+    expect(shell.categoryFeedFor(_site).categoryIds, same(roots));
+  });
+
   test('a repeated category page ends pagination', () async {
     final api = _CategoryRefreshApi();
     final shell = await _loadShell(api);
