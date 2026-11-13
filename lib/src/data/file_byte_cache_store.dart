@@ -40,6 +40,7 @@ final class FileByteCacheStore implements ByteCacheStore {
   final int maxEntryBytes;
   final DateTime Function() _clock;
   int _writesSincePrune = 0;
+  Future<void>? _creatingDirectory;
   Future<void>? _initializing;
   Future<void>? _pruning;
 
@@ -50,7 +51,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     // Directory creation is required before the store is published. The LRU
     // scan is maintenance, though, and may stat thousands of files: do not put
     // that work on the app's first-frame critical path.
-    await store.directory.create(recursive: true);
+    await store._ensureDirectory();
     store._schedulePrune();
     return store;
   }
@@ -65,10 +66,26 @@ final class FileByteCacheStore implements ByteCacheStore {
 
   Future<void> _initialize() async {
     try {
-      await directory.create(recursive: true);
+      await _ensureDirectory();
       await _prune();
     } finally {
       _initializing = null;
+    }
+  }
+
+  Future<void> _ensureDirectory() {
+    if (_creatingDirectory case final active?) return active;
+    final completion = Completer<void>();
+    _creatingDirectory = completion.future;
+    completion.complete(_createDirectory());
+    return completion.future;
+  }
+
+  Future<void> _createDirectory() async {
+    try {
+      await directory.create(recursive: true);
+    } finally {
+      _creatingDirectory = null;
     }
   }
 
@@ -162,7 +179,7 @@ final class FileByteCacheStore implements ByteCacheStore {
     ).setInt64(0, expiresAt.toUtc().millisecondsSinceEpoch, Endian.big);
     encoded.setRange(_headerBytes, encoded.length, bytes);
 
-    await directory.create(recursive: true);
+    await _ensureDirectory();
     try {
       await temporary.writeAsBytes(encoded, flush: true);
       await temporary.rename(target.path);

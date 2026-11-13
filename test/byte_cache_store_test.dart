@@ -37,6 +37,30 @@ void main() {
   }
 
   group('FileByteCacheStore maintenance', () {
+    test('overlapping writes share directory creation', () async {
+      final counted = _CountedCacheDirectory(directory);
+      final store = FileByteCacheStore(counted, clock: () => now);
+      await Future.wait([
+        for (var index = 0; index < 8; index++)
+          store.write(
+            _url('shared-$index'),
+            Uint8List.fromList([index]),
+            expiresAt: expiresAt,
+          ),
+      ]);
+      expect(counted.creates, 1);
+      expect(await directory.list().length, 8);
+
+      await directory.delete(recursive: true);
+      await store.write(
+        _url('fresh'),
+        Uint8List.fromList([9]),
+        expiresAt: expiresAt,
+      );
+      expect(await store.read(_url('fresh')), [9]);
+      expect(counted.creates, 2);
+    });
+
     test('overlapping initialization shares one maintenance pass', () async {
       var scans = 0;
       final store = FileByteCacheStore(
@@ -679,6 +703,25 @@ final class _FailedCacheRename implements File {
   @override
   Future<FileSystemEntity> delete({bool recursive = false}) =>
       file.delete(recursive: recursive);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+final class _CountedCacheDirectory implements Directory {
+  _CountedCacheDirectory(this.directory);
+
+  final Directory directory;
+  int creates = 0;
+
+  @override
+  String get path => directory.path;
+
+  @override
+  Future<Directory> create({bool recursive = false}) {
+    creates++;
+    return directory.create(recursive: recursive);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
