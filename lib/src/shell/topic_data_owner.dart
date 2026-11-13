@@ -2647,8 +2647,6 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     final path = privateMessage
         ? '/topics/private-messages-sent/$encoded.json'
         : '/topics/created-by/$encoded.json';
-    final candidates =
-        <({TopicPayload payload, _ReadStamp stamp, String slug})>[];
     final heldStates = <_TopicState>[];
     try {
       final recent = await credential.run(
@@ -2661,10 +2659,9 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
       if (!isCurrent) return null;
       final titleKey = _titleKey(title);
       final rawKey = _storedRaw(raw);
-      for (final row
-          in recent.topics
-              .where((row) => _titleKey(row.title) == titleKey)
-              .take(_reconcileWindow)) {
+      Future<({TopicPayload payload, _ReadStamp stamp, String slug})?> check(
+        Topic row,
+      ) async {
         if (!isCurrent) return null;
         final state = _topic(row.id);
         state.matchingReads++;
@@ -2680,7 +2677,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         );
         if (!isCurrent) return null;
         final first = payload.detail.stream.firstOrNull;
-        if (first == null) continue;
+        if (first == null) return null;
         final posts = await credential.run(
           () => _owner.content.posts(
             siteUrl: siteUrl,
@@ -2690,12 +2687,21 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
             apiKey: credential.apiKey,
           ),
         );
-        if (!isCurrent) return null;
         if (posts.firstOrNull?.raw case final posted?
-            when _storedRaw(posted) == rawKey) {
-          candidates.add((payload: payload, stamp: stamp, slug: row.slug));
+            when isCurrent && _storedRaw(posted) == rawKey) {
+          return (payload: payload, stamp: stamp, slug: row.slug);
         }
+        return null;
       }
+
+      final matches = await Future.wait([
+        for (final row
+            in recent.topics
+                .where((row) => _titleKey(row.title) == titleKey)
+                .take(_reconcileWindow))
+          check(row),
+      ]);
+      final candidates = matches.nonNulls;
       if (!isCurrent || candidates.length != 1) return null;
       final candidate = candidates.single;
       final detail = _publishTopic(candidate.payload, candidate.stamp);

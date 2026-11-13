@@ -444,26 +444,23 @@ void main() {
           expect(client.requests.map((request) => request.url.path), [
             '/site.json',
             '/u/alice.json',
+            '/',
             '/color-scheme-stylesheet/20/6.json',
             '/color-scheme-stylesheet/21/6.json',
-            '/',
             '/styles/light.css',
             '/styles/dark.css',
           ]);
-          for (final request in client.requests.take(4)) {
-            expect(request.headers['accept'], 'application/json');
+          for (final request in client.requests.take(5)) {
+            expect(
+              request.headers['accept'],
+              request.url.path == '/' ? '*/*' : 'application/json',
+            );
             expect(request.headers['user-api-key'], 'secret-key');
             expect(
               request.headers['user-api-client-id'],
               clientId.isEmpty ? null : clientId,
             );
           }
-          expect(client.requests[4].headers['accept'], '*/*');
-          expect(client.requests[4].headers['user-api-key'], 'secret-key');
-          expect(
-            client.requests[4].headers['user-api-client-id'],
-            clientId.isEmpty ? null : clientId,
-          );
           for (final request in client.requests.skip(5)) {
             expect(request.headers['accept'], 'text/css');
             expect(request.headers, isNot(contains('user-api-key')));
@@ -676,8 +673,8 @@ void main() {
         '/old/site.json',
         '/forum/site.json',
         '/forum/u/alice.json',
-        '/forum/color-scheme-stylesheet/10/5.json',
         '/forum/',
+        '/forum/color-scheme-stylesheet/10/5.json',
         '/forum/styles/colors.css',
       ]);
       for (final request in client.requests.take(5)) {
@@ -1086,16 +1083,16 @@ ${jsonEncode({
                 ? [
                     '/site.json',
                     '/u/alice.json',
+                    '/',
+                    '/',
                     '/color-scheme-stylesheet/10/5.json',
-                    '/',
-                    '/',
                   ]
                 : [
                     '/',
                     '/site.json',
                     '/u/alice.json',
-                    '/color-scheme-stylesheet/10/5.json',
                     '/',
+                    '/color-scheme-stylesheet/10/5.json',
                   ],
           );
         },

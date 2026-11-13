@@ -127,65 +127,62 @@ final class SiteAppearanceLoader {
     );
     final apiBase = siteResponse.url.resolve('.');
 
-    Object? userJson;
-    if (apiKey != null) {
-      if (username == null || username.trim().isEmpty) {
-        throw SiteAppearanceLoadException(
-          SiteAppearanceLoadFailure.malformed,
-          url: apiBase,
-          detail: appL10n.authenticatedAppearanceHasNoUsername,
-        );
-      }
-      userJson = (await _loadJson(
-        apiBase.resolve('u/${Uri.encodeComponent(username.trim())}.json'),
-        headers: forumHeaders,
-        redirectOrigin: apiBase.origin,
-      )).value;
+    if (apiKey != null && (username == null || username.trim().isEmpty)) {
+      throw SiteAppearanceLoadException(
+        SiteAppearanceLoadFailure.malformed,
+        url: apiBase,
+        detail: appL10n.authenticatedAppearanceHasNoUsername,
+      );
     }
 
-    final selection = resolveSiteAppearanceSelection(
-      site: siteResponse.value,
-      user: userJson,
-    );
-    if (selection == null) return null;
-
-    final schemeIds = <int>{
-      selection.baseSchemeId,
-      ?selection.alternateSchemeId,
-    };
-    final schemeDetails = Future.wait([
-      for (final schemeId in schemeIds)
-        _loadJson(
-          apiBase.resolve(
-            'color-scheme-stylesheet/$schemeId/${selection.themeId}.json',
-          ),
-          headers: forumHeaders,
-          redirectOrigin: apiKey == null ? null : apiBase.origin,
-        ),
-    ]);
-    // The resolver returns only color definitions. Read the forum document as
-    // well to discover the selected parent theme's later common stylesheet.
-    // This request may carry credentials, but every discovered CSS request
-    // starts a separate credential-free chain below.
-    //
-    // The document depends only on the API base and is the heaviest single
-    // response of this refresh, so it must share the wire with the small
-    // scheme JSONs rather than queue behind them. It is awaited after them so
-    // failure attribution is unchanged; ignore() stops a scheme or href
-    // failure from leaving this in-flight future's error unobserved, without
-    // consuming the result the later await still needs.
     final documentAbort = Completer<void>();
-    final documentLoad = _loadText(
-      apiBase,
-      // Some forums challenge browser-style HTML requests from native clients.
-      accept: '*/*',
-      scope: AccountRequestScope.current,
-      abortTrigger: documentAbort.future,
-      headers: forumHeaders,
-      redirectOrigin: apiKey == null ? null : apiBase.origin,
-    );
-    documentLoad.ignore();
+    Future<_LoadedText>? documentLoad;
+    Future<_LoadedText> startDocument() {
+      final pending = _loadText(
+        apiBase,
+        accept: '*/*',
+        scope: AccountRequestScope.current,
+        abortTrigger: documentAbort.future,
+        headers: forumHeaders,
+        redirectOrigin: apiKey == null ? null : apiBase.origin,
+      );
+      pending.ignore();
+      return pending;
+    }
+
     try {
+      Object? userJson;
+      if (apiKey != null) {
+        final userLoad = _loadJson(
+          apiBase.resolve('u/${Uri.encodeComponent(username!.trim())}.json'),
+          headers: forumHeaders,
+          redirectOrigin: apiBase.origin,
+        );
+        documentLoad = startDocument();
+        userJson = (await userLoad).value;
+      }
+
+      final selection = resolveSiteAppearanceSelection(
+        site: siteResponse.value,
+        user: userJson,
+      );
+      if (selection == null) return null;
+
+      final schemeIds = <int>{
+        selection.baseSchemeId,
+        ?selection.alternateSchemeId,
+      };
+      final schemeDetails = Future.wait([
+        for (final schemeId in schemeIds)
+          _loadJson(
+            apiBase.resolve(
+              'color-scheme-stylesheet/$schemeId/${selection.themeId}.json',
+            ),
+            headers: forumHeaders,
+            redirectOrigin: apiKey == null ? null : apiBase.origin,
+          ),
+      ]);
+      documentLoad ??= startDocument();
       final details = await schemeDetails;
 
       final stylesheetUrls = <int, Uri>{};
@@ -277,7 +274,7 @@ final class SiteAppearanceLoader {
       }
     } finally {
       documentAbort.complete();
-      await documentLoad.then<void>(
+      await documentLoad?.then<void>(
         (_) {},
         onError: (Object _, StackTrace _) {},
       );

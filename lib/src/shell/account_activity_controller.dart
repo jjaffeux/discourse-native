@@ -516,7 +516,11 @@ final class AccountActivityController extends FrameSafeNotifier {
       // is locally pinned read, so a newer row received during the write stays
       // unread while this fetch resolves the final list.
       if (source != null) {
-        await _refreshLoadedPluginNotifications(instance, source, lease);
+        await Future.wait([
+          _refreshLoadedPluginNotifications(instance, source, lease),
+          refresh(instance, force: true),
+        ]);
+        return;
       } else {
         final active = _notificationLoads[siteUrl];
         if (active != null) await active.future;
