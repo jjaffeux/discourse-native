@@ -256,26 +256,29 @@ void main() {
     expect(runtime.activeUse.isActive, isTrue);
   });
 
-  test('concurrent and repeated starts publish initial plugin state once', () async {
-    final gate = Completer<void>();
-    final probe = _LifecycleProbe(bootstrap: gate.future);
-    final runtime = _runtime(
-      _Fixture().dependencies(manifest: PluginManifest([_Module(probe)])),
-    );
-    addTearDown(runtime.dispose);
-    final first = runtime.start(runtime.controller);
-    await probe.bootstrapStarted.future;
-    final second = runtime.start(runtime.controller);
-    gate.complete();
-    await Future.wait([first, second]);
-    await runtime.start(runtime.controller);
+  test(
+    'concurrent and repeated starts publish initial plugin state once',
+    () async {
+      final gate = Completer<void>();
+      final probe = _LifecycleProbe(bootstrap: gate.future);
+      final runtime = _runtime(
+        _Fixture().dependencies(manifest: PluginManifest([_Module(probe)])),
+      );
+      addTearDown(runtime.dispose);
+      final first = runtime.start(runtime.controller);
+      await probe.bootstrapStarted.future;
+      final second = runtime.start(runtime.controller);
+      gate.complete();
+      await Future.wait([first, second]);
+      await runtime.start(runtime.controller);
 
-    expect(probe.states, [('resumed', true)]);
-    expect(probe.phases, [
-      PluginStartupPhase.bootstrap,
-      PluginStartupPhase.appReady,
-    ]);
-  });
+      expect(probe.states, [('resumed', true)]);
+      expect(probe.phases, [
+        PluginStartupPhase.bootstrap,
+        PluginStartupPhase.appReady,
+      ]);
+    },
+  );
 
   test('pending bootstrap observes the latest foreground state', () async {
     final gate = Completer<void>();
@@ -730,6 +733,9 @@ void main() {
       try {
         await runtime.start(runtime.controller);
         final failure = StateError('retirement failed');
+        final unlisted = runtime.controller.lifecycle.capture(
+          'https://unlisted.example',
+        );
         runtime.controller.lifecycle
             .capture('https://one.example')
             .onRetire(() => throw failure);
@@ -738,6 +744,7 @@ void main() {
               runtime.replace(incoming.dependencies(plugins: incomingPlugins)),
           throwsA(same(failure)),
         );
+        expect(unlisted.isCurrent, isFalse);
         await runtime.controller.pluginTeardown;
         await _turn();
         expect(fixture.api.closeCalls, 1);

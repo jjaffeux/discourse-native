@@ -17,6 +17,22 @@ final class SiteLifecycle {
     final session = _sessions.remove(siteUrl);
     session?._retire();
   }
+
+  void invalidateAll() => invalidateSites(_sessions.keys);
+
+  void invalidateSites(Iterable<String> siteUrls) {
+    (Object, StackTrace)? firstFailure;
+    for (final siteUrl in siteUrls.toList()) {
+      try {
+        invalidate(siteUrl);
+      } catch (error, stackTrace) {
+        firstFailure ??= (error, stackTrace);
+      }
+    }
+    if (firstFailure case final failure?) {
+      Error.throwWithStackTrace(failure.$1, failure.$2);
+    }
+  }
 }
 
 final class SiteLease {

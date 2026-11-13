@@ -297,6 +297,7 @@ class ShellController extends FrameSafeNotifier
        assert(pluginNotificationFeedRefreshDebounce >= Duration.zero),
        store = store ?? Store(policy: _shellEntityStorePolicy),
        lifecycle = lifecycle ?? SiteLifecycle(),
+       _ownsLifecycle = lifecycle == null,
        _clock = clock ?? DateTime.now,
        _providedSiteImages = siteImages,
        _providedVideoThumbnails = videoThumbnails,
@@ -408,6 +409,7 @@ class ShellController extends FrameSafeNotifier
   final DraftStore drafts;
   final EmojiPickerStore emojiPickerStore;
   final SiteLifecycle lifecycle;
+  final bool _ownsLifecycle;
   final DateTime Function() _clock;
   late final AccountSessionCoordinator _accountSessions =
       AccountSessionCoordinator(
@@ -8692,12 +8694,14 @@ class ShellController extends FrameSafeNotifier
     _topicReads.dispose();
     _customSidebar.dispose();
     ({Object error, StackTrace stackTrace})? retirementFailure;
-    for (final instance in _instances.toList()) {
-      try {
-        lifecycle.invalidate(instance.url);
-      } catch (error, stackTrace) {
-        retirementFailure ??= (error: error, stackTrace: stackTrace);
+    try {
+      if (_ownsLifecycle) {
+        lifecycle.invalidateAll();
+      } else {
+        lifecycle.invalidateSites(_instances.map((instance) => instance.url));
       }
+    } catch (error, stackTrace) {
+      retirementFailure = (error: error, stackTrace: stackTrace);
     }
     _taxonomy.dispose();
     _topicTracking.dispose();
