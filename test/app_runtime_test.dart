@@ -354,9 +354,10 @@ void main() {
     ).copyWith(user: const DiscourseUser(id: 1, username: 'reader'));
     final store = _RetryableStore([connected]);
     final opened = <String>[];
+    final probe = _LifecycleProbe();
     final manifest = PluginManifest([
       _Module(
-        _LifecycleProbe(),
+        probe,
         session: () => PluginSessionContribution(
           lifecycle: _SessionProbe(),
           capabilities: [
@@ -390,6 +391,7 @@ void main() {
     urls.add(first);
     await runtime.start(runtime.controller);
     expect(runtime.controller.loadStatus, InstanceLoadStatus.failed);
+    expect(probe.phases, [PluginStartupPhase.bootstrap]);
     urls.add(second);
     await _turn();
     expect(opened, isEmpty);
@@ -399,6 +401,10 @@ void main() {
     await _turn();
     expect(runtime.controller.loadStatus, InstanceLoadStatus.ready);
     expect(opened, [first, second]);
+    expect(probe.phases, [
+      PluginStartupPhase.bootstrap,
+      PluginStartupPhase.appReady,
+    ]);
   });
 
   for (final lateFailure in [false, true]) {

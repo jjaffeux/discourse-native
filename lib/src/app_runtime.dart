@@ -138,13 +138,17 @@ final class AppRuntime {
   String _lifecycleState;
   bool _disposed = false;
   bool _replacing = false;
+  ShellController? _bootstrappedController;
+  Future<void>? _appReady;
   final _notificationIngress = _NotificationIngress();
 
   ShellController get controller => _controller;
 
   ShellController _createController() => ShellController(
     onLoaded: (controller) {
-      if (_isCurrent(controller)) _notificationIngress.ready(controller);
+      if (!_isCurrent(controller)) return;
+      _notificationIngress.ready(controller);
+      unawaited(_startAppReady(controller));
     },
     instanceStore: _store,
     api: _api,
@@ -181,6 +185,8 @@ final class AppRuntime {
     _replacing = true;
     try {
       _notificationIngress.unavailable();
+      _bootstrappedController = null;
+      _appReady = null;
       final previousController = _controller;
       final previousPlugins = _plugins;
       final previousOwnsPlugins = _ownsPlugins;
@@ -292,7 +298,6 @@ final class AppRuntime {
     final plugins = _plugins;
     final controller = expectedController;
     final _ = controller.pluginSession;
-    var pluginsStarted = false;
     markStartup('runtime start');
     try {
       await plugins.startPhase(
@@ -301,20 +306,28 @@ final class AppRuntime {
       );
       if (!_isCurrent(controller)) return;
       await _observePluginAppState(plugins, _lifecycleState);
-      pluginsStarted = true;
+      if (_isCurrent(controller)) _bootstrappedController = controller;
     } catch (_) {}
     if (!_isCurrent(controller)) return;
     markStartup('plugins bootstrapped');
     try {
       await controller.load();
-      if (!_isCurrent(controller)) return;
-      if (pluginsStarted) {
-        await plugins.startPhase(
-          PluginStartupPhase.appReady,
-          bindings: const PluginHostBindings.empty(),
-        );
-      }
+      await _startAppReady(controller);
     } catch (_) {}
+  }
+
+  Future<void> _startAppReady(ShellController controller) async {
+    if (!_isCurrent(controller) ||
+        !identical(_bootstrappedController, controller) ||
+        !controller.loaded) {
+      return;
+    }
+    await (_appReady ??= _settled(
+      _plugins.startPhase(
+        PluginStartupPhase.appReady,
+        bindings: const PluginHostBindings.empty(),
+      ),
+    ));
   }
 
   Future<void> _closePlugins(
