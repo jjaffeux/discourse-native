@@ -444,7 +444,10 @@ void main() {
       final oldCategories = shell.loadCategories(_site, force: true).then((_) {
         categoriesFinished = true;
       });
-      final oldTags = shell.loadTags(_site, force: true);
+      var tagsFinished = false;
+      final oldTags = shell.loadTags(_site, force: true).then((_) {
+        tagsFinished = true;
+      });
       await Future.wait([
         api.oldCategoryRequested.future,
         api.oldTagsRequested.future,
@@ -456,6 +459,7 @@ void main() {
       shell.lifecycle.invalidate(_site);
       await pumpEventQueue();
       expect(categoriesFinished, isTrue);
+      expect(tagsFinished, isTrue);
       shell.clearAccountSessionState(_site);
       shell.applyAccountSessionInstance(
         replacement,

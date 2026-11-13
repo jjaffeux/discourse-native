@@ -30,7 +30,7 @@ final class _TaxonomySite {
   _TaxonomySite(this.lease);
 
   final SiteLease lease;
-  final categoryWaiters = <Completer<void>>{};
+  final directoryWaiters = <Completer<void>>{};
   void Function()? detach;
   bool categorised = false;
   RequestIntentOperation<void>? categoryRequest;
@@ -51,10 +51,10 @@ final class _TaxonomySite {
   _KnownTagIndex? knownTagIndex;
 
   void retire() {
-    for (final waiter in categoryWaiters) {
+    for (final waiter in directoryWaiters) {
       waiter.complete();
     }
-    categoryWaiters.clear();
+    directoryWaiters.clear();
     detach?.call();
     detach = null;
     for (final request in categoryIdRequests.values.toSet()) {
@@ -571,6 +571,8 @@ final class _TaxonomyDirectoryController
     if (site.tagDirectoryRequest != null) return;
     final request = Object();
     site.tagDirectoryRequest = request;
+    final retired = Completer<void>();
+    site.directoryWaiters.add(retired);
 
     final lease = site.lease;
     site.tagDirectoryFeed = held.refreshing();
@@ -580,14 +582,18 @@ final class _TaxonomyDirectoryController
       final credential = instance.isConnected
           ? await session.credentials(_shell.credentials)
           : session.anonymousCredentials();
-      if (!lease.isCurrent) return;
-      final tags = await credential.run(
-        () => _shell.api.tags.tags(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
+      if (!lease.isCurrent || retired.isCompleted) return;
+      final tags = await Future.any<List<SidebarTag>?>([
+        credential.run(
+          () => _shell.api.tags.tags(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey,
+            clientId: credential.clientId,
+          ),
         ),
-      );
+        retired.future.then<List<SidebarTag>?>((_) => null),
+      ]);
+      if (tags == null || retired.isCompleted) return;
       final visibleTags = instance.user == null
           ? tags.where((tag) => !tag.pmOnly)
           : tags;
@@ -596,7 +602,10 @@ final class _TaxonomyDirectoryController
         _shell._notify();
       });
     } catch (error) {
-      if (_shell.accountSessionDisposed || !lease.isCurrent) return;
+      if (_shell.accountSessionDisposed ||
+          !lease.isCurrent ||
+          retired.isCompleted)
+        return;
 
       lease.commit(() {
         site.tagDirectoryFeed = held.withError(
@@ -605,6 +614,7 @@ final class _TaxonomyDirectoryController
         _shell._notify();
       });
     } finally {
+      site.directoryWaiters.remove(retired);
       if (identical(site.tagDirectoryRequest, request)) {
         site.tagDirectoryRequest = null;
       }
@@ -791,7 +801,7 @@ final class _TaxonomyDirectoryController
     site.categorised = true;
     final request = RequestIntentOperation<void>();
     final retired = Completer<void>();
-    site.categoryWaiters.add(retired);
+    site.directoryWaiters.add(retired);
     bool requestIsCurrent() =>
         !_shell.accountSessionDisposed &&
         site.lease.isCurrent &&
@@ -812,7 +822,7 @@ final class _TaxonomyDirectoryController
             ),
             retired.future,
           ]).whenComplete(() {
-            site.categoryWaiters.remove(retired);
+            site.directoryWaiters.remove(retired);
             if (identical(site.categoryRequest, request)) {
               site.categoryRequest = null;
             }
