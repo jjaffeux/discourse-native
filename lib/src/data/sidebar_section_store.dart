@@ -85,10 +85,11 @@ final class SidebarSectionStore {
 
   Future<bool> read({required String siteUrl, required String sectionId}) {
     final owner = _siteOwners.putIfAbsent(siteUrl, Object.new);
-    return _writerFor(siteUrl, sectionId, owner).read(() async {
+    return _writerFor(siteUrl, sectionId, owner).readShared(() async {
       if (!identical(_siteOwners[siteUrl], owner)) return false;
-      return _read(siteUrl: siteUrl, sectionId: sectionId);
-    });
+      final collapsed = await _read(siteUrl: siteUrl, sectionId: sectionId);
+      return identical(_siteOwners[siteUrl], owner) && collapsed;
+    }, scope: owner);
   }
 
   Future<bool> _read({

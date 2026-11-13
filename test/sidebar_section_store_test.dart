@@ -16,6 +16,25 @@ void main() {
     store = SidebarSectionStore();
   });
 
+  test('overlapping reads share storage within one forum lifetime', () async {
+    final persistence = _ReadSidebarPersistence();
+    final sidebar = SidebarSectionStore(persistence: persistence);
+    const site = 'https://meta.discourse.org';
+    Future<bool> read() => sidebar.read(siteUrl: site, sectionId: 'chat');
+
+    final first = read();
+    final joined = read();
+    await persistence.started.future;
+    sidebar.forgetSites(ForgottenSites.removed(site, keeping: []));
+    final reopened = read();
+    persistence.response.complete(true);
+
+    expect(await first, isFalse);
+    expect(await joined, isFalse);
+    expect(await reopened, isTrue);
+    expect(persistence.reads, 2);
+  });
+
   test('sections are expanded until a collapsed choice is saved', () async {
     expect(
       await store.read(
@@ -252,6 +271,28 @@ void main() {
       },
     );
   }
+}
+
+final class _ReadSidebarPersistence implements SidebarSectionPersistence {
+  final started = Completer<void>();
+  final response = Completer<bool>();
+  int reads = 0;
+
+  @override
+  Future<bool?> readCollapsed({
+    required String siteUrl,
+    required String sectionId,
+  }) async {
+    if (++reads == 1) started.complete();
+    return response.future;
+  }
+
+  @override
+  Future<bool> writeCollapsed({
+    required String siteUrl,
+    required String sectionId,
+    required bool collapsed,
+  }) async => true;
 }
 
 final class _HeldPreferences extends InMemorySharedPreferencesStore {
