@@ -291,6 +291,11 @@ final class OriginRequestGate {
   void _extendCooldown(String origin, Duration delay) {
     if (_closed) return;
     final state = _origins.putIfAbsent(origin, _createOriginState);
+    final invalidatesCandidates =
+        _draining &&
+        cooldownPolicy == OriginRequestCooldownPolicy.wait &&
+        state.waiting.isNotEmpty &&
+        state.cooldown.remaining == null;
     final remaining = state.cooldown.extend(
       delay,
       onExpired: () {
@@ -305,7 +310,7 @@ final class OriginRequestGate {
     }
     if (cooldownPolicy == OriginRequestCooldownPolicy.reject) {
       _rejectWaitingForCooldown(origin, state, remaining);
-    } else if (state.waiting.isNotEmpty) {
+    } else if (invalidatesCandidates) {
       // A priority resolver may cool down a candidate already scanned.
       _waitingRevision++;
     }

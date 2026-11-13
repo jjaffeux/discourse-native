@@ -25,13 +25,12 @@ void main() {
     final active = await gate.acquire(first);
     final order = <String>[];
     final earlier = gate.run(first, (_) async => order.add('first'));
-    var cooled = false;
+    var priorityReads = 0;
     final later = gate.run(
       second,
       (_) async => order.add('second'),
       resolvePriority: () {
-        if (!cooled) {
-          cooled = true;
+        if (++priorityReads <= 2) {
           gate.extendCooldown(first, const Duration(seconds: 1));
         }
         return OriginRequestPriority.normal;
@@ -45,6 +44,7 @@ void main() {
 
     expect(beforeExpiry, ['second']);
     expect(order, ['second', 'first']);
+    expect(priorityReads, 2);
   });
 
   test(
