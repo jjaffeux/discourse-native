@@ -604,8 +604,9 @@ final class _TaxonomyDirectoryController
     } catch (error) {
       if (_shell.accountSessionDisposed ||
           !lease.isCurrent ||
-          retired.isCompleted)
+          retired.isCompleted) {
         return;
+      }
 
       lease.commit(() {
         site.tagDirectoryFeed = held.withError(
@@ -1007,12 +1008,15 @@ final class _TaxonomyDirectoryController
     final request = Object();
     final notificationRead = _CategoryRead(site);
     site.categoryPageRequest = request;
+    final retired = Completer<void>();
+    site.directoryWaiters.add(retired);
     site.categoryFeed = feed.loadingNextPage();
     _shell._notify();
 
     bool requestIsCurrent() =>
         !_shell.accountSessionDisposed &&
         lease.isCurrent &&
+        !retired.isCompleted &&
         identical(site.categoryPageRequest, request);
 
     try {
@@ -1022,15 +1026,18 @@ final class _TaxonomyDirectoryController
           : session.anonymousCredentials();
       if (!requestIsCurrent()) return;
 
-      final result = await credential.run(
-        () => _shell.api.categories.loadCategories(
-          siteUrl: siteUrl,
-          apiKey: credential.apiKey,
-          clientId: credential.clientId,
-          page: page,
+      final result = await Future.any<CategoryLoadResult?>([
+        credential.run(
+          () => _shell.api.categories.loadCategories(
+            siteUrl: siteUrl,
+            apiKey: credential.apiKey,
+            clientId: credential.clientId,
+            page: page,
+          ),
         ),
-      );
-      if (!requestIsCurrent()) return;
+        retired.future.then<CategoryLoadResult?>((_) => null),
+      ]);
+      if (result == null || !requestIsCurrent()) return;
 
       lease.commit(() {
         if (!identical(site.categoryPageRequest, request)) return;
@@ -1062,6 +1069,8 @@ final class _TaxonomyDirectoryController
         );
         _shell._notify();
       });
+    } finally {
+      site.directoryWaiters.remove(retired);
     }
   }
 }
