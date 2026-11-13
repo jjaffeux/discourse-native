@@ -138,11 +138,15 @@ final class NativeVideoDownloader implements VideoDownloader {
   }) async {
     var current = url;
     final abort = Completer<void>();
-    final retired = Completer<http.StreamedResponse>();
+    final retired = Completer<Never>();
     retired.future.ignore();
+    StreamIterator<List<int>>? body;
+    Future<void>? bodyCancellation;
     final removeRetirement = lease?.onRetire(() {
       retired.completeError(const VideoDownloadException());
       if (!abort.isCompleted) abort.complete();
+      bodyCancellation = body?.cancel();
+      bodyCancellation?.ignore();
     });
     try {
       for (var redirects = 0; ; redirects++) {
@@ -187,25 +191,31 @@ final class NativeVideoDownloader implements VideoDownloader {
         }
 
         RandomAccessFile? output;
-        var bodyStarted = false;
         var length = 0;
         final prefix = <int>[];
         try {
           _requireCurrent(lease);
           output = await file.open(mode: FileMode.write);
           _requireCurrent(lease);
-          bodyStarted = true;
-          await for (final chunk in response.stream.timeout(requestTimeout)) {
+          final iterator = body = StreamIterator(response.stream);
+          while (await iterator.moveNext().timeout(requestTimeout)) {
             _requireCurrent(lease);
+            final chunk = iterator.current;
             await output.writeFrom(chunk);
             prefix.addAll(chunk.take(32 - prefix.length));
             length += chunk.length;
           }
+          _requireCurrent(lease);
         } finally {
-          // Until the loop takes ownership, a retired account or a file-open
-          // failure still leaves the response waiting for a consumer.
-          if (!bodyStarted) cancelUnreadHttpBody(response.stream).ignore();
-          await output?.close();
+          try {
+            if (body == null) {
+              cancelUnreadHttpBody(response.stream).ignore();
+            } else {
+              await (bodyCancellation ?? body.cancel());
+            }
+          } finally {
+            await output?.close();
+          }
         }
         if (length == 0) throw const VideoDownloadException();
         return _videoMediaType(prefix, response.headers['content-type']);

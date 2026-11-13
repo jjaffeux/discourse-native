@@ -893,6 +893,36 @@ void main() {
     expect(cancelled, isTrue);
   });
 
+  test(
+    'account retirement cancels a stalled body and removes staging',
+    () async {
+      environment.savePath = '${directory.path}/retired.mp4';
+      final listening = Completer<void>();
+      final cancelled = Completer<void>();
+      final body = StreamController<List<int>>(
+        onListen: listening.complete,
+        onCancel: cancelled.complete,
+      );
+      addTearDown(body.close);
+      final pending = download(
+        MockClient.streaming(
+          (_, _) async => http.StreamedResponse(body.stream, 200),
+        ),
+        timeout: const Duration(milliseconds: 500),
+      );
+      final rejected = expectLater(
+        pending,
+        throwsA(isA<VideoDownloadException>()),
+      );
+      await listening.future;
+      lifecycle.invalidate(siteUrl);
+
+      await rejected;
+      expect(cancelled.isCompleted, isTrue);
+      expect(directory.listSync(), isEmpty);
+    },
+  );
+
   test('a stalled body times out and removes its partial file', () async {
     environment.savePath = '${directory.path}/stalled.mp4';
     final body = StreamController<List<int>>();
