@@ -736,15 +736,25 @@ void main() {
         final unlisted = runtime.controller.lifecycle.capture(
           'https://unlisted.example',
         );
-        runtime.controller.lifecycle
-            .capture('https://one.example')
-            .onRetire(() => throw failure);
+        final registry = runtime.controller.lifecycle;
+        late final bool currentDuringRetirement;
+        late final bool otherSiteCurrentDuringRetirement;
+        registry.capture('https://one.example').onRetire(() {
+          currentDuringRetirement = registry
+              .capture('https://one.example')
+              .isCurrent;
+          otherSiteCurrentDuringRetirement = unlisted.isCurrent;
+          throw failure;
+        });
         expect(
           () =>
               runtime.replace(incoming.dependencies(plugins: incomingPlugins)),
           throwsA(same(failure)),
         );
         expect(unlisted.isCurrent, isFalse);
+        expect(currentDuringRetirement, isFalse);
+        expect(otherSiteCurrentDuringRetirement, isFalse);
+        expect(registry.capture('https://new.example').isCurrent, isFalse);
         await runtime.controller.pluginTeardown;
         await _turn();
         expect(fixture.api.closeCalls, 1);

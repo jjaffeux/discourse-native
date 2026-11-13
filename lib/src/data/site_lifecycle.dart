@@ -4,12 +4,13 @@ typedef SiteMutation = void Function();
 
 final class SiteLifecycle {
   final Map<String, SiteLease> _sessions = {};
+  SiteLease? _closedLease;
 
   SiteLease capture(String siteUrl) =>
-      _sessions.putIfAbsent(siteUrl, SiteLease._);
+      _closedLease ?? _sessions.putIfAbsent(siteUrl, SiteLease._);
 
   bool owns(String siteUrl, SiteLease lease) =>
-      identical(_sessions[siteUrl], lease);
+      _closedLease == null && identical(_sessions[siteUrl], lease);
 
   /// Runs every attached retirement observer, then rethrows the first failure
   /// with its original stack.
@@ -18,13 +19,27 @@ final class SiteLifecycle {
     session?._retire();
   }
 
-  void invalidateAll() => invalidateSites(_sessions.keys);
+  void close() {
+    if (_closedLease != null) return;
+    _closedLease = SiteLease._().._retire();
+    final leases = _sessions.values.toList();
+    _sessions.clear();
+    // Fence every lease before invoking observers on any site.
+    for (final lease in leases) {
+      lease._retired = true;
+    }
+    _retireAll(leases);
+  }
 
   void invalidateSites(Iterable<String> siteUrls) {
+    _retireAll(siteUrls.toList().map(_sessions.remove).nonNulls);
+  }
+
+  void _retireAll(Iterable<SiteLease> leases) {
     (Object, StackTrace)? firstFailure;
-    for (final siteUrl in siteUrls.toList()) {
+    for (final lease in leases) {
       try {
-        invalidate(siteUrl);
+        lease._retire();
       } catch (error, stackTrace) {
         firstFailure ??= (error, stackTrace);
       }

@@ -8696,7 +8696,7 @@ class ShellController extends FrameSafeNotifier
     ({Object error, StackTrace stackTrace})? retirementFailure;
     try {
       if (_ownsLifecycle) {
-        lifecycle.invalidateAll();
+        lifecycle.close();
       } else {
         lifecycle.invalidateSites(_instances.map((instance) => instance.url));
       }
