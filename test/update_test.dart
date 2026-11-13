@@ -889,6 +889,28 @@ void main() {
       expect(updater.lastCheckedChannel, UpdateChannel.stable);
     });
 
+    test('a listener reselecting the channel joins persistence', () async {
+      final gate = Completer<void>();
+      final store = FakeUpdateStore(
+        channelWriteGates: {UpdateChannel.canary: gate},
+      );
+      final controller = controllerWith(store: store);
+      Future<void>? joined;
+      controller.addListener(() {
+        if (controller.channel == UpdateChannel.canary) {
+          joined ??= controller.setChannel(UpdateChannel.canary);
+        }
+      });
+
+      final selecting = controller.setChannel(UpdateChannel.canary);
+      gate.complete();
+      await selecting;
+
+      expect(joined, same(selecting));
+      expect(store.rawChannel, UpdateChannel.canary.name);
+      expect(store.writeCount, 1);
+    });
+
     test('switching to the channel already on does nothing', () async {
       final updater = FakeUpdater(isSupported: true);
       final controller = controllerWith(updater: updater);

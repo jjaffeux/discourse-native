@@ -190,9 +190,14 @@ class UpdateController extends FrameSafeNotifier {
 
     _queuedChannel = channel;
     _resetForChannel(channel);
+    final active = _channelChangeTask;
+    final completion = active == null ? Completer<void>() : null;
+    final task = active ?? completion!.future;
+    _channelChangeTask = task;
     notifySafely();
 
-    return _channelChangeTask ??= _drainChannelChanges();
+    completion?.complete(_drainChannelChanges());
+    return task;
   }
 
   Future<void> _drainChannelChanges() async {
