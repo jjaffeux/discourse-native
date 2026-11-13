@@ -2775,6 +2775,32 @@ void main() {
   });
 
   group('site invalidation', () {
+    test(
+      'close waits when account removal re-enters through cancellation',
+      () async {
+        final tracker = _AwaitableSubscriptionTracker();
+        firstTracker = tracker;
+        useTransport(transport, userIdFor: (_) => null);
+        await controller.ensureLoaded(firstSite);
+
+        var closed = false;
+        Future<void>? closing;
+        tracker.onCancel = () {
+          closing = controller.close().then((_) => closed = true);
+        };
+        controller.forget(firstSite);
+        await pumpEventQueue();
+        final closedWhileBlocked = closed;
+        tracker.cancellationGate.complete();
+        await closing;
+
+        expect(closing, isNotNull);
+        expect(closedWhileBlocked, isFalse);
+        expect(closed, isTrue);
+        expect(tracker.channels, isEmpty);
+      },
+    );
+
     test('close drains watches detached by tracker replacement', () async {
       final awaitable = _AwaitableSubscriptionTracker();
       firstTracker = awaitable;

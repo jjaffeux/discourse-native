@@ -498,13 +498,19 @@ final class _VoiceRoomDirectory {
     _subscriptionTeardowns.add(cancellation);
   }
 
-  Future<void> close() => _closeOperation ??= _finishClose();
+  Future<void> close() {
+    if (_closeOperation case final pending?) return pending;
+    final completion = Completer<void>();
+    _closeOperation = completion.future;
+    completion.complete(_finishClose());
+    return completion.future;
+  }
 
-  Future<void> _finishClose() {
+  Future<void> _finishClose() async {
     _retired = true;
     _directoryRequest = null;
     detachTracker();
-    return Future.wait(_subscriptionTeardowns.toList());
+    await Future.wait(_subscriptionTeardowns.toList());
   }
 }
 
