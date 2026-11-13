@@ -233,7 +233,7 @@ final class NativeVideoDownloader implements VideoDownloader {
             if (body == null) {
               cancelUnreadHttpBody(response.stream).ignore();
             } else {
-              await (bodyCancellation ?? body.cancel());
+              await _waitWhileCurrent(bodyCancellation ?? body.cancel(), lease);
             }
           } finally {
             await output?.close();

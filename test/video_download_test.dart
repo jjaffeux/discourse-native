@@ -917,9 +917,13 @@ void main() {
       environment.savePath = '${directory.path}/retired.mp4';
       final listening = Completer<void>();
       final cancelled = Completer<void>();
+      final release = Completer<void>();
       final body = StreamController<List<int>>(
         onListen: listening.complete,
-        onCancel: cancelled.complete,
+        onCancel: () {
+          cancelled.complete();
+          return release.future;
+        },
       );
       addTearDown(body.close);
       final pending = download(
@@ -935,9 +939,13 @@ void main() {
       await listening.future;
       lifecycle.invalidate(siteUrl);
 
-      await rejected;
-      expect(cancelled.isCompleted, isTrue);
-      expect(directory.listSync(), isEmpty);
+      try {
+        await rejected.timeout(const Duration(seconds: 1));
+        expect(cancelled.isCompleted, isTrue);
+        expect(directory.listSync(), isEmpty);
+      } finally {
+        release.complete();
+      }
     },
   );
 
