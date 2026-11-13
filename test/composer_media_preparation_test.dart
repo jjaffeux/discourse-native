@@ -206,7 +206,7 @@ void main() {
     });
 
     test(
-      'an expired staging deadline never subscribes to its source',
+      'an expired staging deadline leaves source and destination untouched',
       () async {
         var listened = false;
         final source = StreamController<List<int>>(
@@ -223,6 +223,7 @@ void main() {
           throwsA(isA<TimeoutException>()),
         );
         expect(listened, isFalse);
+        expect(await input.exists(), isFalse);
       },
     );
 

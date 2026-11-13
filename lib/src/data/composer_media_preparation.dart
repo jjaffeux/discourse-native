@@ -66,12 +66,17 @@ Future<bool> stageComposerMedia({
     ),
   );
 
-  Future<bool> waitForStep(Future<bool> Function() start) async {
+  bool canStartStep() {
     if (abortFailure case (final error, final stack)) {
       Error.throwWithStackTrace(error, stack);
     }
     if (cancelled) return false;
     if (timedOut || elapsed.elapsed >= timeout) throw deadlineError;
+    return true;
+  }
+
+  Future<bool> waitForStep(Future<bool> Function() start) async {
+    if (!canStartStep()) return false;
     final step = Completer<bool>();
     waiting = step;
     unawaited(
@@ -101,7 +106,9 @@ Future<bool> stageComposerMedia({
     if (step != null && !step.isCompleted) step.completeError(deadlineError);
   });
   try {
+    if (!canStartStep()) return false;
     await ensurePrivateFile(input);
+    if (!canStartStep()) return false;
     sink = await input.open(mode: FileMode.write);
     var copied = 0;
     while (await waitForStep(iterator.moveNext)) {
