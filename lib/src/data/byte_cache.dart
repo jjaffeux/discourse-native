@@ -161,6 +161,7 @@ abstract class ByteCache<T extends Object> {
   /// cannot replace newer bytes for the same URL.
   @protected
   bool discardCachedValue(String url, T value) {
+    _syncAuthentication();
     final entry = _cache[url];
     if (entry == null || !identical(entry.value, value)) return false;
 

@@ -8,6 +8,7 @@ import 'package:discourse_native/src/data/byte_cache_policy.dart';
 import 'package:discourse_native/src/data/byte_cache_store.dart';
 import 'package:discourse_native/src/data/emoji_cache.dart';
 import 'package:discourse_native/src/data/file_byte_cache_store.dart';
+import 'package:discourse_native/src/data/http_basic_auth.dart';
 import 'package:discourse_native/src/data/media_request_coordinator.dart';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -15,6 +16,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
 import 'support/manual_scheduler.dart';
+import 'support/basic_auth_storage.dart';
 
 void main() {
   test('a failed cooldown clock lets callers settle and retry', () async {
@@ -1338,6 +1340,34 @@ void main() {
       },
     );
 
+    test(
+      'decoder rejection after auth changes leaves disk bytes alone',
+      () async {
+        const url = 'https://site.test/emoji.png';
+        final auth = HttpBasicAuthStore(storage: BasicAuthMemoryStorage());
+        final store = _SeededByteCacheStore()
+          ..entries[url] = Uint8List.fromList([1]);
+        final cache = _TestByteCache(
+          basicAuth: auth,
+          store: store,
+          client: MockClient((_) async => http.Response('', 500)),
+        );
+        addTearDown(cache.close);
+        final value = (await cache.load(url))!;
+        await auth.remember(
+          HttpBasicAuthentication(
+            origin: Uri.parse('https://site.test'),
+            username: 'user',
+            password: 'password',
+          ),
+        );
+
+        expect(cache.discard(url, value), isFalse);
+        await pumpEventQueue();
+        expect(store.entries[url], [1]);
+      },
+    );
+
     test('discards decoder-rejected bytes from memory and storage', () async {
       final store = _RecordingByteCacheStore();
       final cache = _TestByteCache(
@@ -1642,6 +1672,7 @@ class _TestByteCache extends ByteCache<Uint8List> {
     super.coordinator,
     super.store,
     super.clock,
+    super.basicAuth,
   });
 
   @override
