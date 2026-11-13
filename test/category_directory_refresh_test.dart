@@ -23,11 +23,13 @@ void main() {
     final shell = await _loadShell(api);
     addTearDown(shell.dispose);
     api.pages[2] = [_old];
+    final roots = shell.categoryFeedFor(_site).categoryIds;
 
     await shell.loadMoreCategories(_site);
     await shell.loadMoreCategories(_site);
 
-    expect(shell.categoryFeedFor(_site).categoryIds, [1]);
+    expect(roots, [1]);
+    expect(shell.categoryFeedFor(_site).categoryIds, same(roots));
     expect(shell.categoryFeedFor(_site).nextPage, isNull);
     expect(api.categoryPagesRequested, [1, 2]);
   });

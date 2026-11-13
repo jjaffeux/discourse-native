@@ -49,10 +49,13 @@ class CategoryFeed {
     final combined = categoryIds.toSet();
     final previousCount = combined.length;
     combined.addAll(ids);
+    final advanced = combined.length > previousCount;
     return CategoryFeed(
-      categoryIds: List.unmodifiable(combined),
+      categoryIds: !advanced && previousCount == categoryIds.length
+          ? categoryIds
+          : List.unmodifiable(combined),
       loaded: true,
-      nextPage: combined.length > previousCount ? (nextPage ?? 1) + 1 : null,
+      nextPage: advanced ? (nextPage ?? 1) + 1 : null,
       canCreateTopic: canCreateTopic,
     );
   }
