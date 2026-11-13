@@ -85,6 +85,10 @@ final class TopicPrefetchController {
           _drain();
         });
       }
+    } else if (!held.ready && intent == TopicPrefetchIntent.trajectory) {
+      _timer?.cancel();
+      _timer = null;
+      held.ready = true;
     }
     _hoverOwner = owner;
     _drain();

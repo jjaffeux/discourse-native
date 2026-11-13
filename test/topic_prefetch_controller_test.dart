@@ -151,6 +151,31 @@ void main() {
     },
   );
 
+  testWidgets('trajectory confirmation promotes a candidate still in dwell', (
+    tester,
+  ) async {
+    final controller = TopicPrefetchController();
+    addTearDown(controller.clear);
+    var loads = 0;
+    Future<PrefetchedTopic?> load(TopicPrefetchCancellation _) async {
+      loads++;
+      return result(1);
+    }
+
+    controller.hover(key(1), load: load, isCurrent: () => true);
+    expect(loads, 0);
+    controller.hover(
+      key(1),
+      load: load,
+      isCurrent: () => true,
+      intent: TopicPrefetchIntent.trajectory,
+    );
+    await tester.pump();
+    expect(loads, 1);
+    await tester.pump(TopicPrefetchController.hoverDelay);
+    expect(loads, 1);
+  });
+
   testWidgets('brief crossings send nothing; the latest row starts at 40 ms', (
     tester,
   ) async {
