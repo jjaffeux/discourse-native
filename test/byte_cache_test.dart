@@ -15,8 +15,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
-import 'support/manual_scheduler.dart';
 import 'support/basic_auth_storage.dart';
+import 'support/manual_scheduler.dart';
 
 void main() {
   test('a failed cooldown clock lets callers settle and retry', () async {
