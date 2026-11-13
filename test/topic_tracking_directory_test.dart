@@ -77,6 +77,17 @@ final class _Fixture {
 }
 
 void main() {
+  test('mismatched leases cannot replace active topic tracking', () {
+    final f = _Fixture();
+    addTearDown(f.directory.dispose);
+    final active = f.account;
+    final wrongSite = f.lifecycle.capture(_otherSite);
+    final wrongRegistry = SiteLifecycle().capture(_site);
+    expect(f.directory.capture(_site, lease: wrongSite), isNull);
+    expect(f.directory.capture(_site, lease: wrongRegistry), isNull);
+    expect(active.isCurrent, isTrue);
+    expect(f.account, same(active));
+  });
   test(
     'late list rows follow current notification choices, including unmute',
     () {

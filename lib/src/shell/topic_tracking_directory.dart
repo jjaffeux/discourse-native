@@ -43,7 +43,7 @@ final class TopicTrackingDirectory {
   TopicTrackingAccount? capture(String siteUrl, {SiteLease? lease}) {
     if (_disposed || _transitions.containsKey(siteUrl)) return null;
     final session = lease ?? lifecycle.capture(siteUrl);
-    if (!session.isCurrent) return null;
+    if (!lifecycle.owns(siteUrl, session)) return null;
     final held = existing(siteUrl);
     if (held != null && identical(held.lease.session, session.session)) {
       return held;
