@@ -149,7 +149,7 @@ void main() {
         await stage(
           Stream.value(List.filled(11, 1)),
           length: 11,
-          destination: _Destination(writer),
+          destination: _Destination(input, writer),
         ),
         isFalse,
       );
@@ -161,7 +161,7 @@ void main() {
       await expectLater(
         stage(
           Stream.error(StateError('source failed')),
-          destination: _Destination(writer),
+          destination: _Destination(input, writer),
         ),
         throwsStateError,
       );
@@ -208,7 +208,7 @@ void main() {
         source.stream,
         aborted: abort.future,
         timeout: const Duration(milliseconds: 10),
-        destination: _Destination(writer),
+        destination: _Destination(input, writer),
       );
       final assertion = expectLater(pending, throwsA(isA<TimeoutException>()));
       await listened.future;
@@ -234,7 +234,7 @@ void main() {
         source(),
         length: 128 * 1024 + 2,
         maximumBytes: 1024 * 1024,
-        destination: _Destination(writer),
+        destination: _Destination(input, writer),
       );
       await writer.started.future;
       await pumpEventQueue();
@@ -266,7 +266,7 @@ void main() {
                 [1],
                 [2, 3],
               ]),
-              destination: _Destination(writer),
+              destination: _Destination(input, writer),
               aborted: abort.future,
               timeout: const Duration(milliseconds: 20),
             ),
@@ -311,7 +311,18 @@ void main() {
 }
 
 class _Destination implements File {
-  _Destination(this.writer);
+  _Destination(this.file, this.writer);
+  final File file;
+  @override
+  Directory get parent => file.parent;
+  @override
+  String get path => file.path;
+  @override
+  Future<bool> exists() => file.exists();
+  @override
+  Future<File> create({bool recursive = false, bool exclusive = false}) =>
+      file.create(recursive: recursive, exclusive: exclusive);
+
   final _Writer writer;
   @override
   Future<RandomAccessFile> open({FileMode mode = FileMode.read}) async =>

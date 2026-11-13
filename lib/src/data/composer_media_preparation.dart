@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:io';
 
+import '../foundation/private_file_permissions.dart';
+
 /// Each codec owns a lane; cancelling a waiter cannot bypass its predecessor.
 class ComposerMediaPreparationLane {
   Future<void> _tail = Future<void>.value();
@@ -54,6 +56,7 @@ Future<bool> stageComposerMedia({
   RandomAccessFile? sink;
   Future<RandomAccessFile>? writing;
   try {
+    await ensurePrivateFile(input);
     sink = await input.open(mode: FileMode.write);
     var copied = 0;
     while (await Future.any<bool>([

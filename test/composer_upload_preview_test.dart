@@ -66,6 +66,10 @@ void main() {
       )!;
       await preview.ready;
       final file = preview.file!;
+      if (Platform.isMacOS || Platform.isLinux) {
+        expect((await file.stat()).mode & 0x1ff, 0x180);
+        expect((await file.parent.stat()).mode & 0x1ff, 0x1c0);
+      }
       final releaseViewer = preview.retain();
       preview.release();
       expect(await file.readAsBytes(), [1, 2, 3, 4]);
