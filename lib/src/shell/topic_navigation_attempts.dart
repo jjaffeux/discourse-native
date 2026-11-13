@@ -30,10 +30,21 @@ final class _TopicJumpAttempt {
   final SiteLease lease;
   final _retired = Completer<void>();
 
-  Future<T?> waitFor<T>(Future<T?> operation) =>
-      Future.any<T?>([operation, _retired.future.then<T?>((_) => null)]);
+  Future<T?> waitFor<T>(Future<T?> operation) async {
+    final detach = lease.onRetire(retire);
+    try {
+      return await Future.any<T?>([
+        operation,
+        _retired.future.then<T?>((_) => null),
+      ]);
+    } finally {
+      detach();
+    }
+  }
 
-  void retire() => _retired.complete();
+  void retire() {
+    if (!_retired.isCompleted) _retired.complete();
+  }
 }
 
 final class _TopicPostHighlight {

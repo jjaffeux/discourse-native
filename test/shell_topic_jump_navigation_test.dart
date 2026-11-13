@@ -852,6 +852,30 @@ void main() {
       expect(shell.topicNavigationRevision, settled);
     });
 
+    test(
+      'account retirement releases a jump before the response arrives',
+      () async {
+        final (:shell, :api, authenticator: _) = await _fixture();
+        final load = api.gatePost(300);
+        var finished = false;
+        final jump = shell.jumpToCurrentTopicIndex(3).then((moved) {
+          finished = true;
+          return moved;
+        });
+        await load.started.future;
+
+        shell.lifecycle.invalidate(_siteUrl);
+        await pumpEventQueue();
+        final finishedBeforeResponse = finished;
+        load.release.complete();
+
+        expect(await jump, isFalse);
+        expect(finishedBeforeResponse, isTrue);
+        await pumpEventQueue();
+        expect(shell.store.read<Post>(_siteUrl, 300), isNull);
+      },
+    );
+
     test('a drag load cannot settle a retired account', () async {
       final (:shell, :api, authenticator: _) = await _fixture();
       final load = api.gatePost(300);
