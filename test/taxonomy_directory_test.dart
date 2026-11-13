@@ -41,6 +41,29 @@ const _oldTag = SidebarTag(id: 3, name: 'Old tag', slug: 'old-tag');
 const _newTag = SidebarTag(id: 4, name: 'New tag', slug: 'new-tag');
 
 void main() {
+  test('concurrent category page callers wait for the shared result', () async {
+    final api = _RefreshingTaxonomyApi();
+    final shell = await _loadShell(api);
+    addTearDown(shell.dispose);
+    addTearDown(api.releaseOldRefreshes);
+    await shell.loadCategories(_site);
+    api.holdOldRefreshes();
+    final first = shell.loadMoreCategories(_site);
+    await api.oldCategoryRequested.future;
+    final requests = api.categoryPagesRequested.length;
+    var finished = false;
+    final joined = shell.loadMoreCategories(_site).then((_) {
+      finished = true;
+    });
+    await pumpEventQueue();
+    final finishedBeforeResponse = finished;
+    api.releaseOldRefreshes();
+    await Future.wait([first, joined]);
+    expect(finishedBeforeResponse, isFalse);
+    expect(api.categoryPagesRequested, hasLength(requests));
+    expect(shell.categoryFeedFor(_site).nextPage, 3);
+  });
+
   test('concurrent tag callers wait for the shared directory result', () async {
     final api = _RefreshingTaxonomyApi();
     final shell = await _loadShell(api);

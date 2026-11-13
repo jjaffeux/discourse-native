@@ -1018,6 +1018,8 @@ final class _TaxonomyDirectoryController
 
   Future<void> loadMoreCategories(String siteUrl) async {
     final site = _site(siteUrl);
+    final active = site.categoryPageRequest;
+    if (active != null) return active.future;
     final instance = _shell._instanceAt(siteUrl);
     final feed = categoryFeedFor(siteUrl);
     final page = feed.nextPage;
@@ -1028,8 +1030,6 @@ final class _TaxonomyDirectoryController
         !site.lease.isCurrent) {
       return;
     }
-    if (site.categoryPageRequest != null) return;
-
     final lease = site.lease;
     final request = Completer<void>();
     final notificationRead = _CategoryRead(site);
@@ -1095,7 +1095,10 @@ final class _TaxonomyDirectoryController
         _shell._notify();
       });
     } finally {
-      site.directoryWaiters.remove(request);
+      if (identical(site.categoryPageRequest, request)) {
+        site.categoryPageRequest = null;
+      }
+      if (site.directoryWaiters.remove(request)) request.complete();
     }
   }
 }
