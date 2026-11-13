@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:http/http.dart' as http;
 
@@ -17,11 +19,19 @@ class DiscoverSites {
   final DiscourseTransport _transport;
   List<DiscoverSite>? _sites;
   Future<List<DiscoverSite>>? _pending;
+  final _disposed = Completer<void>();
 
   Future<List<DiscoverSite>> load() {
+    if (_disposed.isCompleted) {
+      return Future.error(StateError('Discover sites is disposed.'));
+    }
     final sites = _sites;
     if (sites != null) return Future.value(sites);
-    return _pending ??= _load();
+    if (_pending case final pending?) return pending;
+    final loading = Completer<List<DiscoverSite>>();
+    _pending = loading.future;
+    loading.complete(_load());
+    return loading.future;
   }
 
   Future<List<DiscoverSite>> _load() async {
@@ -34,7 +44,11 @@ class DiscoverSites {
           },
         ),
         siteUrl: siteUrl,
+        abortTrigger: _disposed.future,
       );
+      if (_disposed.isCompleted) {
+        throw StateError('Discover sites is disposed.');
+      }
       if (json['topics'] is! List) {
         throw FormatException(appL10n.missingDiscoverCommunities);
       }
@@ -47,5 +61,9 @@ class DiscoverSites {
     }
   }
 
-  void dispose() => _transport.close();
+  void dispose() {
+    if (_disposed.isCompleted) return;
+    _disposed.complete();
+    _transport.close();
+  }
 }

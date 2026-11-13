@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:discourse_native/src/data/discover_site.dart';
@@ -51,6 +52,42 @@ void main() {
       expect(identical(results.first, results.last), isTrue);
       expect(await source.load(), same(results.first));
       expect(requests, 1);
+    },
+  );
+
+  test(
+    'disposing discovery releases its pending load and prevents reuse',
+    () async {
+      final started = Completer<void>();
+      final response = Completer<http.Response>();
+      var sends = 0;
+      final source = DiscoverSites(
+        client: MockClient((_) {
+          sends++;
+          started.complete();
+          return response.future;
+        }),
+      );
+      addTearDown(source.dispose);
+
+      final stopped = expectLater(source.load(), throwsA(isA<Exception>()));
+      await started.future;
+      source.dispose();
+
+      try {
+        await stopped.timeout(const Duration(seconds: 1));
+        await expectLater(source.load(), throwsStateError);
+        expect(sends, 1);
+      } finally {
+        response.complete(
+          http.Response(
+            jsonEncode({
+              'topics': [discoverEntry(1)],
+            }),
+            200,
+          ),
+        );
+      }
     },
   );
 
