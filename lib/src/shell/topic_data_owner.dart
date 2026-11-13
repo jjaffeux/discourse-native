@@ -1146,12 +1146,6 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         if (!isCurrent) return;
         stamp = _stamp(topicId);
       }
-      final credential = await _stage(
-        _requests.credentials(_owner.credentials),
-        elapsed,
-        'reading credentials for topic $topicId',
-      );
-      if (!isCurrent) return;
       final candidate = prefetched == null || stamp.redacted.isNotEmpty
           ? null
           : await _stage(
@@ -1176,22 +1170,31 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
         );
       }
       if (!_readIsCurrent(stamp)) return;
-      final TopicPayload fetched =
-          warmed?.payload ??
-          await _stage<TopicPayload>(
-            credential.run(
-              () => _owner.content.topic(
-                siteUrl: siteUrl,
-                slug: slug,
-                id: topicId,
-                postNumber: postNumber,
-                apiKey: credential.apiKey,
-                clientId: credential.clientId,
-              ),
+      final TopicPayload fetched;
+      if (warmed != null) {
+        fetched = warmed.payload;
+      } else {
+        final credential = await _stage(
+          _requests.credentials(_owner.credentials),
+          elapsed,
+          'reading credentials for topic $topicId',
+        );
+        if (!_readIsCurrent(stamp)) return;
+        fetched = await _stage<TopicPayload>(
+          credential.run(
+            () => _owner.content.topic(
+              siteUrl: siteUrl,
+              slug: slug,
+              id: topicId,
+              postNumber: postNumber,
+              apiKey: credential.apiKey,
+              clientId: credential.clientId,
             ),
-            elapsed,
-            'loading topic $topicId',
-          );
+          ),
+          elapsed,
+          'loading topic $topicId',
+        );
+      }
       if (!isCurrent) return;
 
       try {

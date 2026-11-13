@@ -1264,6 +1264,11 @@ void main() {
       );
       await _drain();
       await data.open(7, slug: 'topic', postNumber: 90, opening: f.opening);
+      expect(
+        f.credentials.reads,
+        1,
+        reason: 'Opening reuses the prefetched response.',
+      );
       expect(f.api.topicReads, hasLength(1));
       expect(
         f.store.read<TopicDetail>(_site, 7)!.notificationLevel,
