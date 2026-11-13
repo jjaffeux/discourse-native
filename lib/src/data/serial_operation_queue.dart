@@ -105,16 +105,22 @@ final class ReadAfterWriteOperationQueue {
   }) {
     final lane = _SerialOperationKey(owner, key);
     _pendingWrites.update(lane, (count) => count + 1, ifAbsent: () => 1);
-    return _operations
-        .run(owner: owner, key: key, operation: operation)
-        .whenComplete(() {
+    return _operations.run(
+      owner: owner,
+      key: key,
+      operation: () async {
+        try {
+          return await operation();
+        } finally {
           final remaining = _pendingWrites[lane]! - 1;
           if (remaining == 0) {
             _pendingWrites.remove(lane);
           } else {
             _pendingWrites[lane] = remaining;
           }
-        });
+        }
+      },
+    );
   }
 }
 
