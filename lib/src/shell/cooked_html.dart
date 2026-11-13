@@ -182,7 +182,11 @@ class CookedHtml extends StatelessWidget {
             siteUrl: siteUrl,
             pluginPresentation: registry.pluginHashtagPresentation,
           ) ??
-          imageGridWidgetBuilder(element, siteUrl: siteUrl) ??
+          imageGridWidgetBuilder(
+            element,
+            siteUrl: siteUrl,
+            renderBody: CookedHtml.new,
+          ) ??
           lightboxWidgetBuilder(element, siteUrl: siteUrl) ??
           inlineVideoWidgetBuilder(element, siteUrl: siteUrl) ??
           pdfAttachmentWidgetBuilder(element, siteUrl: siteUrl) ??

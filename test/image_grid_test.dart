@@ -668,6 +668,7 @@ void main() {
           wrap: (_) => ValueListenableBuilder<int>(
             valueListenable: count,
             builder: (context, value, child) => ImageGridMosaic(
+              renderBody: CookedHtml.new,
               data: parse(grid(value).replaceAll('/img', '/edited$value')),
               siteUrl: 'https://example.com',
             ),
@@ -896,7 +897,10 @@ void main() {
               controller: outer,
               children: [
                 const SizedBox(height: 500),
-                ImageGridCarousel(data: parse(grid(3, mode: 'carousel'))),
+                ImageGridCarousel(
+                  renderBody: CookedHtml.new,
+                  data: parse(grid(3, mode: 'carousel')),
+                ),
                 const SizedBox(height: 500),
               ],
             ),
@@ -1078,6 +1082,7 @@ void main() {
           home: Scaffold(
             body: SingleChildScrollView(
               child: ImageGridCarousel(
+                renderBody: CookedHtml.new,
                 data: parse(grid(count, mode: 'carousel')),
               ),
             ),

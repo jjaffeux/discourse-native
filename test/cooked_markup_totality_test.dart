@@ -608,7 +608,11 @@ void main() {
           );
           probe(
             'imageGrid',
-            () => imageGridWidgetBuilder(element, siteUrl: site),
+            () => imageGridWidgetBuilder(
+              element,
+              siteUrl: site,
+              renderBody: CookedHtml.new,
+            ),
             element,
           );
           probe(

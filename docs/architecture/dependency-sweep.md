@@ -74,3 +74,7 @@ Quote blocks now take a body renderer from cooked HTML composition. The quote
 library reaches 568 app libraries, down from 620, and 152 widget libraries,
 down from 181. The cooked renderer cycle shrank from five libraries to four.
 Nested quotes, quote layout, and cooked fragments passed focused tests.
+
+Image grids now receive the cooked body renderer for non-image tiles from
+composition. Their dependency reach fell from 620 to 584 app libraries and
+from 181 to 156 widget libraries. The remaining cycle contains three libraries.

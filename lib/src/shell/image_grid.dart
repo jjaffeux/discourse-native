@@ -11,7 +11,6 @@ import '../foundation/icons/d_icons.dart';
 import '../theme/app_theme.dart';
 import 'broken_image.dart';
 import 'cooked_dom.dart';
-import 'cooked_html.dart';
 import 'image_decode.dart';
 import 'lightbox.dart';
 import 'site_image.dart';
@@ -173,7 +172,14 @@ class ImageGridData {
   }
 }
 
-Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
+typedef ImageGridBodyBuilder =
+    Widget Function({required String html, String? siteUrl});
+
+Widget? imageGridWidgetBuilder(
+  dom.Element element, {
+  required ImageGridBodyBuilder renderBody,
+  String? siteUrl,
+}) {
   if (element.localName != 'div') return null;
   if (!element.classes.contains('d-image-grid')) return null;
 
@@ -183,17 +189,24 @@ Widget? imageGridWidgetBuilder(dom.Element element, {String? siteUrl}) {
     ImageGridMode.carousel when data.items.isNotEmpty => ImageGridCarousel(
       data: data,
       siteUrl: siteUrl,
+      renderBody: renderBody,
     ),
     ImageGridMode.grid when data.items.length >= ImageGridData.minCount =>
-      ImageGridMosaic(data: data, siteUrl: siteUrl),
+      ImageGridMosaic(data: data, siteUrl: siteUrl, renderBody: renderBody),
     _ => null,
   };
 }
 
 class ImageGridMosaic extends StatefulWidget {
-  const ImageGridMosaic({super.key, required this.data, this.siteUrl});
+  const ImageGridMosaic({
+    super.key,
+    required this.data,
+    required this.renderBody,
+    this.siteUrl,
+  });
 
   final ImageGridData data;
+  final ImageGridBodyBuilder renderBody;
   final String? siteUrl;
 
   static const double gap = 6;
@@ -255,7 +268,11 @@ class _ImageGridMosaicState extends State<ImageGridMosaic> {
     _tiles = [
       for (final item in widget.data.items)
         RepaintBoundary(
-          child: ImageGridTile(item: item, siteUrl: widget.siteUrl),
+          child: ImageGridTile(
+            item: item,
+            siteUrl: widget.siteUrl,
+            renderBody: widget.renderBody,
+          ),
         ),
     ];
   }
@@ -451,11 +468,13 @@ class ImageGridTile extends StatelessWidget {
   const ImageGridTile({
     super.key,
     required this.item,
+    required this.renderBody,
     this.fit = BoxFit.cover,
     this.siteUrl,
   });
 
   final ImageGridItem item;
+  final ImageGridBodyBuilder renderBody;
   final String? siteUrl;
 
   final BoxFit fit;
@@ -521,7 +540,7 @@ class ImageGridTile extends StatelessWidget {
         alignment: AlignmentDirectional.topStart,
         minHeight: 0,
         maxHeight: double.infinity,
-        child: CookedHtml(html: item.element.outerHtml, siteUrl: siteUrl),
+        child: renderBody(html: item.element.outerHtml, siteUrl: siteUrl),
       ),
     );
   }
@@ -531,9 +550,15 @@ String? _nonEmpty(String? value) =>
     value == null || value.trim().isEmpty ? null : value.trim();
 
 class ImageGridCarousel extends StatefulWidget {
-  const ImageGridCarousel({super.key, required this.data, this.siteUrl});
+  const ImageGridCarousel({
+    super.key,
+    required this.data,
+    required this.renderBody,
+    this.siteUrl,
+  });
 
   final ImageGridData data;
+  final ImageGridBodyBuilder renderBody;
   final String? siteUrl;
 
   static const double trackHeight = 400;
@@ -610,6 +635,7 @@ class _ImageGridCarouselState extends State<ImageGridCarousel> {
                           item: item,
                           fit: BoxFit.contain,
                           siteUrl: widget.siteUrl,
+                          renderBody: widget.renderBody,
                         ),
                       ),
                     ),

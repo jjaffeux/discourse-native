@@ -19,10 +19,9 @@ const _adaptiveShell = 'lib/src/shell/adaptive_shell.dart';
 const _desktopPanels = 'lib/src/shell/desktop_panels.dart';
 const _mainContent = 'lib/src/shell/main_content.dart';
 
-/// Image grids and oneboxes still instantiate the cooked renderer directly.
+/// Oneboxes still instantiate the cooked renderer directly.
 const _cookedRecursion = [
   _cookedHtml,
-  'lib/src/shell/image_grid.dart',
   'lib/src/shell/oneboxes/onebox.dart',
   'lib/src/shell/oneboxes/twitter.dart',
 ];
