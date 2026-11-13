@@ -996,7 +996,9 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
             elapsed,
             'reading credentials for topic prefetch',
           );
-          if (credential == null || !isCurrent || cancellation.isCancelled) {
+          if (credential == null ||
+              !_readIsCurrent(stamp) ||
+              cancellation.isCancelled) {
             return null;
           }
           final payload = await _stage(
@@ -1014,7 +1016,7 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
             elapsed,
             'prefetching topic ${topic.id}',
           );
-          if (!isCurrent || cancellation.isCancelled) return null;
+          if (!_readIsCurrent(stamp) || cancellation.isCancelled) return null;
           return PrefetchedTopic(
             payload,
             stamp.bookmarks,

@@ -297,6 +297,33 @@ Future<ReplyLookupResult> _lookupReply(
 }
 
 void main() {
+  test(
+    'prefetch skips dispatch when its tracking retires during credentials',
+    () async {
+      final f = _Fixture();
+      final key = Completer<String?>();
+      f.credentials.pendingKey = key.future;
+      addTearDown(
+        f.data.prefetch(
+          const Topic(id: 7, title: 'Topic', slug: 'topic'),
+          postNumber: 90,
+          intent: TopicPrefetchIntent.trajectory,
+          isInterested: () => true,
+        ),
+      );
+      expect(f.credentials.reads, 1);
+      f.tracking.retire();
+      key.complete('key');
+      await pumpEventQueue();
+      final requests = f.api.topicReads.length;
+      for (final read in f.api.topicReads) {
+        read.result.complete(_payload([]));
+      }
+      await pumpEventQueue();
+      expect(requests, 0);
+    },
+  );
+
   for (final operation in [
     'open',
     'refresh',
