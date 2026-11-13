@@ -241,8 +241,14 @@ void main() {
           pending,
           throwsA(isA<VideoDownloadException>()),
         );
-        credential.complete(readingKey ? 'secret' : 'client');
-        await rejected;
+        try {
+          await rejected.timeout(const Duration(seconds: 1));
+        } finally {
+          credential.completeError(
+            StateError('late credential lookup failure'),
+          );
+        }
+        await Future<void>.delayed(Duration.zero);
         expect(requests, 0);
         expect(credentials.clientIdReads, readingKey ? 0 : 1);
         expect(environment.sharedBytes, isNull);
