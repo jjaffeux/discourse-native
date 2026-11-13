@@ -62,21 +62,19 @@ final class SerialOperationQueue {
     final _ = _reads.remove(queueKey);
     final previous = _tails[queueKey] ?? Future<void>.value();
     final result = Completer<T>();
-    final current = previous.then<void>((_) async {
+    late final Future<void> current;
+    current = previous.then<void>((_) async {
       try {
         result.complete(await operation());
       } catch (error, stackTrace) {
         result.completeError(error, stackTrace);
-      }
-    });
-    _tails[queueKey] = current;
-    unawaited(
-      current.then<void>((_) {
+      } finally {
         if (identical(_tails[queueKey], current)) {
           final _ = _tails.remove(queueKey);
         }
-      }),
-    );
+      }
+    });
+    _tails[queueKey] = current;
     return result.future;
   }
 }
