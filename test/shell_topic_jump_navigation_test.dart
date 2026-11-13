@@ -644,6 +644,19 @@ void main() {
   });
 
   group('moving the topic during a timeline drag', () {
+    test('a drag skips posts cached during credential lookup', () async {
+      final (:shell, :api, :authenticator) = await _fixture();
+      final credential = authenticator.gateNextApiKey();
+      final moved = shell.scrubCurrentTopicToIndex(3, isWanted: () => true);
+      await credential.started.future;
+      shell.store.put(_siteUrl, _secondPost);
+      credential.release.complete();
+
+      expect(await moved, isTrue);
+      expect(api.postFetches, [[300]]);
+      expect(shell.currentContent?.postNumber, 12);
+    });
+
     test('the posts arrive before the route moves', () async {
       final (:shell, :api, authenticator: _) = await _fixture();
       final load = api.gatePost(300);

@@ -1651,14 +1651,13 @@ final class TopicDataSession implements BookmarkTopicData, ChecklistTopicData {
     required bool Function() shouldPublish,
   }) async {
     if (!isCurrent || !shouldFetch()) return false;
-    final missing = [
-      for (final id in postIds)
-        if (!_store.containsRecord<Post>(siteUrl, id)) id,
-    ];
-    if (missing.isEmpty) return true;
+    bool isMissing(int id) => !_store.containsRecord<Post>(siteUrl, id);
+    if (!postIds.any(isMissing)) return true;
     final stamp = _stamp(topicId);
     final credential = await _requests.keyCredentials(_owner.credentials);
     if (!isCurrent || !shouldFetch()) return false;
+    final missing = postIds.where(isMissing).toList();
+    if (missing.isEmpty) return true;
     final fetched = await credential.run(
       () => _owner.content.posts(
         siteUrl: siteUrl,
