@@ -393,6 +393,23 @@ void main() {
       );
     }
 
+    test('reopening a closed tab does not revive its pending jump', () async {
+      final (:shell, :api, authenticator: _) = await _fixture();
+      shell.openCurrentTopicPost(1);
+      await pumpEventQueue();
+      final origin = shell.activeTabId!;
+      final lookup = api.gatePost(300);
+      final pending = shell.jumpToCurrentTopicIndex(3);
+      await lookup.started.future;
+
+      shell.closeTab(origin);
+      expect(shell.reopenClosedTab(origin), isTrue);
+      lookup.release.complete();
+
+      expect(await pending, isFalse);
+      expect(shell.currentContent?.postNumber, 1);
+    });
+
     test(
       'a newer jump in another tab supersedes the same-topic attempt',
       () async {

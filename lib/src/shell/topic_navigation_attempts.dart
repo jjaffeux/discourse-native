@@ -296,6 +296,17 @@ final class TopicNavigationAttempts {
     if (_highlight?.siteUrl == siteUrl) clearHighlight(notify: false);
   }
 
+  void closeTab(String siteUrl, String tabId) {
+    explicitTarget(tabId);
+    _jumps.removeWhere(
+      (key, attempt) => key.siteUrl == siteUrl && attempt.tabId == tabId,
+    );
+    final highlight = _highlight;
+    if (highlight?.siteUrl == siteUrl && highlight?.tabId == tabId) {
+      clearHighlight(notify: false);
+    }
+  }
+
   void dispose() {
     _disposed = true;
     clearHighlight(notify: false);

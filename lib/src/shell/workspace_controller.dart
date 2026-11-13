@@ -748,6 +748,7 @@ final class _WorkspaceController {
       );
     }
 
+    _shell._topicNavigation.closeTab(workspace.siteUrl, id);
     put(replacement);
     if (workspace.activeTabId != replacement.activeTabId) {
       _shell._commitMobileDocument(_MobileVisitCommit.push);
