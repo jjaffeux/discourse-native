@@ -80,6 +80,19 @@ void main() {
     }
   });
 
+  test('malformed numeric UTC offsets do not move an event', () {
+    for (final source in [
+      '2026-09-08T23:00:00+01:60',
+      '2026-09-08T23:00:00-2400',
+    ]) {
+      expect(eventDate(source, zones: ports.zones), isNull, reason: source);
+    }
+    expect(
+      eventDate('2026-09-08T23:00:00+05:45', zones: ports.zones)?.toUtc(),
+      DateTime.utc(2026, 9, 8, 17, 15),
+    );
+  });
+
   test('labels drop the end date only when both ends share a calendar day', () {
     String label(Map<String, Object?> overrides) => eventDateLabel(
       PostEvent.decode(eventJson(overrides: overrides))!,
