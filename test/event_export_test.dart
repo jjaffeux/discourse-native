@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:discourse_native/discourse_plugin_sdk.dart';
 import 'package:discourse_native/discourse_plugin_test.dart';
+import 'package:discourse_native/src/plugins/discourse_events/event_calendar_save.dart';
 import 'package:discourse_native/src/plugins/discourse_events/event_export.dart';
 import 'package:file_selector_platform_interface/file_selector_platform_interface.dart';
 import 'package:flutter/foundation.dart';
