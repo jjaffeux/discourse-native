@@ -78,6 +78,16 @@ void main() {
     );
   });
 
+  test('a relative room link stays within a forum subfolder', () {
+    final source = _card.replaceFirst(
+      '$_site/live/r/watercooler',
+      'live/r/watercooler',
+    );
+    final data = _parse(source, site: '$_site/forum')!;
+    expect(data.url, '$_site/forum/live/r/watercooler');
+    expect(data.localSlug, 'watercooler');
+  });
+
   test('inline room and stage oneboxes keep their wrapping link text', () {
     const plugin = VoicePlugin();
     for (final (kind, icon) in [

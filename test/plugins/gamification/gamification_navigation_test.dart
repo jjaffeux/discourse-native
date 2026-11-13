@@ -39,6 +39,20 @@ void main() {
     expect(GamificationRoute.web('/leaderboard/0', {}), isNull);
     expect(GamificationRoute.web('/leaderboard/42/other', {}), isNull);
   });
+  test('unrepresentable leaderboard IDs never open the default board', () {
+    const oversized = '9223372036854775808';
+    expect(GamificationRoute.parse('gamification/$oversized'), isNull);
+    expect(GamificationRoute.parse('gamification/admin/$oversized'), isNull);
+    expect(GamificationRoute.web('/leaderboard/$oversized', {}), isNull);
+    expect(
+      GamificationRoute.web(
+        '/admin/plugins/discourse-gamification/leaderboards/$oversized/edit',
+        {},
+      ),
+      isNull,
+    );
+  });
+
   test('native routes decline malformed query bytes', () {
     for (final value in ['%FF', '%C3', '%ED%A0%80', '%F4%90%80%80']) {
       expect(GamificationRoute.parse('gamification/7?period=$value'), isNull);

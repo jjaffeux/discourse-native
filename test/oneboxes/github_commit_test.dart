@@ -63,6 +63,29 @@ GithubCommitData parse(String source) => GithubCommitData.from(
 );
 
 void main() {
+  test('GitHub body text excludes HTML comments', () {
+    final document = html.parse(
+      '<article><p class="github-body-container">'
+      'First<!-- hidden note --> second'
+      '</p></article>',
+    );
+
+    expect(githubBody(document.querySelector('article')!), 'First second');
+  });
+
+  test('GitHub body text keeps explicit line breaks', () {
+    final document = html.parse(
+      '<article><p class="github-body-container">'
+      'First<br>Second <em>line</em>'
+      '</p></article>',
+    );
+
+    expect(
+      githubBody(document.querySelector('article')!),
+      'First\nSecond line',
+    );
+  });
+
   test('deep GitHub markup is parsed without recursive traversal', () {
     const depth = 1000;
     final nested =

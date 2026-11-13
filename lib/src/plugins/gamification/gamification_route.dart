@@ -34,20 +34,22 @@ final class GamificationRoute {
       r'^gamification/admin(?:/(new|[1-9][0-9]*))?$',
     ).firstMatch(uri.path);
     if (admin != null) {
-      return GamificationRoute(
-        admin: true,
-        create: admin[1] == 'new',
-        boardId: int.tryParse(admin[1] ?? ''),
-      );
+      final target = admin[1];
+      final create = target == 'new';
+      final boardId = int.tryParse(target ?? '');
+      if (target != null && !create && boardId == null) return null;
+      return GamificationRoute(admin: true, create: create, boardId: boardId);
     }
     final match = RegExp(
       r'^gamification(?:/([1-9][0-9]*))?$',
     ).firstMatch(uri.path);
     if (match == null) return null;
+    final boardId = int.tryParse(match[1] ?? '');
+    if (match[1] != null && boardId == null) return null;
     try {
       final period = uri.queryParameters['period'];
       return GamificationRoute(
-        boardId: int.tryParse(match[1] ?? ''),
+        boardId: boardId,
         period: period == null ? null : GamificationPeriod.decode(period),
       );
     } on FormatException {
@@ -62,11 +64,11 @@ final class GamificationRoute {
       r'^/admin/plugins/discourse-gamification(?:/leaderboards(?:/(new|[1-9][0-9]*)(?:/edit)?)?)?(?:\.json)?/?$',
     ).firstMatch(path);
     if (admin != null) {
-      return GamificationRoute(
-        admin: true,
-        create: admin[1] == 'new',
-        boardId: int.tryParse(admin[1] ?? ''),
-      );
+      final target = admin[1];
+      final create = target == 'new';
+      final boardId = int.tryParse(target ?? '');
+      if (target != null && !create && boardId == null) return null;
+      return GamificationRoute(admin: true, create: create, boardId: boardId);
     }
     if (RegExp(r'^/admin/plugins/gamification(?:\.json)?/?$').hasMatch(path)) {
       return const GamificationRoute(admin: true);
@@ -75,9 +77,11 @@ final class GamificationRoute {
       r'^/leaderboard(?:/([1-9][0-9]*))?(?:\.json)?/?$',
     ).firstMatch(path);
     if (match == null) return null;
+    final boardId = int.tryParse(match[1] ?? '');
+    if (match[1] != null && boardId == null) return null;
     try {
       return GamificationRoute(
-        boardId: int.tryParse(match[1] ?? ''),
+        boardId: boardId,
         period: params['period'] == null
             ? null
             : GamificationPeriod.decode(params['period']),

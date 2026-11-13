@@ -360,10 +360,14 @@ String? githubBody(dom.Element article) {
           node.classes.contains('show-more-container')) {
         continue;
       }
+      if (node.localName == 'br') {
+        buffer.writeln();
+        continue;
+      }
       pushReversed(node.nodes);
-      continue;
+    } else if (node is dom.Text) {
+      buffer.write(node.data);
     }
-    buffer.write(node.text);
   }
 
   final text = buffer.toString().trim();

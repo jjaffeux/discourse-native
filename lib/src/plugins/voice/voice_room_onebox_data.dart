@@ -1,3 +1,4 @@
+import 'package:discourse_native/discourse_plugin_contracts.dart';
 import 'package:html/dom.dart' as dom;
 
 /// Baked room metadata. Presence always comes from the viewer's live directory.
@@ -28,10 +29,9 @@ final class VoiceRoomOneboxData {
     final url = title?.attributes['href'];
     if (title == null || url == null || title.text.trim().isEmpty) return null;
     final site = Uri.tryParse(siteUrl ?? '');
-    final uri = Uri.tryParse(url);
-    if (uri == null) return null;
-    final resolved = site?.resolveUri(uri) ?? uri;
-    if (!const {'http', 'https'}.contains(resolved.scheme) ||
+    final resolved = Uri.tryParse(resolveSiteUrl(url, siteUrl));
+    if (resolved == null ||
+        !const {'http', 'https'}.contains(resolved.scheme) ||
         resolved.host.isEmpty ||
         resolved.userInfo.isNotEmpty) {
       return null;
