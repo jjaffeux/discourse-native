@@ -259,7 +259,7 @@ abstract class ByteCache<T extends Object> {
     if (_transientFailures.containsKey(url)) return owner.._complete(null);
     var transfer = _inFlight[url];
     if (transfer == null) {
-      if (_inFlight.length >= maxEntries) return owner.._complete(null);
+      if (_transfers.length >= maxEntries) return owner.._complete(null);
       transfer = _ByteCacheTransfer<T>(url, _generation);
       _inFlight[url] = transfer;
       _transfers.add(transfer);

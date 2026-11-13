@@ -144,6 +144,34 @@ void main() {
   });
 
   group('request lifecycle and work admission', () {
+    test(
+      'clearing keeps unfinished transfers within the backlog limit',
+      () async {
+        final response = Completer<http.Response>();
+        var requests = 0;
+        final cache = _TestByteCache(
+          maxEntries: 1,
+          client: MockClient((_) {
+            requests++;
+            return response.future;
+          }),
+        );
+        addTearDown(cache.close);
+        final old = cache.load('https://site.test/old');
+        await pumpEventQueue();
+        cache.clear();
+        final fresh = cache.load('https://site.test/fresh');
+        await pumpEventQueue();
+        response.complete(http.Response.bytes([1], 200));
+
+        expect(await old, [1]);
+        expect(await fresh, isNull);
+        expect(requests, 1);
+        expect(await cache.load('https://site.test/fresh'), [1]);
+        expect(requests, 2);
+      },
+    );
+
     test('coalesces in-flight requests and reuses the cached result', () async {
       final response = Completer<http.Response>();
       var requests = 0;
