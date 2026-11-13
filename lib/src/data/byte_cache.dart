@@ -487,7 +487,7 @@ abstract class ByteCache<T extends Object> {
             !sent.authenticated &&
             responseAllowsPersistentByteCache(streamed.headers);
         final location = streamed.headers['location'];
-        if (_isRedirect(streamed.statusCode) && location != null) {
+        if (isHttpRedirectStatus(streamed.statusCode) && location != null) {
           _cancel(streamed.stream);
           if (redirects >= maxRedirects) {
             throw http.ClientException(appL10n.tooManyImageRedirects, current);
@@ -651,13 +651,6 @@ abstract class ByteCache<T extends Object> {
   int get _keptConnectionsPerOrigin =>
       _coordinator?.maxConcurrentPerOrigin ??
       MediaRequestCoordinator.defaultMaxConcurrentPerOrigin;
-
-  static bool _isRedirect(int statusCode) =>
-      statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
 
   static void _abort(Completer<void> abort) {
     if (!abort.isCompleted) abort.complete();

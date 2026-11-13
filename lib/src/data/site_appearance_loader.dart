@@ -348,7 +348,7 @@ final class SiteAppearanceLoader {
         abortTrigger: abortTrigger,
       );
 
-      if (!_isRedirect(response.statusCode)) {
+      if (!isHttpRedirectStatus(response.statusCode)) {
         if (response.statusCode == 401 || response.statusCode == 403) {
           throw SiteAppearanceLoadException(
             SiteAppearanceLoadFailure.refused,
@@ -451,13 +451,6 @@ final class SiteAppearanceLoader {
       );
     }
   }
-
-  static bool _isRedirect(int statusCode) =>
-      statusCode == 301 ||
-      statusCode == 302 ||
-      statusCode == 303 ||
-      statusCode == 307 ||
-      statusCode == 308;
 }
 
 typedef _LoadedText = ({Uri url, String source});
