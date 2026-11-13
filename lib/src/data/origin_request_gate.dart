@@ -48,7 +48,7 @@ final class OriginRequestGate {
   final OriginRequestCooldownPolicy cooldownPolicy;
   final OriginCooldown Function() _newCooldown;
   final Map<String, _OriginState> _origins = {};
-  final List<_QueuedAdmission> _waiting = [];
+  final _waiting = <_PendingAdmission, _QueuedAdmission>{};
   int _active = 0;
   int _interactiveOvertakes = 0;
   bool _closed = false;
@@ -112,11 +112,8 @@ final class OriginRequestGate {
     Object error,
     StackTrace stackTrace,
   ) {
-    final index = _waiting.indexWhere(
-      (entry) => identical(entry.pending, pending),
-    );
-    if (index < 0) return;
-    final entry = _waiting.removeAt(index);
+    final entry = _waiting.remove(pending);
+    if (entry == null) return;
     _waitingRevision++;
     entry.state.waiting--;
     pending.reject(error, stackTrace);
@@ -165,13 +162,11 @@ final class OriginRequestGate {
     }
 
     state.waiting++;
-    _waiting.add(
-      _QueuedAdmission(
-        origin,
-        state,
-        pending,
-        Zone.current.bindCallback(resolvePriority),
-      ),
+    _waiting[pending] = _QueuedAdmission(
+      origin,
+      state,
+      pending,
+      Zone.current.bindCallback(resolvePriority),
     );
     _waitingRevision++;
     _drain();
@@ -194,9 +189,11 @@ final class OriginRequestGate {
     drain:
     while (!_closed && (aggregateLimit == null || _active < aggregateLimit)) {
       final revision = _waitingRevision;
-      final candidates = <String, ({int? normal, int? interactive})>{};
-      for (var index = 0; index < _waiting.length; index++) {
-        final queued = _waiting[index];
+      final candidates =
+          <String, ({_Candidate? normal, _Candidate? interactive})>{};
+      var index = 0;
+      for (final queued in _waiting.values) {
+        final position = index++;
         final state = queued.state;
         if (!identical(_origins[queued.origin], state) ||
             state.active >= maxConcurrentPerOrigin ||
@@ -222,27 +219,36 @@ final class OriginRequestGate {
         final held = candidates[domain];
         if (priority == OriginRequestPriority.interactive) {
           if (held?.interactive == null) {
-            candidates[domain] = (normal: held?.normal, interactive: index);
+            candidates[domain] = (
+              normal: held?.normal,
+              interactive: (position, queued),
+            );
           }
         } else if (held?.normal == null) {
-          candidates[domain] = (normal: index, interactive: held?.interactive);
+          candidates[domain] = (
+            normal: (position, queued),
+            interactive: held?.interactive,
+          );
         }
       }
-      var eligible = -1;
+      _Candidate? eligible;
       for (final (normal: background, interactive: foreground)
           in candidates.values) {
         final overtakes = aggregateLimit == null
-            ? _waiting[background ?? foreground!].state.interactiveOvertakes
+            ? (background ?? foreground!).$2.state.interactiveOvertakes
             : _interactiveOvertakes;
         final candidate =
             background != null && (foreground == null || overtakes >= 3)
             ? background
             : foreground!;
-        if (eligible < 0 || candidate < eligible) eligible = candidate;
+        if (eligible == null || candidate.$1 < eligible.$1) {
+          eligible = candidate;
+        }
       }
-      if (eligible < 0) break;
+      if (eligible == null) break;
 
-      final queued = _waiting.removeAt(eligible);
+      final queued = eligible.$2;
+      _waiting.remove(queued.pending);
       _waitingRevision++;
       final domain = aggregateLimit == null ? queued.origin : '';
       final choice = candidates[domain]!;
@@ -305,10 +311,11 @@ final class OriginRequestGate {
   ) {
     final error = OriginRequestGateCooldownException(origin, remaining);
     final stackTrace = StackTrace.current;
-    for (var index = _waiting.length - 1; index >= 0; index--) {
-      final queued = _waiting[index];
-      if (!identical(queued.state, state)) continue;
-      _waiting.removeAt(index);
+    final rejected = _waiting.values
+        .where((queued) => identical(queued.state, state))
+        .toList();
+    for (final queued in rejected.reversed) {
+      _waiting.remove(queued.pending);
       _waitingRevision++;
       state.waiting--;
       queued.pending.reject(error, stackTrace);
@@ -334,7 +341,7 @@ final class OriginRequestGate {
     for (final state in _origins.values) {
       state.cooldown.cancel();
     }
-    for (final queued in _waiting) {
+    for (final queued in _waiting.values) {
       queued.pending.reject(error, stackTrace);
     }
     _waiting.clear();
@@ -431,6 +438,8 @@ final class _OriginState {
   int active = 0;
   int interactiveOvertakes = 0;
 }
+
+typedef _Candidate = (int, _QueuedAdmission);
 
 final class _QueuedAdmission {
   const _QueuedAdmission(
