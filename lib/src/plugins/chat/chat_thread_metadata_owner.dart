@@ -429,12 +429,6 @@ final class ChatThreadMetadataOwner {
     final optimistic =
         (previous ?? ChatThreadMembership(threadId: target.threadId))
             .withNotificationLevel(level);
-    _updateThread(
-      siteUrl,
-      target.threadId,
-      (current) => current.copyWith(membership: optimistic),
-    );
-
     final previousTail = queue.tail;
     late final Future<void> tail;
     tail = previousTail
@@ -451,6 +445,11 @@ final class ChatThreadMetadataOwner {
         });
     queue.tail = tail;
     unawaited(tail);
+    _updateThread(
+      siteUrl,
+      target.threadId,
+      (current) => current.copyWith(membership: optimistic),
+    );
     return write.result.future;
   }
 

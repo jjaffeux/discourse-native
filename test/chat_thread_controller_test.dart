@@ -3485,6 +3485,52 @@ void main() {
   });
 
   test(
+    'a superseded notification choice settles before the newer write',
+    () async {
+      final api = _SequencedNotificationApi();
+      final store = Store()..put(site, threadDetail());
+      final subject = _controllerFor(api, store: store);
+      final thread = store.ref<ChatThread>(site, 22);
+      Future<bool>? newer;
+      void chooseAgain() {
+        if (thread.value?.membership?.notificationLevel !=
+            ChatThreadNotificationLevel.watching) {
+          return;
+        }
+        newer = subject.chat.updateThreadNotificationLevel(
+          site,
+          target,
+          ChatThreadNotificationLevel.muted,
+        );
+      }
+
+      thread.addListener(chooseAgain);
+      addTearDown(() => thread.removeListener(chooseAgain));
+
+      bool? originalResult;
+      final original = subject.chat
+          .updateThreadNotificationLevel(
+            site,
+            target,
+            ChatThreadNotificationLevel.watching,
+          )
+          .then((result) => originalResult = result);
+      await waitUntil(() => api.pending.isNotEmpty);
+      await pumpEventQueue();
+      final resultBeforeResponse = originalResult;
+      api.pending.single.response.complete(
+        const ChatThreadMembership(
+          threadId: 22,
+          notificationLevel: ChatThreadNotificationLevel.muted,
+        ),
+      );
+      await original;
+      expect(await newer, isTrue);
+      expect(resultBeforeResponse, isFalse);
+    },
+  );
+
+  test(
     'notification writes serialize and a failed latest choice rolls back',
     () async {
       final api = _SequencedNotificationApi();
