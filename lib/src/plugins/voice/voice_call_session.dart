@@ -486,23 +486,26 @@ final class _VoiceCallSession {
 
     _heartbeat?.cancel();
     _heartbeat = null;
-    late final Future<void> request;
-    request = _beat().whenComplete(() {
-      if (!identical(_heartbeatRequest, request)) return;
-      _heartbeatRequest = null;
-      if (controller._disposed ||
-          _retired ||
-          _call?.status != VoiceCallStatus.connected) {
-        return;
-      }
-      if (_heartbeatPending) {
-        _heartbeatPending = false;
-        unawaited(_requestHeartbeat());
-      } else {
-        _scheduleHeartbeat();
-      }
-    });
+    final completion = Completer<void>();
+    final request = completion.future;
     _heartbeatRequest = request;
+    completion.complete(
+      _beat().whenComplete(() {
+        if (!identical(_heartbeatRequest, request)) return;
+        _heartbeatRequest = null;
+        if (controller._disposed ||
+            _retired ||
+            _call?.status != VoiceCallStatus.connected) {
+          return;
+        }
+        if (_heartbeatPending) {
+          _heartbeatPending = false;
+          unawaited(_requestHeartbeat());
+        } else {
+          _scheduleHeartbeat();
+        }
+      }),
+    );
     return request;
   }
 

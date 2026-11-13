@@ -8101,6 +8101,26 @@ void main() {
         .firstOrNull
         ?.idleState;
 
+    test('activity during heartbeat credential lookup queues a beat', () async {
+      await joinOpenRoom();
+      await pumpEventQueue();
+      final initialBeats = heartbeatIdleStates().length;
+      final gate = Completer<void>();
+      (requests as _StaticRequestHost).onRead = () {
+        controller.setForeground(true);
+        return gate.future;
+      };
+
+      scheduler.advance(const Duration(minutes: 5, seconds: 30));
+      await pumpEventQueue();
+      final beatsWhileBlocked = heartbeatIdleStates().length;
+      gate.complete();
+      await pumpEventQueue();
+
+      expect(beatsWhileBlocked, initialBeats);
+      expect(heartbeatIdleStates().skip(initialBeats), ['active', 'active']);
+    });
+
     test('going to the background is not being away', () async {
       await joinOpenRoom();
 
