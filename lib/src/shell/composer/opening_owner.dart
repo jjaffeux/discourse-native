@@ -4,8 +4,9 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/category_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
+import '../../data/topic_composer_queries_api.dart';
 import '../../models/composer_draft.dart';
 import '../../models/content_route.dart';
 import '../../models/discourse_user.dart';

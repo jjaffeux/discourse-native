@@ -3,6 +3,7 @@ library;
 
 export 'discourse_plugin_composer.dart';
 export 'discourse_plugin_contracts.dart';
+export 'discourse_plugin_loading.dart';
 export 'discourse_plugin_preferences.dart';
 export 'discourse_plugin_reader.dart';
 export 'discourse_ui.dart'
@@ -107,7 +108,6 @@ export 'src/shell/shell_sheet.dart'
 export 'src/shell/site_emoji_image.dart' show SiteEmojiImage;
 export 'src/shell/site_emoji_text.dart' show SiteEmojiText;
 export 'src/shell/site_image.dart' show SiteImage;
-export 'src/shell/skeleton_fill.dart' show SkeletonSurface, skeletonFill;
 export 'src/shell/stream_day_separator.dart'
     show StreamChip, StreamDaySeparator;
 export 'src/shell/time_gap.dart' show TimeGapNotice, timeGapDaysBetween;

@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../controller.dart';
 
 /// Where one registered upload token occurs in a document.
 typedef ComposerUploadSlot = ({int id, int start, String token});
@@ -82,9 +81,15 @@ final class ComposerUploadPlaceholders {
 /// Projects draft-local upload slots through the editor's existing block API.
 /// Tokens are removed from saved/submitted Markdown by the composer owner.
 final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
-  ComposerUploadPlaceholderPolicy(this.composer);
+  ComposerUploadPlaceholderPolicy({
+    required this.findSlots,
+    required this.renderUpload,
+    required this.cancelUpload,
+  });
 
-  final ComposerController composer;
+  final List<ComposerUploadSlot> Function(String) findSlots;
+  final Widget Function(ComposerSyntaxRenderContext, int) renderUpload;
+  final void Function(int) cancelUpload;
 
   @override
   ComposerSyntaxKind get kind => ComposerSyntaxKind(
@@ -101,15 +106,15 @@ final class ComposerUploadPlaceholderPolicy implements ComposerSyntaxPolicy {
 
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
-    for (final slot in composer.uploadPlaceholders.find(source))
-      _UploadProjection(composer, slot.id, slot.start, slot.token),
+    for (final slot in findSlots(source))
+      _UploadProjection(this, slot.id, slot.start, slot.token),
   ];
 }
 
 final class _UploadProjection implements ComposerBlockSyntaxProjection {
-  const _UploadProjection(this.composer, this.id, this.start, this.source);
+  const _UploadProjection(this.policy, this.id, this.start, this.source);
 
-  final ComposerController composer;
+  final ComposerUploadPlaceholderPolicy policy;
   final int id;
   @override
   final int start;
@@ -145,12 +150,7 @@ final class _UploadProjection implements ComposerBlockSyntaxProjection {
     WidgetSpan(
       alignment: PlaceholderAlignment.top,
       style: context.baseStyle,
-      child: composer.artwork.upload(
-        key: context.pillKey,
-        composer: composer,
-        id: id,
-        highlighted: context.highlighted,
-      ),
+      child: policy.renderUpload(context, id),
     ),
     // Match the editor's image/quote block accounting: end the widget's
     // intrinsic-height line before the hidden source tail. Otherwise adjacent
@@ -175,7 +175,7 @@ final class _UploadProjection implements ComposerBlockSyntaxProjection {
 
   @override
   void remove(BuildContext context, ComposerEditorHost editor) {
-    if (editor.isEditing) composer.cancelUpload(id);
+    if (editor.isEditing) policy.cancelUpload(id);
   }
 }
 

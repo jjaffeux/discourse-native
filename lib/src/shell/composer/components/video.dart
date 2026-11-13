@@ -4,13 +4,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../../plugin_api/composer_syntax.dart';
-import '../controller.dart';
 import 'image_source.dart';
 
 final class ComposerVideoPolicy implements ComposerSyntaxPolicy {
-  const ComposerVideoPolicy(this.composer);
+  const ComposerVideoPolicy(this.renderVideo);
 
-  final ComposerController composer;
+  final Widget Function(
+    ComposerSyntaxRenderContext context,
+    String? url,
+    String title,
+  )
+  renderVideo;
 
   @override
   ComposerSyntaxKind get kind => ComposerSyntaxKind(
@@ -28,14 +32,19 @@ final class ComposerVideoPolicy implements ComposerSyntaxPolicy {
   @override
   List<ComposerSyntaxProjection> parse(String source) => [
     for (final video in parseComposerVideos(source))
-      _VideoProjection(composer, video),
+      _VideoProjection(renderVideo, video),
   ];
 }
 
 final class _VideoProjection implements ComposerAtomicSelectionProjection {
-  const _VideoProjection(this.composer, this.video);
+  const _VideoProjection(this.renderVideo, this.video);
 
-  final ComposerController composer;
+  final Widget Function(
+    ComposerSyntaxRenderContext context,
+    String? url,
+    String title,
+  )
+  renderVideo;
   final ComposerVideoBlock video;
 
   @override
@@ -87,13 +96,7 @@ final class _VideoProjection implements ComposerAtomicSelectionProjection {
       WidgetSpan(
         alignment: PlaceholderAlignment.top,
         style: context.baseStyle,
-        child: composer.artwork.video(
-          key: context.pillKey,
-          url: url,
-          title: video.title,
-          siteUrl: context.siteUrl,
-          highlighted: context.highlighted,
-        ),
+        child: renderVideo(context, url, video.title),
       ),
       TextSpan(
         text: source.substring(1, hiddenEnd),

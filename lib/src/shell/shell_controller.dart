@@ -3178,7 +3178,8 @@ class ShellController extends FrameSafeNotifier
   late final SiteLiveSessions _liveSessions = SiteLiveSessions(
     lifecycle: lifecycle,
     credentials: credentials,
-    api: api.site,
+    messageBusBootstrap: api.site.messageBusBootstrap,
+    topicTrackingState: api.site.topicTrackingState,
     trackers: trackers,
     topicTracking: _topicTracking,
     currentUsers: _ShellSiteLiveCurrentUsers(this),
@@ -3196,7 +3197,9 @@ class ShellController extends FrameSafeNotifier
   );
   late final _profileWrites = ProfileWriteTransactions(
     currentUser: _ShellProfileCurrentUser(this),
-    api: api.site,
+    updateHidePresence: api.site.updateHidePresence,
+    setUserStatus: api.site.setUserStatus,
+    clearUserStatus: api.site.clearUserStatus,
     credentials: credentials,
     lifecycle: lifecycle,
     userStatuses: userStatuses,

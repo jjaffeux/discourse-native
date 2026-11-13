@@ -14,7 +14,7 @@ const _exceptions = {
   ),
 };
 
-const _owner = 'lib/src/data/discourse_api_contracts.dart';
+const _owner = 'lib/src/data/failure_text.dart';
 
 /// Where a failure is caught and named: a `catch` clause, an `onError:`
 /// argument, or a `catchError`, `onError` or `handleError` callback. The

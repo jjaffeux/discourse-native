@@ -1,8 +1,9 @@
-import 'package:discourse_native/discourse_plugin_sdk.dart';
+import 'package:discourse_native/discourse_plugin_contracts.dart';
+import 'package:discourse_native/discourse_ui.dart';
 import 'package:flutter/material.dart';
 import 'package:html/dom.dart' as dom;
 
-import '../github.dart';
+import '../github_onebox_data.dart';
 
 class GithubPullRequestInlineOnebox {
   static bool matches(dom.Element anchor) {

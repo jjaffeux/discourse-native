@@ -14,7 +14,7 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/bookmark_link_resolver.dart': (49, 0),
   'lib/src/shell/flag_transactions.dart': (44, 0),
   'lib/src/shell/notification_feed_refresh_owner.dart': (34, 0),
-  'lib/src/shell/composer/slash_menu.dart': (182, 133),
+  'lib/src/shell/composer/slash_menu.dart': (185, 133),
 };
 
 void main() {

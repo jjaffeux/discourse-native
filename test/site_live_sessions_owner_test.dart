@@ -323,7 +323,8 @@ final class _Fixture implements SiteLiveCurrentUsers, SiteLiveComposition {
     sessions = SiteLiveSessions(
       lifecycle: lifecycle,
       credentials: credentials,
-      api: this.api,
+      messageBusBootstrap: this.api.messageBusBootstrap,
+      topicTrackingState: this.api.topicTrackingState,
       trackers: FakeSiteTracker.reset(),
       topicTracking: tracking,
       currentUsers: this,

@@ -1,8 +1,8 @@
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
 import '../../data/site_lifecycle.dart';
 import '../../data/store.dart';
+import '../../data/topic_content_api.dart';
 import '../../models/content_route.dart';
 import '../../models/post.dart';
 import '../../models/topic.dart';

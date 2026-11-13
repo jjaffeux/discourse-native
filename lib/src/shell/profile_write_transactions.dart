@@ -3,8 +3,8 @@ import 'package:discourse_native/l10n/strings.dart';
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/current_user_reconciler.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/site_lifecycle.dart';
+import '../data/write_failure.dart';
 import '../foundation/retry_wait.dart';
 import '../models/discourse_user.dart';
 import '../models/do_not_disturb.dart';
@@ -110,7 +110,9 @@ final class _ProfileAccount {
 final class ProfileWriteTransactions {
   ProfileWriteTransactions({
     required this.currentUser,
-    required this.api,
+    required this._updateHidePresence,
+    required this._setUserStatus,
+    required this._clearUserStatus,
     required this.credentials,
     required this.lifecycle,
     required this.userStatuses,
@@ -120,7 +122,29 @@ final class ProfileWriteTransactions {
   }) : _clock = clock ?? DateTime.now;
 
   final ProfileCurrentUser currentUser;
-  final ShellSiteApi api;
+  final Future<void> Function({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    required bool hidePresence,
+    String? clientId,
+  })
+  _updateHidePresence;
+  final Future<void> Function({
+    required String siteUrl,
+    required String apiKey,
+    required String description,
+    required String emoji,
+    DateTime? endsAt,
+    String? clientId,
+  })
+  _setUserStatus;
+  final Future<void> Function({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  })
+  _clearUserStatus;
   final ApiCredentialReader credentials;
   final SiteLifecycle lifecycle;
   final UserStatusOverrides userStatuses;
@@ -295,7 +319,7 @@ final class ProfileWriteTransactions {
         return;
       }
       await credential.request!.run(
-        () => api.updateHidePresence(
+        () => _updateHidePresence(
           siteUrl: siteUrl,
           apiKey: credential.request!.apiKey!,
           username: write.username,
@@ -404,7 +428,7 @@ final class ProfileWriteTransactions {
       if (!_ownsStatus(write)) return const _ProfileStatusUnconfirmed(null);
       await credential.request!.run(
         () => switch (intent) {
-          _SetProfileStatus() => api.setUserStatus(
+          _SetProfileStatus() => _setUserStatus(
             siteUrl: siteUrl,
             apiKey: credential.request!.apiKey!,
             description: intent.description,
@@ -412,7 +436,7 @@ final class ProfileWriteTransactions {
             endsAt: intent.endsAt,
             clientId: clientId,
           ),
-          _ClearProfileStatus() => api.clearUserStatus(
+          _ClearProfileStatus() => _clearUserStatus(
             siteUrl: siteUrl,
             apiKey: credential.request!.apiKey!,
             clientId: clientId,

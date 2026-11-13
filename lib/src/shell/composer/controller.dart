@@ -7,9 +7,9 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../../data/discourse_api_contracts.dart';
 import '../../data/draft_store.dart';
 import '../../data/site_pdf_thumbnail_repository.dart';
+import '../../data/write_failure.dart';
 import '../../foundation/count_label.dart';
 import '../../foundation/elapsed_time.dart';
 import '../../models/composer_draft.dart';

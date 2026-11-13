@@ -11,8 +11,25 @@ List<ComposerSyntaxPolicy> coreComposerSyntaxPolicies(
   ComposerController composer,
 ) => [
   if (!composer.target.isPlugin) ...[
-    ComposerUploadPlaceholderPolicy(composer),
-    ComposerVideoPolicy(composer),
+    ComposerUploadPlaceholderPolicy(
+      findSlots: (source) => composer.uploadPlaceholders.find(source),
+      renderUpload: (context, id) => composer.artwork.upload(
+        key: context.pillKey,
+        composer: composer,
+        id: id,
+        highlighted: context.highlighted,
+      ),
+      cancelUpload: composer.cancelUpload,
+    ),
+    ComposerVideoPolicy(
+      (context, url, title) => composer.artwork.video(
+        key: context.pillKey,
+        url: url,
+        title: title,
+        siteUrl: context.siteUrl,
+        highlighted: context.highlighted,
+      ),
+    ),
     ComposerTablePolicy(composer),
     ComposerCodePolicy(composer),
     ComposerDetailsPolicy(composer),

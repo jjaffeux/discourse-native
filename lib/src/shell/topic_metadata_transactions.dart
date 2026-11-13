@@ -1,9 +1,9 @@
 import 'package:discourse_native/l10n/strings.dart';
 
 import '../data/account_request_session.dart';
-import '../data/discourse_api_contracts.dart'
-    show TopicComposerQueriesApi, TopicMutationsApi;
 import '../data/site_lifecycle.dart';
+import '../data/topic_composer_queries_api.dart';
+import '../data/topic_mutations_api.dart';
 import '../data/write_credential.dart';
 import '../data/write_failure.dart';
 import '../models/topic.dart';

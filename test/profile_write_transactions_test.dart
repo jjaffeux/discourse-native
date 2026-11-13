@@ -438,7 +438,9 @@ final class _Harness {
     );
     owner = ProfileWriteTransactions(
       currentUser: current,
-      api: api,
+      updateHidePresence: api.updateHidePresence,
+      setUserStatus: api.setUserStatus,
+      clearUserStatus: api.clearUserStatus,
       credentials: credentials,
       lifecycle: lifecycle,
       userStatuses: statuses,

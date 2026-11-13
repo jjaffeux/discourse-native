@@ -1,7 +1,8 @@
 import 'package:flutter/foundation.dart';
 
-import '../data/discourse_api_contracts.dart';
 import '../data/store.dart';
+import '../data/user_preferences_api.dart';
+import '../data/write_failure.dart';
 import '../models/discourse_model_codec.dart';
 import '../models/discourse_user.dart';
 import '../models/emoji_preferences.dart';

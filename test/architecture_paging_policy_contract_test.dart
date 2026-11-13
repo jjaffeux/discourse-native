@@ -5,35 +5,20 @@ import 'package:flutter_test/flutter_test.dart';
 /// Call sites of the prefetch distance that consult a [ScrollPagingGate].
 const _gatedCalls = {
   'lib/src/plugins/assign/assigned_group_view.dart': 1,
-  'lib/src/plugins/chat/chat_channel_threads_view.dart': 1,
   'lib/src/plugins/chat/chat_channel_view.dart': 3,
-  'lib/src/plugins/chat/chat_my_threads_view.dart': 1,
-  'lib/src/plugins/chat/chat_search_view.dart': 1,
-  'lib/src/plugins/gifs/gif_picker.dart': 1,
   'lib/src/plugins/nested_replies/nested_replies_reader.dart': 1,
   'lib/src/shell/bookmark_list.dart': 2,
   'lib/src/shell/categories_page.dart': 1,
   'lib/src/shell/group/group_members_view.dart': 1,
-  'lib/src/shell/groups_page.dart': 1,
   'lib/src/shell/topic_list_view.dart': 1,
   'lib/src/shell/user_activity.dart': 4,
   'lib/src/shell/users_page.dart': 1,
 };
 
-const _ungatedBudget = 3;
+const _ungatedBudget = 1;
 
 /// Call sites that do not consult the gate where they measure, and why.
 const _exceptions = {
-  'lib/src/plugins/chat/chat_browse_channels_view.dart': (
-    calls: 1,
-    gateOwner: 'lib/src/plugins/chat/chat_browse_session.dart',
-    reason: 'ChatBrowseSession.loadMore applies the gate behind its retry flag',
-  ),
-  'lib/src/plugins/chat/chat_channel_info_view.dart': (
-    calls: 1,
-    gateOwner: 'lib/src/plugins/chat/chat_channel_members_session.dart',
-    reason: 'ChatChannelMembersSession.loadMore gates its prefetch path',
-  ),
   'lib/src/shell/topic_viewport_coordinator.dart': (
     calls: 1,
     gateOwner: null,
@@ -45,7 +30,7 @@ const _exceptions = {
 
 final _call = RegExp(r'\bpaginationPrefetchDistance\(');
 
-const _owner = 'lib/src/utils/pagination.dart';
+const _owner = 'lib/src/utils/paging_policy.dart';
 
 String _withoutComments(String source) =>
     source.replaceAll(RegExp(r'^\s*//.*$', multiLine: true), '');

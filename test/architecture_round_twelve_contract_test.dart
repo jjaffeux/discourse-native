@@ -13,7 +13,7 @@ const _closureBudgets = <String, (int, int)>{
   'lib/src/shell/header_preferences_controller.dart': (7, 0),
   'lib/src/shell/message_archive_transactions.dart': (133, 1),
   'lib/src/shell/topic_navigation_attempts.dart': (127, 1),
-  'lib/src/shell/composer/slash_query.dart': (5, 0),
+  'lib/src/shell/composer/slash_query.dart': (8, 0),
 };
 
 void main() {

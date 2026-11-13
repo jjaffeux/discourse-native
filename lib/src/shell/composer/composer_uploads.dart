@@ -3,7 +3,7 @@ import 'package:discourse_native/l10n/strings.dart';
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
 import '../../data/composer_media_optimizer.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/composer_persistence_api.dart';
 import '../../data/site_lifecycle.dart';
 import '../../data/write_credential.dart';
 import '../../models/composer_upload.dart';

@@ -4,7 +4,7 @@ import 'package:discourse_native/discourse_ui.dart';
 import 'package:discourse_native/l10n/strings.dart';
 import 'package:flutter/material.dart';
 
-import '../data/discourse_api_contracts.dart';
+import '../data/write_failure.dart';
 import '../models/group.dart';
 import '../models/group_route.dart';
 import '../plugin_api/plugin_registry.dart';

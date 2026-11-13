@@ -128,3 +128,6 @@ reductions across account reads, plugin parsers, and the composer block surface.
 
 [Round seventeen](layer-dependencies-round17.md) records ten dependency
 reductions across account APIs, plugin rendering, and shell workflows.
+
+[Repository-wide dependency sweep](dependency-sweep.md) records the current
+boundary changes and remaining audit scope.

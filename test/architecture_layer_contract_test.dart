@@ -43,7 +43,7 @@ const Map<(String, String), Set<String>> _allowedUpwardEdges = {
   ('shell', 'plugins'): {},
 };
 
-const _importCycles = [10, 5];
+const _importCycles = [8, 5];
 
 /// A layer's whole transitive reach, so a barrel or a shared helper cannot
 /// reintroduce what the direct-edge table forbids.
@@ -60,6 +60,19 @@ void main() {
   final graph = LibraryGraph.load();
 
   group('layer contract', () {
+    test('only API composition directly imports the aggregate contract', () {
+      const aggregate = 'lib/src/data/discourse_api_contracts.dart';
+      expect({
+        for (final entry in graph.edges.entries)
+          if (entry.value.contains(aggregate)) entry.key,
+      }, {
+        'lib/src/data/discourse_api.dart',
+        'lib/src/data/shell_api_ports.dart',
+        'lib/src/plugin_testing/plugin_test_ports.dart',
+        'lib/src/shell/shell_controller.dart',
+      });
+    });
+
     for (final entry in _allowedUpwardEdges.entries) {
       final (from, to) = entry.key;
       test('$from reaches $to only through named exceptions', () {
@@ -102,7 +115,7 @@ void main() {
         'lib',
         'test',
       ]).applicationLibrariesReachedBy('test/support/fakes.dart');
-      expect(reached.length, 243);
+      expect(reached.length, 252);
     });
   });
 

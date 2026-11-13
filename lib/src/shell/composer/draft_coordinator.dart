@@ -6,9 +6,11 @@ import 'package:discourse_native/l10n/strings.dart';
 
 import '../../data/account_request_session.dart';
 import '../../data/api_credentials.dart';
-import '../../data/discourse_api_contracts.dart';
+import '../../data/composer_persistence_api.dart';
 import '../../data/draft_store.dart';
+import '../../data/drafts_api.dart';
 import '../../data/site_lifecycle.dart';
+import '../../data/write_failure.dart';
 import '../../models/composer_draft.dart';
 import '../../models/user_draft.dart';
 import 'controller.dart';

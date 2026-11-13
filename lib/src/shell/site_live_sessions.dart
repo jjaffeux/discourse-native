@@ -3,7 +3,6 @@ import 'dart:async';
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
 import '../data/current_user_reconciler.dart';
-import '../data/discourse_api_contracts.dart';
 import '../data/live_channels.dart';
 import '../data/request_intent.dart';
 import '../data/site_lifecycle.dart';
@@ -12,6 +11,7 @@ import '../data/site_tracker.dart';
 import '../data/topic_tracking_reconciler.dart';
 import '../models/discourse_instance.dart';
 import '../models/discourse_user.dart';
+import '../models/topic_tracking_state.dart';
 import '../plugin_api/plugin_manifest.dart';
 import 'topic_tracking_directory.dart';
 
@@ -87,7 +87,8 @@ final class SiteLiveSessions {
   SiteLiveSessions({
     required this._lifecycle,
     required this._credentials,
-    required this._api,
+    required this._messageBusBootstrap,
+    required this._topicTrackingState,
     required this._trackers,
     required this._topicTracking,
     required this._currentUsers,
@@ -97,7 +98,19 @@ final class SiteLiveSessions {
 
   final SiteLifecycle _lifecycle;
   final ApiCredentialReader _credentials;
-  final ShellSiteApi _api;
+  final Future<SiteMessageBusBootstrap?> Function({
+    required String siteUrl,
+    required String apiKey,
+    String? clientId,
+  })
+  _messageBusBootstrap;
+  final Future<TopicTrackingState> Function({
+    required String siteUrl,
+    required String apiKey,
+    required String username,
+    String? clientId,
+  })
+  _topicTrackingState;
   final SiteTrackerFactory _trackers;
   final TopicTrackingDirectory _topicTracking;
   final SiteLiveCurrentUsers _currentUsers;
@@ -611,7 +624,7 @@ final class _SiteLiveSession {
     try {
       final bootstrap = await RequestIntent.background().run(
         () => requestCredentials.run(
-          () => _owner._api.messageBusBootstrap(
+          () => _owner._messageBusBootstrap(
             siteUrl: siteUrl,
             apiKey: requestCredentials.apiKey!,
             clientId: requestCredentials.clientId,
@@ -658,7 +671,7 @@ final class _SiteLiveSession {
       }
       final snapshot = await RequestIntent.background().run(
         () => credential.run(
-          () => _owner._api.topicTrackingState(
+          () => _owner._topicTrackingState(
             siteUrl: siteUrl,
             apiKey: credential.apiKey!,
             username: username,

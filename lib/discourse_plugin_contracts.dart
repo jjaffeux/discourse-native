@@ -7,39 +7,21 @@ library;
 export 'package:discourse_cooking/discourse_cooking.dart';
 
 export 'src/app_shortcuts.dart' show primaryShortcutForPlatform;
+export 'src/data/account_activity_api.dart';
 export 'src/data/app_release.dart';
+export 'src/data/bookmarks_write_api.dart';
+export 'src/data/category_api_contracts.dart' show CategoryMutationsApi;
 export 'src/data/cooking_plugin.dart';
 export 'src/data/dashboard_report_source.dart';
-export 'src/data/discourse_api_contracts.dart'
-    hide
-        CategoryLoadResult,
-        CategoryQueriesApi,
-        ComposerPersistenceApi,
-        DiscourseApiConfiguration,
-        DiscourseApiLifecycle,
-        DiscourseApiModels,
-        DsaNoticeConnection,
-        DsaNoticesApi,
-        DsaVerificationRequired,
-        HttpBasicAuthenticationRequired,
-        PostMutationsApi,
-        ShellApiCapabilities,
-        ShellLookupApi,
-        ShellSearchApi,
-        ShellSiteApi,
-        SiteLookupApi,
-        TagQueriesApi,
-        TopicComposerQueriesApi,
-        TopicContentApi,
-        TopicMutationsApi,
-        defaultDiscourseHashtagOrder,
-        maximumDiscourseHashtagsPerRequest,
-        maximumDiscourseSearchTermLength;
+export 'src/data/do_not_disturb_api.dart';
+export 'src/data/drafts_api.dart';
+export 'src/data/failure_text.dart';
 export 'src/data/live_channels.dart';
 export 'src/data/origin_cooldown.dart' show OriginCooldown;
 export 'src/data/plugin_transport.dart';
 export 'src/data/preference_storage_scope.dart' show PreferenceStorage;
 export 'src/data/serial_operation_queue.dart';
+export 'src/data/site_lookup_failure.dart' hide HttpBasicAuthenticationRequired;
 export 'src/data/site_preference_keys.dart'
     show
         ForgottenSites,
@@ -51,6 +33,12 @@ export 'src/data/site_preference_keys.dart'
         SitePreferenceScope,
         SitePreferenceValue;
 export 'src/data/store.dart' show Ref, Store, StorePolicy;
+export 'src/data/tag_api_contracts.dart' show TagNotificationsApi;
+export 'src/data/topic_feeds_api.dart';
+export 'src/data/topic_reads_api.dart';
+export 'src/data/user_preferences_api.dart';
+export 'src/data/user_summaries_api.dart';
+export 'src/data/write_failure.dart';
 export 'src/foundation/calendar_day.dart';
 export 'src/foundation/clock_time.dart';
 export 'src/foundation/count_label.dart';
@@ -173,9 +161,8 @@ export 'src/theme/app_theme.dart';
 export 'src/theme/code_colors.dart';
 export 'src/theme/discourse_colors.dart';
 export 'src/theme/discourse_typography.dart' show DiscourseTypography;
-export 'src/utils/pagination.dart'
+export 'src/utils/paging_policy.dart'
     show
-        ScrollPageTrigger,
         ScrollPagingGate,
         UserScrollGestures,
         paginationPrefetchDistance;

@@ -39,8 +39,6 @@ const _composerControllerCycle = [
   'lib/src/shell/composer/components/document_body_controller.dart',
   'lib/src/shell/composer/components/list.dart',
   'lib/src/shell/composer/components/table.dart',
-  'lib/src/shell/composer/components/upload.dart',
-  'lib/src/shell/composer/components/video.dart',
   _composerController,
 ];
 
@@ -160,6 +158,14 @@ void main() {
         );
       },
     );
+
+    test('media policies compile without the composer controller', () {
+      for (final name in const ['upload', 'video']) {
+        final library = 'lib/src/shell/composer/components/$name.dart';
+        expect(graph.edges, contains(library));
+        expect(graph.closureOf(library), isNot(contains(_composerController)));
+      }
+    });
 
     test('the cycle holds only the controller and its core policies', () {
       expect(

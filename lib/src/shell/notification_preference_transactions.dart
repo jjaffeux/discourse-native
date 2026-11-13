@@ -2,10 +2,13 @@ import 'dart:async';
 
 import '../data/account_request_session.dart';
 import '../data/api_credentials.dart';
+import '../data/category_api_contracts.dart';
 import '../data/current_user_reconciler.dart';
-import '../data/discourse_api_contracts.dart';
+import '../data/shell_site_api.dart';
 import '../data/site_lifecycle.dart';
 import '../data/store.dart';
+import '../data/tag_api_contracts.dart';
+import '../data/topic_mutations_api.dart';
 import '../data/topic_tracking_reconciler.dart';
 import '../models/discourse_user.dart';
 import '../models/post.dart';
