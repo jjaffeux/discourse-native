@@ -51,7 +51,10 @@ Future<bool> stageComposerMedia({
   }
 
   var cancelled = false;
-  final cancellation = aborted.then((_) => cancelled = true);
+  final cancellation = aborted.then((_) {
+    cancelled = true;
+    return false;
+  });
   // The abort signal can fail while the destination is still opening.
   cancellation.ignore();
   final iterator = StreamIterator(source);
@@ -64,7 +67,7 @@ Future<bool> stageComposerMedia({
     var copied = 0;
     while (await Future.any<bool>([
       iterator.moveNext(),
-      cancellation.then((_) => false),
+      cancellation,
     ]).timeout(remaining())) {
       if (cancelled) return false;
       final chunk = iterator.current;
@@ -76,7 +79,7 @@ Future<bool> stageComposerMedia({
         writing = sink.writeFrom(chunk, start, end);
         final written = await Future.any<bool>([
           writing.then((_) => true),
-          cancellation.then((_) => false),
+          cancellation,
         ]).timeout(remaining());
         if (!written || cancelled) return false;
         writing = null;
