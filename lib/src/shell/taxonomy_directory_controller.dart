@@ -1,5 +1,10 @@
 part of 'shell_controller.dart';
 
+Future<T?> _untilTaxonomyCancellation<T>(
+  Future<T> operation,
+  Completer<void> cancellation,
+) => Future.any<T?>([operation, cancellation.future.then<T?>((_) => null)]);
+
 final class _CategoryNotificationAuthority {
   int revision = 0;
   bool pending = false;
@@ -681,13 +686,13 @@ final class _TaxonomyDirectoryController
       if (retired.isCompleted) return;
       final session = AccountRequestSession(siteUrl, lease);
       final credential = instance.isConnected
-          ? await Future.any<AccountRequestCredentials?>([
-              retired.future.then((_) => null),
+          ? await _untilTaxonomyCancellation(
               session.credentials(_shell.credentials),
-            ])
+              retired,
+            )
           : session.anonymousCredentials();
       if (credential == null || !lease.isCurrent || retired.isCompleted) return;
-      final tags = await Future.any<List<SidebarTag>?>([
+      final tags = await _untilTaxonomyCancellation(
         credential.run(
           () => _shell.api.tags.tags(
             siteUrl: siteUrl,
@@ -695,8 +700,8 @@ final class _TaxonomyDirectoryController
             clientId: credential.clientId,
           ),
         ),
-        retired.future.then<List<SidebarTag>?>((_) => null),
-      ]);
+        retired,
+      );
       if (tags == null || retired.isCompleted || !lease.isCurrent) return;
       if (!_shell.siteConfigFor(siteUrl).taggingEnabled) {
         _clearDisabledTagDirectory(site);
@@ -1140,14 +1145,14 @@ final class _TaxonomyDirectoryController
     try {
       final session = AccountRequestSession(siteUrl, lease);
       final credential = instance.isConnected
-          ? await Future.any<AccountRequestCredentials?>([
-              request.future.then((_) => null),
+          ? await _untilTaxonomyCancellation(
               session.credentials(_shell.credentials),
-            ])
+              request,
+            )
           : session.anonymousCredentials();
       if (credential == null || !requestIsCurrent()) return;
 
-      final result = await Future.any<CategoryLoadResult?>([
+      final result = await _untilTaxonomyCancellation(
         credential.run(
           () => _shell.api.categories.loadCategories(
             siteUrl: siteUrl,
@@ -1156,8 +1161,8 @@ final class _TaxonomyDirectoryController
             page: page,
           ),
         ),
-        request.future.then<CategoryLoadResult?>((_) => null),
-      ]);
+        request,
+      );
       if (result == null || !requestIsCurrent()) return;
 
       lease.commit(() {
