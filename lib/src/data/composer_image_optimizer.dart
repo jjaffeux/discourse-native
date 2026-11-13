@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import '../models/composer_upload.dart';
 import '../models/site_config.dart';
 import 'composer_image_codec.dart';
+import 'composer_image_file_encoder.dart';
 import 'composer_media_preparation.dart';
 
 /// Serializes image work across composers; the network uploads can still run

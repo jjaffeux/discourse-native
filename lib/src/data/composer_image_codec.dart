@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
@@ -8,18 +7,15 @@ import 'package:image/image.dart' as img;
 const composerImageMaxInputBytes = 32 * 1024 * 1024;
 const composerImageMaxPixels = 16 * 1000 * 1000;
 
-String? encodeComposerImage({
-  required String inputPath,
-  required String outputPath,
+({Uint8List bytes, String extension})? encodeComposerImageBytes(
+  Uint8List bytes, {
   required int resizeThreshold,
   required int resizeTarget,
   required int quality,
   required bool allowJpeg,
   required bool allowWebp,
 }) {
-  final input = File(inputPath);
-  if (input.lengthSync() > composerImageMaxInputBytes) return null;
-  final bytes = input.readAsBytesSync();
+  if (bytes.length > composerImageMaxInputBytes) return null;
   final dimensions = composerImageDimensions(bytes);
   if (dimensions == null ||
       dimensions.width <= 0 ||
@@ -103,8 +99,7 @@ String? encodeComposerImage({
       checked.height != image.height) {
     return null;
   }
-  File(outputPath).writeAsBytesSync(encoded);
-  return transparent ? 'webp' : 'jpg';
+  return (bytes: encoded, extension: transparent ? 'webp' : 'jpg');
 }
 
 /// A JPEG APP2 segment holds `ICC_PROFILE\0`, a one-based sequence number,

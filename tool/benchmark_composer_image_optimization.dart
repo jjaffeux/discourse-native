@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:discourse_native/src/data/composer_image_codec.dart';
+import 'package:discourse_native/src/data/composer_image_file_encoder.dart';
 
 // Run an AOT build against local photos/screenshots to measure the codec,
 // including output validation, independently of file picking and networking:
