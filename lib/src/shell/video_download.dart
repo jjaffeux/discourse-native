@@ -154,9 +154,7 @@ final class NativeVideoDownloader implements VideoDownloader {
         } on TimeoutException {
           // A transport may complete despite the abort signal. Release any
           // late body instead of leaving its connection without a consumer.
-          pending
-              .then<void>((late) => cancelUnreadHttpBody(late.stream))
-              .ignore();
+          cancelLateHttpResponse(pending);
           rethrow;
         }
         if (isHttpRedirectStatus(response.statusCode)) {

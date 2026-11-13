@@ -126,9 +126,7 @@ Future<http.Response> sendBoundedHttpRequest(
     streamed = await response.timeout(timeout);
   } on TimeoutException {
     timeoutAbort.complete();
-    response
-        .then<void>((lateResponse) => cancelUnreadHttpBody(lateResponse.stream))
-        .ignore();
+    cancelLateHttpResponse(response);
     rethrow;
   }
   final contentLength = streamed.contentLength;
@@ -274,3 +272,10 @@ Duration _remaining(Duration timeout, Stopwatch elapsed) {
 /// Releases a response body whose bytes the caller will never consume.
 Future<void> cancelUnreadHttpBody(Stream<List<int>> stream) =>
     stream.listen(null).cancel();
+
+/// Releases the body if an abandoned request eventually returns headers.
+void cancelLateHttpResponse(Future<http.StreamedResponse> pending) {
+  pending
+      .then<void>((response) => cancelUnreadHttpBody(response.stream))
+      .ignore();
+}

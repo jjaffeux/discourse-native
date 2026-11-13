@@ -636,12 +636,8 @@ abstract class ByteCache<T extends Object> {
       }
     } catch (error) {
       if (error is TimeoutException || transfer.cancelled) _abort(timeoutAbort);
-      response
-          ?.then<void>(
-            (lateResponse) => cancelUnreadHttpBody(lateResponse.stream),
-            onError: (Object _, StackTrace _) {},
-          )
-          .ignore();
+      final pending = response;
+      if (pending != null) cancelLateHttpResponse(pending);
       lease?.release();
       rethrow;
     }
