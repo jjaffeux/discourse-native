@@ -256,6 +256,26 @@ void main() {
     expect(runtime.activeUse.isActive, isTrue);
   });
 
+  test('concurrent starts publish the initial plugin state once', () async {
+    final gate = Completer<void>();
+    final probe = _LifecycleProbe(bootstrap: gate.future);
+    final runtime = _runtime(
+      _Fixture().dependencies(manifest: PluginManifest([_Module(probe)])),
+    );
+    addTearDown(runtime.dispose);
+    final first = runtime.start(runtime.controller);
+    await probe.bootstrapStarted.future;
+    final second = runtime.start(runtime.controller);
+    gate.complete();
+    await Future.wait([first, second]);
+
+    expect(probe.states, [('resumed', true)]);
+    expect(probe.phases, [
+      PluginStartupPhase.bootstrap,
+      PluginStartupPhase.appReady,
+    ]);
+  });
+
   test('pending bootstrap observes the latest foreground state', () async {
     final gate = Completer<void>();
     final probe = _LifecycleProbe(bootstrap: gate.future);

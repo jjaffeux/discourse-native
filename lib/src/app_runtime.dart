@@ -138,6 +138,7 @@ final class AppRuntime {
   String _lifecycleState;
   bool _disposed = false;
   bool _replacing = false;
+  Future<void>? _startup;
   ShellController? _bootstrappedController;
   Future<void>? _appReady;
   final _notificationIngress = _NotificationIngress();
@@ -185,6 +186,7 @@ final class AppRuntime {
     _replacing = true;
     try {
       _notificationIngress.unavailable();
+      _startup = null;
       _bootstrappedController = null;
       _appReady = null;
       final previousController = _controller;
@@ -293,10 +295,22 @@ final class AppRuntime {
     }
   }
 
-  Future<void> start(ShellController expectedController) async {
-    if (!_isCurrent(expectedController)) return;
+  Future<void> start(ShellController controller) {
+    if (_replacing || !_isCurrent(controller)) return Future<void>.value();
+    final active = _startup;
+    if (active != null) return active;
+    final startup = Completer<void>();
+    _startup = startup.future;
+    startup.complete(
+      _start(controller).whenComplete(() {
+        if (identical(_startup, startup.future)) _startup = null;
+      }),
+    );
+    return startup.future;
+  }
+
+  Future<void> _start(ShellController controller) async {
     final plugins = _plugins;
-    final controller = expectedController;
     final _ = controller.pluginSession;
     markStartup('runtime start');
     try {
