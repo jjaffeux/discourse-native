@@ -71,7 +71,11 @@ class SiteThumbnailRepository {
       job = null;
     }
     if (job == null) {
-      if (_jobs.length >= maxPending) return _empty();
+      if (_jobs.length >= maxPending &&
+          _jobs.values.where((job) => job.lease.isCurrent).length >=
+              maxPending) {
+        return _empty();
+      }
       job = _ThumbnailJob(key, lifecycle.capture(siteUrl));
       _jobs[key] = job;
       final owned = job;
@@ -95,7 +99,7 @@ class SiteThumbnailRepository {
     if (_disposed) return;
     for (final job in _jobs.values.toList(growable: false)) {
       if (_active >= maxConcurrent) break;
-      if (!job.active) unawaited(_run(job));
+      if (!job.active && _current(job)) unawaited(_run(job));
     }
   }
 

@@ -251,6 +251,28 @@ void main() {
     expect(harness.jobs, hasLength(2));
   });
 
+  test('retired jobs do not block a successor at the pending limit', () async {
+    final harness = _Harness(maxConcurrent: 1, maxPending: 2);
+    late ThumbnailRequest successor;
+    harness.lifecycle.capture(_site).onRetire(() {
+      successor = harness.acquire('successor');
+    });
+    final active = harness.acquire('active');
+    final queued = harness.acquire('queued');
+    await _flush();
+
+    harness.lifecycle.invalidate(_site);
+    expect(await active.result, isNull);
+    expect(await queued.result, isNull);
+    await _flush();
+    expect(harness.jobs.map((job) => job.source.path), [
+      '/uploads/active.mp4',
+      '/uploads/successor.mp4',
+    ]);
+    harness.jobs.last.result.complete(Uint8List.fromList([7]));
+    expect(await successor.result, orderedEquals([7]));
+  });
+
   test(
     'an earlier retirement observer starts a successor thumbnail cache',
     () async {
