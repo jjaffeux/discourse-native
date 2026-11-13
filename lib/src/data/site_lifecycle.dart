@@ -13,7 +13,7 @@ final class SiteLifecycle {
   bool owns(String siteUrl, SiteLease lease) =>
       identical(_sessions[siteUrl], lease._session);
 
-  /// Runs every retirement observer, then rethrows the first failure with its
+  /// Runs every attached retirement observer, then rethrows the first failure with its
   /// original stack. A broken observer cannot skip another owner's cleanup.
   void invalidate(String siteUrl) {
     final session = _sessions.remove(siteUrl);
@@ -28,9 +28,9 @@ final class _SiteSession {
   void retire() {
     retired = true;
     final observers = _observers.toList();
-    _observers.clear();
     (Object, StackTrace)? firstFailure;
     for (final observer in observers) {
+      if (!_observers.remove(observer)) continue;
       try {
         observer();
       } catch (error, stackTrace) {

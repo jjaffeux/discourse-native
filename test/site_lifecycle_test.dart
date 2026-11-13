@@ -78,6 +78,24 @@ void main() {
     expect(alreadyRetired, isTrue);
   });
 
+  test('an observer detached during retirement does not run', () {
+    const site = 'https://forum.example';
+    final lifecycle = SiteLifecycle();
+    final lease = lifecycle.capture(site);
+    late final void Function() detach;
+    final calls = <String>[];
+    lease.onRetire(() {
+      calls.add('first');
+      detach();
+    });
+    detach = lease.onRetire(() => calls.add('detached'));
+    lease.onRetire(() => calls.add('last'));
+
+    lifecycle.invalidate(site);
+
+    expect(calls, ['first', 'last']);
+  });
+
   test('an observer registered during retirement still runs', () {
     final lifecycle = SiteLifecycle();
     final lease = lifecycle.capture('https://forum.example');
