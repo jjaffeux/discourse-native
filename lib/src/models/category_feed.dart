@@ -45,12 +45,14 @@ class CategoryFeed {
     canCreateTopic: canCreateTopic,
   );
 
-  CategoryFeed withPage(Iterable<int> ids, {required bool hasMore}) {
-    final combined = <int>{...categoryIds, ...ids};
+  CategoryFeed withPage(Iterable<int> ids) {
+    final combined = categoryIds.toSet();
+    final previousCount = combined.length;
+    combined.addAll(ids);
     return CategoryFeed(
       categoryIds: List.unmodifiable(combined),
       loaded: true,
-      nextPage: hasMore ? (nextPage ?? 1) + 1 : null,
+      nextPage: combined.length > previousCount ? (nextPage ?? 1) + 1 : null,
       canCreateTopic: canCreateTopic,
     );
   }

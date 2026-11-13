@@ -1176,12 +1176,7 @@ final class _TaxonomyDirectoryController
         if (!requestIsCurrent()) return;
         site.categoryPageRequest = null;
         final held = site.categoryFeed;
-        site.categoryFeed = held.withPage(
-          result.rootCategoryIds,
-          hasMore: result.rootCategoryIds.any(
-            (id) => !held.categoryIds.contains(id),
-          ),
-        );
+        site.categoryFeed = held.withPage(result.rootCategoryIds);
         _shell._notify();
       });
     } catch (error) {
