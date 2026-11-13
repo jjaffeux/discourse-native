@@ -74,12 +74,10 @@ final class AppSettingsController extends FrameSafeNotifier {
     if (active != null) return active;
     if (_loaded) return Future<void>.value();
 
-    late final Future<void> task;
-    task = _load().whenComplete(() {
-      if (identical(_loadTask, task)) _loadTask = null;
-    });
-    _loadTask = task;
-    return task;
+    final task = Completer<void>();
+    _loadTask = task.future;
+    task.complete(_load().whenComplete(() => _loadTask = null));
+    return task.future;
   }
 
   Future<void> _load() async {

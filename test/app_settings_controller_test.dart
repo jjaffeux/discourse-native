@@ -6,6 +6,24 @@ import 'package:discourse_native/src/shell/app_settings_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test('a reentrant settings load publishes hydrated settings once', () async {
+    final persistence = _ControlledAppSettingsPersistence(themeMode: 'dark');
+    final controller = _controller(persistence);
+    final publishedThemes = <AppThemeMode>[];
+    controller.addListener(() => publishedThemes.add(controller.themeMode));
+
+    Future<void>? joined;
+    persistence.onRead = () => joined = controller.load();
+
+    final loading = controller.load();
+    await loading;
+    await joined;
+
+    expect(publishedThemes, [AppThemeMode.dark]);
+    expect(joined, same(loading));
+    expect(persistence.readCount, 1);
+  });
+
   for (final saveListener in [false, true]) {
     test(
       '${saveListener ? 'save' : 'settings'} listeners can choose a newer value synchronously',
@@ -1112,10 +1130,12 @@ final class _ControlledAppSettingsPersistence
   final List<String> attemptedThemeModeWrites = [];
   final List<String> attemptedTopicListModeWrites = [];
   int readCount = 0;
+  void Function()? onRead;
 
   @override
   Future<bool?> readLimitContentSize() async {
     readCount++;
+    onRead?.call();
     final value = limitContentSize;
     if (!readStarted.isCompleted) readStarted.complete();
     await readGate?.future;
