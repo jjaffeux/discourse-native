@@ -74,6 +74,19 @@ void main() {
     );
   });
 
+  test('slash commands remain available after an escaped backtick', () {
+    const source = r'Type \` then /bold';
+    expect(
+      composerSlashQuery(
+        const TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: source.length),
+        ),
+      )?.query,
+      'bold',
+    );
+  });
+
   Future<ComposerController> pump(
     WidgetTester tester, {
     bool dark = false,

@@ -45,7 +45,10 @@ class ComposerImageBlock {
     final dimensions = nextWidth != null && nextHeight != null
         ? '|${nextWidth}x$nextHeight${nextScale == null ? '' : ', $nextScale%'}'
         : '';
-    return '![${composerImageAlt(alt ?? this.alt)}$dimensions$suffix]'
+    final caption = alt == null && this.alt.contains('|')
+        ? escapeImageAlt(this.alt)
+        : composerImageAlt(alt ?? this.alt);
+    return '![$caption$dimensions$suffix]'
         '(${markdownDestination ?? url})';
   }
 }
@@ -90,10 +93,7 @@ final RegExp _dataAttributeSuffixPattern = RegExp(r'[\w\-:.]*=');
 ({String title, String media})? _playableMediaLabel(String label) {
   if (!label.contains('|')) return null;
   final segments = label.split('|');
-  var first = segments.length;
-  while (first > 1 && _isKnownImageSuffix(segments[first - 1])) {
-    first -= 1;
-  }
+  final first = _imageSuffixStart(segments);
   if (first == segments.length ||
       (segments[first] != 'video' && segments[first] != 'audio')) {
     return null;
@@ -102,6 +102,14 @@ final RegExp _dataAttributeSuffixPattern = RegExp(r'[\w\-:.]*=');
     title: unescapeImageAlt(segments.take(first).join('|')),
     media: segments[first],
   );
+}
+
+int _imageSuffixStart(List<String> segments) {
+  var first = segments.length;
+  while (first > 1 && _isKnownImageSuffix(segments[first - 1])) {
+    first--;
+  }
+  return first;
 }
 
 // `|thumbnail` marks the image core picks as the topic thumbnail and
@@ -135,8 +143,20 @@ List<ComposerImageBlock> parseComposerImages(
   final images = <ComposerImageBlock>[];
   for (final token in _imageTokens(source, codeRanges: codeRanges)) {
     if (token.escaped || _playableMediaLabel(token.label) != null) continue;
-    final label = _labelPattern.firstMatch(token.label);
+    var label = _labelPattern.firstMatch(token.label);
     if (label == null) continue;
+    var alt = label.group(1)!;
+    final segments = token.label.split('|');
+    final suffixStart = _imageSuffixStart(segments);
+    if (suffixStart > 1 && suffixStart < segments.length) {
+      final suffix = _labelPattern.firstMatch(
+        '|${segments.skip(suffixStart).join('|')}',
+      );
+      if (suffix?.group(2) != null) {
+        label = suffix!;
+        alt = segments.take(suffixStart).join('|');
+      }
+    }
     final width = int.tryParse(label.group(2) ?? '');
     final height = int.tryParse(label.group(3) ?? '');
     final hasValidDimensions =
@@ -147,7 +167,7 @@ List<ComposerImageBlock> parseComposerImages(
         start: token.start,
         end: token.end,
         source: token.source,
-        alt: unescapeImageAlt(label.group(1)!),
+        alt: unescapeImageAlt(alt),
         url: token.url,
         markdownDestination: token.destination,
         width: hasValidDimensions ? width : null,

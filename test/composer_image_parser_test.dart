@@ -11,6 +11,29 @@ import 'support/scaling_benchmark.dart';
 
 void main() {
   group('composer image parser behavior', () {
+    test('a pipe inside alt text survives image resize', () async {
+      final cooker = OfflineCookingService();
+      addTearDown(cooker.dispose);
+      const source = '![before | after|640x480](https://example.test/a.png)';
+      Future<String?> cookedAlt(String raw) async {
+        final cooked = await cooker.cook(
+          CookingRequest(
+            raw: raw,
+            snapshot: CookingSnapshot(siteId: 'test', accountId: 'test'),
+          ),
+        );
+        return html
+            .parseFragment(cooked.html)
+            .querySelector('img')
+            ?.attributes['alt'];
+      }
+
+      expect(await cookedAlt(source), 'before | after');
+      final image = parseComposerImages(source).single;
+      expect(image.alt, 'before | after');
+      expect(await cookedAlt(image.toMarkdown(scale: 50)), 'before | after');
+    });
+
     test('keeps a balanced destination and its exact token range', () {
       const token = '![photo|640x480, 75%](https://example.test/photo_(1).png)';
       const source = '😀 before $token).png) after';

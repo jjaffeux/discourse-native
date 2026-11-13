@@ -22,10 +22,17 @@ ComposerSlashQuery? composerSlashQuery(TextEditingValue value) {
     return null;
   }
   final prefix = before.substring(0, start);
-  if (RegExp(r'^(?: {4}|\t)').hasMatch(prefix.split('\n').last) ||
+  final line = prefix.substring(prefix.lastIndexOf('\n') + 1);
+  if (RegExp(r'^(?: {4}|\t)').hasMatch(line) ||
       markdownCodeRanges(value.text).contains(start) ||
-      '`'.allMatches(prefix.split('\n').last).length.isOdd) {
+      _backtickOrEscape
+          .allMatches(line)
+          .where((match) => match[0] == '`')
+          .length
+          .isOdd) {
     return null;
   }
   return (start: start, end: selection.end, query: match.group(1)!);
 }
+
+final _backtickOrEscape = RegExp(r'\\.|`');
