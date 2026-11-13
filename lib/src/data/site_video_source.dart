@@ -87,7 +87,8 @@ final class SiteVideoSourceResolver {
       siteUrl: siteUrl,
       credentials: credentials,
       requireCurrent: () => _requireCurrent(lease),
-      waitForCredential: <T>(Future<T> operation) => _guard(operation, elapsed),
+      waitForCredential: <T>(Future<T> operation) =>
+          _guard(operation, elapsed, lease: lease),
     );
     _requireCurrent(lease);
     if (!account.hasCredentials) return SiteVideoSource(current);

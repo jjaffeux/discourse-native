@@ -256,7 +256,7 @@ void main() {
   for (final stage in ['API key', 'client ID']) {
     for (final fails in [false, true]) {
       test(
-        'retirement preserves late $stage ${fails ? 'failure' : 'refusal'}',
+        'retirement ends a held $stage read before its late ${fails ? 'failure' : 'success'}',
         () async {
           final credentials = _HeldCredentials(stage);
           final lifecycle = SiteLifecycle();
@@ -275,18 +275,19 @@ void main() {
             url: Uri.parse('$siteUrl/secure-uploads/demo.mp4'),
           );
           const error = FormatException('credential read failed');
-          final stopped = expectLater(
-            resolving,
-            fails ? throwsA(same(error)) : throwsStateError,
-          );
+          final stopped = expectLater(resolving, throwsStateError);
           await credentials.started.future;
           lifecycle.invalidate(siteUrl);
-          if (fails) {
-            credentials.held.completeError(error);
-          } else {
-            credentials.held.complete('stale');
+          try {
+            await stopped.timeout(const Duration(seconds: 1));
+          } finally {
+            if (fails) {
+              credentials.held.completeError(error);
+            } else {
+              credentials.held.complete('stale');
+            }
           }
-          await stopped;
+          await pumpEventQueue();
           expect(requests, 0);
           expect(credentials.clientIdReads, stage == 'client ID' ? 1 : 0);
         },
