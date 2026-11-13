@@ -270,7 +270,7 @@ final class NotificationPreferenceTransactions {
     Object? data,
     SiteLease lease,
   ) {
-    if (_disposed || !lease.isCurrent || data is! Map) return;
+    if (_disposed || !lifecycle.owns(siteUrl, lease) || data is! Map) return;
     final value = data['notification_level_change'];
     if (value is! int || value < 0 || value > 3) return;
     final level = TopicNotificationLevel.fromJson(value);

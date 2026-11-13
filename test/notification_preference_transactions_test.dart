@@ -17,6 +17,16 @@ import 'support/fakes.dart';
 const _site = 'https://meta.discourse.org';
 
 void main() {
+  test('foreign notification messages skip preference session lookup', () {
+    final f = _Fixture();
+    final foreign = SiteLifecycle().capture(_site);
+    const data = {'notification_level_change': 0};
+    f.owner.observeTopicMessage(_site, 7, data, foreign);
+    expect(f.trackingLookups, 0);
+    f.owner.observeTopicMessage(_site, 7, data, f.lifecycle.capture(_site));
+    expect(f.trackingLookups, 1);
+  });
+
   test('canonical equal choice repairs stale detail without writing', () async {
     final fixture = _Fixture();
     fixture.tracking.observeNotificationLevel(7, TopicNotificationLevel.normal);
@@ -709,7 +719,10 @@ final class _Fixture {
       ),
       taxonomy: taxonomy,
       trackingEffects: NotificationPreferenceTracking(
-        forSite: (_) => tracking,
+        forSite: (_) {
+          trackingLookups++;
+          return tracking;
+        },
         refresh:
             ({
               required siteUrl,
@@ -745,6 +758,7 @@ final class _Fixture {
   bool failPublication = false;
   bool failRefresh = false;
   int refreshes = 0;
+  int trackingLookups = 0;
   int changes = 0;
   void Function()? onPublish;
   final preferenceReads = <Future<void> Function()>[];
